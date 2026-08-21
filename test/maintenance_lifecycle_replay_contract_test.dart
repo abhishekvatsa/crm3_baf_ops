@@ -579,12 +579,9 @@ void main() {
         'lib/features/maintenance/presentation/maintenance_form.dart',
       );
 
-      expect(
-        form,
-        contains(
-          "burnerLockout == null ? _componentController.text : 'Burner system'",
-        ),
-      );
+      expect(form, contains("burnerLockout != null"));
+      expect(form, contains("? 'Burner system'"));
+      expect(form, contains("? 'Furnace / Inner Cover interface'"));
     });
 
     test('never-created local tombstones do not attempt remote creation', () {

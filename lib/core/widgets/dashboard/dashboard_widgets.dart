@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/baf_design_system.dart';
+import '../brand/brand_widgets.dart';
 import 'status_badge.dart';
 
 class DashboardCard extends StatelessWidget {
@@ -69,47 +70,8 @@ class DashboardHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: BafColors.copper,
-                  borderRadius: BorderRadius.circular(BafRadius.small),
-                ),
-                child: const Icon(
-                  Icons.factory_outlined,
-                  color: Colors.white,
-                  size: 23,
-                ),
-              ),
-              const SizedBox(width: BafSpacing.sm),
               const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'CRM-III',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      'BAF OPERATIONS',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Color(0xFFB9CED4),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+                child: BafBrandLockup(onDark: true, compact: true),
               ),
               Flexible(child: syncIndicator),
               const SizedBox(width: BafSpacing.sm),
@@ -638,7 +600,7 @@ class ModuleListTile extends StatelessWidget {
                   height: 46,
                   decoration: BoxDecoration(
                     color: module.color.withValues(alpha: 0.11),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
                   ),
                   child: Icon(module.icon, color: module.color, size: 26),
                 ),

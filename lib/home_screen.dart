@@ -8,15 +8,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/maintenance/presentation/ticket_screen.dart';
 import 'features/maintenance/presentation/maintenance_form.dart';
+import 'features/maintenance/presentation/frequent_issue_catalogue_screen.dart';
 import 'features/planned_maintenance/presentation/templates_screen.dart';
 import 'features/planned_maintenance/presentation/module_composer_screen.dart';
 import 'features/planned_maintenance/presentation/template_publisher_screen.dart';
 import 'features/planned_maintenance/presentation/knowledge_governance_screen.dart';
 import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
+import 'features/planned_maintenance/presentation/maintenance_intelligence_screen.dart';
+import 'features/planned_maintenance/providers/maintenance_intelligence_provider.dart';
+import 'features/inspections/data/inspection_campaign.dart';
+import 'features/inspections/presentation/inspection_programmes_screen.dart';
+import 'features/inspections/providers/inspection_provider.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
 import 'features/assets/presentation/asset_registry_screen.dart';
 import 'features/assets/presentation/asset_condition_board.dart';
 import 'features/assets/presentation/inner_cover_lifecycle_screen.dart';
+import 'features/assets/presentation/furnace_stuckup_board.dart';
 import 'features/assets/domain/plant_asset_overview.dart';
 import 'features/assets/providers/plant_asset_overview_provider.dart';
 import 'features/audit/presentation/audit_timeline_screen.dart';
@@ -45,6 +52,7 @@ import 'features/planned_maintenance/providers/planned_maintenance_provider.dart
 import 'features/directives/providers/operational_directive_provider.dart';
 
 import 'core/theme/baf_design_system.dart';
+import 'core/widgets/brand/brand_widgets.dart';
 import 'core/widgets/dashboard/dashboard_widgets.dart';
 import 'core/widgets/dashboard/status_badge.dart';
 import 'core/providers/sync_status_provider.dart';
@@ -148,6 +156,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final plantOverviewAsync = ref.watch(plantAssetOverviewProvider);
         final operationalEventsAsync = ref.watch(operationalEventsProvider);
         final qualityWarningsAsync = ref.watch(qualityWarningsProvider);
+        final maintenanceDueStatesAsync = ref.watch(
+          maintenanceDueStatesProvider,
+        );
+        final inspectionFindingsAsync = ref.watch(
+          allInspectionFindingsProvider,
+        );
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
@@ -189,6 +203,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
                 .length ??
             0;
+        final overdueMaintenanceCount =
+            maintenanceDueStatesAsync.value
+                ?.where((state) => state.isOverdue)
+                .length ??
+            0;
+        final activeInspectionFindingCount =
+            inspectionFindingsAsync.value
+                ?.where(
+                  (finding) => {
+                    InspectionFindingStatus.open,
+                    InspectionFindingStatus.correctiveActionLinked,
+                    InspectionFindingStatus.awaitingVerification,
+                  }.contains(finding.status),
+                )
+                .length ??
+            0;
         final operationalEventsUnavailable =
             operationalEventsAsync.value == null;
         final qualityWarningsUnavailable = qualityWarningsAsync.value == null;
@@ -201,7 +231,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             (workflowComplianceAsync != null &&
                 workflowComplianceAsync.value == null) ||
             operationalEventsUnavailable ||
-            qualityWarningsUnavailable;
+            qualityWarningsUnavailable ||
+            maintenanceDueStatesAsync.value == null ||
+            inspectionFindingsAsync.value == null;
 
         final tabs = _buildTabs(
           appUser: appUser,
@@ -211,6 +243,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           workflowAttentionCount: workflowAttentionCount,
           openOperationalEventCount: openOperationalEventCount,
           openQualityWarningCount: openQualityWarningCount,
+          overdueMaintenanceCount: overdueMaintenanceCount,
+          activeInspectionFindingCount: activeInspectionFindingCount,
           operationalEventsUnavailable: operationalEventsUnavailable,
           qualityWarningsUnavailable: qualityWarningsUnavailable,
           attentionDataUnavailable: attentionDataUnavailable,
@@ -238,8 +272,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         selectedIndex: safeIndex,
                         extended: constraints.maxWidth >= 1200,
                         minExtendedWidth: 210,
-                        backgroundColor: BafColors.card,
-                        indicatorColor: BafColors.surfaceStrong,
+                        leading: Padding(
+                          padding: const EdgeInsets.only(
+                            top: BafSpacing.sm,
+                            bottom: BafSpacing.lg,
+                          ),
+                          child:
+                              constraints.maxWidth >= 1200
+                                  ? const BafBrandLockup(compact: true)
+                                  : const ManmithasMark(size: 38),
+                        ),
                         onDestinationSelected:
                             (index) => setState(() => _currentIndex = index),
                         labelType:
@@ -269,14 +311,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             return Scaffold(
               backgroundColor: BafColors.background,
               body: body,
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: safeIndex,
-                onDestinationSelected:
-                    (index) => setState(() => _currentIndex = index),
-                backgroundColor: BafColors.card,
-                indicatorColor: BafColors.surfaceStrong,
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                destinations: tabs.map((t) => t.destination).toList(),
+              bottomNavigationBar: DecoratedBox(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: BafColors.border)),
+                ),
+                child: NavigationBar(
+                  selectedIndex: safeIndex,
+                  onDestinationSelected:
+                      (index) => setState(() => _currentIndex = index),
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  destinations: tabs.map((t) => t.destination).toList(),
+                ),
               ),
             );
           },
@@ -293,6 +338,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int workflowAttentionCount,
     required int openOperationalEventCount,
     required int openQualityWarningCount,
+    required int overdueMaintenanceCount,
+    required int activeInspectionFindingCount,
     required bool operationalEventsUnavailable,
     required bool qualityWarningsUnavailable,
     required bool attentionDataUnavailable,
@@ -310,6 +357,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               workflowAttentionCount: workflowAttentionCount,
               openOperationalEventCount: openOperationalEventCount,
               openQualityWarningCount: openQualityWarningCount,
+              overdueMaintenanceCount: overdueMaintenanceCount,
+              activeInspectionFindingCount: activeInspectionFindingCount,
               operationalEventsUnavailable: operationalEventsUnavailable,
               qualityWarningsUnavailable: qualityWarningsUnavailable,
               attentionDataUnavailable: attentionDataUnavailable,
@@ -326,6 +375,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const OperationalEventsScreen()),
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
+              onMaintenanceRhythm:
+                  () => _push(context, const MaintenanceIntelligenceScreen()),
+              onInspectionProgrammes:
+                  () => _push(context, const InspectionProgrammesScreen()),
               onManualSync: () => _retryAttentionData(context, appUser),
             ),
         destination: const NavigationDestination(
@@ -403,9 +456,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAssets: () => _push(context, const AssetTimelineScreen()),
               onInnerCovers:
                   () => _push(context, const InnerCoverLifecycleScreen()),
+              onFurnaceStuckup:
+                  () => _push(context, const FurnaceStuckupBoard()),
               onClosed: () => _push(context, const ClosedTicketsScreen()),
               onClosedJobs:
                   () => _push(context, const ClosedJobDossiersScreen()),
+              onMaintenanceRhythm:
+                  () => _push(context, const MaintenanceIntelligenceScreen()),
+              onInspectionProgrammes:
+                  () => _push(context, const InspectionProgrammesScreen()),
               onReports: () => _push(context, const FleetStatusScreen()),
               onBurnerReliability:
                   () => _push(context, const BurnerReliabilityScreen()),
@@ -421,6 +480,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const TemplatePublisherScreen()),
               onKnowledgeGovernance:
                   () => _push(context, const KnowledgeGovernanceScreen()),
+              onFrequentIssues:
+                  () => _push(context, const FrequentIssueCatalogueScreen()),
               onLocalDiagnostics:
                   () => _push(context, const LocalDiagnosticsScreen()),
             ),
@@ -476,6 +537,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     ref.invalidate(operationalEventsProvider);
     ref.invalidate(qualityWarningsProvider);
+    ref.invalidate(maintenanceDueStatesProvider);
+    ref.invalidate(allInspectionFindingsProvider);
     unawaited(_runManualSync(context));
   }
 
@@ -612,6 +675,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: BafSpacing.lg),
+                        const Divider(),
+                        const SizedBox(height: BafSpacing.md),
+                        const Center(child: BafBrandLockup(compact: true)),
                       ],
                     ),
                   ),
@@ -631,6 +698,8 @@ class _DashboardHome extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final int overdueMaintenanceCount;
+  final int activeInspectionFindingCount;
   final bool operationalEventsUnavailable;
   final bool qualityWarningsUnavailable;
   final bool attentionDataUnavailable;
@@ -644,6 +713,8 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onQuality;
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
+  final VoidCallback onMaintenanceRhythm;
+  final VoidCallback onInspectionProgrammes;
   final VoidCallback onManualSync;
 
   const _DashboardHome({
@@ -654,6 +725,8 @@ class _DashboardHome extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.overdueMaintenanceCount,
+    required this.activeInspectionFindingCount,
     required this.operationalEventsUnavailable,
     required this.qualityWarningsUnavailable,
     required this.attentionDataUnavailable,
@@ -667,6 +740,8 @@ class _DashboardHome extends StatelessWidget {
     required this.onQuality,
     required this.onOperationalEvents,
     required this.onPlantCondition,
+    required this.onMaintenanceRhythm,
+    required this.onInspectionProgrammes,
     required this.onManualSync,
   });
 
@@ -678,7 +753,9 @@ class _DashboardHome extends StatelessWidget {
         directiveCount +
         workflowAttentionCount +
         openOperationalEventCount +
-        openQualityWarningCount;
+        openQualityWarningCount +
+        overdueMaintenanceCount +
+        activeInspectionFindingCount;
 
     return SafeArea(
       bottom: false,
@@ -774,12 +851,16 @@ class _DashboardHome extends StatelessWidget {
                   workflowAttentionCount: workflowAttentionCount,
                   openOperationalEventCount: openOperationalEventCount,
                   openQualityWarningCount: openQualityWarningCount,
+                  overdueMaintenanceCount: overdueMaintenanceCount,
+                  activeInspectionFindingCount: activeInspectionFindingCount,
                   attentionDataUnavailable: attentionDataUnavailable,
                   onIssues: onIssues,
                   onWork: onWork,
                   onDirectives: onDirectives,
                   onOperationalEvents: onOperationalEvents,
                   onQuality: onQuality,
+                  onMaintenanceRhythm: onMaintenanceRhythm,
+                  onInspectionProgrammes: onInspectionProgrammes,
                   onRetry: onManualSync,
                 ),
               ),
@@ -995,8 +1076,11 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onAssetRegistry;
   final VoidCallback onAssets;
   final VoidCallback onInnerCovers;
+  final VoidCallback onFurnaceStuckup;
   final VoidCallback onClosed;
   final VoidCallback onClosedJobs;
+  final VoidCallback onMaintenanceRhythm;
+  final VoidCallback onInspectionProgrammes;
   final VoidCallback onReports;
   final VoidCallback onBurnerReliability;
   final VoidCallback onAdmin;
@@ -1007,6 +1091,7 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onTemplateAuthoring;
   final VoidCallback onTemplatePublisher;
   final VoidCallback onKnowledgeGovernance;
+  final VoidCallback onFrequentIssues;
   final VoidCallback onLocalDiagnostics;
 
   const _MoreScreen({
@@ -1014,8 +1099,11 @@ class _MoreScreen extends StatelessWidget {
     required this.onAssetRegistry,
     required this.onAssets,
     required this.onInnerCovers,
+    required this.onFurnaceStuckup,
     required this.onClosed,
     required this.onClosedJobs,
+    required this.onMaintenanceRhythm,
+    required this.onInspectionProgrammes,
     required this.onReports,
     required this.onBurnerReliability,
     required this.onAdmin,
@@ -1026,6 +1114,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onTemplateAuthoring,
     required this.onTemplatePublisher,
     required this.onKnowledgeGovernance,
+    required this.onFrequentIssues,
     required this.onLocalDiagnostics,
   });
 
@@ -1081,6 +1170,15 @@ class _MoreScreen extends StatelessWidget {
                           'Base pairing, spare pool and fabrication history',
                       onTap: onInnerCovers,
                     ),
+                  if (canSeeOperationalData)
+                    _MoreDestinationTile(
+                      icon: Icons.vertical_align_top_rounded,
+                      color: BafColors.warning,
+                      title: 'Furnace stuck-up',
+                      subtitle:
+                          'Blocked assemblies, cause review and Inner Cover evidence',
+                      onTap: onFurnaceStuckup,
+                    ),
                   if (canSeeClosed)
                     _MoreDestinationTile(
                       icon: Icons.history_rounded,
@@ -1097,6 +1195,15 @@ class _MoreScreen extends StatelessWidget {
                       subtitle:
                           'Recent completed and cancelled planned-job records',
                       onTap: onClosedJobs,
+                    ),
+                  if (appUser.canViewPlannedMaintenance)
+                    _MoreDestinationTile(
+                      icon: Icons.event_repeat_rounded,
+                      color: BafColors.planned,
+                      title: 'Maintenance rhythm',
+                      subtitle:
+                          'Due counters, forward plans and classified outcomes',
+                      onTap: onMaintenanceRhythm,
                     ),
                 ],
               ),
@@ -1127,6 +1234,14 @@ class _MoreScreen extends StatelessWidget {
                         'Utilities, cranes, transfer cars and plant delays',
                     onTap: onOperationalEvents,
                   ),
+                  _MoreDestinationTile(
+                    icon: Icons.fact_check_outlined,
+                    color: BafColors.instrument,
+                    title: 'Inspection programmes',
+                    subtitle:
+                        'Component checks, cross-asset coverage and findings',
+                    onTap: onInspectionProgrammes,
+                  ),
                   if (canSeeReports)
                     _MoreDestinationTile(
                       icon: Icons.bar_chart_rounded,
@@ -1146,33 +1261,46 @@ class _MoreScreen extends StatelessWidget {
                     ),
                 ],
               ),
-              if (appUser.canManageTemplateGovernance) ...[
+              if (appUser.canManageTemplateGovernance ||
+                  appUser.canManageFrequentIssueDefinitions) ...[
                 const SizedBox(height: BafSpacing.xl),
                 _MoreSection(
                   title: 'Governance',
                   children: [
-                    _MoreDestinationTile(
-                      icon: Icons.architecture_outlined,
-                      color: BafColors.planned,
-                      title: 'Template authoring',
-                      subtitle: 'Build modules and governed template versions',
-                      onTap: onTemplateAuthoring,
-                    ),
-                    _MoreDestinationTile(
-                      icon: Icons.data_object_rounded,
-                      color: BafColors.textSecondary,
-                      title: 'Legacy template publisher',
-                      subtitle: 'Import or inspect historical snapshot JSON',
-                      badge: 'Legacy',
-                      onTap: onTemplatePublisher,
-                    ),
-                    _MoreDestinationTile(
-                      icon: Icons.schema_outlined,
-                      color: BafColors.audit,
-                      title: 'Knowledge governance',
-                      subtitle: 'BAF knowledge rows, tags and matrix versions',
-                      onTap: onKnowledgeGovernance,
-                    ),
+                    if (appUser.canManageFrequentIssueDefinitions)
+                      _MoreDestinationTile(
+                        icon: Icons.rule_folder_outlined,
+                        color: BafColors.maintenance,
+                        title: 'Frequent issues',
+                        subtitle: 'Governed issue choices and default routing',
+                        onTap: onFrequentIssues,
+                      ),
+                    if (appUser.canManageTemplateGovernance) ...[
+                      _MoreDestinationTile(
+                        icon: Icons.architecture_outlined,
+                        color: BafColors.planned,
+                        title: 'Template authoring',
+                        subtitle:
+                            'Build modules and governed template versions',
+                        onTap: onTemplateAuthoring,
+                      ),
+                      _MoreDestinationTile(
+                        icon: Icons.data_object_rounded,
+                        color: BafColors.textSecondary,
+                        title: 'Legacy template publisher',
+                        subtitle: 'Import or inspect historical snapshot JSON',
+                        badge: 'Legacy',
+                        onTap: onTemplatePublisher,
+                      ),
+                      _MoreDestinationTile(
+                        icon: Icons.schema_outlined,
+                        color: BafColors.audit,
+                        title: 'Knowledge governance',
+                        subtitle:
+                            'BAF knowledge rows, tags and matrix versions',
+                        onTap: onKnowledgeGovernance,
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -1226,12 +1354,16 @@ class _AttentionPanel extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final int overdueMaintenanceCount;
+  final int activeInspectionFindingCount;
   final bool attentionDataUnavailable;
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onDirectives;
   final VoidCallback onOperationalEvents;
   final VoidCallback onQuality;
+  final VoidCallback onMaintenanceRhythm;
+  final VoidCallback onInspectionProgrammes;
   final VoidCallback onRetry;
 
   const _AttentionPanel({
@@ -1241,12 +1373,16 @@ class _AttentionPanel extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.overdueMaintenanceCount,
+    required this.activeInspectionFindingCount,
     required this.attentionDataUnavailable,
     required this.onIssues,
     required this.onWork,
     required this.onDirectives,
     required this.onOperationalEvents,
     required this.onQuality,
+    required this.onMaintenanceRhythm,
+    required this.onInspectionProgrammes,
     required this.onRetry,
   });
 
@@ -1308,6 +1444,23 @@ class _AttentionPanel extends StatelessWidget {
           title: 'Quality warnings',
           detail: '$openQualityWarningCount awaiting disposition',
           onTap: onQuality,
+        ),
+      if (overdueMaintenanceCount > 0)
+        _AttentionRow(
+          icon: Icons.event_busy_outlined,
+          color: BafColors.danger,
+          title: 'Overdue maintenance cadence',
+          detail: '$overdueMaintenanceCount asset counters overdue',
+          onTap: onMaintenanceRhythm,
+        ),
+      if (activeInspectionFindingCount > 0)
+        _AttentionRow(
+          icon: Icons.fact_check_outlined,
+          color: BafColors.maintenance,
+          title: 'Active inspection findings',
+          detail:
+              '$activeInspectionFindingCount conditions under follow-through',
+          onTap: onInspectionProgrammes,
         ),
     ];
 
@@ -1413,10 +1566,10 @@ class _DirectoryHeader extends StatelessWidget {
           height: 42,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: BafColors.copper,
+              color: Color(0x1FFFFFFF),
               borderRadius: BorderRadius.all(Radius.circular(BafRadius.small)),
             ),
-            child: Icon(Icons.apps_rounded, color: Colors.white, size: 24),
+            child: ManmithasMark(size: 34, framed: false),
           ),
         ),
         SizedBox(width: BafSpacing.md),

@@ -3,15 +3,20 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_availability_record.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
-import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
+import 'package:crm3_baf_ops/features/assets/data/furnace_stuckup_record.dart';
+import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
+import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event_issue_link.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
 
 const _supportedCollections = <String>{
@@ -19,14 +24,26 @@ const _supportedCollections = <String>{
   'asset_component_instances',
   'asset_hierarchy_nodes',
   'asset_instances',
+  'asset_availability_current',
+  'asset_condition_declarations',
   'asset_operational_conditions',
   'asset_tag_claims',
   'base_inner_cover_assignments',
   'burner_condition_rounds',
+  'frequent_issue_definitions',
+  'furnace_stuckup_cases',
   'inner_cover_fabrications',
   'inner_cover_linkages',
   'inner_cover_profiles',
+  'inspection_campaigns',
+  'inspection_definitions',
+  'inspection_findings',
+  'inspection_observations',
   'audit_logs',
+  'maintenance_class_definitions',
+  'maintenance_completion_events',
+  'maintenance_due_states',
+  'maintenance_plans',
   'maintenance_records',
   'operational_events',
   'operational_event_issue_links',
@@ -78,10 +95,18 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         AssetHierarchyNode.fromMap(data, documentId);
       case 'asset_instances':
         AssetInstanceRecord.fromMap(data, documentId);
+      case 'asset_availability_current':
+        AssetAvailabilityRecord.fromMap(data, documentId);
+      case 'asset_condition_declarations':
+        AssetConditionDeclarationRecord.fromMap(data, documentId);
       case 'asset_operational_conditions':
         AssetOperationalConditionRecord.fromMap(data, documentId);
       case 'burner_condition_rounds':
         BurnerConditionRound.fromMap(data, documentId);
+      case 'frequent_issue_definitions':
+        FrequentIssueDefinition.fromMap(data, documentId);
+      case 'furnace_stuckup_cases':
+        FurnaceStuckupRecord.fromMap(data, documentId);
       case 'asset_component_instances':
         InstalledComponentRecord.fromMap(data, documentId);
       case 'asset_tag_claims':
@@ -94,8 +119,24 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         InnerCoverLinkage.fromMap(data, documentId);
       case 'inner_cover_fabrications':
         InnerCoverFabricationDossier.fromMap(data, documentId);
+      case 'inspection_campaigns':
+        InspectionCampaign.fromMap(data, documentId);
+      case 'inspection_definitions':
+        InspectionDefinition.fromMap(data, documentId);
+      case 'inspection_findings':
+        InspectionFinding.fromMap(data, documentId);
+      case 'inspection_observations':
+        InspectionObservation.fromMap(data, documentId);
       case 'audit_logs':
         decodePersistedAuditEvent(data, documentId: documentId);
+      case 'maintenance_class_definitions':
+        MaintenanceClassDefinition.fromMap(data, documentId);
+      case 'maintenance_completion_events':
+        MaintenanceCompletionEvent.fromMap(data, documentId);
+      case 'maintenance_due_states':
+        MaintenanceDueState.fromMap(data, documentId);
+      case 'maintenance_plans':
+        MaintenancePlan.fromMap(data, documentId);
       case 'maintenance_records':
         readRemoteMaintenanceRecord(data, documentId: documentId);
       case 'operational_events':

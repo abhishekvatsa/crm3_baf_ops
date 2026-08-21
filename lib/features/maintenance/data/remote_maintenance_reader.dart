@@ -1,4 +1,5 @@
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
@@ -6,6 +7,8 @@ import '../utils/asset_validator.dart';
 import 'maintenance_model.dart';
 import '../../quality/domain/issue_quality_intent.dart';
 import '../domain/burner_lockout_case.dart';
+import '../domain/furnace_stuckup_case.dart';
+import '../domain/frequent_issue_selection.dart';
 import 'remote_maintenance_timestamps.dart';
 
 const _workflowQueueStates = <String>{
@@ -109,6 +112,15 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     map,
     source: source,
   );
+  final furnaceStuckup = FurnaceStuckupCase.readOptionalSynchronizedFields(
+    map,
+    source: source,
+  );
+  final frequentIssueSelection =
+      FrequentIssueSelection.readOptionalSynchronizedFields(
+        map,
+        source: source,
+      );
   final isBurnerLockout = classification == burnerLockoutClassification;
   if (isBurnerLockout != (burnerLockout != null)) {
     throw PersistedDataFormatException(
@@ -126,6 +138,25 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       field: 'classification',
       source: source,
       detail: 'burner lockout must belong to a Furnace and route to I&A',
+    );
+  }
+  final isFurnaceStuckup = classification == furnaceStuckupClassification;
+  if (isFurnaceStuckup != (furnaceStuckup != null)) {
+    throw PersistedDataFormatException(
+      field: 'classification',
+      source: source,
+      detail:
+          'Furnace stuck-up classification and structured fields must be present together',
+    );
+  }
+  if (furnaceStuckup != null &&
+      (assetType != AssetType.furnace ||
+          map['component'] != 'Furnace / Inner Cover interface' ||
+          map['maintenanceType'] != MaintenanceType.breakdown.name)) {
+    throw PersistedDataFormatException(
+      field: 'classification',
+      source: source,
+      detail: 'Furnace stuck-up evidence requires its specialized issue route',
     );
   }
   final actionsJson = ComponentAction.readEncodedPayload(
@@ -309,14 +340,15 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       field: 'downtimeHours',
       source: source,
     )
-    ..chargeNoAtEvent = _optionalPositiveInt(
+    ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
       map['chargeNoAtEvent'],
       field: 'chargeNoAtEvent',
       source: source,
     )
     ..createdAt = timestamps.createdAt
     ..updatedAt = timestamps.updatedAt
-    ..metadataJson =
+    ..metadataJson = mergeFrequentIssueSelectionIntoMaintenanceMetadata(
+      mergeFurnaceStuckupIntoMaintenanceMetadata(
         qualityIntent != null || burnerLockout != null
             ? mergeMaintenanceMetadataEnvelopes(
               existing: _optionalString(
@@ -328,7 +360,11 @@ MaintenanceRecord readRemoteMaintenanceRecord(
               qualityIntent: qualityIntent?.toMap(),
               burnerLockout: burnerLockout,
             )
-            : _optionalString(map, 'metadataJson', source, emptyAsNull: false)
+            : _optionalString(map, 'metadataJson', source, emptyAsNull: false),
+        furnaceStuckup,
+      ),
+      frequentIssueSelection,
+    )
     ..actionsJson = actionsJson
     ..resolutionHistoryJson = resolutionHistoryJson
     ..isDeleted = isDeleted
@@ -460,20 +496,6 @@ String? _optionalString(
   source: source,
   emptyAsNull: emptyAsNull,
 );
-
-int? _optionalPositiveInt(
-  dynamic value, {
-  required String field,
-  required String source,
-}) {
-  if (value == null) return null;
-  return readRequiredPersistedInt(
-    value,
-    field: field,
-    source: source,
-    minimum: 1,
-  );
-}
 
 List<String> _readOperationalEventIssueLinkIds(
   Map<String, dynamic> map,

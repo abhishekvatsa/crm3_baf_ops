@@ -166,7 +166,7 @@ Map<String, dynamic> _monitoringResult({
     'baseNumber': 4,
     'grade': 'CRCA',
     'cycleReference': 'Cycle 4412',
-    'chargeNumbers': <int>[123, 124],
+    'chargeNumbers': <int>[12345, 12346],
     'reason': 'Monitor temperature uniformity',
     'status': 'active',
     'createdAt': '2026-08-14T12:00:00.000Z',

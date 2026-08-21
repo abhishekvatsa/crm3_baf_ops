@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -15,11 +16,15 @@ import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart';
+import '../../maintenance_workflow/domain/workflow_command_contract.dart';
+import '../../maintenance_workflow/domain/workflow_types.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../data/baf_module_catalogue_seed.dart';
 import '../data/job_diary_model.dart';
 import '../data/job_module_model.dart';
 import '../data/job_template_model.dart';
 import '../data/template_governance_model.dart';
+import '../data/maintenance_intelligence.dart';
 import '../domain/published_runtime_module_catalogue.dart';
 import '../domain/runtime_module_lineage.dart';
 import '../models/component_action_model.dart';
@@ -27,6 +32,7 @@ import '../providers/job_diary_provider.dart';
 import '../providers/job_module_provider.dart';
 import '../providers/planned_maintenance_provider.dart';
 import '../providers/template_governance_provider.dart';
+import '../providers/maintenance_intelligence_provider.dart';
 import 'complete_job_screen.dart';
 import 'job_module_detail_screen.dart';
 import 'widgets/job_module_card.dart';
@@ -122,6 +128,141 @@ class _PlannedJobDetailScreenState
         builder: (_) => CompleteJobScreen(execution: widget.execution),
       ),
     );
+  }
+
+  Future<void> _classifyMaintenance(
+    List<MaintenanceClassDefinition> definitions,
+  ) async {
+    final execution = widget.execution;
+    final applicable = definitions
+        .where(
+          (definition) => definition.appliesTo(
+            assetTypeKey: execution.assetType.name,
+            assetClassId: _assetClassIdFromMetadata(execution.metadataJson),
+          ),
+        )
+        .toList(growable: false);
+    if (applicable.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No active maintenance class applies to this asset.'),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return;
+    }
+    String? selectedId = applicable.first.id;
+    final reason = TextEditingController(
+      text:
+          execution.isCompleted
+              ? 'Classify completed maintenance against its actual completion time.'
+              : 'Classify this maintenance before completion.',
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  title: Text(
+                    execution.isCompleted
+                        ? 'Classify completed work'
+                        : 'Classify maintenance',
+                  ),
+                  content: SizedBox(
+                    width: 520,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Maintenance class',
+                          ),
+                          items:
+                              applicable
+                                  .map(
+                                    (item) => DropdownMenuItem(
+                                      value: item.id,
+                                      child: Text(item.title),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) =>
+                                  setDialogState(() => selectedId = value),
+                        ),
+                        const SizedBox(height: BafSpacing.md),
+                        TextField(
+                          controller: reason,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            labelText: 'Classification reason',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Apply'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+    final selected =
+        applicable.where((item) => item.id == selectedId).firstOrNull;
+    final rationale = reason.text.trim();
+    reason.dispose();
+    if (confirmed != true ||
+        selected == null ||
+        rationale.length < 5 ||
+        !mounted) {
+      return;
+    }
+    try {
+      await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(
+            WorkflowCommand(
+              commandId: 'classifyMaintenanceExecution_${const Uuid().v4()}',
+              type: WorkflowCommandType.classifyMaintenanceExecution,
+              aggregateId: execution.firestoreId!.trim(),
+              expectedVersion: execution.version,
+              payload: {
+                'definitionId': selected.id,
+                'definitionVersion': selected.version,
+                'reason': rationale,
+              },
+            ),
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            execution.isCompleted
+                ? 'Completion classified at its original completion time.'
+                : 'Maintenance class frozen into this execution.',
+          ),
+          backgroundColor: BafColors.sync,
+        ),
+      );
+    } on Object catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not classify maintenance: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    }
   }
 
   Future<void> _openAddDiaryEntrySheet() async {
@@ -498,6 +639,17 @@ class _PlannedJobDetailScreenState
     final innerCoverPositionRead =
         execution.assignmentInnerCoverPositionReadResult;
     final actor = ref.watch(currentAppUserProvider).value;
+    final maintenanceClasses =
+        ref.watch(maintenanceClassDefinitionsProvider).value ??
+        const <MaintenanceClassDefinition>[];
+    final frozenMaintenanceClass = _maintenanceClassFromMetadata(
+      execution.metadataJson,
+    );
+    final canClassify =
+        _hasText(execution.firestoreId) &&
+        (execution.isCompleted
+            ? actor?.canClassifyCompletedMaintenance ?? false
+            : actor?.canClassifyOpenMaintenance ?? false);
     final canAddDiaryEntry = actor?.canCreateJobDiaryEntry ?? false;
     final canAddModule = actor?.canAddJobModuleDuringExecution ?? false;
     final canCompleteJob =
@@ -585,6 +737,46 @@ class _PlannedJobDetailScreenState
               jobCompleted: execution.isCompleted,
             ),
           ],
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title: 'Maintenance classification',
+            subtitle:
+                'The frozen business outcome controls the immutable completion ledger and only its declared counters.',
+            icon: Icons.event_repeat_rounded,
+            children: [
+              if (frozenMaintenanceClass != null) ...[
+                _InfoRow(label: 'Class', value: frozenMaintenanceClass.title),
+                _InfoRow(
+                  label: 'Reset matrix',
+                  value: frozenMaintenanceClass.resetCounters
+                      .map((counter) => counter.label)
+                      .join(', '),
+                ),
+              ] else ...[
+                _WarningBox(
+                  text:
+                      execution.isCompleted
+                          ? 'Classification pending. This completion has not reset a preventive-maintenance counter.'
+                          : 'No maintenance class is frozen yet. Completion will remain classification pending.',
+                ),
+              ],
+              if (canClassify) ...[
+                const SizedBox(height: BafSpacing.sm),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _classifyMaintenance(maintenanceClasses),
+                    icon: const Icon(Icons.edit_calendar_outlined),
+                    label: Text(
+                      frozenMaintenanceClass == null
+                          ? 'Classify'
+                          : 'Correct classification',
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
           if (execution.isCompleted) ...[
             const SizedBox(height: BafSpacing.lg),
             _ClosedDossierStatusCard(execution: execution),
@@ -840,6 +1032,36 @@ class _PlannedJobDetailScreenState
                 onComplete: canCompleteJob ? _openCompletionScreen : null,
               ),
     );
+  }
+}
+
+FrozenMaintenanceClass? _maintenanceClassFromMetadata(String? metadataJson) {
+  if (metadataJson == null || metadataJson.trim().isEmpty) return null;
+  try {
+    final decoded = jsonDecode(metadataJson);
+    if (decoded is! Map) return null;
+    final raw = decoded['maintenanceClassification'];
+    if (raw is! Map) return null;
+    return FrozenMaintenanceClass.fromMap(
+      Map<String, dynamic>.from(raw),
+      source: 'JobExecution.metadataJson/maintenanceClassification',
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+String? _assetClassIdFromMetadata(String? metadataJson) {
+  if (metadataJson == null || metadataJson.trim().isEmpty) return null;
+  try {
+    final decoded = jsonDecode(metadataJson);
+    if (decoded is! Map) return null;
+    final identity = decoded['assignmentAssetIdentity'];
+    if (identity is! Map) return null;
+    final value = identity['assetClassId'];
+    return value is String && value.trim().isNotEmpty ? value.trim() : null;
+  } catch (_) {
+    return null;
   }
 }
 

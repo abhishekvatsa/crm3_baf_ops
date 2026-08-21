@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -25,9 +26,12 @@ class AssetConditionBoard extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Plant condition'),
-        backgroundColor: BafColors.card,
-        surfaceTintColor: Colors.transparent,
+        title: const BafAppBarTitle(
+          title: 'Plant condition',
+          subtitle: 'Live availability and maintenance state',
+          icon: Icons.precision_manufacturing_outlined,
+          accent: BafColors.assets,
+        ),
       ),
       body: SafeArea(
         child: Align(
@@ -159,40 +163,47 @@ class PlantOverviewPanel extends StatelessWidget {
                         style: TextStyle(color: BafColors.textSecondary),
                       )
                     else ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _PlantMetric(
-                              value: value.available,
-                              label: 'Available',
-                              color: BafColors.success,
-                            ),
-                          ),
-                          const SizedBox(width: BafSpacing.xs),
-                          Expanded(
-                            child: _PlantMetric(
-                              value: value.underMaintenance,
-                              label: 'Maintenance',
-                              color: BafColors.maintenance,
-                            ),
-                          ),
-                          const SizedBox(width: BafSpacing.xs),
-                          Expanded(
-                            child: _PlantMetric(
-                              value: value.down,
-                              label: 'Down',
-                              color: BafColors.danger,
-                            ),
-                          ),
-                          const SizedBox(width: BafSpacing.xs),
-                          Expanded(
-                            child: _PlantMetric(
-                              value: value.unfit,
-                              label: 'Unfit',
-                              color: BafColors.warning,
-                            ),
-                          ),
-                        ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width =
+                              (constraints.maxWidth - BafSpacing.xs * 2) / 3;
+                          return Wrap(
+                            spacing: BafSpacing.xs,
+                            runSpacing: BafSpacing.xs,
+                            children: [
+                              _PlantMetric(
+                                width: width,
+                                value: value.available,
+                                label: 'Available',
+                                color: BafColors.success,
+                              ),
+                              _PlantMetric(
+                                width: width,
+                                value: value.underMaintenance,
+                                label: 'Maintenance',
+                                color: BafColors.maintenance,
+                              ),
+                              _PlantMetric(
+                                width: width,
+                                value: value.temporarilyBlocked,
+                                label: 'Stuck-up',
+                                color: BafColors.instrument,
+                              ),
+                              _PlantMetric(
+                                width: width,
+                                value: value.down,
+                                label: 'Down',
+                                color: BafColors.danger,
+                              ),
+                              _PlantMetric(
+                                width: width,
+                                value: value.unfit,
+                                label: 'Unfit',
+                                color: BafColors.warning,
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: BafSpacing.sm),
                       ...value.classes
@@ -204,7 +215,7 @@ class PlantOverviewPanel extends StatelessWidget {
                                 top: BafSpacing.xs,
                               ),
                               child: Text(
-                                '${summary.assetClass.name}: ${summary.total} total, ${summary.underMaintenance} maintenance, ${summary.down + summary.unfit} unavailable',
+                                '${summary.assetClass.name}: ${summary.total} total, ${summary.underMaintenance} maintenance, ${summary.temporarilyBlocked} stuck-up, ${summary.down + summary.unfit} unavailable',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -225,11 +236,13 @@ class PlantOverviewPanel extends StatelessWidget {
 }
 
 class _PlantMetric extends StatelessWidget {
+  final double? width;
   final int value;
   final String label;
   final Color color;
 
   const _PlantMetric({
+    this.width,
     required this.value,
     required this.label,
     required this.color,
@@ -237,6 +250,7 @@ class _PlantMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
+    width: width,
     constraints: const BoxConstraints(minHeight: 54),
     padding: const EdgeInsets.symmetric(
       horizontal: BafSpacing.xs,
@@ -330,6 +344,10 @@ class _ConditionBoardBody extends StatelessWidget {
             StatusBadge(
               label: '${overview.underMaintenance} maintenance',
               color: BafColors.maintenance,
+            ),
+            StatusBadge(
+              label: '${overview.temporarilyBlocked} stuck-up',
+              color: BafColors.instrument,
             ),
             StatusBadge(
               label: '${overview.down} down',
@@ -926,6 +944,11 @@ List<Widget> _stateBadges(PlantAssetState state) {
       const StatusBadge(label: 'Maintenance', color: BafColors.maintenance),
     );
   }
+  if (state.isTemporarilyBlocked) {
+    output.add(
+      const StatusBadge(label: 'Stuck-up', color: BafColors.instrument),
+    );
+  }
   if (state.isStandby) {
     output.add(const StatusBadge(label: 'Standby', color: BafColors.planned));
   }
@@ -941,6 +964,7 @@ List<Widget> _stateBadges(PlantAssetState state) {
 }
 
 Color _primaryColor(PlantAssetState state) {
+  if (state.isTemporarilyBlocked) return BafColors.instrument;
   if (state.isDown) return BafColors.danger;
   if (state.isUnfit) return BafColors.warning;
   if (state.isUnderMaintenance) return BafColors.maintenance;
@@ -949,6 +973,7 @@ Color _primaryColor(PlantAssetState state) {
 }
 
 IconData _primaryIcon(PlantAssetState state) {
+  if (state.isTemporarilyBlocked) return Icons.link_off_rounded;
   if (state.isDown) return Icons.power_off_rounded;
   if (state.isUnfit) return Icons.gpp_bad_outlined;
   if (state.isUnderMaintenance) return Icons.build_outlined;

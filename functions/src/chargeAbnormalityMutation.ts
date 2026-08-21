@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {isFiveDigitChargeNumber} from "./chargeNumber";
 
 import {
   canonicalApprovedUserAuthority,
@@ -372,6 +373,14 @@ function parseUpdate(
     raw.reannealedToChargeNo,
     "reannealedToChargeNo",
   );
+  if (reannealedToChargeNo != null &&
+      !isFiveDigitChargeNumber(reannealedToChargeNo)) {
+    return invalidField(
+      "reannealedToChargeNo",
+      "reannealedToChargeNo must contain exactly five digits.",
+      "charge-number-invalid",
+    );
+  }
   if (
     (reannealingStatus === "completed") !==
     (reannealedToChargeNo != null)
@@ -547,6 +556,13 @@ function validateExistingAbnormality(
     );
   }
   positiveExistingInteger(data.sourceChargeNo, "sourceChargeNo");
+  if (!isFiveDigitChargeNumber(data.sourceChargeNo)) {
+    throw new ChargeAbnormalityMutationError(
+      "data-loss",
+      "The charge-abnormality sourceChargeNo value is malformed.",
+      {reasonCode: "charge-number-invalid", field: "sourceChargeNo"},
+    );
+  }
   positiveExistingInteger(data.version, "version");
   requiredExistingString(data.abnormalityTypeId, "abnormalityTypeId", 512);
   requiredExistingString(

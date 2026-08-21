@@ -312,7 +312,7 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
           otherDepartment: null,
           isCritical: true,
           startDate: '2026-08-14T16:20:00.000Z',
-          chargeNoAtEvent: 123456,
+          chargeNoAtEvent: 12345,
           qualityIntentSchemaVersion: 1,
           qualityImpactAssessment: 'suspected',
           qualityWarningReason:

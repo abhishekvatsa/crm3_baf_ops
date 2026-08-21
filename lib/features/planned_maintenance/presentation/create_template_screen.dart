@@ -610,7 +610,7 @@ class _IntroCard extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               color: BafColors.planned.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: const Icon(
               Icons.event_note_rounded,

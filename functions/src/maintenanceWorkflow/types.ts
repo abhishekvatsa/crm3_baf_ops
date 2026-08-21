@@ -13,6 +13,7 @@ export type WorkflowStatus =
   | "pendingLaneClassification" | "assigned" | "partiallyAcknowledged"
   | "fullyAcknowledged" | "inProgress" | "awaitingCompliance"
   | "readyForClosure" | "completed" | "cancelled";
+export type WorkflowKind = "plannedMaintenance" | "issueCoordination";
 export type ComplianceStatus =
   | "raised" | "acknowledged" | "complied" | "confirmedClosed"
   | "superseded" | "cancelled";
@@ -56,7 +57,14 @@ export type WorkflowAuthorityCapability =
   | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
   | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
   | "job.finalize" | "equipment.deploy" | "equipment.reconcile"
-  | "compliance.unscoped.manage";
+  | "compliance.unscoped.manage"
+  | "issueDefinition.manage"
+  | "maintenanceClass.manage" | "maintenance.classify" | "maintenancePlan.manage"
+  | "maintenanceHistory.record"
+  | "inspectionDefinition.manage" | "inspectionCampaign.manage"
+  | "inspection.observe" | "inspectionIssue.link"
+  | "inspectionFinding.adjudicate"
+  | "integrity.supervise" | "integrity.adjudicate";
 
 export interface WorkflowAuthorityScope extends JsonMap {
   readonly schemaVersion: 1;
@@ -66,6 +74,17 @@ export interface WorkflowAuthorityScope extends JsonMap {
 
 export type WorkflowCommandType =
   | "createLegacyWorkflowJob" | "createMaintenanceTicket"
+  | "startIssueCoordination"
+  | "upsertFrequentIssueDefinition" | "setFrequentIssueDefinitionStatus"
+  | "upsertMaintenanceClassDefinition" | "setMaintenanceClassDefinitionStatus"
+  | "classifyMaintenanceExecution" | "classifyMaintenanceTicket"
+  | "recordHistoricalMaintenance"
+  | "upsertMaintenancePlan" | "setMaintenancePlanStatus" | "completeMaintenancePlan"
+  | "upsertInspectionDefinition" | "setInspectionDefinitionStatus"
+  | "createInspectionCampaign" | "setInspectionCampaignStatus"
+  | "addInspectionCampaignTargets" | "setInspectionTargetDisposition"
+  | "recordInspectionObservation" | "linkInspectionObservationIssue"
+  | "verifyInspectionFinding" | "adjudicateInspectionFinding"
   | "finalizeLaneSet" | "acknowledgeLane" | "addLane" | "removeLane"
   | "terminateLane" | "closeLane" | "cancelWorkflow"
   | "raiseCompliance" | "acknowledgeCompliance"
@@ -74,7 +93,8 @@ export type WorkflowCommandType =
   | "proposeCounterCondition" | "decideCounterCondition"
   | "prepareRedLane" | "reopenWorkflowModule" | "finalizeJob"
   | "deployEquipment" | "reconcileEquipment"
-  | "acknowledgeMaintenanceTicket" | "correctMaintenanceTicket";
+  | "acknowledgeMaintenanceTicket" | "correctMaintenanceTicket"
+  | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup";
 
 export interface WorkflowCommandReceipt {
   readonly commandId: string;
@@ -100,6 +120,7 @@ export interface StoredWorkflowCommandReceipt extends JsonMap {
 
 export interface WorkflowDoc extends JsonMap {
   readonly jobExecutionId?: string;
+  readonly workflowKind?: WorkflowKind;
   readonly status?: WorkflowStatus;
   readonly version?: number;
   readonly assetTypeKey?: string;

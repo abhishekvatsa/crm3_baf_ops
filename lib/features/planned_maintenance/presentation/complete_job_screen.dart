@@ -384,7 +384,9 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       useSafeArea: true,
       backgroundColor: BafColors.card,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(BafRadius.medium),
+        ),
       ),
       builder: (_) => const ActionBottomSheet(),
     );
@@ -1808,7 +1810,7 @@ class _JobContextCard extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               color: BafColors.planned.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: const Icon(
               Icons.task_alt_rounded,

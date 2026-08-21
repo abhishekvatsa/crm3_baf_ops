@@ -57,6 +57,29 @@ void main() {
       expect(result.isValid, isTrue);
     });
 
+    test('accepts only exact five-digit charge numbers', () {
+      for (final invalid in <String>['1', '9999', '100000', '12A45']) {
+        final result = MaintenanceInputValidator.validateChargeNumber(invalid);
+        expect(
+          result.messageFor('chargeNoAtEvent'),
+          isNotNull,
+          reason: invalid,
+        );
+      }
+      expect(
+        MaintenanceInputValidator.validateChargeNumber(
+          '10000',
+        ).messageFor('chargeNoAtEvent'),
+        isNull,
+      );
+      expect(
+        MaintenanceInputValidator.validateChargeNumber(
+          '99999',
+        ).messageFor('chargeNoAtEvent'),
+        isNull,
+      );
+    });
+
     test('accepts governed custom asset numbers only in the bounded range', () {
       final valid = MaintenanceInputValidator.validateCreate(
         MaintenanceCreateInput(

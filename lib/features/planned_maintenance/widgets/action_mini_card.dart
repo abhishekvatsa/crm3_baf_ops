@@ -9,19 +9,17 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 class ActionMiniCard extends StatelessWidget {
   final ComponentAction action;
 
-  const ActionMiniCard({
-    super.key,
-    required this.action,
-  });
+  const ActionMiniCard({super.key, required this.action});
 
   @override
   Widget build(BuildContext context) {
     final color = _colorForStatus(action.status);
     final icon = _iconForType(action.actionType);
 
-    final componentText = action.component.trim().isNotEmpty
-        ? action.component.trim()
-        : 'Unnamed component';
+    final componentText =
+        action.component.trim().isNotEmpty
+            ? action.component.trim()
+            : 'Unnamed component';
     final tagText = (action.tag ?? '').trim();
     final systemText = (action.system ?? '').trim();
     final subsystemText = (action.subsystem ?? '').trim();
@@ -44,7 +42,7 @@ class ActionMiniCard extends StatelessWidget {
             height: 38,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.11),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: Icon(icon, size: 21, color: color),
           ),
@@ -71,10 +69,7 @@ class ActionMiniCard extends StatelessWidget {
                     ),
                     if (tagText.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      StatusBadge(
-                        label: tagText,
-                        color: BafColors.assets,
-                      ),
+                      StatusBadge(label: tagText, color: BafColors.assets),
                     ],
                   ],
                 ),
@@ -121,7 +116,9 @@ class ActionMiniCard extends StatelessWidget {
                         color: color,
                       ),
                     StatusBadge(
-                      label: TimeOfDay.fromDateTime(action.createdAt).format(context),
+                      label: TimeOfDay.fromDateTime(
+                        action.createdAt,
+                      ).format(context),
                       color: BafColors.admin,
                       icon: Icons.schedule_rounded,
                     ),

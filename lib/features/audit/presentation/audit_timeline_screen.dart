@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/audit_event_model.dart';
 import '../providers/audit_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -75,7 +76,14 @@ class AuditTimelineScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Audit Timeline")),
+      appBar: AppBar(
+        title: const BafAppBarTitle(
+          title: 'Audit timeline',
+          subtitle: 'Entity change history and evidence',
+          icon: Icons.timeline_rounded,
+          accent: BafColors.audit,
+        ),
+      ),
       body: auditAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text("Error: $e")),
@@ -129,7 +137,12 @@ class RecentAuditLogScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Audit Log'),
+        title: const BafAppBarTitle(
+          title: 'Audit log',
+          subtitle: 'Recent governed changes and evidence',
+          icon: Icons.fact_check_outlined,
+          accent: BafColors.audit,
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh audit log',

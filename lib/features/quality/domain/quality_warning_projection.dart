@@ -1,4 +1,5 @@
 import '../../abnormalities/data/abnormality_model.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../maintenance/data/maintenance_model.dart';
 
 const qualityWarningSchemaVersion = 1;
@@ -20,7 +21,7 @@ Map<String, dynamic>? qualityWarningProjectionForIssue(
   final actorUid = ticket.loggedByUid?.trim();
   final reason = intent.warningReason?.trim();
   if (chargeNo == null ||
-      chargeNo <= 0 ||
+      !isValidChargeNumber(chargeNo) ||
       actorUid == null ||
       actorUid.isEmpty ||
       reason == null ||
@@ -70,7 +71,7 @@ Map<String, dynamic>? qualityWarningProjectionForIssueMap(
   final createdAt = _cleanDynamic(ticket['createdAt']);
   if (ticket['qualityIntentSchemaVersion'] != 1 ||
       chargeNo is! int ||
-      chargeNo <= 0 ||
+      !isValidChargeNumber(chargeNo) ||
       version is! int ||
       version <= 0 ||
       actorUid == null ||

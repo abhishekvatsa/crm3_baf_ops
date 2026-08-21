@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
@@ -35,10 +36,12 @@ class _OperationalEventsScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Operational events'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Operational events',
+          subtitle: 'Utilities, cranes, transfer cars and delays',
+          icon: Icons.crisis_alert_outlined,
+          accent: BafColors.warning,
+        ),
         actions: [
           if (actor?.canRecordOperationalEvent == true)
             IconButton(

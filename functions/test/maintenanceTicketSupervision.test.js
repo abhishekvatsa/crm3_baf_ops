@@ -206,7 +206,7 @@ describe('governed maintenance-ticket supervision', () => {
       ticketId: 'quality-ticket',
       ticket: {
         isCritical: true,
-        chargeNoAtEvent: 123456,
+        chargeNoAtEvent: 12345,
         qualityImpactAssessment: 'suspected',
         qualityWarningReason: 'Temperature deviation may have affected the coil.',
       },
@@ -220,7 +220,7 @@ describe('governed maintenance-ticket supervision', () => {
       sourceType: 'issue',
       sourceId: 'quality-ticket',
       sourceVersion: 1,
-      sourceChargeNo: 123456,
+      sourceChargeNo: 12345,
       sourceSeverity: 'critical',
       status: 'open',
       createdByUid: electrical.uid,
@@ -297,7 +297,7 @@ describe('governed maintenance-ticket supervision', () => {
       commandId: 'create-replay-quality',
       ticketId: 'replay-quality',
       ticket: {
-        chargeNoAtEvent: 223344,
+        chargeNoAtEvent: 22334,
         qualityImpactAssessment: 'suspected',
         qualityWarningReason: 'The reported deviation requires quality review.',
       },

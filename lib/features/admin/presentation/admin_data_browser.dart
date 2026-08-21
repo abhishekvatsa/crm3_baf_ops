@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../features/planned_maintenance/presentation/template_publisher_screen.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../features/audit/presentation/audit_timeline_screen.dart';
 import '../../../core/widgets/sync_status_indicator.dart';
 import 'user_management_screen.dart';
@@ -80,18 +81,16 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(
-              'Admin Data Browser',
-              style: TextStyle(color: Colors.white),
+            title: const BafAppBarTitle(
+              title: 'Administration',
+              subtitle: 'Governed data, access and support controls',
+              icon: Icons.admin_panel_settings_outlined,
+              accent: BafColors.admin,
             ),
-            backgroundColor: BafColors.navy,
             actions: [
               IconButton(
                 tooltip: 'Review sync conflicts',
-                icon: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.white,
-                ),
+                icon: const Icon(Icons.warning_amber_rounded),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -102,7 +101,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
               ),
               IconButton(
                 tooltip: 'Local diagnostics inventory',
-                icon: const Icon(Icons.fact_check_rounded, color: Colors.white),
+                icon: const Icon(Icons.fact_check_rounded),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -114,7 +113,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
               if (appUser.canManageTemplateGovernance)
                 IconButton(
                   tooltip: 'Template Publisher',
-                  icon: const Icon(Icons.verified_rounded, color: Colors.white),
+                  icon: const Icon(Icons.verified_rounded),
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -180,11 +179,12 @@ class _AdminAccessDeniedScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Admin Data Browser',
-          style: TextStyle(color: Colors.white),
+        title: const BafAppBarTitle(
+          title: 'Administration',
+          subtitle: 'Governed data, access and support controls',
+          icon: Icons.admin_panel_settings_outlined,
+          accent: BafColors.admin,
         ),
-        backgroundColor: BafColors.navy,
       ),
       body: Center(
         child: Padding(

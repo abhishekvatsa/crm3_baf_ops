@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_availability_record.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
@@ -96,6 +97,22 @@ EquipmentStatusRecord workflow({
       ..openMaintenanceCount = maintenance
       ..openRedCount = red;
 
+AssetAvailabilityRecord blocked({required AssetInstanceRecord asset}) =>
+    AssetAvailabilityRecord(
+      assetType: asset.assetClassCode.toLowerCase(),
+      assetClassId: asset.assetClassId,
+      assetInstanceId: asset.id,
+      assetNumber: asset.assetNumber,
+      state: AssetAvailabilityState.temporarilyBlocked,
+      activeConstraintId: 'case-1_${asset.id}',
+      reasonType: 'furnaceStuckup',
+      linkedCaseId: 'case-1',
+      linkedTicketId: 'ticket-1',
+      since: _time,
+      updatedAt: _time,
+      version: 1,
+    );
+
 void main() {
   test('preserves overlapping down and maintenance facts', () {
     final furnace = assetClass(
@@ -119,6 +136,62 @@ void main() {
     expect(overview.underMaintenance, 1);
     expect(overview.available, 0);
     expect(overview.classes.single.attention, 1);
+  });
+
+  test('temporary stuck-up constraints remove assets from available count', () {
+    final furnace = assetClass(
+      id: 'furnace-class',
+      code: 'FURNACE',
+      name: 'Furnace',
+      legacyKey: 'furnace',
+    );
+    final furnace1 = asset(id: 'furnace-1', assetClass: furnace, number: 1);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [furnace],
+      assetInstances: [furnace1],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+      availabilityProjections: [blocked(asset: furnace1)],
+    );
+
+    expect(overview.temporarilyBlocked, 1);
+    expect(overview.available, 0);
+    expect(overview.classes.single.attention, 1);
+  });
+
+  test('availability identity disagreement fails closed', () {
+    final furnace = assetClass(
+      id: 'furnace-class',
+      code: 'FURNACE',
+      name: 'Furnace',
+      legacyKey: 'furnace',
+    );
+    final furnace1 = asset(id: 'furnace-1', assetClass: furnace, number: 1);
+    final malformed = AssetAvailabilityRecord(
+      assetType: 'furnace',
+      assetClassId: furnace1.assetClassId,
+      assetInstanceId: furnace1.id,
+      assetNumber: 2,
+      state: AssetAvailabilityState.temporarilyBlocked,
+      activeConstraintId: 'case-1_${furnace1.id}',
+      reasonType: 'furnaceStuckup',
+      linkedCaseId: 'case-1',
+      linkedTicketId: 'ticket-1',
+      since: _time,
+      updatedAt: _time,
+      version: 1,
+    );
+
+    expect(
+      () => PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace1],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+        availabilityProjections: [malformed],
+      ),
+      throwsStateError,
+    );
   });
 
   test('custom class never inherits a legacy workflow projection', () {

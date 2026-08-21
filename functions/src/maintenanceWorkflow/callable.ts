@@ -26,6 +26,18 @@ import {
 const CALLABLE_REGION = "asia-south1";
 const commandTypes = new Set<WorkflowCommandType>([
   "createLegacyWorkflowJob",
+  "startIssueCoordination",
+  "upsertFrequentIssueDefinition", "setFrequentIssueDefinitionStatus",
+  "upsertMaintenanceClassDefinition", "setMaintenanceClassDefinitionStatus",
+  "classifyMaintenanceExecution", "classifyMaintenanceTicket",
+  "recordHistoricalMaintenance",
+  "upsertMaintenancePlan", "setMaintenancePlanStatus",
+  "completeMaintenancePlan",
+  "upsertInspectionDefinition", "setInspectionDefinitionStatus",
+  "createInspectionCampaign", "setInspectionCampaignStatus",
+  "addInspectionCampaignTargets", "setInspectionTargetDisposition",
+  "recordInspectionObservation", "linkInspectionObservationIssue",
+  "verifyInspectionFinding", "adjudicateInspectionFinding",
   "finalizeLaneSet", "acknowledgeLane", "addLane", "removeLane",
   "terminateLane", "closeLane", "cancelWorkflow", "raiseCompliance",
   "acknowledgeCompliance", "confirmConditionAndReactivate",
@@ -35,6 +47,7 @@ const commandTypes = new Set<WorkflowCommandType>([
   "reconcileEquipment",
   "createMaintenanceTicket", "acknowledgeMaintenanceTicket",
   "correctMaintenanceTicket",
+  "releaseFurnaceStuckup", "adjudicateFurnaceStuckup",
 ]);
 
 const parseCommand = (raw: unknown): WorkflowCommand => {

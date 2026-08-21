@@ -2,6 +2,7 @@ import {
   assertLaneAuthority,
   assertMayRaiseCompliance,
   mayMarkConditionDue,
+  mayCoordinateCompliance,
   mayWorkLane,
 } from "./authority";
 import {
@@ -276,6 +277,13 @@ export const raiseCompliance: CommandHandler = async ({tx, command, context}) =>
   const workflowAssetNumber = typeof workflow.assetNumber === "number"
     ? workflow.assetNumber
     : null;
+  if (workflowAssetTypeKey == null || workflowAssetNumber == null ||
+      !Number.isSafeInteger(workflowAssetNumber) || workflowAssetNumber < 1) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Workflow asset identity is invalid.",
+    );
+  }
   const linkedMaintenanceData = linkedMaintenance == null
     ? null
     : assertMaintenanceCanBind({
@@ -317,6 +325,9 @@ export const raiseCompliance: CommandHandler = async ({tx, command, context}) =>
     coordinationBasis: raisedUnderCoordination ?
       "supervisory-workflow-coordination" : null,
     priorityKey: optionalText(command.payload.priorityKey) ?? "medium",
+    assetTypeKey: workflowAssetTypeKey,
+    assetNumber: workflowAssetNumber,
+    chargeNoAtEvent: linkedMaintenanceData?.chargeNoAtEvent ?? null,
     becameDueAt: immediate ? now : null,
     acknowledgementDueAt: immediate
       ? plusMinutes(
@@ -560,8 +571,12 @@ export const returnComplianceForCorrection: CommandHandler = async ({tx, command
   const version = assertExpectedVersion(workflow, command.expectedVersion);
   if (compliance.status !== "complied") throw new WorkflowError("failed-precondition", "Only a complied request may be returned for correction.");
   const origin = compliance.originLaneKey == null ? null : laneKey(compliance.originLaneKey, "originLaneKey");
-  if (origin != null) assertLaneAuthority(context.actor, origin, "work");
-  else if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) throw new WorkflowError("permission-denied", "Only the raising side or Admin/SI may return compliance.");
+  if (origin != null) {
+    if (!(compliance.raisedUnderCoordination === true &&
+        mayCoordinateCompliance(context.actor))) {
+      assertLaneAuthority(context.actor, origin, "work");
+    }
+  } else if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) throw new WorkflowError("permission-denied", "Only the raising side or Admin/SI may return compliance.");
   const reason = cleanText(command.payload.reason, "reason");
   const maintenanceId = compliance.linkedMaintenanceFirestoreId;
   const maintenance = typeof maintenanceId === "string" && maintenanceId.length > 0
@@ -624,8 +639,12 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
   const version = assertExpectedVersion(workflow, command.expectedVersion);
   if (compliance.status !== "complied") throw new WorkflowError("failed-precondition", "Only complied requests may be confirmed closed.");
   const origin = compliance.originLaneKey == null ? null : laneKey(compliance.originLaneKey, "originLaneKey");
-  if (origin != null) assertLaneAuthority(context.actor, origin, "work");
-  else if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) throw new WorkflowError("permission-denied", "Only the raising side or Admin/SI may confirm closure.");
+  if (origin != null) {
+    if (!(compliance.raisedUnderCoordination === true &&
+        mayCoordinateCompliance(context.actor))) {
+      assertLaneAuthority(context.actor, origin, "work");
+    }
+  } else if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) throw new WorkflowError("permission-denied", "Only the raising side or Admin/SI may confirm closure.");
 
   const gatePath = typeof compliance.gatesLaneFirestoreId === "string" && compliance.gatesLaneFirestoreId.length > 0
     ? compliance.gatesLaneFirestoreId
@@ -725,7 +744,14 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
       actorName: context.actor.name,
     }), true);
   } else {
-    tx.update(workflowPath(command.aggregateId), {version: nextVersion, updatedAt: now});
+    tx.update(workflowPath(command.aggregateId), {
+      ...(workflow.workflowKind === "issueCoordination" ? {
+        status: "completed",
+        completedAt: now,
+      } : {}),
+      version: nextVersion,
+      updatedAt: now,
+    });
   }
   const event = eventPlan({aggregateId: command.aggregateId, eventId: command.commandId, eventType: gatePath == null ? "compliance.confirmedClosed" : "red.preparationConfirmed", actor: context.actor, at: context.serverNow, commandId: command.commandId, laneKey: origin ?? undefined, payload: {complianceId: id, releasedGate: gatePath, equipmentState}});
   tx.create(event.path, event.data);
@@ -766,8 +792,12 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
   const version = assertExpectedVersion(workflow, command.expectedVersion);
   if (compliance.counterProposal == null) throw new WorkflowError("failed-precondition", "No counter-condition is awaiting a decision.");
   const origin = compliance.originLaneKey == null ? null : laneKey(compliance.originLaneKey, "originLaneKey");
-  if (origin != null) assertLaneAuthority(context.actor, origin, "work");
-  else if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) throw new WorkflowError("permission-denied", "Only the raising side or Admin/SI may decide a counter-condition.");
+  if (origin != null) {
+    if (!(compliance.raisedUnderCoordination === true &&
+        mayCoordinateCompliance(context.actor))) {
+      assertLaneAuthority(context.actor, origin, "work");
+    }
+  } else if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) throw new WorkflowError("permission-denied", "Only the raising side or Admin/SI may decide a counter-condition.");
   const accepted = command.payload.accepted === true;
   const note = optionalText(command.payload.note);
   const target = laneKey(compliance.targetLaneKey, "targetLaneKey");

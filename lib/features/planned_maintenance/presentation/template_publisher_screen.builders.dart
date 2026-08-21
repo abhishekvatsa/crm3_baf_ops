@@ -10,6 +10,9 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
 
     final validation = _buildValidation();
     final selectedPackageId = _selectedPackage?.firestoreId;
+    final maintenanceClasses =
+        ref.watch(maintenanceClassDefinitionsProvider).value ??
+        const <MaintenanceClassDefinition>[];
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -82,6 +85,21 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
                       selectedDisciplines: _selectedDisciplines,
                       options: _TemplatePublisherScreenState._disciplineOptions,
                       onToggle: _toggleDiscipline,
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    _MaintenanceClassSection(
+                      definitions: maintenanceClasses
+                          .where(
+                            (definition) => definition.appliesTo(
+                              assetTypeKey: _assetTypeController.text.trim(),
+                            ),
+                          )
+                          .toList(growable: false),
+                      selectedDefinitionId: _selectedMaintenanceClassId,
+                      onChanged:
+                          (value) => _setPublisherState(
+                            () => _selectedMaintenanceClassId = value,
+                          ),
                     ),
                     const SizedBox(height: BafSpacing.lg),
                     _VersionSection(

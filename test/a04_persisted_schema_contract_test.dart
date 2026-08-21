@@ -6,7 +6,18 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_mode
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/v4/a04_persisted_schema_inventory.dart';
+
 void main() {
+  test('A-04 inventory text hashes are invariant across host line endings', () {
+    const lf = '{\n  "schemaVersion": 1\n}\n';
+    const crlf = '{\r\n  "schemaVersion": 1\r\n}\r\n';
+    const cr = '{\r  "schemaVersion": 1\r}\r';
+
+    expect(canonicalTextSha256(crlf), canonicalTextSha256(lf));
+    expect(canonicalTextSha256(cr), canonicalTextSha256(lf));
+  });
+
   test('A-04 exact schema inventory is complete and source-enforced', () {
     final result = Process.runSync(_dartExecutable(), const <String>[
       'run',
@@ -24,7 +35,7 @@ void main() {
     expect(report['dynamicValueFieldCount'], 6);
     expect(report['extensionBagCount'], 3);
     expect(report['registeredExtensionFieldCount'], 0);
-    expect(report['inheritedDecoderSurfaceCount'], 54);
+    expect(report['inheritedDecoderSurfaceCount'], 65);
     expect(report['failures'], isEmpty);
   });
 

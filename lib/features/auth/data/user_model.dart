@@ -242,6 +242,12 @@ class AppUser {
   bool get canRestoreAssetOperationalCondition =>
       isApproved && (isAdmin || isSI || isShiftSupervisor);
 
+  bool get canReleaseFurnaceStuckup =>
+      isApproved &&
+      (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+
+  bool get canAdjudicateFurnaceStuckup => isApproved && (isAdmin || isSI);
+
   bool get canRecordOperationalEvent =>
       isApproved &&
       (isAdmin ||
@@ -478,9 +484,43 @@ class AppUser {
   bool get canCoordinateMaintenanceCompliance =>
       _canExecuteWorkflowCommand('raiseComplianceCoordination');
 
+  bool get canManageMaintenanceClasses => isApproved && (isAdmin || isSI);
+
+  bool get canPlanClassifiedMaintenance =>
+      isApproved &&
+      (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+
+  bool get canClassifyOpenMaintenance => canPlanClassifiedMaintenance;
+
+  bool get canClassifyCompletedMaintenance => isApproved && (isAdmin || isSI);
+
+  bool get canRecordHistoricalMaintenance => isApproved && isAdmin;
+
+  bool get canManageInspectionDefinitions => isApproved && (isAdmin || isSI);
+
+  bool get canManageInspectionCampaigns =>
+      isApproved &&
+      (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+
+  bool canObserveInspectionCampaign(Iterable<String> observerRoleKeys) =>
+      isApproved &&
+      (isAdmin ||
+          isSI ||
+          roles.any((role) => observerRoleKeys.contains(role.name)));
+
+  bool get canSuperviseInspectionObservations =>
+      isApproved &&
+      (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+
   bool canRaiseMaintenanceComplianceFromLane(String? laneName) =>
       canCoordinateMaintenanceCompliance ||
       canAcknowledgeOrWorkMaintenanceLane(laneName);
+
+  bool canStartIssueCoordination(RoutedTo routedTo) =>
+      isApproved &&
+      routedTo != RoutedTo.operations &&
+      routedTo != RoutedTo.shiftInCharge &&
+      canRaiseMaintenanceComplianceFromLane(routedTo.name);
 
   bool canAcknowledgeOrWorkMaintenanceLane(String? laneName) {
     if (!isApproved) return false;
@@ -567,6 +607,8 @@ class AppUser {
   /// versions, and manage the governance audit trail. Runtime job execution
   /// and closed-job dossier flows remain separately governed.
   bool get canManageTemplateGovernance => isApproved && (isAdmin || isSI);
+
+  bool get canManageFrequentIssueDefinitions => isApproved && (isAdmin || isSI);
 
   bool get canViewMaintenanceWorkflowDiagnostics =>
       isApproved && (isAdmin || isSI);

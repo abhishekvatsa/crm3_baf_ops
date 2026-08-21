@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -35,9 +36,12 @@ class InnerCoverLifecycleScreen extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(
-          title: const Text('Inner Covers'),
-          backgroundColor: BafColors.card,
-          surfaceTintColor: Colors.transparent,
+          title: const BafAppBarTitle(
+            title: 'Inner Covers',
+            subtitle: 'Base pairing, spare pool and fabrication',
+            icon: Icons.layers_outlined,
+            accent: BafColors.maintenance,
+          ),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Bases'),

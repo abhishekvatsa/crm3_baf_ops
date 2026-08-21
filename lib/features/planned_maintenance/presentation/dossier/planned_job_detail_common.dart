@@ -34,7 +34,7 @@ class _DossierHeaderCard extends StatelessWidget {
             height: 58,
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: Icon(
               execution.isCompleted
@@ -150,7 +150,7 @@ class _ClosedDossierStatusCard extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: BafColors.sync.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: const Icon(
                   Icons.verified_user_rounded,
@@ -527,7 +527,7 @@ class _ActionDossierCard extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: severityColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: Icon(
                   _actionIcon(action.actionType),

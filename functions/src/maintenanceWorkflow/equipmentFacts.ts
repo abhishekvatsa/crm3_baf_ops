@@ -108,6 +108,7 @@ export const equipmentFactsFromProjection = (
 export const workflowContribution = (
   workflow: JsonMap,
 ): WorkflowContribution => {
+  if (workflow.workflowKind === "issueCoordination") return "none";
   if (
     workflow.status === "completed" ||
     workflow.status === "cancelled" ||
@@ -156,6 +157,7 @@ export const loadEquipmentFacts = async (
   for (const row of workflows) {
     if (excluded.has(workflowIdFromPath(row.path))) continue;
     const data = row.data ?? {};
+    if (data.workflowKind === "issueCoordination") continue;
     if (identity.assetClassId != null && identity.assetInstanceId != null) {
       const assetClassId = typeof data.assetClassId === "string" &&
         data.assetClassId.trim().length > 0 ? data.assetClassId.trim() : null;

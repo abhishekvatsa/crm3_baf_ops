@@ -25,6 +25,7 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
       _selectedPackageId = id ?? _newPackageSentinel;
       _selectedPackage = package;
       _workingDraft = null;
+      _selectedMaintenanceClassId = null;
 
       if (package == null) {
         _packageCodeController.clear();
@@ -104,6 +105,9 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
       _moduleSnapshotsJsonController.text = source.moduleSnapshotsJson;
       _fieldDefinitionsJsonController.text = source.fieldDefinitionsJson;
       _checklistJsonController.text = source.checklistJson;
+      _selectedMaintenanceClassId = _maintenanceClassIdFromMetadata(
+        source.metadataJson,
+      );
     });
 
     _showSnack(
@@ -260,6 +264,7 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
   void _resetVersionPayloads({bool keepVersionLabel = true}) {
     _setPublisherState(() {
       _workingDraft = null;
+      _selectedMaintenanceClassId = null;
       if (!keepVersionLabel) {
         _versionLabelController.text = 'v${_nextVersionNumber()}';
       }
@@ -277,5 +282,19 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
   String? _cleanOptional(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  String? _maintenanceClassIdFromMetadata(String? metadataJson) {
+    if (metadataJson == null || metadataJson.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(metadataJson);
+      if (decoded is! Map) return null;
+      final raw = decoded['maintenanceClassification'];
+      if (raw is! Map) return null;
+      final value = raw['definitionId'];
+      return value is String && value.trim().isNotEmpty ? value.trim() : null;
+    } catch (_) {
+      return null;
+    }
   }
 }

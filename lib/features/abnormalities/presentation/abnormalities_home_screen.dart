@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/validation/charge_number.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -53,17 +55,12 @@ class _AbnormalitiesHomeScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Abnormalities',
-          style: TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
+        title: const BafAppBarTitle(
+          title: 'Abnormalities',
+          subtitle: 'Charge events, RA traceability and root causes',
+          icon: Icons.memory_outlined,
+          accent: BafColors.instrument,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
         actions: [
           if (canManageTypes)
             IconButton(
@@ -161,11 +158,13 @@ class _AbnormalitiesHomeScreenState
 
   void _openCharge() {
     final text = _chargeController.text.trim();
-    final chargeNo = int.tryParse(text);
+    final chargeNo = parseOptionalChargeNumber(text);
 
-    if (chargeNo == null || chargeNo <= 0) {
+    if (chargeNo == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Enter a valid charge number')),
+        const SnackBar(
+          content: Text('Enter an exact five-digit charge number'),
+        ),
       );
       return;
     }
@@ -337,11 +336,12 @@ class _ChargeEntryCard extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   keyboardType: TextInputType.number,
+                  inputFormatters: chargeNumberInputFormatters,
                   textInputAction: TextInputAction.go,
                   onSubmitted: (_) => onOpen(),
                   decoration: _inputDecoration(
                     label: 'Source / old charge no.',
-                    hint: 'Example: 123456',
+                    hint: 'Example: 12345',
                   ),
                 ),
               ),

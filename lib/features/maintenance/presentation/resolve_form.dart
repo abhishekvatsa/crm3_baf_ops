@@ -220,7 +220,9 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       useSafeArea: true,
       backgroundColor: BafColors.card,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(BafRadius.medium),
+        ),
       ),
       builder: (_) => const ActionBottomSheet(),
     );
@@ -1117,7 +1119,7 @@ class _TicketSummaryCard extends StatelessWidget {
                 height: 50,
                 decoration: BoxDecoration(
                   color: BafColors.sync.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: const Icon(
                   Icons.task_alt_rounded,

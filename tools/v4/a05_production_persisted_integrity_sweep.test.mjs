@@ -620,6 +620,91 @@ test('app and Functions source collection references are all registered', () => 
   );
 });
 
+test('successor business collections have exact app or server authority', () => {
+  const appDecoded = [
+    'asset_availability_current',
+    'asset_condition_declarations',
+    'frequent_issue_definitions',
+    'furnace_stuckup_cases',
+    'inspection_campaigns',
+    'inspection_definitions',
+    'inspection_findings',
+    'inspection_observations',
+    'maintenance_class_definitions',
+    'maintenance_completion_events',
+    'maintenance_due_states',
+    'maintenance_plans',
+  ];
+  const serverOnly = [
+    'asset_availability_constraints',
+    'asset_condition_evidence',
+    'frequent_issue_definition_audits',
+    'historical_maintenance_audits',
+    'historical_maintenance_records',
+    'inspection_campaign_audits',
+    'inspection_definition_audits',
+    'inspection_finding_events',
+    'inspection_issue_links',
+    'inspection_target_audits',
+    'inspection_verifications',
+    'issue_governance_review_queue',
+    'maintenance_class_audits',
+    'maintenance_classification_audits',
+    'maintenance_completion_sources',
+    'maintenance_plan_audits',
+  ];
+  for (const collection of appDecoded) {
+    assert.equal(
+      A05_COLLECTION_REGISTRY[collection],
+      'DART_RECONCILIATION_REQUIRED',
+    );
+  }
+  for (const collection of serverOnly) {
+    assert.equal(A05_COLLECTION_REGISTRY[collection], 'SERVER_CONTROL_RECORD');
+  }
+});
+
+test('every successor app collection reaches a strict Dart decoder', async () => {
+  const successorCollections = [
+    'asset_availability_current',
+    'asset_condition_declarations',
+    'frequent_issue_definitions',
+    'furnace_stuckup_cases',
+    'inspection_campaigns',
+    'inspection_definitions',
+    'inspection_findings',
+    'inspection_observations',
+    'maintenance_class_definitions',
+    'maintenance_completion_events',
+    'maintenance_due_states',
+    'maintenance_plans',
+  ];
+  const documents = {...emptyDocuments()};
+  for (const collection of successorCollections) {
+    documents[collection] = [{id: `private-${collection}`, data: {}}];
+  }
+
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+
+  assert.equal(reconciliation.length, successorCollections.length);
+  assert.deepEqual(
+    [...new Set(reconciliation.map((result) => result.collection))].sort(),
+    [...successorCollections].sort(),
+  );
+  assert.ok(reconciliation.every((result) => result.result === 'FAIL'));
+  assert.ok(
+    reconciliation.every(
+      (result) =>
+        result.errorType !== 'UNSUPPORTED_COLLECTION' &&
+        result.errorType !== 'DART_BRIDGE_UNAVAILABLE',
+    ),
+  );
+  assert.equal(JSON.stringify(reconciliation).includes('private-'), false);
+});
+
 test('production sweep source contains no Firestore mutation API', () => {
   const source = fs.readFileSync(
     path.join(ROOT, 'tools/v4/a05_production_persisted_integrity_sweep.mjs'),

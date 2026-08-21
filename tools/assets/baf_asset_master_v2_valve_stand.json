@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 2,
+  "manifestId": "crm3-baf-asset-master-v2-valve-stand",
+  "productionProjectId": "crm3-baf-ops-b8638",
+  "supersedesManifestId": "crm3-baf-primary-asset-master-v1",
+  "basis": {
+    "businessAuthority": "Owner instruction dated 2026-08-20",
+    "change": "Represent the Valve Stand as a Base assembly and place the protective-atmosphere piping and control devices beneath it.",
+    "identityBoundary": "Existing hierarchy-node IDs and component tags are preserved; only their governed parent relationship changes."
+  },
+  "assetClassCode": "BASE",
+  "parentPath": "atmosphere",
+  "newAssembly": {
+    "key": "valve-stand",
+    "nodeType": "assembly",
+    "name": "Valve Stand assembly",
+    "shortDescription": "Groups the Base protective-atmosphere piping, pressure measurement and control devices installed at the valve stand.",
+    "longDescription": "The Base Valve Stand provides the local protective-atmosphere piping and the pressure sensing, back-pressure control, oil-drain and exhaust-valve interfaces used around the Inner Cover atmosphere circuit.",
+    "discipline": "Mechanical / I&A",
+    "operatingType": "Gas-service piping, measurement and control assembly",
+    "sourceReference": "Owner instruction dated 2026-08-20; SOM pp.53,205; MM pp.4-6",
+    "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]
+  },
+  "reparentNodePaths": [
+    "atmosphere/piping",
+    "atmosphere/pt74",
+    "atmosphere/pcv77",
+    "atmosphere/yiv72",
+    "atmosphere/yiv73"
+  ]
+}

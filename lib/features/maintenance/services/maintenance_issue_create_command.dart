@@ -1,6 +1,7 @@
 import '../data/maintenance_model.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
+import '../domain/furnace_stuckup_case.dart';
 
 WorkflowCommand buildMaintenanceIssueCreateCommand(
   MaintenanceRecord record, {
@@ -22,6 +23,8 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     throw StateError('A governed issue requires a positive create version.');
   }
   final burnerLockout = record.burnerLockoutCase;
+  final furnaceStuckup = record.furnaceStuckupCase;
+  final frequentIssueSelection = record.frequentIssueSelection;
   final ticket = <String, Object?>{
     'schemaVersion': 1,
     'version': createVersion,
@@ -42,6 +45,9 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     'chargeNoAtEvent': record.chargeNoAtEvent,
     ...qualityIntent.toSynchronizedFields(),
     if (burnerLockout != null) ...burnerLockout.toSynchronizedFields(),
+    if (furnaceStuckup != null) ...furnaceStuckup.toSynchronizedFields(),
+    if (frequentIssueSelection != null)
+      'frequentIssueSelection': frequentIssueSelection.toCommandMap(),
   };
   return WorkflowCommand(
     commandId: 'createMaintenanceTicket_$ticketId',
@@ -80,8 +86,19 @@ void validateMaintenanceIssueCreateReceipt({
       redHotPositions is List && redHotPositions.isNotEmpty
           ? 'burner_red_hot_${command.aggregateId}'
           : null;
+  final expectedStuckupCaseId =
+      ticket['classification'] == furnaceStuckupClassification
+          ? command.aggregateId
+          : null;
+  final selection = ticket['frequentIssueSelection'];
+  final expectedReviewQueueId =
+      selection is Map && selection['selectionType'] == 'unlisted'
+          ? command.aggregateId
+          : null;
   if (receipt.result['warningId'] != expectedWarningId ||
-      receipt.result['directiveId'] != expectedDirectiveId) {
+      receipt.result['directiveId'] != expectedDirectiveId ||
+      receipt.result['stuckupCaseId'] != expectedStuckupCaseId ||
+      receipt.result['reviewQueueId'] != expectedReviewQueueId) {
     throw StateError(
       'The governed issue-creation receipt has inconsistent derived evidence.',
     );

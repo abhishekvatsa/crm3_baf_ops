@@ -374,7 +374,7 @@ class _TemplateSummaryCard extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   color: BafColors.planned.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: const Icon(
                   Icons.assignment_rounded,
@@ -579,7 +579,7 @@ class _ActionTile extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: Icon(icon, color: color, size: 26),
               ),

@@ -125,7 +125,7 @@ class _HistoryHeader extends StatelessWidget {
             height: 54,
             decoration: BoxDecoration(
               color: BafColors.planned.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: const Icon(
               Icons.history_rounded,
@@ -252,7 +252,9 @@ class _ExecutionCard extends StatelessWidget {
                             height: 48,
                             decoration: BoxDecoration(
                               color: statusColor.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(
+                                BafRadius.medium,
+                              ),
                             ),
                             child: Icon(
                               ex.isCompleted
@@ -648,7 +650,9 @@ class _ResponseDetailSheet extends StatelessWidget {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(BafRadius.medium),
+            ),
           ),
           child: Column(
             children: [
@@ -670,7 +674,7 @@ class _ResponseDetailSheet extends StatelessWidget {
                       height: 44,
                       decoration: BoxDecoration(
                         color: BafColors.sync.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(BafRadius.medium),
                       ),
                       child: const Icon(
                         Icons.fact_check_rounded,

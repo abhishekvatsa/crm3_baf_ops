@@ -361,7 +361,7 @@
       "compatibility": "absent closure fields only within a valid snapshot",
       "regression": "test/a05_template_governance_integrity_test.dart",
       "reArmCondition": "malformed snapshot or wrong-typed closure value becomes false, zero, or empty",
-      "riskFingerprint": "b28b9826083e2fec26e58a14f34bc8c5b099964564ebfb49d3ba7981a9d2511f"
+      "riskFingerprint": "eeed8d2019cb978d672fcd513a7408d7d4ec7d72320e8f2ddbb18ac4206c741c"
     },
     {
       "id": "composer-draft-records",
@@ -845,6 +845,185 @@
       "regression": "test/burner_condition_round_idempotency_store_test.dart",
       "reArmCondition": "malformed identity is discarded, an unchanged payload rotates request ID, or a changed payload reuses an old ID",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "charge-number-boundary",
+      "file": "lib/core/validation/charge_number.dart",
+      "markers": [
+        "int readRequiredPersistedChargeNumber(",
+        "int? readOptionalPersistedChargeNumber("
+      ],
+      "classification": "SHARED_DOMAIN_READER",
+      "owner": "operations-and-quality",
+      "authorityBoundary": "exact five-digit persisted charge identity",
+      "malformedDisposition": "fail closed before an invalid charge identity enters an issue, stuck-up case, observation, or quality record",
+      "compatibility": "none for a present charge number; only a schema-declared optional absence is admitted",
+      "regression": "test/charge_number_contract_test.dart",
+      "reArmCondition": "a persisted charge is coerced, truncated, padded, or accepted outside the five-digit range",
+      "riskFingerprint": "69e0b73a07932e89df9592be9a2a214407be7c6ac045f6836bade308cf02d1c2"
+    },
+    {
+      "id": "asset-availability-record",
+      "file": "lib/features/assets/data/asset_availability_record.dart",
+      "markers": [
+        "factory AssetAvailabilityRecord.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "asset-operations",
+      "authorityBoundary": "current governed availability, constraint, linked evidence, and version for one asset",
+      "malformedDisposition": "fail closed before an incomplete or contradictory availability state reaches the plant overview",
+      "compatibility": "schema version 1 only; state-specific constraint evidence must be complete",
+      "regression": "test/asset_availability_record_test.dart",
+      "reArmCondition": "identity, state, constraint, link, chronology, or version validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "furnace-stuckup-records",
+      "file": "lib/features/assets/data/furnace_stuckup_record.dart",
+      "markers": [
+        "factory FurnaceStuckupRecord.fromMap",
+        "factory AssetConditionDeclarationRecord.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "asset-operations",
+      "authorityBoundary": "stuck-up case lifecycle and accumulated asset-condition evidence",
+      "malformedDisposition": "fail closed before mismatched Furnace, Base, Inner Cover, charge, lifecycle, cause, or condition evidence enters operations",
+      "compatibility": "schema version 1 only; lifecycle fields and condition evidence obey complete state-specific contracts",
+      "regression": "test/furnace_stuckup_case_test.dart",
+      "reArmCondition": "stuck-up identity, lifecycle, chronology, association, condition, or version validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "inspection-programme-records",
+      "file": "lib/features/inspections/data/inspection_campaign.dart",
+      "markers": [
+        "factory FrozenInspectionDefinition.fromMap",
+        "factory InspectionDefinition.fromMap",
+        "factory InspectionCampaign.fromMap",
+        "factory InspectionCampaignTarget.fromMap",
+        "factory InspectionObservation.fromMap",
+        "factory InspectionFinding.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "asset-inspection",
+      "authorityBoundary": "version-frozen inspection definition, campaign scope, coverage, typed observation, component identity, and correction evidence",
+      "malformedDisposition": "fail closed before malformed scope, typed values, component identity, chronology, coverage, or correction evidence enters inspection decisions",
+      "compatibility": "schema version 1 only; no partial identity, typed value, counter set, or frozen-definition projection",
+      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js",
+      "reArmCondition": "inspection definition, scope, value, coverage, target, chronology, correction, or component evidence validation changes",
+      "riskFingerprint": "47dbe5abcfb044790cdbfe5e823a0a61560e172985c0949c25de3c59118c46e6"
+    },
+    {
+      "id": "frequent-issue-definition-record",
+      "file": "lib/features/maintenance/data/frequent_issue_definition.dart",
+      "markers": [
+        "factory FrequentIssueDefinition.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "maintenance-intake",
+      "authorityBoundary": "governed frequent-issue applicability, route, evidence, workflow profile, version, and lifecycle",
+      "malformedDisposition": "fail closed before a malformed catalogue definition can prefill or route maintenance intake",
+      "compatibility": "schema version 1 only; applicability and required evidence collections must be complete and duplicate-free",
+      "regression": "test/maintenance_issue_create_command_test.dart; functions/test/frequentIssueDefinition.test.js",
+      "reArmCondition": "definition identity, applicability, routing, evidence, lifecycle, or version validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "frequent-issue-selection",
+      "file": "lib/features/maintenance/domain/frequent_issue_selection.dart",
+      "markers": [
+        "factory FrequentIssueSelection.fromMap",
+        "static FrequentIssueSelection? readOptionalSynchronizedFields("
+      ],
+      "classification": "VERSIONED_OPERATIONAL_INTENT",
+      "owner": "maintenance-intake",
+      "authorityBoundary": "issue-time frozen catalogue selection or explicit unlisted reason",
+      "malformedDisposition": "fail closed for a present current selection while allowing a wholly absent pre-feature selection",
+      "compatibility": "complete schema-versioned selection or wholly absent legacy fields",
+      "regression": "test/maintenance_issue_create_command_test.dart",
+      "reArmCondition": "partial selection fields are ignored or a definition and unlisted reason can coexist",
+      "riskFingerprint": "a6ba389b952072ba47921df903863bb7776ca4f6949f86e4814ace0161a1d60a"
+    },
+    {
+      "id": "furnace-stuckup-intent",
+      "file": "lib/features/maintenance/domain/furnace_stuckup_case.dart",
+      "markers": [
+        "factory FurnaceStuckupCase.fromSynchronizedFields",
+        "static FurnaceStuckupCase? readOptionalSynchronizedFields("
+      ],
+      "classification": "VERSIONED_OPERATIONAL_INTENT",
+      "owner": "maintenance-intake",
+      "authorityBoundary": "issue-time Furnace stuck-up classification, Base identity, and linked Inner Cover evidence",
+      "malformedDisposition": "fail closed for present synchronized fields; malformed optional local display metadata carries no authority",
+      "compatibility": "complete schema-versioned stuck-up fields or wholly absent legacy fields",
+      "regression": "test/furnace_stuckup_case_test.dart",
+      "reArmCondition": "partial fields, invalid Base identity, or an unlinked Inner Cover are admitted",
+      "riskFingerprint": "0091e230ee4bd6213ec1bbb0c989a11dafecb4706a70b22581c608b4cbc52c66"
+    },
+    {
+      "id": "maintenance-intelligence-records",
+      "file": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
+      "markers": [
+        "factory FrozenMaintenanceClass.fromMap",
+        "factory MaintenanceClassDefinition.fromMap",
+        "factory MaintenanceDueState.fromMap",
+        "factory MaintenanceCompletionEvent.fromMap",
+        "factory MaintenancePlan.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "version-frozen maintenance class, completion history, cadence counters, due state, and planning window",
+      "malformedDisposition": "fail closed before malformed class, completion history, reset-counter, due, scope, chronology, or plan evidence enters maintenance planning",
+      "compatibility": "schema version 1 only; complete class identity and state-specific cadence evidence",
+      "regression": "test/ui_business_alignment_test.dart; functions/test/maintenanceIntelligence.test.js",
+      "reArmCondition": "maintenance class, completion-event, counter, due-state, plan-window, status, or version validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "planned-job-maintenance-metadata-display",
+      "file": "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+      "markers": [
+        "FrozenMaintenanceClass? _maintenanceClassFromMetadata(",
+        "String? _assetClassIdFromMetadata("
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "planned-maintenance-presentation",
+      "authorityBoundary": "read-only display of frozen maintenance classification and assignment asset class",
+      "malformedDisposition": "withhold the optional display enrichment; mutation authority remains derived from approved user and server-governed execution state",
+      "compatibility": "absent pre-feature metadata and unrelated opaque metadata only",
+      "regression": "test/ui_business_alignment_test.dart",
+      "reArmCondition": "metadata display output becomes command authority or malformed metadata enables a mutation",
+      "riskFingerprint": "51b6019dff6ea1087397760c1a5ff60cf763e26136e3d9f2a098cdbad7539d5b"
+    },
+    {
+      "id": "closed-ticket-maintenance-metadata-display",
+      "file": "lib/features/maintenance/presentation/closed_tickets_screen.dart",
+      "markers": [
+        "FrozenMaintenanceClass? _ticketMaintenanceClass("
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "maintenance-history-presentation",
+      "authorityBoundary": "read-only display of a frozen maintenance classification attached to a completed issue",
+      "malformedDisposition": "withhold the optional classification badge; correction authority and all mutation validation remain server-derived",
+      "compatibility": "absent pre-feature metadata and unrelated or malformed opaque metadata only",
+      "regression": "test/operational_ux_restructure_test.dart; functions/test/maintenanceIntelligence.test.js",
+      "reArmCondition": "decoded ticket metadata becomes mutation authority or malformed metadata enables maintenance classification",
+      "riskFingerprint": "16181ba05c48297231a854c8d9bb63394e1ee094100acad8d832596ceb2d2be6"
+    },
+    {
+      "id": "template-publisher-maintenance-metadata-display",
+      "file": "lib/features/planned_maintenance/presentation/template_publisher_screen.support.dart",
+      "markers": [
+        "String? _maintenanceClassIdFromMetadata("
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "planned-maintenance-presentation",
+      "authorityBoundary": "read-only restoration of an optional maintenance-class selection from draft metadata",
+      "malformedDisposition": "withhold the optional selection and require explicit user choice before publication",
+      "compatibility": "absent pre-feature metadata and unrelated opaque metadata only",
+      "regression": "test/template_version_snapshot_contract_test.dart",
+      "reArmCondition": "malformed metadata silently selects or authorizes a maintenance class",
+      "riskFingerprint": "2a124a35bd917cedf142134d338655ed551fa605dd0544eb1c69ad931cfdb163"
     }
   ],
   "catchSites": [
@@ -1380,6 +1559,58 @@
       "malformedDisposition": "throw invalid-response and do not persist assignment success",
       "regression": "test/published_template_assignment_server_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "malformed assignment response is accepted or persisted as success"
+    },
+    {
+      "id": "furnace-stuckup-identity-error-translation",
+      "file": "lib/features/maintenance/domain/furnace_stuckup_case.dart",
+      "siteFingerprint": "999739405ef14cb7a1596df876e046a6ecd8c4c953ea3b46e3626d1ccb02f031",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate an invalid decoded hierarchy relationship into persisted-data failure",
+      "authorityBoundary": "issue-time Furnace stuck-up Base and Inner Cover identity",
+      "mutability": "none",
+      "dataScope": "present synchronized Furnace stuck-up fields",
+      "malformedDisposition": "throw PersistedDataFormatException and block authoritative use",
+      "regression": "test/furnace_stuckup_case_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "an invalid hierarchy reference becomes a valid stuck-up classification"
+    },
+    {
+      "id": "planned-job-maintenance-class-display-containment",
+      "file": "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+      "siteFingerprint": "32a4c9094dd9e144e123c52b5d6b467e82a2950694d1b30d985b57b5bae06157",
+      "classification": "READ_ONLY_DISPLAY_CONTAINMENT",
+      "purpose": "withhold malformed optional frozen maintenance-class display metadata",
+      "authorityBoundary": "planned-job dossier display only",
+      "mutability": "none",
+      "dataScope": "JobExecution.metadataJson maintenanceClassification",
+      "malformedDisposition": "return no display classification; do not infer cadence or mutation authority",
+      "regression": "test/ui_business_alignment_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "missing display metadata is treated as valid command or cadence authority"
+    },
+    {
+      "id": "planned-job-asset-class-display-containment",
+      "file": "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+      "siteFingerprint": "77ff535a9c238c6916bcafec8bfa5b6585eed94a8d2e82813424272bdcd6a412",
+      "classification": "READ_ONLY_DISPLAY_CONTAINMENT",
+      "purpose": "withhold malformed optional assignment asset-class display metadata",
+      "authorityBoundary": "planned-job dossier display only",
+      "mutability": "none",
+      "dataScope": "JobExecution.metadataJson assignmentAssetIdentity",
+      "malformedDisposition": "return no asset-class display value; preserve the execution's governed asset identity",
+      "regression": "test/ui_business_alignment_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "missing display metadata replaces governed execution identity or enables a mutation"
+    },
+    {
+      "id": "template-publisher-maintenance-class-display-containment",
+      "file": "lib/features/planned_maintenance/presentation/template_publisher_screen.support.dart",
+      "siteFingerprint": "1c1c2a4afa9fec69109cd19e01e1b8c86bd3ce61e5482c8e0fe5c0741366188b",
+      "classification": "READ_ONLY_DISPLAY_CONTAINMENT",
+      "purpose": "withhold a malformed optional maintenance-class selection from draft metadata",
+      "authorityBoundary": "template publisher form restoration only",
+      "mutability": "none until the user explicitly selects and publishes a valid active class",
+      "dataScope": "template draft metadata maintenanceClassification",
+      "malformedDisposition": "return no selection and require explicit valid input",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed draft metadata selects or authorizes a maintenance class"
     }
   ]
 }

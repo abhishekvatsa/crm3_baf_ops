@@ -199,7 +199,7 @@ class _TimelineFilterCard extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   color: BafColors.assets.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: const Icon(
                   Icons.precision_manufacturing_rounded,
@@ -419,7 +419,7 @@ class _TimelineCard extends StatelessWidget {
                         height: 44,
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.11),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(BafRadius.medium),
                         ),
                         child: Icon(icon, color: color, size: 25),
                       ),

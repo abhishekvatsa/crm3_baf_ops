@@ -99,9 +99,12 @@ void main() {
       expect(find.text('2 registered'), findsNothing);
       expect(find.text('1 available'), findsOneWidget);
       expect(find.text('1 maintenance'), findsOneWidget);
+      expect(find.text('0 stuck-up'), findsOneWidget);
       expect(find.text('1 down'), findsOneWidget);
       expect(
-        find.text('Furnace: 2 total, 1 maintenance, 1 unavailable'),
+        find.text(
+          'Furnace: 2 total, 1 maintenance, 0 stuck-up, 1 unavailable',
+        ),
         findsOneWidget,
       );
       await tester.tap(find.text('Plant condition'));

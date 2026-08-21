@@ -4311,6 +4311,39 @@ describe("governed dynamic asset hierarchy", () => {
     );
   });
 
+  test("frequent issues are approved-readable and server-write-only", async () => {
+    await seedUser("si1", ["si"]);
+    await seedDoc("frequent_issue_definitions/issue-1", {
+      definitionId: "issue-1",
+      status: "active",
+    });
+    await seedDoc("frequent_issue_definition_audits/audit-1", {
+      auditId: "audit-1",
+    });
+    await seedDoc("issue_governance_review_queue/ticket-1", {
+      reviewId: "ticket-1",
+      status: "open",
+    });
+
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "frequent_issue_definitions/issue-1"))
+    );
+    await assertFails(
+      setDoc(doc(dbAs("admin1"), "frequent_issue_definitions/issue-2"), {
+        definitionId: "issue-2",
+      })
+    );
+    for (const path of [
+      "frequent_issue_definition_audits/audit-1",
+      "issue_governance_review_queue/ticket-1",
+    ]) {
+      await assertSucceeds(getDoc(doc(dbAs("admin1"), path)));
+      await assertSucceeds(getDoc(doc(dbAs("si1"), path)));
+      await assertFails(getDoc(doc(dbAs("ops1"), path)));
+      await assertFails(deleteDoc(doc(dbAs("admin1"), path)));
+    }
+  });
+
   test("asset-condition audits are Admin-only and receipts stay private", async () => {
     await seedDoc("asset_operational_condition_audits/audit-1", {
       auditId: "audit-1",
@@ -4327,6 +4360,70 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(
       getDoc(doc(dbAs("admin1"), "asset_operational_condition_receipts/request-1"))
     );
+  });
+
+  test("maintenance intelligence is approved-readable and server-write-only", async () => {
+    await seedUser("si1", ["si"]);
+    await seedUser("maintenancePending", ["contractSupervisor"], false);
+    const approvedReadable = [
+      "maintenance_class_definitions/class-1",
+      "maintenance_completion_events/event-1",
+      "maintenance_completion_sources/source-1",
+      "historical_maintenance_records/history-1",
+      "maintenance_due_states/due-1",
+      "maintenance_plans/plan-1",
+    ];
+    for (const path of approvedReadable) {
+      await seedDoc(path, {schemaVersion: 1, identity: path});
+      await assertSucceeds(getDoc(doc(dbAs("ops1"), path)));
+      await assertFails(getDoc(doc(dbAs("maintenancePending"), path)));
+      await assertFails(updateDoc(doc(dbAs("admin1"), path), {clientRewrite: true}));
+      await assertFails(deleteDoc(doc(dbAs("admin1"), path)));
+    }
+    for (const path of [
+      "maintenance_class_audits/audit-1",
+      "maintenance_classification_audits/audit-2",
+      "maintenance_plan_audits/audit-3",
+      "historical_maintenance_audits/audit-4",
+    ]) {
+      await seedDoc(path, {schemaVersion: 1, identity: path});
+      await assertSucceeds(getDoc(doc(dbAs("admin1"), path)));
+      await assertSucceeds(getDoc(doc(dbAs("si1"), path)));
+      await assertFails(getDoc(doc(dbAs("ops1"), path)));
+      await assertFails(deleteDoc(doc(dbAs("admin1"), path)));
+    }
+  });
+
+  test("inspection programmes are approved-readable and server-write-only", async () => {
+    await seedUser("si1", ["si"]);
+    await seedUser("inspectionPending", ["seniorInstrumentation"], false);
+    const approvedReadable = [
+      "inspection_definitions/definition-1",
+      "inspection_campaigns/campaign-1",
+      "inspection_observations/observation-1",
+      "inspection_issue_links/link-1",
+      "inspection_findings/finding-1",
+      "inspection_finding_events/event-1",
+      "inspection_verifications/verification-1",
+    ];
+    for (const path of approvedReadable) {
+      await seedDoc(path, {schemaVersion: 1, identity: path});
+      await assertSucceeds(getDoc(doc(dbAs("ops1"), path)));
+      await assertFails(getDoc(doc(dbAs("inspectionPending"), path)));
+      await assertFails(updateDoc(doc(dbAs("admin1"), path), {clientRewrite: true}));
+      await assertFails(deleteDoc(doc(dbAs("admin1"), path)));
+    }
+    for (const path of [
+      "inspection_definition_audits/audit-1",
+      "inspection_campaign_audits/audit-2",
+      "inspection_target_audits/audit-3",
+    ]) {
+      await seedDoc(path, {schemaVersion: 1, identity: path});
+      await assertSucceeds(getDoc(doc(dbAs("admin1"), path)));
+      await assertSucceeds(getDoc(doc(dbAs("si1"), path)));
+      await assertFails(getDoc(doc(dbAs("ops1"), path)));
+      await assertFails(deleteDoc(doc(dbAs("admin1"), path)));
+    }
   });
 
   test("burner rounds are approved-readable, immutable, and receipts stay private", async () => {
@@ -4348,6 +4445,26 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(
       getDoc(doc(dbAs("admin1"), "burner_condition_round_receipts/request-1"))
     );
+  });
+
+  test("furnace stuck-up integrity projections are approved-readable and server-write-only", async () => {
+    await seedUser("stuckupPending", ["operations"], false);
+    const paths = [
+      "furnace_stuckup_cases/case-1",
+      "asset_availability_constraints/constraint-1",
+      "asset_availability_current/furnace-1",
+      "asset_condition_declarations/declaration-1",
+      "asset_condition_evidence/evidence-1",
+    ];
+    for (const path of paths) {
+      await seedDoc(path, {schemaVersion: 1, identity: path});
+      await assertSucceeds(getDoc(doc(dbAs("ops1"), path)));
+      await assertFails(getDoc(doc(dbAs("stuckupPending"), path)));
+      await assertFails(
+        updateDoc(doc(dbAs("admin1"), path), {clientRewrite: true})
+      );
+      await assertFails(deleteDoc(doc(dbAs("admin1"), path)));
+    }
   });
 
   test("Inner Cover audits are Admin-only and custody records stay private", async () => {

@@ -1,11 +1,11 @@
 {
-    "name": "crm3_baf_ops",
-    "short_name": "crm3_baf_ops",
+    "name": "CRM-III BAF Ops by A ManMithas Productions",
+    "short_name": "BAF Ops",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "CRM-III BAF App",
+    "background_color": "#172128",
+    "theme_color": "#0E7A7E",
+    "description": "CRM-III BAF Ops by A ManMithas Productions",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

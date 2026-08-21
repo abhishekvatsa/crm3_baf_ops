@@ -13,9 +13,15 @@ substitutions, broad JSON coercion, and catches without a durable repair state.
 
 ## Source Closure
 
-The final machine inventory covers 39 persisted decoder surfaces, 36 decoder
+The closure-time machine inventory covered 39 persisted decoder surfaces, 36 decoder
 catch sites, 32 timestamp readers, 28 direct timestamp candidates and 234 risk
 candidates. It reports no unclassified file, catch, candidate or stale policy.
+
+The 21 August 2026 business-function re-arm expands the current inventory to
+64 decoder surfaces, 45 decoder catch sites, 64 timestamp readers and 319 risk
+candidates. The new asset-availability, Furnace stuck-up, frequent-issue,
+maintenance-intelligence and inspection records are explicitly classified;
+the current inventories again report no unclassified or stale policy.
 
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not

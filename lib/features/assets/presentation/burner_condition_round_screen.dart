@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/asset_hierarchy_model.dart';
@@ -252,10 +253,12 @@ class _BurnerConditionRoundScreenState
   Scaffold _shell(Widget body, {Widget? bottom}) => Scaffold(
     backgroundColor: BafColors.background,
     appBar: AppBar(
-      title: const Text('Record burner round'),
-      backgroundColor: BafColors.card,
-      foregroundColor: BafColors.textPrimary,
-      surfaceTintColor: BafColors.card,
+      title: const BafAppBarTitle(
+        title: 'Record burner round',
+        subtitle: 'Block condition, flame signal and evidence',
+        icon: Icons.fact_check_outlined,
+        accent: BafColors.maintenance,
+      ),
     ),
     body: body,
     bottomNavigationBar: bottom,

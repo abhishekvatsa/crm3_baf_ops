@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {isFiveDigitChargeNumber} from "./chargeNumber";
 
 import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
 import {
@@ -10,6 +11,12 @@ import {
   EquipmentIdentity,
   equipmentDocumentIdForIdentity,
 } from "./maintenanceWorkflow/paths";
+import {
+  assertMaintenanceClassApplies,
+  FrozenMaintenanceClass,
+  parseFrozenMaintenanceClass,
+} from "./maintenanceWorkflow/maintenanceIntelligence";
+import {stableJson} from "./stableJson";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
   | "not-found"
@@ -130,6 +137,8 @@ interface ParsedAssignmentRequest {
   assetNumber: number;
   assetClassId: string | null;
   assetInstanceId: string | null;
+  sourcePlanId: string | null;
+  sourcePlanExpectedVersion: number | null;
   chargeNoAtEvent: number | null;
   remarks: string | null;
   payloadFingerprint: string;
@@ -334,6 +343,8 @@ export function assignmentRequestPayloadFingerprint(data: {
   assetNumber: number;
   assetClassId?: string | null;
   assetInstanceId?: string | null;
+  sourcePlanId?: string | null;
+  sourcePlanExpectedVersion?: number | null;
   chargeNoAtEvent: number | null;
   remarks: string | null;
 }): string {
@@ -346,6 +357,10 @@ export function assignmentRequestPayloadFingerprint(data: {
     assetNumber: data.assetNumber,
     ...(data.assetClassId != null ? {assetClassId: data.assetClassId} : {}),
     ...(data.assetInstanceId != null ? {assetInstanceId: data.assetInstanceId} : {}),
+    ...(data.sourcePlanId != null ? {
+      sourcePlanId: data.sourcePlanId,
+      sourcePlanExpectedVersion: data.sourcePlanExpectedVersion,
+    } : {}),
     chargeNoAtEvent: data.chargeNoAtEvent,
     remarks: data.remarks,
   });
@@ -409,10 +424,27 @@ export function parsePublishedTemplateAssignmentRequest(
       {reasonCode: "assignment-asset-identity-incomplete"},
     );
   }
+  const sourcePlanId = parseOptionalDocumentId(raw.sourcePlanId, "sourcePlanId");
+  const sourcePlanExpectedVersion = raw.sourcePlanExpectedVersion == null ? null :
+    assertPositiveSafeInteger(raw.sourcePlanExpectedVersion, "sourcePlanExpectedVersion");
+  if ((sourcePlanId == null) !== (sourcePlanExpectedVersion == null)) {
+    throw new AssignmentValidationError(
+      "invalid-argument",
+      "A source maintenance plan requires both its identity and expected version.",
+      {reasonCode: "assignment-source-plan-identity-incomplete"},
+    );
+  }
   const chargeNoAtEvent = parseOptionalSafeInteger(
     raw.chargeNoAtEvent,
     "chargeNoAtEvent",
   );
+  if (chargeNoAtEvent != null && !isFiveDigitChargeNumber(chargeNoAtEvent)) {
+    throw new AssignmentValidationError(
+      "invalid-argument",
+      "chargeNoAtEvent must contain exactly five digits.",
+      {reasonCode: "charge-number-invalid", field: "chargeNoAtEvent"},
+    );
+  }
   const remarks = cleanOptionalText(raw.remarks);
   if (remarks != null && remarks.length > MAX_REMARKS_LENGTH) {
     throw new AssignmentValidationError(
@@ -431,6 +463,8 @@ export function parsePublishedTemplateAssignmentRequest(
     assetNumber,
     assetClassId,
     assetInstanceId,
+    sourcePlanId,
+    sourcePlanExpectedVersion,
     chargeNoAtEvent,
     remarks,
   });
@@ -445,6 +479,8 @@ export function parsePublishedTemplateAssignmentRequest(
     assetNumber,
     assetClassId,
     assetInstanceId,
+    sourcePlanId,
+    sourcePlanExpectedVersion,
     chargeNoAtEvent,
     remarks,
     payloadFingerprint,
@@ -702,6 +738,7 @@ type InnerCoverAssignmentPosition = {
 };
 
 type AssignmentEquipmentIdentity = EquipmentIdentity & {
+  assetInstanceVersion: number | null;
   innerCoverPosition: InnerCoverAssignmentPosition | null;
 };
 
@@ -909,6 +946,7 @@ function legacyAssignmentEquipmentIdentity(
     assetNumber: request.assetNumber,
     assetClassId: null,
     assetInstanceId: null,
+    assetInstanceVersion: null,
     innerCoverPosition: null,
   };
 }
@@ -1033,6 +1071,10 @@ function governedAssetInstanceIdentity(
     data.assetClassId,
     "asset instance class identity",
   );
+  const assetInstanceVersion = assertPositiveSafeInteger(
+    data.version,
+    "asset instance version",
+  );
   if (
     documentId !== assetInstanceId ||
     assetClassId !== expectedClassId ||
@@ -1069,6 +1111,7 @@ function governedAssetInstanceIdentity(
     assetNumber: request.assetNumber,
     assetClassId,
     assetInstanceId,
+    assetInstanceVersion,
     innerCoverPosition: null,
   };
 }
@@ -1201,13 +1244,14 @@ function sameInnerCoverPosition(
 }
 
 function sameEquipmentIdentity(
-  left: EquipmentIdentity,
-  right: EquipmentIdentity,
+  left: AssignmentEquipmentIdentity,
+  right: AssignmentEquipmentIdentity,
 ): boolean {
   return left.assetTypeKey === right.assetTypeKey &&
     left.assetNumber === right.assetNumber &&
     left.assetClassId === right.assetClassId &&
-    left.assetInstanceId === right.assetInstanceId;
+    left.assetInstanceId === right.assetInstanceId &&
+    left.assetInstanceVersion === right.assetInstanceVersion;
 }
 
 async function resolveAssignmentEquipmentIdentity(
@@ -1763,6 +1807,7 @@ export function computeTemplateVersionContentHash(
 ): string {
   const bundle = parseSnapshotBundle(version);
   const closure = deriveClosureState(bundle);
+  const maintenanceClassification = maintenanceClassificationFromVersion(version);
   const canonical = JSON.stringify({
     jobTemplateSnapshotJson: assertNonEmptyString(
       version.jobTemplateSnapshotJson,
@@ -1809,10 +1854,44 @@ export function computeTemplateVersionContentHash(
       typeof version.schemaVersion === "number"
         ? Math.trunc(version.schemaVersion)
         : 1,
+    ...(maintenanceClassification == null ? {} : {maintenanceClassification}),
   });
   return `tg2-sha256:${createHash("sha256")
     .update(canonical, "utf8")
     .digest("hex")}`;
+}
+
+function maintenanceClassificationFromVersion(
+  version: AssignmentJsonMap,
+): FrozenMaintenanceClass | null {
+  const raw = cleanOptionalText(version.metadataJson);
+  if (raw == null) return null;
+  let metadata: AssignmentJsonMap;
+  try {
+    const decoded = JSON.parse(raw) as unknown;
+    if (decoded == null || typeof decoded !== "object" || Array.isArray(decoded)) {
+      throw new Error("metadata-not-object");
+    }
+    metadata = decoded as AssignmentJsonMap;
+  } catch (_) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The TemplateVersion metadata is malformed.",
+      {reasonCode: "template-version-metadata-invalid"},
+    );
+  }
+  if (!Object.prototype.hasOwnProperty.call(metadata, "maintenanceClassification")) {
+    return null;
+  }
+  try {
+    return parseFrozenMaintenanceClass(metadata.maintenanceClassification);
+  } catch (_) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The TemplateVersion maintenance classification is malformed.",
+      {reasonCode: "template-maintenance-classification-invalid"},
+    );
+  }
 }
 
 function normalizeAgency(value: string): string {
@@ -2428,6 +2507,26 @@ function buildCanonicalAssignment(args: {
   );
   const agencies = assignedAgencies(packageData, bundle.jobSnapshot);
   const packageCode = cleanOptionalText(packageData.packageCode);
+  const maintenanceClassification = maintenanceClassificationFromVersion(versionData);
+  if (maintenanceClassification != null) {
+    try {
+      assertMaintenanceClassApplies(maintenanceClassification, {
+        assetIdentityKey: equipmentIdentity.assetClassId == null ?
+          `${request.assetType}:${request.assetNumber}` :
+          `${equipmentIdentity.assetClassId}:${equipmentIdentity.assetInstanceId}`,
+        assetTypeKey: request.assetType,
+        assetNumber: request.assetNumber,
+        assetClassId: equipmentIdentity.assetClassId,
+        assetInstanceId: equipmentIdentity.assetInstanceId,
+      });
+    } catch (_) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "The published maintenance class does not apply to the selected asset.",
+        {reasonCode: "template-maintenance-class-asset-scope-mismatch"},
+      );
+    }
+  }
 
   const execution: AssignmentJsonMap = {
     firestoreId: executionId,
@@ -2463,6 +2562,10 @@ function buildCanonicalAssignment(args: {
     remarks: request.remarks,
     teamsInvolved: [],
     chargeNoAtEvent: request.chargeNoAtEvent,
+    ...(request.sourcePlanId != null ? {
+      sourceMaintenancePlanId: request.sourcePlanId,
+      sourceMaintenancePlanVersion: request.sourcePlanExpectedVersion,
+    } : {}),
     responsesJson: "[]",
     actionsJson: "[]",
     version: 1,
@@ -2475,6 +2578,10 @@ function buildCanonicalAssignment(args: {
     metadataJson: JSON.stringify({
       source: "server_governed_published_template_assignment",
       requestId: request.requestId,
+      ...(request.sourcePlanId != null ? {
+        sourceMaintenancePlanId: request.sourcePlanId,
+        sourceMaintenancePlanVersion: request.sourcePlanExpectedVersion,
+      } : {}),
       publicationAuditId,
       packageFirestoreId: request.packageId,
       packageCode,
@@ -2483,6 +2590,7 @@ function buildCanonicalAssignment(args: {
       versionNumber: request.expectedVersionNumber,
       versionLabel: cleanOptionalText(versionData.versionLabel),
       contentHash: request.expectedContentHash,
+      ...(maintenanceClassification == null ? {} : {maintenanceClassification}),
       ...(equipmentIdentity.assetClassId != null ? {
         assignmentAssetIdentity: {
           assetClassId: equipmentIdentity.assetClassId,
@@ -2763,6 +2871,28 @@ async function replayExistingAssignment(args: {
       firestoreId: moduleIds[index],
     });
   }
+  if (request.sourcePlanId != null) {
+    const planSnapshot = await transaction.get(
+      db.collection("maintenance_plans").doc(request.sourcePlanId),
+    );
+    if ("docs" in planSnapshot || !planSnapshot.exists) {
+      throw new AssignmentValidationError(
+        "data-loss",
+        "The source maintenance plan is missing after assignment.",
+        {reasonCode: "assignment-source-plan-missing"},
+      );
+    }
+    const plan = planSnapshot.data() ?? {};
+    if (plan.status !== "released" ||
+        plan.releasedExecutionId !== executionId ||
+        plan.version !== request.sourcePlanExpectedVersion! + 1) {
+      throw new AssignmentValidationError(
+        "data-loss",
+        "The source maintenance plan no longer proves this assignment.",
+        {reasonCode: "assignment-source-plan-release-evidence-invalid"},
+      );
+    }
+  }
 
   return {
     ok: true,
@@ -3022,6 +3152,59 @@ export async function assignPublishedTemplateVersionWithDb(args: {
         },
       );
     }
+    let sourcePlanRelease: {
+      ref: AssignmentDocumentRefLike;
+      auditRef: AssignmentDocumentRefLike;
+      before: AssignmentJsonMap;
+    } | null = null;
+    if (request.sourcePlanId != null) {
+      if (request.assetClassId == null || request.assetInstanceId == null) {
+        throw new AssignmentValidationError(
+          "invalid-argument",
+          "A maintenance plan can be released only to an exact governed asset.",
+          {reasonCode: "assignment-source-plan-asset-identity-required"},
+        );
+      }
+      const planRef = db.collection("maintenance_plans").doc(request.sourcePlanId);
+      const auditRef = db.collection("maintenance_plan_audits")
+        .doc(`assignment_${request.requestId}`);
+      const planSnapshot = await transaction.get(planRef);
+      const auditSnapshot = await transaction.get(auditRef);
+      if ("docs" in planSnapshot || !planSnapshot.exists ||
+          "docs" in auditSnapshot || auditSnapshot.exists) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          "The source maintenance plan or its release audit is unavailable.",
+          {reasonCode: "assignment-source-plan-unavailable"},
+        );
+      }
+      const plan = planSnapshot.data() ?? {};
+      const planClass = maintenanceClassificationFromVersion(versionData);
+      if (plan.schemaVersion !== 2 || plan.planId !== request.sourcePlanId ||
+          plan.version !== request.sourcePlanExpectedVersion ||
+          plan.status !== "ready" ||
+          plan.assetIdentityKey !== `${request.assetClassId}:${request.assetInstanceId}` ||
+          plan.assetTypeKey !== request.assetType ||
+          plan.assetNumber !== request.assetNumber ||
+          plan.assetClassId !== request.assetClassId ||
+          plan.assetInstanceId !== request.assetInstanceId ||
+          plan.assetInstanceVersion !==
+            assignmentEquipmentIdentity.assetInstanceVersion ||
+          planClass == null ||
+          plan.maintenanceClassDefinitionId !== planClass.definitionId ||
+          plan.maintenanceClassDefinitionVersion !== planClass.definitionVersion ||
+          (plan.templatePackageId != null && plan.templatePackageId !== request.packageId) ||
+          (plan.templateVersionId != null && plan.templateVersionId !== request.versionId) ||
+          (plan.templateContentHash != null &&
+            plan.templateContentHash !== request.expectedContentHash)) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          "The ready maintenance plan no longer matches the selected asset and published maintenance class.",
+          {reasonCode: "assignment-source-plan-mismatch"},
+        );
+      }
+      sourcePlanRelease = {ref: planRef, auditRef, before: plan};
+    }
     await revalidateAssignmentEquipmentIdentity(
       transaction,
       db,
@@ -3156,6 +3339,31 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       version: equipmentProjection.version + 1,
       updatedAt: assignedAt,
     }, {merge: true});
+    if (sourcePlanRelease != null) {
+      const releasedPlan = {
+        ...sourcePlanRelease.before,
+        status: "released",
+        version: request.sourcePlanExpectedVersion! + 1,
+        releasedExecutionId: canonical.executionId,
+        releasedAt: assignedAt,
+        updatedAt: assignedAt,
+        updatedByUid: actorUid,
+        updatedByName: actorName,
+      };
+      transaction.set(sourcePlanRelease.ref, releasedPlan);
+      transaction.set(sourcePlanRelease.auditRef, {
+        schemaVersion: 1,
+        auditId: `assignment_${request.requestId}`,
+        planId: request.sourcePlanId,
+        operation: "release-to-governed-assignment",
+        performedByUid: actorUid,
+        performedByName: actorName,
+        performedAt: assignedAt,
+        reason: "Release the ready maintenance plan through its governed published template.",
+        beforeJson: stableJson(sourcePlanRelease.before),
+        afterJson: stableJson(releasedPlan),
+      });
+    }
     for (const module of canonical.modules) {
       transaction.set(
         db.collection("job_modules").doc(module.id),
@@ -3170,6 +3378,8 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       versionId: request.versionId,
       versionNumber: request.expectedVersionNumber,
       contentHash: request.expectedContentHash,
+      sourcePlanId: request.sourcePlanId,
+      sourcePlanExpectedVersion: request.sourcePlanExpectedVersion,
       publicationAuditId: publicationAudit.id,
       executionId: canonical.executionId,
       moduleIds: canonical.modules.map((module) => module.id),

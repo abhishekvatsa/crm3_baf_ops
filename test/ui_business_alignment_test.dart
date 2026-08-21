@@ -17,6 +17,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/presentation/complete_
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/planned_job_detail_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/providers/maintenance_intelligence_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,6 +118,13 @@ Future<void> _pumpDetail(
         jobDiaryRepositoryProvider.overrideWithValue(
           _EmptyJobDiaryRepository(),
         ),
+        maintenanceClassDefinitionsProvider.overrideWith(
+          (ref) => const Stream.empty(),
+        ),
+        maintenanceDueStatesProvider.overrideWith(
+          (ref) => const Stream.empty(),
+        ),
+        maintenancePlansProvider.overrideWith((ref) => const Stream.empty()),
       ],
       child: MaterialApp(
         home: PlannedJobDetailScreen(execution: _governedExecution()),

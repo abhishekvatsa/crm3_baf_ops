@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/asset_operational_condition.dart';
@@ -64,10 +65,12 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Asset registry'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Asset registry',
+          subtitle: 'Equipment, components and lifecycle state',
+          icon: Icons.precision_manufacturing_outlined,
+          accent: BafColors.assets,
+        ),
       ),
       body: assetsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

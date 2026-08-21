@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../providers/auth_provider.dart';
 
 class PendingApprovalScreen extends ConsumerStatefulWidget {
@@ -40,6 +41,8 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    const BafBrandLockup(compact: true),
+                    const SizedBox(height: BafSpacing.xl),
                     Container(
                       width: 76,
                       height: 76,
@@ -82,14 +85,18 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         OutlinedButton.icon(
-                          onPressed: _isRefreshingProfile ? null : _refreshProfile,
-                          icon: _isRefreshingProfile
-                              ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                              : const Icon(Icons.refresh_rounded),
+                          onPressed:
+                              _isRefreshingProfile ? null : _refreshProfile,
+                          icon:
+                              _isRefreshingProfile
+                                  ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Icon(Icons.refresh_rounded),
                           label: Text(
                             _isRefreshingProfile ? 'Refreshing…' : 'Refresh',
                           ),

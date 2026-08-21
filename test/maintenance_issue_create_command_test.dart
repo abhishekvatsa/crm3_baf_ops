@@ -1,5 +1,7 @@
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_create_command.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/frequent_issue_selection.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'package:crm3_baf_ops/features/quality/domain/issue_quality_intent.dart';
@@ -97,7 +99,7 @@ void main() {
           ..routedTo = RoutedTo.mechanical
           ..isCritical = true
           ..startDate = DateTime.utc(2026, 8, 17)
-          ..chargeNoAtEvent = 123456
+          ..chargeNoAtEvent = 12345
           ..assetHierarchyRefJson =
               '{"schemaVersion":3,"scope":"physicalAsset",'
               '"assetClassId":"class-furnace",'
@@ -147,4 +149,76 @@ void main() {
       throwsStateError,
     );
   });
+
+  test(
+    'frequent issue selection is carried without mutable catalogue text',
+    () {
+      final record =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-frequent-1'
+            ..version = 1
+            ..assetType = AssetType.furnace
+            ..assetNumber = 7
+            ..component = 'Burner system'
+            ..maintenanceType = MaintenanceType.breakdown
+            ..description = 'Burner flame is unstable.'
+            ..routedTo = RoutedTo.instrumentation
+            ..startDate = DateTime.utc(2026, 8, 20)
+            ..assetHierarchyRefJson =
+                '{"schemaVersion":4,"scope":"componentDefinitionOnAsset",'
+                '"assetClassId":"class-furnace","nodeId":"node-burner",'
+                '"nodeVersion":2,"assetInstanceId":"furnace-7",'
+                '"assetInstanceVersion":4}'
+            ..qualityIntent = const IssueQualityIntent(
+              assessment: IssueQualityAssessment.notSuspected,
+            )
+            ..frequentIssueSelection = FrequentIssueSelection.definition(
+              _definition(),
+            );
+
+      final command = buildMaintenanceIssueCreateCommand(
+        record,
+        createVersion: 1,
+      );
+      final ticket = Map<String, Object?>.from(
+        command.payload['ticket']! as Map,
+      );
+      final selection = Map<String, Object?>.from(
+        ticket['frequentIssueSelection']! as Map,
+      );
+
+      expect(selection, <String, Object?>{
+        'schemaVersion': 1,
+        'selectionType': 'definition',
+        'definitionId': 'issue-1',
+        'definitionVersion': 3,
+        'unlistedReason': null,
+      });
+      expect(selection, isNot(contains('definitionTitle')));
+      expect(selection, isNot(contains('definitionCode')));
+    },
+  );
 }
+
+FrequentIssueDefinition _definition() => FrequentIssueDefinition(
+  id: 'issue-1',
+  version: 3,
+  status: FrequentIssueDefinitionStatus.active,
+  code: 'FLAME_UNSTABLE',
+  title: 'Unstable flame',
+  description: 'Burner flame is unstable.',
+  applicableAssetTypeKeys: const <String>['furnace'],
+  applicableAssetClassIds: const <String>[],
+  applicableComponentNodeIds: const <String>['node-burner'],
+  suggestedSeverityKey: 'normal',
+  suggestedMaintenanceTypeKey: 'breakdown',
+  defaultRouteKey: 'instrumentation',
+  requiredEvidenceFields: const <String>['observation'],
+  aliases: const <String>[],
+  createdAt: DateTime.utc(2026, 8, 20),
+  createdByUid: 'admin-1',
+  createdByName: 'Admin',
+  updatedAt: DateTime.utc(2026, 8, 20),
+  updatedByUid: 'admin-1',
+  updatedByName: 'Admin',
+);

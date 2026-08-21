@@ -7,6 +7,7 @@ enum AssetHierarchyStatus { active, retired }
 enum AssetHierarchyReferenceScope {
   definition,
   physicalAsset,
+  componentDefinitionOnAsset,
   installedComponent,
 }
 
@@ -281,6 +282,18 @@ class AssetHierarchyReference {
         'Physical asset references require exact asset identity only.',
       );
     }
+    if (scope == AssetHierarchyReferenceScope.componentDefinitionOnAsset &&
+        (assetInstanceId == null ||
+            assetInstanceVersion == null ||
+            assetNumber == null ||
+            assetInstanceName == null ||
+            componentInstanceId != null ||
+            componentInstanceVersion != null ||
+            componentTag != null)) {
+      throw StateError(
+        'Component-on-asset references require an exact asset and an untagged hierarchy node.',
+      );
+    }
     if (innerCoverAssociation != null &&
         (scope == AssetHierarchyReferenceScope.definition ||
             innerCoverAssociation!.baseAssetInstanceId != assetInstanceId ||
@@ -291,7 +304,9 @@ class AssetHierarchyReference {
     }
     return <String, dynamic>{
       'schemaVersion':
-          scope == AssetHierarchyReferenceScope.physicalAsset ||
+          scope == AssetHierarchyReferenceScope.componentDefinitionOnAsset
+              ? 4
+              : scope == AssetHierarchyReferenceScope.physicalAsset ||
                   innerCoverAssociation != null
               ? 3
               : 2,
@@ -329,7 +344,10 @@ class AssetHierarchyReference {
       source: source,
       minimum: 1,
     );
-    if (schemaVersion != 1 && schemaVersion != 2 && schemaVersion != 3) {
+    if (schemaVersion != 1 &&
+        schemaVersion != 2 &&
+        schemaVersion != 3 &&
+        schemaVersion != 4) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
@@ -351,6 +369,14 @@ class AssetHierarchyReference {
         field: 'scope',
         source: source,
         detail: 'physical asset references require schema 3',
+      );
+    }
+    if (scope == AssetHierarchyReferenceScope.componentDefinitionOnAsset &&
+        schemaVersion != 4) {
+      throw PersistedDataFormatException(
+        field: 'scope',
+        source: source,
+        detail: 'component-on-asset references require schema 4',
       );
     }
     final assetInstanceId = readOptionalPersistedString(
@@ -390,7 +416,7 @@ class AssetHierarchyReference {
     final InnerCoverEventReference? innerCoverAssociation;
     if (rawInnerCoverAssociation == null) {
       innerCoverAssociation = null;
-    } else if (schemaVersion == 3 && rawInnerCoverAssociation is Map) {
+    } else if (schemaVersion >= 3 && rawInnerCoverAssociation is Map) {
       innerCoverAssociation = InnerCoverEventReference.fromMap(
         Map<String, dynamic>.from(rawInnerCoverAssociation),
         source: source,
@@ -427,6 +453,21 @@ class AssetHierarchyReference {
         field: 'scope',
         source: source,
         detail: 'physical asset references require exact asset identity only',
+      );
+    }
+    if (scope == AssetHierarchyReferenceScope.componentDefinitionOnAsset &&
+        (assetInstanceId == null ||
+            assetInstanceVersion == null ||
+            assetNumber == null ||
+            assetInstanceName == null ||
+            componentInstanceId != null ||
+            componentInstanceVersion != null ||
+            map['componentTag'] != null)) {
+      throw PersistedDataFormatException(
+        field: 'scope',
+        source: source,
+        detail:
+            'component-on-asset references require exact asset identity without an installed component',
       );
     }
     final reference = AssetHierarchyReference(

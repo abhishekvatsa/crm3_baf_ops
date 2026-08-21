@@ -32,10 +32,67 @@ import {
   correctMaintenanceTicket,
   verifyMaintenanceTicketAudit,
 } from "./ticketHandlers";
+import {
+  releaseFurnaceStuckup,
+  adjudicateFurnaceStuckup,
+  verifyFurnaceStuckupAudit,
+} from "./furnaceStuckupHandlers";
+import {startIssueCoordination} from "./issueCoordinationHandler";
+import {
+  upsertFrequentIssueDefinition,
+  setFrequentIssueDefinitionStatus,
+} from "./frequentIssueDefinitionHandlers";
+import {
+  classifyMaintenanceExecution,
+  classifyMaintenanceTicket,
+  setMaintenanceClassDefinitionStatus,
+  upsertMaintenanceClassDefinition,
+} from "./maintenanceClassHandlers";
+import {
+  completeMaintenancePlan,
+  setMaintenancePlanStatus,
+  upsertMaintenancePlan,
+} from "./maintenancePlanHandlers";
+import {
+  createInspectionCampaign,
+  linkInspectionObservationIssue,
+  recordInspectionObservation,
+  setInspectionCampaignStatus,
+  setInspectionDefinitionStatus,
+  upsertInspectionDefinition,
+} from "./inspectionCampaignHandlers";
+import {
+  addInspectionCampaignTargets,
+  adjudicateInspectionFinding,
+  setInspectionTargetDisposition,
+  verifyInspectionFinding,
+} from "./inspectionEvidenceHandlers";
+import {recordHistoricalMaintenance} from "./historicalMaintenanceHandlers";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
   createMaintenanceTicket,
+  startIssueCoordination,
+  upsertFrequentIssueDefinition,
+  setFrequentIssueDefinitionStatus,
+  upsertMaintenanceClassDefinition,
+  setMaintenanceClassDefinitionStatus,
+  classifyMaintenanceExecution,
+  classifyMaintenanceTicket,
+  recordHistoricalMaintenance,
+  upsertMaintenancePlan,
+  setMaintenancePlanStatus,
+  completeMaintenancePlan,
+  upsertInspectionDefinition,
+  setInspectionDefinitionStatus,
+  createInspectionCampaign,
+  setInspectionCampaignStatus,
+  addInspectionCampaignTargets,
+  setInspectionTargetDisposition,
+  recordInspectionObservation,
+  linkInspectionObservationIssue,
+  verifyInspectionFinding,
+  adjudicateInspectionFinding,
   finalizeLaneSet,
   acknowledgeLane,
   addLane,
@@ -58,6 +115,8 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   reconcileEquipment,
   acknowledgeMaintenanceTicket,
   correctMaintenanceTicket,
+  releaseFurnaceStuckup,
+  adjudicateFurnaceStuckup,
 };
 
 export class MaintenanceWorkflowCommandService {
@@ -107,6 +166,7 @@ export class MaintenanceWorkflowCommandService {
       const replay = await readExistingReceipt(tx, command, actor);
       if (replay != null) {
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
+        await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
         return replay;
       }
       const authorityScope = await resolveFreshWorkflowAuthorityScope(

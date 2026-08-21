@@ -364,8 +364,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 200
-    and counts.get("SUCCESSOR_MODIFIED") == 210
+    and counts.get("BYTE_IDENTICAL") == 188
+    and counts.get("SUCCESSOR_MODIFIED") == 222
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -7298,8 +7298,8 @@ check(
     and "actor.canAcknowledgeOrWorkMaintenanceLane" in operational_ux_workflow
     and "directives-search" in operational_ux_directives
     and "BoxConstraints(maxWidth: 960)" in operational_ux_directives
-    and "static const large = 10.0" in operational_ux_theme
-    and "static const xLarge = 12.0" in operational_ux_theme
+    and "static const large = 8.0" in operational_ux_theme
+    and "static const xLarge = 8.0" in operational_ux_theme
     and "operations Work is task-first" in operational_ux_test
     and "empty Issues keeps reporting primary" in operational_ux_test
     and "Directives supports immediate search" in operational_ux_test,
@@ -8571,6 +8571,10 @@ if sys.platform == "win32" and dart_executable:
         dart_executable = str(sdk_dart)
     elif located_dart.suffix.lower() in {".bat", ".cmd", ""}:
         dart_executable = None
+    elif located_dart.suffix == ".EXE":
+        # Dart native-asset hooks compare the executable suffix
+        # case-sensitively before appending ".exe" on Windows.
+        dart_executable = str(located_dart.with_suffix(".exe"))
 if dart_executable:
     a04_inventory_process = subprocess.run(
         [
@@ -8755,9 +8759,9 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A"
-    and len(a03_surfaces) == 44
-    and len({surface.get("path") for surface in a03_surfaces}) == 44
+        == "920BEB183C45956F39E2E28ED8FA755EF21C7D90CE4250BC03545613E4627E70"
+    and len(a03_surfaces) == 49
+    and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -8779,7 +8783,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "484 operations" in a03_remediation
+    and "497 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(
@@ -8792,16 +8796,16 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 54
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 65
     and a04_inventory_report.get("inventoryDigest")
-        == "27863AC2C3E366BD34BFAC9D092EA86AF269756BAD56C05C1974D78F843697C9"
+        == "EA096D6B6693F083A7B359D556C963331F2C0018FCB5812A8CCB5A0A19A520E3"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
     and len(a04_fields) == 53
     and len({field.get("id") for field in a04_fields}) == 53
-    and len(a04_inherited_decoders) == 54
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 54
+    and len(a04_inherited_decoders) == 65
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 65
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -8820,6 +8824,14 @@ check(
     and "classifies 53" in a04_remediation
     and "current extension registry contains zero fields" in a04_remediation
     and "supported-local-generation reconciliation" in a04_remediation,
+    (
+        f"returncode={a04_inventory_process.returncode} "
+        f"result={a04_inventory_report.get('result')} "
+        f"fields={a04_inventory_report.get('fieldCount')} "
+        f"decoders={a04_inventory_report.get('inheritedDecoderSurfaceCount')} "
+        f"digest={a04_inventory_report.get('inventoryDigest')} "
+        f"stderr={a04_inventory_process.stderr.strip()}"
+    ),
 )
 check(
     "A-03 closes on exact persistence inventory and admitted CI authority",
@@ -9061,10 +9073,10 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 54
-    and a05_timestamp_inventory_report.get("directCallCount") == 133
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 75
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 56
+    and a05_timestamp_inventory_report.get("readerCount") == 67
+    and a05_timestamp_inventory_report.get("directCallCount") == 160
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 95
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 63
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
@@ -9078,7 +9090,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 54
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 67
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -9103,17 +9115,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 54
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 41
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 35
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 25
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 275
+    and a05_decoder_inventory_report.get("surfaceCount") == 65
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 45
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 43
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 31
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 327
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 54
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 41
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 65
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 45
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -9693,8 +9705,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 200
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 210
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 188
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 222
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

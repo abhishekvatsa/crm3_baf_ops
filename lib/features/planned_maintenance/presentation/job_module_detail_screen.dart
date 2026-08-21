@@ -909,7 +909,7 @@ class _ModuleHeaderCard extends StatelessWidget {
                 height: 56,
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: Icon(
                   _statusIcon(module.status),

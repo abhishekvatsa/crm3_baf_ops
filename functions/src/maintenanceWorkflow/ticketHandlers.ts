@@ -9,6 +9,7 @@ import {
 } from "./types";
 import {cleanText, iso, stableJson} from "./utils";
 import {WorkflowTransaction} from "./store";
+import {isFiveDigitChargeNumber} from "../chargeNumber";
 
 const ROUTES = new Set([
   "operations", "electrical", "mechanical", "instrumentation",
@@ -31,6 +32,20 @@ const CORRECTABLE_FIELDS = new Set([
   "subsystem", "tag", "classification", "otherDepartment", "remarks",
 ]);
 const BURNER_LOCKOUT_CLASSIFICATION = "furnaceBurnerLockout";
+const FURNACE_STUCKUP_CLASSIFICATION = "furnaceStuckup";
+const STUCKUP_CAUSES = new Set([
+  "innerCoverBulging",
+  "draftSealPlateDamagedOrFallen",
+  "insufficientDraftSealClearance",
+  "combinedCondition",
+  "other",
+  "unknown",
+]);
+const STUCKUP_CONTEXTS = new Set([
+  "postAnnealingRemoval",
+  "maintenanceMovement",
+  "other",
+]);
 const CREATE_TICKET_FIELDS = [
   "schemaVersion", "version", "assetType", "assetNumber", "component",
   "subsystem", "tag", "hierarchyPath", "assetHierarchyRefJson",
@@ -45,6 +60,16 @@ const CREATE_BURNER_FIELDS = [
   "burnerSparkObservation", "burnerRelightAttempts",
   "burnerRemainsLockedOut", "burnerRedHotPositions",
   "burnerAttendedPositions", "burnerResolutionEvidence",
+] as const;
+const CREATE_STUCKUP_FIELDS = [
+  "furnaceStuckupSchemaVersion", "stuckupBaseNumber",
+  "stuckupBaseAssetRefJson", "stuckupSuspectedCause",
+  "stuckupOperatingContext",
+] as const;
+const FREQUENT_ISSUE_SELECTION_FIELD = "frequentIssueSelection";
+const FREQUENT_ISSUE_SELECTION_FIELDS = [
+  "schemaVersion", "selectionType", "definitionId", "definitionVersion",
+  "unlistedReason",
 ] as const;
 
 const isValidBurnerPositionList = (
@@ -184,6 +209,142 @@ const persistedStringList = (
   value ?? [], field, maximumItems, maximumLength,
 ) ?? [];
 
+const parseFrequentIssueSelectionShape = (value: unknown): JsonMap => {
+  const selection = record(value, FREQUENT_ISSUE_SELECTION_FIELD);
+  exactKeys(
+    selection,
+    FREQUENT_ISSUE_SELECTION_FIELDS,
+    FREQUENT_ISSUE_SELECTION_FIELD,
+  );
+  if (selection.schemaVersion !== 1 ||
+      !["definition", "unlisted"].includes(String(selection.selectionType))) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "The frequent-issue selection is invalid.",
+      {reasonCode: "frequent-issue-selection-invalid"},
+    );
+  }
+  if (selection.selectionType === "definition") {
+    boundedText(selection.definitionId, "definitionId", 1, 160);
+    requiredInteger(
+      selection.definitionVersion,
+      "definitionVersion",
+      1,
+      2147483647,
+    );
+    if (selection.unlistedReason != null) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "A governed frequent issue cannot also contain an unlisted reason.",
+      );
+    }
+  } else {
+    if (selection.definitionId != null || selection.definitionVersion != null) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "An unlisted issue cannot claim a governed definition.",
+      );
+    }
+    boundedText(selection.unlistedReason, "unlistedReason", 5, 500);
+  }
+  return selection;
+};
+
+const resolveFrequentIssueSelection = async (args: {
+  readonly tx: WorkflowTransaction;
+  readonly selection: JsonMap | null;
+  readonly assetType: string;
+  readonly assetClassId: string;
+  readonly componentNodeId: string;
+  readonly classification: string | null;
+  readonly chargeNoAtEvent: number | null;
+  readonly burnerHmiAlarm: string | null;
+  readonly isStuckup: boolean;
+}): Promise<JsonMap | null> => {
+  if (args.selection == null) return null;
+  if (args.selection.selectionType === "unlisted") {
+    return {
+      schemaVersion: 1,
+      selectionType: "unlisted",
+      definitionId: null,
+      definitionVersion: null,
+      definitionCode: null,
+      definitionTitle: null,
+      codeOwnedWorkflowProfile: null,
+      unlistedReason: args.selection.unlistedReason as string,
+    };
+  }
+  const definitionId = cleanText(args.selection.definitionId, "definitionId");
+  const definitionVersion = requiredInteger(
+    args.selection.definitionVersion,
+    "definitionVersion",
+    1,
+    2147483647,
+  );
+  const snapshot = await args.tx.get(
+    `frequent_issue_definitions/${definitionId}`,
+  );
+  const definition = snapshot.data;
+  if (!snapshot.exists || definition == null || definition.schemaVersion !== 1 ||
+      definition.definitionId !== definitionId ||
+      definition.version !== definitionVersion || definition.status !== "active" ||
+      typeof definition.normalizedCode !== "string" ||
+      typeof definition.title !== "string" ||
+      !Array.isArray(definition.applicableAssetTypeKeys) ||
+      !Array.isArray(definition.applicableAssetClassIds) ||
+      !Array.isArray(definition.applicableComponentNodeIds) ||
+      !Array.isArray(definition.requiredEvidenceFields)) {
+    throw new WorkflowError(
+      "aborted",
+      "The selected frequent issue changed or is no longer active.",
+      {reasonCode: "frequent-issue-definition-changed", definitionId},
+    );
+  }
+  const assetApplies = definition.applicableAssetTypeKeys.includes(
+    args.assetType,
+  ) || definition.applicableAssetClassIds.includes(args.assetClassId);
+  const componentApplies = definition.applicableComponentNodeIds.length === 0 ||
+    definition.applicableComponentNodeIds.includes(args.componentNodeId);
+  if (!assetApplies || !componentApplies) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected frequent issue does not apply to this asset component.",
+      {reasonCode: "frequent-issue-definition-out-of-scope", definitionId},
+    );
+  }
+  const profile = definition.codeOwnedWorkflowProfile ?? null;
+  if (profile != null &&
+      (profile !== "furnaceStuckup" || !args.isStuckup ||
+        args.classification !== FURNACE_STUCKUP_CLASSIFICATION)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "This frequent issue requires its specialized workflow.",
+      {reasonCode: "frequent-issue-specialized-workflow-required", definitionId},
+    );
+  }
+  const requiredEvidence = definition.requiredEvidenceFields as unknown[];
+  if ((requiredEvidence.includes("chargeNo") && args.chargeNoAtEvent == null) ||
+      (requiredEvidence.includes("alarmText") && args.burnerHmiAlarm == null) ||
+      (requiredEvidence.includes("operatingContext") && !args.isStuckup) ||
+      requiredEvidence.includes("photo") || requiredEvidence.includes("measurement")) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected frequent issue requires evidence not present on this issue.",
+      {reasonCode: "frequent-issue-required-evidence-missing", definitionId},
+    );
+  }
+  return {
+    schemaVersion: 1,
+    selectionType: "definition",
+    definitionId,
+    definitionVersion,
+    definitionCode: definition.normalizedCode as string,
+    definitionTitle: definition.title as string,
+    codeOwnedWorkflowProfile: profile as string | null,
+    unlistedReason: null,
+  };
+};
+
 const parseIsoInstant = (
   value: unknown,
   field: string,
@@ -247,9 +408,12 @@ const requireFreshAssetReference = async (args: {
     );
   }
   const reference = record(parsed, "assetHierarchyRefJson");
-  if (reference.schemaVersion !== 3 ||
-      (reference.scope !== "physicalAsset" &&
-        reference.scope !== "installedComponent")) {
+  const physicalReference = reference.schemaVersion === 3 &&
+    (reference.scope === "physicalAsset" ||
+      reference.scope === "installedComponent");
+  const componentDefinitionReference = reference.schemaVersion === 4 &&
+    reference.scope === "componentDefinitionOnAsset";
+  if (!physicalReference && !componentDefinitionReference) {
     throw new WorkflowError(
       "failed-precondition",
       "The governed asset reference is not an exact physical identity.",
@@ -257,7 +421,8 @@ const requireFreshAssetReference = async (args: {
     );
   }
   const classId = boundedText(reference.assetClassId, "assetClassId", 1, 160);
-  const scope = reference.scope as "physicalAsset" | "installedComponent";
+  const scope = reference.scope as
+    "physicalAsset" | "componentDefinitionOnAsset" | "installedComponent";
   const assetId = boundedText(
     reference.assetInstanceId,
     "assetInstanceId",
@@ -296,7 +461,8 @@ const requireFreshAssetReference = async (args: {
       asset.schemaVersion !== 1 || asset.assetInstanceId !== assetId ||
       asset.assetClassId !== classId || asset.status !== "active" ||
       asset.assetNumber !== args.assetNumber ||
-      (scope === "physicalAsset" && asset.version !== expectedAssetVersion) ||
+      (scope !== "installedComponent" &&
+        asset.version !== expectedAssetVersion) ||
       asset.assetClassCode !== assetClass.code ||
       asset.assetClassName !== assetClass.name ||
       typeof asset.name !== "string") {
@@ -307,6 +473,7 @@ const requireFreshAssetReference = async (args: {
     );
   }
 
+  let innerCoverNodeClassId: string | null = null;
   if (args.assetType === "innerCover") {
     const innerCoverClasses = await args.tx.query("asset_classes", [{
       field: "legacyAssetTypeKey",
@@ -324,6 +491,10 @@ const requireFreshAssetReference = async (args: {
         {reasonCode: "maintenance-ticket-inner-cover-class-ambiguous"},
       );
     }
+    innerCoverNodeClassId = cleanText(
+      innerCoverClasses[0].data?.assetClassId,
+      "innerCover.assetClassId",
+    );
   }
 
   let nodeId = assetId;
@@ -341,7 +512,62 @@ const requireFreshAssetReference = async (args: {
     10,
     80,
   );
-  if (scope === "installedComponent") {
+  if (scope === "componentDefinitionOnAsset") {
+    const referencedNodeId = boundedText(
+      reference.nodeId,
+      "nodeId",
+      1,
+      160,
+    );
+    const referencedNodeVersion = requiredInteger(
+      reference.nodeVersion,
+      "nodeVersion",
+      1,
+      2147483647,
+    );
+    const nodeSnapshot = await args.tx.get(
+      `asset_hierarchy_nodes/${referencedNodeId}`,
+    );
+    const node = nodeSnapshot.data;
+    if (!nodeSnapshot.exists || node == null ||
+        node.schemaVersion !== 1 || node.nodeId !== referencedNodeId ||
+        node.assetClassId !== (innerCoverNodeClassId ?? classId) ||
+        node.status !== "active" ||
+        node.version !== referencedNodeVersion ||
+        !["component", "subcomponent"].includes(node.nodeType as string) ||
+        typeof node.name !== "string" ||
+        node.componentTag != null) {
+      throw new WorkflowError(
+        "aborted",
+        "The selected hierarchy component changed before the issue was created.",
+        {reasonCode: "maintenance-ticket-component-definition-changed"},
+      );
+    }
+    nodeId = referencedNodeId;
+    nodeVersion = referencedNodeVersion;
+    nodeName = node.name as string;
+    hierarchyPath = persistedStringList(
+      node.hierarchyPath,
+      "hierarchyPath",
+      20,
+      200,
+    );
+    ownershipStatus = cleanText(node.ownershipStatus, "ownershipStatus");
+    ownerDiscipline = optionalStoredText(node, "ownerDiscipline", 120);
+    accountableRoleKeys = persistedStringList(
+      node.accountableRoleKeys,
+      "accountableRoleKeys",
+      10,
+      80,
+    );
+    if (args.tag != null) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "An untagged hierarchy component cannot carry an equipment tag.",
+        {reasonCode: "maintenance-ticket-component-definition-tag-invalid"},
+      );
+    }
+  } else if (scope === "installedComponent") {
     componentInstanceId = boundedText(
       reference.componentInstanceId,
       "componentInstanceId",
@@ -488,7 +714,7 @@ const requireFreshAssetReference = async (args: {
   }
 
   return stableJson({
-    schemaVersion: 3,
+    schemaVersion: scope === "componentDefinitionOnAsset" ? 4 : 3,
     scope,
     assetClassId: classId,
     assetClassCode: assetClass.code as string,
@@ -762,12 +988,23 @@ export const createMaintenanceTicket = async ({
   }
   const input = record(command.payload.ticket, "ticket");
   const burner = input.classification === BURNER_LOCKOUT_CLASSIFICATION;
+  const stuckup = input.classification === FURNACE_STUCKUP_CLASSIFICATION;
+  const hasFrequentIssueSelection = Object.prototype.hasOwnProperty.call(
+    input,
+    FREQUENT_ISSUE_SELECTION_FIELD,
+  );
   exactKeys(
     input,
-    burner ? [...CREATE_TICKET_FIELDS, ...CREATE_BURNER_FIELDS] :
-      [...CREATE_TICKET_FIELDS],
+    burner ? [...CREATE_TICKET_FIELDS, ...CREATE_BURNER_FIELDS,
+      ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
+      stuckup ? [...CREATE_TICKET_FIELDS, ...CREATE_STUCKUP_FIELDS,
+        ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
+        [...CREATE_TICKET_FIELDS,
+          ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])],
     "ticket",
   );
+  const requestedFrequentIssueSelection = hasFrequentIssueSelection ?
+    parseFrequentIssueSelectionShape(input.frequentIssueSelection) : null;
   if (input.schemaVersion !== 1) {
     throw new WorkflowError("invalid-argument", "ticket schemaVersion is unsupported.");
   }
@@ -802,7 +1039,14 @@ export const createMaintenanceTicket = async ({
   const isCritical = requiredBoolean(input.isCritical, "isCritical");
   const startDate = parseIsoInstant(input.startDate, "startDate", context.serverNow);
   const chargeNoAtEvent = input.chargeNoAtEvent == null ? null :
-    requiredInteger(input.chargeNoAtEvent, "chargeNoAtEvent", 1, 999999999);
+    requiredInteger(input.chargeNoAtEvent, "chargeNoAtEvent", 10000, 99999);
+  if (chargeNoAtEvent != null && !isFiveDigitChargeNumber(chargeNoAtEvent)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "chargeNoAtEvent must contain exactly five digits.",
+      {reasonCode: "charge-number-invalid", field: "chargeNoAtEvent"},
+    );
+  }
   if (input.qualityIntentSchemaVersion !== 1 ||
       typeof input.qualityImpactAssessment !== "string" ||
       !QUALITY_ASSESSMENTS.has(input.qualityImpactAssessment)) {
@@ -889,6 +1133,45 @@ export const createMaintenanceTicket = async ({
     );
   }
 
+  const stuckupFieldsPresent = CREATE_STUCKUP_FIELDS.some((field) =>
+    Object.prototype.hasOwnProperty.call(input, field));
+  let stuckupBaseNumber: number | null = null;
+  let stuckupSuspectedCause: string | null = null;
+  let stuckupOperatingContext: string | null = null;
+  if (stuckup) {
+    stuckupBaseNumber = requiredInteger(
+      input.stuckupBaseNumber,
+      "stuckupBaseNumber",
+      1,
+      9999,
+    );
+    stuckupSuspectedCause = cleanText(
+      input.stuckupSuspectedCause,
+      "stuckupSuspectedCause",
+    );
+    stuckupOperatingContext = cleanText(
+      input.stuckupOperatingContext,
+      "stuckupOperatingContext",
+    );
+    if (input.furnaceStuckupSchemaVersion !== 1 ||
+        assetType !== "furnace" || maintenanceType !== "breakdown" ||
+        component !== "Furnace / Inner Cover interface" ||
+        tag != null || !STUCKUP_CAUSES.has(stuckupSuspectedCause) ||
+        !STUCKUP_CONTEXTS.has(stuckupOperatingContext)) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "The Furnace stuck-up issue evidence is invalid.",
+        {reasonCode: "maintenance-ticket-stuckup-evidence-invalid"},
+      );
+    }
+  } else if (stuckupFieldsPresent) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Furnace stuck-up evidence requires its governed classification.",
+      {reasonCode: "maintenance-ticket-stuckup-evidence-unscoped"},
+    );
+  }
+
   const timestamp = iso(context.serverNow);
   const assetHierarchyRefJson = await requireFreshAssetReference({
     tx,
@@ -901,12 +1184,84 @@ export const createMaintenanceTicket = async ({
     serverNow: context.serverNow,
   });
   const canonicalAssetReference = JSON.parse(assetHierarchyRefJson) as JsonMap;
+  const frequentIssueSelection = await resolveFrequentIssueSelection({
+    tx,
+    selection: requestedFrequentIssueSelection,
+    assetType,
+    assetClassId: cleanText(
+      canonicalAssetReference.assetClassId,
+      "assetClassId",
+    ),
+    componentNodeId: cleanText(canonicalAssetReference.nodeId, "nodeId"),
+    classification,
+    chargeNoAtEvent,
+    burnerHmiAlarm: burner ?
+      optionalText(input.burnerHmiAlarm, "burnerHmiAlarm", 300) : null,
+    isStuckup: stuckup,
+  });
   const hierarchyPath = persistedStringList(
     canonicalAssetReference.hierarchyPath,
     "hierarchyPath",
     20,
     200,
   );
+  let canonicalStuckupBaseReference: string | null = null;
+  let stuckupBaseReference: JsonMap | null = null;
+  let stuckupInnerCoverAssociation: JsonMap | null = null;
+  if (stuckup) {
+    canonicalStuckupBaseReference = await requireFreshAssetReference({
+      tx,
+      raw: input.stuckupBaseAssetRefJson,
+      assetType: "base",
+      assetNumber: stuckupBaseNumber!,
+      tag: null,
+      startDate,
+      actor: context.actor,
+      serverNow: context.serverNow,
+    });
+    stuckupBaseReference = JSON.parse(
+      canonicalStuckupBaseReference,
+    ) as JsonMap;
+    const association = stuckupBaseReference.innerCoverAssociation;
+    if (association == null || typeof association !== "object" ||
+        Array.isArray(association) ||
+        (association as JsonMap).positionState !== "linked" ||
+        typeof (association as JsonMap).innerCoverId !== "string" ||
+        typeof (association as JsonMap).innerCoverSerialNumber !== "string") {
+      throw new WorkflowError(
+        "failed-precondition",
+        "A Furnace stuck-up requires the exact Inner Cover currently linked to the Base.",
+        {reasonCode: "furnace-stuckup-inner-cover-not-linked"},
+      );
+    }
+    const requestedReference = JSON.parse(
+      input.stuckupBaseAssetRefJson as string,
+    ) as JsonMap;
+    const requestedAssociation = requestedReference.innerCoverAssociation;
+    if (requestedAssociation == null ||
+        typeof requestedAssociation !== "object" ||
+        Array.isArray(requestedAssociation) ||
+        (requestedAssociation as JsonMap).positionState !== "linked" ||
+        (requestedAssociation as JsonMap).baseAssetInstanceId !==
+          (association as JsonMap).baseAssetInstanceId ||
+        (requestedAssociation as JsonMap).baseAssetNumber !==
+          (association as JsonMap).baseAssetNumber ||
+        (requestedAssociation as JsonMap).innerCoverId !==
+          (association as JsonMap).innerCoverId ||
+        (requestedAssociation as JsonMap).innerCoverSerialNumber !==
+          (association as JsonMap).innerCoverSerialNumber ||
+        (requestedAssociation as JsonMap).linkageId !==
+          (association as JsonMap).linkageId ||
+        (requestedAssociation as JsonMap).assignmentVersion !==
+          (association as JsonMap).assignmentVersion) {
+      throw new WorkflowError(
+        "aborted",
+        "The Base-to-Inner-Cover pairing changed after physical confirmation. Reconfirm the installed cover before submitting.",
+        {reasonCode: "furnace-stuckup-inner-cover-confirmation-stale"},
+      );
+    }
+    stuckupInnerCoverAssociation = association as JsonMap;
+  }
   const ticket: JsonMap = {
     firestoreId: command.aggregateId,
     version,
@@ -948,7 +1303,15 @@ export const createMaintenanceTicket = async ({
     qualityIntentSchemaVersion: 1,
     qualityImpactAssessment: input.qualityImpactAssessment as string,
     qualityWarningReason,
+    ...(frequentIssueSelection == null ? {} : {frequentIssueSelection}),
     ...burnerFields,
+    ...(stuckup ? {
+      furnaceStuckupSchemaVersion: 1,
+      stuckupBaseNumber,
+      stuckupBaseAssetRefJson: canonicalStuckupBaseReference,
+      stuckupSuspectedCause,
+      stuckupOperatingContext,
+    } : {}),
     isDeleted: false,
     deletedAt: null,
     deletedByUid: null,
@@ -969,12 +1332,17 @@ export const createMaintenanceTicket = async ({
   });
   const warningId = `issue_${command.aggregateId}`;
   const directiveId = `burner_red_hot_${command.aggregateId}`;
-  const [existingTicket, existingWarning, existingDirective] = await Promise.all([
+  const reviewQueueId = frequentIssueSelection?.selectionType === "unlisted" ?
+    command.aggregateId : null;
+  const [existingTicket, existingWarning, existingDirective, existingReview] =
+    await Promise.all([
     tx.get(maintenancePath(command.aggregateId)),
     tx.get(`quality_warnings/${warningId}`),
     tx.get(`directives/${directiveId}`),
+    tx.get(`issue_governance_review_queue/${command.aggregateId}`),
   ]);
-  if (existingTicket.exists || existingWarning.exists || existingDirective.exists) {
+  if (existingTicket.exists || existingWarning.exists || existingDirective.exists ||
+      existingReview.exists) {
     throw new WorkflowError(
       "failed-precondition",
       "Maintenance issue evidence already exists without this command receipt.",
@@ -982,6 +1350,204 @@ export const createMaintenanceTicket = async ({
     );
   }
   await requireVacantAudit(tx, command.commandId);
+  let stuckupCaseId: string | null = null;
+  if (stuckup) {
+    stuckupCaseId = command.aggregateId;
+    const furnaceAssetId = cleanText(
+      canonicalAssetReference.assetInstanceId,
+      "furnace.assetInstanceId",
+    );
+    const furnaceAssetClassId = cleanText(
+      canonicalAssetReference.assetClassId,
+      "furnace.assetClassId",
+    );
+    const baseAssetId = cleanText(
+      stuckupBaseReference!.assetInstanceId,
+      "base.assetInstanceId",
+    );
+    const baseAssetClassId = cleanText(
+      stuckupBaseReference!.assetClassId,
+      "base.assetClassId",
+    );
+    const innerCoverId = cleanText(
+      stuckupInnerCoverAssociation!.innerCoverId,
+      "innerCoverId",
+    );
+    const innerCoverSerialNumber = cleanText(
+      stuckupInnerCoverAssociation!.innerCoverSerialNumber,
+      "innerCoverSerialNumber",
+    );
+    const caseDocPath = `furnace_stuckup_cases/${stuckupCaseId}`;
+    const baseConstraintId = `${stuckupCaseId}_${baseAssetId}`;
+    const furnaceConstraintId = `${stuckupCaseId}_${furnaceAssetId}`;
+    const [
+      existingCase,
+      existingBaseConstraint,
+      existingFurnaceConstraint,
+      baseCurrent,
+      furnaceCurrent,
+    ] = await Promise.all([
+      tx.get(caseDocPath),
+      tx.get(`asset_availability_constraints/${baseConstraintId}`),
+      tx.get(`asset_availability_constraints/${furnaceConstraintId}`),
+      tx.get(`asset_availability_current/${baseAssetId}`),
+      tx.get(`asset_availability_current/${furnaceAssetId}`),
+    ]);
+    if (existingCase.exists || existingBaseConstraint.exists ||
+        existingFurnaceConstraint.exists) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Furnace stuck-up evidence already exists without this command receipt.",
+        {reasonCode: "furnace-stuckup-create-orphan-evidence"},
+      );
+    }
+    for (const current of [baseCurrent, furnaceCurrent]) {
+      if (current.exists &&
+          (current.data == null || current.data.schemaVersion !== 1 ||
+            !Number.isSafeInteger(current.data.version) ||
+            (current.data.version as number) < 1 ||
+            current.data.availabilityState !== "clear" ||
+            current.data.activeConstraintId != null)) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "An affected asset already has an active or malformed availability constraint.",
+          {reasonCode: "asset-availability-current-conflict"},
+        );
+      }
+    }
+    const stuckupCase: JsonMap = {
+      schemaVersion: 1,
+      caseId: stuckupCaseId,
+      ticketId: command.aggregateId,
+      version: 1,
+      obstructionStatus: "active",
+      adjudicationStatus: "pending",
+      suspectedCause: stuckupSuspectedCause,
+      confirmedCause: null,
+      adjudicationNotes: null,
+      conditionDeclarationId: null,
+      conditionEvidenceId: null,
+      furnaceAssetClassId,
+      furnaceAssetInstanceId: furnaceAssetId,
+      furnaceAssetNumber: assetNumber,
+      furnaceAssetRefJson: assetHierarchyRefJson,
+      baseAssetClassId,
+      baseAssetInstanceId: baseAssetId,
+      baseAssetNumber: stuckupBaseNumber,
+      baseAssetRefJson: canonicalStuckupBaseReference,
+      innerCoverId,
+      innerCoverSerialNumber,
+      innerCoverLinkageId: stuckupInnerCoverAssociation!.linkageId,
+      innerCoverAssignmentVersion:
+        stuckupInnerCoverAssociation!.assignmentVersion,
+      operatingContext: stuckupOperatingContext,
+      chargeNoAtEvent,
+      reportedAt: startDate,
+      reportedByUid: context.actor.uid,
+      reportedByName: context.actor.name,
+      releasedAt: null,
+      releasedByUid: null,
+      releasedByName: null,
+      releaseNotes: null,
+      adjudicatedAt: null,
+      adjudicatedByUid: null,
+      adjudicatedByName: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    tx.create(caseDocPath, stuckupCase);
+    const constraint = (args: {
+      constraintId: string;
+      assetType: string;
+      assetClassId: string;
+      assetInstanceId: string;
+      assetNumber: number;
+      counterpartLabel: string;
+    }): JsonMap => ({
+      schemaVersion: 1,
+      constraintId: args.constraintId,
+      caseId: stuckupCaseId,
+      ticketId: command.aggregateId,
+      constraintType: "furnaceStuckup",
+      status: "active",
+      assetType: args.assetType,
+      assetClassId: args.assetClassId,
+      assetInstanceId: args.assetInstanceId,
+      assetNumber: args.assetNumber,
+      counterpartLabel: args.counterpartLabel,
+      since: startDate,
+      createdAt: timestamp,
+      createdByUid: context.actor.uid,
+      createdByName: context.actor.name,
+      releasedAt: null,
+      releasedByUid: null,
+      releasedByName: null,
+      version: 1,
+      updatedAt: timestamp,
+    });
+    const baseConstraint = constraint({
+      constraintId: baseConstraintId,
+      assetType: "base",
+      assetClassId: baseAssetClassId,
+      assetInstanceId: baseAssetId,
+      assetNumber: stuckupBaseNumber!,
+      counterpartLabel: `Furnace ${assetNumber}`,
+    });
+    const furnaceConstraint = constraint({
+      constraintId: furnaceConstraintId,
+      assetType: "furnace",
+      assetClassId: furnaceAssetClassId,
+      assetInstanceId: furnaceAssetId,
+      assetNumber,
+      counterpartLabel: `Base ${stuckupBaseNumber}`,
+    });
+    tx.create(`asset_availability_constraints/${baseConstraintId}`, baseConstraint);
+    tx.create(
+      `asset_availability_constraints/${furnaceConstraintId}`,
+      furnaceConstraint,
+    );
+    const setCurrent = (args: {
+      existing: typeof baseCurrent;
+      assetType: string;
+      assetClassId: string;
+      assetInstanceId: string;
+      assetNumber: number;
+      constraintId: string;
+    }): void => tx.set(`asset_availability_current/${args.assetInstanceId}`, {
+      schemaVersion: 1,
+      assetType: args.assetType,
+      assetClassId: args.assetClassId,
+      assetInstanceId: args.assetInstanceId,
+      assetNumber: args.assetNumber,
+      availabilityState: "temporarilyBlocked",
+      activeConstraintId: args.constraintId,
+      reasonType: "furnaceStuckup",
+      linkedCaseId: stuckupCaseId,
+      linkedTicketId: command.aggregateId,
+      since: startDate,
+      updatedAt: timestamp,
+      updatedByUid: context.actor.uid,
+      updatedByName: context.actor.name,
+      version: args.existing.exists ?
+        (args.existing.data!.version as number) + 1 : 1,
+    });
+    setCurrent({
+      existing: baseCurrent,
+      assetType: "base",
+      assetClassId: baseAssetClassId,
+      assetInstanceId: baseAssetId,
+      assetNumber: stuckupBaseNumber!,
+      constraintId: baseConstraintId,
+    });
+    setCurrent({
+      existing: furnaceCurrent,
+      assetType: "furnace",
+      assetClassId: furnaceAssetClassId,
+      assetInstanceId: furnaceAssetId,
+      assetNumber,
+      constraintId: furnaceConstraintId,
+    });
+  }
   const id = writeAudit({
     tx,
     command,
@@ -996,6 +1562,28 @@ export const createMaintenanceTicket = async ({
     action: "create",
   });
   tx.create(maintenancePath(command.aggregateId), ticket);
+  if (reviewQueueId != null) {
+    tx.create(`issue_governance_review_queue/${reviewQueueId}`, {
+      schemaVersion: 1,
+      reviewId: reviewQueueId,
+      ticketId: command.aggregateId,
+      status: "open",
+      assetType,
+      assetNumber,
+      assetClassId: canonicalAssetReference.assetClassId as string,
+      componentNodeId: canonicalAssetReference.nodeId as string,
+      component,
+      description,
+      unlistedReason: frequentIssueSelection!.unlistedReason as string,
+      raisedByUid: context.actor.uid,
+      raisedByName: context.actor.name,
+      raisedAt: timestamp,
+      reviewedAt: null,
+      reviewedByUid: null,
+      reviewedByName: null,
+      linkedDefinitionId: null,
+    });
+  }
   if (warning != null) tx.create(`quality_warnings/${warningId}`, warning);
   if (directive != null) tx.create(`directives/${directiveId}`, directive);
   return {
@@ -1006,6 +1594,8 @@ export const createMaintenanceTicket = async ({
       auditId: id,
       warningId: warning == null ? null : warningId,
       directiveId: directive == null ? null : directiveId,
+      stuckupCaseId,
+      reviewQueueId,
     },
   };
 };
@@ -1379,5 +1969,28 @@ export const verifyMaintenanceTicketAudit = async (args: {
         {reasonCode: "maintenance-ticket-create-replay-directive-invalid"},
       );
     }
+  }
+  const stuckupCaseId = args.receipt.result.stuckupCaseId;
+  const deterministicStuckupCaseId = args.command.aggregateId;
+  const stuckupCase = await args.tx.get(
+    `furnace_stuckup_cases/${deterministicStuckupCaseId}`,
+  );
+  if (stuckupCaseId == null && stuckupCase.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket stuck-up evidence contradicts its receipt.",
+      {reasonCode: "maintenance-ticket-create-replay-stuckup-invalid"},
+    );
+  }
+  if (stuckupCaseId != null &&
+      (stuckupCaseId !== deterministicStuckupCaseId ||
+        !stuckupCase.exists || stuckupCase.data == null ||
+        stuckupCase.data.ticketId !== args.command.aggregateId ||
+        stuckupCase.data.reportedByUid !== args.actor.uid)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket stuck-up evidence is missing or inconsistent.",
+      {reasonCode: "maintenance-ticket-create-replay-stuckup-invalid"},
+    );
   }
 };

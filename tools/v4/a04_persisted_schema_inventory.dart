@@ -51,7 +51,7 @@ void main(List<String> arguments) {
   final stable = <String, Object?>{
     'fields': fields,
     'inheritedDecoderSurfaces': inherited,
-    'a05ManifestSha256': _sha256File(_a05ManifestFile),
+    'a05ManifestSha256': canonicalTextSha256File(_a05ManifestFile),
   };
   final digest =
       sha256.convert(utf8.encode(jsonEncode(stable))).toString().toUpperCase();
@@ -364,8 +364,13 @@ List<String> _verify(
   return failures;
 }
 
-String _sha256File(File file) =>
-    sha256.convert(file.readAsBytesSync()).toString().toUpperCase();
+String canonicalTextSha256File(File file) =>
+    canonicalTextSha256(file.readAsStringSync());
+
+String canonicalTextSha256(String content) {
+  final normalized = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  return sha256.convert(utf8.encode(normalized)).toString().toUpperCase();
+}
 
 String _relative(String path) => path
     .substring(_root.path.length + 1)

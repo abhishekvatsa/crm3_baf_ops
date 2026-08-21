@@ -19,14 +19,27 @@ import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
 import '../../../core/services/auto_sync_service.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/data/asset_registry_model.dart';
+import '../../assets/presentation/inner_cover_lifecycle_screen.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../quality/domain/issue_quality_intent.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../domain/burner_lockout_case.dart';
+import '../domain/furnace_stuckup_case.dart';
+import '../data/frequent_issue_definition.dart';
+import '../domain/frequent_issue_selection.dart';
+import '../providers/frequent_issue_provider.dart';
+
+part 'maintenance_form_asset_widgets.dart';
+part 'maintenance_form_component_widgets.dart';
+part 'maintenance_form_frequent_issue_widgets.dart';
+
+enum _IssueIntakeMode { standard, furnaceStuckup }
 
 class MaintenanceForm extends ConsumerStatefulWidget {
   const MaintenanceForm({super.key});
@@ -40,6 +53,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   bool _isSubmitting = false;
   bool _isCritical = false;
   bool _isBurnerLockout = false;
+  _IssueIntakeMode _intakeMode = _IssueIntakeMode.standard;
+  String? _stuckupBaseAssetId;
+  String? _stuckupConfirmedLinkageId;
+  bool _stuckupPhysicalMismatch = false;
+  FurnaceStuckupCause _stuckupSuspectedCause = FurnaceStuckupCause.unknown;
+  FurnaceStuckupOperatingContext _stuckupOperatingContext =
+      FurnaceStuckupOperatingContext.postAnnealingRemoval;
   bool _burnerCommonMode = false;
   bool _burnerRemainsLockedOut = true;
   IssueQualityAssessment? _qualityAssessment;
@@ -67,6 +87,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   String? _resolvedSystem;
   String? _resolvedSubsystem;
+  String? _selectedComponentNodeId;
+  FrequentIssueDefinition? _selectedFrequentIssue;
+  bool _frequentIssueUnlisted = false;
   List<String>? _resolvedPath;
   AssetHierarchyReference? _assetHierarchyReference;
   String? _resolvedOwnership;
@@ -169,6 +192,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   : null;
           _resolvedPath = List<String>.from(component.hierarchyPath);
           _assetHierarchyReference = reference;
+          _selectedComponentNodeId = component.definitionNodeId;
           _resolvedOwnership = [
             component.ownershipStatus.label,
             if (component.ownerDiscipline != null) component.ownerDiscipline!,
@@ -260,6 +284,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _resolvedSubsystem = null;
       _resolvedPath = null;
       _assetHierarchyReference = null;
+      _selectedComponentNodeId = null;
       _resolvedOwnership = null;
       _isAutoResolved = false;
       _isGovernedTagResolution = false;
@@ -324,10 +349,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     _resolvedSubsystem = null;
     _resolvedPath = null;
     _assetHierarchyReference = null;
+    _selectedComponentNodeId = null;
     _resolvedOwnership = null;
     _isAutoResolved = false;
     _isGovernedTagResolution = false;
     _userOverrodeComponent = false;
+    _selectedFrequentIssue = null;
+    _frequentIssueUnlisted = false;
+  }
+
+  void _clearFrequentIssueSelection() {
+    _selectedFrequentIssue = null;
+    _frequentIssueUnlisted = false;
   }
 
   void _resetBurnerLockout() {
@@ -346,6 +379,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   void _setBurnerLockout(bool enabled) {
     setState(() {
       _resetBurnerLockout();
+      _clearFrequentIssueSelection();
       _isBurnerLockout = enabled;
       if (enabled) {
         _componentController.text = 'Burner system';
@@ -353,6 +387,226 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _maintenanceType = MaintenanceType.breakdown;
       } else {
         _componentController.clear();
+      }
+    });
+  }
+
+  bool get _isFurnaceStuckup => _intakeMode == _IssueIntakeMode.furnaceStuckup;
+
+  void _setIntakeMode(_IssueIntakeMode mode) {
+    if (mode == _intakeMode) return;
+    final classes = ref.read(assetClassesProvider).value;
+    if (mode == _IssueIntakeMode.furnaceStuckup) {
+      final furnaceClasses = classes
+          ?.where(
+            (item) =>
+                item.isActive &&
+                item.legacyAssetTypeKey == AssetType.furnace.name,
+          )
+          .toList(growable: false);
+      if (furnaceClasses == null || furnaceClasses.length != 1) {
+        _showMessage(
+          'The governed Furnace class is unavailable or ambiguous. Sync or reconcile the asset register first.',
+          BafColors.warning,
+        );
+        return;
+      }
+      final route = resolveGovernedIssueAssetRoute(
+        issueClass: furnaceClasses.single,
+        allClasses: classes!,
+      );
+      setState(() {
+        _intakeMode = mode;
+        _resetBurnerLockout();
+        _issueAssetClassId = route.issueClass.id;
+        _assetType = AssetType.furnace;
+        _assetInstanceId = null;
+        _stuckupBaseAssetId = null;
+        _stuckupConfirmedLinkageId = null;
+        _stuckupPhysicalMismatch = false;
+        _resetAssetEvidence();
+        _componentController.text = 'Furnace / Inner Cover interface';
+        _resolvedSubsystem = 'Furnace positioning and sealing';
+        _maintenanceType = MaintenanceType.breakdown;
+        _routedTo = RoutedTo.mechanical;
+        _isCritical = true;
+      });
+      return;
+    }
+    setState(() {
+      _intakeMode = mode;
+      _stuckupBaseAssetId = null;
+      _stuckupConfirmedLinkageId = null;
+      _stuckupPhysicalMismatch = false;
+      _issueAssetClassId = null;
+      _assetInstanceId = null;
+      _assetType = AssetType.base;
+      _resetAssetEvidence();
+      _isCritical = false;
+    });
+  }
+
+  AssetInstanceRecord? _selectedStuckupBase() {
+    final id = _stuckupBaseAssetId;
+    final classes = ref.read(assetClassesProvider).value;
+    if (id == null || classes == null) return null;
+    final baseClasses = classes
+        .where(
+          (item) =>
+              item.isActive && item.legacyAssetTypeKey == AssetType.base.name,
+        )
+        .toList(growable: false);
+    if (baseClasses.length != 1) return null;
+    return ref
+        .read(assetInstancesProvider(baseClasses.single.id))
+        .value
+        ?.where((item) => item.id == id && item.isActive)
+        .firstOrNull;
+  }
+
+  Future<void> _chooseGovernedComponent() async {
+    final route = _selectedAssetRoute();
+    final asset = _selectedPhysicalAsset();
+    if (route == null || asset == null) {
+      _showMessage(
+        'Choose the exact asset before selecting a component.',
+        BafColors.warning,
+      );
+      return;
+    }
+    try {
+      final repository = ref.read(assetHierarchyRepositoryProvider);
+      final nodes = await repository.watchNodes(route.issueClass.id).first;
+      final components =
+          await repository.watchInstalledComponents(asset.id).first;
+      if (!mounted) return;
+      final selection = await showModalBottomSheet<_IssueComponentSelection>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder:
+            (context) => _IssueComponentPickerSheet(
+              assetLabel: '${route.issueClass.name} ${asset.assetNumber}',
+              nodes: nodes
+                  .where(
+                    (node) =>
+                        node.isActive &&
+                        (node.nodeType == AssetHierarchyNodeType.component ||
+                            node.nodeType ==
+                                AssetHierarchyNodeType.subcomponent),
+                  )
+                  .toList(growable: false),
+              selectedNodeId: _selectedComponentNodeId,
+            ),
+      );
+      if (!mounted || selection == null) return;
+      if (selection.unlisted) {
+        setState(() {
+          _clearFrequentIssueSelection();
+          _selectedComponentNodeId = null;
+          _tagController.clear();
+          _componentController.clear();
+          _resolvedSystem = route.issueClass.name;
+          _resolvedSubsystem = null;
+          _resolvedPath = null;
+          _resolvedOwnership = null;
+          _assetHierarchyReference = asset.toReference();
+          _isAutoResolved = false;
+          _isGovernedTagResolution = false;
+        });
+        return;
+      }
+      final node = selection.node!;
+      final installed = components
+          .where(
+            (item) =>
+                item.isActive &&
+                item.definitionNodeId == node.id &&
+                item.componentTag?.trim().isNotEmpty == true &&
+                item.ownershipStatus == AssetOwnershipStatus.confirmed,
+          )
+          .toList(growable: false);
+      if (installed.length > 1) {
+        throw const AssetHierarchyException(
+          'More than one active tagged component occupies this hierarchy position. Reconcile the asset register first.',
+        );
+      }
+      final reference =
+          installed.length == 1
+              ? installed.single.toReference()
+              : AssetHierarchyReference(
+                scope: AssetHierarchyReferenceScope.componentDefinitionOnAsset,
+                assetClassId: asset.assetClassId,
+                assetClassCode: asset.assetClassCode,
+                assetClassName: asset.assetClassName,
+                nodeId: node.id,
+                nodeVersion: node.version,
+                nodeName: node.name,
+                assetInstanceId: asset.id,
+                assetInstanceVersion: asset.version,
+                assetNumber: asset.assetNumber,
+                assetInstanceName: asset.name,
+                hierarchyPath: node.hierarchyPath,
+                ownershipStatus: node.ownershipStatus,
+                ownerDiscipline: node.ownerDiscipline,
+                accountableRoleKeys: node.accountableRoleKeys,
+              );
+      setState(() {
+        _clearFrequentIssueSelection();
+        _selectedComponentNodeId = node.id;
+        _assetHierarchyReference = reference;
+        _componentController.text = node.name;
+        _tagController.text =
+            installed.isEmpty ? '' : installed.single.componentTag ?? '';
+        _resolvedSystem = route.issueClass.name;
+        _resolvedSubsystem =
+            node.hierarchyPath.length > 1
+                ? node.hierarchyPath[node.hierarchyPath.length - 2]
+                : null;
+        _resolvedPath = List<String>.from(node.hierarchyPath);
+        _resolvedOwnership = <String>[
+          node.ownershipStatus.label,
+          if (node.ownerDiscipline != null) node.ownerDiscipline!,
+          if (node.accountableRoleKeys.isNotEmpty)
+            node.accountableRoleKeys.map(_roleLabelForReference).join(', '),
+        ].join(' · ');
+        _isAutoResolved = true;
+        _isGovernedTagResolution = true;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      _showMessage(
+        error is AssetHierarchyException
+            ? '$error'
+            : 'The component hierarchy could not be loaded. Sync and retry.',
+        BafColors.danger,
+      );
+    }
+  }
+
+  void _showMessage(String message, Color color) {
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+  }
+
+  void _selectFrequentIssue(FrequentIssueDefinition? definition) {
+    final previousDescription = _selectedFrequentIssue?.description;
+    setState(() {
+      _selectedFrequentIssue = definition;
+      _frequentIssueUnlisted = definition == null;
+      if (definition == null) return;
+      if (_descController.text.trim().isEmpty ||
+          _descController.text.trim() == previousDescription) {
+        _descController.text = definition.description;
+      }
+      _routedTo = RoutedTo.values.byName(definition.defaultRouteKey);
+      _maintenanceType = MaintenanceType.values.byName(
+        definition.suggestedMaintenanceTypeKey,
+      );
+      _isCritical = definition.isCritical;
+      if (_routedTo != RoutedTo.others) {
+        _otherDepartmentController.clear();
       }
     });
   }
@@ -520,6 +774,55 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     }
     final assetType = assetRoute.assetType;
     final assetNumber = selectedAsset.assetNumber;
+    final selectedStuckupBase =
+        _isFurnaceStuckup ? _selectedStuckupBase() : null;
+    if (!_isBurnerLockout &&
+        !_isFurnaceStuckup &&
+        _selectedFrequentIssue == null &&
+        !_frequentIssueUnlisted) {
+      _showMessage(
+        'Choose a frequent issue or select Other / not listed.',
+        BafColors.warning,
+      );
+      return;
+    }
+    if (_selectedFrequentIssue?.requiredEvidenceFields.contains('chargeNo') ==
+            true &&
+        int.tryParse(_chargeNoController.text.trim()) == null) {
+      _showMessage(
+        'This frequent issue requires a five-digit charge number.',
+        BafColors.warning,
+      );
+      return;
+    }
+    if (_isFurnaceStuckup && selectedStuckupBase == null) {
+      _showMessage(
+        'Choose the Base carrying the affected Inner Cover.',
+        BafColors.warning,
+      );
+      return;
+    }
+    if (_isFurnaceStuckup) {
+      final currentAssignment =
+          ref
+              .read(innerCoverAssignmentsProvider)
+              .value
+              ?.where(
+                (item) => item.baseAssetInstanceId == selectedStuckupBase!.id,
+              )
+              .firstOrNull;
+      if (_stuckupPhysicalMismatch ||
+          currentAssignment == null ||
+          currentAssignment.linkageId != _stuckupConfirmedLinkageId) {
+        _showMessage(
+          _stuckupPhysicalMismatch
+              ? 'Correct the Base–Inner Cover pairing before raising this stuck-up.'
+              : 'Confirm that the currently linked Inner Cover is physically installed on this Base.',
+          BafColors.warning,
+        );
+        return;
+      }
+    }
     BurnerLockoutCase? burnerLockout;
     if (_isBurnerLockout) {
       if (assetType != AssetType.furnace) {
@@ -568,7 +871,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         assetNumberText: '$assetNumber',
         hasGovernedAssetIdentity: true,
         component:
-            burnerLockout == null ? _componentController.text : 'Burner system',
+            burnerLockout != null
+                ? 'Burner system'
+                : _isFurnaceStuckup
+                ? 'Furnace / Inner Cover interface'
+                : _componentController.text,
         description: _descController.text,
         tag: _tagController.text,
         chargeNumberText: _chargeNoController.text,
@@ -593,7 +900,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     try {
       _tagResolutionDebounce?.cancel();
       final submittedTag =
-          burnerLockout == null ? _tagController.text.trim() : '';
+          burnerLockout == null && !_isFurnaceStuckup
+              ? _tagController.text.trim()
+              : '';
       if (submittedTag.isNotEmpty) {
         final generation = ++_tagResolutionGeneration;
         final accepted = await _resolveTag(
@@ -637,8 +946,30 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         reporterName: reporterName ?? reporterUid,
         confirmedAt: now,
       );
+      FurnaceStuckupCase? furnaceStuckup;
+      if (_isFurnaceStuckup) {
+        final baseReference = await _resolveEventAssetReference(
+          assetType: AssetType.base,
+          assetNumber: selectedStuckupBase!.assetNumber,
+          selectedReference: selectedStuckupBase.toReference(),
+          reporterUid: reporterUid,
+          reporterName: reporterName ?? reporterUid,
+          confirmedAt: now,
+        );
+        if (baseReference == null) {
+          throw const AssetHierarchyException(
+            'The selected Base identity could not be verified.',
+          );
+        }
+        furnaceStuckup = FurnaceStuckupCase(
+          baseNumber: selectedStuckupBase.assetNumber,
+          baseAssetReference: baseReference,
+          suspectedCause: _stuckupSuspectedCause,
+          operatingContext: _stuckupOperatingContext,
+        );
+      }
       final tagText =
-          burnerLockout == null
+          burnerLockout == null && !_isFurnaceStuckup
               ? _cleanOptionalText(_tagController.text)?.toUpperCase()
               : null;
       final hierarchyPath =
@@ -652,13 +983,21 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..assetType = assetType
             ..assetNumber = assetNumber
             ..maintenanceType =
-                burnerLockout == null
+                burnerLockout == null && !_isFurnaceStuckup
                     ? _maintenanceType
                     : MaintenanceType.breakdown
             ..classification =
-                burnerLockout == null ? null : burnerLockoutClassification
+                burnerLockout != null
+                    ? burnerLockoutClassification
+                    : furnaceStuckup != null
+                    ? furnaceStuckupClassification
+                    : null
             ..routedTo =
-                burnerLockout == null ? _routedTo : RoutedTo.instrumentation
+                burnerLockout != null
+                    ? RoutedTo.instrumentation
+                    : furnaceStuckup != null
+                    ? RoutedTo.mechanical
+                    : _routedTo
             ..otherDepartment =
                 _routedTo == RoutedTo.others
                     ? _cleanOptionalText(_otherDepartmentController.text)
@@ -674,18 +1013,23 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..status = TicketStatus.open
             ..isResolved = false
             ..isCritical =
-                _isCritical || (burnerLockout?.hasRedHotObservation ?? false)
+                _isCritical ||
+                furnaceStuckup != null ||
+                (burnerLockout?.hasRedHotObservation ?? false)
             ..teamsInvolved = []
             ..isSynced = false
             ..component =
-                burnerLockout == null
-                    ? _cleanRequiredText(_componentController.text)
-                    : 'Burner system'
+                burnerLockout != null
+                    ? 'Burner system'
+                    : furnaceStuckup != null
+                    ? 'Furnace / Inner Cover interface'
+                    : _cleanRequiredText(_componentController.text)
             ..tag = tagText
             ..subsystem = _cleanOptionalText(_resolvedSubsystem)
             ..hierarchyPath = hierarchyPath;
       record.assetHierarchyRefJson = eventAssetReference?.encode();
       record.burnerLockoutCase = burnerLockout;
+      record.furnaceStuckupCase = furnaceStuckup;
       record.qualityIntent = IssueQualityIntent(
         assessment: _qualityAssessment!,
         warningReason:
@@ -693,6 +1037,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 ? _cleanRequiredText(_qualityReasonController.text)
                 : null,
       );
+      if (!_isBurnerLockout && !_isFurnaceStuckup) {
+        record.frequentIssueSelection =
+            _selectedFrequentIssue != null
+                ? FrequentIssueSelection.definition(_selectedFrequentIssue!)
+                : FrequentIssueSelection.unlisted(
+                  _cleanRequiredText(_descController.text),
+                );
+      }
 
       if (kIsWeb) {
         final command = buildMaintenanceIssueCreateCommand(
@@ -779,6 +1131,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   @override
   Widget build(BuildContext context) {
     final appUser = ref.watch(currentAppUserProvider).value;
+    final frequentIssues = ref.watch(frequentIssueDefinitionsProvider);
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -876,13 +1229,68 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               subtitle: 'Where is the issue happening?',
               icon: Icons.precision_manufacturing_rounded,
               children: [
-                _GovernedIssueAssetSelector(
-                  selectedIssueClassId: _issueAssetClassId,
-                  selectedAssetInstanceId: _assetInstanceId,
-                  onRouteChanged: _selectIssueAssetRoute,
-                  onAssetChanged: _selectPhysicalAsset,
+                SegmentedButton<_IssueIntakeMode>(
+                  segments: const <ButtonSegment<_IssueIntakeMode>>[
+                    ButtonSegment<_IssueIntakeMode>(
+                      value: _IssueIntakeMode.standard,
+                      icon: Icon(Icons.build_outlined),
+                      label: Text('Standard'),
+                    ),
+                    ButtonSegment<_IssueIntakeMode>(
+                      value: _IssueIntakeMode.furnaceStuckup,
+                      icon: Icon(Icons.vertical_align_top_rounded),
+                      label: Text('Furnace stuck-up'),
+                    ),
+                  ],
+                  selected: <_IssueIntakeMode>{_intakeMode},
+                  onSelectionChanged: (selection) {
+                    _setIntakeMode(selection.first);
+                  },
                 ),
-                if (_assetType == AssetType.furnace) ...[
+                const SizedBox(height: BafSpacing.md),
+                if (_isFurnaceStuckup)
+                  _FurnaceStuckupAssetSelector(
+                    selectedBaseAssetId: _stuckupBaseAssetId,
+                    selectedFurnaceAssetId: _assetInstanceId,
+                    confirmedLinkageId: _stuckupConfirmedLinkageId,
+                    physicalMismatch: _stuckupPhysicalMismatch,
+                    onBaseChanged:
+                        (asset) => setState(() {
+                          _stuckupBaseAssetId = asset?.id;
+                          _stuckupConfirmedLinkageId = null;
+                          _stuckupPhysicalMismatch = false;
+                        }),
+                    onLinkedCoverConfirmed:
+                        (linkageId) => setState(() {
+                          _stuckupConfirmedLinkageId = linkageId;
+                          _stuckupPhysicalMismatch = false;
+                        }),
+                    onPhysicalMismatch:
+                        () => setState(() {
+                          _stuckupConfirmedLinkageId = null;
+                          _stuckupPhysicalMismatch = true;
+                        }),
+                    onFurnaceChanged: (route, asset) {
+                      setState(() {
+                        _issueAssetClassId = route.issueClass.id;
+                        _assetType = AssetType.furnace;
+                        _assetInstanceId = asset?.id;
+                        _resetAssetEvidence();
+                        _assetHierarchyReference = asset?.toReference();
+                        _componentController.text =
+                            'Furnace / Inner Cover interface';
+                        _resolvedSubsystem = 'Furnace positioning and sealing';
+                      });
+                    },
+                  )
+                else
+                  _GovernedIssueAssetSelector(
+                    selectedIssueClassId: _issueAssetClassId,
+                    selectedAssetInstanceId: _assetInstanceId,
+                    onRouteChanged: _selectIssueAssetRoute,
+                    onAssetChanged: _selectPhysicalAsset,
+                  ),
+                if (!_isFurnaceStuckup && _assetType == AssetType.furnace) ...[
                   const SizedBox(height: BafSpacing.md),
                   SegmentedButton<bool>(
                     segments: const <ButtonSegment<bool>>[
@@ -903,13 +1311,30 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     },
                   ),
                 ],
-                if (!_isBurnerLockout) ...[
+                if (!_isBurnerLockout && !_isFurnaceStuckup) ...[
                   const SizedBox(height: BafSpacing.md),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          _selectedPhysicalAsset() == null
+                              ? null
+                              : _chooseGovernedComponent,
+                      icon: const Icon(Icons.account_tree_outlined),
+                      label: Text(
+                        _selectedComponentNodeId == null
+                            ? 'Choose component from hierarchy'
+                            : 'Change selected component',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
                   TextFormField(
                     controller: _tagController,
                     enabled:
                         _selectedPhysicalAsset() != null &&
-                        _assetType != AssetType.innerCover,
+                        _assetType != AssetType.innerCover &&
+                        _selectedComponentNodeId == null,
                     decoration: _inputDecoration(
                       'Instrument tag / equipment tag',
                       hint:
@@ -927,10 +1352,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   const SizedBox(height: BafSpacing.md),
                   TextFormField(
                     controller: _componentController,
+                    readOnly: _selectedComponentNodeId != null,
                     decoration: _inputDecoration(
-                      _isAutoResolved
+                      _selectedComponentNodeId != null
+                          ? 'Governed component'
+                          : _isAutoResolved
                           ? 'Component (auto-filled, editable)'
-                          : 'Component name',
+                          : 'Component name / unlisted component',
                     ),
                     textCapitalization: TextCapitalization.words,
                     validator:
@@ -948,9 +1376,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       governed: _isGovernedTagResolution,
                     ),
                   ],
-                ] else ...[
+                ] else if (_isBurnerLockout) ...[
                   const SizedBox(height: BafSpacing.md),
                   const _BurnerRouteNotice(),
+                ] else ...[
+                  const SizedBox(height: BafSpacing.md),
+                  const _FurnaceStuckupRouteNotice(),
                 ],
               ],
             ),
@@ -1003,6 +1434,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               ),
             ],
 
+            if (_isFurnaceStuckup) ...[
+              const SizedBox(height: BafSpacing.lg),
+              _FurnaceStuckupIntake(
+                suspectedCause: _stuckupSuspectedCause,
+                operatingContext: _stuckupOperatingContext,
+                onSuspectedCauseChanged:
+                    (value) => setState(() => _stuckupSuspectedCause = value),
+                onOperatingContextChanged:
+                    (value) => setState(() => _stuckupOperatingContext = value),
+              ),
+            ],
+
             const SizedBox(height: BafSpacing.lg),
 
             _SectionCard(
@@ -1010,6 +1453,20 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               subtitle: 'Describe the problem clearly for the attending team.',
               icon: Icons.report_problem_rounded,
               children: [
+                if (!_isBurnerLockout && !_isFurnaceStuckup) ...[
+                  _FrequentIssueChoicePanel(
+                    definitions: frequentIssues,
+                    assetTypeKey: _assetType.name,
+                    assetClassId: _issueAssetClassId,
+                    componentNodeId: _selectedComponentNodeId,
+                    selected: _selectedFrequentIssue,
+                    unlisted: _frequentIssueUnlisted,
+                    onSelected: _selectFrequentIssue,
+                    onRetry:
+                        () => ref.invalidate(frequentIssueDefinitionsProvider),
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                ],
                 TextFormField(
                   controller: _descController,
                   maxLines: 4,
@@ -1025,9 +1482,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 ),
                 const SizedBox(height: BafSpacing.md),
                 _CriticalIssueToggle(
-                  value: _isCritical || _redHotBurnerPositions.isNotEmpty,
+                  value:
+                      _isCritical ||
+                      _isFurnaceStuckup ||
+                      _redHotBurnerPositions.isNotEmpty,
                   onChanged:
-                      _redHotBurnerPositions.isNotEmpty
+                      _redHotBurnerPositions.isNotEmpty || _isFurnaceStuckup
                           ? (_) {}
                           : (value) => setState(() => _isCritical = value),
                 ),
@@ -1050,7 +1510,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           )
                           .toList(),
                   onChanged:
-                      _isBurnerLockout
+                      _isBurnerLockout || _isFurnaceStuckup
                           ? null
                           : (value) {
                             if (value == null) return;
@@ -1098,7 +1558,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           )
                           .toList(),
                   onChanged:
-                      _isBurnerLockout
+                      _isBurnerLockout || _isFurnaceStuckup
                           ? null
                           : (value) {
                             if (value == null) return;
@@ -1170,12 +1630,15 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 TextFormField(
                   controller: _chargeNoController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: chargeNumberInputFormatters,
                   decoration: _inputDecoration(
                     'Charge number',
                     hint:
-                        _qualityAssessment == IssueQualityAssessment.suspected
-                            ? 'Required for a quality warning'
-                            : 'Optional',
+                        _qualityAssessment ==
+                                    IssueQualityAssessment.suspected ||
+                                _isFurnaceStuckup
+                            ? 'Required, exactly 5 digits'
+                            : 'Optional, exactly 5 digits',
                   ),
                   validator: (value) {
                     final message =
@@ -1183,10 +1646,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           value,
                         ).messageFor('chargeNoAtEvent');
                     if (message != null) return message;
-                    if (_qualityAssessment ==
-                            IssueQualityAssessment.suspected &&
+                    if ((_qualityAssessment ==
+                                IssueQualityAssessment.suspected ||
+                            _isFurnaceStuckup) &&
                         int.tryParse(value?.trim() ?? '') == null) {
-                      return 'Charge number is required when quality impact is suspected';
+                      return _isFurnaceStuckup
+                          ? 'Charge number is required for a Furnace stuck-up'
+                          : 'Charge number is required when quality impact is suspected';
                     }
                     return null;
                   },
@@ -1198,7 +1664,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       ),
       bottomNavigationBar: _SubmitIssueBar(
         isSubmitting: _isSubmitting,
-        isCritical: _isCritical || _redHotBurnerPositions.isNotEmpty,
+        isCritical:
+            _isCritical ||
+            _isFurnaceStuckup ||
+            _redHotBurnerPositions.isNotEmpty,
         onSubmit: _isSubmitting ? null : _submit,
       ),
     );
@@ -1305,6 +1774,117 @@ class _BurnerRouteNotice extends StatelessWidget {
       ),
     );
   }
+}
+
+class _FurnaceStuckupRouteNotice extends StatelessWidget {
+  const _FurnaceStuckupRouteNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.warning.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.warning.withValues(alpha: 0.32)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.link_off_rounded, color: BafColors.warning),
+          SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: Text(
+              'This creates one breakdown issue and temporarily blocks the '
+              'selected Base and Furnace. The linked Inner Cover is frozen '
+              'with the event. Admin or SI must later confirm the cause; a '
+              'suspected bulge is not treated as proven.',
+              style: TextStyle(
+                color: BafColors.textPrimary,
+                height: 1.4,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FurnaceStuckupIntake extends StatelessWidget {
+  const _FurnaceStuckupIntake({
+    required this.suspectedCause,
+    required this.operatingContext,
+    required this.onSuspectedCauseChanged,
+    required this.onOperatingContextChanged,
+  });
+
+  final FurnaceStuckupCause suspectedCause;
+  final FurnaceStuckupOperatingContext operatingContext;
+  final ValueChanged<FurnaceStuckupCause> onSuspectedCauseChanged;
+  final ValueChanged<FurnaceStuckupOperatingContext> onOperatingContextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Stuck-up observation',
+      subtitle: 'Record the initial suspicion without declaring the cause.',
+      icon: Icons.vertical_align_top_rounded,
+      children: [
+        DropdownButtonFormField<FurnaceStuckupOperatingContext>(
+          initialValue: operatingContext,
+          isExpanded: true,
+          decoration: _decoration('Movement context'),
+          items: [
+            for (final value in FurnaceStuckupOperatingContext.values)
+              DropdownMenuItem(
+                value: value,
+                child: Text(value.label, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: (value) {
+            if (value != null) onOperatingContextChanged(value);
+          },
+        ),
+        const SizedBox(height: BafSpacing.md),
+        DropdownButtonFormField<FurnaceStuckupCause>(
+          initialValue: suspectedCause,
+          isExpanded: true,
+          decoration: _decoration('Initial suspected cause'),
+          items: [
+            for (final value in FurnaceStuckupCause.values)
+              if (value != FurnaceStuckupCause.inconclusive)
+                DropdownMenuItem(
+                  value: value,
+                  child: Text(value.label, overflow: TextOverflow.ellipsis),
+                ),
+          ],
+          onChanged: (value) {
+            if (value != null) onSuspectedCauseChanged(value);
+          },
+        ),
+        const SizedBox(height: BafSpacing.md),
+        const _AssetSelectorMessage(
+          icon: Icons.verified_user_outlined,
+          message:
+              'Only Admin or SI confirmation can create persistent Inner Cover bulging evidence. Retirement remains a separate Inner Cover lifecycle decision.',
+          color: BafColors.maintenance,
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _decoration(String label) => InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: BafColors.background,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      borderSide: const BorderSide(color: BafColors.border),
+    ),
+  );
 }
 
 class _BurnerLockoutIntake extends StatelessWidget {
@@ -1555,6 +2135,274 @@ class _BurnerLockoutIntake extends StatelessWidget {
     BurnerObservation.notSeen => 'Not seen',
     BurnerObservation.notChecked => 'Not checked',
   };
+}
+
+class _FurnaceStuckupAssetSelector extends ConsumerWidget {
+  const _FurnaceStuckupAssetSelector({
+    required this.selectedBaseAssetId,
+    required this.selectedFurnaceAssetId,
+    required this.confirmedLinkageId,
+    required this.physicalMismatch,
+    required this.onBaseChanged,
+    required this.onLinkedCoverConfirmed,
+    required this.onPhysicalMismatch,
+    required this.onFurnaceChanged,
+  });
+
+  final String? selectedBaseAssetId;
+  final String? selectedFurnaceAssetId;
+  final String? confirmedLinkageId;
+  final bool physicalMismatch;
+  final ValueChanged<AssetInstanceRecord?> onBaseChanged;
+  final ValueChanged<String> onLinkedCoverConfirmed;
+  final VoidCallback onPhysicalMismatch;
+  final void Function(GovernedIssueAssetRoute route, AssetInstanceRecord? asset)
+  onFurnaceChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final classes = ref.watch(assetClassesProvider).value;
+    final assignments = ref.watch(innerCoverAssignmentsProvider).value;
+    if (classes == null || assignments == null) {
+      return const _AssetSelectorMessage(
+        icon: Icons.sync_rounded,
+        message: 'Loading Base, Inner Cover and Furnace identities...',
+        color: BafColors.maintenance,
+        showProgress: true,
+      );
+    }
+    final baseClasses = classes
+        .where(
+          (item) =>
+              item.isActive && item.legacyAssetTypeKey == AssetType.base.name,
+        )
+        .toList(growable: false);
+    final furnaceClasses = classes
+        .where(
+          (item) =>
+              item.isActive &&
+              item.legacyAssetTypeKey == AssetType.furnace.name,
+        )
+        .toList(growable: false);
+    if (baseClasses.length != 1 || furnaceClasses.length != 1) {
+      return const _AssetSelectorMessage(
+        icon: Icons.error_outline_rounded,
+        message:
+            'The governed Base or Furnace class is missing or ambiguous. Reconcile the asset register first.',
+        color: BafColors.danger,
+      );
+    }
+    final baseClass = baseClasses.single;
+    final furnaceClass = furnaceClasses.single;
+    final baseAssetsValue = ref.watch(assetInstancesProvider(baseClass.id));
+    final furnaceAssetsValue = ref.watch(
+      assetInstancesProvider(furnaceClass.id),
+    );
+    final baseAssets = baseAssetsValue.value;
+    final furnaceAssets = furnaceAssetsValue.value;
+    if (baseAssets == null || furnaceAssets == null) {
+      return const _AssetSelectorMessage(
+        icon: Icons.sync_rounded,
+        message: 'Loading active Base and Furnace records...',
+        color: BafColors.maintenance,
+        showProgress: true,
+      );
+    }
+    final assignmentByBase = <String, BaseInnerCoverAssignment>{
+      for (final assignment in assignments)
+        assignment.baseAssetInstanceId: assignment,
+    };
+    final eligibleBases = baseAssets
+        .where(
+          (asset) => asset.isActive && assignmentByBase.containsKey(asset.id),
+        )
+        .toList(growable: false);
+    final furnaceRoute = resolveGovernedIssueAssetRoute(
+      issueClass: furnaceClass,
+      allClasses: classes,
+    );
+    final eligibleFurnaces = eligibleIssueAssets(
+      route: furnaceRoute,
+      assets: furnaceAssets,
+    );
+    final selectedBase =
+        eligibleBases
+            .where((item) => item.id == selectedBaseAssetId)
+            .firstOrNull;
+    final selectedFurnace =
+        eligibleFurnaces
+            .where((item) => item.id == selectedFurnaceAssetId)
+            .firstOrNull;
+    final selectedAssignment =
+        selectedBase == null ? null : assignmentByBase[selectedBase.id];
+    final confirmed =
+        selectedAssignment != null &&
+        confirmedLinkageId == selectedAssignment.linkageId;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '1  Base',
+          style: TextStyle(
+            color: BafColors.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        DropdownButtonFormField<String>(
+          key: ValueKey(
+            'stuckup-base-${selectedBase?.id ?? 'none'}-${eligibleBases.length}',
+          ),
+          initialValue: selectedBase?.id,
+          isExpanded: true,
+          decoration: _decoration('Base'),
+          items: [
+            for (final asset in eligibleBases)
+              DropdownMenuItem(
+                value: asset.id,
+                child: Text(
+                  'Base ${asset.assetNumber}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged:
+              (assetId) => onBaseChanged(
+                eligibleBases.where((item) => item.id == assetId).firstOrNull,
+              ),
+          validator: (value) => value == null ? 'Choose the Base' : null,
+        ),
+        if (selectedBase != null && selectedAssignment != null) ...[
+          const SizedBox(height: BafSpacing.sm),
+          _AssetSelectorMessage(
+            icon: Icons.link_rounded,
+            message:
+                'The register links Inner Cover ${selectedAssignment.innerCoverSerialNumber} to Base ${selectedBase.assetNumber}.',
+            color: BafColors.maintenance,
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Is this the Inner Cover physically installed on the Base now?',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'matches',
+                icon: Icon(Icons.check_circle_outline_rounded),
+                label: Text('Yes'),
+              ),
+              ButtonSegment(
+                value: 'different',
+                icon: Icon(Icons.link_off_rounded),
+                label: Text('Different cover'),
+              ),
+            ],
+            emptySelectionAllowed: true,
+            selected: {
+              if (confirmed) 'matches' else if (physicalMismatch) 'different',
+            },
+            onSelectionChanged: (selection) {
+              if (selection.contains('matches')) {
+                onLinkedCoverConfirmed(selectedAssignment.linkageId);
+              } else if (selection.contains('different')) {
+                onPhysicalMismatch();
+              }
+            },
+          ),
+          if (physicalMismatch) ...[
+            const SizedBox(height: BafSpacing.sm),
+            _AssetSelectorMessage(
+              icon: Icons.warning_amber_rounded,
+              message:
+                  'Submission is blocked. An Admin must first delink ${selectedAssignment.innerCoverSerialNumber} and link the physically installed serial to Base ${selectedBase.assetNumber}.',
+              color: BafColors.danger,
+            ),
+            const SizedBox(height: BafSpacing.sm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const InnerCoverLifecycleScreen(),
+                    ),
+                  );
+                  ref.invalidate(innerCoverAssignmentsProvider);
+                  ref.invalidate(innerCoverProfilesProvider);
+                },
+                icon: const Icon(Icons.layers_outlined),
+                label: const Text('Open Inner Cover pairing'),
+              ),
+            ),
+          ],
+        ],
+        const SizedBox(height: BafSpacing.lg),
+        const Text(
+          '2  Affected Furnace',
+          style: TextStyle(
+            color: BafColors.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        DropdownButtonFormField<String>(
+          key: ValueKey(
+            'stuckup-furnace-${selectedFurnace?.id ?? 'none'}-${eligibleFurnaces.length}',
+          ),
+          initialValue: selectedFurnace?.id,
+          isExpanded: true,
+          decoration: _decoration('Furnace'),
+          items: [
+            for (final asset in eligibleFurnaces)
+              DropdownMenuItem(
+                value: asset.id,
+                child: Text(
+                  'Furnace ${asset.assetNumber.toString().padLeft(2, '0')}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged:
+              (assetId) => onFurnaceChanged(
+                furnaceRoute,
+                eligibleFurnaces
+                    .where((item) => item.id == assetId)
+                    .firstOrNull,
+              ),
+          validator:
+              (value) => value == null ? 'Choose the affected Furnace' : null,
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _decoration(String label) => InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: BafColors.background,
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: BafSpacing.md,
+      vertical: BafSpacing.lg,
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      borderSide: const BorderSide(color: BafColors.border),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      borderSide: const BorderSide(color: BafColors.border),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      borderSide: const BorderSide(color: BafColors.maintenance, width: 1.5),
+    ),
+  );
 }
 
 class _GovernedIssueAssetSelector extends ConsumerWidget {
@@ -1828,486 +2676,6 @@ class _PhysicalAssetSelector extends ConsumerWidget {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(BafRadius.medium),
         borderSide: const BorderSide(color: BafColors.maintenance, width: 1.5),
-      ),
-    );
-  }
-}
-
-class _SelectedAssetSummary extends StatelessWidget {
-  const _SelectedAssetSummary({required this.asset});
-
-  final AssetInstanceRecord asset;
-
-  @override
-  Widget build(BuildContext context) {
-    final details = <String>[
-      asset.serviceState.label,
-      if (asset.plantTag case final tag? when tag.trim().isNotEmpty) tag.trim(),
-      if (asset.location case final location? when location.trim().isNotEmpty)
-        location.trim(),
-      asset.ownershipStatus.label,
-    ];
-    final color = switch (asset.serviceState) {
-      AssetServiceState.inService => BafColors.sync,
-      AssetServiceState.standby => BafColors.warning,
-      AssetServiceState.outOfService => BafColors.danger,
-    };
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.verified_outlined, color: color, size: 18),
-        const SizedBox(width: BafSpacing.sm),
-        Expanded(
-          child: Text(
-            details.join(' · '),
-            style: const TextStyle(
-              color: BafColors.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AssetSelectorMessage extends StatelessWidget {
-  const _AssetSelectorMessage({
-    required this.icon,
-    required this.message,
-    required this.color,
-    this.showProgress = false,
-  });
-
-  final IconData icon;
-  final String message;
-  final Color color;
-  final bool showProgress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 19),
-            const SizedBox(width: BafSpacing.sm),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (showProgress) ...[
-          const SizedBox(height: BafSpacing.sm),
-          LinearProgressIndicator(
-            minHeight: 2,
-            color: color,
-            backgroundColor: color.withValues(alpha: 0.12),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _SubmitIssueBar extends StatelessWidget {
-  final bool isSubmitting;
-  final bool isCritical;
-  final VoidCallback? onSubmit;
-
-  const _SubmitIssueBar({
-    required this.isSubmitting,
-    required this.isCritical,
-    required this.onSubmit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(
-          BafSpacing.lg,
-          BafSpacing.md,
-          BafSpacing.lg,
-          BafSpacing.md,
-        ),
-        decoration: const BoxDecoration(
-          color: BafColors.card,
-          border: Border(top: BorderSide(color: BafColors.border)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  isCritical ? Icons.priority_high_rounded : Icons.sync_rounded,
-                  color: isCritical ? BafColors.danger : BafColors.maintenance,
-                  size: 18,
-                ),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(
-                  child: Text(
-                    isCritical
-                        ? 'Critical issue: sends immediately.'
-                        : 'Normal issue: sends now, with 5-minute retry safety.',
-                    style: const TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            SizedBox(
-              height: 54,
-              child: FilledButton.icon(
-                onPressed: onSubmit,
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      isCritical ? BafColors.danger : BafColors.maintenance,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: BafColors.border,
-                  disabledForegroundColor: BafColors.textSecondary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(BafRadius.medium),
-                  ),
-                ),
-                icon:
-                    isSubmitting
-                        ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                        : const Icon(Icons.add_task_rounded),
-                label: Text(
-                  isSubmitting ? 'Submitting...' : 'Submit Issue',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CriticalIssueToggle extends StatelessWidget {
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _CriticalIssueToggle({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color:
-            value
-                ? BafColors.danger.withValues(alpha: 0.08)
-                : BafColors.background,
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(
-          color:
-              value
-                  ? BafColors.danger.withValues(alpha: 0.34)
-                  : BafColors.border,
-        ),
-      ),
-      child: CheckboxListTile(
-        value: value,
-        onChanged: (checked) => onChanged(checked == true),
-        activeColor: BafColors.danger,
-        checkColor: Colors.white,
-        controlAffinity: ListTileControlAffinity.leading,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: BafSpacing.sm,
-          vertical: BafSpacing.xs,
-        ),
-        title: const Text(
-          'Critical / safety-sensitive issue',
-          style: TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        subtitle: const Text(
-          'Tick this for H₂-sensitive or urgent breakdowns. Critical issues are pushed immediately; normal issues are sent within 5 minutes unless manually synced earlier.',
-          style: TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 12,
-            height: 1.3,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _IntroCard extends StatelessWidget {
-  final String? appUserName;
-
-  const _IntroCard({this.appUserName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      decoration: BoxDecoration(
-        color: BafColors.card,
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(
-          color: BafColors.maintenance.withValues(alpha: 0.18),
-        ),
-        boxShadow: BafShadows.subtle,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: BafColors.maintenance.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-            ),
-            child: const Icon(
-              Icons.engineering_rounded,
-              color: BafColors.maintenance,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: BafSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Raise an issue',
-                  style: TextStyle(
-                    color: BafColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.xs),
-                const Text(
-                  'Give the attending team enough context to act quickly and safely.',
-                  style: TextStyle(
-                    color: BafColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.3,
-                  ),
-                ),
-                if (appUserName != null && appUserName!.trim().isNotEmpty) ...[
-                  const SizedBox(height: BafSpacing.sm),
-                  StatusBadge(
-                    label: 'Logging as $appUserName',
-                    color: BafColors.maintenance,
-                    icon: Icons.person_outline_rounded,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final List<Widget> children;
-
-  const _SectionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      decoration: BoxDecoration(
-        color: BafColors.card,
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(color: BafColors.border),
-        boxShadow: BafShadows.subtle,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: BafColors.maintenance, size: 22),
-              const SizedBox(width: BafSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: BafSpacing.xs),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.lg),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _ResolvedTagPanel extends StatelessWidget {
-  final String? system;
-  final String? subsystem;
-  final List<String>? path;
-  final String? ownership;
-  final bool governed;
-
-  const _ResolvedTagPanel({
-    this.system,
-    this.subsystem,
-    this.path,
-    this.ownership,
-    this.governed = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(BafSpacing.md),
-      decoration: BoxDecoration(
-        color: BafColors.sync.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: BafColors.sync.withValues(alpha: 0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                governed ? Icons.verified_outlined : Icons.auto_awesome_rounded,
-                size: 17,
-                color: BafColors.sync,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                governed ? 'Governed component resolved' : 'Tag resolved',
-                style: const TextStyle(
-                  color: BafColors.sync,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          if (system != null && system!.trim().isNotEmpty)
-            _ResolvedLine(label: 'System', value: system!),
-          if (subsystem != null && subsystem!.trim().isNotEmpty)
-            _ResolvedLine(label: 'Subsystem', value: subsystem!),
-          if (path != null && path!.isNotEmpty)
-            _ResolvedLine(label: 'Path', value: path!.join(' › ')),
-          if (ownership != null && ownership!.trim().isNotEmpty)
-            _ResolvedLine(label: 'Ownership', value: ownership!),
-        ],
-      ),
-    );
-  }
-}
-
-String _roleLabelForReference(String role) => switch (role) {
-  'admin' => 'Admin',
-  'si' => 'SI',
-  'contractSupervisor' => 'Contract supervisor',
-  'shiftSupervisor' => 'Shift supervisor',
-  'seniorElectrical' => 'Sr. Electrical',
-  'seniorMechanical' => 'Sr. Mechanical',
-  'seniorInstrumentation' => 'Sr. I&A',
-  'seniorRefractory' => 'Sr. Refractory',
-  'refractory' => 'Refractory',
-  'operations' => 'Operations',
-  _ => role,
-};
-
-class _ResolvedLine extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _ResolvedLine({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 3),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 12,
-            height: 1.25,
-          ),
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(
-                color: BafColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            TextSpan(text: value),
-          ],
-        ),
       ),
     );
   }

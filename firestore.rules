@@ -57,6 +57,10 @@ service cloud.firestore {
       return value == null || isPersistedTimestamp(value);
     }
 
+    function isFiveDigitChargeNumber(value) {
+      return value is int && value >= 10000 && value <= 99999;
+    }
+
     function hasUserDoc() {
       return isSignedIn()
         ? exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -2388,8 +2392,7 @@ service cloud.firestore {
             : (warningReason is string
               && warningReason.size() >= 8
               && warningReason.size() <= 1000
-              && chargeNo is int
-              && chargeNo > 0)));
+              && isFiveDigitChargeNumber(chargeNo))));
     }
 
     function validBurnerResolutionEvidenceEntry(evidence, key) {
@@ -2889,8 +2892,7 @@ service cloud.firestore {
           'deleteReason'
         ])
         && request.resource.data.get('firestoreId', null) == docId
-        && sourceChargeNo is int
-        && sourceChargeNo > 0
+        && isFiveDigitChargeNumber(sourceChargeNo)
         && validNonEmptyString(
           request.resource.data.get('abnormalityTypeId', null),
           512
@@ -2969,8 +2971,7 @@ service cloud.firestore {
             && reannealingStatus != 'completed'
           )
           || (
-            reannealedToChargeNo is int
-            && reannealedToChargeNo > 0
+            isFiveDigitChargeNumber(reannealedToChargeNo)
             && reannealedToChargeNo != sourceChargeNo
             && reannealingStatus == 'completed'
           )
@@ -3077,8 +3078,9 @@ service cloud.firestore {
         && request.resource.data.get('sourceId', null) is string
         && request.resource.data.get('sourceVersion', -1) is int
         && request.resource.data.get('sourceVersion', -1) >= 1
-        && request.resource.data.get('sourceChargeNo', -1) is int
-        && request.resource.data.get('sourceChargeNo', -1) > 0
+        && isFiveDigitChargeNumber(
+          request.resource.data.get('sourceChargeNo', -1)
+        )
         && validNonEmptyString(
           request.resource.data.get('sourceSummary', null),
           2000
@@ -3431,6 +3433,121 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /frequent_issue_definitions/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /frequent_issue_definition_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /issue_governance_review_queue/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_class_definitions/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_class_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_classification_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_completion_events/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_completion_sources/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /historical_maintenance_records/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /historical_maintenance_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_due_states/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_plans/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_plan_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_definitions/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_definition_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_campaigns/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_campaign_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_target_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_observations/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_issue_links/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_findings/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_finding_events/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_verifications/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
     match /asset_operational_conditions/{docId} {
       allow read: if isApprovedUser();
       allow write: if false;
@@ -3443,6 +3560,31 @@ service cloud.firestore {
 
     match /asset_operational_condition_receipts/{docId} {
       allow read, write: if false;
+    }
+
+    match /furnace_stuckup_cases/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /asset_availability_constraints/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /asset_availability_current/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /asset_condition_declarations/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /asset_condition_evidence/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
     }
 
     match /burner_condition_rounds/{docId} {

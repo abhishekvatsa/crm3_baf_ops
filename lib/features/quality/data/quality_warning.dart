@@ -1,4 +1,5 @@
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/validation/charge_number.dart';
 
 enum QualityWarningSourceType { issue, abnormality }
 
@@ -495,11 +496,10 @@ class QualityMonitoringRequest {
     }
     final chargeNumbers = <int>[
       for (var index = 0; index < rawCharges.length; index++)
-        readRequiredPersistedInt(
+        readRequiredPersistedChargeNumber(
           rawCharges[index],
           field: 'chargeNumbers[$index]',
           source: source,
-          minimum: 1,
         ),
     ];
     if (chargeNumbers.toSet().length != chargeNumbers.length) {
