@@ -343,9 +343,8 @@ extension _SyncServiceTicketsTemplates on SyncService {
             stepData,
           );
     } catch (_) {
-      final observed = await _firestoreMaintenance.getByFirestoreId(
-        firestoreId,
-      );
+      final observed = await _firestoreMaintenance
+          .readRemoteMaintenanceLifecycleReplayFieldsForSync(firestoreId);
       if (maintenanceLifecycleReplayOutcomeMatches(observed, stepData)) {
         debugPrint(
           'Maintenance lifecycle replay for $firestoreId was confirmed by '
@@ -753,34 +752,40 @@ extension _SyncServiceTicketsTemplates on SyncService {
 }
 
 bool maintenanceLifecycleReplayOutcomeMatches(
-  MaintenanceRecord? remote,
+  Map<String, dynamic>? remote,
   Map<String, dynamic> stepData,
 ) {
   if (remote == null) return false;
-  final version = stepData['version'];
-  final isResolved = stepData['isResolved'];
-  final status = stepData['status'];
-  final updatedAtText = stepData['updatedAt'];
-  if (version is! int ||
-      isResolved is! bool ||
-      status is! String ||
-      updatedAtText is! String ||
-      remote.version != version ||
-      remote.isResolved != isResolved ||
-      remote.status.name != status ||
-      remote.updatedAt.toIso8601String() != updatedAtText) {
-    return false;
+  for (final entry in stepData.entries) {
+    if (!remote.containsKey(entry.key) ||
+        !_maintenanceReplayValueEquals(remote[entry.key], entry.value)) {
+      return false;
+    }
   }
-  if (isResolved) {
-    final endDateText = stepData['endDate'];
-    return endDateText is String &&
-        remote.endDate?.toIso8601String() == endDateText &&
-        remote.closedByUid == stepData['closedByUid'] &&
-        remote.actionsJson == stepData['actionsJson'];
+  return true;
+}
+
+bool _maintenanceReplayValueEquals(Object? remote, Object? expected) {
+  if (remote is Map && expected is Map) {
+    if (remote.length != expected.length) return false;
+    for (final entry in expected.entries) {
+      if (!remote.containsKey(entry.key) ||
+          !_maintenanceReplayValueEquals(remote[entry.key], entry.value)) {
+        return false;
+      }
+    }
+    return true;
   }
-  return remote.endDate == null &&
-      remote.actionsJson == stepData['actionsJson'] &&
-      remote.resolutionHistoryJson == stepData['resolutionHistoryJson'];
+  if (remote is List && expected is List) {
+    if (remote.length != expected.length) return false;
+    for (var index = 0; index < expected.length; index++) {
+      if (!_maintenanceReplayValueEquals(remote[index], expected[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return remote == expected;
 }
 
 enum _MaintenanceReplayStep { close, reopen }

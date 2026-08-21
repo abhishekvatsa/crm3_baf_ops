@@ -3945,8 +3945,8 @@ service cloud.firestore {
         && validAbnormalityTypeWrite(docId)
         && (
           resource.data.get('version', null) is int
-            ? request.resource.data.get('version', -1) ==
-              resource.data.get('version', -1) + 1
+            ? request.resource.data.get('version', -1) >
+              resource.data.get('version', -1)
             : request.resource.data.get('version', -1) >= 1
         );
       allow delete: if false;

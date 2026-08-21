@@ -376,6 +376,12 @@ abstract class MaintenanceRepository {
     Map<String, dynamic> stepData,
   );
 
+  /// Reads the exact remote document shape used to adjudicate an uncertain
+  /// lifecycle replay write. Model decoding is intentionally bypassed because
+  /// the replay surface includes server-only audit and burner evidence fields.
+  Future<Map<String, dynamic>?>
+  readRemoteMaintenanceLifecycleReplayFieldsForSync(String firestoreId);
+
   /// Adopts server-owned creation evidence after an idempotent create command.
   /// The local row is changed only if it still matches the snapshot sent to the
   /// server; concurrent local edits therefore remain dirty for a later sync.

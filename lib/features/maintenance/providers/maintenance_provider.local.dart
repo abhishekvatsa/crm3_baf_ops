@@ -718,6 +718,15 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Future<Map<String, dynamic>?>
+  readRemoteMaintenanceLifecycleReplayFieldsForSync(String firestoreId) {
+    throw UnsupportedError(
+      'readRemoteMaintenanceLifecycleReplayFieldsForSync is a remote sync '
+      'primitive and is not supported by the local Isar maintenance repository.',
+    );
+  }
+
+  @override
   Future<bool> applyGovernedCreationReceiptForSync({
     required String firestoreId,
     required SyncPushSnapshot expectedLocal,
