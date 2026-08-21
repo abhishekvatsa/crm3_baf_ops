@@ -1359,6 +1359,12 @@ firebase_key_readback = text(
 firebase_key_readback_test = text(
     "tools/security/collect_firebase_client_api_key_readback.test.mjs"
 )
+firebase_key_android_mutator = text(
+    "tools/security/apply_firebase_android_api_key_restrictions.cjs"
+)
+firebase_key_android_mutator_test = text(
+    "tools/security/apply_firebase_android_api_key_restrictions.test.mjs"
+)
 firebase_key_security_policy = text("SECURITY.md")
 firebase_key_decision = text(
     "docs/v4_2_r1/FIREBASE_CLIENT_API_KEY_CUSTODY.md"
@@ -1369,6 +1375,9 @@ firebase_key_live_policy = firebase_key_policy.get("liveReadback", {})
 firebase_key_expected_keys = firebase_key_live_policy.get("expectedKeys", [])
 firebase_key_expected_targets = firebase_key_live_policy.get(
     "expectedApiTargets", []
+)
+firebase_key_android_hardening = firebase_key_policy.get(
+    "androidPilotHardening", {}
 )
 firebase_key_approved_targets = [
     "cloudconfig.googleapis.com",
@@ -1430,21 +1439,55 @@ check(
         for restriction in key.get("applicationRestrictions", [])
         if isinstance(restriction, dict)
     ) == ["android", "browser", "ios"]
-    and all(
-        restriction.get("entryCount") == 0
+    and {
+        key.get("displayName"): key.get("applicationRestrictions")
         for key in firebase_key_expected_keys
         if isinstance(key, dict)
-        for restriction in key.get("applicationRestrictions", [])
-        if isinstance(restriction, dict)
-    )
-    and all(
-        restriction.get("valueSha256")
-            == "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A"
-        for key in firebase_key_expected_keys
-        if isinstance(key, dict)
-        for restriction in key.get("applicationRestrictions", [])
-        if isinstance(restriction, dict)
-    )
+    } == {
+        "Android key (auto created by Firebase)": [
+            {
+                "type": "android",
+                "entryCount": 2,
+                "valueSha256": "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692",
+            }
+        ],
+        "Browser key (auto created by Firebase)": [
+            {
+                "type": "browser",
+                "entryCount": 0,
+                "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A",
+            }
+        ],
+        "iOS key (auto created by Firebase)": [
+            {
+                "type": "ios",
+                "entryCount": 0,
+                "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A",
+            }
+        ],
+    }
+    and firebase_key_android_hardening.get("displayName")
+        == "Android key (auto created by Firebase)"
+    and firebase_key_android_hardening.get("allowedApplications")
+        == [
+            {
+                "packageName": "in.co.sail.bsl.crm3.bafops",
+                "sha1Fingerprint": "30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31",
+            },
+            {
+                "packageName": "in.co.sail.bsl.crm3.bafops",
+                "sha1Fingerprint": "41C2B828C71683A50EC346D19E1D44048758438D",
+            },
+        ]
+    and firebase_key_android_hardening.get(
+        "acceptedPreMutationValueSha256"
+    ) == [
+        "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A",
+        "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692",
+    ]
+    and firebase_key_android_hardening.get(
+        "automaticRollbackOnPostVerificationFailure"
+    ) is True
     and firebase_key_expected_targets == firebase_key_approved_targets
     and "generativelanguage.googleapis.com"
         not in firebase_key_expected_targets
@@ -1471,17 +1514,25 @@ check(
         in firebase_key_readback_test
     and "strict readback cannot pass from a materially dirty source tree"
         in firebase_key_readback_test
+    and "normalizeSha1Fingerprint" in firebase_key_readback
+    and "executeCampaign" in firebase_key_android_mutator
+    and "sourceBinding.commit !== sourceBinding.originMain"
+        in firebase_key_android_mutator
+    and "updateMask: \"restrictions\"" in firebase_key_android_mutator
+    and "failed post-readback restores and verifies original restrictions"
+        in firebase_key_android_mutator_test
     and root_package.get("scripts", {}).get(
         "test:firebase-client-key-custody"
     )
-        == "node --test tools/security/firebase_client_api_key_custody.test.mjs tools/security/collect_firebase_client_api_key_readback.test.mjs && node tools/security/firebase_client_api_key_custody.cjs"
+        == "node --test tools/security/firebase_client_api_key_custody.test.mjs tools/security/collect_firebase_client_api_key_readback.test.mjs tools/security/apply_firebase_android_api_key_restrictions.test.mjs && node tools/security/firebase_client_api_key_custody.cjs"
     and "npm run test:firebase-client-key-custody" in release_gate_source
     and "https://firebase.google.com/docs/projects/api-keys"
         in firebase_key_security_policy
     and "App Check is a separate anti-abuse control"
         in firebase_key_security_policy
-    and "each with zero entries" in firebase_key_decision
-    and "No key rotation, API restriction mutation" in firebase_key_decision,
+    and "both approved Android signing certificates" in firebase_key_decision
+    and "Browser and iOS" in firebase_key_decision
+    and "application restrictions remain unchanged" in firebase_key_decision,
 )
 
 firestore_readback_source = text(

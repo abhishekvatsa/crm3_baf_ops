@@ -20,8 +20,8 @@
         "applicationRestrictions": [
           {
             "type": "android",
-            "entryCount": 0,
-            "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A"
+            "entryCount": 2,
+            "valueSha256": "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692"
           }
         ]
       },
@@ -78,5 +78,23 @@
     "forbiddenApiTargets": [
       "generativelanguage.googleapis.com"
     ]
+  },
+  "androidPilotHardening": {
+    "displayName": "Android key (auto created by Firebase)",
+    "allowedApplications": [
+      {
+        "packageName": "in.co.sail.bsl.crm3.bafops",
+        "sha1Fingerprint": "30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31"
+      },
+      {
+        "packageName": "in.co.sail.bsl.crm3.bafops",
+        "sha1Fingerprint": "41C2B828C71683A50EC346D19E1D44048758438D"
+      }
+    ],
+    "acceptedPreMutationValueSha256": [
+      "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A",
+      "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692"
+    ],
+    "automaticRollbackOnPostVerificationFailure": true
   }
 }

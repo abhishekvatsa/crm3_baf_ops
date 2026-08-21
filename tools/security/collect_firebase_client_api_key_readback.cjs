@@ -63,6 +63,42 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 
+function normalizeSha1Fingerprint(value) {
+  if (typeof value !== "string") {
+    throw new Error("Android application restriction has no SHA-1 fingerprint.");
+  }
+  const normalized = value.replaceAll(":", "").toUpperCase();
+  if (!/^[0-9A-F]{40}$/.test(normalized)) {
+    throw new Error("Android application restriction has a malformed SHA-1 fingerprint.");
+  }
+  return normalized;
+}
+
+function normalizedApplicationRestriction(type, value) {
+  if (type !== "android" || !Array.isArray(value.allowedApplications)) {
+    return value;
+  }
+  const allowedApplications = value.allowedApplications
+    .map((application) => {
+      if (
+        typeof application?.packageName !== "string" ||
+        application.packageName.length === 0
+      ) {
+        throw new Error("Android application restriction has no package name.");
+      }
+      return {
+        packageName: application.packageName,
+        sha1Fingerprint: normalizeSha1Fingerprint(application.sha1Fingerprint),
+      };
+    })
+    .sort((left, right) =>
+      `${left.packageName}\u0000${left.sha1Fingerprint}`.localeCompare(
+        `${right.packageName}\u0000${right.sha1Fingerprint}`,
+      ),
+    );
+  return { allowedApplications };
+}
+
 function applicationRestrictionEntryCounts(restrictions) {
   const candidates = [
     ["android", restrictions.androidKeyRestrictions, "allowedApplications"],
@@ -75,7 +111,9 @@ function applicationRestrictionEntryCounts(restrictions) {
     .map(([type, value, field]) => ({
       type,
       entryCount: Array.isArray(value[field]) ? value[field].length : 0,
-      valueSha256: sha256(canonicalJson(value)),
+      valueSha256: sha256(
+        canonicalJson(normalizedApplicationRestriction(type, value)),
+      ),
     }))
     .sort((left, right) => left.type.localeCompare(right.type));
 }
@@ -327,6 +365,9 @@ module.exports = {
   applicationRestrictionTypes,
   canonicalJson,
   collectSourceBinding,
+  listKeyResources,
+  normalizeSha1Fingerprint,
+  normalizedApplicationRestriction,
   parseArgs,
   privacySafeLiveKey,
   sameStrings,

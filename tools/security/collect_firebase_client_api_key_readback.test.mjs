@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const { sha256 } = require("./firebase_client_api_key_custody.cjs");
 const {
   adjudicateLiveReadback,
+  applicationRestrictionEntryCounts,
   privacySafeLiveKey,
 } = require("./collect_firebase_client_api_key_readback.cjs");
 
@@ -157,5 +158,43 @@ test("observation mode reports current services without granting PASS", () => {
   assert.equal(
     result.evidence.decision,
     "OBSERVE_FIREBASE_CLIENT_API_KEY_LIVE_CUSTODY",
+  );
+});
+
+test("Android restriction hashing normalizes certificate punctuation and ordering", () => {
+  const compact = applicationRestrictionEntryCounts({
+    androidKeyRestrictions: {
+      allowedApplications: [
+        {
+          packageName: "in.co.sail.bsl.crm3.bafops",
+          sha1Fingerprint: "41C2B828C71683A50EC346D19E1D44048758438D",
+        },
+        {
+          packageName: "in.co.sail.bsl.crm3.bafops",
+          sha1Fingerprint: "30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31",
+        },
+      ],
+    },
+  });
+  const punctuated = applicationRestrictionEntryCounts({
+    androidKeyRestrictions: {
+      allowedApplications: [
+        {
+          packageName: "in.co.sail.bsl.crm3.bafops",
+          sha1Fingerprint:
+            "30:B5:8F:0F:39:E1:BA:3C:A6:9F:D9:03:2D:7C:F6:FB:41:EC:8F:31",
+        },
+        {
+          packageName: "in.co.sail.bsl.crm3.bafops",
+          sha1Fingerprint:
+            "41:C2:B8:28:C7:16:83:A5:0E:C3:46:D1:9E:1D:44:04:87:58:43:8D",
+        },
+      ],
+    },
+  });
+  assert.deepEqual(compact, punctuated);
+  assert.equal(
+    compact[0].valueSha256,
+    "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692",
   );
 });

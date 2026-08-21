@@ -7,9 +7,12 @@ configuration, not data-access credentials. Keeping them in generated Firebase
 configuration is correct when their live API restrictions remain limited to
 Firebase-related services.
 
-This tranche therefore does not rotate or delete the active keys. It removes
+The source-custody tranche does not rotate or delete the active keys. It removes
 two obsolete one-off direct-write diagnostics that duplicated the browser key,
-then makes any future copy outside the two generated files a CI failure.
+then makes any future copy outside the two generated files a CI failure. The
+Android pilot-hardening tranche additionally binds the Android key to the
+permanent package and both approved Android signing certificates while retaining
+the complete API allowlist.
 
 ## Source boundary
 
@@ -50,12 +53,24 @@ Strict PASS requires:
 - the Generative Language API absent;
 - exact platform restriction-object shapes.
 
-The current platform restriction objects are Android, Browser and iOS
-respectively, each with zero entries. This is recorded explicitly and is not
-claimed as an app-client restriction. Adding application restrictions to
-production keys remains a separate compatibility-tested change because an
-incorrect package, certificate, bundle or referrer restriction can break a
-correctly signed client.
+The Android platform restriction admits exactly two application identities:
+
+- `in.co.sail.bsl.crm3.bafops` signed by the governed debug certificate;
+- `in.co.sail.bsl.crm3.bafops` signed by the governed production certificate.
+
+The mutation is deliberately limited to Android pilot clients. Browser and iOS
+application restrictions remain unchanged with zero entries because web is
+deferred and no equivalent iOS/macOS runtime evidence has been admitted. Their
+state remains explicit rather than being described as protected.
+
+`tools/security/apply_firebase_android_api_key_restrictions.cjs` is the only
+admitted mutation path. It requires a clean commit equal to `origin/main`, an
+exact three-key inventory, the exact pre-mutation application state and the
+existing 27-service allowlist. It sends the complete restrictions object with an
+etag when available, waits for the long-running operation and performs an exact
+post-readback. Any failed post-readback triggers automatic restoration of the
+captured original restrictions and verifies that restoration. Its receipt omits
+raw key values, resource names and account identity.
 
 ## Security boundary
 
@@ -80,5 +95,7 @@ After merge and a clean post-merge strict readback:
 - any later key occurrence outside the allowlist re-arms CI and requires fresh
   adjudication.
 
-No key rotation, API restriction mutation, backend deployment, Rules deployment
-or application distribution is part of this tranche.
+No key rotation, backend deployment, Rules deployment or application
+distribution is part of this tranche. API-target minimisation remains separate
+from Android application binding because removing an apparently unused Firebase
+service requires client runtime evidence.
