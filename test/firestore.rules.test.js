@@ -174,6 +174,75 @@ function notificationInstallationPayload(overrides = {}) {
   };
 }
 
+function abnormalityTypePayload(id = "type1", overrides = {}) {
+  const now = new Date().toISOString();
+  return {
+    firestoreId: id,
+    code: "TYPE_1",
+    title: "Type 1",
+    description: null,
+    category: "equipment",
+    severity: "medium",
+    applicableAssetTypes: ["furnace"],
+    suggestsReannealing: false,
+    isActive: true,
+    isDeleted: false,
+    deletedAt: null,
+    deletedByUid: null,
+    deletedByName: null,
+    deleteReason: null,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    createdByUid: "admin1",
+    createdByName: "admin1",
+    lastEditedByUid: "admin1",
+    lastEditedByName: "admin1",
+    ...overrides,
+  };
+}
+
+function templatePackagePayload(id = "pkg1", overrides = {}) {
+  const now = new Date().toISOString();
+  return {
+    firestoreId: id,
+    packageCode: "PKG-1",
+    title: "Governed package",
+    description: null,
+    assetType: "furnace",
+    assetNumberScope: null,
+    disciplineScope: null,
+    lifecycleStatus: "active",
+    activeVersionFirestoreId: null,
+    latestVersionNumber: 0,
+    createdByUid: "si1",
+    createdByName: "si1",
+    updatedByUid: "si1",
+    updatedByName: "si1",
+    retiredByUid: null,
+    retiredByName: null,
+    retiredAt: null,
+    retireReason: null,
+    isDeleted: false,
+    deletedAt: null,
+    deletedByUid: null,
+    deletedByName: null,
+    deleteReason: null,
+    version: 1,
+    schemaVersion: 1,
+    createdAt: now,
+    updatedAt: now,
+    targetRefs: [],
+    deviceTagRefs: [],
+    safetyClass: null,
+    safetyGatePolicyJson: null,
+    procedureRefs: [],
+    operationalStatePreconditions: [],
+    metadataJson: null,
+    ...overrides,
+  };
+}
+
 function auditEventPayload(overrides = {}) {
   return {
     entityType: "maintenance",
@@ -258,11 +327,12 @@ describe("global pull server clock custody", () => {
 
     await assertFails(
       setDoc(ref, {
-        title: "Type 1",
+        ...abnormalityTypePayload(),
         _globalPullServerUpdatedAt: serverTimestamp(),
       })
     );
-    await assertSucceeds(setDoc(ref, {title: "Type 1"}));
+    await assertFails(setDoc(ref, {title: "Type 1"}));
+    await assertSucceeds(setDoc(ref, abnormalityTypePayload()));
     await assertFails(
       updateDoc(ref, {_globalPullServerUpdatedAt: null})
     );
@@ -274,9 +344,19 @@ describe("global pull server clock custody", () => {
       );
     });
 
-    await assertSucceeds(updateDoc(ref, {title: "Type 1 revised"}));
+    await assertSucceeds(updateDoc(ref, {
+      title: "Type 1 revised",
+      updatedAt: new Date().toISOString(),
+      lastEditedByUid: "admin1",
+      lastEditedByName: "admin1",
+      version: 2,
+    }));
     await assertFails(
-      updateDoc(ref, {_globalPullServerUpdatedAt: serverTimestamp()})
+      updateDoc(ref, {
+        _globalPullServerUpdatedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString(),
+        version: 3,
+      })
     );
     await assertFails(
       updateDoc(ref, {_globalPullServerUpdatedAt: deleteField()})
@@ -292,18 +372,21 @@ describe("global pull server clock custody", () => {
     const db = dbAs("admin1");
     const ref = doc(db, "abnormality_types/type1");
 
-    await assertSucceeds(setDoc(ref, {title: "Type 1 revised"}));
+    await assertSucceeds(
+      setDoc(ref, abnormalityTypePayload("type1", {
+        title: "Type 1 revised",
+      }))
+    );
     const replaced = await getDoc(ref);
     expect(replaced.data()._globalPullServerUpdatedAt).toBeUndefined();
   });
 
   test("abnormality type tombstone requires an authoritative deletion time", async () => {
     await seedUser("admin1", ["admin"]);
-    await seedDoc("abnormality_types/typeDelete", {
-      title: "Duplicate type",
-      isDeleted: false,
-      version: 1,
-    });
+    await seedDoc(
+      "abnormality_types/typeDelete",
+      abnormalityTypePayload("typeDelete", {title: "Duplicate type"})
+    );
     const ref = doc(dbAs("admin1"), "abnormality_types/typeDelete");
 
     await assertFails(
@@ -318,8 +401,14 @@ describe("global pull server clock custody", () => {
     );
     await assertSucceeds(
       updateDoc(ref, {
+        isActive: false,
         isDeleted: true,
         deletedAt: new Date().toISOString(),
+        deletedByUid: "admin1",
+        deletedByName: "admin1",
+        updatedAt: new Date().toISOString(),
+        lastEditedByUid: "admin1",
+        lastEditedByName: "admin1",
         version: 2,
       })
     );
@@ -1813,6 +1902,27 @@ describe("template_packages", () => {
         lifecycleStatus: "retired",
         retiredAt: new Date().toISOString(),
         updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+  });
+
+  test("package writes cannot exceed strict reader text bounds", async () => {
+    const db = dbAs("si1");
+    const ref = doc(db, "template_packages/pkgBounds");
+
+    await assertFails(
+      setDoc(ref, templatePackagePayload("pkgBounds", {
+        title: "x".repeat(501),
+      }))
+    );
+    await assertSucceeds(
+      setDoc(ref, templatePackagePayload("pkgBounds"))
+    );
+    await assertFails(
+      updateDoc(ref, {
+        description: "x".repeat(4001),
         updatedAt: new Date().toISOString(),
         version: 2,
       })

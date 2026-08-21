@@ -82,6 +82,7 @@ List<String> _splitComma(String value) {
       .split(RegExp(r'[,;|]+'))
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
+      .toSet()
       .toList();
 }
 

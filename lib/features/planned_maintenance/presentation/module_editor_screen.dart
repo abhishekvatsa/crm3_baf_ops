@@ -1532,9 +1532,10 @@ InputDecoration _inputDecoration(String label, IconData icon) {
 
 List<String> _splitComma(String value) {
   return value
-      .split(',')
+      .split(RegExp(r'[,;|]+'))
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
+      .toSet()
       .toList();
 }
 

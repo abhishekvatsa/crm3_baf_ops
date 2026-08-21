@@ -67,6 +67,33 @@ void main() {
       }
     });
 
+    test('package text and list bounds reject unreadable user writes', () {
+      final cases = <String, Object?>{
+        'packageCode': 'x'.padRight(161, 'x'),
+        'title': 'x'.padRight(501, 'x'),
+        'description': 'x'.padRight(4001, 'x'),
+        'assetType': 'x'.padRight(201, 'x'),
+        'assetNumberScope': 'x'.padRight(501, 'x'),
+        'disciplineScope': 'x'.padRight(501, 'x'),
+        'activeVersionFirestoreId': 'x'.padRight(513, 'x'),
+        'safetyClass': 'x'.padRight(201, 'x'),
+        'targetRefs': <String>['x'.padRight(513, 'x')],
+      };
+
+      for (final entry in cases.entries) {
+        expect(
+          () => TemplatePackage.fromMap(<String, dynamic>{
+            ..._validPackage(),
+            entry.key: entry.value,
+          }, 'package-1'),
+          _invalidField(
+            entry.key == 'targetRefs' ? 'targetRefs[0]' : entry.key,
+          ),
+          reason: entry.key,
+        );
+      }
+    });
+
     test('identity, timeline, lists, and lifecycle state cannot drift', () {
       final cases = <String, Map<String, dynamic>>{
         'firestoreId': <String, dynamic>{
@@ -392,6 +419,14 @@ void main() {
     expect(
       provider,
       contains('TemplatePublishAudit.fromMap(doc.data(), doc.id)'),
+    );
+    expect(provider, contains('void _validatePackageForPersistence('));
+    expect(provider, contains('readRemoteTemplatePackage(record.toMap()'));
+    expect(
+      RegExp(
+        r'_validatePackageForPersistence\(record\);',
+      ).allMatches(provider).length,
+      greaterThanOrEqualTo(2),
     );
   });
 }

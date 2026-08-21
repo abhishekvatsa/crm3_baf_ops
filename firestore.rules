@@ -1164,11 +1164,117 @@ service cloud.firestore {
         || action == 'archived';
     }
 
+    function validOptionalTemplateText(value, maxLength) {
+      return value == null || validNonEmptyString(value, maxLength);
+    }
+
+    function validOptionalTemplateStringList(value) {
+      return value == null || (value is list && value.size() <= 500);
+    }
+
+    function validTemplatePackageReadableFields() {
+      let status = request.resource.data.get('lifecycleStatus', null);
+      let retiredAt = request.resource.data.get('retiredAt', null);
+      let retiredByUid = request.resource.data.get('retiredByUid', null);
+      let retiredByName = request.resource.data.get('retiredByName', null);
+      let retireReason = request.resource.data.get('retireReason', null);
+      let isDeleted = request.resource.data.get('isDeleted', null);
+      let deletedAt = request.resource.data.get('deletedAt', null);
+      let deletedByUid = request.resource.data.get('deletedByUid', null);
+      let deletedByName = request.resource.data.get('deletedByName', null);
+      let deleteReason = request.resource.data.get('deleteReason', null);
+      return validNonEmptyString(
+          request.resource.data.get('packageCode', null),
+          160
+        )
+        && validNonEmptyString(request.resource.data.get('title', null), 500)
+        && validOptionalTemplateText(
+          request.resource.data.get('description', null),
+          4000
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('assetType', null),
+          200
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('assetNumberScope', null),
+          500
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('disciplineScope', null),
+          500
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('activeVersionFirestoreId', null),
+          512
+        )
+        && validNonEmptyString(
+          request.resource.data.get('createdByUid', null),
+          512
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('createdByName', null),
+          500
+        )
+        && validNonEmptyString(
+          request.resource.data.get('updatedByUid', null),
+          512
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('updatedByName', null),
+          500
+        )
+        && validOptionalTemplateText(retiredByUid, 512)
+        && validOptionalTemplateText(retiredByName, 500)
+        && validOptionalTemplateText(retireReason, 2000)
+        && validOptionalTemplateText(deletedByUid, 512)
+        && validOptionalTemplateText(deletedByName, 500)
+        && validOptionalTemplateText(deleteReason, 2000)
+        && validOptionalTemplateStringList(
+          request.resource.data.get('targetRefs', null)
+        )
+        && validOptionalTemplateStringList(
+          request.resource.data.get('deviceTagRefs', null)
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('safetyClass', null),
+          200
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('safetyGatePolicyJson', null),
+          2000000
+        )
+        && validOptionalTemplateStringList(
+          request.resource.data.get('procedureRefs', null)
+        )
+        && validOptionalTemplateStringList(
+          request.resource.data.get('operationalStatePreconditions', null)
+        )
+        && validOptionalTemplateText(
+          request.resource.data.get('metadataJson', null),
+          2000000
+        )
+        && isPackageLifecycleStatus(status)
+        && (status == 'retired'
+          ? isPersistedTimestamp(retiredAt)
+          : (retiredAt == null
+            && retiredByUid == null
+            && retiredByName == null
+            && retireReason == null))
+        && isDeleted is bool
+        && (isDeleted
+          ? (isPersistedTimestamp(deletedAt)
+            && validNonEmptyString(deletedByUid, 512))
+          : (deletedAt == null
+            && deletedByUid == null
+            && deletedByName == null
+            && deleteReason == null));
+    }
+
     function validTemplatePackageCreate(docId) {
       return isTemplateGovernor()
         && request.resource.data.get('firestoreId', null) == docId
-        && request.resource.data.get('packageCode', null) is string
-        && request.resource.data.get('title', null) is string
+        && validTemplatePackageReadableFields()
         && request.resource.data.get('lifecycleStatus', null) == 'active'
         && request.resource.data.get('latestVersionNumber', -1) is int
         && request.resource.data.get('latestVersionNumber', -1) >= 0
@@ -1229,6 +1335,7 @@ service cloud.firestore {
         && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && request.resource.data.get('isDeleted', null) == resource.data.get('isDeleted', null)
+        && validTemplatePackageReadableFields()
         && isPackageLifecycleStatus(request.resource.data.get('lifecycleStatus', null))
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && request.resource.data.get('version', -1) is int
@@ -2820,6 +2927,86 @@ service cloud.firestore {
     // ⚠️ ABNORMALITY HELPERS
     // ─────────────────────────────────────────────
 
+    function validOptionalAbnormalityTypeText(value, maxLength) {
+      return value == null || validNonEmptyString(value, maxLength);
+    }
+
+    function validAbnormalityTypeAssetTypes(value) {
+      return value is list
+        && value.size() <= 5
+        && value.hasOnly([
+          'base',
+          'furnace',
+          'forceCooler',
+          'innerCover',
+          'governedCustom'
+        ])
+        && value.toSet().size() == value.size();
+    }
+
+    function validAbnormalityTypeWrite(docId) {
+      let isDeleted = request.resource.data.get('isDeleted', null);
+      let deletedAt = request.resource.data.get('deletedAt', null);
+      let deletedByUid = request.resource.data.get('deletedByUid', null);
+      let deletedByName = request.resource.data.get('deletedByName', null);
+      let deleteReason = request.resource.data.get('deleteReason', null);
+      let category = request.resource.data.get('category', null);
+      let severity = request.resource.data.get('severity', null);
+      return request.resource.data.get('firestoreId', null) == docId
+        && validNonEmptyString(request.resource.data.get('code', null), 160)
+        && validNonEmptyString(request.resource.data.get('title', null), 500)
+        && validOptionalAbnormalityTypeText(
+          request.resource.data.get('description', null),
+          4000
+        )
+        && (category == 'process'
+          || category == 'equipment'
+          || category == 'resultQuality'
+          || category == 'reannealing'
+          || category == 'other')
+        && (severity == 'low'
+          || severity == 'medium'
+          || severity == 'high'
+          || severity == 'critical')
+        && validAbnormalityTypeAssetTypes(
+          request.resource.data.get('applicableAssetTypes', null)
+        )
+        && request.resource.data.get('suggestsReannealing', null) is bool
+        && request.resource.data.get('isActive', null) is bool
+        && isDeleted is bool
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && isPersistedTimestamp(request.resource.data.get('createdAt', null))
+        && isPersistedTimestamp(request.resource.data.get('updatedAt', null))
+        && validNonEmptyString(
+          request.resource.data.get('createdByUid', null),
+          512
+        )
+        && validOptionalAbnormalityTypeText(
+          request.resource.data.get('createdByName', null),
+          500
+        )
+        && validNonEmptyString(
+          request.resource.data.get('lastEditedByUid', null),
+          512
+        )
+        && validOptionalAbnormalityTypeText(
+          request.resource.data.get('lastEditedByName', null),
+          500
+        )
+        && validOptionalAbnormalityTypeText(deletedByUid, 512)
+        && validOptionalAbnormalityTypeText(deletedByName, 500)
+        && validOptionalAbnormalityTypeText(deleteReason, 2000)
+        && (isDeleted
+          ? (request.resource.data.get('isActive', null) == false
+            && isPersistedTimestamp(deletedAt)
+            && validNonEmptyString(deletedByUid, 512))
+          : (deletedAt == null
+            && deletedByUid == null
+            && deletedByName == null
+            && deleteReason == null));
+    }
+
     function validChargeAbnormalityCreate(docId) {
       let sourceChargeNo = request.resource.data.get('sourceChargeNo', -1);
       let reannealingStatus =
@@ -3857,10 +4044,18 @@ service cloud.firestore {
       allow read: if isApprovedUser();
       allow create: if globalPullStampAbsentOnCreate()
         && isAdmin()
-        && targetTombstoneHasDeletionAuthority();
+        && targetTombstoneHasDeletionAuthority()
+        && validAbnormalityTypeWrite(docId);
       allow update: if globalPullStampValidOnUpdate()
         && isAdmin()
-        && targetTombstoneHasDeletionAuthority();
+        && targetTombstoneHasDeletionAuthority()
+        && validAbnormalityTypeWrite(docId)
+        && (
+          resource.data.get('version', null) is int
+            ? request.resource.data.get('version', -1) ==
+              resource.data.get('version', -1) + 1
+            : request.resource.data.get('version', -1) >= 1
+        );
       allow delete: if false;
     }
 

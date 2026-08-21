@@ -107,6 +107,14 @@ String moduleRegistryIdForModule(ComposerModuleDraft module) {
   return 'baf.module.${slug.isEmpty ? 'untitled' : slug}';
 }
 
+List<String> _normalizeRegistryValues(Iterable<String> values) {
+  final seen = <String>{};
+  return <String>[
+    for (final value in values)
+      if (value.trim().isNotEmpty && seen.add(value.trim())) value.trim(),
+  ];
+}
+
 class ModuleRegistryFamily {
   ModuleRegistryFamily({
     required this.registryModuleId,
@@ -188,13 +196,13 @@ class ModuleRegistryFamily {
               ? module.moduleCode.trim()
               : module.title.trim(),
       discipline: module.discipline,
-      ownerDisciplines: List<String>.from(module.ownerDisciplines),
+      ownerDisciplines: _normalizeRegistryValues(module.ownerDisciplines),
       assetType: module.assetType,
       functionalSection: module.functionalSection.trim(),
       componentGroup: module.componentGroup.trim(),
-      targetRefs: List<String>.from(module.targetRefs),
-      deviceTagRefs: List<String>.from(module.deviceTagRefs),
-      safetyClasses: List<String>.from(module.safetyClasses),
+      targetRefs: _normalizeRegistryValues(module.targetRefs),
+      deviceTagRefs: _normalizeRegistryValues(module.deviceTagRefs),
+      safetyClasses: _normalizeRegistryValues(module.safetyClasses),
       requiredForClosure: module.requiredForClosure,
       createdByUid: actor.uid,
       createdByName: actor.name,
@@ -220,13 +228,13 @@ class ModuleRegistryFamily {
             ? module.moduleCode.trim()
             : module.title.trim();
     discipline = module.discipline;
-    ownerDisciplines = List<String>.from(module.ownerDisciplines);
+    ownerDisciplines = _normalizeRegistryValues(module.ownerDisciplines);
     assetType = module.assetType;
     functionalSection = module.functionalSection.trim();
     componentGroup = module.componentGroup.trim();
-    targetRefs = List<String>.from(module.targetRefs);
-    deviceTagRefs = List<String>.from(module.deviceTagRefs);
-    safetyClasses = List<String>.from(module.safetyClasses);
+    targetRefs = _normalizeRegistryValues(module.targetRefs);
+    deviceTagRefs = _normalizeRegistryValues(module.deviceTagRefs);
+    safetyClasses = _normalizeRegistryValues(module.safetyClasses);
     requiredForClosure = module.requiredForClosure;
     updatedByUid = actor.uid;
     updatedByName = actor.name;

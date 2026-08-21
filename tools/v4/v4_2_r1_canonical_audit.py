@@ -364,8 +364,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 179
-    and counts.get("SUCCESSOR_MODIFIED") == 231
+    and counts.get("BYTE_IDENTICAL") == 178
+    and counts.get("SUCCESSOR_MODIFIED") == 232
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -8759,7 +8759,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "920BEB183C45956F39E2E28ED8FA755EF21C7D90CE4250BC03545613E4627E70"
+        == "2843532D9909C67960533BD9500B45E3E2EE6DA9E3DB2D76A747C66CA4532923"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9186,9 +9186,14 @@ check(
     and "unsupported persisted value" in a05_baf_reader
     and a05_baf_repository.count("on FirebaseException") == 2
     and ".catchError((_) => null)" not in a05_baf_repository
-    and a05_baf_repository.index("final metaDoc = await metaFuture;")
+    and "await Future.wait<void>(<Future<void>>[" in a05_baf_repository
+    and "baseQuery.get().then((value) => firstPage = value)"
+        in a05_baf_repository
+    and "_firestore.doc(metaPath).get().then((value) => metaDoc = value)"
+        in a05_baf_repository
+    and a05_baf_repository.index("await Future.wait<void>(<Future<void>>[")
         < a05_baf_repository.index(
-            "if (docs.isEmpty) return const BafKnowledgePullResult"
+            "while (true) {"
         )
     and "BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i)"
         in a05_baf_repository
@@ -9705,8 +9710,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 179
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 231
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 178
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 232
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections
