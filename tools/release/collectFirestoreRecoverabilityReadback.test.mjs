@@ -111,6 +111,23 @@ function operationSummary(overrides = {}) {
       describedEndTimeMatches: true,
       exactSuccessfulExport: true,
     },
+    isolatedRestoreSourceExport: {
+      operationNameSha256:
+        policy.isolatedRestore.sourceExport.operationNameSha256,
+      outputUriPrefixSha256:
+        policy.isolatedRestore.sourceExport.outputUriPrefixSha256,
+      appearsExactlyOnceInHistory: true,
+      done: true,
+      errorAbsent: true,
+      operationState: "SUCCESSFUL",
+      metadataType: exportType,
+      responseType: exportResponseType,
+      metadataAndResponseOutputMatch: true,
+      completedDocuments: 81,
+      estimatedDocuments: 81,
+      endTime: policy.isolatedRestore.sourceExport.completedAtUtc,
+      exactSuccessfulExport: true,
+    },
     ...overrides,
   };
 }
@@ -245,6 +262,26 @@ test("malformed isolated restore evidence fails acquisition and posture", () => 
       exactSuccessfulImportAndValidation: false,
     }),
   });
+  assert.ok(result.failedChecks.includes("isolatedRestoreEvidenceExact"));
+  assert.deepEqual(result.evidence.posture.holds, ["noRestoreImportProof"]);
+});
+
+test("isolated import must derive from the exact successful source export", () => {
+  const result = adjudicate({
+    database: databaseSummary({
+      pointInTimeRecoveryEnablement: "POINT_IN_TIME_RECOVERY_ENABLED",
+      deleteProtectionState: "DELETE_PROTECTION_ENABLED",
+    }),
+    schedules: scheduleSummary({count: 1}),
+    backups: backupSummary({count: 1, stateCounts: {READY: 1}}),
+    isolatedRestore: isolatedRestoreSummary({
+      operation: {
+        ...isolatedRestoreSummary().operation,
+        inputUriPrefixSha256: "F".repeat(64),
+      },
+    }),
+  });
+  assert.ok(result.failedChecks.includes("isolatedRestoreDerivationExact"));
   assert.ok(result.failedChecks.includes("isolatedRestoreEvidenceExact"));
   assert.deepEqual(result.evidence.posture.holds, ["noRestoreImportProof"]);
 });
@@ -397,6 +434,9 @@ test("summaries omit schedule, backup, operation and output identifiers", () => 
     `projects/${PRODUCTION_PROJECT_ID}/locations/${PRODUCTION_LOCATION}/backups/private-backup`;
   const operationName = `${expectedDatabaseName}/operations/private-operation`;
   const outputPrefix = "gs://private-bucket/private-prefix";
+  const sourceOperationName =
+    `${expectedDatabaseName}/operations/private-source-operation`;
+  const sourceOutputPrefix = "gs://private-bucket/private-source-prefix";
   const schedules = summarizeSchedules(
     [{name: scheduleName, dailyRecurrence: {}, retention: "604800s"}],
     expectedDatabaseName,
@@ -422,20 +462,60 @@ test("summaries omit schedule, backup, operation and output identifiers", () => 
     },
     response: {"@type": exportResponseType, outputUriPrefix: outputPrefix},
   };
+  const sourceExport = {
+    name: sourceOperationName,
+    done: true,
+    metadata: {
+      "@type": exportType,
+      operationState: "SUCCESSFUL",
+      outputUriPrefix: sourceOutputPrefix,
+      progressDocuments: {completedWork: "81", estimatedWork: "81"},
+      endTime: "2026-08-06T16:44:06.902374Z",
+    },
+    response: {
+      "@type": exportResponseType,
+      outputUriPrefix: sourceOutputPrefix,
+    },
+  };
   const operations = summarizeOperations({
-    operations: [describedExport],
+    operations: [describedExport, sourceExport],
     describedExport,
     sealedOperationName: operationName,
     sealedOutputUriPrefix: outputPrefix,
     sealedCompletedAtUtc: "2026-08-04T00:00:00Z",
+    isolatedRestorePolicy: {
+      sourceExport: {
+        operationNameSha256: createHash("sha256")
+          .update(sourceOperationName)
+          .digest("hex")
+          .toUpperCase(),
+        outputUriPrefixSha256: createHash("sha256")
+          .update(sourceOutputPrefix)
+          .digest("hex")
+          .toUpperCase(),
+        completedAtUtc: "2026-08-06T16:44:06.902374Z",
+        expectedDocumentCount: 81,
+      },
+    },
     inventoryLimit: 1000,
   });
   const rendered = JSON.stringify({schedules, backups, operations});
-  for (const secret of [scheduleName, backupName, operationName, outputPrefix]) {
+  for (const secret of [
+    scheduleName,
+    backupName,
+    operationName,
+    outputPrefix,
+    sourceOperationName,
+    sourceOutputPrefix,
+  ]) {
     assert.equal(rendered.includes(secret), false, secret);
   }
   assert.match(operations.sealedExport.operationNameSha256, /^[0-9A-F]{64}$/);
   assert.match(operations.sealedExport.outputUriPrefixSha256, /^[0-9A-F]{64}$/);
+  assert.equal(
+    operations.isolatedRestoreSourceExport.exactSuccessfulExport,
+    true,
+  );
 });
 
 test("database summary drops UID, etag and unrelated service fields", () => {

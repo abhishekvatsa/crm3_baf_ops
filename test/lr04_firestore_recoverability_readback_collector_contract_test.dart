@@ -55,6 +55,17 @@ void main() {
       '982040C70DD01325870E877378D74A8A705B1F64576A46B2C98FB244576AE599',
     );
     expect(restoreSeal['bytes'], 4440);
+    final isolatedRestore = _object(policy['isolatedRestore']);
+    final sourceExport = _object(isolatedRestore['sourceExport']);
+    expect(
+      sourceExport['operationNameSha256'],
+      'EF6A0FF2E809EA2D0C209B92380D1752E301D6C504D04BBA81D83168883C7F74',
+    );
+    expect(
+      sourceExport['outputUriPrefixSha256'],
+      isolatedRestore['inputUriPrefixSha256'],
+    );
+    expect(sourceExport['expectedDocumentCount'], 81);
     expect(_object(policy['mutationBoundary']).values, everyElement(isFalse));
     final privacy = _object(policy['privacyBoundary']);
     expect(privacy['operatorAccountIdentityRetained'], isFalse);
@@ -74,6 +85,8 @@ void main() {
       'firestore",\n      "operations",\n      "describe',
       'PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK',
       'HOLD_FIRESTORE_RECOVERABILITY_POSTURE',
+      'isolatedRestoreSourceExportExact',
+      'isolatedRestoreDerivationExact',
       'collectorAuthorizesClosure: false',
       'sourceAndCiOnly: false',
       'flag: "wx"',
@@ -104,6 +117,12 @@ void main() {
       collectorTests,
       contains(
         'summaries omit schedule, backup, operation and output identifiers',
+      ),
+    );
+    expect(
+      collectorTests,
+      contains(
+        'isolated import must derive from the exact successful source export',
       ),
     );
     expect(

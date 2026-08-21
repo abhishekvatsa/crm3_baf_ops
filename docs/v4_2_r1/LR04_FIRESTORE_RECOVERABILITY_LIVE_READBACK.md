@@ -87,6 +87,12 @@ readback, but it cannot clear `noRestoreImportProof`. The collector performs no
 import and reads no Firestore document or business payload; it describes only
 the isolated database and service-authored import operation metadata.
 
+The current collector also locates the policy-pinned production source export
+inside the complete operation inventory. It requires that export to be unique,
+successful and complete, and requires its output URI hash to equal the isolated
+import input URI hash before the restore rehearsal can clear P-05. Raw operation
+names and Cloud Storage paths remain excluded from the receipt.
+
 ## Adjudicated Live Result
 
 The strict receipt was captured on 2026-08-04 from clean `main` at

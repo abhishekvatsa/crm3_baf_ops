@@ -1878,7 +1878,7 @@
     {
       "recordId": "FINDING:P-07",
       "findingId": "P-07",
-      "title": "Physical-device signed-in sync, revocation and role-negative matrix remains open",
+      "title": "Physical-device signed-in sync, revocation and role-negative matrix is closed",
       "track": "INTERNAL_PILOT",
       "authorityType": "DEVICE_EVIDENCE",
       "transitionProfile": "DEVICE_EVIDENCE",
