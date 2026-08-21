@@ -14,6 +14,22 @@ export type QualityMutationOperation =
   | "CREATE_QUALITY_MONITORING_REQUEST"
   | "CLOSE_QUALITY_MONITORING_REQUEST";
 
+export function qualityAuditActionForOperation(
+  operation: QualityMutationOperation,
+): "create" | "update" | "resolve" | "reopen" {
+  switch (operation) {
+  case "REQUEST_QUALITY_WARNING_CLOSURE":
+    return "update";
+  case "CLOSE_QUALITY_WARNING":
+  case "CLOSE_QUALITY_MONITORING_REQUEST":
+    return "resolve";
+  case "REOPEN_QUALITY_WARNING":
+    return "reopen";
+  case "CREATE_QUALITY_MONITORING_REQUEST":
+    return "create";
+  }
+}
+
 export type QualityMutationErrorCode =
   | "invalid-argument"
   | "unauthenticated"
@@ -997,12 +1013,12 @@ export async function mutateQualityWithDb(args: {
       entityType: "warningId" in request ?
         "quality_warning" : "quality_monitoring_request",
       entityId,
-      action: request.operation,
+      action: qualityAuditActionForOperation(request.operation),
       severity: "high",
       performedByUid: actorUid,
       performedByName: actor.name,
       timestamp: committedAt,
-      reason: "qualityAssurance",
+      reason: "other",
       reasonNotes: request.reason,
       summary: `Quality command ${request.operation}`,
       beforeJson: before == null ? null : JSON.stringify(before),

@@ -1,6 +1,7 @@
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_create_command.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/frequent_issue_selection.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
@@ -85,6 +86,56 @@ void main() {
       );
     },
   );
+
+  test('governed create-open burner payload clears local closure evidence', () {
+    final record =
+        MaintenanceRecord()
+          ..firestoreId = 'burner-ticket-1'
+          ..version = 2
+          ..assetType = AssetType.furnace
+          ..assetNumber = 7
+          ..component = 'Burner system'
+          ..classification = burnerLockoutClassification
+          ..maintenanceType = MaintenanceType.breakdown
+          ..description = 'Burner 2 locked out during firing.'
+          ..routedTo = RoutedTo.instrumentation
+          ..startDate = DateTime.utc(2026, 8, 17)
+          ..assetHierarchyRefJson =
+              '{"schemaVersion":3,"scope":"physicalAsset",'
+              '"assetClassId":"class-furnace",'
+              '"assetInstanceId":"asset-furnace-7",'
+              '"assetInstanceVersion":4}'
+          ..qualityIntent = const IssueQualityIntent(
+            assessment: IssueQualityAssessment.notSuspected,
+          )
+          ..burnerLockoutCase = BurnerLockoutCase(
+            positions: const <int>[2],
+            commonMode: false,
+            cycleStage: BurnerCycleStage.firing,
+            flameObservation: BurnerObservation.notSeen,
+            sparkObservation: BurnerObservation.seen,
+            relightAttempts: 1,
+            remainsLockedOut: false,
+            attendedPositions: const <int>[2],
+            resolutionOutcomes: const <int, BurnerResolutionOutcome>{
+              2: BurnerResolutionOutcome.returnedToService,
+            },
+            resolutionActionCodes: const <int, List<BurnerActionCode>>{
+              2: <BurnerActionCode>[BurnerActionCode.uvDetectorCleaning],
+            },
+            resolutionMicroampReadings: const <int, double>{2: 3.7},
+          );
+
+    final command = buildMaintenanceIssueCreateCommand(
+      record,
+      createVersion: 1,
+    );
+    final ticket = Map<String, Object?>.from(command.payload['ticket']! as Map);
+
+    expect(ticket['burnerAttendedPositions'], isEmpty);
+    expect(ticket['burnerResolutionEvidence'], isEmpty);
+    expect(ticket['burnerPositions'], <int>[2]);
+  });
 
   test('creation receipt must match command and derived evidence', () {
     final record =

@@ -44,7 +44,8 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     'startDate': record.startDate.toUtc().toIso8601String(),
     'chargeNoAtEvent': record.chargeNoAtEvent,
     ...qualityIntent.toSynchronizedFields(),
-    if (burnerLockout != null) ...burnerLockout.toSynchronizedFields(),
+    if (burnerLockout != null)
+      ...burnerLockout.clearResolution().toSynchronizedFields(),
     if (furnaceStuckup != null) ...furnaceStuckup.toSynchronizedFields(),
     if (frequentIssueSelection != null)
       'frequentIssueSelection': frequentIssueSelection.toCommandMap(),

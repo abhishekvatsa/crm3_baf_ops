@@ -1,6 +1,7 @@
 const {
   mutateQualityWithDb,
   parseQualityMutationRequest,
+  qualityAuditActionForOperation,
   userCanMutateQuality,
 } = require('../lib/qualityMutation');
 
@@ -171,6 +172,22 @@ async function invoke(memory, authUid, data) {
 }
 
 describe('quality mutation', () => {
+  test('quality operations map to persisted audit enums', () => {
+    expect(qualityAuditActionForOperation(
+      'REQUEST_QUALITY_WARNING_CLOSURE',
+    )).toBe('update');
+    expect(qualityAuditActionForOperation('CLOSE_QUALITY_WARNING'))
+      .toBe('resolve');
+    expect(qualityAuditActionForOperation('REOPEN_QUALITY_WARNING'))
+      .toBe('reopen');
+    expect(qualityAuditActionForOperation(
+      'CREATE_QUALITY_MONITORING_REQUEST',
+    )).toBe('create');
+    expect(qualityAuditActionForOperation(
+      'CLOSE_QUALITY_MONITORING_REQUEST',
+    )).toBe('resolve');
+  });
+
   test('authority separates operational closure requests from decisions', () => {
     expect(userCanMutateQuality(
       user('operations'),
@@ -204,6 +221,8 @@ describe('quality mutation', () => {
       closureRequestedByUid: 'ops-1',
       version: 2,
     });
+    expect(memory.store.get(`audit_logs/server_quality_${IDS.request}`))
+      .toMatchObject({action: 'update', reason: 'other'});
   });
 
   test('SI closes requested warning with explicit coil disposition', async () => {
