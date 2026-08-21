@@ -416,6 +416,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const OperationalEventsScreen()),
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
+              onReports: () => _push(context, const FleetStatusScreen()),
               onMaintenanceRhythm:
                   () => _push(context, const MaintenanceIntelligenceScreen()),
               onInspectionProgrammes:
@@ -494,6 +495,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               appUser: appUser,
               onAssetRegistry:
                   () => _push(context, const AssetRegistryScreen()),
+              onPlantCondition:
+                  () => _push(context, const AssetConditionBoard()),
               onAssets: () => _push(context, const AssetTimelineScreen()),
               onInnerCovers:
                   () => _push(context, const InnerCoverLifecycleScreen()),
@@ -754,6 +757,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onQuality;
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
+  final VoidCallback onReports;
   final VoidCallback onMaintenanceRhythm;
   final VoidCallback onInspectionProgrammes;
   final VoidCallback onManualSync;
@@ -781,6 +785,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onQuality,
     required this.onOperationalEvents,
     required this.onPlantCondition,
+    required this.onReports,
     required this.onMaintenanceRhythm,
     required this.onInspectionProgrammes,
     required this.onManualSync,
@@ -819,41 +824,30 @@ class _DashboardHome extends StatelessWidget {
                 onProfileTap: onProfileTap,
               ),
               const SizedBox(height: BafSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: const ValueKey('home-raise-issue'),
-                      onPressed: onRaiseIssue,
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Raise issue'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: BafColors.maintenance,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(46),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: BafSpacing.sm),
-                  _HomeQuickIcon(
-                    tooltip: 'Open abnormalities',
-                    onPressed: onAbnormalities,
-                    icon: const Icon(Icons.memory_outlined),
-                    color: BafColors.instrument,
-                  ),
-                  const SizedBox(width: BafSpacing.sm),
-                  _HomeQuickIcon(
-                    tooltip: 'Operational events',
-                    onPressed: onOperationalEvents,
-                    icon: const Icon(Icons.crisis_alert_outlined),
-                    color: BafColors.warning,
-                  ),
-                ],
+              HomeCommandBar(
+                onRaiseIssue: onRaiseIssue,
+                onPlantCondition: onPlantCondition,
+                onReports: onReports,
               ),
               const SizedBox(height: BafSpacing.lg),
               PlantOverviewPanel(
                 overview: plantOverview,
                 onOpen: onPlantCondition,
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              HomeManagementPulsePanel(
+                plantOverview: plantOverview,
+                actionCount:
+                    ticketCount +
+                    executionCount +
+                    directiveCount +
+                    workflowAttentionCount +
+                    openOperationalEventCount +
+                    openQualityWarningCount,
+                assuranceCount:
+                    overdueMaintenanceCount + activeInspectionFindingCount,
+                dataUnavailable: attentionDataUnavailable,
+                onOpenReports: onReports,
               ),
               const SizedBox(height: BafSpacing.lg),
               _HomeSectionHeader(
@@ -923,34 +917,311 @@ class _DashboardHome extends StatelessWidget {
   }
 }
 
-class _HomeQuickIcon extends StatelessWidget {
-  final String tooltip;
-  final VoidCallback onPressed;
-  final Widget icon;
-  final Color color;
+class HomeCommandBar extends StatelessWidget {
+  const HomeCommandBar({
+    super.key,
+    required this.onRaiseIssue,
+    required this.onPlantCondition,
+    required this.onReports,
+  });
 
-  const _HomeQuickIcon({
-    required this.tooltip,
-    required this.onPressed,
+  final VoidCallback onRaiseIssue;
+  final VoidCallback onPlantCondition;
+  final VoidCallback onReports;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final raiseIssue = FilledButton.icon(
+        key: const ValueKey('home-raise-issue'),
+        onPressed: onRaiseIssue,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Raise issue'),
+        style: FilledButton.styleFrom(
+          backgroundColor: BafColors.maintenance,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(48),
+        ),
+      );
+      final plant = _HomeSecondaryCommand(
+        key: const ValueKey('home-plant-condition'),
+        icon: Icons.precision_manufacturing_outlined,
+        label: 'Plant status',
+        color: BafColors.assets,
+        onPressed: onPlantCondition,
+      );
+      final reports = _HomeSecondaryCommand(
+        key: const ValueKey('home-reports'),
+        icon: Icons.insights_outlined,
+        label: 'Reports',
+        color: BafColors.cobalt,
+        onPressed: onReports,
+      );
+
+      if (constraints.maxWidth < 430) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            raiseIssue,
+            const SizedBox(height: BafSpacing.sm),
+            Row(
+              children: [
+                Expanded(child: plant),
+                const SizedBox(width: BafSpacing.sm),
+                Expanded(child: reports),
+              ],
+            ),
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(flex: 3, child: raiseIssue),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(flex: 2, child: plant),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(flex: 2, child: reports),
+        ],
+      );
+    },
+  );
+}
+
+class _HomeSecondaryCommand extends StatelessWidget {
+  const _HomeSecondaryCommand({
+    super.key,
     required this.icon,
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton.icon(
+    onPressed: onPressed,
+    icon: Icon(icon, size: 19),
+    label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    style: OutlinedButton.styleFrom(
+      foregroundColor: color,
+      minimumSize: const Size.fromHeight(48),
+      padding: const EdgeInsets.symmetric(horizontal: BafSpacing.sm),
+      side: BorderSide(color: color.withValues(alpha: 0.32)),
+    ),
+  );
+}
+
+class HomeManagementPulsePanel extends StatelessWidget {
+  const HomeManagementPulsePanel({
+    super.key,
+    required this.plantOverview,
+    required this.actionCount,
+    required this.assuranceCount,
+    required this.dataUnavailable,
+    required this.onOpenReports,
+  });
+
+  final AsyncValue<PlantAssetOverview> plantOverview;
+  final int actionCount;
+  final int assuranceCount;
+  final bool dataUnavailable;
+  final VoidCallback onOpenReports;
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = plantOverview.value;
+    final availability =
+        overview == null || overview.total == 0
+            ? '--'
+            : '${((overview.available / overview.total) * 100).round()}%';
+    final availabilityDetail =
+        overview == null
+            ? 'Plant data unavailable'
+            : '${overview.available} of ${overview.total} assets';
+    final availabilityColor =
+        overview == null || overview.total == 0
+            ? BafColors.textSecondary
+            : overview.available / overview.total >= 0.9
+            ? BafColors.success
+            : overview.available / overview.total >= 0.75
+            ? BafColors.warning
+            : BafColors.danger;
+    final leadingSignal =
+        dataUnavailable
+            ? 'Some live sources need refresh before decisions are final.'
+            : assuranceCount > 0
+            ? 'Assurance follow-through is the leading current obligation.'
+            : actionCount > 0
+            ? 'The active action queue is the leading current obligation.'
+            : 'No active exception leads the current plant picture.';
+
+    return BafSectionSurface(
+      accent: BafColors.cobalt,
+      padding: const EdgeInsets.all(BafSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: BafColors.cobalt.withValues(alpha: 0.11),
+                  borderRadius: BorderRadius.circular(BafRadius.small),
+                ),
+                child: const Icon(
+                  Icons.insights_rounded,
+                  size: 19,
+                  color: BafColors.cobalt,
+                ),
+              ),
+              const SizedBox(width: BafSpacing.sm),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Management pulse',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Availability, action pressure and assurance',
+                      style: TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Open operations reports',
+                onPressed: onOpenReports,
+                icon: const Icon(Icons.arrow_forward_rounded),
+                color: BafColors.cobalt,
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = (constraints.maxWidth - BafSpacing.sm * 2) / 3;
+              return Wrap(
+                spacing: BafSpacing.sm,
+                runSpacing: BafSpacing.sm,
+                children: [
+                  SizedBox(
+                    width: width,
+                    child: _HomePulseMetric(
+                      value: availability,
+                      label: 'Availability',
+                      detail: availabilityDetail,
+                      color: availabilityColor,
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _HomePulseMetric(
+                      value: dataUnavailable ? '--' : '$actionCount',
+                      label: 'Action queue',
+                      detail: 'Issues, work and disruptions',
+                      color:
+                          actionCount == 0
+                              ? BafColors.success
+                              : BafColors.warning,
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _HomePulseMetric(
+                      value: dataUnavailable ? '--' : '$assuranceCount',
+                      label: 'Assurance',
+                      detail: 'Overdue and active findings',
+                      color:
+                          assuranceCount == 0
+                              ? BafColors.success
+                              : BafColors.maintenance,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: BafSpacing.md),
+          Text(
+            leadingSignal,
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 12,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomePulseMetric extends StatelessWidget {
+  const _HomePulseMetric({
+    required this.value,
+    required this.label,
+    required this.detail,
     required this.color,
   });
 
+  final String value;
+  final String label;
+  final String detail;
+  final Color color;
+
   @override
-  Widget build(BuildContext context) => DecoratedBox(
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 88),
+    padding: const EdgeInsets.all(BafSpacing.sm),
     decoration: BoxDecoration(
+      color: BafColors.surfaceTint,
       borderRadius: BorderRadius.circular(BafRadius.small),
-      boxShadow: BafShadows.subtle,
+      border: Border.all(color: color.withValues(alpha: 0.20)),
     ),
-    child: IconButton.outlined(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        foregroundColor: color,
-        backgroundColor: BafColors.surfaceRaised,
-        side: BorderSide(color: color.withValues(alpha: 0.30)),
-      ),
-      icon: icon,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          detail,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: BafColors.textSecondary,
+            fontSize: 9,
+            height: 1.15,
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -1121,6 +1392,7 @@ class _WatchTile extends StatelessWidget {
 class _MoreScreen extends StatelessWidget {
   final AppUser appUser;
   final VoidCallback onAssetRegistry;
+  final VoidCallback onPlantCondition;
   final VoidCallback onAssets;
   final VoidCallback onInnerCovers;
   final VoidCallback onFurnaceStuckup;
@@ -1144,6 +1416,7 @@ class _MoreScreen extends StatelessWidget {
   const _MoreScreen({
     required this.appUser,
     required this.onAssetRegistry,
+    required this.onPlantCondition,
     required this.onAssets,
     required this.onInnerCovers,
     required this.onFurnaceStuckup,
@@ -1171,6 +1444,208 @@ class _MoreScreen extends StatelessWidget {
     final canSeeClosed = appUser.canViewClosedMaintenanceTickets;
     final canSeeClosedJobs = appUser.canViewClosedJobDossiers;
     final canSeeReports = appUser.canViewReports;
+    final plantDestinations = <_MoreDestinationSpec>[
+      if (canSeeOperationalData)
+        _MoreDestinationSpec(
+          icon: Icons.monitor_heart_outlined,
+          color: BafColors.assets,
+          title: 'Plant condition',
+          subtitle:
+              'Availability, maintenance, stuck-up, down and unfit assets',
+          keywords: 'fleet status availability down unfit maintenance',
+          onTap: onPlantCondition,
+        ),
+      if (canSeeOperationalData)
+        _MoreDestinationSpec(
+          icon: Icons.precision_manufacturing_outlined,
+          color: BafColors.assets,
+          title: 'Asset registry',
+          subtitle: 'Current equipment, components and lifecycle state',
+          keywords: 'hierarchy component subassembly ownership',
+          onTap: onAssetRegistry,
+        ),
+      if (canSeeOperationalData)
+        _MoreDestinationSpec(
+          icon: Icons.timeline_rounded,
+          color: BafColors.audit,
+          title: 'Asset timeline',
+          subtitle: 'Maintenance and planned-work history',
+          keywords: 'history component replacement event',
+          onTap: onAssets,
+        ),
+      if (canSeeOperationalData)
+        _MoreDestinationSpec(
+          icon: Icons.layers_outlined,
+          color: BafColors.maintenance,
+          title: 'Inner Covers',
+          subtitle: 'Base pairing, spare pool and fabrication history',
+          keywords: 'link delink pool serial fabrication retire',
+          onTap: onInnerCovers,
+        ),
+      if (canSeeOperationalData)
+        _MoreDestinationSpec(
+          icon: Icons.vertical_align_top_rounded,
+          color: BafColors.warning,
+          title: 'Furnace stuck-up',
+          subtitle: 'Blocked assemblies, cause review and Inner Cover evidence',
+          keywords: 'stuck inner cover base release bulge',
+          onTap: onFurnaceStuckup,
+        ),
+      if (canSeeClosed)
+        _MoreDestinationSpec(
+          icon: Icons.history_rounded,
+          color: BafColors.audit,
+          title: 'Resolved issues',
+          subtitle: 'Closed maintenance issues and reopen history',
+          keywords: 'ticket closure maintenance history',
+          onTap: onClosed,
+        ),
+      if (canSeeClosedJobs)
+        _MoreDestinationSpec(
+          icon: Icons.inventory_2_outlined,
+          color: BafColors.planned,
+          title: 'Closed job dossiers',
+          subtitle: 'Completed and cancelled planned-job records',
+          keywords: 'planned maintenance history completed cancelled',
+          onTap: onClosedJobs,
+        ),
+      if (appUser.canViewPlannedMaintenance)
+        _MoreDestinationSpec(
+          icon: Icons.event_repeat_rounded,
+          color: BafColors.planned,
+          title: 'Maintenance rhythm',
+          subtitle: 'Due counters, forward plans and classified outcomes',
+          keywords: 'cadence overdue due schedule plan',
+          onTap: onMaintenanceRhythm,
+        ),
+    ];
+    final assuranceDestinations = <_MoreDestinationSpec>[
+      if (canSeeReports)
+        _MoreDestinationSpec(
+          icon: Icons.insights_rounded,
+          color: BafColors.cobalt,
+          title: 'Operations intelligence',
+          subtitle: 'Management readout, fleet health, work and reliability',
+          keywords: 'reports dashboard metrics summary performance',
+          onTap: onReports,
+        ),
+      if (canSeeReports)
+        _MoreDestinationSpec(
+          icon: Icons.local_fire_department_outlined,
+          color: BafColors.maintenance,
+          title: 'Burner reliability',
+          subtitle: 'Lockouts, rounds, red-hot evidence and readings',
+          keywords: 'burner microamp uv block lockout furnace',
+          onTap: onBurnerReliability,
+        ),
+      _MoreDestinationSpec(
+        icon: Icons.memory_outlined,
+        color: BafColors.instrument,
+        title: 'Abnormalities',
+        subtitle: 'Charge events, RA traceability and root causes',
+        keywords: 'charge cycle abnormality root cause ra',
+        onTap: onAbnormalities,
+      ),
+      if (appUser.canViewQuality)
+        _MoreDestinationSpec(
+          icon: Icons.verified_user_outlined,
+          color: BafColors.charges,
+          title: 'Quality',
+          subtitle: 'Warnings, closure assurance and monitoring',
+          keywords: 'quality warning grade charge cycle monitoring',
+          onTap: onQuality,
+        ),
+      _MoreDestinationSpec(
+        icon: Icons.crisis_alert_outlined,
+        color: BafColors.warning,
+        title: 'Operational events',
+        subtitle: 'Utilities, cranes, transfer cars and plant delays',
+        keywords: 'water nitrogen gas power crane delay transfer car',
+        onTap: onOperationalEvents,
+      ),
+      _MoreDestinationSpec(
+        icon: Icons.fact_check_outlined,
+        color: BafColors.instrument,
+        title: 'Inspection programmes',
+        subtitle: 'Component checks, cross-asset coverage and findings',
+        keywords: 'audit inspection campaign component condition',
+        onTap: onInspectionProgrammes,
+      ),
+    ];
+    final governanceDestinations = <_MoreDestinationSpec>[
+      if (appUser.canManageFrequentIssueDefinitions)
+        _MoreDestinationSpec(
+          icon: Icons.rule_folder_outlined,
+          color: BafColors.maintenance,
+          title: 'Frequent issues',
+          subtitle: 'Governed issue choices and default routing',
+          keywords: 'catalogue issue routing lane',
+          onTap: onFrequentIssues,
+        ),
+      if (appUser.canManageTemplateGovernance)
+        _MoreDestinationSpec(
+          icon: Icons.architecture_outlined,
+          color: BafColors.planned,
+          title: 'Template authoring',
+          subtitle: 'Build modules and governed template versions',
+          keywords: 'planned maintenance module author publish',
+          onTap: onTemplateAuthoring,
+        ),
+      if (appUser.canManageTemplateGovernance)
+        _MoreDestinationSpec(
+          icon: Icons.data_object_rounded,
+          color: BafColors.textSecondary,
+          title: 'Legacy template publisher',
+          subtitle: 'Import or inspect historical snapshot JSON',
+          keywords: 'legacy json template import',
+          badge: 'Legacy',
+          onTap: onTemplatePublisher,
+        ),
+      if (appUser.canManageTemplateGovernance)
+        _MoreDestinationSpec(
+          icon: Icons.schema_outlined,
+          color: BafColors.audit,
+          title: 'Knowledge governance',
+          subtitle: 'BAF knowledge rows, tags and matrix versions',
+          keywords: 'knowledge tag matrix governance',
+          onTap: onKnowledgeGovernance,
+        ),
+    ];
+    final adminDestinations = <_MoreDestinationSpec>[
+      if (appUser.canOpenAdminDataBrowser)
+        _MoreDestinationSpec(
+          icon: Icons.admin_panel_settings_outlined,
+          color: BafColors.admin,
+          title: 'Administration',
+          subtitle: 'Users, roles and governed data controls',
+          keywords: 'admin users roles data edit',
+          onTap: onAdmin,
+        ),
+      if (appUser.canViewAuditLogs)
+        _MoreDestinationSpec(
+          icon: Icons.fact_check_outlined,
+          color: BafColors.audit,
+          title: 'Audit log',
+          subtitle: 'Recent governed changes and evidence',
+          keywords: 'audit history evidence changes',
+          onTap: onAuditLog,
+        ),
+      if (appUser.canViewMaintenanceWorkflowDiagnostics)
+        _MoreDestinationSpec(
+          icon: Icons.troubleshoot_outlined,
+          color: BafColors.admin,
+          title: 'Support diagnostics',
+          subtitle: 'Sync inventory, runtime context and recovery',
+          keywords: 'diagnostics sync recovery support',
+          onTap: onLocalDiagnostics,
+        ),
+    ];
+    final visibleDestinations = <_MoreDestinationSpec>[
+      ...plantDestinations,
+      ...assuranceDestinations,
+      ...governanceDestinations,
+      ...adminDestinations,
+    ];
 
     return SafeArea(
       bottom: false,
@@ -1187,168 +1662,30 @@ class _MoreScreen extends StatelessWidget {
             ),
             children: [
               const _DirectoryHeader(),
-              const SizedBox(height: BafSpacing.lg),
+              const SizedBox(height: BafSpacing.md),
+              _WorkspaceSearch(destinations: visibleDestinations),
+              const SizedBox(height: BafSpacing.xl),
               _MoreSection(
-                title: 'Operations and records',
-                children: [
-                  if (canSeeOperationalData)
-                    _MoreDestinationTile(
-                      icon: Icons.precision_manufacturing_outlined,
-                      color: BafColors.assets,
-                      title: 'Asset registry',
-                      subtitle:
-                          'Current equipment, components and lifecycle state',
-                      onTap: onAssetRegistry,
-                    ),
-                  if (canSeeOperationalData)
-                    _MoreDestinationTile(
-                      icon: Icons.timeline_rounded,
-                      color: BafColors.audit,
-                      title: 'Asset timeline',
-                      subtitle: 'Maintenance and planned-work history',
-                      onTap: onAssets,
-                    ),
-                  if (canSeeOperationalData)
-                    _MoreDestinationTile(
-                      icon: Icons.layers_outlined,
-                      color: BafColors.maintenance,
-                      title: 'Inner Covers',
-                      subtitle:
-                          'Base pairing, spare pool and fabrication history',
-                      onTap: onInnerCovers,
-                    ),
-                  if (canSeeOperationalData)
-                    _MoreDestinationTile(
-                      icon: Icons.vertical_align_top_rounded,
-                      color: BafColors.warning,
-                      title: 'Furnace stuck-up',
-                      subtitle:
-                          'Blocked assemblies, cause review and Inner Cover evidence',
-                      onTap: onFurnaceStuckup,
-                    ),
-                  if (canSeeClosed)
-                    _MoreDestinationTile(
-                      icon: Icons.history_rounded,
-                      color: BafColors.audit,
-                      title: 'Resolved issues',
-                      subtitle: 'Closed maintenance issues and reopen history',
-                      onTap: onClosed,
-                    ),
-                  if (canSeeClosedJobs)
-                    _MoreDestinationTile(
-                      icon: Icons.inventory_2_outlined,
-                      color: BafColors.planned,
-                      title: 'Closed job dossiers',
-                      subtitle:
-                          'Recent completed and cancelled planned-job records',
-                      onTap: onClosedJobs,
-                    ),
-                  if (appUser.canViewPlannedMaintenance)
-                    _MoreDestinationTile(
-                      icon: Icons.event_repeat_rounded,
-                      color: BafColors.planned,
-                      title: 'Maintenance rhythm',
-                      subtitle:
-                          'Due counters, forward plans and classified outcomes',
-                      onTap: onMaintenanceRhythm,
-                    ),
-                ],
+                title: 'Plant and work records',
+                icon: Icons.precision_manufacturing_outlined,
+                accent: BafColors.assets,
+                destinations: plantDestinations,
               ),
               const SizedBox(height: BafSpacing.lg),
               _MoreSection(
                 title: 'Assurance and performance',
-                children: [
-                  _MoreDestinationTile(
-                    icon: Icons.memory_outlined,
-                    color: BafColors.instrument,
-                    title: 'Abnormalities',
-                    subtitle: 'Charge events, RA traceability and root causes',
-                    onTap: onAbnormalities,
-                  ),
-                  if (appUser.canViewQuality)
-                    _MoreDestinationTile(
-                      icon: Icons.verified_user_outlined,
-                      color: BafColors.charges,
-                      title: 'Quality',
-                      subtitle: 'Warnings, closure assurance and monitoring',
-                      onTap: onQuality,
-                    ),
-                  _MoreDestinationTile(
-                    icon: Icons.crisis_alert_outlined,
-                    color: BafColors.warning,
-                    title: 'Operational events',
-                    subtitle:
-                        'Utilities, cranes, transfer cars and plant delays',
-                    onTap: onOperationalEvents,
-                  ),
-                  _MoreDestinationTile(
-                    icon: Icons.fact_check_outlined,
-                    color: BafColors.instrument,
-                    title: 'Inspection programmes',
-                    subtitle:
-                        'Component checks, cross-asset coverage and findings',
-                    onTap: onInspectionProgrammes,
-                  ),
-                  if (canSeeReports)
-                    _MoreDestinationTile(
-                      icon: Icons.bar_chart_rounded,
-                      color: BafColors.planned,
-                      title: 'Reports',
-                      subtitle: 'Fleet status and operational summaries',
-                      onTap: onReports,
-                    ),
-                  if (canSeeReports)
-                    _MoreDestinationTile(
-                      icon: Icons.local_fire_department_outlined,
-                      color: BafColors.maintenance,
-                      title: 'Burner reliability',
-                      subtitle:
-                          'Lockouts, rounds, red-hot evidence and readings',
-                      onTap: onBurnerReliability,
-                    ),
-                ],
+                icon: Icons.insights_outlined,
+                accent: BafColors.cobalt,
+                destinations: assuranceDestinations,
               ),
               if (appUser.canManageTemplateGovernance ||
                   appUser.canManageFrequentIssueDefinitions) ...[
                 const SizedBox(height: BafSpacing.xl),
                 _MoreSection(
                   title: 'Governance',
-                  children: [
-                    if (appUser.canManageFrequentIssueDefinitions)
-                      _MoreDestinationTile(
-                        icon: Icons.rule_folder_outlined,
-                        color: BafColors.maintenance,
-                        title: 'Frequent issues',
-                        subtitle: 'Governed issue choices and default routing',
-                        onTap: onFrequentIssues,
-                      ),
-                    if (appUser.canManageTemplateGovernance) ...[
-                      _MoreDestinationTile(
-                        icon: Icons.architecture_outlined,
-                        color: BafColors.planned,
-                        title: 'Template authoring',
-                        subtitle:
-                            'Build modules and governed template versions',
-                        onTap: onTemplateAuthoring,
-                      ),
-                      _MoreDestinationTile(
-                        icon: Icons.data_object_rounded,
-                        color: BafColors.textSecondary,
-                        title: 'Legacy template publisher',
-                        subtitle: 'Import or inspect historical snapshot JSON',
-                        badge: 'Legacy',
-                        onTap: onTemplatePublisher,
-                      ),
-                      _MoreDestinationTile(
-                        icon: Icons.schema_outlined,
-                        color: BafColors.audit,
-                        title: 'Knowledge governance',
-                        subtitle:
-                            'BAF knowledge rows, tags and matrix versions',
-                        onTap: onKnowledgeGovernance,
-                      ),
-                    ],
-                  ],
+                  icon: Icons.account_tree_outlined,
+                  accent: BafColors.audit,
+                  destinations: governanceDestinations,
                 ),
               ],
               if (appUser.canOpenAdminDataBrowser ||
@@ -1357,33 +1694,9 @@ class _MoreScreen extends StatelessWidget {
                 const SizedBox(height: BafSpacing.xl),
                 _MoreSection(
                   title: 'Administration and support',
-                  children: [
-                    if (appUser.canOpenAdminDataBrowser)
-                      _MoreDestinationTile(
-                        icon: Icons.admin_panel_settings_outlined,
-                        color: BafColors.admin,
-                        title: 'Administration',
-                        subtitle: 'Users, roles and governed data controls',
-                        onTap: onAdmin,
-                      ),
-                    if (appUser.canViewAuditLogs)
-                      _MoreDestinationTile(
-                        icon: Icons.fact_check_outlined,
-                        color: BafColors.audit,
-                        title: 'Audit log',
-                        subtitle: 'Recent governed changes and evidence',
-                        onTap: onAuditLog,
-                      ),
-                    if (appUser.canViewMaintenanceWorkflowDiagnostics)
-                      _MoreDestinationTile(
-                        icon: Icons.troubleshoot_outlined,
-                        color: BafColors.admin,
-                        title: 'Support diagnostics',
-                        subtitle:
-                            'Sync inventory, runtime context and recovery',
-                        onTap: onLocalDiagnostics,
-                      ),
-                  ],
+                  icon: Icons.admin_panel_settings_outlined,
+                  accent: BafColors.admin,
+                  destinations: adminDestinations,
                 ),
               ],
             ],
@@ -1594,6 +1907,113 @@ class _AttentionRow extends StatelessWidget {
   }
 }
 
+class _MoreDestinationSpec {
+  const _MoreDestinationSpec({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.keywords,
+    required this.onTap,
+    this.badge,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final String keywords;
+  final String? badge;
+  final VoidCallback onTap;
+
+  bool matches(String query) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return true;
+    return '$title $subtitle $keywords'.toLowerCase().contains(needle);
+  }
+}
+
+class _WorkspaceSearch extends StatelessWidget {
+  const _WorkspaceSearch({required this.destinations});
+
+  final List<_MoreDestinationSpec> destinations;
+
+  @override
+  Widget build(BuildContext context) => SearchAnchor(
+    viewHintText: 'Search screens and business functions',
+    suggestionsBuilder: (context, controller) {
+      final matches = destinations.where(
+        (destination) => destination.matches(controller.text),
+      );
+      final rows = matches
+          .map<Widget>(
+            (destination) => ListTile(
+              leading: Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: destination.color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(BafRadius.small),
+                ),
+                child: Icon(
+                  destination.icon,
+                  color: destination.color,
+                  size: 20,
+                ),
+              ),
+              title: Text(destination.title),
+              subtitle: Text(
+                destination.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.arrow_forward_rounded),
+              onTap: () {
+                controller.closeView(destination.title);
+                destination.onTap();
+              },
+            ),
+          )
+          .toList(growable: false);
+      if (rows.isNotEmpty) return rows;
+      return const [
+        ListTile(
+          leading: Icon(Icons.search_off_rounded),
+          title: Text('No matching function'),
+          subtitle: Text('Try an asset, work type, report or governance term.'),
+        ),
+      ];
+    },
+    builder:
+        (context, controller) => SearchBar(
+          controller: controller,
+          hintText: 'Find a screen or function',
+          leading: const Icon(Icons.search_rounded),
+          trailing: const [
+            Tooltip(
+              message: 'Search your permitted workspace',
+              child: Icon(Icons.manage_search_rounded),
+            ),
+          ],
+          elevation: const WidgetStatePropertyAll(0),
+          backgroundColor: const WidgetStatePropertyAll(
+            BafColors.surfaceRaised,
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: BafColors.border),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(BafRadius.medium),
+            ),
+          ),
+          onTap: controller.openView,
+          onChanged: (_) => controller.openView(),
+        ),
+  );
+}
+
 class _DirectoryHeader extends StatelessWidget {
   const _DirectoryHeader();
 
@@ -1618,7 +2038,7 @@ class _DirectoryHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'More',
+                'Workspace',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 21,
@@ -1627,7 +2047,7 @@ class _DirectoryHeader extends StatelessWidget {
               ),
               SizedBox(height: BafSpacing.xs),
               Text(
-                'Operations, assurance, records and administration',
+                'Every function available to your approved roles',
                 style: TextStyle(
                   color: Color(0xFFC6D7DB),
                   fontSize: 12,
@@ -1644,25 +2064,34 @@ class _DirectoryHeader extends StatelessWidget {
 
 class _MoreSection extends StatelessWidget {
   final String title;
-  final List<Widget> children;
+  final IconData icon;
+  final Color accent;
+  final List<_MoreDestinationSpec> destinations;
 
-  const _MoreSection({required this.title, required this.children});
+  const _MoreSection({
+    required this.title,
+    required this.icon,
+    required this.accent,
+    required this.destinations,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (children.isEmpty) return const SizedBox.shrink();
+    if (destinations.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Container(
-              width: 4,
-              height: 18,
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: BafColors.copper,
-                borderRadius: BorderRadius.circular(2),
+                color: accent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(BafRadius.small),
               ),
+              child: Icon(icon, size: 16, color: accent),
             ),
             const SizedBox(width: BafSpacing.sm),
             Expanded(
@@ -1670,7 +2099,7 @@ class _MoreSection extends StatelessWidget {
                 title,
                 style: const TextStyle(
                   color: BafColors.textPrimary,
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1681,9 +2110,18 @@ class _MoreSection extends StatelessWidget {
         BafSectionSurface(
           padding: EdgeInsets.zero,
           child: Column(
-            children: List<Widget>.generate(children.length * 2 - 1, (index) {
+            children: List<Widget>.generate(destinations.length * 2 - 1, (
+              index,
+            ) {
               return index.isEven
-                  ? children[index ~/ 2]
+                  ? _MoreDestinationTile(
+                    icon: destinations[index ~/ 2].icon,
+                    color: destinations[index ~/ 2].color,
+                    title: destinations[index ~/ 2].title,
+                    subtitle: destinations[index ~/ 2].subtitle,
+                    badge: destinations[index ~/ 2].badge,
+                    onTap: destinations[index ~/ 2].onTap,
+                  )
                   : const Divider(height: 1, color: BafColors.border);
             }),
           ),

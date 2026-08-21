@@ -283,6 +283,13 @@ void main() {
     );
     expect(report.classSummaries.single.assetClassName, 'Furnace');
     expect(report.classSummaries.single.disruptionCount, 1);
+    expect(report.assetAvailabilityRate, 1);
+    expect(report.issueClosureRate, 0);
+    expect(report.plannedCompletionRate, 0);
+    expect(report.unavailableAssetCount, 0);
+    expect(report.actionBacklogCount, 3);
+    expect(report.assuranceBacklogCount, 0);
+    expect(report.leadingManagementSignal, 'Open issues');
   });
 
   test('governed identity drives rankings instead of editable ticket text', () {

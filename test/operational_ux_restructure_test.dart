@@ -22,10 +22,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('operational shell and destinations preserve the intended structure', () {
     final home = File('lib/home_screen.dart').readAsStringSync();
-    final reports =
-        File(
-          'lib/features/reports/presentation/fleet_status_screen.dart',
-        ).readAsStringSync();
+    final reports = [
+      'lib/features/reports/presentation/fleet_status_screen.dart',
+      'lib/features/reports/presentation/fleet_status_insight_widgets.dart',
+    ].map((path) => File(path).readAsStringSync()).join('\n');
     final operationalEvents =
         File(
           'lib/features/operational_events/presentation/operational_events_screen.dart',
@@ -45,9 +45,13 @@ void main() {
     expect(home, contains("label: 'More'"));
     expect(home, isNot(contains('ModeSwitchCard(')));
     expect(home, isNot(contains("title: 'Core modules'")));
-    expect(home, contains("title: 'Operations and records'"));
+    expect(home, contains("title: 'Plant and work records'"));
+    expect(home, contains("title: 'Assurance and performance'"));
     expect(home, contains("title: 'Governance'"));
     expect(home, contains("title: 'Administration and support'"));
+    expect(home, contains("title: 'Plant condition'"));
+    expect(home, contains("title: 'Operations intelligence'"));
+    expect(home, contains("hintText: 'Find a screen or function'"));
     expect(home, contains("title: 'Closed job dossiers'"));
     expect(home, contains("title: 'Audit log'"));
     expect(home, contains('appUser.canViewOperationalAssets'));
