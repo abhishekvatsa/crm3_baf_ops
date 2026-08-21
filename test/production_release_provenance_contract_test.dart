@@ -1146,7 +1146,7 @@ void main() {
       expect(
         policyVerifier,
         contains(
-          'Post-build promotion has no matching finalized build authority.',
+          'Post-build promotion receipt has no matching governed build authority.',
         ),
       );
       expect(
@@ -1354,6 +1354,33 @@ void main() {
         expect(programmeBoundary['pilotHandoutAuthorized'], isFalse);
       },
     );
+
+    test('post-build promotion resolves its retained finalized authority', () {
+      final verifier = read('tools/release/Test-ProductionReleasePolicy.ps1');
+      expect(
+        verifier,
+        contains(r'$promotionReceipt.admittedEvidence.governedBuild'),
+      );
+      expect(
+        verifier,
+        contains(r'$promotionAuthorityBuild.finalizationReceipt'),
+      );
+      expect(
+        verifier,
+        contains(
+          'Promoted build finalization receipt hash differs from authority.',
+        ),
+      );
+      expect(
+        verifier,
+        isNot(
+          contains(
+            r'$policy.finalization.priorCompletedBuild.buildNumber -eq'
+            '\n    \$promotionBuildNumber',
+          ),
+        ),
+      );
+    });
 
     test('permanent identity and public version are committed', () {
       final gradle = read('android/app/build.gradle.kts');

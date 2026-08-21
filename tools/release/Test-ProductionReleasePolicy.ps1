@@ -328,16 +328,34 @@ if ((Get-Sha256 $promotionReceiptPath) -ne
 $promotionReceipt = Get-Content -LiteralPath $promotionReceiptPath -Raw |
   ConvertFrom-Json
 $promotionBuildNumber = [int]$policy.postBuildPromotion.buildNumber
-$promotionAuthorityBuild = $null
-if ($finalizationStatus -eq 'completed-non-distributable' -and
-    [int]$policy.release.buildNumber -eq $promotionBuildNumber) {
-  $promotionAuthorityBuild = $policy.finalization
-} elseif ([int]$policy.finalization.priorCompletedBuild.buildNumber -eq
-    $promotionBuildNumber) {
-  $promotionAuthorityBuild = $policy.finalization.priorCompletedBuild
+$promotionAuthorityBuild = $promotionReceipt.admittedEvidence.governedBuild
+if ($null -eq $promotionAuthorityBuild -or
+    [int]$promotionAuthorityBuild.buildNumber -ne $promotionBuildNumber) {
+  throw 'Post-build promotion receipt has no matching governed build authority.'
 }
-if ($null -eq $promotionAuthorityBuild) {
-  throw 'Post-build promotion has no matching finalized build authority.'
+$promotionFinalizationPath =
+  [string]$promotionAuthorityBuild.finalizationReceipt
+if ((Get-Sha256 $promotionFinalizationPath) -ne
+    ([string]$promotionAuthorityBuild.finalizationReceiptSha256).
+      ToUpperInvariant()) {
+  throw 'Promoted build finalization receipt hash differs from authority.'
+}
+$promotionFinalizationReceipt =
+  Get-Content -LiteralPath $promotionFinalizationPath -Raw | ConvertFrom-Json
+if ([string]$promotionFinalizationReceipt.status -ne
+      'passed-non-distributable' -or
+    [int]$promotionFinalizationReceipt.release.buildNumber -ne
+      $promotionBuildNumber -or
+    [string]$promotionFinalizationReceipt.sourceAuthority.commit -ne
+      [string]$promotionAuthorityBuild.sourceCommit -or
+    [string]$promotionFinalizationReceipt.governedPackage.sha256 -ne
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
+    $promotionAuthorityBuild.dualCustodyCompleted -ne $true -or
+    [string]$promotionFinalizationReceipt.dualCustody.status -ne 'passed' -or
+    $promotionAuthorityBuild.twoTargetInPlaceValidationPassed -ne $true -or
+    [string]$promotionFinalizationReceipt.runtimeAdjudication.status -ne
+      'passed-two-target-in-place') {
+  throw 'Promoted build retained finalization authority is incomplete or divergent.'
 }
 if ([string]$policy.postBuildPromotion.status -ne
       'completed-controlled-pilot-only' -or
