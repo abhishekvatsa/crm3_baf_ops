@@ -537,10 +537,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       _AppTab(
-        label: 'Explore',
+        label: 'More',
         screenBuilder:
             (_) => _MoreScreen(
               appUser: appUser,
+              onRaiseIssue: () => _openMaintenanceForm(context),
+              onIssues: () => setState(() => _currentIndex = 1),
+              onWork: () => setState(() => _currentIndex = 2),
+              onControl: () => setState(() => _currentIndex = 3),
+              onDirectives: () => _push(context, const DirectivesScreen()),
+              onWorkflow: () => _push(context, const WorkflowHubScreen()),
               onAssetRegistry:
                   () => _push(context, const AssetRegistryScreen()),
               onPlantCondition:
@@ -580,7 +586,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         destination: const NavigationDestination(
           icon: Icon(Icons.apps_outlined),
           selectedIcon: Icon(Icons.apps_rounded),
-          label: 'Explore',
+          label: 'More',
         ),
       ),
     ];
@@ -1148,6 +1154,12 @@ class _WatchTile extends StatelessWidget {
 
 class _MoreScreen extends StatelessWidget {
   final AppUser appUser;
+  final VoidCallback onRaiseIssue;
+  final VoidCallback onIssues;
+  final VoidCallback onWork;
+  final VoidCallback onControl;
+  final VoidCallback onDirectives;
+  final VoidCallback onWorkflow;
   final VoidCallback onAssetRegistry;
   final VoidCallback onPlantCondition;
   final VoidCallback onAssets;
@@ -1172,6 +1184,12 @@ class _MoreScreen extends StatelessWidget {
 
   const _MoreScreen({
     required this.appUser,
+    required this.onRaiseIssue,
+    required this.onIssues,
+    required this.onWork,
+    required this.onControl,
+    required this.onDirectives,
+    required this.onWorkflow,
     required this.onAssetRegistry,
     required this.onPlantCondition,
     required this.onAssets,
@@ -1201,6 +1219,51 @@ class _MoreScreen extends StatelessWidget {
     final canSeeClosed = appUser.canViewClosedMaintenanceTickets;
     final canSeeClosedJobs = appUser.canViewClosedJobDossiers;
     final canSeeReports = appUser.canViewReports;
+    final primaryRoutes = <_RoleRoute>[
+      _RoleRoute(
+        icon: Icons.add_circle_outline_rounded,
+        color: BafColors.maintenance,
+        label: 'Raise issue',
+        onTap: onRaiseIssue,
+      ),
+      _RoleRoute(
+        icon: Icons.report_problem_outlined,
+        color: BafColors.warning,
+        label:
+            appUser.canCloseMaintenanceTicket
+                ? 'Issue supervision'
+                : 'Issue queue',
+        onTap: onIssues,
+      ),
+      if (appUser.canViewPlannedMaintenance)
+        _RoleRoute(
+          icon: Icons.work_outline_rounded,
+          color: BafColors.planned,
+          label: 'Maintenance work',
+          onTap: onWork,
+        ),
+      if (appUser.canCreateDirective)
+        _RoleRoute(
+          icon: Icons.assignment_late_outlined,
+          color: BafColors.directives,
+          label: 'Directives',
+          onTap: onDirectives,
+        ),
+      if (appUser.canRecordOperationalEvent)
+        _RoleRoute(
+          icon: Icons.crisis_alert_outlined,
+          color: BafColors.warning,
+          label: 'Plant events',
+          onTap: onOperationalEvents,
+        ),
+      if (appUser.canCloseQualityWarning)
+        _RoleRoute(
+          icon: Icons.verified_user_outlined,
+          color: BafColors.charges,
+          label: 'Quality decisions',
+          onTap: onQuality,
+        ),
+    ];
     final plantDestinations = <_MoreDestinationSpec>[
       if (canSeeOperationalData)
         _MoreDestinationSpec(
@@ -1248,6 +1311,34 @@ class _MoreScreen extends StatelessWidget {
           keywords: 'stuck inner cover base release bulge',
           onTap: onFurnaceStuckup,
         ),
+    ];
+    final coordinationDestinations = <_MoreDestinationSpec>[
+      _MoreDestinationSpec(
+        icon: Icons.assignment_late_outlined,
+        color: BafColors.directives,
+        title: 'Directives',
+        subtitle: 'Instructions, acknowledgement and closure ownership',
+        keywords: 'direction instruction acknowledge comply close',
+        onTap: onDirectives,
+      ),
+      if (appUser.canViewPlannedMaintenance)
+        _MoreDestinationSpec(
+          icon: Icons.account_tree_outlined,
+          color: BafColors.warning,
+          title: 'Maintenance workflow',
+          subtitle: 'Lane queues, compliance requests and equipment control',
+          keywords: 'workflow lane compliance deferment operations support',
+          onTap: onWorkflow,
+        ),
+      if (appUser.canViewPlannedMaintenance)
+        _MoreDestinationSpec(
+          icon: Icons.event_repeat_rounded,
+          color: BafColors.planned,
+          title: 'Maintenance rhythm',
+          subtitle: 'Due counters, forward plans and classified outcomes',
+          keywords: 'cadence overdue due schedule plan',
+          onTap: onMaintenanceRhythm,
+        ),
       if (canSeeClosed)
         _MoreDestinationSpec(
           icon: Icons.history_rounded,
@@ -1265,15 +1356,6 @@ class _MoreScreen extends StatelessWidget {
           subtitle: 'Completed and cancelled planned-job records',
           keywords: 'planned maintenance history completed cancelled',
           onTap: onClosedJobs,
-        ),
-      if (appUser.canViewPlannedMaintenance)
-        _MoreDestinationSpec(
-          icon: Icons.event_repeat_rounded,
-          color: BafColors.planned,
-          title: 'Maintenance rhythm',
-          subtitle: 'Due counters, forward plans and classified outcomes',
-          keywords: 'cadence overdue due schedule plan',
-          onTap: onMaintenanceRhythm,
         ),
     ];
     final assuranceDestinations = <_MoreDestinationSpec>[
@@ -1399,6 +1481,7 @@ class _MoreScreen extends StatelessWidget {
     ];
     final visibleDestinations = <_MoreDestinationSpec>[
       ...plantDestinations,
+      ...coordinationDestinations,
       ...assuranceDestinations,
       ...governanceDestinations,
       ...adminDestinations,
@@ -1421,12 +1504,25 @@ class _MoreScreen extends StatelessWidget {
               const _DirectoryHeader(),
               const SizedBox(height: BafSpacing.md),
               _WorkspaceSearch(destinations: visibleDestinations),
+              const SizedBox(height: BafSpacing.lg),
+              _RoleStartPanel(
+                routes: primaryRoutes,
+                onControl: onControl,
+                onReports: onReports,
+              ),
               const SizedBox(height: BafSpacing.xl),
               _MoreSection(
                 title: 'Assets and lifecycle',
                 icon: Icons.precision_manufacturing_outlined,
                 accent: BafColors.assets,
                 destinations: plantDestinations,
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              _MoreSection(
+                title: 'Work and coordination',
+                icon: Icons.account_tree_outlined,
+                accent: BafColors.warning,
+                destinations: coordinationDestinations,
               ),
               const SizedBox(height: BafSpacing.lg),
               _MoreSection(
@@ -1707,6 +1803,106 @@ class _MoreDestinationSpec {
   }
 }
 
+class _RoleRoute {
+  const _RoleRoute({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+}
+
+class _RoleStartPanel extends StatelessWidget {
+  const _RoleStartPanel({
+    required this.routes,
+    required this.onControl,
+    required this.onReports,
+  });
+
+  final List<_RoleRoute> routes;
+  final VoidCallback onControl;
+  final VoidCallback onReports;
+
+  @override
+  Widget build(BuildContext context) {
+    final allRoutes = [
+      ...routes,
+      _RoleRoute(
+        icon: Icons.radar_outlined,
+        color: BafColors.cobalt,
+        label: 'Control centre',
+        onTap: onControl,
+      ),
+      _RoleRoute(
+        icon: Icons.insights_outlined,
+        color: BafColors.teal,
+        label: 'Operations intelligence',
+        onTap: onReports,
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Start here',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 2),
+        const Text(
+          'Primary routes for your assigned responsibilities',
+          style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        BafSectionSurface(
+          padding: const EdgeInsets.all(BafSpacing.sm),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 600 ? 3 : 2;
+              final width =
+                  (constraints.maxWidth - (columns - 1) * BafSpacing.sm) /
+                  columns;
+              return Wrap(
+                spacing: BafSpacing.sm,
+                runSpacing: BafSpacing.sm,
+                children: [
+                  for (final route in allRoutes)
+                    SizedBox(
+                      width: width,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: route.onTap,
+                        icon: Icon(route.icon, color: route.color, size: 19),
+                        label: Text(
+                          route.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: BafSpacing.sm,
+                          ),
+                          side: BorderSide(
+                            color: route.color.withValues(alpha: 0.28),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _WorkspaceSearch extends StatelessWidget {
   const _WorkspaceSearch({required this.destinations});
 
@@ -1812,7 +2008,7 @@ class _DirectoryHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Explore workspace',
+                'All functions',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 21,
@@ -1821,7 +2017,7 @@ class _DirectoryHeader extends StatelessWidget {
               ),
               SizedBox(height: BafSpacing.xs),
               Text(
-                'Find every function available to your approved roles',
+                'Task routes, records and controls available to your roles',
                 style: TextStyle(
                   color: Color(0xFFC6D7DB),
                   fontSize: 12,
@@ -1924,57 +2120,60 @@ class _MoreDestinationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.md,
-        vertical: BafSpacing.xs,
-      ),
-      leading: Container(
-        width: 42,
-        height: 42,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(BafRadius.medium),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: BafSpacing.md,
+          vertical: BafSpacing.xs,
         ),
-        child: Icon(icon, color: color, size: 22),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(
-        subtitle,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: BafColors.textSecondary,
-          fontSize: 12,
-          height: 1.25,
+        leading: Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+          ),
+          child: Icon(icon, color: color, size: 22),
         ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: BafColors.textSecondary,
+            fontSize: 12,
+            height: 1.25,
+          ),
+        ),
+        trailing:
+            badge == null
+                ? Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: BafColors.surfaceMuted,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 19,
+                    color: BafColors.textSecondary,
+                  ),
+                )
+                : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StatusBadge(label: badge!, color: BafColors.textSecondary),
+                    const SizedBox(width: BafSpacing.xs),
+                    const Icon(Icons.chevron_right_rounded),
+                  ],
+                ),
+        onTap: onTap,
       ),
-      trailing:
-          badge == null
-              ? Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: BafColors.surfaceMuted,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 19,
-                  color: BafColors.textSecondary,
-                ),
-              )
-              : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  StatusBadge(label: badge!, color: BafColors.textSecondary),
-                  const SizedBox(width: BafSpacing.xs),
-                  const Icon(Icons.chevron_right_rounded),
-                ],
-              ),
-      onTap: onTap,
     );
   }
 }

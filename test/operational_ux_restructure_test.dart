@@ -46,15 +46,19 @@ void main() {
     expect(home, contains("label: 'Issues'"));
     expect(home, contains("label: 'Work'"));
     expect(home, contains("label: 'Control'"));
-    expect(home, contains("label: 'Explore'"));
+    expect(home, contains("label: 'More'"));
     expect(home, isNot(contains('ModeSwitchCard(')));
     expect(home, isNot(contains("title: 'Core modules'")));
     expect(home, contains("title: 'Assets and lifecycle'"));
+    expect(home, contains("title: 'Work and coordination'"));
     expect(home, contains("title: 'Performance and assurance'"));
     expect(home, contains("title: 'Standards and governance'"));
     expect(home, contains("title: 'Administration and support'"));
     expect(home, contains("title: 'Plant condition'"));
     expect(home, contains("title: 'Operations intelligence'"));
+    expect(home, contains("title: 'Maintenance workflow'"));
+    expect(home, contains("title: 'Directives'"));
+    expect(home, contains("'Start here'"));
     expect(home, contains("hintText: 'Find a screen or function'"));
     expect(home, contains("title: 'Closed job dossiers'"));
     expect(home, contains("title: 'Audit log'"));
@@ -88,6 +92,12 @@ void main() {
       'operationsReportClockProvider',
       'maintenanceDueStatesProvider',
       'allInspectionFindingsProvider',
+      'qualityWarningsProvider',
+      'qualityMonitoringRequestsProvider',
+      'operationsReportAbnormalitiesProvider',
+      'openDirectivesProvider',
+      'workflowAllLanesProvider',
+      'workflowAllComplianceProvider',
     ]) {
       expect(reports, contains('ref.invalidate($provider)'));
     }

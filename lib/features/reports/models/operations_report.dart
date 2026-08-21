@@ -1,9 +1,14 @@
 import '../../assets/domain/plant_asset_overview.dart';
+import '../../abnormalities/data/abnormality_model.dart';
+import '../../directives/data/operational_directive_model.dart';
 import '../../inspections/data/inspection_campaign.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance_workflow/data/compliance_request_record.dart';
+import '../../maintenance_workflow/data/job_lane_record.dart';
 import '../../operational_events/data/operational_event.dart';
 import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
+import '../../quality/data/quality_warning.dart';
 
 class OperationsReportFilter {
   const OperationsReportFilter({
@@ -52,6 +57,11 @@ enum OperationsManagementSignalType {
   operationalDisruptions,
   overdueMaintenance,
   inspectionFindings,
+  qualityWarnings,
+  workflowObligations,
+  activeDirectives,
+  criticalAbnormalities,
+  qualityMonitoring,
   openIssues,
   openPlannedWork,
 }
@@ -146,6 +156,18 @@ class OperationsReport {
     required this.disruptionCount,
     required this.openDisruptionCount,
     required this.disruptionDuration,
+    this.qualityWarnings = const [],
+    this.qualityMonitoringRequests = const [],
+    this.abnormalities = const [],
+    this.directives = const [],
+    this.workflowLanes = const [],
+    this.complianceRequests = const [],
+    this.sourceQualityWarningCount = 0,
+    this.sourceQualityMonitoringCount = 0,
+    this.sourceAbnormalityCount = 0,
+    this.sourceDirectiveCount = 0,
+    this.sourceWorkflowLaneCount = 0,
+    this.sourceComplianceRequestCount = 0,
   });
 
   final OperationsReportFilter filter;
@@ -168,6 +190,18 @@ class OperationsReport {
   final int disruptionCount;
   final int openDisruptionCount;
   final Duration disruptionDuration;
+  final List<QualityWarning> qualityWarnings;
+  final List<QualityMonitoringRequest> qualityMonitoringRequests;
+  final List<ChargeAbnormality> abnormalities;
+  final List<OperationalDirective> directives;
+  final List<JobLaneRecord> workflowLanes;
+  final List<ComplianceRequestRecord> complianceRequests;
+  final int sourceQualityWarningCount;
+  final int sourceQualityMonitoringCount;
+  final int sourceAbnormalityCount;
+  final int sourceDirectiveCount;
+  final int sourceWorkflowLaneCount;
+  final int sourceComplianceRequestCount;
 
   int get issueCount => tickets.length;
   int get openIssueCount =>
@@ -228,6 +262,78 @@ class OperationsReport {
   );
   int get linkedDisruptionIssueCount => linkedDisruptionIssueIds.length;
 
+  int get openQualityWarningCount =>
+      qualityWarnings.where((warning) => warning.isOpen).length;
+  int get qualityClosureRequestCount =>
+      qualityWarnings
+          .where(
+            (warning) =>
+                warning.status == QualityWarningStatus.closureRequested,
+          )
+          .length;
+  int get activeQualityMonitoringCount =>
+      qualityMonitoringRequests
+          .where((request) => request.status == QualityMonitoringStatus.active)
+          .length;
+
+  int get highSeverityAbnormalityCount =>
+      abnormalities
+          .where(
+            (record) =>
+                !record.isDeleted &&
+                (record.severity == AbnormalitySeverity.high ||
+                    record.severity == AbnormalitySeverity.critical),
+          )
+          .length;
+  int get pendingReannealingCount =>
+      abnormalities
+          .where(
+            (record) =>
+                !record.isDeleted &&
+                record.reannealingStatus == ReannealingStatus.required,
+          )
+          .length;
+
+  int get activeDirectiveCount =>
+      directives.where((directive) => !directive.isClosed).length;
+  int get highPriorityDirectiveCount =>
+      directives
+          .where(
+            (directive) =>
+                !directive.isClosed &&
+                (directive.priority == DirectivePriority.high ||
+                    directive.priority == DirectivePriority.critical),
+          )
+          .length;
+
+  bool _isActiveLane(JobLaneRecord lane) =>
+      !lane.isDeleted &&
+      !const {'closed', 'removed', 'terminated'}.contains(lane.statusKey);
+  bool _isActiveCompliance(ComplianceRequestRecord request) =>
+      !request.isDeleted &&
+      !const {
+        'confirmedClosed',
+        'superseded',
+        'cancelled',
+      }.contains(request.statusKey);
+
+  int get activeWorkflowLaneCount => workflowLanes.where(_isActiveLane).length;
+  int get pendingLaneAcknowledgementCount =>
+      workflowLanes
+          .where((lane) => _isActiveLane(lane) && lane.statusKey == 'pending')
+          .length;
+  int get activeComplianceRequestCount =>
+      complianceRequests.where(_isActiveCompliance).length;
+  int get dueComplianceRequestCount =>
+      complianceRequests
+          .where(
+            (request) =>
+                _isActiveCompliance(request) && request.becameDueAt != null,
+          )
+          .length;
+  int get workflowObligationCount =>
+      pendingLaneAcknowledgementCount + dueComplianceRequestCount;
+
   int get assetCount => assetStates.length;
   int get availableAssetCount =>
       assetStates.where((state) => state.isAvailable).length;
@@ -250,10 +356,18 @@ class OperationsReport {
       assetStates.where((state) => state.isDown || state.isUnfit).length;
 
   int get actionBacklogCount =>
-      openIssueCount + openPlannedJobCount + openDisruptionCount;
+      openIssueCount +
+      openPlannedJobCount +
+      openDisruptionCount +
+      activeDirectiveCount +
+      workflowObligationCount +
+      openQualityWarningCount;
 
   int get assuranceBacklogCount =>
-      overdueMaintenanceCount + activeInspectionFindingCount;
+      overdueMaintenanceCount +
+      activeInspectionFindingCount +
+      qualityClosureRequestCount +
+      pendingReannealingCount;
 
   List<OperationsManagementSignal> get managementSignals {
     final signals = <OperationsManagementSignal>[
@@ -266,6 +380,28 @@ class OperationsReport {
               '${openCriticalIssueCount == 1 ? 'issue remains' : 'issues remain'} open',
           detail: 'Review ownership, operating impact and next action.',
           count: openCriticalIssueCount,
+        ),
+      if (qualityClosureRequestCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.qualityWarnings,
+          level: OperationsManagementSignalLevel.critical,
+          title:
+              '$qualityClosureRequestCount quality closure '
+              '${qualityClosureRequestCount == 1 ? 'request awaits' : 'requests await'} decision',
+          detail:
+              'Review charge evidence before accepting or rejecting closure.',
+          count: qualityClosureRequestCount,
+        ),
+      if (highPriorityDirectiveCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.activeDirectives,
+          level: OperationsManagementSignalLevel.critical,
+          title:
+              '$highPriorityDirectiveCount high-priority '
+              '${highPriorityDirectiveCount == 1 ? 'directive is' : 'directives are'} active',
+          detail:
+              'Confirm acknowledgement, owner response and closure evidence.',
+          count: highPriorityDirectiveCount,
         ),
       if (highRiskUnavailableAssetCount > 0)
         OperationsManagementSignal(
@@ -314,6 +450,40 @@ class OperationsReport {
           detail: 'Review cadence exposure and planned intervention.',
           count: overdueMaintenanceCount,
         ),
+      if (workflowObligationCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.workflowObligations,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '$workflowObligationCount workflow '
+              '${workflowObligationCount == 1 ? 'obligation needs' : 'obligations need'} action',
+          detail:
+              '$pendingLaneAcknowledgementCount lane acknowledgements and '
+              '$dueComplianceRequestCount due compliance requests.',
+          count: workflowObligationCount,
+        ),
+      if (openQualityWarningCount - qualityClosureRequestCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.qualityWarnings,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '${openQualityWarningCount - qualityClosureRequestCount} quality '
+              '${openQualityWarningCount - qualityClosureRequestCount == 1 ? 'warning remains' : 'warnings remain'} open',
+          detail:
+              'Review affected charges, operating evidence and disposition path.',
+          count: openQualityWarningCount - qualityClosureRequestCount,
+        ),
+      if (highSeverityAbnormalityCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.criticalAbnormalities,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '$highSeverityAbnormalityCount high-severity charge '
+              '${highSeverityAbnormalityCount == 1 ? 'abnormality was' : 'abnormalities were'} recorded',
+          detail:
+              '$pendingReannealingCount currently require re-annealing follow-through.',
+          count: highSeverityAbnormalityCount,
+        ),
       if (activeInspectionFindingCount > 0)
         OperationsManagementSignal(
           type: OperationsManagementSignalType.inspectionFindings,
@@ -347,6 +517,27 @@ class OperationsReport {
               '${openPlannedJobCount == 1 ? 'job remains' : 'jobs remain'} active',
           detail: 'Review execution progress, modules and closure readiness.',
           count: openPlannedJobCount,
+        ),
+      if (activeDirectiveCount - highPriorityDirectiveCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.activeDirectives,
+          level: OperationsManagementSignalLevel.attention,
+          title:
+              '${activeDirectiveCount - highPriorityDirectiveCount} other '
+              '${activeDirectiveCount - highPriorityDirectiveCount == 1 ? 'directive remains' : 'directives remain'} active',
+          detail: 'Review acknowledgement and closure ownership.',
+          count: activeDirectiveCount - highPriorityDirectiveCount,
+        ),
+      if (activeQualityMonitoringCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.qualityMonitoring,
+          level: OperationsManagementSignalLevel.attention,
+          title:
+              '$activeQualityMonitoringCount quality monitoring '
+              '${activeQualityMonitoringCount == 1 ? 'request is' : 'requests are'} active',
+          detail:
+              'Track selected bases, grades, cycles and charges to completion.',
+          count: activeQualityMonitoringCount,
         ),
     ];
     return List<OperationsManagementSignal>.unmodifiable(signals);

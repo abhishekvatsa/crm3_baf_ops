@@ -1,16 +1,22 @@
 import 'dart:convert';
 
+import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/job_lane_record.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
+import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -157,6 +163,120 @@ OperationalEvent event() => OperationalEvent(
   updatedByName: 'Operations',
   lastMutationId: 'mutation',
 );
+
+QualityWarning qualityWarning({
+  required String id,
+  required AssetType type,
+  required int number,
+  required DateTime createdAt,
+  QualityWarningStatus status = QualityWarningStatus.open,
+}) => QualityWarning(
+  warningId: id,
+  sourceType: QualityWarningSourceType.issue,
+  sourceId: id,
+  sourceVersion: 1,
+  sourceChargeNo: 41001,
+  sourceSummary: 'Temperature deviation',
+  sourceSeverity: 'high',
+  warningReason: 'Review coil disposition.',
+  affectedAssets: [
+    QualityAffectedAsset(assetType: type.name, assetNumber: number),
+  ],
+  status: status,
+  createdAt: createdAt,
+  createdByUid: 'ops',
+  updatedAt: createdAt,
+  updatedByUid: 'ops',
+  version: 1,
+  closureRequestReason:
+      status == QualityWarningStatus.closureRequested
+          ? 'Coils inspected and found acceptable.'
+          : null,
+  closureRequestedAt:
+      status == QualityWarningStatus.closureRequested ? createdAt : null,
+  closureRequestedByUid:
+      status == QualityWarningStatus.closureRequested ? 'ops' : null,
+  closureRequestedByName:
+      status == QualityWarningStatus.closureRequested ? 'Operations' : null,
+);
+
+ChargeAbnormality chargeAbnormality({
+  required String id,
+  required AssetType type,
+  required int number,
+  required DateTime loggedAt,
+}) =>
+    ChargeAbnormality()
+      ..firestoreId = id
+      ..sourceChargeNo = 41001
+      ..abnormalityTypeId = 'temperature-deviation'
+      ..abnormalityTypeTitle = 'Temperature deviation'
+      ..abnormalityTypeCode = 'TEMP_DEV'
+      ..category = AbnormalityCategory.process
+      ..severity = AbnormalitySeverity.high
+      ..affectedAssets = [
+        AffectedAssetRef(assetType: type, assetNumber: number),
+      ]
+      ..observedReason = 'Cycle temperature deviated from target.'
+      ..reannealingStatus = ReannealingStatus.required
+      ..loggedAt = loggedAt
+      ..updatedAt = loggedAt;
+
+OperationalDirective directive({
+  required String id,
+  required AppRole role,
+  required AssetType type,
+  required int number,
+  required DateTime createdAt,
+}) =>
+    OperationalDirective()
+      ..firestoreId = id
+      ..title = 'Verify burner permissive'
+      ..description = 'Confirm permissive before the next cycle.'
+      ..assetType = type
+      ..assetNumber = number
+      ..directedTo = role
+      ..priority = DirectivePriority.high
+      ..status = DirectiveStatus.open
+      ..createdAt = createdAt
+      ..updatedAt = createdAt;
+
+JobLaneRecord workflowLane({
+  required String id,
+  required String laneKey,
+  required String assetTypeKey,
+  required int assetNumber,
+  required DateTime createdAt,
+}) =>
+    JobLaneRecord()
+      ..firestoreId = id
+      ..workflowFirestoreId = 'workflow-$id'
+      ..jobExecutionFirestoreId = 'execution-$id'
+      ..laneKey = laneKey
+      ..statusKey = 'pending'
+      ..assetTypeKey = assetTypeKey
+      ..assetNumber = assetNumber
+      ..createdAt = createdAt
+      ..updatedAt = createdAt;
+
+ComplianceRequestRecord complianceRequest({
+  required String id,
+  required String laneKey,
+  required String assetTypeKey,
+  required int assetNumber,
+  required DateTime createdAt,
+}) =>
+    ComplianceRequestRecord()
+      ..firestoreId = id
+      ..title = 'Operations support'
+      ..description = 'Move the equipment to the maintenance position.'
+      ..targetLaneKey = laneKey
+      ..statusKey = 'raised'
+      ..becameDueAt = createdAt
+      ..assetTypeKey = assetTypeKey
+      ..assetNumber = assetNumber
+      ..createdAt = createdAt
+      ..updatedAt = createdAt;
 
 void main() {
   testWidgets('ranked report labels remain fully visible on narrow screens', (
@@ -1276,6 +1396,187 @@ void main() {
     expect(report.issueCount, 0);
     expect(report.plannedJobCount, 0);
     expect(report.disruptionCount, 0);
+  });
+
+  test('cross-domain control records obey period and asset scope', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final base = assetClass('base-class', 'Base', 'base');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final base101 = asset('base-101', base, 101);
+    final now = DateTime.utc(2026, 8, 22, 12);
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 22),
+        assetInstanceId: furnace7.id,
+      ),
+      tickets: const [],
+      executions: const [],
+      events: const [],
+      qualityWarnings: [
+        qualityWarning(
+          id: 'furnace-warning',
+          type: AssetType.furnace,
+          number: 7,
+          createdAt: DateTime.utc(2026, 7, 1),
+          status: QualityWarningStatus.closureRequested,
+        ),
+        qualityWarning(
+          id: 'base-warning',
+          type: AssetType.base,
+          number: 101,
+          createdAt: DateTime.utc(2026, 8, 10),
+        ),
+      ],
+      abnormalities: [
+        chargeAbnormality(
+          id: 'furnace-abnormality',
+          type: AssetType.furnace,
+          number: 7,
+          loggedAt: DateTime.utc(2026, 8, 10),
+        ),
+        chargeAbnormality(
+          id: 'outside-period',
+          type: AssetType.furnace,
+          number: 7,
+          loggedAt: DateTime.utc(2026, 7, 10),
+        ),
+      ],
+      directives: [
+        directive(
+          id: 'furnace-directive',
+          role: AppRole.seniorInstrumentation,
+          type: AssetType.furnace,
+          number: 7,
+          createdAt: DateTime.utc(2026, 7, 1),
+        ),
+        directive(
+          id: 'base-directive',
+          role: AppRole.seniorInstrumentation,
+          type: AssetType.base,
+          number: 101,
+          createdAt: DateTime.utc(2026, 8, 1),
+        ),
+      ],
+      workflowLanes: [
+        workflowLane(
+          id: 'furnace-lane',
+          laneKey: 'inst',
+          assetTypeKey: 'furnace',
+          assetNumber: 7,
+          createdAt: now,
+        ),
+      ],
+      complianceRequests: [
+        complianceRequest(
+          id: 'furnace-compliance',
+          laneKey: 'inst',
+          assetTypeKey: 'furnace',
+          assetNumber: 7,
+          createdAt: now,
+        ),
+      ],
+      actor: AppUser(
+        uid: 'admin',
+        name: 'Admin',
+        email: 'admin@example.com',
+        roles: const [AppRole.admin],
+        isApproved: true,
+        createdAt: DateTime.utc(2026),
+      ),
+      assetClasses: [furnace, base],
+      assetInstances: [furnace7, base101],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace, base],
+        assetInstances: [furnace7, base101],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+      asOf: now,
+    );
+
+    expect(report.sourceQualityWarningCount, 2);
+    expect(report.qualityWarnings, hasLength(1));
+    expect(report.qualityClosureRequestCount, 1);
+    expect(report.abnormalities, hasLength(1));
+    expect(report.highSeverityAbnormalityCount, 1);
+    expect(report.pendingReannealingCount, 1);
+    expect(report.directives, hasLength(1));
+    expect(report.highPriorityDirectiveCount, 1);
+    expect(report.pendingLaneAcknowledgementCount, 1);
+    expect(report.dueComplianceRequestCount, 1);
+    expect(report.workflowObligationCount, 2);
+    expect(
+      report.managementSignals.map((signal) => signal.type),
+      containsAll([
+        OperationsManagementSignalType.qualityWarnings,
+        OperationsManagementSignalType.activeDirectives,
+        OperationsManagementSignalType.workflowObligations,
+        OperationsManagementSignalType.criticalAbnormalities,
+      ]),
+    );
+  });
+
+  test('directive and workflow report queues retain actor visibility', () {
+    final now = DateTime.utc(2026, 8, 22);
+    final actor = AppUser(
+      uid: 'instrument-user',
+      name: 'Instrumentation',
+      email: 'instrument@example.com',
+      roles: const [AppRole.seniorInstrumentation],
+      isApproved: true,
+      createdAt: DateTime.utc(2026),
+    );
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(startDate: now, endDate: now),
+      tickets: const [],
+      executions: const [],
+      events: const [],
+      directives: [
+        directive(
+          id: 'visible-directive',
+          role: AppRole.seniorInstrumentation,
+          type: AssetType.furnace,
+          number: 7,
+          createdAt: now,
+        ),
+        directive(
+          id: 'hidden-directive',
+          role: AppRole.seniorElectrical,
+          type: AssetType.furnace,
+          number: 7,
+          createdAt: now,
+        ),
+      ],
+      workflowLanes: [
+        workflowLane(
+          id: 'visible-lane',
+          laneKey: 'inst',
+          assetTypeKey: 'furnace',
+          assetNumber: 7,
+          createdAt: now,
+        ),
+        workflowLane(
+          id: 'hidden-lane',
+          laneKey: 'elec',
+          assetTypeKey: 'furnace',
+          assetNumber: 7,
+          createdAt: now,
+        ),
+      ],
+      actor: actor,
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+      asOf: now,
+    );
+
+    expect(report.directives.map((record) => record.firestoreId), [
+      'visible-directive',
+    ]);
+    expect(report.workflowLanes.map((record) => record.firestoreId), [
+      'visible-lane',
+    ]);
   });
 
   test('report includes current cadence and active inspection assurance', () {

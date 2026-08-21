@@ -24,6 +24,11 @@ class OperationsReportViewSelector extends StatelessWidget {
         label: 'Work',
       ),
       (
+        value: OperationsReportView.control,
+        icon: Icons.radar_outlined,
+        label: 'Control',
+      ),
+      (
         value: OperationsReportView.reliability,
         icon: Icons.query_stats_rounded,
         label: 'Reliability',
@@ -266,6 +271,10 @@ class OperationsDecisionBrief extends StatelessWidget {
     required this.onMaintenanceRhythm,
     required this.onInspections,
     required this.onPlannedWork,
+    required this.onQuality,
+    required this.onAbnormalities,
+    required this.onDirectives,
+    required this.onWorkflow,
   });
 
   final OperationsReport report;
@@ -275,6 +284,10 @@ class OperationsDecisionBrief extends StatelessWidget {
   final VoidCallback onMaintenanceRhythm;
   final VoidCallback onInspections;
   final VoidCallback onPlannedWork;
+  final VoidCallback onQuality;
+  final VoidCallback onAbnormalities;
+  final VoidCallback onDirectives;
+  final VoidCallback onWorkflow;
 
   @override
   Widget build(BuildContext context) {
@@ -362,6 +375,11 @@ class OperationsDecisionBrief extends StatelessWidget {
       onOperationalEvents,
     OperationsManagementSignalType.overdueMaintenance => onMaintenanceRhythm,
     OperationsManagementSignalType.inspectionFindings => onInspections,
+    OperationsManagementSignalType.qualityWarnings => onQuality,
+    OperationsManagementSignalType.workflowObligations => onWorkflow,
+    OperationsManagementSignalType.activeDirectives => onDirectives,
+    OperationsManagementSignalType.criticalAbnormalities => onAbnormalities,
+    OperationsManagementSignalType.qualityMonitoring => onQuality,
     OperationsManagementSignalType.openIssues => onIssues,
     OperationsManagementSignalType.openPlannedWork => onPlannedWork,
   };
@@ -383,36 +401,39 @@ class _DecisionSignalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = OperationsDecisionBrief._signalColor(signal.level);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.md,
-        vertical: BafSpacing.xs,
-      ),
-      leading: Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(BafRadius.small),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: BafSpacing.md,
+          vertical: BafSpacing.xs,
         ),
-        child: Icon(_signalIcon(signal.type), color: color, size: 20),
+        leading: Container(
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(BafRadius.small),
+          ),
+          child: Icon(_signalIcon(signal.type), color: color, size: 20),
+        ),
+        title: Text(
+          signal.title,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          signal.detail,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, height: 1.25),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: BafColors.textSecondary,
+        ),
+        onTap: onTap,
       ),
-      title: Text(
-        signal.title,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-      ),
-      subtitle: Text(
-        signal.detail,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 11, height: 1.25),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: BafColors.textSecondary,
-      ),
-      onTap: onTap,
     );
   }
 
@@ -428,6 +449,16 @@ class _DecisionSignalRow extends StatelessWidget {
           Icons.event_busy_outlined,
         OperationsManagementSignalType.inspectionFindings =>
           Icons.fact_check_outlined,
+        OperationsManagementSignalType.qualityWarnings =>
+          Icons.verified_user_outlined,
+        OperationsManagementSignalType.workflowObligations =>
+          Icons.account_tree_outlined,
+        OperationsManagementSignalType.activeDirectives =>
+          Icons.assignment_late_outlined,
+        OperationsManagementSignalType.criticalAbnormalities =>
+          Icons.monitor_heart_outlined,
+        OperationsManagementSignalType.qualityMonitoring =>
+          Icons.visibility_outlined,
         OperationsManagementSignalType.openIssues => Icons.build_outlined,
         OperationsManagementSignalType.openPlannedWork =>
           Icons.work_outline_rounded,
@@ -548,6 +579,12 @@ void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
   ref.invalidate(operationalEventsForReportsProvider);
   ref.invalidate(maintenanceDueStatesProvider);
   ref.invalidate(allInspectionFindingsProvider);
+  ref.invalidate(qualityWarningsProvider);
+  ref.invalidate(qualityMonitoringRequestsProvider);
+  ref.invalidate(operationsReportAbnormalitiesProvider);
+  ref.invalidate(openDirectivesProvider);
+  ref.invalidate(workflowAllLanesProvider);
+  ref.invalidate(workflowAllComplianceProvider);
   ref.invalidate(assetClassesProvider);
   ref.invalidate(allAssetInstancesProvider);
   ref.invalidate(assetOperationalConditionsProvider);

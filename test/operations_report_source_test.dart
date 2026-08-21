@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:crm3_baf_ops/core/utils/combined_record_stream.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
@@ -83,6 +85,31 @@ void main() {
       ]);
     },
   );
+
+  test('report authority resolves before any business-data subscription', () {
+    final source =
+        File(
+          'lib/features/reports/providers/operations_report_provider.dart',
+        ).readAsStringSync();
+    final providerStart = source.indexOf('final operationsReportProvider');
+    final actorRead = source.indexOf(
+      'ref.watch(currentAppUserProvider)',
+      providerStart,
+    );
+    final authorityRejection = source.indexOf(
+      '!authorizedActor.canViewReports',
+      actorRead,
+    );
+    final firstBusinessRead = source.indexOf(
+      'ref.watch(operationsReportTicketsProvider(period))',
+      authorityRejection,
+    );
+
+    expect(providerStart, greaterThanOrEqualTo(0));
+    expect(actorRead, greaterThan(providerStart));
+    expect(authorityRejection, greaterThan(actorRead));
+    expect(firstBusinessRead, greaterThan(authorityRejection));
+  });
 }
 
 MaintenanceRecord _ticket(DateTime started) =>
