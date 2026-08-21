@@ -187,6 +187,26 @@ void main() {
       _expectFormat(() => execution.assignmentInnerCoverPosition);
     });
 
+    test('exact Inner Cover assignment requires frozen position evidence', () {
+      final execution = JobExecution.fromMap(
+        _execution()
+          ..['assetType'] = AssetType.innerCover.name
+          ..['assetNumber'] = 201
+          ..['templateVersionId'] = 'version-1'
+          ..['metadataJson'] = jsonEncode(<String, dynamic>{
+            'assignmentAssetIdentity': <String, dynamic>{
+              'assetClassId': 'base-class',
+              'assetInstanceId': 'base-201',
+              'assetNumber': 201,
+            },
+          }),
+        'execution-1',
+      );
+
+      expect(execution.assignmentInnerCoverPositionReadResult.isValid, isFalse);
+      _expectFormat(() => execution.assignmentInnerCoverPosition);
+    });
+
     test('malformed local module snapshot blocks work payload admission', () {
       final module = JobModuleInstance.fromMap(_module(), 'module-1')
         ..moduleSnapshotJson = '{not-json';

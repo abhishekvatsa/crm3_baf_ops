@@ -333,10 +333,7 @@ void main() {
       assetInstanceVersion: 3,
       assetNumber: 7,
       assetInstanceName: 'Furnace 7',
-      hierarchyPath: <String>[
-        'Combustion system',
-        'Pressure transmitter',
-      ],
+      hierarchyPath: <String>['Combustion system', 'Pressure transmitter'],
       ownershipStatus: AssetOwnershipStatus.confirmed,
       ownerDiscipline: 'Instrumentation',
       accountableRoleKeys: <String>['seniorInstrumentation'],
@@ -394,6 +391,28 @@ void main() {
       positionState: InnerCoverPositionState.noneLinked,
       eventAt: DateTime.utc(2026, 8, 15, 10),
       confirmedAt: DateTime.utc(2026, 8, 15, 9, 59),
+      confirmedByUid: 'ops-1',
+      confirmedByName: 'Operations One',
+    );
+
+    expect(
+      () => InnerCoverEventReference.fromMap(association.toMap()),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
+  test('linked Inner Cover cannot be assigned after the reported event', () {
+    final association = InnerCoverEventReference(
+      baseAssetInstanceId: 'base-201',
+      baseAssetNumber: 201,
+      positionState: InnerCoverPositionState.linked,
+      innerCoverId: 'cover-gr26',
+      innerCoverSerialNumber: 'GR26',
+      linkageId: 'link-1',
+      assignmentVersion: 3,
+      linkedAt: DateTime.utc(2026, 8, 15, 10),
+      eventAt: DateTime.utc(2026, 8, 15, 9, 59),
+      confirmedAt: DateTime.utc(2026, 8, 15, 10, 1),
       confirmedByUid: 'ops-1',
       confirmedByName: 'Operations One',
     );

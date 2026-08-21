@@ -34,7 +34,14 @@ import {
   maintenanceProjectionForRaise,
   maintenanceProjectionForRelease,
 } from "./maintenanceBridge";
-import {complianceAttemptPath, compliancePath, equipmentPath, maintenancePath, workflowPath} from "./paths";
+import {
+  complianceAttemptPath,
+  compliancePath,
+  equipmentIdentityFromWorkflow,
+  equipmentPathForIdentity,
+  maintenancePath,
+  workflowPath,
+} from "./paths";
 import {ComplianceDoc} from "./types";
 import {cleanText, iso, laneKey, optionalText, plusMinutes} from "./utils";
 import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
@@ -656,13 +663,19 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
     command.aggregateId,
     "red",
   );
-  const assetTypeKey = gatePath == null ? null : (typeof workflow.assetTypeKey === "string" ? workflow.assetTypeKey : null);
-  const assetNumber = gatePath == null ? null : (typeof workflow.assetNumber === "number" ? workflow.assetNumber : null);
-  const equipmentId = assetTypeKey != null && assetNumber != null ? equipmentPath(assetTypeKey, assetNumber) : null;
+  const workflowEquipmentIdentity = gatePath == null ?
+    null : equipmentIdentityFromWorkflow(workflow);
+  const assetTypeKey = workflowEquipmentIdentity?.assetTypeKey ?? null;
+  const assetNumber = workflowEquipmentIdentity?.assetNumber ?? null;
+  const equipmentId = workflowEquipmentIdentity == null ?
+    null : equipmentPathForIdentity(workflowEquipmentIdentity);
   const equipment = equipmentId == null ? null : await tx.get(equipmentId);
-  const otherFacts = assetTypeKey != null && assetNumber != null
+  const otherFacts = workflowEquipmentIdentity != null
     ? withoutWorkflowContribution(
-      equipmentFactsFromProjection(equipment?.data ?? null),
+      equipmentFactsFromProjection(
+        equipment?.data ?? null,
+        workflowEquipmentIdentity,
+      ),
       workflowContribution(workflow),
     )
     : null;
@@ -738,6 +751,8 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
     tx.set(equipmentId, equipmentProjectionWrite(equipment?.data ?? null, facts, projection, {
       assetTypeKey,
       assetNumber,
+      assetClassId: workflowEquipmentIdentity?.assetClassId,
+      assetInstanceId: workflowEquipmentIdentity?.assetInstanceId,
       trigger: `preparationConfirmed:${id}`,
       at: now,
       actorUid: context.actor.uid,

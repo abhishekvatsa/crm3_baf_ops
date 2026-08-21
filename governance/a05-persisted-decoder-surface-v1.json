@@ -636,7 +636,7 @@
       "compatibility": "schema version 1 definition references remain readable; installed references require schema version 2 physical identity",
       "regression": "test/asset_hierarchy_model_test.dart",
       "reArmCondition": "hierarchy identity, ownership, lifecycle, or reference fields are defaulted from malformed input",
-      "riskFingerprint": "4918d71ac557d7e4e326ebf875ef6ab8d78b2dc35b2138ce2fac92569327e6cb"
+      "riskFingerprint": "1b54f62b0e40f5b5cf1cb2af427b82421654c61055e18e561d8a5eb842b15e83"
     },
     {
       "id": "inner-cover-lifecycle-records",

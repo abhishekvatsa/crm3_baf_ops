@@ -11,6 +11,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('inspection states require acceptance before availability', () {
+    expect(
+      allowedInnerCoverStateChanges(
+        InnerCoverLifecycleState.awaitingInspection,
+      ),
+      isNot(contains(InnerCoverLifecycleState.available)),
+    );
+    expect(
+      allowedInnerCoverStateChanges(InnerCoverLifecycleState.underInspection),
+      isNot(contains(InnerCoverLifecycleState.available)),
+    );
+  });
+
   testWidgets('Base-first board shows installed serial and separate pool', (
     tester,
   ) async {

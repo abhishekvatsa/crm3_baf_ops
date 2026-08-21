@@ -690,9 +690,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       isResolved: true,
       status: 'resolved',
       description: 'Pressure transmitter failed calibration repeatedly.',
-      endDate: admin.firestore.Timestamp.fromDate(
-        new Date('2026-08-13T11:30:00.000Z'),
-      ),
+      endDate: '2026-08-13T11:30:00.000Z',
       closedByUid: 'admin-1',
       closedByName: 'Admin One',
       assetHierarchyRefJson: JSON.stringify({
@@ -867,6 +865,11 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
         reasonCode: 'asset-component-replacement-evidence-version-mismatch',
       }),
     });
+    await db.collection('job_executions').doc('completed-job-1').update({
+      isCancelled: admin.firestore.FieldValue.delete(),
+    });
+    const accepted = await invokeRegistry(replacement);
+    expect(accepted.operation).toBe('REPLACE_COMPONENT_INSTANCE');
   });
 
   test('component replacement rejects a different definition and cross-asset mutation', async () => {

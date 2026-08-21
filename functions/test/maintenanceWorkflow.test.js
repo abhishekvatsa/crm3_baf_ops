@@ -801,11 +801,13 @@ describe('maintenance workflow command integration', () => {
 
   test('preselected furnace RED cannot acknowledge until preparation is confirmed', async () => {
     const store = new MemoryWorkflowStore();
-    store.seed('maintenance_workflows/wf-pre', {jobExecutionId: 'exec-pre', status: 'inProgress', version: 3, assetTypeKey: 'furnace', assetNumber: 8, laneSetFinalizedAt: '2026-07-20T00:00:00Z', activeRedWork: false, awaitingPreparation: false});
+    store.seed('maintenance_workflows/wf-pre', {jobExecutionId: 'exec-pre', status: 'inProgress', version: 3, assetTypeKey: 'furnace', assetNumber: 8, assetClassId: 'furnace-class', assetInstanceId: 'furnace-8', laneSetFinalizedAt: '2026-07-20T00:00:00Z', activeRedWork: false, awaitingPreparation: false});
     store.seed('job_lanes/wf-pre_mech_1', {workflowId: 'wf-pre', jobExecutionId: 'exec-pre', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
     store.seed('job_lanes/wf-pre_red_1', {workflowId: 'wf-pre', jobExecutionId: 'exec-pre', laneKey: 'red', status: 'pending', activationGeneration: 1, version: 1});
     store.seed('equipment_status/furnace_8', {
       state: 'underMaintenance',
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-8',
       activeNonRedMaintenanceCount: 1,
       activeRedWorkCount: 0,
       awaitingPreparationCount: 0,
@@ -813,10 +815,16 @@ describe('maintenance workflow command integration', () => {
     });
     const service = serviceFor(store);
     await service.execute({commandId: 'prepare-red', commandType: 'prepareRedLane', aggregateId: 'wf-pre', expectedVersion: 3, payload: {preparationRequired: true}}, {actor: admin, serverNow: at('2026-07-20T06:00:00Z')});
+    expect(store.read('equipment_status/furnace_8')).toMatchObject({
+      assetClassId: 'furnace-class', assetInstanceId: 'furnace-8',
+    });
     await expect(service.execute({commandId: 'early-red-ack', commandType: 'acknowledgeLane', aggregateId: 'wf-pre', expectedVersion: 4, payload: {laneKey: 'red'}}, {actor: refractory, serverNow: at('2026-07-20T06:01:00Z')})).rejects.toMatchObject({code: 'red-preparation-incomplete'});
     await service.execute({commandId: 'ack-prep', commandType: 'acknowledgeCompliance', aggregateId: 'wf-pre', expectedVersion: 4, payload: {complianceId: 'wf-pre_red_preparation'}}, {actor: ops, serverNow: at('2026-07-20T06:02:00Z')});
     await service.execute({commandId: 'comply-prep', commandType: 'markComplianceComplied', aggregateId: 'wf-pre', expectedVersion: 5, payload: {complianceId: 'wf-pre_red_preparation', note: 'Placed on stand'}}, {actor: ops, serverNow: at('2026-07-20T06:03:00Z')});
     await service.execute({commandId: 'confirm-prep', commandType: 'confirmComplianceClosed', aggregateId: 'wf-pre', expectedVersion: 6, payload: {complianceId: 'wf-pre_red_preparation'}}, {actor: refractory, serverNow: at('2026-07-20T06:04:00Z')});
+    expect(store.read('equipment_status/furnace_8')).toMatchObject({
+      assetClassId: 'furnace-class', assetInstanceId: 'furnace-8',
+    });
     const receipt = await service.execute({commandId: 'red-ack', commandType: 'acknowledgeLane', aggregateId: 'wf-pre', expectedVersion: 7, payload: {laneKey: 'red'}}, {actor: refractory, serverNow: at('2026-07-20T06:05:00Z')});
     expect(receipt.resultKey).toBe('lane-acknowledged');
     expect(store.read('equipment_status/furnace_8').state).toBe('underRED');

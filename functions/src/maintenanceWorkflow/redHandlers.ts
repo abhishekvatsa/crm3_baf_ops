@@ -11,8 +11,14 @@ import {
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
-import {compliancePath, equipmentPath, lanePath, workflowPath} from "./paths";
-import {cleanText, iso} from "./utils";
+import {
+  compliancePath,
+  equipmentIdentityFromWorkflow,
+  equipmentPathForIdentity,
+  lanePath,
+  workflowPath,
+} from "./paths";
+import {iso} from "./utils";
 
 export const prepareRedLane: CommandHandler = async ({tx, command, context}) => {
   if (!mayPrepareRedLane(context.actor)) {
@@ -38,9 +44,8 @@ export const prepareRedLane: CommandHandler = async ({tx, command, context}) => 
   if (workflow.activeRedWork === true || workflow.awaitingPreparation === true) {
     throw new WorkflowError("failed-precondition", "RED preparation has already been decided for this workflow.");
   }
-  const assetTypeKey = cleanText(workflow.assetTypeKey, "assetTypeKey");
-  const assetNumber = typeof workflow.assetNumber === "number" ? workflow.assetNumber : 0;
-  if (assetNumber <= 0) throw new WorkflowError("failed-precondition", "Workflow asset identity is invalid.");
+  const equipmentIdentity = equipmentIdentityFromWorkflow(workflow);
+  const {assetTypeKey, assetNumber} = equipmentIdentity;
   if (assetTypeKey !== "base" && assetTypeKey !== "furnace") {
     throw new WorkflowError("red-not-applicable", "RED work is only applicable to bases and furnaces.");
   }
@@ -52,10 +57,10 @@ export const prepareRedLane: CommandHandler = async ({tx, command, context}) => 
   }
 
   const laneId = lanePath(command.aggregateId, "red", redLane.activationGeneration ?? 1);
-  const equipmentId = equipmentPath(assetTypeKey, assetNumber);
+  const equipmentId = equipmentPathForIdentity(equipmentIdentity);
   const equipment = await tx.get(equipmentId);
   const otherFacts = withoutWorkflowContribution(
-    equipmentFactsFromProjection(equipment.data),
+    equipmentFactsFromProjection(equipment.data, equipmentIdentity),
     workflowContribution(workflow),
   );
   const awaitingPreparation = preparationRequired === true;
@@ -107,6 +112,8 @@ export const prepareRedLane: CommandHandler = async ({tx, command, context}) => 
   tx.set(equipmentId, equipmentProjectionWrite(equipment.data, facts, projection, {
     assetTypeKey,
     assetNumber,
+    assetClassId: equipmentIdentity.assetClassId,
+    assetInstanceId: equipmentIdentity.assetInstanceId,
     trigger: `prepareRedLane:${command.aggregateId}`,
     at: now,
     actorUid: context.actor.uid,

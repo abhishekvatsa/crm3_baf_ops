@@ -8798,7 +8798,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 65
     and a04_inventory_report.get("inventoryDigest")
-        == "EA096D6B6693F083A7B359D556C963331F2C0018FCB5812A8CCB5A0A19A520E3"
+        == "39433208E5632CB07E3ABC37E317E53A1EC40C91819E593A404C62F2FCE24175"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -9119,7 +9119,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 45
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 43
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 31
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 327
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 328
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
