@@ -504,7 +504,22 @@ function timestampOrNull(date: Date | null, convert: (date: Date) => unknown): u
 
 function timestampIso(value: unknown, field: string): string {
   let date: unknown = value;
-  if (value != null && typeof value === "object" &&
+  if (typeof value === "string") {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?$/.exec(value);
+    const parts = match?.slice(1, 7).map(Number) ?? [];
+    const calendar = parts.length === 6 ? new Date(Date.UTC(
+      parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5],
+    )) : null;
+    const candidate = match == null ? null : new Date(value);
+    date = candidate != null && calendar != null &&
+      !Number.isNaN(candidate.getTime()) &&
+      calendar.getUTCFullYear() === parts[0] &&
+      calendar.getUTCMonth() === parts[1] - 1 &&
+      calendar.getUTCDate() === parts[2] &&
+      calendar.getUTCHours() === parts[3] &&
+      calendar.getUTCMinutes() === parts[4] &&
+      calendar.getUTCSeconds() === parts[5] ? candidate : null;
+  } else if (value != null && typeof value === "object" &&
       typeof (value as {toDate?: unknown}).toDate === "function") {
     try {
       date = (value as {toDate: () => unknown}).toDate();
@@ -631,7 +646,9 @@ function verifyReplacementEvidence(args: {
       data.assetHierarchyRefJson, "issue assetHierarchyRefJson",
     );
   } else {
-    if (data.isCompleted !== true || data.isCancelled !== false) {
+    const cancellationStateValid = data.isCancelled === undefined ||
+      data.isCancelled === false;
+    if (data.isCompleted !== true || !cancellationStateValid) {
       throw new AssetHierarchyMutationError(
         "failed-precondition", "Only a completed, non-cancelled planned job can justify replacement.",
         {

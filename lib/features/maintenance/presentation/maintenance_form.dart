@@ -716,6 +716,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         'No Inner Cover is currently linked to this Base. Link the physical cover before raising an Inner Cover issue.',
       );
     }
+    if (assignment != null && _startTime.isBefore(assignment.linkedAt)) {
+      throw const AssetHierarchyException(
+        'The selected event time predates the current Inner Cover linkage. Correct the event time or reconcile the Base linkage history before submitting.',
+      );
+    }
     final association = InnerCoverEventReference(
       baseAssetInstanceId: context.asset.id,
       baseAssetNumber: context.asset.assetNumber,

@@ -22,7 +22,7 @@ inventory now inherits all 65 strict A-05 decoder surfaces, including the
 business-function tranche added on 21 August 2026. Text-file authority is
 canonicalized to LF before hashing so the same tracked content has one digest
 on Windows and Linux. Its current stable digest is
-`EA096D6B6693F083A7B359D556C963331F2C0018FCB5812A8CCB5A0A19A520E3`.
+`39433208E5632CB07E3ABC37E317E53A1EC40C91819E593A404C62F2FCE24175`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing

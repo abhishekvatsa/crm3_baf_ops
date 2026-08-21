@@ -1359,8 +1359,16 @@ class JobExecution {
       field: 'metadataJson',
       source: source,
     );
+    final physicalIdentity = assignmentPhysicalAssetIdentity;
     if (metadata == null ||
         !metadata.containsKey('assignmentInnerCoverPosition')) {
+      if (assetType == AssetType.innerCover && physicalIdentity != null) {
+        throw PersistedDataFormatException(
+          field: 'metadataJson.assignmentInnerCoverPosition',
+          source: source,
+          detail: 'is required for an exact governed Inner Cover assignment',
+        );
+      }
       return null;
     }
     final position = readOptionalJsonObject(
@@ -1375,7 +1383,6 @@ class JobExecution {
         detail: 'must be a non-empty object when present',
       );
     }
-    final physicalIdentity = assignmentPhysicalAssetIdentity;
     final baseAssetInstanceId = readRequiredPersistedString(
       position['baseAssetInstanceId'],
       field: 'metadataJson.assignmentInnerCoverPosition.baseAssetInstanceId',

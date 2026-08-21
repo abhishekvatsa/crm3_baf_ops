@@ -722,7 +722,7 @@ Future<void> _changeCoverState(
   InnerCoverProfile cover,
   AppUser user,
 ) async {
-  final states = _allowedNextStates(cover.lifecycleState);
+  final states = allowedInnerCoverStateChanges(cover.lifecycleState);
   if (states.isEmpty) {
     _showError(context, 'No further lifecycle transition is available.');
     return;
@@ -750,17 +750,15 @@ Future<void> _changeCoverState(
   if (succeeded && context.mounted) Navigator.pop(context);
 }
 
-List<InnerCoverLifecycleState> _allowedNextStates(
+List<InnerCoverLifecycleState> allowedInnerCoverStateChanges(
   InnerCoverLifecycleState current,
 ) => switch (current) {
   InnerCoverLifecycleState.awaitingInspection => const [
     InnerCoverLifecycleState.underInspection,
-    InnerCoverLifecycleState.available,
     InnerCoverLifecycleState.quarantined,
     InnerCoverLifecycleState.rejected,
   ],
   InnerCoverLifecycleState.underInspection => const [
-    InnerCoverLifecycleState.available,
     InnerCoverLifecycleState.underRepair,
     InnerCoverLifecycleState.quarantined,
     InnerCoverLifecycleState.rejected,

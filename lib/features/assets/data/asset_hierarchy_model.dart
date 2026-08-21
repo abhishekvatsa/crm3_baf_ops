@@ -160,6 +160,13 @@ class InnerCoverEventReference {
         detail: 'cannot be after confirmation',
       );
     }
+    if (reference.linkedAt?.isAfter(reference.eventAt) == true) {
+      throw PersistedDataFormatException(
+        field: 'innerCoverAssociation.linkedAt',
+        source: source,
+        detail: 'cannot be after the recorded event',
+      );
+    }
     if (reference.eventAt.isAfter(reference.confirmedAt)) {
       throw PersistedDataFormatException(
         field: 'innerCoverAssociation.eventAt',
