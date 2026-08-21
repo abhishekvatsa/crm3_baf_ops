@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/job_template_model.dart';
@@ -27,7 +29,14 @@ class _ClosedJobDossiersScreenState
 
     return Scaffold(
       backgroundColor: BafColors.background,
-      appBar: AppBar(title: const Text('Closed Job Dossiers')),
+      appBar: AppBar(
+        title: const BafAppBarTitle(
+          title: 'Closed job dossiers',
+          subtitle: 'Completed and cancelled planned-work evidence',
+          icon: Icons.inventory_2_outlined,
+          accent: BafColors.planned,
+        ),
+      ),
       body: actorAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:
@@ -96,14 +105,10 @@ class _ClosedDossierList extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(
-                        key: const ValueKey('closed-job-dossiers-search'),
+                      BafSearchField(
+                        fieldKey: const ValueKey('closed-job-dossiers-search'),
+                        hintText: 'Search jobs, assets or teams',
                         onChanged: onQueryChanged,
-                        decoration: const InputDecoration(
-                          hintText: 'Search jobs, assets or teams',
-                          prefixIcon: Icon(Icons.search_rounded),
-                          isDense: true,
-                        ),
                       ),
                       const SizedBox(height: BafSpacing.sm),
                       Text(

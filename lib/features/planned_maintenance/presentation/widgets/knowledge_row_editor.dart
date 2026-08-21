@@ -495,7 +495,7 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
         fontSize: 13,
         fontWeight: FontWeight.w800,
         color: BafColors.textPrimary,
-        letterSpacing: 0.6,
+        letterSpacing: 0,
       ),
     ),
   );

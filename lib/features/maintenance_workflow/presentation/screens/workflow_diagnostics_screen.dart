@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/brand/brand_widgets.dart';
+import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/workflow_command_record.dart';
 import '../../providers/workflow_providers.dart';
@@ -73,8 +77,14 @@ class _WorkflowDiagnosticsScreenState
     _future ??= _load();
 
     return Scaffold(
+      backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Workflow Diagnostics'),
+        title: const BafAppBarTitle(
+          title: 'Workflow diagnostics',
+          subtitle: 'Local integrity and uncertain command review',
+          icon: Icons.troubleshoot_outlined,
+          accent: BafColors.admin,
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -83,140 +93,166 @@ class _WorkflowDiagnosticsScreenState
           ),
         ],
       ),
-      body: FutureBuilder<_WorkflowDiagnosticsSnapshot>(
-        future: _future!,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError || snapshot.data == null) {
-            final quarantineNeedsRepair =
-                snapshot.error is WorkflowPullStateException;
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.sync_problem_outlined, size: 44),
-                    const SizedBox(height: 16),
-                    Text(
-                      quarantineNeedsRepair
-                          ? 'Workflow diagnostics need repair'
-                          : 'Workflow diagnostics unavailable',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge,
+      body: BafContentFrame(
+        maxWidth: 960,
+        child: FutureBuilder<_WorkflowDiagnosticsSnapshot>(
+          future: _future!,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const BafLoadingPanel(
+                label: 'Reading local workflow diagnostics',
+                color: BafColors.admin,
+              );
+            }
+            if (snapshot.hasError || snapshot.data == null) {
+              final quarantineNeedsRepair =
+                  snapshot.error is WorkflowPullStateException;
+              return BafStatePanel(
+                icon: Icons.sync_problem_outlined,
+                color: BafColors.danger,
+                title:
+                    quarantineNeedsRepair
+                        ? 'Workflow diagnostics need repair'
+                        : 'Workflow diagnostics unavailable',
+                message:
+                    quarantineNeedsRepair
+                        ? 'The local quarantine log is malformed. Clear only this local log before retrying diagnostics.'
+                        : '${snapshot.error}',
+                primaryLabel:
+                    quarantineNeedsRepair ? 'Clear local log' : 'Try again',
+                primaryIcon:
+                    quarantineNeedsRepair
+                        ? Icons.delete_sweep_outlined
+                        : Icons.refresh_rounded,
+                onPrimary: quarantineNeedsRepair ? _clearQuarantine : _refresh,
+              );
+            }
+            final data = snapshot.data!;
+            return RefreshIndicator(
+              onRefresh: () async {
+                _refresh();
+                await _future!;
+              },
+              child: ListView(
+                children: [
+                  BafScreenIntro(
+                    title: 'Local workflow health',
+                    subtitle:
+                        'Review isolated malformed records and commands awaiting governed recovery.',
+                    icon: Icons.health_and_safety_outlined,
+                    accent: BafColors.admin,
+                    trailing: StatusBadge(
+                      label:
+                          data.quarantine.isEmpty &&
+                                  data.pendingCommands.isEmpty
+                              ? 'Healthy'
+                              : 'Attention needed',
+                      color:
+                          data.quarantine.isEmpty &&
+                                  data.pendingCommands.isEmpty
+                              ? BafColors.success
+                              : BafColors.warning,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      quarantineNeedsRepair
-                          ? 'The local quarantine log is malformed. Clear only this local log before retrying diagnostics.'
-                          : '${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    if (quarantineNeedsRepair) ...[
-                      const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: BafSpacing.lg),
+                  _SummaryCard(
+                    quarantineCount: data.quarantine.length,
+                    pendingCommandCount: data.pendingCommands.length,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Quarantined projection records',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
                       TextButton.icon(
-                        onPressed: _clearQuarantine,
+                        onPressed:
+                            data.quarantine.isEmpty ? null : _clearQuarantine,
                         icon: const Icon(Icons.delete_sweep_outlined),
                         label: const Text('Clear local log'),
                       ),
                     ],
-                  ],
-                ),
+                  ),
+                  if (data.quarantine.isEmpty)
+                    const _EmptyCard(
+                      text:
+                          'No malformed workflow projection is retained locally.',
+                    )
+                  else
+                    ...data.quarantine.reversed.map(
+                      (record) => Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.warning_amber_rounded),
+                          title: Text(
+                            '${record.collection}/${record.documentId}',
+                          ),
+                          subtitle: Text(
+                            '${record.stage}: ${record.error}\n'
+                            'Observed: ${record.observedAt ?? 'unknown'}\n'
+                            'Quarantined: ${record.quarantinedAt}',
+                          ),
+                          isThreeLine: true,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Unresolved uncertain commands',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  if (data.pendingCommands.isEmpty)
+                    const _EmptyCard(
+                      text:
+                          'No workflow command is awaiting retry or manual review.',
+                    )
+                  else
+                    ...data.pendingCommands.map(
+                      (command) => Card(
+                        child: ListTile(
+                          leading: Icon(
+                            command.stateKey == 'manualReview'
+                                ? Icons.rule_folder_outlined
+                                : Icons.sync_problem_outlined,
+                          ),
+                          title: Text(command.commandTypeKey),
+                          subtitle: Text(
+                            '${command.aggregateId}\n'
+                            '${command.stateKey} · attempts ${command.attemptCount}'
+                            '${command.lastErrorCode == null ? '' : '\n${command.lastErrorCode}: ${command.lastErrorMessage ?? ''}'}',
+                          ),
+                          isThreeLine: true,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  const BafRecordSurface(
+                    accent: BafColors.audit,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          color: BafColors.audit,
+                        ),
+                        SizedBox(width: BafSpacing.md),
+                        Expanded(
+                          child: Text(
+                            'This page is diagnostic only. It does not replay, alter or delete server workflow state. Command recovery remains governed by the idempotent retry service.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.xl),
+                ],
               ),
             );
-          }
-          final data = snapshot.data!;
-          return RefreshIndicator(
-            onRefresh: () async {
-              _refresh();
-              await _future!;
-            },
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _SummaryCard(
-                  quarantineCount: data.quarantine.length,
-                  pendingCommandCount: data.pendingCommands.length,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Quarantined projection records',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed:
-                          data.quarantine.isEmpty ? null : _clearQuarantine,
-                      icon: const Icon(Icons.delete_sweep_outlined),
-                      label: const Text('Clear local log'),
-                    ),
-                  ],
-                ),
-                if (data.quarantine.isEmpty)
-                  const _EmptyCard(
-                    text:
-                        'No malformed workflow projection is retained locally.',
-                  )
-                else
-                  ...data.quarantine.reversed.map(
-                    (record) => Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.warning_amber_rounded),
-                        title: Text(
-                          '${record.collection}/${record.documentId}',
-                        ),
-                        subtitle: Text(
-                          '${record.stage}: ${record.error}\n'
-                          'Observed: ${record.observedAt ?? 'unknown'}\n'
-                          'Quarantined: ${record.quarantinedAt}',
-                        ),
-                        isThreeLine: true,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                Text(
-                  'Unresolved uncertain commands',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                if (data.pendingCommands.isEmpty)
-                  const _EmptyCard(
-                    text:
-                        'No workflow command is awaiting retry or manual review.',
-                  )
-                else
-                  ...data.pendingCommands.map(
-                    (command) => Card(
-                      child: ListTile(
-                        leading: Icon(
-                          command.stateKey == 'manualReview'
-                              ? Icons.rule_folder_outlined
-                              : Icons.sync_problem_outlined,
-                        ),
-                        title: Text(command.commandTypeKey),
-                        subtitle: Text(
-                          '${command.aggregateId}\n'
-                          '${command.stateKey} · attempts ${command.attemptCount}'
-                          '${command.lastErrorCode == null ? '' : '\n${command.lastErrorCode}: ${command.lastErrorMessage ?? ''}'}',
-                        ),
-                        isThreeLine: true,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                const Text(
-                  'This page is diagnostic only. It does not replay, alter or delete server workflow state. Command recovery remains governed by the idempotent retry service.',
-                ),
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -236,29 +272,24 @@ class _DiagnosticsAccessState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Workflow Diagnostics')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showProgress)
-                const CircularProgressIndicator()
-              else
-                const Icon(Icons.lock_outline, size: 44),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center),
-            ],
-          ),
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: const BafAppBarTitle(
+          title: 'Workflow diagnostics',
+          subtitle: 'Local integrity and uncertain command review',
+          icon: Icons.troubleshoot_outlined,
+          accent: BafColors.admin,
         ),
       ),
+      body:
+          showProgress
+              ? BafLoadingPanel(label: title, color: BafColors.admin)
+              : BafStatePanel(
+                icon: Icons.lock_outline_rounded,
+                color: BafColors.audit,
+                title: title,
+                message: message,
+              ),
     );
   }
 }

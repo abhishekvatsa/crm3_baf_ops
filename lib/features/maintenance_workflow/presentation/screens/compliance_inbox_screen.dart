@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/brand/brand_widgets.dart';
+import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/compliance_request_record.dart';
 import '../../providers/workflow_providers.dart';
@@ -33,20 +37,27 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
     final laneLabel = widget.laneKey?.trim().toUpperCase();
 
     return Scaffold(
+      backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: Text(
-          laneLabel == null || laneLabel.isEmpty
-              ? 'Compliance inbox'
-              : '$laneLabel compliance inbox',
+        title: BafAppBarTitle(
+          title:
+              laneLabel == null || laneLabel.isEmpty
+                  ? 'Compliance inbox'
+                  : '$laneLabel compliance inbox',
+          subtitle: 'Assurance, deferment and operational support',
+          icon: Icons.inbox_outlined,
+          accent: BafColors.directives,
         ),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-            child: SingleChildScrollView(
+      body: BafContentFrame(
+        maxWidth: 960,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SegmentedButton<_ComplianceInboxView>(
+                showSelectedIcon: false,
                 segments: [
                   const ButtonSegment(
                     value: _ComplianceInboxView.forMyLane,
@@ -56,7 +67,7 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
                   const ButtonSegment(
                     value: _ComplianceInboxView.raisedByMe,
                     icon: Icon(Icons.outbox_outlined),
-                    label: Text('Raised by me / my lane'),
+                    label: Text('Raised by us'),
                   ),
                   if (canViewAll)
                     const ButtonSegment(
@@ -73,48 +84,64 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
                 },
               ),
             ),
-          ),
-          Expanded(
-            child: asyncRows.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('$error')),
-              data: (rows) {
-                final visible = rows
-                  .where(_isActionable)
-                  .where(
-                    (row) => _matchesView(
-                      row,
-                      view: effectiveView,
-                      actorUid: actor?.uid,
-                      canWorkLane:
-                          (lane) =>
-                              actor?.canAcknowledgeOrWorkMaintenanceLane(
-                                lane,
-                              ) ??
-                              false,
-                      canViewAll: canViewAll,
+            const SizedBox(height: BafSpacing.md),
+            Expanded(
+              child: asyncRows.when(
+                loading:
+                    () => const BafLoadingPanel(
+                      label: 'Loading compliance obligations',
+                      color: BafColors.directives,
                     ),
-                  )
-                  .toList(growable: false)..sort(_sortRows);
-                if (visible.isEmpty) {
-                  return const Center(
-                    child: Text('No actionable obligations in this view.'),
+                error:
+                    (error, _) => BafStatePanel.error(
+                      title: 'Compliance inbox is unavailable',
+                      message: '$error',
+                      onPrimary:
+                          () => ref.invalidate(workflowAllComplianceProvider),
+                    ),
+                data: (rows) {
+                  final visible = rows
+                    .where(_isActionable)
+                    .where(
+                      (row) => _matchesView(
+                        row,
+                        view: effectiveView,
+                        actorUid: actor?.uid,
+                        canWorkLane:
+                            (lane) =>
+                                actor?.canAcknowledgeOrWorkMaintenanceLane(
+                                  lane,
+                                ) ??
+                                false,
+                        canViewAll: canViewAll,
+                      ),
+                    )
+                    .toList(growable: false)..sort(_sortRows);
+                  if (visible.isEmpty) {
+                    return BafStatePanel.empty(
+                      title: 'No actionable obligations',
+                      message: 'No actionable obligations in this view.',
+                      icon: Icons.task_alt_rounded,
+                      color: BafColors.success,
+                    );
+                  }
+                  return RefreshIndicator(
+                    onRefresh:
+                        () => ref.read(workflowPullServiceProvider).pull(),
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: visible.length,
+                      separatorBuilder:
+                          (_, __) => const SizedBox(height: BafSpacing.sm),
+                      itemBuilder:
+                          (context, index) => _tile(context, visible[index]),
+                    ),
                   );
-                }
-                return RefreshIndicator(
-                  onRefresh: () => ref.read(workflowPullServiceProvider).pull(),
-                  child: ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: visible.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder:
-                        (context, index) => _tile(context, visible[index]),
-                  ),
-                );
-              },
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -160,51 +187,99 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
 
   Widget _tile(BuildContext context, ComplianceRequestRecord row) {
     final dueText = _dueText(row);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      leading: CircleAvatar(
-        child: Icon(
-          row.statusKey == 'complied'
-              ? Icons.fact_check_outlined
-              : row.becameDueAt == null
-              ? Icons.schedule_outlined
-              : Icons.assignment_late_outlined,
-        ),
-      ),
-      title: Text(row.title),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 3),
-          Text(
-            '${row.requestPurposeLabel} · '
-            '${row.originLaneKey?.toUpperCase() ?? 'UNATTRIBUTED'} -> '
-            '${row.targetLaneKey.toUpperCase()} · ${row.statusKey}',
-          ),
-          if (row.raisedUnderCoordination)
-            const Text('Raised under supervisory coordination'),
-          Text(dueText),
-          if (row.description.trim().isNotEmpty)
-            Text(row.description, maxLines: 2, overflow: TextOverflow.ellipsis),
-        ],
-      ),
-      trailing: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (row.escalationTier > 0)
-            Chip(
-              avatar: const Icon(Icons.priority_high, size: 16),
-              label: Text('T${row.escalationTier}'),
-            ),
-          const Icon(Icons.chevron_right),
-        ],
-      ),
+    final overdue =
+        row.becameDueAt != null &&
+        ((row.statusKey == 'raised'
+                    ? row.acknowledgementDueAt
+                    : row.complianceDueAt)
+                ?.isBefore(DateTime.now()) ??
+            false);
+    final color =
+        overdue
+            ? BafColors.danger
+            : row.statusKey == 'complied'
+            ? BafColors.success
+            : row.becameDueAt == null
+            ? BafColors.steel
+            : BafColors.warning;
+    return BafRecordSurface(
+      accent: color,
       onTap:
           () => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => ComplianceDetailScreen(record: row),
             ),
           ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(BafRadius.small),
+            ),
+            child: Icon(
+              row.statusKey == 'complied'
+                  ? Icons.fact_check_outlined
+                  : row.becameDueAt == null
+                  ? Icons.schedule_outlined
+                  : Icons.assignment_late_outlined,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: BafSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(row.title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: BafSpacing.xs),
+                Wrap(
+                  spacing: BafSpacing.sm,
+                  runSpacing: BafSpacing.xs,
+                  children: [
+                    StatusBadge(label: row.requestPurposeLabel, color: color),
+                    StatusBadge(
+                      label:
+                          '${row.originLaneKey?.toUpperCase() ?? 'UNATTRIBUTED'} to ${row.targetLaneKey.toUpperCase()}',
+                      color: BafColors.audit,
+                    ),
+                    if (row.escalationTier > 0)
+                      StatusBadge(
+                        label: 'Tier ${row.escalationTier}',
+                        color: BafColors.danger,
+                        icon: Icons.priority_high_rounded,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                Text(
+                  dueText,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w700),
+                ),
+                if (row.raisedUnderCoordination)
+                  const Text('Raised under supervisory coordination'),
+                if (row.description.trim().isNotEmpty) ...[
+                  const SizedBox(height: BafSpacing.xs),
+                  Text(
+                    row.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: BafSpacing.sm),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: BafColors.textSecondary,
+          ),
+        ],
+      ),
     );
   }
 

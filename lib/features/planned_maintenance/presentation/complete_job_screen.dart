@@ -598,7 +598,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
               color: BafColors.planned,
               fontWeight: FontWeight.w900,
               fontSize: 12,
-              letterSpacing: 0.9,
+              letterSpacing: 0,
             ),
           ),
         );
@@ -1829,7 +1829,7 @@ class _JobContextCard extends StatelessWidget {
                     color: BafColors.planned,
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 0.7,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 4),

@@ -74,6 +74,25 @@ class BafSpacing {
   static const xxl = 32.0;
 }
 
+class BafBreakpoints {
+  BafBreakpoints._();
+
+  static const compact = 520.0;
+  static const rail = 900.0;
+  static const expandedRail = 1200.0;
+  static const readable = 760.0;
+  static const workspace = 1040.0;
+}
+
+class BafMotion {
+  BafMotion._();
+
+  static const quick = Duration(milliseconds: 140);
+  static const standard = Duration(milliseconds: 220);
+  static const deliberate = Duration(milliseconds: 320);
+  static const curve = Curves.easeOutCubic;
+}
+
 class BafShadows {
   BafShadows._();
 
@@ -115,6 +134,7 @@ class BafAppTheme {
       useMaterial3: true,
       scaffoldBackgroundColor: BafColors.background,
       visualDensity: VisualDensity.standard,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
     );
 
     return base.copyWith(
@@ -176,7 +196,7 @@ class BafAppTheme {
         scrolledUnderElevation: 1,
         shadowColor: Color(0x140F1E24),
         centerTitle: false,
-        toolbarHeight: 60,
+        toolbarHeight: 64,
         titleSpacing: BafSpacing.lg,
         shape: Border(bottom: BorderSide(color: BafColors.border)),
         titleTextStyle: TextStyle(
@@ -214,6 +234,7 @@ class BafAppTheme {
           borderRadius: BorderRadius.circular(BafRadius.medium),
           borderSide: const BorderSide(color: BafColors.danger, width: 1.6),
         ),
+        errorMaxLines: 3,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -324,7 +345,12 @@ class BafAppTheme {
         iconColor: BafColors.textSecondary,
         textColor: BafColors.textPrimary,
         contentPadding: EdgeInsets.symmetric(horizontal: BafSpacing.md),
-        minTileHeight: 52,
+        minTileHeight: 56,
+        minLeadingWidth: 36,
+        horizontalTitleGap: BafSpacing.md,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(BafRadius.small)),
+        ),
       ),
       dividerTheme: const DividerThemeData(
         color: BafColors.border,
@@ -343,6 +369,7 @@ class BafAppTheme {
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),
+        padding: const EdgeInsets.symmetric(horizontal: BafSpacing.xs),
       ),
       tabBarTheme: const TabBarThemeData(
         dividerColor: BafColors.border,
@@ -365,6 +392,16 @@ class BafAppTheme {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(BafRadius.medium),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          BafSpacing.lg,
+          BafSpacing.sm,
+          BafSpacing.lg,
+          BafSpacing.lg,
+        ),
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: BafSpacing.lg,
+          vertical: BafSpacing.xl,
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
@@ -464,6 +501,65 @@ class BafAppTheme {
         ),
         textStyle: const TextStyle(color: Colors.white, fontSize: 12),
         waitDuration: const Duration(milliseconds: 450),
+      ),
+      expansionTileTheme: const ExpansionTileThemeData(
+        iconColor: BafColors.teal,
+        collapsedIconColor: BafColors.textSecondary,
+        textColor: BafColors.textPrimary,
+        collapsedTextColor: BafColors.textPrimary,
+        tilePadding: EdgeInsets.symmetric(horizontal: BafSpacing.md),
+        childrenPadding: EdgeInsets.fromLTRB(
+          BafSpacing.md,
+          0,
+          BafSpacing.md,
+          BafSpacing.md,
+        ),
+        shape: Border(),
+        collapsedShape: Border(),
+      ),
+      badgeTheme: const BadgeThemeData(
+        backgroundColor: BafColors.ember,
+        textColor: Colors.white,
+        textStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+        padding: EdgeInsets.symmetric(horizontal: 5),
+      ),
+      dataTableTheme: const DataTableThemeData(
+        headingRowColor: WidgetStatePropertyAll(BafColors.surfaceMuted),
+        headingTextStyle: TextStyle(
+          color: BafColors.textPrimary,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+        dataTextStyle: TextStyle(color: BafColors.textPrimary, fontSize: 12),
+        dividerThickness: 1,
+        horizontalMargin: BafSpacing.md,
+        columnSpacing: BafSpacing.lg,
+      ),
+      datePickerTheme: const DatePickerThemeData(
+        backgroundColor: BafColors.card,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: BafColors.graphite,
+        headerForegroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(BafRadius.medium)),
+        ),
+      ),
+      timePickerTheme: const TimePickerThemeData(
+        backgroundColor: BafColors.card,
+        dialBackgroundColor: BafColors.surfaceMuted,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(BafRadius.medium)),
+        ),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: const WidgetStatePropertyAll(5),
+        radius: const Radius.circular(3),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.dragged)
+                  ? BafColors.steel
+                  : BafColors.borderStrong,
+        ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {

@@ -622,7 +622,7 @@ class _SectionCard extends StatelessWidget {
                       style: const TextStyle(
                         color: BafColors.textPrimary,
                         fontSize: 13,
-                        letterSpacing: 1.1,
+                        letterSpacing: 0,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -757,7 +757,7 @@ class _BottomSubmitBar extends StatelessWidget {
               isSubmitting ? 'Issuing directive...' : 'Issue Directive',
               style: const TextStyle(
                 fontWeight: FontWeight.w900,
-                letterSpacing: 0.2,
+                letterSpacing: 0,
               ),
             ),
           ),
