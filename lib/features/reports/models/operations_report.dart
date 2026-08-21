@@ -206,6 +206,39 @@ class OperationsReport {
   int get downAssetCount => assetStates.where((state) => state.isDown).length;
   int get unfitAssetCount => assetStates.where((state) => state.isUnfit).length;
 
+  double? get assetAvailabilityRate =>
+      assetCount == 0 ? null : availableAssetCount / assetCount;
+
+  double? get issueClosureRate =>
+      issueCount == 0 ? null : resolvedIssueCount / issueCount;
+
+  double? get plannedCompletionRate =>
+      plannedJobCount == 0 ? null : completedPlannedJobCount / plannedJobCount;
+
+  int get unavailableAssetCount => assetCount - availableAssetCount;
+
+  int get actionBacklogCount =>
+      openIssueCount + openPlannedJobCount + openDisruptionCount;
+
+  int get assuranceBacklogCount =>
+      overdueMaintenanceCount + activeInspectionFindingCount;
+
+  String get leadingManagementSignal {
+    final signals = <({String label, int value})>[
+      (label: 'Unavailable assets', value: unavailableAssetCount),
+      (label: 'Open issues', value: openIssueCount),
+      (label: 'Open planned work', value: openPlannedJobCount),
+      (label: 'Operational disruptions', value: openDisruptionCount),
+      (label: 'Overdue maintenance', value: overdueMaintenanceCount),
+      (label: 'Inspection findings', value: activeInspectionFindingCount),
+    ];
+    signals.sort((left, right) => right.value.compareTo(left.value));
+    final leading = signals.first;
+    return leading.value == 0
+        ? 'No active exception leads the selected scope'
+        : leading.label;
+  }
+
   List<MaintenanceRecord> get openIssues {
     final rows = tickets.where((ticket) => !ticket.isResolved).toList();
     rows.sort((left, right) {

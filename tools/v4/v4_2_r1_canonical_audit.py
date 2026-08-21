@@ -7311,9 +7311,13 @@ check(
     and "NavigationRail(" in operational_ux_home
     and "ModeSwitchCard(" not in operational_ux_home
     and "'Needs attention'" in operational_ux_home
-    and "title: 'Operations and records'" in operational_ux_home
+    and "title: 'Plant and work records'" in operational_ux_home
+    and "title: 'Assurance and performance'" in operational_ux_home
     and "title: 'Governance'" in operational_ux_home
     and "title: 'Administration and support'" in operational_ux_home
+    and "title: 'Plant condition'" in operational_ux_home
+    and "title: 'Operations intelligence'" in operational_ux_home
+    and "hintText: 'Find a screen or function'" in operational_ux_home
     and "issues-raise-issue" in operational_ux_issues
     and "issues-search" in operational_ux_issues
     and "BoxConstraints(maxWidth: 960)" in operational_ux_issues

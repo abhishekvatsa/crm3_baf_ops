@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
@@ -21,6 +22,10 @@ import '../models/operations_report.dart';
 import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';
 
+part 'fleet_status_insight_widgets.dart';
+
+enum OperationsReportView { overview, work, reliability, assurance }
+
 class FleetStatusScreen extends ConsumerStatefulWidget {
   const FleetStatusScreen({super.key});
 
@@ -31,6 +36,7 @@ class FleetStatusScreen extends ConsumerStatefulWidget {
 class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
   String? _assetClassId;
   String? _assetInstanceId;
+  OperationsReportView _view = OperationsReportView.overview;
   late DateTime _startDate;
   late DateTime _endDate;
 
@@ -147,160 +153,17 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 20),
-                  _SectionTitle(
-                    title: 'Current plant picture',
-                    subtitle:
-                        selection.assetClassId == null
-                            ? 'All governed asset classes'
-                            : classes
-                                    .where(
-                                      (item) =>
-                                          item.id == selection.assetClassId,
-                                    )
-                                    .map((item) => item.name)
-                                    .firstOrNull ??
-                                'Selected class',
+                  const SizedBox(height: BafSpacing.md),
+                  OperationsReportViewSelector(
+                    selected: _view,
+                    onChanged: (view) => setState(() => _view = view),
                   ),
-                  const SizedBox(height: 10),
-                  _MetricGrid(
-                    metrics: [
-                      _MetricData(
-                        'Assets',
-                        report.assetCount,
-                        Icons.precision_manufacturing_outlined,
-                        BafColors.assets,
-                      ),
-                      _MetricData(
-                        'Available',
-                        report.availableAssetCount,
-                        Icons.check_circle_outline,
-                        BafColors.success,
-                      ),
-                      _MetricData(
-                        'Under maintenance',
-                        report.underMaintenanceAssetCount,
-                        Icons.build_outlined,
-                        BafColors.maintenance,
-                      ),
-                      _MetricData(
-                        'Down / unfit',
-                        report.downAssetCount + report.unfitAssetCount,
-                        Icons.warning_amber_rounded,
-                        BafColors.danger,
-                      ),
-                    ],
+                  const SizedBox(height: BafSpacing.lg),
+                  ..._buildReportView(
+                    report: report,
+                    classes: classes,
+                    selection: selection,
                   ),
-                  const SizedBox(height: 24),
-                  _SectionTitle(
-                    title: 'Work in period',
-                    subtitle:
-                        '${DateFormat('dd MMM yyyy').format(_startDate)} to ${DateFormat('dd MMM yyyy').format(_endDate)}',
-                  ),
-                  const SizedBox(height: 10),
-                  _MetricGrid(
-                    metrics: [
-                      _MetricData(
-                        'Issues',
-                        report.issueCount,
-                        Icons.report_problem_outlined,
-                        BafColors.maintenance,
-                        detail: '${report.openIssueCount} open',
-                      ),
-                      _MetricData(
-                        'Critical issues',
-                        report.criticalIssueCount,
-                        Icons.priority_high_rounded,
-                        BafColors.danger,
-                      ),
-                      _MetricData(
-                        'Planned jobs',
-                        report.plannedJobCount,
-                        Icons.event_note_outlined,
-                        BafColors.planned,
-                        detail:
-                            '${report.openPlannedJobCount} open · '
-                            '${report.completedPlannedJobCount} complete · '
-                            '${report.cancelledPlannedJobCount} cancelled',
-                      ),
-                      _MetricData(
-                        'Disruptions',
-                        report.disruptionCount,
-                        Icons.crisis_alert_outlined,
-                        BafColors.warning,
-                        detail:
-                            '${report.openDisruptionCount} open · '
-                            '${report.linkedDisruptionIssueCount} linked issues · '
-                            '${_formatDuration(report.disruptionDuration)}',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const _SectionTitle(
-                    title: 'Maintenance assurance',
-                    subtitle: 'Current cadence and inspection follow-through',
-                  ),
-                  const SizedBox(height: 10),
-                  _MetricGrid(
-                    metrics: [
-                      _MetricData(
-                        'Overdue cadence',
-                        report.overdueMaintenanceCount,
-                        Icons.event_busy_outlined,
-                        BafColors.danger,
-                      ),
-                      _MetricData(
-                        'Due in 7 days',
-                        report.dueSoonMaintenanceCount,
-                        Icons.upcoming_outlined,
-                        BafColors.warning,
-                      ),
-                      _MetricData(
-                        'Active findings',
-                        report.activeInspectionFindingCount,
-                        Icons.fact_check_outlined,
-                        BafColors.maintenance,
-                      ),
-                      _MetricData(
-                        'Awaiting verification',
-                        report.awaitingInspectionVerificationCount,
-                        Icons.verified_outlined,
-                        BafColors.planned,
-                      ),
-                    ],
-                  ),
-                  if (report.classSummaries.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    const _SectionTitle(
-                      title: 'Asset-class summary',
-                      subtitle: 'Health, issues, planned work and disruptions',
-                    ),
-                    const SizedBox(height: 8),
-                    ...report.classSummaries.map(
-                      (summary) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _ClassSummaryCard(summary: summary),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  _FailureSection(
-                    topComponents: report.topComponents,
-                    topSubsystemPaths: report.topSubsystemPaths,
-                  ),
-                  _BurnerHistorySection(tickets: report.tickets),
-                  const SizedBox(height: 24),
-                  _OpenIssuesSection(issues: report.openIssues),
-                  if (report.activeInspectionFindings.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    _InspectionFindingsSection(
-                      findings: report.activeInspectionFindings,
-                    ),
-                  ],
-                  if (report.eventOccurrences.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    _DisruptionSection(occurrences: report.eventOccurrences),
-                  ],
                   const SizedBox(height: 20),
                   _SourceWindowNotice(report: report),
                 ],
@@ -309,65 +172,191 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       ),
     );
   }
-}
 
-class OperationsReportSelection {
-  const OperationsReportSelection({
-    required this.assetClassId,
-    required this.assetInstanceId,
-  });
+  List<Widget> _buildReportView({
+    required OperationsReport report,
+    required List<AssetClassRecord> classes,
+    required OperationsReportSelection selection,
+  }) {
+    switch (_view) {
+      case OperationsReportView.overview:
+        return _overviewSections(report, classes, selection);
+      case OperationsReportView.work:
+        return _workSections(report);
+      case OperationsReportView.reliability:
+        return [
+          _FailureSection(
+            topComponents: report.topComponents,
+            topSubsystemPaths: report.topSubsystemPaths,
+          ),
+          _BurnerHistorySection(tickets: report.tickets),
+        ];
+      case OperationsReportView.assurance:
+        return _assuranceSections(report);
+    }
+  }
 
-  final String? assetClassId;
-  final String? assetInstanceId;
-}
+  List<Widget> _overviewSections(
+    OperationsReport report,
+    List<AssetClassRecord> classes,
+    OperationsReportSelection selection,
+  ) => [
+    OperationsManagementReadout(report: report),
+    const SizedBox(height: BafSpacing.xl),
+    _SectionTitle(
+      title: 'Current plant picture',
+      subtitle:
+          selection.assetClassId == null
+              ? 'All governed asset classes'
+              : classes
+                      .where((item) => item.id == selection.assetClassId)
+                      .map((item) => item.name)
+                      .firstOrNull ??
+                  'Selected class',
+    ),
+    const SizedBox(height: BafSpacing.sm),
+    _MetricGrid(
+      metrics: [
+        _MetricData(
+          'Assets',
+          report.assetCount,
+          Icons.precision_manufacturing_outlined,
+          BafColors.assets,
+        ),
+        _MetricData(
+          'Available',
+          report.availableAssetCount,
+          Icons.check_circle_outline,
+          BafColors.success,
+        ),
+        _MetricData(
+          'Under maintenance',
+          report.underMaintenanceAssetCount,
+          Icons.build_outlined,
+          BafColors.maintenance,
+        ),
+        _MetricData(
+          'Down / unfit',
+          report.downAssetCount + report.unfitAssetCount,
+          Icons.warning_amber_rounded,
+          BafColors.danger,
+        ),
+      ],
+    ),
+    if (report.classSummaries.isNotEmpty) ...[
+      const SizedBox(height: BafSpacing.xl),
+      const _SectionTitle(
+        title: 'Asset-class summary',
+        subtitle: 'Select a class to focus the complete report',
+      ),
+      const SizedBox(height: BafSpacing.sm),
+      ...report.classSummaries.map(
+        (summary) => Padding(
+          padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+          child: _ClassSummaryCard(
+            summary: summary,
+            onTap: () {
+              setState(() {
+                _assetClassId = summary.assetClassId;
+                _assetInstanceId = null;
+              });
+            },
+          ),
+        ),
+      ),
+    ],
+  ];
 
-OperationsReportSelection reconcileOperationsReportSelection({
-  required String? assetClassId,
-  required String? assetInstanceId,
-  required List<AssetClassRecord> classes,
-  required List<AssetInstanceRecord> assets,
-}) {
-  final activeClassIds = {
-    for (final item in classes)
-      if (item.isActive) item.id,
-  };
-  final resolvedClassId =
-      assetClassId != null && activeClassIds.contains(assetClassId)
-          ? assetClassId
-          : null;
-  final selectedAsset =
-      assetInstanceId == null
-          ? null
-          : assets.where((item) => item.id == assetInstanceId).firstOrNull;
-  final assetRemainsAvailable =
-      selectedAsset != null &&
-      selectedAsset.isActive &&
-      activeClassIds.contains(selectedAsset.assetClassId) &&
-      (resolvedClassId == null ||
-          selectedAsset.assetClassId == resolvedClassId);
-  return OperationsReportSelection(
-    assetClassId: resolvedClassId,
-    assetInstanceId: assetRemainsAvailable ? assetInstanceId : null,
-  );
-}
+  List<Widget> _workSections(OperationsReport report) => [
+    _SectionTitle(
+      title: 'Work in period',
+      subtitle:
+          '${DateFormat('dd MMM yyyy').format(_startDate)} to '
+          '${DateFormat('dd MMM yyyy').format(_endDate)}',
+    ),
+    const SizedBox(height: BafSpacing.sm),
+    _MetricGrid(
+      metrics: [
+        _MetricData(
+          'Issues',
+          report.issueCount,
+          Icons.report_problem_outlined,
+          BafColors.maintenance,
+          detail: '${report.openIssueCount} open',
+        ),
+        _MetricData(
+          'Critical issues',
+          report.criticalIssueCount,
+          Icons.priority_high_rounded,
+          BafColors.danger,
+        ),
+        _MetricData(
+          'Planned jobs',
+          report.plannedJobCount,
+          Icons.event_note_outlined,
+          BafColors.planned,
+          detail:
+              '${report.openPlannedJobCount} open · '
+              '${report.completedPlannedJobCount} complete',
+        ),
+        _MetricData(
+          'Disruptions',
+          report.disruptionCount,
+          Icons.crisis_alert_outlined,
+          BafColors.warning,
+          detail:
+              '${report.openDisruptionCount} open · '
+              '${_formatDuration(report.disruptionDuration)}',
+        ),
+      ],
+    ),
+    const SizedBox(height: BafSpacing.xl),
+    _OpenIssuesSection(issues: report.openIssues),
+    if (report.eventOccurrences.isNotEmpty) ...[
+      const SizedBox(height: BafSpacing.xl),
+      _DisruptionSection(occurrences: report.eventOccurrences),
+    ],
+  ];
 
-void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
-  final period = (
-    startInclusive: filter.startInclusive,
-    endExclusive: filter.endExclusive,
-  );
-  ref.invalidate(operationsReportTicketsProvider(period));
-  ref.invalidate(operationsReportExecutionsProvider(period));
-  ref.invalidate(operationalEventsForReportsProvider);
-  ref.invalidate(maintenanceDueStatesProvider);
-  ref.invalidate(allInspectionFindingsProvider);
-  ref.invalidate(assetClassesProvider);
-  ref.invalidate(allAssetInstancesProvider);
-  ref.invalidate(assetOperationalConditionsProvider);
-  ref.invalidate(equipmentStatusProvider(null));
-  ref.invalidate(plantAssetOverviewProvider);
-  ref.invalidate(operationsReportClockProvider);
-  ref.invalidate(operationsReportProvider(filter));
+  List<Widget> _assuranceSections(OperationsReport report) => [
+    const _SectionTitle(
+      title: 'Maintenance assurance',
+      subtitle: 'Cadence, inspection follow-through and verification',
+    ),
+    const SizedBox(height: BafSpacing.sm),
+    _MetricGrid(
+      metrics: [
+        _MetricData(
+          'Overdue cadence',
+          report.overdueMaintenanceCount,
+          Icons.event_busy_outlined,
+          BafColors.danger,
+        ),
+        _MetricData(
+          'Due in 7 days',
+          report.dueSoonMaintenanceCount,
+          Icons.upcoming_outlined,
+          BafColors.warning,
+        ),
+        _MetricData(
+          'Active findings',
+          report.activeInspectionFindingCount,
+          Icons.fact_check_outlined,
+          BafColors.maintenance,
+        ),
+        _MetricData(
+          'Awaiting verification',
+          report.awaitingInspectionVerificationCount,
+          Icons.verified_outlined,
+          BafColors.planned,
+        ),
+      ],
+    ),
+    if (report.activeInspectionFindings.isNotEmpty) ...[
+      const SizedBox(height: BafSpacing.xl),
+      _InspectionFindingsSection(findings: report.activeInspectionFindings),
+    ],
+  ];
 }
 
 class _ReportFilters extends StatelessWidget {
@@ -404,25 +393,44 @@ class _ReportFilters extends StatelessWidget {
                   (assetClassId == null || item.assetClassId == assetClassId),
             )
             .toList();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: BafColors.card,
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: BafColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final selectedClassName =
+        availableClasses
+            .where((item) => item.id == assetClassId)
+            .map((item) => item.name)
+            .firstOrNull;
+    final selectedAssetName =
+        availableAssets
+            .where((item) => item.id == assetInstanceId)
+            .map((item) => '${item.assetClassName} ${item.assetNumber}')
+            .firstOrNull;
+    final scopeLabel = selectedAssetName ?? selectedClassName ?? 'All assets';
+    final periodLabel =
+        '${DateFormat('dd MMM').format(startDate)} - '
+        '${DateFormat('dd MMM yyyy').format(endDate)}';
+
+    return BafSectionSurface(
+      padding: EdgeInsets.zero,
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        leading: const Icon(Icons.tune_rounded, color: BafColors.cobalt),
+        title: const Text(
+          'Scope and period',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          '$scopeLabel · $periodLabel',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          BafSpacing.md,
+          0,
+          BafSpacing.md,
+          BafSpacing.md,
+        ),
         children: [
-          const Text(
-            'Scope and period',
-            style: TextStyle(
-              color: BafColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 12),
           DropdownButtonFormField<String?>(
             key: ValueKey<String>('asset-class-${assetClassId ?? 'all'}'),
             initialValue: assetClassId,
@@ -691,26 +699,44 @@ class _Metric extends StatelessWidget {
 }
 
 class _ClassSummaryCard extends StatelessWidget {
-  const _ClassSummaryCard({required this.summary});
+  const _ClassSummaryCard({required this.summary, required this.onTap});
   final AssetClassReportSummary summary;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => BafRecordSurface(
+    onTap: onTap,
+    accent: BafColors.assets,
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: BafColors.card,
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-      border: Border.all(color: BafColors.border),
-    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          summary.assetClassName,
-          style: const TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w900,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                summary.assetClassName,
+                style: const TextStyle(
+                  color: BafColors.textPrimary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const Text(
+              'Focus report',
+              style: TextStyle(
+                color: BafColors.assets,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(width: BafSpacing.xs),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 17,
+              color: BafColors.assets,
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Wrap(

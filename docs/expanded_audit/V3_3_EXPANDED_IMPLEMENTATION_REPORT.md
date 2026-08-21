@@ -77,7 +77,7 @@ All 20 authoritative commands now have at least one client entry point.
 The previous thin compliance list has been replaced by an operational inbox with:
 
 - **For my lane**;
-- **Raised by me / my lane**;
+- **Raised by us** (the actor or one of the actor's accountable lanes);
 - supervisory **All** view;
 - actionable filtering;
 - dormant, due and overdue context;
