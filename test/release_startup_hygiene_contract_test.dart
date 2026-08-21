@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('67F release startup and Android hygiene contract', () {
     test(
-      'main starts inside crash-reporting zone and preserves startup order',
+      'main isolates CI proof and preserves production startup order',
       () {
         final source = _readText('lib/main.dart');
         final mainBlock = _blockStartingAt(source, 'void main()');
@@ -16,8 +16,11 @@ void main() {
         );
 
         _expectOrder(mainBlock, const [
-          'runCrashReportingZoned(() async {',
           'WidgetsFlutterBinding.ensureInitialized();',
+          'if (_ciPackageProof) {',
+          'runApp(const _CiPackageProofApp());',
+          'return;',
+          'runCrashReportingZoned(() async {',
           'var startupFailure = await _initializeFirebaseAndCrashReporting();',
           'await _requestStartupNotificationPermission();',
           'startupFailure = await _initializeLocalDatabase();',
@@ -25,6 +28,10 @@ void main() {
         ]);
         expect(mainBlock, isNot(contains('Firebase.initializeApp')));
         expect(mainBlock, isNot(contains('Isar.open')));
+        expect(
+          mainBlock.indexOf('if (_ciPackageProof) {'),
+          lessThan(mainBlock.indexOf('runCrashReportingZoned')),
+        );
 
         _expectOrder(firebaseBlock, const [
           'await Firebase.initializeApp(',

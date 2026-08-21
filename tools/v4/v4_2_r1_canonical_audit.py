@@ -364,8 +364,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 178
-    and counts.get("SUCCESSOR_MODIFIED") == 232
+    and counts.get("BYTE_IDENTICAL") == 177
+    and counts.get("SUCCESSOR_MODIFIED") == 233
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -744,6 +744,8 @@ c03_startup_script = text(
 )
 c03_package_test = text("test/c03_android_packaging_ci_contract_test.dart")
 c03_package_decision = text("docs/v4_2_r1/C03_ANDROID_PR_PACKAGING.md")
+c03_android_manifest = text("android/app/src/main/AndroidManifest.xml")
+c03_main_source = text("lib/main.dart")
 c06_android_build = text("android/app/build.gradle.kts")
 c06_proguard_rules = text("android/app/proguard-rules.pro")
 c06_contract_test = text("test/c06_android_release_shrinking_contract_test.dart")
@@ -785,6 +787,21 @@ check(
         in c03_package_script
     and "$crashlyticsMappingIdOutput.Count -ne 1" in c03_package_script
     and "crashlyticsMappingIdPresent=true" in c03_package_script
+    and "CRM3_CI_PACKAGE_PROOF=true" in c03_package_script
+    and "android/app/src/release/google-services.json" in c03_package_script
+    and "isolatedFirebaseIdentity=true" in c03_package_script
+    and "productionFirebaseIdentityEmbedded=false" in c03_package_script
+    and "firebaseProductionTrafficDisabled=true" in c03_package_script
+    and "crashlyticsMappingUploadEnabled=false" in c03_package_script
+    and "firebaseAutomaticCollectionEnabled=false" in c03_package_script
+    and "mappingFileUploadEnabled = !ciPackageProof" in c06_android_build
+    and "firebase_data_collection_default_enabled" in c03_android_manifest
+    and "firebase_crashlytics_collection_enabled" in c03_android_manifest
+    and "firebase_messaging_auto_init_enabled" in c03_android_manifest
+    and "firebase_analytics_collection_enabled" in c03_android_manifest
+    and "bool.fromEnvironment('CRM3_CI_PACKAGE_PROOF')" in c03_main_source
+    and c03_main_source.index("if (_ciPackageProof) {")
+        < c03_main_source.index("runCrashReportingZoned")
     and "PASS_C03_ANDROID_RELEASE_COLD_START_PROOF"
         in c03_startup_script
     and "activity', 'exit-info" in c03_startup_script
@@ -9855,8 +9872,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 178
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 232
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 177
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 233
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

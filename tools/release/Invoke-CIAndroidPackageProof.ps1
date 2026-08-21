@@ -174,9 +174,75 @@ function Get-CertificateSha256 {
   $matches[0]
 }
 
+function Get-ApkStringResource {
+  param(
+    [Parameter(Mandatory)][string]$ApkAnalyzer,
+    [Parameter(Mandatory)][string]$ApkPath,
+    [Parameter(Mandatory)][string]$Name
+  )
+
+  $output = @(
+    Invoke-Captured `
+      -FilePath $ApkAnalyzer `
+      -ArgumentList @(
+        'resources',
+        'value',
+        '--type', 'string',
+        '--config', 'default',
+        '--name', $Name,
+        $ApkPath
+      ) `
+      -FailureMessage "Release APK is missing string resource: $Name"
+  )
+  if ($output.Count -ne 1) {
+    throw "Release APK returned an ambiguous string resource: $Name"
+  }
+  $output[0].ToString().Trim().Trim('"')
+}
+
+function Get-AndroidManifestMetaDataValue {
+  param(
+    [Parameter(Mandatory)][xml]$Manifest,
+    [Parameter(Mandatory)][string]$Name
+  )
+
+  $androidNamespace = 'http://schemas.android.com/apk/res/android'
+  $namespaceManager = [Xml.XmlNamespaceManager]::new($Manifest.NameTable)
+  $namespaceManager.AddNamespace('android', $androidNamespace)
+  $node = $Manifest.SelectSingleNode(
+    "/manifest/application/meta-data[@android:name='$Name']",
+    $namespaceManager
+  )
+  if ($null -eq $node) {
+    throw "Release APK manifest is missing Firebase control: $Name"
+  }
+  $node.GetAttribute('value', $androidNamespace)
+}
+
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $policyPath = Join-Path $root 'release/production-release-policy.json'
 $policy = Get-Content -Raw -LiteralPath $policyPath | ConvertFrom-Json
+$productionGoogleServicesPath = Join-Path `
+  $root `
+  'android/app/google-services.json'
+$productionGoogleServices = Get-Content `
+  -Raw `
+  -LiteralPath $productionGoogleServicesPath | ConvertFrom-Json
+$productionFirebaseClients = @(
+  $productionGoogleServices.client |
+    Where-Object {
+      [string]$_.client_info.android_client_info.package_name -eq
+        [string]$policy.permanentApplicationId
+    }
+)
+if ($productionFirebaseClients.Count -ne 1) {
+  throw 'Production Firebase configuration has no singular permanent app client.'
+}
+$productionFirebaseClient = $productionFirebaseClients[0]
+$productionFirebaseAppId = [string]$productionFirebaseClient.client_info.mobilesdk_app_id
+$productionFirebaseProjectId = [string]$productionGoogleServices.project_info.project_id
+$productionFirebaseSenderId = [string]$productionGoogleServices.project_info.project_number
+$productionFirebaseApiKey = [string]$productionFirebaseClient.api_key[0].current_key
 $productionCertificateSha256 = (
   [string]$policy.signing.certificateSha256
 ).ToUpperInvariant()
@@ -196,6 +262,20 @@ foreach ($name in $signingVariables) {
     throw "CI packaging proof refuses pre-existing signing input: $name"
   }
 }
+if (-not [string]::IsNullOrWhiteSpace($env:CRM3_CI_PACKAGE_PROOF)) {
+  throw 'CI packaging proof refuses a pre-existing Firebase override.'
+}
+
+$ciFirebaseConfigPath = Join-Path `
+  $root `
+  'android/app/src/release/google-services.json'
+if (Test-Path -LiteralPath $ciFirebaseConfigPath) {
+  throw "CI Firebase override path already exists: $ciFirebaseConfigPath"
+}
+$ciFirebaseProjectNumber = '999999999999'
+$ciFirebaseProjectId = 'crm3-ci-package-proof-isolated'
+$ciFirebaseAppId = '1:999999999999:android:0000000000000000000000'
+$ciFirebaseApiKey = 'crm3-ci-package-proof-no-api-access'
 
 $flutter = Get-CommandPath -Name 'flutter'
 $keytool = Get-CommandPath -Name 'keytool'
@@ -223,6 +303,43 @@ $temporaryAlias = 'crm3-ci-package-proof'
 $env:CRM_CI_PACKAGE_STORE_PASSWORD = $temporaryPassword
 
 try {
+  $null = New-Item `
+    -ItemType Directory `
+    -Path (Split-Path -Parent $ciFirebaseConfigPath) `
+    -Force
+  [ordered]@{
+    project_info = [ordered]@{
+      project_number = $ciFirebaseProjectNumber
+      project_id = $ciFirebaseProjectId
+      storage_bucket = "$ciFirebaseProjectId.invalid"
+    }
+    client = @(
+      [ordered]@{
+        client_info = [ordered]@{
+          mobilesdk_app_id = $ciFirebaseAppId
+          android_client_info = [ordered]@{
+            package_name = [string]$policy.permanentApplicationId
+          }
+        }
+        oauth_client = @()
+        api_key = @(
+          [ordered]@{
+            current_key = $ciFirebaseApiKey
+          }
+        )
+        services = [ordered]@{
+          appinvite_service = [ordered]@{
+            other_platform_oauth_client = @()
+          }
+        }
+      }
+    )
+    configuration_version = '1'
+  } | ConvertTo-Json -Depth 10 | Set-Content `
+    -LiteralPath $ciFirebaseConfigPath `
+    -Encoding utf8
+  $env:CRM3_CI_PACKAGE_PROOF = 'true'
+
   Invoke-Checked `
     -FilePath $keytool `
     -ArgumentList @(
@@ -275,6 +392,7 @@ try {
         'build',
         'apk',
         '--release',
+        '--dart-define=CRM3_CI_PACKAGE_PROOF=true',
         "--build-name=$BuildName",
         "--build-number=$BuildNumber"
       ) `
@@ -285,6 +403,7 @@ try {
         'build',
         'appbundle',
         '--release',
+        '--dart-define=CRM3_CI_PACKAGE_PROOF=true',
         "--build-name=$BuildName",
         "--build-number=$BuildNumber"
       ) `
@@ -371,6 +490,66 @@ try {
     throw "Release APK must be non-debuggable; observed: $debuggable"
   }
 
+  $compiledFirebaseAppId = Get-ApkStringResource `
+    -ApkAnalyzer $apkanalyzer `
+    -ApkPath $apkPath `
+    -Name 'google_app_id'
+  $compiledFirebaseProjectId = Get-ApkStringResource `
+    -ApkAnalyzer $apkanalyzer `
+    -ApkPath $apkPath `
+    -Name 'project_id'
+  $compiledFirebaseSenderId = Get-ApkStringResource `
+    -ApkAnalyzer $apkanalyzer `
+    -ApkPath $apkPath `
+    -Name 'gcm_defaultSenderId'
+  $compiledFirebaseApiKey = Get-ApkStringResource `
+    -ApkAnalyzer $apkanalyzer `
+    -ApkPath $apkPath `
+    -Name 'google_api_key'
+  if (
+    $compiledFirebaseAppId -ne $ciFirebaseAppId -or
+    $compiledFirebaseProjectId -ne $ciFirebaseProjectId -or
+    $compiledFirebaseSenderId -ne $ciFirebaseProjectNumber -or
+    $compiledFirebaseApiKey -ne $ciFirebaseApiKey
+  ) {
+    throw 'Release APK does not contain the exact isolated Firebase identity.'
+  }
+  if (
+    $compiledFirebaseAppId -eq $productionFirebaseAppId -or
+    $compiledFirebaseProjectId -eq $productionFirebaseProjectId -or
+    $compiledFirebaseSenderId -eq $productionFirebaseSenderId -or
+    $compiledFirebaseApiKey -eq $productionFirebaseApiKey
+  ) {
+    throw 'Release APK contains production Firebase identity material.'
+  }
+
+  $manifestOutput = @(
+    Invoke-Captured `
+      -FilePath $apkanalyzer `
+      -ArgumentList @('manifest', 'print', $apkPath) `
+      -FailureMessage 'Unable to read the compiled APK manifest.'
+  )
+  try {
+    [xml]$compiledManifest = $manifestOutput -join "`n"
+  }
+  catch {
+    throw "Compiled APK manifest is not valid XML. $($_.Exception.Message)"
+  }
+  $firebaseAutomaticCollectionControls = @(
+    'firebase_data_collection_default_enabled',
+    'firebase_crashlytics_collection_enabled',
+    'firebase_messaging_auto_init_enabled',
+    'firebase_analytics_collection_enabled'
+  )
+  foreach ($name in $firebaseAutomaticCollectionControls) {
+    $value = Get-AndroidManifestMetaDataValue `
+      -Manifest $compiledManifest `
+      -Name $name
+    if ($value.ToLowerInvariant() -ne 'false') {
+      throw "Release APK Firebase control is not disabled: $name=$value"
+    }
+  }
+
   $crashlyticsMappingIdOutput = @(
     Invoke-Captured `
       -FilePath $apkanalyzer `
@@ -418,13 +597,20 @@ try {
   Write-Output "ciCertificateSha256=$ciCertificateSha256"
   Write-Output 'productionCertificateUsed=false'
   Write-Output 'productionSecretsReferenced=false'
+  Write-Output 'isolatedFirebaseIdentity=true'
+  Write-Output 'productionFirebaseIdentityEmbedded=false'
+  Write-Output 'firebaseAutomaticCollectionEnabled=false'
+  Write-Output 'crashlyticsMappingUploadEnabled=false'
+  Write-Output 'firebaseProductionTrafficDisabled=true'
   Write-Output 'artifactUploadPerformed=false'
 }
 finally {
   foreach ($name in $signingVariables) {
     [Environment]::SetEnvironmentVariable($name, $null)
   }
+  $env:CRM3_CI_PACKAGE_PROOF = $null
   $env:CRM_CI_PACKAGE_STORE_PASSWORD = $null
   $temporaryPassword = $null
+  Remove-Item -LiteralPath $ciFirebaseConfigPath -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $temporaryStore -Force -ErrorAction SilentlyContinue
 }

@@ -67,6 +67,27 @@ import 'home_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
 
+const bool _ciPackageProof = bool.fromEnvironment('CRM3_CI_PACKAGE_PROOF');
+
+class _CiPackageProofApp extends StatelessWidget {
+  const _CiPackageProofApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Text(
+            'CRM-III BAF Ops\nCI package proof',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 final _isarSchemas = [
   ChargeSchema,
   MaintenanceRecordSchema,
@@ -478,9 +499,13 @@ Future<StartupFailure?> _initializeLocalDatabase() async {
 }
 
 void main() {
-  runCrashReportingZoned(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+  if (_ciPackageProof) {
+    runApp(const _CiPackageProofApp());
+    return;
+  }
 
+  runCrashReportingZoned(() async {
     var startupFailure = await _initializeFirebaseAndCrashReporting();
 
     if (startupFailure == null) {
