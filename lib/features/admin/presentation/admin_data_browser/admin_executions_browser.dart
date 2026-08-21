@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../planned_maintenance/data/job_template_model.dart';
@@ -63,7 +64,11 @@ class _ExecutionsBrowserState extends ConsumerState<ExecutionsBrowser> {
           ),
           Expanded(
             child: executionsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Loading execution records',
+                    color: BafColors.admin,
+                  ),
               error:
                   (err, _) => Center(
                     child: Text(

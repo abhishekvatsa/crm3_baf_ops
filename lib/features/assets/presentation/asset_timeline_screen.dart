@@ -148,7 +148,11 @@ class _AssetTimelineScreenState extends ConsumerState<_AssetTimelineBody> {
           ),
           Expanded(
             child: timelineAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Loading asset history',
+                    color: BafColors.assets,
+                  ),
               error: (e, _) => _ErrorState(message: 'Error: $e'),
               data: (entries) {
                 if (entries.isEmpty) {

@@ -13,6 +13,7 @@ import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../maintenance_workflow/domain/workflow_error.dart';
@@ -236,11 +237,12 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Assign Job'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Assign planned job',
+          subtitle: 'Select the governed asset and release work',
+          icon: Icons.assignment_turned_in_outlined,
+          accent: BafColors.planned,
+        ),
       ),
       body: Form(
         key: _formKey,

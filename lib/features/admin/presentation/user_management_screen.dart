@@ -8,6 +8,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../auth/validation/user_input_validator.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../providers/user_directory_provider.dart';
 import '../providers/user_authority_command_provider.dart';
@@ -34,7 +35,11 @@ class UserManagementScreen extends ConsumerWidget {
     return ColoredBox(
       color: BafColors.background,
       child: currentUserAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Checking user-management authority',
+              color: BafColors.admin,
+            ),
         error:
             (e, _) => _AdminUserStateCard(
               icon: Icons.error_outline_rounded,
@@ -55,7 +60,11 @@ class UserManagementScreen extends ConsumerWidget {
           final usersAsync = ref.watch(allUsersProvider);
 
           return usersAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading:
+                () => const BafLoadingPanel(
+                  label: 'Loading user directory',
+                  color: BafColors.admin,
+                ),
             error:
                 (e, _) => _AdminUserStateCard(
                   icon: Icons.error_outline_rounded,

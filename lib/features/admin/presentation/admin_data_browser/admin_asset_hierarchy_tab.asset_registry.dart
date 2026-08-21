@@ -24,7 +24,11 @@ class _PhysicalAssetRegistryState
   Widget build(BuildContext context) {
     final assetsAsync = ref.watch(assetInstancesProvider(widget.assetClass.id));
     return assetsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading physical assets',
+            color: BafColors.admin,
+          ),
       error:
           (error, _) => _LoadFailure(
             message: 'Physical assets could not be loaded: $error',

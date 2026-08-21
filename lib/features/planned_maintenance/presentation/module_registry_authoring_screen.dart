@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -407,10 +408,12 @@ class _ModuleRegistryAuthoringScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0.4,
-        title: const Text('Registry Authoring'),
+        title: const BafAppBarTitle(
+          title: 'Registry Authoring',
+          subtitle: 'Govern reusable module families and revisions',
+          icon: Icons.account_tree_outlined,
+          accent: BafColors.planned,
+        ),
         actions: [
           IconButton(
             tooltip: 'Reload registry authoring data',
@@ -492,10 +495,12 @@ class _RegistryAuthorityState extends StatelessWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0.4,
-        title: const Text('Registry Authoring'),
+        title: const BafAppBarTitle(
+          title: 'Registry Authoring',
+          subtitle: 'Govern reusable module families and revisions',
+          icon: Icons.account_tree_outlined,
+          accent: BafColors.planned,
+        ),
       ),
       body: SafeArea(
         child: Center(

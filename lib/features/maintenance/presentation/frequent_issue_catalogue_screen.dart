@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
@@ -28,16 +29,30 @@ class _FrequentIssueCatalogueScreenState
     final actor = ref.watch(currentAppUserProvider);
     return actor.when(
       loading:
-          () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Frequent issues',
+            appBarSubtitle: 'Governed issue choices and default routing',
+            appBarIcon: Icons.rule_folder_outlined,
+            accent: BafColors.maintenance,
+            label: 'Checking catalogue authority',
+          ),
       error:
-          (_, _) => const Scaffold(
-            body: Center(child: Text('Could not verify catalogue authority.')),
+          (_, _) => BafScreenStateScaffold.error(
+            appBarTitle: 'Frequent issues',
+            appBarSubtitle: 'Governed issue choices and default routing',
+            appBarIcon: Icons.rule_folder_outlined,
+            accent: BafColors.maintenance,
+            message: 'Catalogue authority could not be verified.',
           ),
       data: (user) {
         if (user == null || !user.canManageFrequentIssueDefinitions) {
-          return const Scaffold(
-            body: Center(child: Text('Admin or SI authority is required.')),
+          return BafScreenStateScaffold.access(
+            appBarTitle: 'Frequent issues',
+            appBarSubtitle: 'Governed issue choices and default routing',
+            appBarIcon: Icons.rule_folder_outlined,
+            accent: BafColors.maintenance,
+            title: 'Catalogue authority required',
+            message: 'Only approved Admin or SI users may govern frequent issue definitions.',
           );
         }
         return _buildCatalogue();
@@ -65,7 +80,11 @@ class _FrequentIssueCatalogueScreenState
         label: const Text('Add issue'),
       ),
       body: definitions.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading frequent issue catalogue',
+              color: BafColors.maintenance,
+            ),
         error:
             (_, _) => _CatalogueError(
               onRetry: () => ref.invalidate(frequentIssueDefinitionsProvider),

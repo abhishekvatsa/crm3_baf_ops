@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
@@ -106,7 +107,11 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
         ],
       ),
       body: reportAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Building operations report',
+              color: BafColors.planned,
+            ),
         error:
             (error, _) => _ErrorState(
               message: error.toString(),

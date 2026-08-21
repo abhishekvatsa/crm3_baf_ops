@@ -14,6 +14,8 @@ import '../../../core/services/isar_installed_store_provenance.dart';
 import '../../../core/services/isar_production_recovery.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../services/local_diagnostics_read_adapter.dart';
 import 'local_diagnostics_exporter.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -571,9 +573,12 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
 
     return actorAsync.when(
       loading:
-          () => const Scaffold(
-            backgroundColor: BafColors.background,
-            body: Center(child: CircularProgressIndicator()),
+          () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Local diagnostics',
+            appBarSubtitle: 'Offline store, recovery and release evidence',
+            appBarIcon: Icons.monitor_heart_outlined,
+            accent: BafColors.admin,
+            label: 'Checking diagnostics authority',
           ),
       error: (error, _) => _DiagnosticsError(message: '$error'),
       data: (actor) {
@@ -590,9 +595,12 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
         return Scaffold(
           backgroundColor: BafColors.background,
           appBar: AppBar(
-            title: const Text('Local Diagnostics'),
-            backgroundColor: BafColors.navy,
-            foregroundColor: Colors.white,
+            title: const BafAppBarTitle(
+              title: 'Local diagnostics',
+              subtitle: 'Offline store, recovery and release evidence',
+              icon: Icons.monitor_heart_outlined,
+              accent: BafColors.admin,
+            ),
             actions: [
               IconButton(
                 tooltip: 'Refresh diagnostics',
@@ -639,7 +647,11 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
           ),
           body: SafeArea(
             child: reportAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Reading local diagnostics',
+                    color: BafColors.admin,
+                  ),
               error: (error, _) => _DiagnosticsErrorBody(message: '$error'),
               data: (report) => _DiagnosticsReportView(report: report),
             ),
@@ -1361,9 +1373,12 @@ class _DiagnosticsError extends StatelessWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Local Diagnostics'),
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
+        title: const BafAppBarTitle(
+          title: 'Local diagnostics',
+          subtitle: 'Offline store, recovery and release evidence',
+          icon: Icons.monitor_heart_outlined,
+          accent: BafColors.admin,
+        ),
       ),
       body: _DiagnosticsErrorBody(title: title, message: message),
     );

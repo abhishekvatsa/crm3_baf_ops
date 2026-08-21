@@ -8,6 +8,7 @@ import '../data/operational_directive_model.dart';
 import '../providers/operational_directive_provider.dart';
 import '../../../features/maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
 import '../../maintenance/utils/asset_validator.dart';
 import '../../../core/services/sync_coordinator.dart';
@@ -252,13 +253,12 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Issue New Directive',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        title: const BafAppBarTitle(
+          title: 'Issue directive',
+          subtitle: 'Route an operational instruction with accountability',
+          icon: Icons.campaign_outlined,
+          accent: BafColors.directives,
         ),
-        backgroundColor: BafColors.navy,
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
       ),
       body: Form(
         key: _formKey,
@@ -466,9 +466,12 @@ class _DirectiveAccessDeniedScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Issue New Directive'),
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
+        title: const BafAppBarTitle(
+          title: 'Issue directive',
+          subtitle: 'Route an operational instruction with accountability',
+          icon: Icons.campaign_outlined,
+          accent: BafColors.directives,
+        ),
       ),
       body: Center(
         child: Padding(

@@ -17,6 +17,8 @@ import '../widgets/action_bottom_sheet.dart';
 import '../widgets/action_mini_card.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -641,9 +643,12 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loadingTemplate) {
-      return const Scaffold(
-        backgroundColor: BafColors.background,
-        body: Center(child: CircularProgressIndicator()),
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Complete Job',
+        appBarSubtitle: 'Validate evidence, outcomes and return to service',
+        appBarIcon: Icons.task_alt_outlined,
+        accent: BafColors.planned,
+        label: 'Loading job completion evidence',
       );
     }
 
@@ -675,14 +680,12 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Complete Job',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: const BafAppBarTitle(
+          title: 'Complete Job',
+          subtitle: 'Validate evidence, outcomes and return to service',
+          icon: Icons.task_alt_outlined,
+          accent: BafColors.planned,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
       ),
       body: Form(
         key: _formKey,

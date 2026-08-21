@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -683,14 +684,12 @@ class _PlannedJobDetailScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Planned Job Detail',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: const BafAppBarTitle(
+          title: 'Planned job dossier',
+          subtitle: 'Execution state, modules and governed evidence',
+          icon: Icons.work_history_outlined,
+          accent: BafColors.planned,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
       ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(

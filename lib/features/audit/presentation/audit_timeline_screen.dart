@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/audit_event_model.dart';
 import '../providers/audit_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -85,11 +86,24 @@ class AuditTimelineScreen extends ConsumerWidget {
         ),
       ),
       body: auditAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text("Error: $e")),
+        loading: () => const BafLoadingPanel(label: 'Loading audit evidence'),
+        error:
+            (e, _) => BafStatePanel.error(
+              title: 'Audit evidence unavailable',
+              message: 'The entity history could not be loaded. $e',
+              onPrimary:
+                  () => ref.invalidate(
+                    auditTimelineProvider((type: entityType, id: entityId)),
+                  ),
+            ),
         data: (events) {
           if (events.isEmpty) {
-            return const Center(child: Text("No history available"));
+            return BafStatePanel.empty(
+              title: 'No recorded history',
+              message: 'No governed changes have been recorded for this item.',
+              icon: Icons.history_toggle_off_rounded,
+              color: BafColors.audit,
+            );
           }
 
           return RefreshIndicator(
@@ -152,21 +166,21 @@ class RecentAuditLogScreen extends ConsumerWidget {
         ],
       ),
       body: eventsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const BafLoadingPanel(label: 'Loading recent activity'),
         error:
-            (error, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(BafSpacing.lg),
-                child: Text(
-                  'Could not load audit activity: $error',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: BafColors.danger),
-                ),
-              ),
+            (error, _) => BafStatePanel.error(
+              title: 'Audit activity unavailable',
+              message: 'Recent governed changes could not be loaded. $error',
+              onPrimary: () => ref.invalidate(recentAuditEventsProvider),
             ),
         data: (events) {
           if (events.isEmpty) {
-            return const Center(child: Text('No audit activity available'));
+            return BafStatePanel.empty(
+              title: 'No audit activity available',
+              message: 'There are no governed audit events to show yet.',
+              icon: Icons.fact_check_outlined,
+              color: BafColors.audit,
+            );
           }
           return RefreshIndicator(
             onRefresh: () async {
@@ -210,34 +224,25 @@ class SyncConflictReviewScreen extends ConsumerWidget {
 
     final conflictsAsync = ref.watch(syncConflictAuditProvider);
 
-    return Scaffold(
-      backgroundColor: BafColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Sync Conflict Review',
-          style: TextStyle(color: Colors.white),
+    return BafScreenScaffold(
+      title: 'Sync conflict review',
+      subtitle: 'Resolve competing local and cloud evidence',
+      icon: Icons.sync_problem_outlined,
+      accent: BafColors.audit,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh conflicts',
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: () => ref.invalidate(syncConflictAuditProvider),
         ),
-        backgroundColor: BafColors.navy,
-        actions: [
-          IconButton(
-            tooltip: 'Refresh conflicts',
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            onPressed: () => ref.invalidate(syncConflictAuditProvider),
-          ),
-        ],
-      ),
+      ],
       body: conflictsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const BafLoadingPanel(label: 'Loading sync conflicts'),
         error:
-            (e, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(BafSpacing.lg),
-                child: Text(
-                  'Could not load sync conflicts: $e',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: BafColors.danger),
-                ),
-              ),
+            (e, _) => BafStatePanel.error(
+              title: 'Conflict evidence unavailable',
+              message: 'Sync conflicts could not be loaded. $e',
+              onPrimary: () => ref.invalidate(syncConflictAuditProvider),
             ),
         data: (events) {
           if (events.isEmpty) {
@@ -284,43 +289,22 @@ class _AuditAccessState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: BafColors.background,
-      appBar: AppBar(title: Text(appBarTitle)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(BafSpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showProgress)
-                const CircularProgressIndicator()
-              else
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  size: 44,
-                  color: BafColors.danger,
-                ),
-              const SizedBox(height: BafSpacing.md),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: BafColors.textPrimary,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: BafColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
-      ),
+    if (showProgress) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: appBarTitle,
+        appBarSubtitle: 'Governed change history and evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.audit,
+        label: title,
+      );
+    }
+    return BafScreenStateScaffold.access(
+      appBarTitle: appBarTitle,
+      appBarSubtitle: 'Governed change history and evidence',
+      appBarIcon: Icons.fact_check_outlined,
+      accent: BafColors.audit,
+      title: title,
+      message: message,
     );
   }
 }

@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
@@ -221,10 +223,12 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
       return Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(
-          backgroundColor: BafColors.card,
-          foregroundColor: BafColors.textPrimary,
-          elevation: 0.4,
-          title: const Text('Module Composer'),
+          title: const BafAppBarTitle(
+            title: 'Module composer',
+            subtitle: 'Build governed work modules and evidence fields',
+            icon: Icons.architecture_outlined,
+            accent: BafColors.planned,
+          ),
         ),
         body: SafeArea(
           child: Center(
@@ -253,14 +257,18 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
     final validation = ModuleComposerValidator.validate(_draft);
     final canManageRegistry = actor.canManageTemplateGovernance;
     final canPreparePublish = actor.canPublishTemplateVersion;
-    final compactAppBar = MediaQuery.sizeOf(context).width < 720;
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
         backgroundColor: BafColors.card,
         foregroundColor: BafColors.textPrimary,
         elevation: 0.4,
-        title: Text(compactAppBar ? 'Module Composer' : 'BAF Module Composer'),
+        title: const BafAppBarTitle(
+          title: 'Module composer',
+          subtitle: 'Build governed work modules and evidence fields',
+          icon: Icons.architecture_outlined,
+          accent: BafColors.planned,
+        ),
         actions: _buildAppBarActions(
           context: context,
           validation: validation,
@@ -320,47 +328,22 @@ class _ComposerAuthorityState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: BafColors.background,
-      appBar: AppBar(
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0.4,
-        title: const Text('Module Composer'),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.all(BafSpacing.lg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showProgress) ...[
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: BafSpacing.lg),
-                  ],
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: BafColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: BafSpacing.sm),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: BafColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    if (showProgress) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Module composer',
+        appBarSubtitle: 'Build governed work modules and evidence fields',
+        appBarIcon: Icons.architecture_outlined,
+        accent: BafColors.planned,
+        label: message,
+      );
+    }
+    return BafScreenStateScaffold.access(
+      appBarTitle: 'Module composer',
+      appBarSubtitle: 'Build governed work modules and evidence fields',
+      appBarIcon: Icons.architecture_outlined,
+      accent: BafColors.planned,
+      title: title,
+      message: message,
     );
   }
 }

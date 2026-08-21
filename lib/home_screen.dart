@@ -52,6 +52,7 @@ import 'features/planned_maintenance/providers/planned_maintenance_provider.dart
 import 'features/directives/providers/operational_directive_provider.dart';
 
 import 'core/theme/baf_design_system.dart';
+import 'core/widgets/baf_ui.dart';
 import 'core/widgets/brand/brand_widgets.dart';
 import 'core/widgets/dashboard/dashboard_widgets.dart';
 import 'core/widgets/dashboard/status_badge.dart';
@@ -127,12 +128,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return appUserAsync.when(
       loading:
-          () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(body: Center(child: Text('User error: $e'))),
+          () => const Scaffold(
+            backgroundColor: BafColors.background,
+            body: BafLoadingPanel(label: 'Preparing your operations workspace'),
+          ),
+      error:
+          (e, _) => Scaffold(
+            backgroundColor: BafColors.background,
+            body: BafStatePanel.error(
+              title: 'Workspace unavailable',
+              message: 'Your approved profile could not be loaded. $e',
+            ),
+          ),
       data: (appUser) {
         if (appUser == null) {
-          return const Scaffold(body: Center(child: Text('No user found')));
+          return Scaffold(
+            backgroundColor: BafColors.background,
+            body: BafStatePanel.empty(
+              title: 'Approved profile required',
+              message:
+                  'Sign in with an approved account to open the operations workspace.',
+              icon: Icons.person_off_outlined,
+              color: BafColors.admin,
+            ),
+          );
         }
 
         final ticketCountAsync = ref.watch(

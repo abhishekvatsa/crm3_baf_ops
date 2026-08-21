@@ -27,6 +27,8 @@ import 'template_publisher_screen.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/validation/charge_number.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../data/job_module_model.dart';
 
@@ -77,9 +79,12 @@ class _PublishedTemplateAssignmentScreenState
 
     return appUserAsync.when(
       loading:
-          () => const Scaffold(
-            backgroundColor: BafColors.background,
-            body: Center(child: CircularProgressIndicator()),
+          () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Assign planned work',
+            appBarSubtitle: 'Release an approved catalogue to an asset',
+            appBarIcon: Icons.assignment_turned_in_outlined,
+            accent: BafColors.planned,
+            label: 'Checking assignment authority',
           ),
       error: (e, _) => _AssignmentErrorScaffold(message: 'User error: $e'),
       data: (actor) {
@@ -90,9 +95,12 @@ class _PublishedTemplateAssignmentScreenState
         final packagesAsync = ref.watch(templatePackagesProvider);
         return packagesAsync.when(
           loading:
-              () => const Scaffold(
-                backgroundColor: BafColors.background,
-                body: Center(child: CircularProgressIndicator()),
+              () => BafScreenStateScaffold.loading(
+                appBarTitle: 'Assign planned work',
+                appBarSubtitle: 'Release an approved catalogue to an asset',
+                appBarIcon: Icons.assignment_turned_in_outlined,
+                accent: BafColors.planned,
+                label: 'Loading approved catalogues',
               ),
           error:
               (e, _) => _AssignmentErrorScaffold(
@@ -138,11 +146,12 @@ class _PublishedTemplateAssignmentScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Assign Published Catalogue'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Assign planned work',
+          subtitle: 'Release an approved catalogue to an asset',
+          icon: Icons.assignment_turned_in_outlined,
+          accent: BafColors.planned,
+        ),
         actions: [
           if (actor.canManageTemplateGovernance)
             IconButton(
@@ -159,7 +168,10 @@ class _PublishedTemplateAssignmentScreenState
                 ? _buildNoPackagesState(actor, assignablePackages)
                 : versionsAsync.when(
                   loading:
-                      () => const Center(child: CircularProgressIndicator()),
+                      () => const BafLoadingPanel(
+                        label: 'Loading catalogue versions',
+                        color: BafColors.planned,
+                      ),
                   error: (e, _) => _InlineError(message: 'Version error: $e'),
                   data: (versions) {
                     final activeVersion = activeTemplateVersionForPackage(
@@ -1475,18 +1487,14 @@ class _AssignmentAccessDeniedScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: BafColors.background,
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(BafSpacing.xl),
-          child: Text(
-            'Only Admin/SI, supervisors and senior discipline users can assign planned jobs.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: BafColors.textSecondary),
-          ),
-        ),
-      ),
+    return BafScreenStateScaffold.access(
+      appBarTitle: 'Assign planned work',
+      appBarSubtitle: 'Release an approved catalogue to an asset',
+      appBarIcon: Icons.assignment_turned_in_outlined,
+      accent: BafColors.planned,
+      title: 'Assignment authority required',
+      message:
+          'Only approved Admin/SI, supervisors and senior discipline users may assign planned work.',
     );
   }
 }
@@ -1498,14 +1506,12 @@ class _AssignmentErrorScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: BafColors.background,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(BafSpacing.xl),
-          child: Text(message, style: const TextStyle(color: BafColors.danger)),
-        ),
-      ),
+    return BafScreenStateScaffold.error(
+      appBarTitle: 'Assign planned work',
+      appBarSubtitle: 'Release an approved catalogue to an asset',
+      appBarIcon: Icons.assignment_turned_in_outlined,
+      accent: BafColors.planned,
+      message: message,
     );
   }
 }

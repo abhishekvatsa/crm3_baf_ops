@@ -12,7 +12,11 @@ class _HistoryTab extends ConsumerWidget {
         ref.watch(maintenanceClassDefinitionsProvider).value ??
         const <MaintenanceClassDefinition>[];
     return events.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading maintenance history',
+            color: BafColors.planned,
+          ),
       error:
           (_, _) => _RetryState(
             message: 'Maintenance history could not be loaded.',

@@ -14,6 +14,7 @@ import '../services/closed_ticket_history_service.dart';
 import '../../../core/providers/refresh_providers.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/services/sync_coordinator.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../features/auth/data/user_model.dart';
@@ -33,18 +34,31 @@ class ClosedTicketsScreen extends ConsumerWidget {
     final actorAsync = ref.watch(currentAppUserProvider);
     return actorAsync.when(
       loading:
-          () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Resolved issue history',
+            appBarSubtitle: 'Closed maintenance records and outcomes',
+            appBarIcon: Icons.inventory_2_outlined,
+            accent: BafColors.maintenance,
+            label: 'Checking resolved-history access',
+          ),
       error:
-          (_, _) => const Scaffold(
-            body: Center(
-              child: Text('Could not verify resolved-history access.'),
-            ),
+          (_, _) => BafScreenStateScaffold.error(
+            appBarTitle: 'Resolved issue history',
+            appBarSubtitle: 'Closed maintenance records and outcomes',
+            appBarIcon: Icons.inventory_2_outlined,
+            accent: BafColors.maintenance,
+            message: 'Could not verify resolved-history access.',
           ),
       data: (actor) {
         if (actor == null || !actor.canViewClosedMaintenanceTickets) {
-          return const Scaffold(
-            body: Center(child: Text('Approved access is required.')),
+          return BafScreenStateScaffold.access(
+            appBarTitle: 'Resolved issue history',
+            appBarSubtitle: 'Closed maintenance records and outcomes',
+            appBarIcon: Icons.inventory_2_outlined,
+            accent: BafColors.maintenance,
+            title: 'History access required',
+            message:
+                'An approved maintenance role is required to view resolved records.',
           );
         }
         return _ClosedTicketsBody(actor: actor);

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -564,14 +565,12 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Module Workspace',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: const BafAppBarTitle(
+          title: 'Module workspace',
+          subtitle: 'Record field evidence, checks and acceptance',
+          icon: Icons.view_agenda_outlined,
+          accent: BafColors.planned,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(

@@ -11,6 +11,7 @@ import '../providers/planned_maintenance_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 
@@ -165,11 +166,12 @@ class _TemplateDesignerScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Template Designer'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Template designer',
+          subtitle: 'Build governed fields and maintenance evidence',
+          icon: Icons.design_services_outlined,
+          accent: BafColors.planned,
+        ),
         actions: [
           IconButton(
             icon:

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/validation/charge_number.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -54,7 +55,11 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   Widget _buildWarnings(AppUser? actor) {
     final warnings = ref.watch(qualityWarningsProvider);
     return warnings.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading quality warnings',
+            color: BafColors.charges,
+          ),
       error:
           (error, _) => _ErrorState(
             title: 'Quality warnings unavailable',
@@ -154,7 +159,11 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   Widget _buildMonitoring(AppUser? actor) {
     final requests = ref.watch(qualityMonitoringRequestsProvider);
     return requests.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading cycle monitoring',
+            color: BafColors.charges,
+          ),
       error:
           (error, _) => _ErrorState(
             title: 'Monitoring requests unavailable',

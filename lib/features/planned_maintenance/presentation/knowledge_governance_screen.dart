@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -78,25 +79,21 @@ class _KnowledgeGovernanceScreenState
   }
 
   Widget _buildScaffold(BuildContext context, AppUser appUser) {
-    return Scaffold(
-      backgroundColor: BafColors.background,
-      appBar: AppBar(
-        title: const Text('Knowledge Governance'),
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tab,
-          isScrollable: true,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'Rows'),
-            Tab(text: 'Promote tags'),
-            Tab(text: 'Audit log'),
-            Tab(text: 'Conflicts'),
-          ],
-        ),
+    return BafScreenScaffold(
+      title: 'Knowledge governance',
+      subtitle: 'Controlled BAF knowledge, tags and evidence',
+      icon: Icons.account_tree_outlined,
+      accent: BafColors.planned,
+      bottom: TabBar(
+        controller: _tab,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        tabs: const [
+          Tab(icon: Icon(Icons.table_rows_outlined), text: 'Rows'),
+          Tab(icon: Icon(Icons.sell_outlined), text: 'Promote tags'),
+          Tab(icon: Icon(Icons.history_rounded), text: 'Audit log'),
+          Tab(icon: Icon(Icons.sync_problem_outlined), text: 'Conflicts'),
+        ],
       ),
       body: SafeArea(
         child: TabBarView(
@@ -147,13 +144,13 @@ class _RowsTab extends ConsumerWidget {
     final filter = ref.watch(knowledgeGovernanceFilterProvider);
 
     return viewAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(label: 'Loading governed knowledge'),
       error:
-          (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(BafSpacing.lg),
-              child: Text('Failed to load knowledge base:\n$e'),
-            ),
+          (e, _) => BafStatePanel.error(
+            title: 'Knowledge base unavailable',
+            message: 'The governed knowledge rows could not be loaded. $e',
+            onPrimary: () => ref.invalidate(knowledgeRowsViewProvider),
           ),
       data: (view) {
         final rows =
@@ -769,7 +766,11 @@ class _ConflictsTab extends ConsumerWidget {
         await ref.read(knowledgeGovernanceSyncConflictsProvider.future);
       },
       child: conflictsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Scanning knowledge conflicts',
+              color: BafColors.planned,
+            ),
         error:
             (e, _) => ListView(
               children: [
@@ -916,13 +917,12 @@ class _LoadingScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Knowledge Governance'),
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
-      ),
-      body: const Center(child: CircularProgressIndicator()),
+    return BafScreenStateScaffold.loading(
+      appBarTitle: 'Knowledge governance',
+      appBarSubtitle: 'Controlled BAF knowledge, tags and evidence',
+      appBarIcon: Icons.account_tree_outlined,
+      accent: BafColors.planned,
+      label: 'Checking knowledge authority',
     );
   }
 }
@@ -934,18 +934,12 @@ class _ErrorScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Knowledge Governance'),
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(BafSpacing.lg),
-          child: Text(message),
-        ),
-      ),
+    return BafScreenStateScaffold.error(
+      appBarTitle: 'Knowledge governance',
+      appBarSubtitle: 'Controlled BAF knowledge, tags and evidence',
+      appBarIcon: Icons.account_tree_outlined,
+      accent: BafColors.planned,
+      message: message,
     );
   }
 }
@@ -955,22 +949,13 @@ class _NotAuthorisedScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Knowledge Governance'),
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
-      ),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(BafSpacing.lg),
-          child: Text(
-            'Only Admin or SI may manage the BAF Knowledge Base.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: BafColors.textSecondary),
-          ),
-        ),
-      ),
+    return BafScreenStateScaffold.access(
+      appBarTitle: 'Knowledge governance',
+      appBarSubtitle: 'Controlled BAF knowledge, tags and evidence',
+      appBarIcon: Icons.account_tree_outlined,
+      accent: BafColors.planned,
+      title: 'Knowledge authority required',
+      message: 'Only approved Admin or SI users may govern the BAF knowledge base.',
     );
   }
 }

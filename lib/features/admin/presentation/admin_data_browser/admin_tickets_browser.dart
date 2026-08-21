@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../maintenance/data/maintenance_model.dart';
@@ -378,7 +379,11 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
           ),
           Expanded(
             child: ticketsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Loading maintenance records',
+                    color: BafColors.admin,
+                  ),
               error:
                   (err, _) => Center(
                     child: Text(

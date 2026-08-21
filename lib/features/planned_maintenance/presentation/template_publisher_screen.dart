@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../auth/data/user_model.dart';
@@ -130,9 +132,12 @@ class _TemplatePublisherScreenState
 
     return userAsync.when(
       loading:
-          () => const Scaffold(
-            backgroundColor: BafColors.background,
-            body: Center(child: CircularProgressIndicator()),
+          () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Template authoring',
+            appBarSubtitle: 'Governed maintenance catalogues and versions',
+            appBarIcon: Icons.architecture_outlined,
+            accent: BafColors.planned,
+            label: 'Checking publishing authority',
           ),
       error: (e, _) => _ErrorScaffold(message: 'User profile error: $e'),
       data: (actor) {
@@ -143,9 +148,12 @@ class _TemplatePublisherScreenState
         final packagesAsync = ref.watch(templatePackagesProvider);
         return packagesAsync.when(
           loading:
-              () => const Scaffold(
-                backgroundColor: BafColors.background,
-                body: Center(child: CircularProgressIndicator()),
+              () => BafScreenStateScaffold.loading(
+                appBarTitle: 'Template authoring',
+                appBarSubtitle: 'Governed maintenance catalogues and versions',
+                appBarIcon: Icons.architecture_outlined,
+                accent: BafColors.planned,
+                label: 'Loading governed catalogues',
               ),
           error:
               (e, _) =>

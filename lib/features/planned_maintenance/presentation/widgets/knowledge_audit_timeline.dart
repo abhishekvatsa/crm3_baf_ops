@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../providers/knowledge_governance_provider.dart';
@@ -21,7 +22,11 @@ class KnowledgeAuditTimeline extends ConsumerWidget {
         await ref.read(knowledgeGovernanceAuditFeedProvider.future);
       },
       child: feedAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading knowledge audit trail',
+              color: BafColors.planned,
+            ),
         error: (e, _) => ListView(
           children: [
             Padding(

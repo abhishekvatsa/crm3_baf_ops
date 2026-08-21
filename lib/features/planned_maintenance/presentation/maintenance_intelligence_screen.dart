@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -27,19 +28,33 @@ class MaintenanceIntelligenceScreen extends ConsumerWidget {
     final actor = ref.watch(currentAppUserProvider);
     return actor.when(
       loading:
-          () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Maintenance rhythm',
+            appBarSubtitle: 'Due state, history, forward plans and classes',
+            appBarIcon: Icons.event_repeat_rounded,
+            accent: BafColors.planned,
+            label: 'Checking maintenance authority',
+          ),
       error:
-          (_, _) => const Scaffold(
-            body: Center(
-              child: Text('Could not verify maintenance authority.'),
-            ),
+          (_, _) => BafScreenStateScaffold.error(
+            appBarTitle: 'Maintenance rhythm',
+            appBarSubtitle: 'Due state, history, forward plans and classes',
+            appBarIcon: Icons.event_repeat_rounded,
+            accent: BafColors.planned,
+            message: 'Maintenance authority could not be verified.',
           ),
       data:
           (user) =>
               user == null
-                  ? const Scaffold(
-                    body: Center(child: Text('Sign in is required.')),
+                  ? BafScreenStateScaffold.access(
+                    appBarTitle: 'Maintenance rhythm',
+                    appBarSubtitle:
+                        'Due state, history, forward plans and classes',
+                    appBarIcon: Icons.event_repeat_rounded,
+                    accent: BafColors.planned,
+                    title: 'Sign in required',
+                    message:
+                        'Sign in with an approved account to view maintenance intelligence.',
                   )
                   : _MaintenanceIntelligenceBody(actor: user),
     );
@@ -93,7 +108,11 @@ class _DueStateTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(maintenanceDueStatesProvider);
     return state.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading maintenance due state',
+            color: BafColors.planned,
+          ),
       error:
           (_, _) => _RetryState(
             message:
@@ -236,7 +255,11 @@ class _PlansTab extends ConsumerWidget {
         ref.watch(maintenanceClassDefinitionsProvider).value ??
         const <MaintenanceClassDefinition>[];
     return plans.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading maintenance plans',
+            color: BafColors.planned,
+          ),
       error:
           (_, _) => _RetryState(
             message: 'Maintenance plans could not be loaded.',
@@ -293,7 +316,11 @@ class _ClassesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final definitions = ref.watch(maintenanceClassDefinitionsProvider);
     return definitions.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading maintenance classes',
+            color: BafColors.planned,
+          ),
       error:
           (_, _) => _RetryState(
             message: 'Maintenance classes could not be loaded.',
