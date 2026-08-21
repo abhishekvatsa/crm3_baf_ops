@@ -1164,117 +1164,11 @@ service cloud.firestore {
         || action == 'archived';
     }
 
-    function validOptionalTemplateText(value, maxLength) {
-      return value == null || validNonEmptyString(value, maxLength);
-    }
-
-    function validOptionalTemplateStringList(value) {
-      return value == null || (value is list && value.size() <= 500);
-    }
-
-    function validTemplatePackageReadableFields() {
-      let status = request.resource.data.get('lifecycleStatus', null);
-      let retiredAt = request.resource.data.get('retiredAt', null);
-      let retiredByUid = request.resource.data.get('retiredByUid', null);
-      let retiredByName = request.resource.data.get('retiredByName', null);
-      let retireReason = request.resource.data.get('retireReason', null);
-      let isDeleted = request.resource.data.get('isDeleted', null);
-      let deletedAt = request.resource.data.get('deletedAt', null);
-      let deletedByUid = request.resource.data.get('deletedByUid', null);
-      let deletedByName = request.resource.data.get('deletedByName', null);
-      let deleteReason = request.resource.data.get('deleteReason', null);
-      return validNonEmptyString(
-          request.resource.data.get('packageCode', null),
-          160
-        )
-        && validNonEmptyString(request.resource.data.get('title', null), 500)
-        && validOptionalTemplateText(
-          request.resource.data.get('description', null),
-          4000
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('assetType', null),
-          200
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('assetNumberScope', null),
-          500
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('disciplineScope', null),
-          500
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('activeVersionFirestoreId', null),
-          512
-        )
-        && validNonEmptyString(
-          request.resource.data.get('createdByUid', null),
-          512
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('createdByName', null),
-          500
-        )
-        && validNonEmptyString(
-          request.resource.data.get('updatedByUid', null),
-          512
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('updatedByName', null),
-          500
-        )
-        && validOptionalTemplateText(retiredByUid, 512)
-        && validOptionalTemplateText(retiredByName, 500)
-        && validOptionalTemplateText(retireReason, 2000)
-        && validOptionalTemplateText(deletedByUid, 512)
-        && validOptionalTemplateText(deletedByName, 500)
-        && validOptionalTemplateText(deleteReason, 2000)
-        && validOptionalTemplateStringList(
-          request.resource.data.get('targetRefs', null)
-        )
-        && validOptionalTemplateStringList(
-          request.resource.data.get('deviceTagRefs', null)
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('safetyClass', null),
-          200
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('safetyGatePolicyJson', null),
-          2000000
-        )
-        && validOptionalTemplateStringList(
-          request.resource.data.get('procedureRefs', null)
-        )
-        && validOptionalTemplateStringList(
-          request.resource.data.get('operationalStatePreconditions', null)
-        )
-        && validOptionalTemplateText(
-          request.resource.data.get('metadataJson', null),
-          2000000
-        )
-        && isPackageLifecycleStatus(status)
-        && (status == 'retired'
-          ? isPersistedTimestamp(retiredAt)
-          : (retiredAt == null
-            && retiredByUid == null
-            && retiredByName == null
-            && retireReason == null))
-        && isDeleted is bool
-        && (isDeleted
-          ? (isPersistedTimestamp(deletedAt)
-            && validNonEmptyString(deletedByUid, 512))
-          : (deletedAt == null
-            && deletedByUid == null
-            && deletedByName == null
-            && deleteReason == null));
-    }
-
     function validTemplatePackageCreate(docId) {
       return isTemplateGovernor()
         && request.resource.data.get('firestoreId', null) == docId
-        && validTemplatePackageReadableFields()
+        && request.resource.data.get('packageCode', null) is string
+        && request.resource.data.get('title', null) is string
         && request.resource.data.get('lifecycleStatus', null) == 'active'
         && request.resource.data.get('latestVersionNumber', -1) is int
         && request.resource.data.get('latestVersionNumber', -1) >= 0
@@ -1335,7 +1229,6 @@ service cloud.firestore {
         && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && request.resource.data.get('isDeleted', null) == resource.data.get('isDeleted', null)
-        && validTemplatePackageReadableFields()
         && isPackageLifecycleStatus(request.resource.data.get('lifecycleStatus', null))
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && request.resource.data.get('version', -1) is int

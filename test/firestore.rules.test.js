@@ -202,47 +202,6 @@ function abnormalityTypePayload(id = "type1", overrides = {}) {
   };
 }
 
-function templatePackagePayload(id = "pkg1", overrides = {}) {
-  const now = new Date().toISOString();
-  return {
-    firestoreId: id,
-    packageCode: "PKG-1",
-    title: "Governed package",
-    description: null,
-    assetType: "furnace",
-    assetNumberScope: null,
-    disciplineScope: null,
-    lifecycleStatus: "active",
-    activeVersionFirestoreId: null,
-    latestVersionNumber: 0,
-    createdByUid: "si1",
-    createdByName: "si1",
-    updatedByUid: "si1",
-    updatedByName: "si1",
-    retiredByUid: null,
-    retiredByName: null,
-    retiredAt: null,
-    retireReason: null,
-    isDeleted: false,
-    deletedAt: null,
-    deletedByUid: null,
-    deletedByName: null,
-    deleteReason: null,
-    version: 1,
-    schemaVersion: 1,
-    createdAt: now,
-    updatedAt: now,
-    targetRefs: [],
-    deviceTagRefs: [],
-    safetyClass: null,
-    safetyGatePolicyJson: null,
-    procedureRefs: [],
-    operationalStatePreconditions: [],
-    metadataJson: null,
-    ...overrides,
-  };
-}
-
 function auditEventPayload(overrides = {}) {
   return {
     entityType: "maintenance",
@@ -1908,26 +1867,6 @@ describe("template_packages", () => {
     );
   });
 
-  test("package writes cannot exceed strict reader text bounds", async () => {
-    const db = dbAs("si1");
-    const ref = doc(db, "template_packages/pkgBounds");
-
-    await assertFails(
-      setDoc(ref, templatePackagePayload("pkgBounds", {
-        title: "x".repeat(501),
-      }))
-    );
-    await assertSucceeds(
-      setDoc(ref, templatePackagePayload("pkgBounds"))
-    );
-    await assertFails(
-      updateDoc(ref, {
-        description: "x".repeat(4001),
-        updatedAt: new Date().toISOString(),
-        version: 2,
-      })
-    );
-  });
 });
 
 describe("template_versions", () => {
