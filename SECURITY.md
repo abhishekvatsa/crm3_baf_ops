@@ -18,9 +18,10 @@ or the expected key count changes. Evidence contains hashes and counts only.
 The live readback separately requires the source key set to match exactly three
 active Firebase-created keys. Every key must have the exact Firebase API
 allowlist in `release/firebase-client-api-key-policy.json`; the Generative
-Language API is explicitly forbidden. Application-restriction object types and
-entry counts are also recorded exactly, but empty entries are not represented
-as an authorization control.
+Language API is explicitly forbidden. The Android key is additionally bound to
+the permanent package and the governed debug and production signing
+certificates. Browser and iOS restriction objects remain empty and are not
+represented as authorization controls.
 
 See the official Firebase guidance:
 

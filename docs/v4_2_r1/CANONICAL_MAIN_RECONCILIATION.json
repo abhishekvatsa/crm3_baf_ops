@@ -2434,9 +2434,9 @@
     {
       "path": "package.json",
       "canonicalSha256": "FA45934BAA0695024EA92A790D86B57D5B172788D855B610EB1163374FF4EC30",
-      "candidateSha256": "240B34C979501A2E3A8AC20705EAAB7E1946C902B3AEE4B5675A5527F171EBEE",
+      "candidateSha256": "F8EE80362D3B06947A6FE4C787DD68E6BADFC8F7A1750D13DED8590BE0D07365",
       "canonicalBytes": 1103,
-      "candidateBytes": 4503,
+      "candidateBytes": 4571,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
