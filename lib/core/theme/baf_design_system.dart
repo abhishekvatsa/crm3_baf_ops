@@ -15,8 +15,8 @@ class BafBrand {
 class BafColors {
   BafColors._();
 
-  static const graphite = Color(0xFF172128);
-  static const graphiteSoft = Color(0xFF26343C);
+  static const graphite = Color(0xFF142128);
+  static const graphiteSoft = Color(0xFF24343C);
   static const teal = Color(0xFF0E7A7E);
   static const cobalt = Color(0xFF3267B1);
   static const ember = Color(0xFFC84C36);
@@ -28,15 +28,17 @@ class BafColors {
   static const steel = Color(0xFF60737C);
   static const copper = ember;
 
-  static const background = Color(0xFFF5F7F8);
+  static const background = Color(0xFFF2F5F6);
   static const card = Colors.white;
-  static const surfaceMuted = Color(0xFFEDF1F3);
-  static const surfaceStrong = Color(0xFFE3EAED);
-  static const border = Color(0xFFD8E0E3);
-  static const borderStrong = Color(0xFFBBC8CD);
-  static const textPrimary = Color(0xFF18242B);
-  static const textSecondary = Color(0xFF5A6A71);
-  static const textTertiary = Color(0xFF7B8A90);
+  static const surfaceRaised = Color(0xFFFDFEFE);
+  static const surfaceTint = Color(0xFFF8FAFA);
+  static const surfaceMuted = Color(0xFFEBF0F2);
+  static const surfaceStrong = Color(0xFFE0E7EA);
+  static const border = Color(0xFFD4DDE1);
+  static const borderStrong = Color(0xFFB8C6CC);
+  static const textPrimary = Color(0xFF142129);
+  static const textSecondary = Color(0xFF55676F);
+  static const textTertiary = Color(0xFF778890);
 
   static const maintenance = Color(0xFFB74632);
   static const planned = cobalt;
@@ -96,18 +98,26 @@ class BafMotion {
 class BafShadows {
   BafShadows._();
 
+  static List<BoxShadow> raised = [
+    const BoxShadow(
+      color: Color(0x1A0D1C22),
+      blurRadius: 24,
+      offset: Offset(0, 10),
+    ),
+  ];
+
   static List<BoxShadow> soft = [
     const BoxShadow(
-      color: Color(0x140F1E24),
-      blurRadius: 18,
-      offset: Offset(0, 7),
+      color: Color(0x120D1C22),
+      blurRadius: 16,
+      offset: Offset(0, 6),
     ),
   ];
 
   static List<BoxShadow> subtle = [
     const BoxShadow(
-      color: Color(0x0D0F1E24),
-      blurRadius: 9,
+      color: Color(0x0C0D1C22),
+      blurRadius: 8,
       offset: Offset(0, 3),
     ),
   ];
@@ -135,6 +145,10 @@ class BafAppTheme {
       scaffoldBackgroundColor: BafColors.background,
       visualDensity: VisualDensity.standard,
       materialTapTargetSize: MaterialTapTargetSize.padded,
+      splashFactory: InkSparkle.splashFactory,
+      hoverColor: BafColors.teal.withValues(alpha: 0.045),
+      focusColor: BafColors.teal.withValues(alpha: 0.075),
+      highlightColor: BafColors.teal.withValues(alpha: 0.055),
     );
 
     return base.copyWith(
@@ -189,14 +203,14 @@ class BafAppTheme {
         labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: BafColors.card,
+        backgroundColor: BafColors.surfaceRaised,
         foregroundColor: BafColors.textPrimary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
         shadowColor: Color(0x140F1E24),
         centerTitle: false,
-        toolbarHeight: 64,
+        toolbarHeight: 66,
         titleSpacing: BafSpacing.lg,
         shape: Border(bottom: BorderSide(color: BafColors.border)),
         titleTextStyle: TextStyle(
@@ -207,7 +221,7 @@ class BafAppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: BafColors.card,
+        fillColor: BafColors.surfaceRaised,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: BafSpacing.md,
           vertical: BafSpacing.md,
@@ -244,6 +258,8 @@ class BafAppTheme {
             borderRadius: BorderRadius.circular(BafRadius.small),
           ),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          elevation: 0,
+          animationDuration: BafMotion.quick,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -255,6 +271,7 @@ class BafAppTheme {
             borderRadius: BorderRadius.circular(BafRadius.small),
           ),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          animationDuration: BafMotion.quick,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -266,6 +283,8 @@ class BafAppTheme {
             borderRadius: BorderRadius.circular(BafRadius.small),
           ),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          backgroundColor: BafColors.surfaceRaised,
+          animationDuration: BafMotion.quick,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -287,8 +306,8 @@ class BafAppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 68,
-        backgroundColor: BafColors.card,
+        height: 70,
+        backgroundColor: BafColors.surfaceRaised,
         elevation: 0,
         indicatorShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(BafRadius.medium),
@@ -318,7 +337,7 @@ class BafAppTheme {
         ),
       ),
       navigationRailTheme: const NavigationRailThemeData(
-        backgroundColor: BafColors.card,
+        backgroundColor: BafColors.surfaceRaised,
         indicatorColor: Color(0x1C0E7A7E),
         selectedIconTheme: IconThemeData(color: BafColors.teal),
         unselectedIconTheme: IconThemeData(color: BafColors.textSecondary),
@@ -332,8 +351,9 @@ class BafAppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        elevation: 0,
-        color: BafColors.card,
+        elevation: 1,
+        shadowColor: const Color(0x160D1C22),
+        color: BafColors.surfaceRaised,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
@@ -382,6 +402,7 @@ class BafAppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: BafColors.graphite,
+        elevation: 4,
         contentTextStyle: const TextStyle(color: Colors.white),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(BafRadius.medium),
@@ -390,6 +411,8 @@ class BafAppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: BafColors.card,
         surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shadowColor: const Color(0x2A0D1C22),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(BafRadius.medium),
         ),
@@ -417,6 +440,8 @@ class BafAppTheme {
       popupMenuTheme: const PopupMenuThemeData(
         color: BafColors.card,
         surfaceTintColor: Colors.transparent,
+        elevation: 4,
+        shadowColor: Color(0x240D1C22),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(BafRadius.medium)),
         ),

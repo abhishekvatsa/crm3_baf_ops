@@ -34,6 +34,8 @@ class ManmithasMark extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: BafShadows.subtle,
       ),
       child: mark,
     );
@@ -146,7 +148,10 @@ class BafPageHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(BafSpacing.lg),
-      color: BafColors.card,
+      decoration: const BoxDecoration(
+        color: BafColors.surfaceTint,
+        border: Border(bottom: BorderSide(color: BafColors.border)),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (trailing != null &&
@@ -205,10 +210,32 @@ class BafAppBarTitle extends StatelessWidget {
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.1),
+            color: BafColors.surfaceRaised,
             borderRadius: BorderRadius.circular(BafRadius.small),
+            border: Border.all(color: accent.withValues(alpha: 0.24)),
+            boxShadow: BafShadows.subtle,
           ),
-          child: Icon(icon, color: accent, size: 19),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 3,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(BafRadius.small),
+                      bottomLeft: Radius.circular(BafRadius.small),
+                    ),
+                  ),
+                ),
+              ),
+              Icon(icon, color: accent, size: 19),
+            ],
+          ),
         ),
         const SizedBox(width: BafSpacing.sm),
         Flexible(

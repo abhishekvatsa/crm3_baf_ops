@@ -50,10 +50,60 @@ class BafScreenScaffold extends StatelessWidget {
         actions: actions,
         bottom: bottom,
       ),
-      body: body,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BafContextRail(color: accent),
+          Expanded(child: BafPageCanvas(child: body)),
+        ],
+      ),
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,
       bottomNavigationBar: bottomNavigationBar,
+    );
+  }
+}
+
+/// Quiet page depth shared by routed work surfaces.
+///
+/// The solid top band creates separation from the app chrome without using a
+/// decorative gradient or turning the page into a floating card.
+class BafPageCanvas extends StatelessWidget {
+  final Widget child;
+
+  const BafPageCanvas({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: BafColors.background,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 72,
+            child: ColoredBox(color: BafColors.surfaceTint),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class BafContextRail extends StatelessWidget {
+  final Color color;
+
+  const BafContextRail({super.key, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      excludeSemantics: true,
+      child: SizedBox(height: 3, child: ColoredBox(color: color)),
     );
   }
 }
@@ -522,7 +572,7 @@ class BafLoadingPanel extends StatelessWidget {
   }
 }
 
-class BafRecordSurface extends StatelessWidget {
+class BafRecordSurface extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final Color? accent;
@@ -537,29 +587,55 @@ class BafRecordSurface extends StatelessWidget {
   });
 
   @override
+  State<BafRecordSurface> createState() => _BafRecordSurfaceState();
+}
+
+class _BafRecordSurfaceState extends State<BafRecordSurface> {
+  bool _highlighted = false;
+
+  @override
   Widget build(BuildContext context) {
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-      side: BorderSide(
-        color: accent?.withValues(alpha: 0.24) ?? BafColors.border,
+    final active = widget.onTap != null && _highlighted;
+    final borderColor =
+        active
+            ? (widget.accent ?? BafColors.teal).withValues(alpha: 0.42)
+            : widget.accent?.withValues(alpha: 0.22) ?? BafColors.border;
+    final radius = BorderRadius.circular(BafRadius.medium);
+
+    return AnimatedContainer(
+      duration: BafMotion.quick,
+      curve: BafMotion.curve,
+      decoration: BoxDecoration(
+        color: BafColors.surfaceRaised,
+        borderRadius: radius,
+        border: Border.all(color: borderColor),
+        boxShadow: active ? BafShadows.soft : BafShadows.subtle,
       ),
-    );
-    return Material(
-      color: BafColors.card,
-      shape: shape,
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: accent ?? Colors.transparent,
-                width: accent == null ? 0 : 3,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover:
+              widget.onTap == null
+                  ? null
+                  : (value) => setState(() => _highlighted = value),
+          onFocusChange:
+              widget.onTap == null
+                  ? null
+                  : (value) => setState(() => _highlighted = value),
+          borderRadius: radius,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: widget.accent ?? Colors.transparent,
+                  width: widget.accent == null ? 0 : 3,
+                ),
               ),
             ),
+            child: Padding(padding: widget.padding, child: widget.child),
           ),
-          child: Padding(padding: padding, child: child),
         ),
       ),
     );
@@ -613,16 +689,38 @@ class _AccentIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
+    final radius = BorderRadius.circular(BafRadius.medium);
+    return SizedBox.square(
+      dimension: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: BafColors.surfaceRaised,
+          borderRadius: radius,
+          border: Border.all(color: accent.withValues(alpha: 0.24)),
+          boxShadow: BafShadows.subtle,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.only(
+                    topLeft: radius.topLeft,
+                    bottomLeft: radius.bottomLeft,
+                  ),
+                ),
+              ),
+            ),
+            Icon(icon, color: accent, size: size * 0.48),
+          ],
+        ),
       ),
-      child: Icon(icon, color: accent, size: size * 0.5),
     );
   }
 }
