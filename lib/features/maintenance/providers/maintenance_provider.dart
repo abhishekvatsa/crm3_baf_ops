@@ -27,6 +27,8 @@ import '../domain/burner_lockout_case.dart';
 part 'maintenance_provider.local.dart';
 part 'maintenance_provider.remote.dart';
 
+const maintenancePairedBatchMaximum = 166;
+
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
     localVersion: local.version as int,

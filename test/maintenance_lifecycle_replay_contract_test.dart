@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:crm3_baf_ops/core/services/sync_service.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -111,7 +113,10 @@ void main() {
         expect(payload, contains('expectedVersion: 0'));
         expect(payload, contains("'assetHierarchyRefJson'"));
         expect(payload, contains('qualityIntent.toSynchronizedFields()'));
-        expect(payload, contains('burnerLockout.toSynchronizedFields()'));
+        expect(
+          payload,
+          contains('burnerLockout.clearResolution().toSynchronizedFields()'),
+        );
         expect(payload, isNot(contains("'loggedByUid'")));
         expect(payload, isNot(contains("'loggedByName'")));
         expect(payload, isNot(contains("'createdAt'")));
@@ -559,10 +564,13 @@ void main() {
     });
 
     test('ordinary batch upload atomically pairs every red-hot directive', () {
-      final provider = _readMaintenanceProviderLibrary();
+      final sync = _read(_syncPath);
+      final provider = _read(
+        'lib/features/maintenance/providers/maintenance_provider.remote.dart',
+      );
       final batch = _blockStartingAt(
         provider,
-        'const maximumPairedRecordsPerBatch = 166;',
+        'Future<void> batchUpsertTickets(List<MaintenanceRecord> records)',
       );
 
       expect(batch, contains('burnerRedHotDirectiveProjection(record)'));
@@ -571,7 +579,84 @@ void main() {
         batch,
         contains('batch.set(_directives.doc(entry.key), entry.value)'),
       );
-      expect(batch, contains('const maximumPairedRecordsPerBatch = 166'));
+      expect(batch, contains('maintenancePairedBatchMaximum'));
+      expect(batch, isNot(contains('for (\n      var offset = 0;')));
+      final syncBlock = _blockStartingAt(sync, 'Future<void> _syncTickets()');
+      _expectOrder(syncBlock, const <String>[
+        'final chunk = recordsToPush.sublist(',
+        'await _firestoreMaintenance.batchUpsertTickets(chunk);',
+        '_maintenanceRepo.markTicketsSyncedIfUnchanged(',
+        'lastSuccessCount += chunk.length;',
+      ]);
+    });
+
+    test('uncertain lifecycle outcomes require exact readback evidence', () {
+      final closeAt = DateTime.utc(2026, 8, 21, 10);
+      final updatedAt = DateTime.utc(2026, 8, 21, 10, 1);
+      final remote =
+          MaintenanceRecord()
+            ..version = 2
+            ..isResolved = true
+            ..status = TicketStatus.resolved
+            ..endDate = closeAt
+            ..closedByUid = 'si-1'
+            ..actionsJson = '[{"action":"inspection"}]'
+            ..updatedAt = updatedAt;
+      final step = <String, dynamic>{
+        'version': 2,
+        'isResolved': true,
+        'status': 'resolved',
+        'endDate': closeAt.toIso8601String(),
+        'closedByUid': 'si-1',
+        'actionsJson': '[{"action":"inspection"}]',
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+      expect(maintenanceLifecycleReplayOutcomeMatches(remote, step), isTrue);
+      expect(
+        maintenanceLifecycleReplayOutcomeMatches(remote, <String, dynamic>{
+          ...step,
+          'version': 3,
+        }),
+        isFalse,
+      );
+      expect(
+        maintenanceLifecycleReplayOutcomeMatches(remote, <String, dynamic>{
+          ...step,
+          'actionsJson': '[]',
+        }),
+        isFalse,
+      );
+    });
+
+    test('uncertain reopen outcome preserves exact resolution history', () {
+      final updatedAt = DateTime.utc(2026, 8, 21, 10, 5);
+      final remote =
+          MaintenanceRecord()
+            ..version = 3
+            ..isResolved = false
+            ..status = TicketStatus.open
+            ..endDate = null
+            ..actionsJson = '[]'
+            ..resolutionHistoryJson = '[{"version":2}]'
+            ..updatedAt = updatedAt;
+      final step = <String, dynamic>{
+        'version': 3,
+        'isResolved': false,
+        'status': 'open',
+        'actionsJson': '[]',
+        'resolutionHistoryJson': '[{"version":2}]',
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+      expect(maintenanceLifecycleReplayOutcomeMatches(remote, step), isTrue);
+      expect(
+        maintenanceLifecycleReplayOutcomeMatches(remote, <String, dynamic>{
+          ...step,
+          'resolutionHistoryJson': '[]',
+        }),
+        isFalse,
+      );
     });
 
     test('burner intake validates its fixed component after asset changes', () {

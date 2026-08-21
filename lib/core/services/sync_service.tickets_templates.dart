@@ -159,36 +159,59 @@ extension _SyncServiceTicketsTemplates on SyncService {
         recordsToPush.add(record);
       }
 
-      bool pushSuccess = false;
+      if (skippedButSyncedSnapshots.isNotEmpty) {
+        await _maintenanceRepo.markTicketsSyncedIfUnchanged(
+          skippedButSyncedSnapshots,
+        );
+      }
 
-      if (recordsToPush.isNotEmpty) {
+      for (
+        var offset = 0;
+        offset < recordsToPush.length;
+        offset += maintenancePairedBatchMaximum
+      ) {
+        final chunk = recordsToPush.sublist(
+          offset,
+          offset + maintenancePairedBatchMaximum > recordsToPush.length
+              ? recordsToPush.length
+              : offset + maintenancePairedBatchMaximum,
+        );
         try {
           await _retry(() async {
-            await _firestoreMaintenance.batchUpsertTickets(recordsToPush);
+            await _firestoreMaintenance.batchUpsertTickets(chunk);
           });
-
-          pushSuccess = true;
-          lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
-          lastFailureCount += recordsToPush.length;
+          lastFailureCount += chunk.length;
           _recordPushFailuresForBatch(
             entityType: 'maintenance_ticket',
-            records: recordsToPush,
+            records: chunk,
             error: e,
           );
           debugPrint('❌ Ticket batch sync failed: $e');
           debugPrintStack(stackTrace: stackTrace);
+          continue;
         }
-      }
-
-      final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
-
-      if (pushSuccess) {
-        snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
-      }
-
-      if (snapshotsToMark.isNotEmpty) {
-        await _maintenanceRepo.markTicketsSyncedIfUnchanged(snapshotsToMark);
+        try {
+          await _retry(
+            () => _maintenanceRepo.markTicketsSyncedIfUnchanged(
+              _syncPushSnapshots(chunk),
+            ),
+          );
+          lastSuccessCount += chunk.length;
+        } catch (e, stackTrace) {
+          lastFailureCount += chunk.length;
+          _recordPushFailuresForBatch(
+            entityType: 'maintenance_ticket',
+            records: chunk,
+            error: e,
+          );
+          debugPrint(
+            '❌ Ticket batch committed remotely but could not be marked '
+            'locally: $e',
+          );
+          debugPrintStack(stackTrace: stackTrace);
+          break;
+        }
       }
     }
   }
@@ -240,13 +263,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
         createVersion,
         applied.appliedAt,
       );
-      await _retry(() async {
-        await _firestoreMaintenance
-            .applyRemoteMaintenanceLifecycleReplayStepForSync(
-              local.firestoreId!,
-              close,
-            );
-      });
+      await _retry(
+        () => _applyMaintenanceLifecycleReplayStep(local.firestoreId!, close),
+      );
       return (receipt: applied, hasPostCreateLifecycle: true);
     }
     if (_hasMaintenanceReopenEvidence(local)) {
@@ -256,21 +275,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
         createVersion,
         applied.appliedAt,
       );
-      await _retry(() async {
-        await _firestoreMaintenance
-            .applyRemoteMaintenanceLifecycleReplayStepForSync(
-              local.firestoreId!,
-              close,
-            );
-      });
+      await _retry(
+        () => _applyMaintenanceLifecycleReplayStep(local.firestoreId!, close),
+      );
       final reopen = _maintenanceReopenReplayStepData(local, applied.appliedAt);
-      await _retry(() async {
-        await _firestoreMaintenance
-            .applyRemoteMaintenanceLifecycleReplayStepForSync(
-              local.firestoreId!,
-              reopen,
-            );
-      });
+      await _retry(
+        () => _applyMaintenanceLifecycleReplayStep(local.firestoreId!, reopen),
+      );
       return (receipt: applied, hasPostCreateLifecycle: true);
     }
     return (receipt: applied, hasPostCreateLifecycle: false);
@@ -298,13 +309,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
           ),
         };
 
-        await _retry(() async {
-          await _firestoreMaintenance
-              .applyRemoteMaintenanceLifecycleReplayStepForSync(
-                local.firestoreId!,
-                stepData,
-              );
-        });
+        await _retry(
+          () => _applyMaintenanceLifecycleReplayStep(
+            local.firestoreId!,
+            stepData,
+          ),
+        );
 
         stepVersion = stepData['version'] as int;
       }
@@ -319,6 +329,31 @@ extension _SyncServiceTicketsTemplates on SyncService {
       );
       debugPrintStack(stackTrace: stackTrace);
       return false;
+    }
+  }
+
+  Future<void> _applyMaintenanceLifecycleReplayStep(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+  ) async {
+    try {
+      await _firestoreMaintenance
+          .applyRemoteMaintenanceLifecycleReplayStepForSync(
+            firestoreId,
+            stepData,
+          );
+    } catch (_) {
+      final observed = await _firestoreMaintenance.getByFirestoreId(
+        firestoreId,
+      );
+      if (maintenanceLifecycleReplayOutcomeMatches(observed, stepData)) {
+        debugPrint(
+          'Maintenance lifecycle replay for $firestoreId was confirmed by '
+          'readback after an uncertain write outcome.',
+        );
+        return;
+      }
+      rethrow;
     }
   }
 
@@ -715,6 +750,37 @@ extension _SyncServiceTicketsTemplates on SyncService {
       }
     }
   }
+}
+
+bool maintenanceLifecycleReplayOutcomeMatches(
+  MaintenanceRecord? remote,
+  Map<String, dynamic> stepData,
+) {
+  if (remote == null) return false;
+  final version = stepData['version'];
+  final isResolved = stepData['isResolved'];
+  final status = stepData['status'];
+  final updatedAtText = stepData['updatedAt'];
+  if (version is! int ||
+      isResolved is! bool ||
+      status is! String ||
+      updatedAtText is! String ||
+      remote.version != version ||
+      remote.isResolved != isResolved ||
+      remote.status.name != status ||
+      remote.updatedAt.toIso8601String() != updatedAtText) {
+    return false;
+  }
+  if (isResolved) {
+    final endDateText = stepData['endDate'];
+    return endDateText is String &&
+        remote.endDate?.toIso8601String() == endDateText &&
+        remote.closedByUid == stepData['closedByUid'] &&
+        remote.actionsJson == stepData['actionsJson'];
+  }
+  return remote.endDate == null &&
+      remote.actionsJson == stepData['actionsJson'] &&
+      remote.resolutionHistoryJson == stepData['resolutionHistoryJson'];
 }
 
 enum _MaintenanceReplayStep { close, reopen }

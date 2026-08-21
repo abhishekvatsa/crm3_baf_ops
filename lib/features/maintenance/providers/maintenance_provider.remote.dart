@@ -614,56 +614,50 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
 
   @override
   Future<void> batchUpsertTickets(List<MaintenanceRecord> records) async {
-    const maximumPairedRecordsPerBatch = 166;
-    for (
-      var offset = 0;
-      offset < records.length;
-      offset += maximumPairedRecordsPerBatch
-    ) {
-      final chunk = records.sublist(
-        offset,
-        offset + maximumPairedRecordsPerBatch > records.length
-            ? records.length
-            : offset + maximumPairedRecordsPerBatch,
+    if (records.length > maintenancePairedBatchMaximum) {
+      throw ArgumentError.value(
+        records.length,
+        'records.length',
+        'A paired maintenance batch cannot exceed '
+            '$maintenancePairedBatchMaximum records.',
       );
-      final warnings = <String, Map<String, dynamic>>{};
-      final directives = <String, Map<String, dynamic>>{};
-      for (final record in chunk) {
-        final warning = qualityWarningProjectionForIssue(record);
-        if (warning != null) {
-          warnings[warning['warningId'] as String] = warning;
-        }
-        final directive = burnerRedHotDirectiveProjection(record);
-        if (directive != null) {
-          directives[directive['firestoreId'] as String] = directive;
-        }
-      }
-      final existingWarningIds = await _existingQualityWarningIds(
-        warnings.keys,
-      );
-      final existingDirectiveIds = await _existingDirectiveIds(directives.keys);
-      final batch = FirebaseFirestore.instance.batch();
-      for (final record in chunk) {
-        if (record.firestoreId != null) {
-          batch.set(
-            _collection.doc(record.firestoreId),
-            _ticketToMap(record),
-            SetOptions(merge: true),
-          );
-        }
-      }
-      for (final entry in warnings.entries) {
-        if (!existingWarningIds.contains(entry.key)) {
-          batch.set(_qualityWarnings.doc(entry.key), entry.value);
-        }
-      }
-      for (final entry in directives.entries) {
-        if (!existingDirectiveIds.contains(entry.key)) {
-          batch.set(_directives.doc(entry.key), entry.value);
-        }
-      }
-      await batch.commit();
     }
+    if (records.isEmpty) return;
+    final warnings = <String, Map<String, dynamic>>{};
+    final directives = <String, Map<String, dynamic>>{};
+    for (final record in records) {
+      final warning = qualityWarningProjectionForIssue(record);
+      if (warning != null) {
+        warnings[warning['warningId'] as String] = warning;
+      }
+      final directive = burnerRedHotDirectiveProjection(record);
+      if (directive != null) {
+        directives[directive['firestoreId'] as String] = directive;
+      }
+    }
+    final existingWarningIds = await _existingQualityWarningIds(warnings.keys);
+    final existingDirectiveIds = await _existingDirectiveIds(directives.keys);
+    final batch = FirebaseFirestore.instance.batch();
+    for (final record in records) {
+      if (record.firestoreId != null) {
+        batch.set(
+          _collection.doc(record.firestoreId),
+          _ticketToMap(record),
+          SetOptions(merge: true),
+        );
+      }
+    }
+    for (final entry in warnings.entries) {
+      if (!existingWarningIds.contains(entry.key)) {
+        batch.set(_qualityWarnings.doc(entry.key), entry.value);
+      }
+    }
+    for (final entry in directives.entries) {
+      if (!existingDirectiveIds.contains(entry.key)) {
+        batch.set(_directives.doc(entry.key), entry.value);
+      }
+    }
+    await batch.commit();
   }
 
   @override
