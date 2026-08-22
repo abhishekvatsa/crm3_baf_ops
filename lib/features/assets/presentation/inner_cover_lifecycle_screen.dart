@@ -1731,12 +1731,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     );
     if (selected == null || !mounted) return;
     setState(() {
-      _incorporatedOn = DateTime.utc(
-        selected.year,
-        selected.month,
-        selected.day,
-        12,
-      );
+      _incorporatedOn = innerCoverIncorporationInstantForLocalDate(selected);
     });
   }
 

@@ -125,6 +125,30 @@ void main() {
     );
   });
 
+  test('legacy T0 fabrication never inherits documented origin', () {
+    final legacy =
+        profileMap()
+          ..['sourceType'] = 'fabricated'
+          ..['traceabilityGrade'] = 'T0'
+          ..remove('originClassification');
+
+    final profile = InnerCoverProfile.fromMap(legacy, 'cover-1');
+
+    expect(
+      profile.originClassification,
+      InnerCoverOriginClassification.ownerDeclaredFabricated,
+    );
+  });
+
+  test('selected incorporation day persists from local midnight', () {
+    final selected = DateTime(2026, 8, 22, 18, 45);
+
+    final persisted = innerCoverIncorporationInstantForLocalDate(selected);
+
+    expect(persisted.toLocal(), DateTime(2026, 8, 22));
+    expect(persisted.isAfter(selected.toUtc()), isFalse);
+  });
+
   test('linkage closure requires complete removal evidence', () {
     final active = <String, dynamic>{
       'schemaVersion': 1,

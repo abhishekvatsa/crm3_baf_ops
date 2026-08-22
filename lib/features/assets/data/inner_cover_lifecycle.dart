@@ -62,11 +62,14 @@ enum InnerCoverOriginClassification {
 
 InnerCoverOriginClassification _legacyOriginClassification(
   InnerCoverSourceType sourceType,
+  InnerCoverTraceabilityGrade traceabilityGrade,
 ) => switch (sourceType) {
   InnerCoverSourceType.purchased =>
     InnerCoverOriginClassification.documentedPurchase,
   InnerCoverSourceType.fabricated =>
-    InnerCoverOriginClassification.documentedFabrication,
+    traceabilityGrade == InnerCoverTraceabilityGrade.t0
+        ? InnerCoverOriginClassification.ownerDeclaredFabricated
+        : InnerCoverOriginClassification.documentedFabrication,
   InnerCoverSourceType.legacyExisting =>
     InnerCoverOriginClassification.legacyUndocumented,
 };
@@ -100,6 +103,9 @@ enum InnerCoverTraceabilityGrade {
     t3 => 'T3 · complete new-material trace',
   };
 }
+
+DateTime innerCoverIncorporationInstantForLocalDate(DateTime selectedDate) =>
+    DateTime(selectedDate.year, selectedDate.month, selectedDate.day).toUtc();
 
 InnerCoverTraceabilityGrade _readTraceabilityGrade(
   dynamic value, {
@@ -377,9 +383,13 @@ class InnerCoverProfile {
       field: 'incorporatedOn',
       source: source,
     );
+    final traceabilityGrade = _readTraceabilityGrade(
+      map['traceabilityGrade'],
+      source: source,
+    );
     final originClassification =
         map['originClassification'] == null
-            ? _legacyOriginClassification(sourceType)
+            ? _legacyOriginClassification(sourceType, traceabilityGrade)
             : readRequiredPersistedEnum(
               InnerCoverOriginClassification.values,
               map['originClassification'],
@@ -393,25 +403,19 @@ class InnerCoverProfile {
         detail: 'does not match sourceType',
       );
     }
-    final traceabilityGrade = _readTraceabilityGrade(
-      map['traceabilityGrade'],
-      source: source,
-    );
-    final traceabilityMatchesOrigin =
-        map['originClassification'] == null ||
-        switch (originClassification) {
-          InnerCoverOriginClassification.documentedPurchase =>
-            traceabilityGrade == InnerCoverTraceabilityGrade.t3,
-          InnerCoverOriginClassification.documentedFabrication => const {
-            InnerCoverTraceabilityGrade.t2,
-            InnerCoverTraceabilityGrade.t3,
-          }.contains(traceabilityGrade),
-          InnerCoverOriginClassification.ownerDeclaredNew =>
-            traceabilityGrade == InnerCoverTraceabilityGrade.t1,
-          InnerCoverOriginClassification.ownerDeclaredFabricated ||
-          InnerCoverOriginClassification.legacyUndocumented =>
-            traceabilityGrade == InnerCoverTraceabilityGrade.t0,
-        };
+    final traceabilityMatchesOrigin = switch (originClassification) {
+      InnerCoverOriginClassification.documentedPurchase =>
+        traceabilityGrade == InnerCoverTraceabilityGrade.t3,
+      InnerCoverOriginClassification.documentedFabrication => const {
+        InnerCoverTraceabilityGrade.t2,
+        InnerCoverTraceabilityGrade.t3,
+      }.contains(traceabilityGrade),
+      InnerCoverOriginClassification.ownerDeclaredNew =>
+        traceabilityGrade == InnerCoverTraceabilityGrade.t1,
+      InnerCoverOriginClassification.ownerDeclaredFabricated ||
+      InnerCoverOriginClassification.legacyUndocumented =>
+        traceabilityGrade == InnerCoverTraceabilityGrade.t0,
+    };
     if (!traceabilityMatchesOrigin) {
       throw PersistedDataFormatException(
         field: 'traceabilityGrade',
