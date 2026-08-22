@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "FE5B9FD4E232B6AB9E8E61E77B3A874B0EE6179CB501744B15098A611A403116",
+  "inventoryDigest": "78E1CCBA53E8650230160C4912525A20308D2ED4BD193CC9A322D11909B497FC",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "C19CA1E73BFE6BD4BCC1F071061C0CDFCD4DB48749087DF14790485ED1F15B27",
+  "a05ManifestSha256": "5C0E13BC1BFC7964852C72C8D20020E4C7A2F92DCB9B91008B730C946B70FC51",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1018,7 +1018,7 @@
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "authorityBoundary": "Inner Cover identity, Base association, lifecycle, and fabrication genealogy",
       "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
-      "compatibility": "schema version 1 only; optional fabrication and acceptance evidence remains optional only where explicitly modelled",
+      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, and acceptance evidence remains optional only where explicitly modelled",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js"
     },
     {

@@ -651,10 +651,10 @@
       "owner": "asset-governance",
       "authorityBoundary": "Inner Cover identity, Base association, lifecycle, and fabrication genealogy",
       "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
-      "compatibility": "schema version 1 only; optional fabrication and acceptance evidence remains optional only where explicitly modelled",
+      "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, and acceptance evidence remains optional only where explicitly modelled",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js",
       "reArmCondition": "Inner Cover identity, projection, chronology, state, or genealogy fields are defaulted or coerced from malformed input",
-      "riskFingerprint": "ebcbf4555b8c66314bf3aa71809a368f7f94eb083450d091762a3a769f32cfd2"
+      "riskFingerprint": "c10b463fbf46b481fb5a37acfef2d3337bb6a705cc3ac9e966c21901400c5b93"
     },
     {
       "id": "asset-registry-records",

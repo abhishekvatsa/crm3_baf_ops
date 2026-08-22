@@ -81,6 +81,22 @@ Traceability is explicit:
 Acceptance reference, leak-test reference and NDT reference remain distinct.
 Registration is not acceptance.
 
+Each profile may also retain a plant `incorporatedOn` date separately from
+supplier receipt or fabrication completion. The distinction prevents a
+historical Base-use date from being presented as purchasing or fabrication
+evidence. Owner-declared baseline origin is recorded explicitly:
+
+- `ownerDeclaredNew` means the cover is known operationally as new but its
+  purchase/source dossier is unavailable; it receives limited `T1` trace;
+- `ownerDeclaredFabricated` means fabrication is known but section ancestry is
+  unavailable; every unknown section remains explicit and the result is `T0`;
+- `legacyUndocumented` means neither documented purchase nor fabrication
+  provenance is asserted and remains `T0`.
+
+These values supplement the backward-compatible source envelope, so already
+distributed clients can still decode the profile without inventing `T3`
+provenance.
+
 ## Issue Attribution
 
 The issue form retains both routes:

@@ -406,7 +406,7 @@ class _CoverList extends StatelessWidget {
               child: Text(
                 cover.isInstalled
                     ? '${cover.lifecycleState.label} on Base ${cover.currentBaseAssetNumber}'
-                    : '${cover.lifecycleState.label} · ${cover.sourceType.label}',
+                    : '${cover.lifecycleState.label} · ${cover.originClassification.label}',
               ),
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -510,10 +510,12 @@ Future<void> _registerCover(
           innerCoverClass: innerCoverClass,
           serialNumber: result.serialNumber,
           sourceType: result.sourceType,
+          originClassification: result.originClassification,
           actor: user,
           reason: result.reason,
           supplierOrFabricator: result.supplierOrFabricator,
           receivedOrCompletedOn: result.receivedOrCompletedOn,
+          incorporatedOn: result.incorporatedOn,
           drawingReference: result.drawingReference,
           materialGrade: result.materialGrade,
           notes: result.notes,
@@ -889,7 +891,15 @@ class _CoverDetailsSheet extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: BafSpacing.lg),
-            _DetailRow(label: 'Source', value: cover.sourceType.label),
+            _DetailRow(
+              label: 'Origin',
+              value: cover.originClassification.label,
+            ),
+            if (cover.incorporatedOn != null)
+              _DetailRow(
+                label: 'Date incorporated',
+                value: DateFormat('dd MMM yyyy').format(cover.incorporatedOn!),
+              ),
             if (cover.supplierOrFabricator != null)
               _DetailRow(
                 label: 'Supplier / fabricator',
@@ -1394,8 +1404,10 @@ class _AcceptanceDialogState extends State<_AcceptanceDialog> {
 class _RegistrationResult {
   final String serialNumber;
   final InnerCoverSourceType sourceType;
+  final InnerCoverOriginClassification originClassification;
   final String? supplierOrFabricator;
   final DateTime? receivedOrCompletedOn;
+  final DateTime? incorporatedOn;
   final String? drawingReference;
   final String? materialGrade;
   final String? notes;
@@ -1405,8 +1417,10 @@ class _RegistrationResult {
   const _RegistrationResult({
     required this.serialNumber,
     required this.sourceType,
+    required this.originClassification,
     this.supplierOrFabricator,
     this.receivedOrCompletedOn,
+    this.incorporatedOn,
     this.drawingReference,
     this.materialGrade,
     this.notes,
@@ -1434,7 +1448,9 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
   String? _serialError;
   String? _reasonError;
   String? _sectionsError;
-  InnerCoverSourceType _source = InnerCoverSourceType.purchased;
+  InnerCoverOriginClassification _origin =
+      InnerCoverOriginClassification.documentedPurchase;
+  DateTime? _incorporatedOn;
   late final Map<InnerCoverFabricationSectionType, _SectionEditorState>
   _sections = {
     for (final type in const [
@@ -1491,24 +1507,68 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                   errorText: _serialError,
                 ),
               ),
-              DropdownButtonFormField<InnerCoverSourceType>(
-                initialValue: _source,
+              DropdownButtonFormField<InnerCoverOriginClassification>(
+                initialValue: _origin,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Source'),
+                decoration: const InputDecoration(labelText: 'Origin'),
                 items:
-                    InnerCoverSourceType.values
+                    InnerCoverOriginClassification.values
                         .map(
-                          (source) => DropdownMenuItem(
-                            value: source,
-                            child: Text(source.label),
+                          (origin) => DropdownMenuItem(
+                            value: origin,
+                            child: Text(origin.label),
                           ),
                         )
                         .toList(),
                 onChanged:
                     (value) => setState(() {
-                      _source = value ?? _source;
+                      _origin = value ?? _origin;
+                      if (_origin ==
+                          InnerCoverOriginClassification
+                              .ownerDeclaredFabricated) {
+                        for (final state in _sections.values) {
+                          state.markAncestryUnknown();
+                        }
+                      } else if (_origin ==
+                          InnerCoverOriginClassification
+                              .documentedFabrication) {
+                        for (final state in _sections.values) {
+                          state.markNewFabricated();
+                        }
+                      }
                       _sectionsError = null;
                     }),
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Date incorporated',
+                  helperText: 'Optional plant incorporation date',
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _incorporatedOn == null
+                            ? 'Not recorded'
+                            : DateFormat(
+                              'dd MMM yyyy',
+                            ).format(_incorporatedOn!),
+                      ),
+                    ),
+                    if (_incorporatedOn != null)
+                      IconButton(
+                        tooltip: 'Clear incorporation date',
+                        onPressed: () => setState(() => _incorporatedOn = null),
+                        icon: const Icon(Icons.clear_rounded),
+                      ),
+                    IconButton(
+                      tooltip: 'Choose incorporation date',
+                      onPressed: _pickIncorporationDate,
+                      icon: const Icon(Icons.calendar_month_rounded),
+                    ),
+                  ],
+                ),
               ),
               TextField(
                 controller: _supplier,
@@ -1537,7 +1597,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                   ),
                 ],
               ),
-              if (_source == InnerCoverSourceType.fabricated) ...[
+              if (_isFabricatedOrigin) ...[
                 const SizedBox(height: BafSpacing.lg),
                 const Align(
                   alignment: Alignment.centerLeft,
@@ -1614,7 +1674,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     }
 
     final sections =
-        _source == InnerCoverSourceType.fabricated
+        _isFabricatedOrigin
             ? _sections.values.map((state) => state.toDraft()).toList()
             : const <InnerCoverFabricationSectionDraft>[];
     final sectionErrors = sections
@@ -1645,9 +1705,11 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
       context,
       _RegistrationResult(
         serialNumber: serial,
-        sourceType: _source,
+        sourceType: _sourceType,
+        originClassification: _origin,
         supplierOrFabricator: optional(_supplier),
-        receivedOrCompletedOn: DateTime.now(),
+        receivedOrCompletedOn: null,
+        incorporatedOn: _incorporatedOn,
         drawingReference: optional(_drawing),
         materialGrade: optional(_material),
         notes: optional(_notes),
@@ -1656,6 +1718,38 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
       ),
     );
   }
+
+  Future<void> _pickIncorporationDate() async {
+    final now = DateTime.now();
+    final current = _incorporatedOn?.toLocal() ?? now;
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(now) ? now : current,
+      firstDate: DateTime(1950),
+      lastDate: now,
+      helpText: 'Date incorporated',
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _incorporatedOn = innerCoverIncorporationInstantForLocalDate(selected);
+    });
+  }
+
+  bool get _isFabricatedOrigin => const {
+    InnerCoverOriginClassification.documentedFabrication,
+    InnerCoverOriginClassification.ownerDeclaredFabricated,
+  }.contains(_origin);
+
+  InnerCoverSourceType get _sourceType => switch (_origin) {
+    InnerCoverOriginClassification.documentedPurchase =>
+      InnerCoverSourceType.purchased,
+    InnerCoverOriginClassification.documentedFabrication ||
+    InnerCoverOriginClassification
+        .ownerDeclaredFabricated => InnerCoverSourceType.fabricated,
+    InnerCoverOriginClassification.ownerDeclaredNew ||
+    InnerCoverOriginClassification
+        .legacyUndocumented => InnerCoverSourceType.legacyExisting,
+  };
 }
 
 class _SectionEditorState {
@@ -1669,6 +1763,18 @@ class _SectionEditorState {
   final notes = TextEditingController();
 
   _SectionEditorState(this.type);
+
+  void markAncestryUnknown() {
+    source = InnerCoverSectionMaterialSource.reusedUnknownLegacyDonor;
+    donor = null;
+    donorKey.clear();
+  }
+
+  void markNewFabricated() {
+    source = InnerCoverSectionMaterialSource.newFabricated;
+    donor = null;
+    donorKey.clear();
+  }
 
   InnerCoverFabricationSectionDraft toDraft() =>
       InnerCoverFabricationSectionDraft(

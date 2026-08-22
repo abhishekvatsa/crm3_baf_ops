@@ -134,8 +134,10 @@ function registerRequest(overrides = {}) {
     registrationDraft: {
       serialNumber: 'GR26',
       sourceType: 'purchased',
+      originClassification: 'documentedPurchase',
       supplierOrFabricator: 'Approved supplier',
       receivedOrCompletedOn: '2026-08-01T00:00:00.000Z',
+      incorporatedOn: '2026-08-01T12:00:00.000Z',
       drawingReference: 'IC-001',
       materialGrade: 'SS 321',
       notes: null,
@@ -254,6 +256,37 @@ describe('Inner Cover lifecycle mutation', () => {
         receivedOrCompletedOn: '2026-08-16T00:00:00.000Z',
       },
     })).rejects.toThrow('cannot be in the future');
+    await expect(invoke(fakeDb(seed()), {
+      ...registerRequest(),
+      requestId: '18181818-1818-4181-8181-181818181818',
+      registrationDraft: {
+        ...registerRequest().registrationDraft,
+        incorporatedOn: '2026-08-16T00:00:00.000Z',
+      },
+    })).rejects.toThrow('cannot be in the future');
+  });
+
+  test('owner-declared new origin remains limited-trace rather than T3', async () => {
+    const memory = fakeDb(seed());
+    await invoke(memory, {
+      ...registerRequest(),
+      registrationDraft: {
+        ...registerRequest().registrationDraft,
+        serialNumber: 'N16',
+        sourceType: 'legacyExisting',
+        originClassification: 'ownerDeclaredNew',
+        supplierOrFabricator: null,
+        receivedOrCompletedOn: null,
+      },
+    });
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({
+        serialNumber: 'N16',
+        sourceType: 'legacyExisting',
+        originClassification: 'ownerDeclaredNew',
+        traceabilityGrade: 'T1',
+        incorporatedOn: new Date('2026-08-01T12:00:00.000Z'),
+      });
   });
 
   test('registers, accepts, links and delinks with exact history', async () => {
@@ -419,6 +452,7 @@ describe('Inner Cover lifecycle mutation', () => {
       registrationDraft: {
         ...registerRequest().registrationDraft,
         sourceType: 'fabricated',
+        originClassification: 'documentedFabrication',
         serialNumber: 'GR30',
         fabricationSections: [
           {

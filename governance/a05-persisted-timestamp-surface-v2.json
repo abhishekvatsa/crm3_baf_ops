@@ -428,9 +428,9 @@
       "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
       "readerMarker": "factory InnerCoverProfile.fromMap",
       "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["receivedOrCompletedOn", "acceptedAt"],
+      "optionalFields": ["receivedOrCompletedOn", "incorporatedOn", "acceptedAt"],
       "owner": "asset-governance",
-      "purpose": "restore Inner Cover receipt, acceptance, and profile chronology",
+      "purpose": "restore Inner Cover receipt, incorporation, acceptance, and profile chronology",
       "authorityBoundary": "remote-inner-cover-profile",
       "regression": "test/inner_cover_lifecycle_model_test.dart",
       "reArmCondition": "any Inner Cover profile timestamp schema change"

@@ -44,6 +44,50 @@ enum InnerCoverSourceType {
   };
 }
 
+enum InnerCoverOriginClassification {
+  documentedPurchase,
+  documentedFabrication,
+  ownerDeclaredNew,
+  ownerDeclaredFabricated,
+  legacyUndocumented;
+
+  String get label => switch (this) {
+    documentedPurchase => 'Purchased · documented',
+    documentedFabrication => 'Fabricated · documented',
+    ownerDeclaredNew => 'New · owner-declared',
+    ownerDeclaredFabricated => 'Fabricated · owner-declared',
+    legacyUndocumented => 'Existing · origin undocumented',
+  };
+}
+
+InnerCoverOriginClassification _legacyOriginClassification(
+  InnerCoverSourceType sourceType,
+  InnerCoverTraceabilityGrade traceabilityGrade,
+) => switch (sourceType) {
+  InnerCoverSourceType.purchased =>
+    InnerCoverOriginClassification.documentedPurchase,
+  InnerCoverSourceType.fabricated =>
+    traceabilityGrade == InnerCoverTraceabilityGrade.t0
+        ? InnerCoverOriginClassification.ownerDeclaredFabricated
+        : InnerCoverOriginClassification.documentedFabrication,
+  InnerCoverSourceType.legacyExisting =>
+    InnerCoverOriginClassification.legacyUndocumented,
+};
+
+bool _originMatchesSource(
+  InnerCoverOriginClassification origin,
+  InnerCoverSourceType sourceType,
+) => switch (origin) {
+  InnerCoverOriginClassification.documentedPurchase =>
+    sourceType == InnerCoverSourceType.purchased,
+  InnerCoverOriginClassification.documentedFabrication ||
+  InnerCoverOriginClassification
+      .ownerDeclaredFabricated => sourceType == InnerCoverSourceType.fabricated,
+  InnerCoverOriginClassification.ownerDeclaredNew ||
+  InnerCoverOriginClassification
+      .legacyUndocumented => sourceType == InnerCoverSourceType.legacyExisting,
+};
+
 enum InnerCoverTraceabilityGrade {
   t0,
   t1,
@@ -59,6 +103,9 @@ enum InnerCoverTraceabilityGrade {
     t3 => 'T3 · complete new-material trace',
   };
 }
+
+DateTime innerCoverIncorporationInstantForLocalDate(DateTime selectedDate) =>
+    DateTime(selectedDate.year, selectedDate.month, selectedDate.day).toUtc();
 
 InnerCoverTraceabilityGrade _readTraceabilityGrade(
   dynamic value, {
@@ -185,10 +232,12 @@ class InnerCoverProfile {
   final String serialNumber;
   final String normalizedSerialNumber;
   final InnerCoverSourceType sourceType;
+  final InnerCoverOriginClassification originClassification;
   final InnerCoverLifecycleState lifecycleState;
   final InnerCoverTraceabilityGrade traceabilityGrade;
   final String? supplierOrFabricator;
   final DateTime? receivedOrCompletedOn;
+  final DateTime? incorporatedOn;
   final String? drawingReference;
   final String? materialGrade;
   final String? acceptanceReference;
@@ -212,10 +261,13 @@ class InnerCoverProfile {
     required this.serialNumber,
     required this.normalizedSerialNumber,
     required this.sourceType,
+    this.originClassification =
+        InnerCoverOriginClassification.legacyUndocumented,
     required this.lifecycleState,
     required this.traceabilityGrade,
     this.supplierOrFabricator,
     this.receivedOrCompletedOn,
+    this.incorporatedOn,
     this.drawingReference,
     this.materialGrade,
     this.acceptanceReference,
@@ -276,6 +328,12 @@ class InnerCoverProfile {
       field: 'lifecycleState',
       source: source,
     );
+    final sourceType = readRequiredPersistedEnum(
+      InnerCoverSourceType.values,
+      map['sourceType'],
+      field: 'sourceType',
+      source: source,
+    );
     final baseId = readOptionalPersistedString(
       map['currentBaseAssetInstanceId'],
       field: 'currentBaseAssetInstanceId',
@@ -320,6 +378,51 @@ class InnerCoverProfile {
       field: 'receivedOrCompletedOn',
       source: source,
     );
+    final incorporatedOn = readOptionalPersistedDateTime(
+      map['incorporatedOn'],
+      field: 'incorporatedOn',
+      source: source,
+    );
+    final traceabilityGrade = _readTraceabilityGrade(
+      map['traceabilityGrade'],
+      source: source,
+    );
+    final originClassification =
+        map['originClassification'] == null
+            ? _legacyOriginClassification(sourceType, traceabilityGrade)
+            : readRequiredPersistedEnum(
+              InnerCoverOriginClassification.values,
+              map['originClassification'],
+              field: 'originClassification',
+              source: source,
+            );
+    if (!_originMatchesSource(originClassification, sourceType)) {
+      throw PersistedDataFormatException(
+        field: 'originClassification',
+        source: source,
+        detail: 'does not match sourceType',
+      );
+    }
+    final traceabilityMatchesOrigin = switch (originClassification) {
+      InnerCoverOriginClassification.documentedPurchase =>
+        traceabilityGrade == InnerCoverTraceabilityGrade.t3,
+      InnerCoverOriginClassification.documentedFabrication => const {
+        InnerCoverTraceabilityGrade.t2,
+        InnerCoverTraceabilityGrade.t3,
+      }.contains(traceabilityGrade),
+      InnerCoverOriginClassification.ownerDeclaredNew =>
+        traceabilityGrade == InnerCoverTraceabilityGrade.t1,
+      InnerCoverOriginClassification.ownerDeclaredFabricated ||
+      InnerCoverOriginClassification.legacyUndocumented =>
+        traceabilityGrade == InnerCoverTraceabilityGrade.t0,
+    };
+    if (!traceabilityMatchesOrigin) {
+      throw PersistedDataFormatException(
+        field: 'traceabilityGrade',
+        source: source,
+        detail: 'does not match originClassification',
+      );
+    }
     final acceptanceReference = readOptionalPersistedString(
       map['acceptanceReference'],
       field: 'acceptanceReference',
@@ -373,6 +476,10 @@ class InnerCoverProfile {
     );
     if (createdAt.isAfter(updatedAt) ||
         (receivedOrCompletedOn?.isAfter(updatedAt) ?? false) ||
+        (incorporatedOn?.isAfter(updatedAt) ?? false) ||
+        (receivedOrCompletedOn != null &&
+            incorporatedOn != null &&
+            receivedOrCompletedOn.isAfter(incorporatedOn)) ||
         (acceptedAt?.isAfter(updatedAt) ?? false) ||
         (receivedOrCompletedOn != null &&
             acceptedAt != null &&
@@ -402,23 +509,17 @@ class InnerCoverProfile {
       ),
       serialNumber: serial,
       normalizedSerialNumber: normalized,
-      sourceType: readRequiredPersistedEnum(
-        InnerCoverSourceType.values,
-        map['sourceType'],
-        field: 'sourceType',
-        source: source,
-      ),
+      sourceType: sourceType,
+      originClassification: originClassification,
       lifecycleState: state,
-      traceabilityGrade: _readTraceabilityGrade(
-        map['traceabilityGrade'],
-        source: source,
-      ),
+      traceabilityGrade: traceabilityGrade,
       supplierOrFabricator: readOptionalPersistedString(
         map['supplierOrFabricator'],
         field: 'supplierOrFabricator',
         source: source,
       ),
       receivedOrCompletedOn: receivedOrCompletedOn,
+      incorporatedOn: incorporatedOn,
       drawingReference: readOptionalPersistedString(
         map['drawingReference'],
         field: 'drawingReference',

@@ -175,6 +175,14 @@ void main() {
     await tester.tap(find.byTooltip('Register Inner Cover'));
     await tester.pumpAndSettle();
     expect(find.text('Register Inner Cover'), findsOneWidget);
+    expect(find.text('Date incorporated'), findsOneWidget);
+    expect(find.text('Not recorded'), findsOneWidget);
+    await tester.tap(find.text('Purchased · documented'));
+    await tester.pumpAndSettle();
+    expect(find.text('New · owner-declared'), findsOneWidget);
+    await tester.tap(find.text('New · owner-declared'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fabrication sections'), findsNothing);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Register'));
     await tester.pump();
@@ -234,9 +242,9 @@ void main() {
     await tester.tap(find.byTooltip('Register Inner Cover'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Purchased'));
+    await tester.tap(find.text('Purchased · documented'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Fabricated').last);
+    await tester.tap(find.text('Fabricated · documented').last);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Serial number'),
