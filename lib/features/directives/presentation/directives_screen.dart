@@ -1,6 +1,6 @@
 // FILE: lib/features/directives/presentation/directives_screen.dart
 
-import 'dart:async';
+import 'dart:async' show Timer;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -545,16 +545,31 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
 
       await repo.acknowledgeDirective(id, actor: appUser);
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'directive_acknowledged',
-          force: true,
-        ),
-      );
+      final outcome =
+          kIsWeb
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'directive_acknowledged',
+                force: true,
+              );
 
       if (!mounted) return;
 
-      _showDirectiveSnack('Directive acknowledged', BafColors.sync);
+      final (message, color) = switch (outcome) {
+        SyncRequestOutcome.succeeded => (
+          'Directive acknowledged and synchronized.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Acknowledgement saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Acknowledgement saved on this device, but cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
+      _showDirectiveSnack(message, color);
     } catch (e) {
       if (!mounted) return;
 
@@ -611,13 +626,31 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         wasUnacknowledged: directive.status != DirectiveStatus.acknowledged,
       );
 
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'directive_closed', force: true),
-      );
+      final outcome =
+          kIsWeb
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'directive_closed',
+                force: true,
+              );
 
       if (!mounted) return;
 
-      _showDirectiveSnack('Directive closed', BafColors.sync);
+      final (message, color) = switch (outcome) {
+        SyncRequestOutcome.succeeded => (
+          'Directive closed and synchronized.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Closure saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Closure saved on this device, but cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
+      _showDirectiveSnack(message, color);
     } catch (e) {
       if (!mounted) return;
 

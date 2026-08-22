@@ -380,45 +380,7 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
       throw StateError('Directive firestoreId is required for persistence.');
     }
     d.firestoreId = firestoreId;
-    return {
-      'firestoreId': firestoreId,
-      'title': d.title,
-      'description': d.description,
-      'assetType': d.assetType?.name,
-      'assetNumber': d.assetNumber,
-      'component': d.component,
-      'subsystem': d.subsystem,
-      'tag': d.tag,
-      'hierarchyPath': d.hierarchyPath,
-      'directedTo': d.directedTo.name,
-      'status': d.status.name,
-      'priority': d.priority.name,
-      'createdByUid': d.createdByUid,
-      'createdByName': d.createdByName,
-      'issuedByUid': d.issuedByUid,
-      'issuedByName': d.issuedByName,
-      'issuedAt': d.issuedAt?.toIso8601String(),
-      'isActive': d.isActive,
-      'acknowledgedByUid': d.acknowledgedByUid,
-      'acknowledgedByName': d.acknowledgedByName,
-      'acknowledgedAt': d.acknowledgedAt?.toIso8601String(),
-      'closedByUid': d.closedByUid,
-      'closedByName': d.closedByName,
-      'closedAt': d.closedAt?.toIso8601String(),
-      'closedWithoutAcknowledgement': d.closedWithoutAcknowledgement,
-      'remarks': d.remarks,
-      'linkedMaintenanceFirestoreId': d.linkedMaintenanceFirestoreId,
-      'linkedExecutionFirestoreId': d.linkedExecutionFirestoreId,
-      'metadataJson': d.metadataJson,
-      'isDeleted': d.isDeleted,
-      'deletedAt': d.deletedAt?.toIso8601String(),
-      'deletedByUid': d.deletedByUid,
-      'deletedByName': d.deletedByName,
-      'deleteReason': d.deleteReason,
-      'createdAt': d.createdAt.toIso8601String(),
-      'updatedAt': d.updatedAt.toIso8601String(),
-      'version': d.version,
-    };
+    return d.toMap();
   }
 
   OperationalDirective _mapDirective(DocumentSnapshot doc) {

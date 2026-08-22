@@ -49,7 +49,7 @@
       "compatibility": "none",
       "regression": "test/a05_template_governance_integrity_test.dart",
       "reArmCondition": "snapshot decode bypasses quarantine or advances sync state",
-      "riskFingerprint": "525f368732aeb185a6d3699a27943d33e284caf6918a6d723957a74c63b4695d"
+      "riskFingerprint": "9b2beda808d29c1fcf0db01ec68f457af005823471c1ab762d3929949bd4885d"
     },
     {
       "id": "affected-assets",

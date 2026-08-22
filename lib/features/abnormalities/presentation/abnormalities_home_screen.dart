@@ -1,7 +1,6 @@
 // FILE: lib/features/abnormalities/presentation/abnormalities_home_screen.dart
 
-import 'dart:async';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -109,17 +108,32 @@ class _AbnormalitiesHomeScreenState
 
       await repository.seedDefaultTypes(actor: actor);
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'abnormality_defaults_seeded',
-          force: true,
-        ),
-      );
+      final syncOutcome =
+          kIsWeb
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'abnormality_defaults_seeded',
+                force: true,
+              );
 
       if (!mounted) return;
 
+      final message = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded =>
+          'Default abnormality types checked and synchronized.',
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+          'Default abnormality types checked on this device; synchronization is queued.',
+        SyncRequestOutcome.failed =>
+          'Default abnormality types were checked locally, but cloud synchronization needs attention.',
+      };
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Default abnormality types checked')),
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              syncOutcome == SyncRequestOutcome.failed
+                  ? BafColors.danger
+                  : null,
+        ),
       );
     } catch (e) {
       if (!mounted) return;

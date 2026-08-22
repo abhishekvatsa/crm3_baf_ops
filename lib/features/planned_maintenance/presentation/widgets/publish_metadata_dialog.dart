@@ -423,7 +423,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(
-              'Publication queued for ${package.packageCode}. It becomes assignable after sync confirms Firestore.',
+              'Published and sync-confirmed for ${package.packageCode}.',
             ),
           ),
         );

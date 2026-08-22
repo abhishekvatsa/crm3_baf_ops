@@ -177,6 +177,79 @@ void main() {
       );
     });
   });
+
+  group('Composer publish-sync refresh', () {
+    test('returns only a synchronized published record', () async {
+      final source = _published(isSynced: false);
+      final calls = <String>[];
+
+      final refreshed = await publishAndRefreshComposerTemplateVersion(
+        version: source,
+        persistLocal: () async => calls.add('publish'),
+        runSync: () async {
+          calls.add('sync');
+          return SyncRequestOutcome.succeeded;
+        },
+        reloadLocal: (firestoreId) async {
+          calls.add('reload:$firestoreId');
+          return _published(isSynced: true);
+        },
+      );
+
+      expect(calls, <String>['publish', 'sync', 'reload:version-70e']);
+      expect(refreshed.isPublished, isTrue);
+      expect(refreshed.isSynced, isTrue);
+    });
+
+    test(
+      'preserves a queued publication without claiming confirmation',
+      () async {
+        final source = _published(isSynced: false);
+
+        await expectLater(
+          publishAndRefreshComposerTemplateVersion(
+            version: source,
+            persistLocal: () async {},
+            runSync: () async => SyncRequestOutcome.queued,
+            reloadLocal: (firestoreId) async => source,
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              allOf(
+                contains('safely saved on this device'),
+                contains('queued'),
+              ),
+            ),
+          ),
+        );
+        expect(source.isPublished, isTrue);
+        expect(source.isSynced, isFalse);
+      },
+    );
+
+    test('rejects a mismatched publication readback', () async {
+      final source = _published(isSynced: false);
+      final changed = _published(isSynced: true)..contentHash = 'other-hash';
+
+      await expectLater(
+        publishAndRefreshComposerTemplateVersion(
+          version: source,
+          persistLocal: () async {},
+          runSync: () async => SyncRequestOutcome.succeeded,
+          reloadLocal: (firestoreId) async => changed,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('identity or content changed'),
+          ),
+        ),
+      );
+    });
+  });
 }
 
 TemplateVersion _draft({required String? firestoreId, required bool isSynced}) {
@@ -194,4 +267,13 @@ TemplateVersion _draft({required String? firestoreId, required bool isSynced}) {
     ..createdAt = DateTime(2026, 6, 14)
     ..updatedAt = DateTime(2026, 6, 14)
     ..isSynced = isSynced;
+}
+
+TemplateVersion _published({required bool isSynced}) {
+  return _draft(firestoreId: 'version-70e', isSynced: isSynced)
+    ..version = 2
+    ..status = TemplateVersionStatus.published
+    ..publishedByUid = 'governor-70e'
+    ..publishedByName = 'Governor'
+    ..publishedAt = DateTime(2026, 6, 15);
 }

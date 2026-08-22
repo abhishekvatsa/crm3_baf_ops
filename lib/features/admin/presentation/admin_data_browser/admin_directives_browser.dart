@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -345,15 +343,17 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
 
       await repository.updateDirective(updated, actor: appUser);
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'admin_directive_edited',
-          force: true,
-        ),
+      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+        reason: 'admin_directive_edited',
+        force: true,
       );
 
       if (!mounted) return;
-      showAdminDataSnack(context, 'Directive updated');
+      showAdminMutationSyncOutcome(
+        context,
+        action: 'Directive update',
+        outcome: syncOutcome,
+      );
     } catch (e) {
       if (!mounted) return;
       showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);
@@ -417,15 +417,17 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         ),
       );
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'admin_directive_deleted',
-          force: true,
-        ),
+      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+        reason: 'admin_directive_deleted',
+        force: true,
       );
 
       if (!mounted) return;
-      showAdminDataSnack(context, 'Directive marked as deleted');
+      showAdminMutationSyncOutcome(
+        context,
+        action: 'Directive deletion',
+        outcome: syncOutcome,
+      );
     } catch (e) {
       if (!mounted) return;
       showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);

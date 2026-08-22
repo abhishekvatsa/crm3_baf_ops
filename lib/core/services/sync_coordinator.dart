@@ -234,7 +234,9 @@ class SyncCoordinator {
     try {
       // ORDER: ordinary snapshot push → canonical pull → safe replay of
       // uncertain workflow commands → workflow projection pull.
-      await _sync.syncAll();
+      await _sync.syncAll(
+        recheckPermanentRejections: reason == 'manual_rejection_recheck',
+      );
       await _pull.pullAndReconcile();
 
       // Workflow is a supplemental control plane. Its retry/pull health is
@@ -400,13 +402,9 @@ class SyncCoordinator {
     }
   }
 
-  Future<void> _runWorkflowSupplementalSync({
-    required String reason,
-  }) async {
+  Future<void> _runWorkflowSupplementalSync({required String reason}) async {
     try {
-      await _ref
-          .read(workflowUncertainRetryServiceProvider)
-          .retryDueCommands();
+      await _ref.read(workflowUncertainRetryServiceProvider).retryDueCommands();
     } catch (error, stackTrace) {
       AppLogger.warning(
         'Workflow uncertain-command retry failed independently',

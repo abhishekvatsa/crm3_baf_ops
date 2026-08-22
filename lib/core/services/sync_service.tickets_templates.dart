@@ -663,6 +663,15 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
         final remote = remoteMap[record.firestoreId];
 
+        if (remote != null &&
+            !record.isDeleted &&
+            !remote.isDeleted &&
+            syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
+          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          lastSuccessCount++;
+          continue;
+        }
+
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
@@ -836,23 +845,39 @@ bool _maintenanceReplayStringListEquals(List<String>? a, List<String>? b) {
 bool maintenanceLifecycleReplayOutcomeMatches(
   Map<String, dynamic>? remote,
   Map<String, dynamic> stepData,
+) => syncLifecycleReplayOutcomeMatches(remote, stepData);
+
+// Confirms that every lifecycle-step field has its exact authoritative value.
+// Extra server fields are allowed; missing or divergent fields fail closed.
+bool syncLifecycleReplayOutcomeMatches(
+  Map<String, dynamic>? remote,
+  Map<String, dynamic> stepData,
 ) {
   if (remote == null) return false;
   for (final entry in stepData.entries) {
     if (!remote.containsKey(entry.key) ||
-        !_maintenanceReplayValueEquals(remote[entry.key], entry.value)) {
+        !_syncReplayValueEquals(remote[entry.key], entry.value)) {
       return false;
     }
   }
   return true;
 }
 
-bool _maintenanceReplayValueEquals(Object? remote, Object? expected) {
+// Generic lost-response convergence requires exact client-payload equivalence;
+// partial and status-only comparisons are deliberately excluded.
+bool syncPersistedSnapshotsEquivalent(
+  Map<String, dynamic> local,
+  Map<String, dynamic> remote,
+) =>
+    local.length == remote.length &&
+    syncLifecycleReplayOutcomeMatches(remote, local);
+
+bool _syncReplayValueEquals(Object? remote, Object? expected) {
   if (remote is Map && expected is Map) {
     if (remote.length != expected.length) return false;
     for (final entry in expected.entries) {
       if (!remote.containsKey(entry.key) ||
-          !_maintenanceReplayValueEquals(remote[entry.key], entry.value)) {
+          !_syncReplayValueEquals(remote[entry.key], entry.value)) {
         return false;
       }
     }
@@ -861,7 +886,7 @@ bool _maintenanceReplayValueEquals(Object? remote, Object? expected) {
   if (remote is List && expected is List) {
     if (remote.length != expected.length) return false;
     for (var index = 0; index < expected.length; index++) {
-      if (!_maintenanceReplayValueEquals(remote[index], expected[index])) {
+      if (!_syncReplayValueEquals(remote[index], expected[index])) {
         return false;
       }
     }

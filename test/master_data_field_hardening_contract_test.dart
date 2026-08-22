@@ -180,7 +180,7 @@ void main() {
     );
 
     test('showDialog returns typed results', () {
-      expect(src, contains('showDialog<bool>'));
+      expect(src, contains('showDialog<SyncRequestOutcome>'));
       expect(src, contains('showDialog<_AbnormalityTypeDeleteDecision>'));
     });
 
@@ -208,8 +208,10 @@ void main() {
       },
     );
 
-    test('saved-locally confirmation copy is present', () {
-      expect(src, contains('Saved locally; sync has been queued.'));
+    test('local and synchronized outcomes are represented separately', () {
+      expect(src, contains('and synchronized.'));
+      expect(src, contains('on this device; synchronization is queued.'));
+      expect(src, contains('cloud synchronization needs attention.'));
     });
 
     test('old no-dispose workaround comments are gone', () {

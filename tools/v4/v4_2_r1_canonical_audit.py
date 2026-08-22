@@ -9081,6 +9081,7 @@ a05_directive_reader = text(
 a05_directive_provider = "\n".join(
     text(path)
     for path in (
+        "lib/features/directives/data/operational_directive_model.dart",
         "lib/features/directives/providers/operational_directive_provider.dart",
         "lib/features/directives/providers/operational_directive_provider.local.dart",
         "lib/features/directives/providers/operational_directive_provider.remote.dart",
@@ -9520,7 +9521,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "2417C8E7E94C961917F51595140908B2BBBC5B71CA1569FCFE002F4A9039A983"
+        == "B9C850574F9A34C39685B8D39C1C3258192A9CC2A1411B1E121D64F5F6FC22F8"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9559,7 +9560,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 67
     and a04_inventory_report.get("inventoryDigest")
-    == "569B242D7B67DB4BCA0CED8E37E69AEAE812DDEE19A7CDA873A25940E2A4CBB9"
+    == "A95703BD6C7AC648AAAAF0D822B6A2793CC79F85BFD04E6B053C9DC7525FCAFD"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -9880,7 +9881,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 45
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 44
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 32
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 340
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 341
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
@@ -9997,6 +9998,7 @@ check(
         in a05_directive_reader
     and "readRemoteOperationalDirective(" in a05_directive_provider
     and "'firestoreId': firestoreId" in a05_directive_provider
+    and "return d.toMap();" in a05_directive_provider
     and "_normalizeDirectiveFromRemote" not in a05_directive_provider
     and "_enumByNameOr" not in a05_directive_provider
     and "_directiveIntOrNull" not in a05_directive_provider

@@ -175,6 +175,36 @@ void main() {
       },
     );
 
+    test(
+      'create UI requires approved identity and distinguishes local save from cloud acceptance',
+      () {
+        final source = _read(
+          'lib/features/maintenance/presentation/maintenance_form.dart',
+        );
+        final submit = _blockStartingAt(source, 'Future<void> _submit()');
+
+        _expectOrder(submit, const <String>[
+          'final appUser = ref.read(currentAppUserProvider).value;',
+          '!appUser.isApproved',
+          'final createCommand = buildMaintenanceIssueCreateCommand(',
+          'await repository.saveTicket(record);',
+          'await syncCoordinator.runFullSyncWithResult(',
+        ]);
+        expect(submit, contains('firebaseUser.uid != appUser.uid'));
+        expect(submit, contains('SyncRequestOutcome.succeeded'));
+        expect(submit, contains('SyncRequestOutcome.failed'));
+        expect(submit, contains('synchronization is queued'));
+        expect(submit, contains('cloud synchronization needs attention'));
+        expect(submit, isNot(contains('Issue raised successfully')));
+        expect(
+          submit,
+          isNot(contains('appUser?.uid ?? firebaseUser?.uid')),
+          reason:
+              'a Firebase-only session must not create locally optimistic maintenance authority',
+        );
+      },
+    );
+
     test('governed create and lifecycle replay stay deliberately separate', () {
       final source = _read(_syncPath);
       final create = _blockStartingAt(

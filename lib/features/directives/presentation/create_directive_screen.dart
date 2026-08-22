@@ -1,5 +1,4 @@
 // FILE: lib/features/directives/presentation/create_directive_screen.dart
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -171,15 +170,33 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
       await repo.saveDirective(directive, actor: actor);
 
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'directive_created', force: true),
-      );
+      final syncOutcome =
+          directive.isSynced
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'directive_created',
+                force: true,
+              );
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Directive issued and synchronized.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Directive saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Directive saved on this device, but cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
 
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
         Navigator.pop(context);
         messenger?.showSnackBar(
-          const SnackBar(content: Text('Directive Issued Successfully')),
+          SnackBar(content: Text(message), backgroundColor: color),
         );
       }
     } catch (e) {

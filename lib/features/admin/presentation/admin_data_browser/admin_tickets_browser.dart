@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -640,15 +638,17 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
         ),
       );
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'admin_ticket_deleted',
-          force: true,
-        ),
+      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+        reason: 'admin_ticket_deleted',
+        force: true,
       );
 
       if (!mounted) return;
-      showAdminDataSnack(context, 'Ticket marked as deleted');
+      showAdminMutationSyncOutcome(
+        context,
+        action: 'Ticket deletion',
+        outcome: syncOutcome,
+      );
     } catch (e) {
       if (!mounted) return;
       showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);

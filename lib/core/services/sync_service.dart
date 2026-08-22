@@ -157,6 +157,7 @@ class SyncService {
   final AuditRepository _auditRepo;
 
   bool _isSyncing = false;
+  bool _recheckPermanentRejections = false;
 
   int lastSuccessCount = 0;
   int lastFailureCount = 0;
@@ -252,12 +253,13 @@ class SyncService {
   // MAIN ENTRY
   // ─────────────────────────────────────────────────────────────
 
-  Future<void> syncAll() async {
+  Future<void> syncAll({bool recheckPermanentRejections = false}) async {
     if (_isSyncing) {
       return;
     }
 
     _isSyncing = true;
+    _recheckPermanentRejections = recheckPermanentRejections;
 
     lastSuccessCount = 0;
     lastFailureCount = 0;
@@ -332,6 +334,7 @@ class SyncService {
       rethrow;
     } finally {
       _isSyncing = false;
+      _recheckPermanentRejections = false;
       lastSyncTime = DateTime.now();
 
       final duration = DateTime.now().difference(start).inMilliseconds;

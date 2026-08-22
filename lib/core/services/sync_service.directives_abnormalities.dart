@@ -52,6 +52,15 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
         final remote = remoteMap[record.firestoreId];
 
+        if (remote != null &&
+            !record.isDeleted &&
+            !remote.isDeleted &&
+            syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
+          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          lastSuccessCount++;
+          continue;
+        }
+
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
@@ -181,6 +190,15 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         _checkClockDrift(record.updatedAt, 'abnormality type ${record.id}');
 
         final remote = remoteMap[record.firestoreId];
+
+        if (remote != null &&
+            !record.isDeleted &&
+            !remote.isDeleted &&
+            syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
+          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          lastSuccessCount++;
+          continue;
+        }
 
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {

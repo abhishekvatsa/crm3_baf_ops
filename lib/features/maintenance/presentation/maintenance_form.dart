@@ -925,11 +925,16 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       final appUser = ref.read(currentAppUserProvider).value;
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
 
-      if (appUser == null && firebaseUser == null) {
+      if (appUser == null ||
+          !appUser.isApproved ||
+          firebaseUser == null ||
+          firebaseUser.uid != appUser.uid) {
         if (!mounted) return;
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           const SnackBar(
-            content: Text('Please sign in before raising an issue'),
+            content: Text(
+              'Your approved user profile is not ready. Refresh sign-in before raising an issue.',
+            ),
             backgroundColor: BafColors.danger,
           ),
         );
@@ -937,19 +942,16 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       }
 
       final now = DateTime.now();
-      final reporterUid = appUser?.uid ?? firebaseUser?.uid;
-      final reporterName =
-          _cleanOptionalText(appUser?.name) ??
-          _cleanOptionalText(firebaseUser?.displayName) ??
-          _cleanOptionalText(firebaseUser?.email);
+      final reporterUid = appUser.uid;
+      final reporterName = _cleanOptionalText(appUser.name) ?? appUser.uid;
       final selectedReference =
           _assetHierarchyReference ?? selectedAsset.toReference();
       final eventAssetReference = await _resolveEventAssetReference(
         assetType: assetType,
         assetNumber: assetNumber,
         selectedReference: selectedReference,
-        reporterUid: reporterUid!,
-        reporterName: reporterName ?? reporterUid,
+        reporterUid: reporterUid,
+        reporterName: reporterName,
         confirmedAt: now,
       );
       FurnaceStuckupCase? furnaceStuckup;
@@ -959,7 +961,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           assetNumber: selectedStuckupBase!.assetNumber,
           selectedReference: selectedStuckupBase.toReference(),
           reporterUid: reporterUid,
-          reporterName: reporterName ?? reporterUid,
+          reporterName: reporterName,
           confirmedAt: now,
         );
         if (baseReference == null) {
@@ -1052,16 +1054,21 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 );
       }
 
+      // The offline queue may defer transport, but it must accept only the
+      // same governed command shape that the server will evaluate.
+      final createCommand = buildMaintenanceIssueCreateCommand(
+        record,
+        createVersion: record.version,
+      );
+      late final String completionMessage;
+      late final Color completionColor;
+
       if (kIsWeb) {
-        final command = buildMaintenanceIssueCreateCommand(
-          record,
-          createVersion: record.version,
-        );
         final receipt = await ref
             .read(workflowCommandGatewayProvider)
-            .execute(command);
+            .execute(createCommand);
         validateMaintenanceIssueCreateReceipt(
-          command: command,
+          command: createCommand,
           receipt: receipt,
           createVersion: record.version,
         );
@@ -1070,49 +1077,57 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           ..createdAt = receipt.appliedAt
           ..updatedAt = receipt.appliedAt
           ..isSynced = true;
+        completionMessage = 'Issue raised and accepted by the plant system.';
+        completionColor = BafColors.sync;
       } else {
         final repository = ref.read(maintenanceRepositoryProvider);
         final syncCoordinator = ref.read(syncCoordinatorProvider);
         final autoSyncService = ref.read(autoSyncServiceProvider);
         await repository.saveTicket(record);
 
-        if (record.isCritical) {
-          unawaited(
-            syncCoordinator.runFullSync(
-              reason: 'critical_ticket_created',
-              force: true,
-            ),
-          );
-        } else {
-          // Normal raised issues leave the sender immediately. The delayed
-          // queue is only a retry if the governed command cannot run now.
-          autoSyncService.scheduleTicketSyncWithinFiveMinutes(
-            reason: 'normal_ticket_created_retry',
-          );
-
-          unawaited(
-            syncCoordinator
-                .runFullSyncWithResult(
-                  reason: 'normal_ticket_created_immediate',
-                  force: true,
-                )
-                .then((outcome) {
-                  if (outcome.isSuccessful) {
-                    autoSyncService.clearPendingTicketSync(
-                      reason: 'normal_ticket_created_immediate_success',
-                    );
-                  }
-                }),
+        // Arm retry before the immediate attempt so weak connectivity, process
+        // exit, or a lost response cannot strand the local evidence.
+        autoSyncService.scheduleTicketSyncWithinFiveMinutes(
+          reason:
+              record.isCritical
+                  ? 'critical_ticket_created_retry'
+                  : 'normal_ticket_created_retry',
+        );
+        final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+          reason:
+              record.isCritical
+                  ? 'critical_ticket_created_immediate'
+                  : 'normal_ticket_created_immediate',
+          force: true,
+        );
+        if (syncOutcome.isSuccessful) {
+          autoSyncService.clearPendingTicketSync(
+            reason: 'ticket_created_immediate_success',
           );
         }
+
+        (completionMessage, completionColor) = switch (syncOutcome) {
+          SyncRequestOutcome.succeeded => (
+            'Issue raised and synchronized with the plant system.',
+            BafColors.sync,
+          ),
+          SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+            'Issue saved on this device; synchronization is queued.',
+            BafColors.warning,
+          ),
+          SyncRequestOutcome.failed => (
+            'Issue saved on this device, but cloud synchronization needs attention.',
+            BafColors.danger,
+          ),
+        };
       }
 
       if (!mounted) return;
 
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Issue raised successfully'),
-          backgroundColor: BafColors.sync,
+        SnackBar(
+          content: Text(completionMessage),
+          backgroundColor: completionColor,
         ),
       );
 

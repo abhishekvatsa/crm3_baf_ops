@@ -423,6 +423,14 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                                     ...rejections.map(
                                       (row) => _SyncRejectionRow(
                                         row: row,
+                                        canRecheck: actor?.isApproved == true,
+                                        onRecheck:
+                                            actor?.isApproved == true
+                                                ? () => _recheckSyncRejections(
+                                                  sheetContext,
+                                                  ref,
+                                                )
+                                                : null,
                                         canResolve: canResolveSyncRejections,
                                         onResolve:
                                             canResolveSyncRejections &&
@@ -731,6 +739,40 @@ Future<void> _showResolveSyncRejectionDialog(
     actor,
     notes: resolutionNotes,
   );
+}
+
+Future<void> _recheckSyncRejections(BuildContext context, WidgetRef ref) async {
+  try {
+    final outcome = await ref
+        .read(syncCoordinatorProvider)
+        .runFullSyncWithResult(reason: 'manual_rejection_recheck', force: true);
+    ref.invalidate(recentSyncRejectionsProvider);
+    ref.invalidate(syncPendingCountsProvider);
+
+    if (!context.mounted) return;
+    final (message, color) = switch (outcome) {
+      SyncRequestOutcome.succeeded => (
+        'Held items were rechecked against the server. Accepted or identical records are now synchronized.',
+        BafColors.sync,
+      ),
+      SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+        'The server recheck is queued.',
+        BafColors.warning,
+      ),
+      SyncRequestOutcome.failed => (
+        'The server still rejected at least one item. Local evidence was preserved.',
+        BafColors.danger,
+      ),
+    };
+    _showSyncSnack(context, message, color);
+  } catch (error) {
+    if (!context.mounted) return;
+    _showSyncSnack(
+      context,
+      'Could not recheck held items: $error',
+      BafColors.danger,
+    );
+  }
 }
 
 Future<void> _resolveSyncRejection(
@@ -1064,11 +1106,15 @@ class _SectionLabel extends StatelessWidget {
 
 class _SyncRejectionRow extends StatelessWidget {
   final SyncRejection row;
+  final bool canRecheck;
+  final VoidCallback? onRecheck;
   final bool canResolve;
   final VoidCallback? onResolve;
 
   const _SyncRejectionRow({
     required this.row,
+    required this.canRecheck,
+    required this.onRecheck,
     required this.canResolve,
     required this.onResolve,
   });
@@ -1131,32 +1177,47 @@ class _SyncRejectionRow extends StatelessWidget {
           const SizedBox(height: BafSpacing.xs),
           Align(
             alignment: Alignment.centerRight,
-            child:
-                canResolve
-                    ? TextButton.icon(
-                      onPressed: onResolve,
-                      icon: const Icon(Icons.fact_check_rounded, size: 16),
-                      label: Text(
-                        row.isLikelyPermanent
-                            ? 'Resolve / allow retry'
-                            : 'Mark reviewed',
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: BafColors.sync,
-                        visualDensity: VisualDensity.compact,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    )
-                    : Text(
-                      row.isLikelyPermanent
-                          ? 'Admin review required'
-                          : 'Admin can mark reviewed',
-                      style: const TextStyle(
-                        color: BafColors.warning,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: BafSpacing.xs,
+              children: [
+                if (canRecheck)
+                  OutlinedButton.icon(
+                    onPressed: onRecheck,
+                    icon: const Icon(Icons.sync_problem_rounded, size: 16),
+                    label: const Text('Recheck with server'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: BafColors.warning,
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
+                  ),
+                if (canResolve)
+                  TextButton.icon(
+                    onPressed: onResolve,
+                    icon: const Icon(Icons.fact_check_rounded, size: 16),
+                    label: Text(
+                      row.isLikelyPermanent
+                          ? 'Review retry hold'
+                          : 'Mark reviewed',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: BafColors.sync,
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                if (!canRecheck && !canResolve)
+                  const Text(
+                    'Sign in with an approved profile to recheck',
+                    style: TextStyle(
+                      color: BafColors.warning,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),

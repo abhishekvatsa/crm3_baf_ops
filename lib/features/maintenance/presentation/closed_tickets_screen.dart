@@ -1,6 +1,5 @@
 // FILE: lib/features/maintenance/presentation/closed_tickets_screen.dart
 
-import 'dart:async' show unawaited;
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -287,14 +286,32 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
         return;
       }
 
-      unawaited(
-        ref
-            .read(syncCoordinatorProvider)
-            .runFullSync(reason: 'ticket_reopened', force: true),
-      );
+      final syncOutcome =
+          kIsWeb
+              ? SyncRequestOutcome.succeeded
+              : await ref
+                  .read(syncCoordinatorProvider)
+                  .runFullSyncWithResult(
+                    reason: 'ticket_reopened',
+                    force: true,
+                  );
       ref.read(refreshClosedTicketsProvider.notifier).state++;
 
-      _showSnack(message: 'Ticket reopened', color: BafColors.maintenance);
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Ticket reopened and synchronized.',
+          BafColors.maintenance,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Reopen saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Reopen saved on this device, but cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
+      _showSnack(message: message, color: color);
     } catch (e) {
       if (!mounted) {
         return;

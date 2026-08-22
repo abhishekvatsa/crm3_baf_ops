@@ -59,6 +59,15 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
         final remote = remoteMap[record.firestoreId];
 
+        if (remote != null &&
+            !record.isDeleted &&
+            !remote.isDeleted &&
+            syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
+          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          lastSuccessCount++;
+          continue;
+        }
+
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
@@ -172,6 +181,15 @@ extension _SyncServiceTemplateGovernance on SyncService {
         _checkClockDrift(record.updatedAt, 'template version ${record.id}');
 
         final remote = remoteMap[record.firestoreId];
+
+        if (remote != null &&
+            !record.isDeleted &&
+            !remote.isDeleted &&
+            syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
+          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          lastSuccessCount++;
+          continue;
+        }
 
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
@@ -374,14 +392,17 @@ extension _SyncServiceTemplateGovernance on SyncService {
     try {
       for (final step in plan) {
         if (step == _TemplateVersionReplayStep.createDraft) {
-          await _retry(() async {
-            await _firestoreTemplateGovernance
+          final stepData = _templateVersionDraftReplayCreateData(local);
+          final receipt = await _applyTemplateVersionLifecycleReplayStep(
+            firestoreId,
+            stepData,
+            () => _firestoreTemplateGovernance
                 .createRemoteTemplateVersionDraftReplayStepForSync(
                   firestoreId,
-                  _templateVersionDraftReplayCreateData(local),
-                );
-          });
-          expectedDraftVersion = local.version - 1;
+                  stepData,
+                ),
+          );
+          expectedDraftVersion = receipt.version;
           continue;
         }
         if (step == _TemplateVersionReplayStep.updateDraft) {
@@ -391,15 +412,18 @@ extension _SyncServiceTemplateGovernance on SyncService {
               'TemplateVersion draft update replay is missing its expected remote version.',
             );
           }
-          await _retry(() async {
-            await _firestoreTemplateGovernance
+          final stepData = _templateVersionDraftReplayUpdateData(local);
+          final receipt = await _applyTemplateVersionLifecycleReplayStep(
+            firestoreId,
+            stepData,
+            () => _firestoreTemplateGovernance
                 .applyRemoteTemplateVersionDraftUpdateReplayStepForSync(
                   firestoreId,
-                  _templateVersionDraftReplayUpdateData(local),
+                  stepData,
                   expectedDraftVersion: predecessorVersion,
-                );
-          });
-          expectedDraftVersion = local.version - 1;
+                ),
+          );
+          expectedDraftVersion = receipt.version;
           continue;
         }
 
@@ -409,14 +433,17 @@ extension _SyncServiceTemplateGovernance on SyncService {
             'TemplateVersion archive replay is missing its expected remote draft version.',
           );
         }
-        await _retry(() async {
-          await _firestoreTemplateGovernance
+        final stepData = _templateVersionArchiveReplayStepData(local);
+        await _applyTemplateVersionLifecycleReplayStep(
+          firestoreId,
+          stepData,
+          () => _firestoreTemplateGovernance
               .applyRemoteTemplateVersionArchiveReplayStepForSync(
                 firestoreId,
-                _templateVersionArchiveReplayStepData(local),
+                stepData,
                 expectedDraftVersion: predecessorVersion,
-              );
-        });
+              ),
+        );
       }
       return true;
     } catch (error, stackTrace) {
@@ -497,6 +524,10 @@ extension _SyncServiceTemplateGovernance on SyncService {
     TemplateVersion local,
     TemplateVersion? remote,
   ) async {
+    if (_remoteTemplateVersionPublishAlreadySatisfied(local, remote)) {
+      return true;
+    }
+
     if (_shouldRestoreRemoteDraftPayloadBeforePublishReplay(local, remote)) {
       _restoreRemoteDraftPayloadForPublishReplay(local, remote!);
       await _templateGovernanceRepo.batchUpsertVersions(<TemplateVersion>[
@@ -517,21 +548,27 @@ extension _SyncServiceTemplateGovernance on SyncService {
     try {
       for (final step in plan) {
         if (step == _TemplateVersionReplayStep.createDraft) {
-          await _retry(() async {
-            await _firestoreTemplateGovernance
+          final stepData = _templateVersionDraftReplayCreateData(local);
+          await _applyTemplateVersionLifecycleReplayStep(
+            firestoreId,
+            stepData,
+            () => _firestoreTemplateGovernance
                 .createRemoteTemplateVersionDraftReplayStepForSync(
                   firestoreId,
-                  _templateVersionDraftReplayCreateData(local),
-                );
-          });
+                  stepData,
+                ),
+          );
         } else {
-          await _retry(() async {
-            await _firestoreTemplateGovernance
+          final stepData = _templateVersionPublishReplayStepData(local);
+          await _applyTemplateVersionLifecycleReplayStep(
+            firestoreId,
+            stepData,
+            () => _firestoreTemplateGovernance
                 .applyRemoteTemplateVersionPublishReplayStepForSync(
                   firestoreId,
-                  _templateVersionPublishReplayStepData(local),
-                );
-          });
+                  stepData,
+                ),
+          );
         }
       }
       return true;
@@ -543,6 +580,66 @@ extension _SyncServiceTemplateGovernance on SyncService {
       debugPrintStack(stackTrace: stackTrace);
       return false;
     }
+  }
+
+  bool _remoteTemplateVersionPublishAlreadySatisfied(
+    TemplateVersion local,
+    TemplateVersion? remote,
+  ) {
+    if (remote == null || local.isDeleted || remote.isDeleted) return false;
+    if (local.status != TemplateVersionStatus.published ||
+        remote.status != TemplateVersionStatus.published) {
+      return false;
+    }
+    if (_templateVersionPinnedFieldDiff(local, remote) != 'none') return false;
+    if (_templateVersionDraftPayloadDiff(local, remote) != 'none') return false;
+    return syncLifecycleReplayOutcomeMatches(
+      remote.toMap(),
+      _templateVersionPublishReplayStepData(local),
+    );
+  }
+
+  Future<TemplateVersion> _applyTemplateVersionLifecycleReplayStep(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+    Future<void> Function() writeStep,
+  ) async {
+    TemplateVersion? observed;
+    try {
+      await _retry(writeStep);
+    } catch (_) {
+      observed = await _readTemplateVersionLifecycleReplayReceipt(firestoreId);
+      if (!syncLifecycleReplayOutcomeMatches(observed?.toMap(), stepData)) {
+        rethrow;
+      }
+      debugPrint(
+        'TemplateVersion lifecycle replay for $firestoreId was confirmed by '
+        'readback after an uncertain write outcome.',
+      );
+    }
+
+    observed ??= await _readTemplateVersionLifecycleReplayReceipt(firestoreId);
+    if (!syncLifecycleReplayOutcomeMatches(observed?.toMap(), stepData)) {
+      throw StateError(
+        'TemplateVersion lifecycle replay for $firestoreId did not match '
+        'exact post-write readback.',
+      );
+    }
+    return observed!;
+  }
+
+  Future<TemplateVersion?> _readTemplateVersionLifecycleReplayReceipt(
+    String firestoreId,
+  ) async {
+    final records = await _firestoreTemplateGovernance
+        .getVersionsByFirestoreIds(<String>[firestoreId]);
+    if (records.length > 1) {
+      throw StateError(
+        'TemplateVersion lifecycle replay readback returned duplicate records '
+        'for $firestoreId.',
+      );
+    }
+    return records.isEmpty ? null : records.single;
   }
 
   bool _shouldRestoreRemoteDraftPayloadBeforePublishReplay(

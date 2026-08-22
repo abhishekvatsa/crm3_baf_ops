@@ -227,6 +227,7 @@ void main() {
         'lib/features/directives/providers/operational_directive_provider.dart',
         'lib/features/directives/providers/operational_directive_provider.local.dart',
         'lib/features/directives/providers/operational_directive_provider.remote.dart',
+        'lib/features/directives/data/operational_directive_model.dart',
       ].map((path) => File(path).readAsStringSync()).join('\n');
       final mapper = source.substring(
         source.indexOf('OperationalDirective _mapDirective'),
@@ -234,6 +235,7 @@ void main() {
 
       expect(mapper, contains('readRemoteOperationalDirective('));
       expect(source, contains("'firestoreId': firestoreId"));
+      expect(source, contains('return d.toMap();'));
       expect(source, isNot(contains('_normalizeDirectiveFromRemote')));
       expect(source, isNot(contains('_enumByNameOr')));
       expect(source, isNot(contains('_directiveIntOrNull')));
