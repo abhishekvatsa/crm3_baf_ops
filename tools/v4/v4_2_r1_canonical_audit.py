@@ -31,6 +31,18 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
+def canonical_receipt_sha(receipt: dict) -> str:
+    body = dict(receipt)
+    body.pop("receiptSha256", None)
+    canonical = json.dumps(
+        body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def text_sha_with_eol(path: Path, eol: str) -> str:
     source = path.read_text(encoding="utf-8")
     normalized = source.replace("\r\n", "\n").replace("\r", "\n")
@@ -3710,6 +3722,14 @@ pr265_backend_deployment_path = (
 pr265_backend_deployment = data(
     "release/evidence/pr265-backend-deployment-closure.json"
 )
+build14_firestore_readback_path = (
+    ROOT
+    / "release/evidence/"
+    / "build14-firestore-rules-indexes-live-readback.json"
+)
+build14_firestore_readback = data(
+    "release/evidence/build14-firestore-rules-indexes-live-readback.json"
+)
 build12_custody_reconciliation_path = (
     ROOT
     / "release/evidence/build-12-closure-custody-reconciliation.json"
@@ -4817,6 +4837,110 @@ check(
     and build14_entry.get("remoteBuiltTag") == "crm3-build-built/14"
     and "githubRunId" not in build14_entry
     and "governedPackageSha256" not in build14_entry,
+)
+build14_firestore_authority = combined_policy.get("finalization", {}).get(
+    "exactFirestoreRulesIndexesLiveReadback", {}
+)
+check(
+    "Build 14 Firestore Rules and indexes are exact on merged production main",
+    build14_firestore_authority.get("verified") is True
+    and sha(build14_firestore_readback_path)
+        == build14_firestore_authority.get("receiptFileSha256")
+    and build14_firestore_readback.get("receiptSha256")
+        == build14_firestore_authority.get("receiptCanonicalSha256")
+    and canonical_receipt_sha(build14_firestore_readback)
+        == build14_firestore_readback.get("receiptSha256")
+    and build14_firestore_readback.get("evidenceType")
+        == "firestore-rules-indexes-live-readback"
+    and build14_firestore_readback.get("mode") == "STRICT"
+    and build14_firestore_readback.get("projectId")
+        == "crm3-baf-ops-b8638"
+    and build14_firestore_readback.get("decision")
+        == "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+    and build14_firestore_readback.get("failedChecks") == []
+    and all(
+        value is True
+        for value in build14_firestore_readback.get("checks", {}).values()
+    )
+    and build14_firestore_readback.get("source", {}).get("before", {}).get(
+        "branch"
+    )
+        == "main"
+    and build14_firestore_readback.get("source", {}).get("before", {}).get(
+        "commit"
+    )
+        == build14_firestore_authority.get("sourceCommit")
+    and build14_firestore_readback.get("source", {}).get("before", {}).get(
+        "tree"
+    )
+        == build14_firestore_authority.get("sourceTree")
+    and build14_firestore_readback.get("source", {}).get("before", {}).get(
+        "originMain"
+    )
+        == build14_firestore_authority.get("sourceCommit")
+    and build14_firestore_readback.get("source", {}).get("after", {}).get(
+        "commit"
+    )
+        == build14_firestore_authority.get("sourceCommit")
+    and build14_firestore_readback.get("outputs", {}).get("rules", {}).get(
+        "sourceSha256"
+    )
+        == build14_firestore_authority.get("rulesSha256")
+    and build14_firestore_readback.get("outputs", {}).get("rules", {}).get(
+        "activeSha256"
+    )
+        == build14_firestore_authority.get("rulesSha256")
+    and build14_firestore_readback.get("outputs", {}).get("rules", {}).get(
+        "byteExact"
+    )
+        is True
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "sourceCount"
+    )
+        == build14_firestore_authority.get("indexCount")
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "cliCount"
+    )
+        == build14_firestore_authority.get("indexCount")
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "apiCount"
+    )
+        == build14_firestore_authority.get("indexCount")
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "apiReadyCount"
+    )
+        == build14_firestore_authority.get("indexCount")
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "sourceSetSha256"
+    )
+        == build14_firestore_authority.get("indexSetSha256")
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "cliSetSha256"
+    )
+        == build14_firestore_authority.get("indexSetSha256")
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "apiSetSha256"
+    )
+        == build14_firestore_authority.get("indexSetSha256")
+    and build14_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "allApiIndexesReady"
+    )
+        is True
+    and build14_firestore_authority.get("allIndexesReady") is True
+    and build14_firestore_authority.get("redundantDeploymentPerformed")
+        is False
+    and all(
+        value is False
+        for value in build14_firestore_readback.get(
+            "mutationBoundary", {}
+        ).values()
+    )
+    and combined_policy.get("knownOpenGates")
+        == [
+            "BUILD14_PRODUCTION_SIGNED_FINALIZATION",
+            "BUILD14_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
+            "BUILD14_EXPLICIT_PILOT_PROMOTION",
+        ],
 )
 check(
     "Build 8 backend is ready and its one physical sync retry stays bounded",

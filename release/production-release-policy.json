@@ -106,6 +106,19 @@
     "dualCustodyCompleted": false,
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/pr265-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "A54A0A691C06B030DD9A415771613317108D8D6224F6938645242F52E4DB40A8",
+    "exactFirestoreRulesIndexesLiveReadback": {
+      "verified": true,
+      "receiptFile": "release/evidence/build14-firestore-rules-indexes-live-readback.json",
+      "receiptFileSha256": "7E1D7ACC72ED094A03691D1AEB5D59AC9E576D3DFE6B6CE595B355DD71595B8D",
+      "receiptCanonicalSha256": "f0a6425f1a22d237adfd8e149faddde500a6de4b12f4a440f0c883032aebda8c",
+      "sourceCommit": "a9882c23afe1daf458e66f7c07e6095d19a60b99",
+      "sourceTree": "0cf4070fd474db6a103cd06c79d0d7eb49fc96ab",
+      "rulesSha256": "309B79AA7D773E7A92202C966F98FEA60F50DA76D84E383ECA662448A2C00F73",
+      "indexSetSha256": "6B24D8B54E0D6B254DFFCFF0DAD49C88EF6096C776BE8392140D74E12D6BE8A5",
+      "indexCount": 61,
+      "allIndexesReady": true,
+      "redundantDeploymentPerformed": false
+    },
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
@@ -229,7 +242,6 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD14_EXACT_FIRESTORE_RULES_INDEXES_DEPLOYMENT_READBACK",
     "BUILD14_PRODUCTION_SIGNED_FINALIZATION",
     "BUILD14_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
     "BUILD14_EXPLICIT_PILOT_PROMOTION"

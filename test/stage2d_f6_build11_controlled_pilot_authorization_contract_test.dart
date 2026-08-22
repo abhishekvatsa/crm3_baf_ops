@@ -13,6 +13,27 @@ List<Map<String, dynamic>> _objects(dynamic value) =>
 String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
+dynamic _canonicalize(dynamic value) {
+  if (value is List<dynamic>) {
+    return value.map(_canonicalize).toList(growable: false);
+  }
+  if (value is Map) {
+    final source = Map<String, dynamic>.from(value);
+    final keys = source.keys.toList(growable: false)..sort();
+    return <String, dynamic>{
+      for (final key in keys) key: _canonicalize(source[key]),
+    };
+  }
+  return value;
+}
+
+String _receiptSeal(Map<String, dynamic> receipt) {
+  final body = Map<String, dynamic>.from(receipt)..remove('receiptSha256');
+  return sha256
+      .convert(utf8.encode(jsonEncode(_canonicalize(body))))
+      .toString();
+}
+
 void main() {
   test('Build 11 closure remains exact while Build 14 gates stay separate', () {
     const evidencePath =
@@ -101,8 +122,56 @@ void main() {
     expect(distribution['appliesToCurrentCandidate'], isFalse);
     expect(distribution['pilotHandoutPerformed'], isFalse);
     expect(distribution['unrestrictedPlantReleaseApproved'], isFalse);
+    final firestoreAuthority = _object(
+      _object(policy['finalization'])['exactFirestoreRulesIndexesLiveReadback'],
+    );
+    final firestoreReceiptPath = firestoreAuthority['receiptFile'] as String;
+    final firestoreReceipt = _object(
+      jsonDecode(File(firestoreReceiptPath).readAsStringSync()),
+    );
+    expect(firestoreAuthority['verified'], isTrue);
+    expect(
+      _sha256(firestoreReceiptPath),
+      firestoreAuthority['receiptFileSha256'],
+    );
+    expect(
+      firestoreReceipt['receiptSha256'],
+      firestoreAuthority['receiptCanonicalSha256'],
+    );
+    expect(_receiptSeal(firestoreReceipt), firestoreReceipt['receiptSha256']);
+    expect(firestoreReceipt['mode'], 'STRICT');
+    expect(
+      firestoreReceipt['decision'],
+      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
+    );
+    expect(firestoreReceipt['failedChecks'], isEmpty);
+    expect(_object(firestoreReceipt['checks']).values, everyElement(isTrue));
+    final rules = _object(_object(firestoreReceipt['outputs'])['rules']);
+    expect(rules['byteExact'], isTrue);
+    expect(rules['sourceSha256'], firestoreAuthority['rulesSha256']);
+    expect(rules['activeSha256'], firestoreAuthority['rulesSha256']);
+    final indexes = _object(_object(firestoreReceipt['outputs'])['indexes']);
+    for (final key in <String>[
+      'sourceCount',
+      'cliCount',
+      'apiCount',
+      'apiReadyCount',
+    ]) {
+      expect(indexes[key], firestoreAuthority['indexCount'], reason: key);
+    }
+    for (final key in <String>[
+      'sourceSetSha256',
+      'cliSetSha256',
+      'apiSetSha256',
+    ]) {
+      expect(indexes[key], firestoreAuthority['indexSetSha256'], reason: key);
+    }
+    expect(indexes['allApiIndexesReady'], isTrue);
+    expect(
+      _object(firestoreReceipt['mutationBoundary']).values,
+      everyElement(isFalse),
+    );
     expect(policy['knownOpenGates'], <String>[
-      'BUILD14_EXACT_FIRESTORE_RULES_INDEXES_DEPLOYMENT_READBACK',
       'BUILD14_PRODUCTION_SIGNED_FINALIZATION',
       'BUILD14_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
       'BUILD14_EXPLICIT_PILOT_PROMOTION',
