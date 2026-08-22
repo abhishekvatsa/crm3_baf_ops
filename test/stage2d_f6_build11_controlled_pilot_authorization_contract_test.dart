@@ -102,9 +102,10 @@ void main() {
     expect(distribution['pilotHandoutPerformed'], isFalse);
     expect(distribution['unrestrictedPlantReleaseApproved'], isFalse);
     expect(policy['knownOpenGates'], <String>[
-      'BUILD12_EXACT_BACKEND_RULES_INDEXES_DEPLOYMENT_READBACK',
-      'BUILD12_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
-      'BUILD12_EXPLICIT_PILOT_PROMOTION',
+      'BUILD13_EXACT_BACKEND_RULES_INDEXES_DEPLOYMENT_READBACK',
+      'BUILD13_PRODUCTION_SIGNED_FINALIZATION',
+      'BUILD13_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
+      'BUILD13_EXPLICIT_PILOT_PROMOTION',
     ]);
   });
 }
