@@ -1040,6 +1040,22 @@
       "regression": "test/persisted_json_equality_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
       "reArmCondition": "malformed JSON compares equal, collection semantics change, or the helper becomes mutation authority",
       "riskFingerprint": "2a72abb931c2f78618f11822eaba234c1a39c5c96aadc0c7362a6b97559e52bc"
+    },
+    {
+      "id": "maintenance-lifecycle-replay-receipt",
+      "file": "lib/core/services/sync_service.tickets_templates.dart",
+      "markers": [
+        "Future<_MaintenanceLifecycleReplayReceipt>\n  _applyMaintenanceLifecycleReplayStep(",
+        "applyMaintenanceLifecycleReplayReceiptForSync("
+      ],
+      "classification": "REMOTE_COMMAND_RECEIPT",
+      "owner": "synchronization",
+      "authorityBoundary": "exact Firestore maintenance lifecycle replay readback",
+      "malformedDisposition": "fail closed and leave the local maintenance row pending",
+      "compatibility": "none; a synchronized replay requires an exact version and updatedAt receipt",
+      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
+      "reArmCondition": "readback becomes optional, receipt fields default, or a stale local row is marked synchronized",
+      "riskFingerprint": "247661324a135dfcf9d3f2b21d7a073c216c5d77d76e474a0182f65e47dc3ef6"
     }
   ],
   "catchSites": [
@@ -1371,7 +1387,7 @@
     {
       "id": "maintenance-resolve-command-presentation",
       "file": "lib/features/maintenance/presentation/resolve_form.dart",
-      "siteFingerprint": "2872a89d43ccb542bdfbb88effc74275b35e3c532834910cbe95fc48dfe18d7e",
+      "siteFingerprint": "6dcef6a75ab8ef58f5d86490474440ad4f469cc245a577ed444a6589ba81cc47",
       "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
       "purpose": "surface resolution-command failure without coercing downtime evidence",
       "authorityBoundary": "operator ticket-resolution command",

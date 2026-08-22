@@ -806,6 +806,18 @@
       "authorityBoundary": "remote-maintenance-plan-record",
       "regression": "test/ui_business_alignment_test.dart",
       "reArmCondition": "any maintenance-plan target-window timestamp schema change"
+    },
+    {
+      "id": "maintenance-lifecycle-replay-receipt",
+      "readerFile": "lib/core/services/sync_service.tickets_templates.dart",
+      "readerMarker": "Future<_MaintenanceLifecycleReplayReceipt>\n  _applyMaintenanceLifecycleReplayStep(",
+      "requiredFields": ["updatedAt"],
+      "optionalFields": [],
+      "owner": "synchronization",
+      "purpose": "adopt the exact server version and mutation time after a maintenance lifecycle replay",
+      "authorityBoundary": "remote-maintenance-lifecycle-replay-readback",
+      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
+      "reArmCondition": "replay success no longer requires exact server timestamp readback or local receipt adoption"
     }
   ]
 }

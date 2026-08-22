@@ -21,9 +21,11 @@ Post-closure re-arms on 20-21 August 2026 classified the read-only
 maintenance-intelligence, and inspection-programme surfaces under existing
 read/repository profiles. A subsequent review correction added the exact remote
 maintenance-lifecycle replay readback under the existing repository surface.
-The current manifest therefore covers 498 operations and 1,583 sites across 49
+This P1 correction also adds atomic local adoption of that verified receipt so
+the rebased server version is stored before the row is marked synchronized.
+The current manifest therefore covers 499 operations and 1,588 sites across 49
 surfaces with digest
-`7B191081D67AD71C69CBECE40B20D8B6CEE32D155C3E4BCADA86AD929D0E49D6`;
+`2417C8E7E94C961917F51595140908B2BBBC5B71CA1569FCFE002F4A9039A983`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

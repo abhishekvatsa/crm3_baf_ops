@@ -117,6 +117,83 @@ void main() {
       expect(stored.isSynced, isFalse);
     });
   });
+
+  test(
+    'lifecycle receipt adopts rebased server version before marking synced',
+    () async {
+      await _withMaintenanceIsar((isar) async {
+        final localCloseTime = DateTime.utc(2026, 8, 22, 10, 3);
+        final serverCloseTime = DateTime.utc(2026, 8, 22, 10, 4);
+        final record =
+            _record(updatedAt: localCloseTime, version: 6)
+              ..isResolved = true
+              ..status = TicketStatus.resolved;
+        await isar.writeTxn(() => isar.maintenanceRecords.put(record));
+        final expected = SyncPushSnapshot(
+          id: record.id,
+          version: record.version,
+          updatedAt: record.updatedAt,
+        );
+
+        final applied = await IsarMaintenanceRepository()
+            .applyMaintenanceLifecycleReplayReceiptForSync(
+              firestoreId: record.firestoreId!,
+              expectedLocal: expected,
+              serverVersion: 8,
+              serverUpdatedAt: serverCloseTime,
+            );
+        final stored = await isar.maintenanceRecords.get(record.id);
+
+        expect(applied, isTrue);
+        expect(stored!.version, 8);
+        expect(stored.updatedAt.isAtSameMomentAs(serverCloseTime), isTrue);
+        expect(stored.isSynced, isTrue);
+        expect(
+          stored.version + 1,
+          9,
+          reason:
+              'The next local reopen must advance from the committed server '
+              'head, not from stale local version 6.',
+        );
+      });
+    },
+  );
+
+  test(
+    'lifecycle receipt preserves a concurrent local edit as dirty',
+    () async {
+      await _withMaintenanceIsar((isar) async {
+        final originalTime = DateTime.utc(2026, 8, 22, 10, 3);
+        final record = _record(updatedAt: originalTime, version: 6);
+        await isar.writeTxn(() => isar.maintenanceRecords.put(record));
+        final expected = SyncPushSnapshot(
+          id: record.id,
+          version: record.version,
+          updatedAt: record.updatedAt,
+        );
+        await isar.writeTxn(() async {
+          final changed = await isar.maintenanceRecords.get(record.id);
+          changed!
+            ..version = 7
+            ..updatedAt = originalTime.add(const Duration(minutes: 1));
+          await isar.maintenanceRecords.put(changed);
+        });
+
+        final applied = await IsarMaintenanceRepository()
+            .applyMaintenanceLifecycleReplayReceiptForSync(
+              firestoreId: record.firestoreId!,
+              expectedLocal: expected,
+              serverVersion: 8,
+              serverUpdatedAt: DateTime.utc(2026, 8, 22, 10, 5),
+            );
+        final stored = await isar.maintenanceRecords.get(record.id);
+
+        expect(applied, isFalse);
+        expect(stored!.version, 7);
+        expect(stored.isSynced, isFalse);
+      });
+    },
+  );
 }
 
 MaintenanceRecord _record({required DateTime updatedAt, required int version}) {

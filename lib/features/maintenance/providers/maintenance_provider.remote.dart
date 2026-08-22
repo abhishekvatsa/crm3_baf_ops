@@ -743,6 +743,19 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     );
   }
 
+  @override
+  Future<bool> applyMaintenanceLifecycleReplayReceiptForSync({
+    required String firestoreId,
+    required SyncPushSnapshot expectedLocal,
+    required int serverVersion,
+    required DateTime serverUpdatedAt,
+  }) {
+    throw UnsupportedError(
+      'applyMaintenanceLifecycleReplayReceiptForSync is a local sync '
+      'primitive and is not supported by the Firestore maintenance repository.',
+    );
+  }
+
   Future<Set<String>> _existingQualityWarningIds(
     Iterable<String> warningIds,
   ) async {

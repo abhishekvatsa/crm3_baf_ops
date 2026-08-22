@@ -767,6 +767,40 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Future<bool> applyMaintenanceLifecycleReplayReceiptForSync({
+    required String firestoreId,
+    required SyncPushSnapshot expectedLocal,
+    required int serverVersion,
+    required DateTime serverUpdatedAt,
+  }) async {
+    if (firestoreId.trim().isEmpty ||
+        serverVersion < 1 ||
+        serverVersion < expectedLocal.version) {
+      throw ArgumentError('Maintenance lifecycle replay receipt is invalid.');
+    }
+    final updatedAt = serverUpdatedAt.toUtc();
+    return isar.writeTxn<bool>(() async {
+      final record = await isar.maintenanceRecords.get(expectedLocal.id);
+      if (record == null ||
+          record.firestoreId != firestoreId ||
+          record.isDeleted ||
+          !expectedLocal.matches(
+            currentVersion: record.version,
+            currentUpdatedAt: record.updatedAt,
+          )) {
+        return false;
+      }
+
+      record
+        ..version = serverVersion
+        ..updatedAt = updatedAt
+        ..isSynced = true;
+      await isar.maintenanceRecords.put(record);
+      return true;
+    });
+  }
+
+  @override
   Future<void> markTicketsSynced(List<int> ids) async {
     await isar.writeTxn(() async {
       final records =

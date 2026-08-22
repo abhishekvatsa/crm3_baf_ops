@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,10 +15,26 @@ void main() {
         'if (remote == null)',
         'await _pushMissingMaintenanceTicket(record);',
         'continue;',
-        'final replayed = await _tryPushDecomposedMaintenanceTicket',
-        'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
+        'final expectedLocal = _syncPushSnapshot(record);',
+        'final replayReceipt = await _tryPushDecomposedMaintenanceTicket',
+        '.applyMaintenanceLifecycleReplayReceiptForSync(',
+        'serverVersion: replayReceipt.version,',
+        'serverUpdatedAt: replayReceipt.updatedAt,',
+        'if (_isRemoteNewer(record, remote))',
         'recordsToPush.add(record);',
       ]);
+
+      final replaySuccess = _blockStartingAt(
+        syncBlock,
+        'if (replayReceipt != null)',
+      );
+      expect(
+        replaySuccess,
+        isNot(contains('skippedButSyncedSnapshots.add')),
+        reason:
+            'A rebased replay must adopt its exact server receipt instead of '
+            'marking the stale local snapshot clean.',
+      );
 
       expect(syncBlock, contains('lastSuccessCount++;'));
       expect(
@@ -27,6 +44,136 @@ void main() {
             '69D.2 is a clean-state forward fix and must not add a held-rejection repair lane.',
       );
     });
+
+    test(
+      'stale local closure rebases over server acknowledgement without hiding business edits',
+      () {
+        final remote =
+            _maintenanceTicket(version: 6)
+              ..status = TicketStatus.acknowledged
+              ..acknowledgedByUid = 'maintenance-supervisor'
+              ..acknowledgedByName = 'Maintenance Supervisor'
+              ..acknowledgedAt = DateTime.utc(2026, 8, 22, 8, 5)
+              ..workflowQueueState = 'released'
+              ..workflowReleasedAt = DateTime.utc(2026, 8, 22, 8, 6)
+              ..workflowReleasedByUid = 'operations-supervisor'
+              ..workflowReleasedByName = 'Operations Supervisor'
+              ..workflowUpdatedAt = DateTime.utc(2026, 8, 22, 8, 6)
+              ..updatedAt = DateTime.utc(2026, 8, 22, 8, 6);
+        final local =
+            _maintenanceTicket(version: 6)
+              ..isResolved = true
+              ..status = TicketStatus.resolved
+              ..closedByUid = 'maintenance-supervisor'
+              ..closedByName = 'Maintenance Supervisor'
+              ..endDate = DateTime.utc(2026, 8, 22, 8, 10)
+              ..updatedAt = DateTime.utc(2026, 8, 22, 8, 10);
+
+        expect(
+          maintenanceResolvedReplayCanRebase(
+            local: local,
+            remote: remote,
+            currentUid: 'maintenance-supervisor',
+          ),
+          isTrue,
+          reason:
+              'Server-owned acknowledgement and workflow projection advances '
+              'must not strand a valid field-scoped closure.',
+        );
+        expect(
+          maintenanceCloseReplayVersion(
+            localIsResolved: true,
+            localVersion: local.version,
+            priorVersion: remote.version,
+            remoteVersion: remote.version,
+          ),
+          7,
+        );
+
+        remote.description = 'A different remote business description';
+        expect(
+          maintenanceResolvedReplayCanRebase(
+            local: local,
+            remote: remote,
+            currentUid: 'maintenance-supervisor',
+          ),
+          isFalse,
+          reason: 'A genuine concurrent business edit must remain a conflict.',
+        );
+
+        remote
+          ..description = local.description
+          ..resolutionHistoryJson =
+              '[{"resolvedByUid":"other-user","resolvedAt":"2026-08-22T08:07:00.000Z"}]';
+        expect(
+          maintenanceResolvedReplayCanRebase(
+            local: local,
+            remote: remote,
+            currentUid: 'maintenance-supervisor',
+          ),
+          isFalse,
+          reason:
+              'A newer remote close-and-reopen cycle must not be reversed by '
+              'an older local closure.',
+        );
+      },
+    );
+
+    test('stale closure cannot rebase while workflow is deferred', () {
+      final remote =
+          _maintenanceTicket(version: 9)
+            ..workflowDeferred = true
+            ..workflowQueueState = 'deferred';
+      final local =
+          _maintenanceTicket(version: 6)
+            ..isResolved = true
+            ..status = TicketStatus.resolved
+            ..closedByUid = 'maintenance-supervisor';
+
+      expect(
+        maintenanceResolvedReplayCanRebase(
+          local: local,
+          remote: remote,
+          currentUid: 'maintenance-supervisor',
+        ),
+        isFalse,
+      );
+      expect(
+        maintenanceCloseReplayVersion(
+          localIsResolved: true,
+          localVersion: local.version,
+          priorVersion: remote.version,
+          remoteVersion: remote.version,
+        ),
+        10,
+        reason:
+            'The version helper follows the remote head, although policy blocks '
+            'the deferred closure before any write.',
+      );
+    });
+
+    test(
+      'resolve UI reports the governed sync outcome instead of local-only success',
+      () {
+        final source = _read(
+          'lib/features/maintenance/presentation/resolve_form.dart',
+        );
+        final submit = _blockStartingAt(source, 'Future<void> _submit()');
+
+        expect(
+          submit,
+          contains('await syncCoordinator.runFullSyncWithResult('),
+        );
+        expect(submit, contains('SyncRequestOutcome.succeeded'));
+        expect(submit, contains('SyncRequestOutcome.failed'));
+        expect(submit, contains('synchronization is queued'));
+        expect(submit, contains('cloud sync needs attention'));
+        expect(
+          submit,
+          isNot(contains("unawaited(\n        syncCoordinator.runFullSync")),
+        );
+      },
+    );
 
     test('governed create and lifecycle replay stay deliberately separate', () {
       final source = _read(_syncPath);
@@ -168,8 +315,10 @@ void main() {
         expect(payload, contains('serverMutationFloor'));
         expect(payload, contains("'closedByUid': evidence.closedByUid"));
         expect(payload, contains("'updatedByUid': evidence.closedByUid"));
-        expect(payload, contains('final proposedVersion ='));
-        expect(payload, contains('final remoteVersion = remote?.version'));
+        expect(payload, contains('maintenanceCloseReplayVersion('));
+        expect(payload, contains('remoteVersion: remote?.version'));
+        expect(source, contains('final proposedVersion ='));
+        expect(source, contains('remoteVersion + 1'));
         expect(payload, contains("'version': version"));
         expect(payload, contains('withResolutionFromActions'));
         expect(payload, contains('evidence.actionsJson'));
@@ -492,7 +641,7 @@ void main() {
         final source = _read(_syncPath);
         final diff = _blockStartingAt(
           source,
-          'String _maintenancePinnedFieldDiff',
+          'String maintenanceLifecycleReplayPinnedFieldDiff',
         );
 
         for (final field in <String>[
@@ -509,12 +658,10 @@ void main() {
           'subsystem',
           'tag',
           'hierarchyPath',
+          'assetHierarchyRefJson',
           'classification',
           'otherDepartment',
           'reportedBy',
-          'acknowledgedByUid',
-          'acknowledgedByName',
-          'acknowledgedAt',
           'chargeNoAtEvent',
           'metadataJson',
           'performedBy',
@@ -545,6 +692,20 @@ void main() {
             isNot(contains("'$mutableLifecycleField'")),
             reason:
                 '$mutableLifecycleField is lifecycle/payload state, not pinned structure.',
+          );
+        }
+        for (final serverProjectionField in <String>[
+          'acknowledgedByUid',
+          'acknowledgedByName',
+          'acknowledgedAt',
+          'workflowDeferred',
+          'workflowQueueState',
+        ]) {
+          expect(
+            diff,
+            isNot(contains("'$serverProjectionField'")),
+            reason:
+                '$serverProjectionField is preserved from the current server projection during field-scoped replay.',
           );
         }
       },
@@ -649,6 +810,42 @@ void main() {
       );
     });
 
+    test(
+      'successful lifecycle replay also requires exact receipt readback',
+      () {
+        final source = _read(_syncPath);
+        final applyStep = _blockStartingAt(
+          source,
+          'Future<_MaintenanceLifecycleReplayReceipt>\n'
+          '  _applyMaintenanceLifecycleReplayStep(',
+        );
+
+        expect(
+          applyStep,
+          contains(
+            'observed ??= await _firestoreMaintenance\n'
+            '        .readRemoteMaintenanceLifecycleReplayFieldsForSync',
+          ),
+          reason:
+              'A successful write must be read back; error-only readback can '
+              'leave the local row at its stale pre-rebase version.',
+        );
+        expect(applyStep, contains('readRequiredPersistedInt('));
+        expect(applyStep, contains("data['version']"));
+        expect(applyStep, contains('readRequiredPersistedDateTime('));
+        expect(applyStep, contains("data['updatedAt']"));
+
+        final provider = _readMaintenanceProviderLibrary();
+        expect(
+          provider,
+          contains('applyMaintenanceLifecycleReplayReceiptForSync('),
+        );
+        expect(provider, contains('..version = serverVersion'));
+        expect(provider, contains('..updatedAt = updatedAt'));
+        expect(provider, contains('..isSynced = true'));
+      },
+    );
+
     test('uncertain reopen outcome preserves exact resolution history', () {
       final updatedAt = DateTime.utc(2026, 8, 21, 10, 5);
       final step = <String, dynamic>{
@@ -715,6 +912,22 @@ void main() {
       },
     );
   });
+}
+
+MaintenanceRecord _maintenanceTicket({required int version}) {
+  final createdAt = DateTime.utc(2026, 8, 22, 8);
+  return MaintenanceRecord()
+    ..firestoreId = 'maintenance-stale-version'
+    ..version = version
+    ..assetType = AssetType.base
+    ..assetNumber = 201
+    ..maintenanceType = MaintenanceType.breakdown
+    ..description = 'Cold leak test failed'
+    ..routedTo = RoutedTo.mechanical
+    ..loggedByUid = 'operations-user'
+    ..createdAt = createdAt
+    ..startDate = createdAt
+    ..updatedAt = createdAt;
 }
 
 Object? _differentReplayValue(Object? value) {

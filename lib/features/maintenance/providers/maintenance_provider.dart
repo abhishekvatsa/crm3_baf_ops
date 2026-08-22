@@ -393,6 +393,16 @@ abstract class MaintenanceRepository {
     required bool hasPostCreateLifecycle,
   });
 
+  /// Adopts the exact server version and mutation time confirmed after a
+  /// maintenance lifecycle replay. The local row is changed only if it still
+  /// matches the snapshot used to construct the replay.
+  Future<bool> applyMaintenanceLifecycleReplayReceiptForSync({
+    required String firestoreId,
+    required SyncPushSnapshot expectedLocal,
+    required int serverVersion,
+    required DateTime serverUpdatedAt,
+  });
+
   Future<void> markTicketsSynced(List<int> ids);
   Future<void> markTicketsSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
 }
