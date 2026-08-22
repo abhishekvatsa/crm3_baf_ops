@@ -1369,6 +1369,9 @@ firebase_key_security_policy = text("SECURITY.md")
 firebase_key_decision = text(
     "docs/v4_2_r1/FIREBASE_CLIENT_API_KEY_CUSTODY.md"
 )
+firebase_key_android_live_evidence = data(
+    "release/evidence/firebase-android-api-key-pilot-hardening-20260822.json"
+)
 root_package = data("package.json")
 firebase_key_source_policy = firebase_key_policy.get("sourceCustody", {})
 firebase_key_live_policy = firebase_key_policy.get("liveReadback", {})
@@ -1533,6 +1536,64 @@ check(
     and "both approved Android signing certificates" in firebase_key_decision
     and "Browser and iOS" in firebase_key_decision
     and "application restrictions remain unchanged" in firebase_key_decision,
+)
+firebase_key_android_evidence_source = firebase_key_android_live_evidence.get(
+    "source", {}
+)
+firebase_key_android_evidence_application = firebase_key_android_live_evidence.get(
+    "applicationRestriction", {}
+)
+firebase_key_android_evidence_restrictions = firebase_key_android_live_evidence.get(
+    "restrictions", {}
+)
+firebase_key_android_evidence_rollback = firebase_key_android_live_evidence.get(
+    "rollback", {}
+)
+firebase_key_android_evidence_privacy = firebase_key_android_live_evidence.get(
+    "privacyBoundary", {}
+)
+check(
+    "Firebase Android pilot key binding is live, exact and rollback-protected",
+    firebase_key_android_live_evidence.get("schemaVersion") == 1
+    and firebase_key_android_live_evidence.get("evidenceType")
+        == "firebase-android-api-key-pilot-hardening"
+    and firebase_key_android_live_evidence.get("capturedAtUtc")
+        == "2026-08-22T00:12:18.062Z"
+    and firebase_key_android_live_evidence.get("status")
+        == "APPLIED_AND_VERIFIED"
+    and firebase_key_android_evidence_source.get("commit")
+        == "a78c4723c4a4396c0c9796a5de90486621042514"
+    and firebase_key_android_evidence_source.get("originMain")
+        == "a78c4723c4a4396c0c9796a5de90486621042514"
+    and firebase_key_android_evidence_source.get("policySha256")
+        == sha(ROOT / "release/firebase-client-api-key-policy.json")
+    and firebase_key_android_evidence_source.get("governedWorktreeClean") is True
+    and firebase_key_android_evidence_source.get("materialChangeCount") == 0
+    and firebase_key_android_evidence_source.get("materialPathSha256") == []
+    and firebase_key_android_evidence_application
+        == {
+            "entryCount": 2,
+            "valueSha256": "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692",
+        }
+    and firebase_key_android_evidence_restrictions
+        == {
+            "beforeSha256": "D538DA2EEEF15F6A8076AEF2B0FD517D3FEC7DC5A8F67C9C58D174EB6CCF5CDB",
+            "targetSha256": "CA408F16F24180613872F8554225E82BCEB62B4BC98892D262732D952EBB858F",
+            "apiTargetCount": 27,
+            "apiTargetsPreserved": True,
+        }
+    and firebase_key_android_evidence_rollback
+        == {"attempted": False, "succeeded": None}
+    and firebase_key_android_evidence_privacy
+        == {
+            "rawKeyValuesRead": False,
+            "rawKeyValuesRetained": False,
+            "rawKeyValuesEmitted": False,
+            "resourceNameRetained": False,
+            "accountIdentityRetained": False,
+        }
+    and "AIza" not in json.dumps(firebase_key_android_live_evidence)
+    and "projects/" not in json.dumps(firebase_key_android_live_evidence),
 )
 
 firestore_readback_source = text(
