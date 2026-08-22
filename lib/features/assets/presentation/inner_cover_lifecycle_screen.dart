@@ -1763,6 +1763,7 @@ class _FabricationSectionEditor extends StatelessWidget {
             ),
             TextField(
               controller: state.donorKey,
+              onChanged: (_) => onChanged(),
               decoration: const InputDecoration(
                 labelText: 'Donor section / cut ID',
               ),
@@ -1774,6 +1775,7 @@ class _FabricationSectionEditor extends StatelessWidget {
                 child: TextField(
                   controller: state.length,
                   keyboardType: TextInputType.number,
+                  onChanged: (_) => onChanged(),
                   decoration: const InputDecoration(labelText: 'Length (mm)'),
                 ),
               ),
@@ -1782,6 +1784,7 @@ class _FabricationSectionEditor extends StatelessWidget {
                 child: TextField(
                   controller: state.cuts,
                   keyboardType: TextInputType.number,
+                  onChanged: (_) => onChanged(),
                   decoration: const InputDecoration(labelText: 'Cuts used'),
                 ),
               ),
@@ -1789,6 +1792,7 @@ class _FabricationSectionEditor extends StatelessWidget {
           ),
           TextField(
             controller: state.notes,
+            onChanged: (_) => onChanged(),
             decoration: const InputDecoration(labelText: 'Section notes'),
           ),
         ],
