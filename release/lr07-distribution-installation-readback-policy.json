@@ -67,6 +67,11 @@
       "sha256": "63E6B0D21FC369F96C9F621E85FBE59F62B1B726B24CDA5A0D45C371504ABEE7"
     },
     {
+      "path": "release/evidence/build-14-finalization-closure.json",
+      "bytes": 4244,
+      "sha256": "E1C714FCEF7F23798E49A797E6F4ADCA7D2A7D57BFFD0F9B7C0B62A50B801DED"
+    },
+    {
       "path": "release/evidence/build-12-closure-custody-reconciliation.json",
       "bytes": 2462,
       "sha256": "C12D43C0D32DD1F9FEFCB5E5CF32CA50215292B0DE602C3439F88011FEAD8C5D"
@@ -219,6 +224,20 @@
       "governedPackageSha256": "C5BACE9A71F9490EDA41AD7BDFF7DF3FD223A8BA54A58AC00A3C0ECEF8DD0AE8",
       "authorityReceiptPath": "release/evidence/build-13-finalization-closure.json",
       "deletionBasis": "FINALIZED_DUAL_CUSTODY_RUNTIME_UNADJUDICATED_NON_DISTRIBUTABLE"
+    },
+    {
+      "buildNumber": 14,
+      "id": 9475994815,
+      "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.4-b14-f0d51819bfa4c81ad73b5d7f83675fa8b6a07b11-run-32572743604",
+      "sizeBytes": 153654879,
+      "digest": "sha256:a14c0c595272218e8daea103053b99d6c87f4549bdaf9b1f34aa352fd1438241",
+      "workflowRunId": 32572743604,
+      "headSha": "f0d51819bfa4c81ad73b5d7f83675fa8b6a07b11",
+      "ledgerDisposition": "successful-build-finalized-non-distributable",
+      "dualCustodyCompleted": true,
+      "governedPackageSha256": "496D990749A0658D73AEE4D908451424B185137F04EDFCA8B1C932195D994F2F",
+      "authorityReceiptPath": "release/evidence/build-14-finalization-closure.json",
+      "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {
@@ -234,9 +253,9 @@
   },
   "executionAuthority": {
     "artifactDeletionRequiresExplicitOwnerApproval": true,
-    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9468702427",
+    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9475994815",
     "requiredPresentArtifactIds": [
-      9468702427
+      9475994815
     ],
     "deleteOnlyExactArtifactIds": true,
     "workflowRunsAndLogsPreserved": true,
