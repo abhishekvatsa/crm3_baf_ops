@@ -67,6 +67,7 @@ void main() {
       serial: 'GR26',
       state: InnerCoverLifecycleState.installed,
       now: now,
+      incorporatedOn: DateTime.utc(2022, 11, 18, 12),
       baseId: base.id,
       baseNumber: 201,
       baseName: 'Base 201',
@@ -77,6 +78,7 @@ void main() {
       serial: 'GR30',
       state: InnerCoverLifecycleState.available,
       now: now,
+      incorporatedOn: DateTime.utc(2025, 12, 13, 12),
     );
     final assignment = BaseInnerCoverAssignment(
       baseAssetInstanceId: base.id,
@@ -115,7 +117,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Base 201'), findsOneWidget);
-    expect(find.text('Inner Cover GR26'), findsOneWidget);
+    expect(
+      find.text('Inner Cover GR26\nIncorporated 18 Nov 2022'),
+      findsOneWidget,
+    );
     expect(find.text('1 installed'), findsOneWidget);
     expect(find.text('1 available'), findsOneWidget);
     expect(find.byTooltip('Register Inner Cover'), findsNothing);
@@ -124,6 +129,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('GR30'), findsOneWidget);
     expect(find.textContaining('Available'), findsOneWidget);
+    expect(find.textContaining('Incorporated 13 Dec 2025'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -278,6 +284,7 @@ InnerCoverProfile _profile({
   required String serial,
   required InnerCoverLifecycleState state,
   required DateTime now,
+  DateTime? incorporatedOn,
   String? baseId,
   int? baseNumber,
   String? baseName,
@@ -292,6 +299,7 @@ InnerCoverProfile _profile({
   sourceType: InnerCoverSourceType.purchased,
   lifecycleState: state,
   traceabilityGrade: InnerCoverTraceabilityGrade.t3,
+  incorporatedOn: incorporatedOn,
   currentBaseAssetInstanceId: baseId,
   currentBaseAssetNumber: baseNumber,
   currentBaseAssetName: baseName,

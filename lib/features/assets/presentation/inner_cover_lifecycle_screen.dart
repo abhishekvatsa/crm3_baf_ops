@@ -321,7 +321,10 @@ class _BaseList extends StatelessWidget {
                     ? 'Pairing data needs reconciliation'
                     : assignment == null
                     ? 'No Inner Cover linked'
-                    : 'Inner Cover ${assignment.innerCoverSerialNumber}',
+                    : profile?.incorporatedOn == null
+                    ? 'Inner Cover ${assignment.innerCoverSerialNumber}'
+                    : 'Inner Cover ${assignment.innerCoverSerialNumber}\n'
+                        'Incorporated ${_formatInnerCoverDate(profile!.incorporatedOn!)}',
                 style: TextStyle(
                   color:
                       drift
@@ -404,9 +407,13 @@ class _CoverList extends StatelessWidget {
             subtitle: Padding(
               padding: const EdgeInsets.only(top: BafSpacing.xs),
               child: Text(
-                cover.isInstalled
-                    ? '${cover.lifecycleState.label} on Base ${cover.currentBaseAssetNumber}'
-                    : '${cover.lifecycleState.label} · ${cover.originClassification.label}',
+                [
+                  cover.isInstalled
+                      ? '${cover.lifecycleState.label} on Base ${cover.currentBaseAssetNumber}'
+                      : '${cover.lifecycleState.label} · ${cover.originClassification.label}',
+                  if (cover.incorporatedOn != null)
+                    'Incorporated ${_formatInnerCoverDate(cover.incorporatedOn!)}',
+                ].join('\n'),
               ),
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -429,6 +436,9 @@ Color _stateColor(InnerCoverLifecycleState state) => switch (state) {
   InnerCoverLifecycleState.disposed => BafColors.danger,
   _ => BafColors.textSecondary,
 };
+
+String _formatInnerCoverDate(DateTime value) =>
+    DateFormat('dd MMM yyyy').format(value.toLocal());
 
 class _EmptyState extends StatelessWidget {
   final IconData icon;
@@ -898,7 +908,7 @@ class _CoverDetailsSheet extends ConsumerWidget {
             if (cover.incorporatedOn != null)
               _DetailRow(
                 label: 'Date incorporated',
-                value: DateFormat('dd MMM yyyy').format(cover.incorporatedOn!),
+                value: _formatInnerCoverDate(cover.incorporatedOn!),
               ),
             if (cover.supplierOrFabricator != null)
               _DetailRow(
@@ -998,8 +1008,8 @@ class _CoverDetailsSheet extends ConsumerWidget {
                                         ),
                                         subtitle: Text(
                                           item.active
-                                              ? 'Installed ${date.format(item.installedAt.toLocal())}'
-                                              : '${date.format(item.installedAt.toLocal())} – ${date.format(item.removedAt!.toLocal())}\n${item.removalReason}',
+                                              ? 'Paired ${date.format(item.installedAt.toLocal())}'
+                                              : 'Paired ${date.format(item.installedAt.toLocal())} – removed ${date.format(item.removedAt!.toLocal())}\n${item.removalReason}',
                                         ),
                                       ),
                                     )

@@ -195,9 +195,10 @@
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
       "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
       "regressionTests": [
-        "test/asset_hierarchy_business_reference_test.dart"
+        "test/asset_hierarchy_business_reference_test.dart",
+        "test/inner_cover_lifecycle_screen_test.dart"
       ],
-      "maximumLines": 1916,
+      "maximumLines": 1918,
       "requiredMarkers": [
         "class InnerCoverLifecycleScreen"
       ],
