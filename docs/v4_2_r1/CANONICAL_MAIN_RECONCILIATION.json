@@ -1078,9 +1078,9 @@
     {
       "path": "lib/core/services/sync_service.tickets_templates.dart",
       "canonicalSha256": "234C8A55AC89596929E0BBDA8FDA197809502505CD803C814085B37A5B883290",
-      "candidateSha256": "960BAEF992D3F86267E3E136FE8CEC01ABDEAAB8B9FD52ECF94F705B9217ED36",
+      "candidateSha256": "AB69141F223B4BC27056C8DBC41F1CFEC17F1FA9B5273319D45D18FDA642BD37",
       "canonicalBytes": 20107,
-      "candidateBytes": 26248,
+      "candidateBytes": 27105,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1534,9 +1534,9 @@
     {
       "path": "lib/features/maintenance/presentation/resolve_form.dart",
       "canonicalSha256": "E970254FAB803D01944AD62849C4D928C9C0E8D4F644270F5B531B722D7B7CAF",
-      "candidateSha256": "644FC73206157CF49A59B3B48F292546EF2C1F657B5174B3C887505A76DC3ED8",
+      "candidateSha256": "36BE86A2D0A8C5DB6B8D0C1E511E2DEF9E1239C3897A84BB95DA0890DBDD3BF6",
       "canonicalBytes": 31966,
-      "candidateBytes": 49916,
+      "candidateBytes": 50383,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2730,9 +2730,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "8E698C04F7B86ADADEE5D4EC5B6399230B8CB6E962064D08DEED620452F86430",
+      "candidateSha256": "8F3E54101CCF896F8DD50C0715AF5E260BE8B0C49DC2D83F1413E6121B37EE52",
       "canonicalBytes": 78841,
-      "candidateBytes": 137329,
+      "candidateBytes": 142873,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2826,9 +2826,9 @@
     {
       "path": "test/maintenance_lifecycle_replay_contract_test.dart",
       "canonicalSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
-      "candidateSha256": "BA58772ADCA7372F042C92F073B7C0735178FF4AF97D8E2D7D374996066381F6",
+      "candidateSha256": "B50BC37B4ED61AE6AD7F5D75951B5899971ABCC84468CB23D46B69341DAB3ED1",
       "canonicalBytes": 21051,
-      "candidateBytes": 27487,
+      "candidateBytes": 32671,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

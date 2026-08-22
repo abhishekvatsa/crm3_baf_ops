@@ -1204,6 +1204,174 @@ describe("maintenance_records", () => {
     await assertFails(invalidMicroampBatch.commit());
   });
 
+  test("workflow-released production-shaped burner issue accepts complete closure", async () => {
+    const db = dbAs("admin1");
+    const ticketId = "workflowReleasedBurner";
+    const sourceCreatedAt = Timestamp.fromDate(
+      new Date("2026-08-22T14:13:14.289Z")
+    );
+    const sourceUpdatedAt = Timestamp.fromDate(
+      new Date("2026-08-22T14:53:06.323Z")
+    );
+    const workflowDeferredAt = Timestamp.fromDate(
+      new Date("2026-08-22T14:24:24.338Z")
+    );
+    const workflowReactivatedAt = Timestamp.fromDate(
+      new Date("2026-08-22T14:44:45.380Z")
+    );
+    const actorUid = "admin1";
+
+    await seedDoc(`maintenance_records/${ticketId}`, {
+      firestoreId: ticketId,
+      version: 6,
+      assetType: "furnace",
+      assetNumber: 26,
+      component: "Burner system",
+      subsystem: null,
+      tag: null,
+      hierarchyPath: ["Furnace", "Furnace 26"],
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 3,
+        scope: "physicalAsset",
+        assetClassCode: "FURNACE",
+        assetClassId: "furnace-class",
+        assetClassName: "Furnace",
+        assetInstanceId: "furnace-26",
+        assetInstanceName: "Furnace 26",
+        assetInstanceVersion: 1,
+        assetNumber: 26,
+        nodeId: "furnace-26",
+        nodeName: "Furnace 26",
+        nodeVersion: 1,
+        componentInstanceId: null,
+        componentInstanceVersion: null,
+        componentTag: null,
+        hierarchyPath: ["Furnace", "Furnace 26"],
+        ownerDiscipline: null,
+        accountableRoleKeys: [],
+        ownershipStatus: "unassigned",
+        innerCoverAssociation: null,
+      }),
+      maintenanceType: "breakdown",
+      classification: "furnaceBurnerLockout",
+      description: "CONTROLLED VALIDATION ONLY - NO ACTUAL PLANT FAULT",
+      routedTo: "instrumentation",
+      otherDepartment: null,
+      status: "acknowledged",
+      isResolved: false,
+      isCritical: false,
+      loggedByUid: actorUid,
+      loggedByName: "Admin",
+      reportedBy: "Admin",
+      acknowledgedByUid: actorUid,
+      acknowledgedByName: "Admin",
+      acknowledgedAt: Timestamp.fromDate(
+        new Date("2026-08-22T14:15:38.285Z")
+      ),
+      closedByUid: null,
+      closedByName: null,
+      teamsInvolved: [],
+      performedBy: null,
+      remarks: null,
+      startDate: "2026-08-22T13:53:44.632Z",
+      endDate: null,
+      downtimeHours: null,
+      chargeNoAtEvent: null,
+      createdAt: sourceCreatedAt,
+      updatedAt: sourceUpdatedAt,
+      updatedByUid: actorUid,
+      updatedByName: "Admin",
+      metadataJson: null,
+      actionsJson: "[]",
+      resolutionHistoryJson: "[]",
+      isDeleted: false,
+      deletedAt: null,
+      deletedByUid: null,
+      deletedByName: null,
+      deleteReason: null,
+      qualityIntentSchemaVersion: 1,
+      qualityImpactAssessment: "notSuspected",
+      qualityWarningReason: null,
+      burnerLockoutSchemaVersion: 1,
+      burnerPositions: [8],
+      burnerCommonMode: false,
+      burnerCycleStage: "notRecorded",
+      burnerHmiAlarm: "CONTROLLED VALIDATION ONLY",
+      burnerFlameObservation: "notChecked",
+      burnerSparkObservation: "notChecked",
+      burnerRelightAttempts: 0,
+      burnerRemainsLockedOut: true,
+      burnerRedHotPositions: [],
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+      workflowAggregateId: "issue-coordination-workflow",
+      workflowComplianceId: "issue-compliance-request",
+      workflowOriginLaneKey: "inst",
+      workflowTargetLaneKey: "oprn",
+      workflowQueueState: "released",
+      workflowConditionTypeKey: "activityRef",
+      workflowConditionRef: "CONTROLLED VALIDATION ACTIVITY ONLY",
+      workflowDeferred: false,
+      workflowDeferredAt,
+      workflowDeferredByUid: actorUid,
+      workflowDeferredByName: "Admin",
+      workflowReactivatedAt,
+      workflowReactivatedByUid: actorUid,
+      workflowReactivatedByName: "Admin",
+      workflowReleasedAt: sourceUpdatedAt,
+      workflowReleasedByUid: actorUid,
+      workflowReleasedByName: "Admin",
+      workflowCorrectionReason: null,
+      workflowUpdatedAt: sourceUpdatedAt,
+      _globalPullServerUpdatedAt: Timestamp.fromDate(
+        new Date("2026-08-22T14:53:06.558Z")
+      ),
+    });
+
+    const closedAt = "2026-08-22T15:01:00.000Z";
+    const resolutionEvidence = {
+      "8": {
+        outcome: "returnedToService",
+        actionCodes: ["other"],
+      },
+    };
+    const close = {
+      isResolved: true,
+      status: "resolved",
+      endDate: closedAt,
+      closedByUid: actorUid,
+      closedByName: "Admin",
+      remarks: "CONTROLLED VALIDATION ONLY - NO PHYSICAL WORK PERFORMED",
+      downtimeHours: 0,
+      teamsInvolved: ["instrumentation"],
+      actionsJson: JSON.stringify([
+        {
+          burnerPosition: 8,
+          actionType: "other",
+          notes: "CONTROLLED VALIDATION ONLY",
+        },
+      ]),
+      burnerAttendedPositions: [8],
+      burnerResolutionEvidence: resolutionEvidence,
+      updatedAt: closedAt,
+      updatedByUid: actorUid,
+      updatedByName: "Admin",
+      version: 7,
+    };
+    const closureBatch = writeBatch(db);
+    closureBatch.update(doc(db, `maintenance_records/${ticketId}`), close);
+    closureBatch.set(doc(db, `maintenance_burner_closures/${ticketId}`), {
+      firestoreId: ticketId,
+      sourceMaintenanceId: ticketId,
+      sourceVersion: close.version,
+      closedByUid: actorUid,
+      burnerResolutionEvidence: resolutionEvidence,
+      updatedAt: closedAt,
+    });
+
+    await assertSucceeds(closureBatch.commit());
+  });
+
   test("senior can close but cannot mutate unrelated ticket evidence while closing", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const updatedAt = new Date(Date.now() - 60000).toISOString();

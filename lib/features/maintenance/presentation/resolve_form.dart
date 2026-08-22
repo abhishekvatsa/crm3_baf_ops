@@ -1,7 +1,5 @@
 // FILE: lib/features/maintenance/presentation/resolve_form.dart
 
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -393,17 +391,29 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
 
       refreshClosedTickets.state++;
 
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'ticket_resolved', force: true),
+      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+        reason: 'ticket_resolved',
+        force: true,
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Issue marked as resolved'),
-          backgroundColor: BafColors.sync,
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Issue resolved and synchronized',
+          BafColors.sync,
         ),
-      );
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Issue resolved on this device; synchronization is queued',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Issue resolved on this device, but cloud sync needs attention',
+          BafColors.danger,
+        ),
+      };
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;

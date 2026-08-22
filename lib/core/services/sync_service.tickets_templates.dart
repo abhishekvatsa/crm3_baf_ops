@@ -98,20 +98,6 @@ extension _SyncServiceTicketsTemplates on SyncService {
           continue;
         }
 
-        if (remote != null && _isRemoteNewer(record, remote)) {
-          await _recordPushConflict(
-            entityType: 'ticket',
-            entityId: record.firestoreId!,
-            localSnapshot: record.toAuditMap(),
-            remoteSnapshot: remote.toAuditMap(),
-          );
-          lastFailureCount++;
-          debugPrint(
-            '⚠️ PUSH CONFLICT: Preserved local ticket ${record.id} and did not overwrite newer remote data',
-          );
-          continue;
-        }
-
         if (remote == null) {
           try {
             final expectedLocal = _syncPushSnapshot(record);
@@ -153,6 +139,20 @@ extension _SyncServiceTicketsTemplates on SyncService {
         if (replayed) {
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
           lastSuccessCount++;
+          continue;
+        }
+
+        if (_isRemoteNewer(record, remote)) {
+          await _recordPushConflict(
+            entityType: 'ticket',
+            entityId: record.firestoreId!,
+            localSnapshot: record.toAuditMap(),
+            remoteSnapshot: remote.toAuditMap(),
+          );
+          lastFailureCount++;
+          debugPrint(
+            '⚠️ PUSH CONFLICT: Preserved local ticket ${record.id} and did not overwrite newer remote data',
+          );
           continue;
         }
 
@@ -389,10 +389,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
     }
 
     if (local.isResolved) {
-      if (local.version <= remote.version) return const [];
-      if (!_canReplayMaintenanceCloseForCurrentUser(
-        closeEvidence,
-        currentUid,
+      if (!maintenanceResolvedReplayCanRebase(
+        local: local,
+        remote: remote,
+        currentUid: currentUid,
       )) {
         return const [];
       }
@@ -458,12 +458,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
                 eventTimestamp.isBefore(serverMutationFloor)
             ? serverMutationFloor
             : eventTimestamp;
-    final proposedVersion = local.isResolved ? local.version : priorVersion + 1;
-    final remoteVersion = remote?.version;
-    final version =
-        remoteVersion != null && proposedVersion <= remoteVersion
-            ? remoteVersion + 1
-            : proposedVersion;
+    final version = maintenanceCloseReplayVersion(
+      localIsResolved: local.isResolved,
+      localVersion: local.version,
+      priorVersion: priorVersion,
+      remoteVersion: remote?.version,
+    );
     final burnerLockout = local.burnerLockoutCase;
     final resolvedBurnerLockout = burnerLockout?.withResolutionFromActions(
       ComponentAction.decode(
@@ -568,62 +568,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
   String _maintenancePinnedFieldDiff(
     MaintenanceRecord local,
     MaintenanceRecord remote,
-  ) {
-    final checks = <String, bool>{
-      'assetType': local.assetType == remote.assetType,
-      'assetNumber': local.assetNumber == remote.assetNumber,
-      'maintenanceType': local.maintenanceType == remote.maintenanceType,
-      'description': local.description == remote.description,
-      'routedTo': local.routedTo == remote.routedTo,
-      'isCritical': local.isCritical == remote.isCritical,
-      'loggedByUid': local.loggedByUid == remote.loggedByUid,
-      'createdAt': local.createdAt.isAtSameMomentAs(remote.createdAt),
-      'startDate': local.startDate.isAtSameMomentAs(remote.startDate),
-      'component': local.component == remote.component,
-      'subsystem': local.subsystem == remote.subsystem,
-      'tag': local.tag == remote.tag,
-      'hierarchyPath': _maintenanceStringListEquals(
-        local.hierarchyPath,
-        remote.hierarchyPath,
-      ),
-      'classification': local.classification == remote.classification,
-      'otherDepartment': local.otherDepartment == remote.otherDepartment,
-      'reportedBy': local.reportedBy == remote.reportedBy,
-      'acknowledgedByUid': local.acknowledgedByUid == remote.acknowledgedByUid,
-      'acknowledgedByName':
-          local.acknowledgedByName == remote.acknowledgedByName,
-      'acknowledgedAt': _maintenanceNullableDateEquals(
-        local.acknowledgedAt,
-        remote.acknowledgedAt,
-      ),
-      'chargeNoAtEvent': local.chargeNoAtEvent == remote.chargeNoAtEvent,
-      'metadataJson': persistedJsonEquivalent(
-        local.metadataJson,
-        remote.metadataJson,
-      ),
-      'performedBy': local.performedBy == remote.performedBy,
-    };
-
-    for (final entry in checks.entries) {
-      if (!entry.value) return entry.key;
-    }
-    return 'none';
-  }
-
-  bool _maintenanceStringListEquals(List<String>? a, List<String>? b) {
-    final left = a ?? const <String>[];
-    final right = b ?? const <String>[];
-    if (left.length != right.length) return false;
-    for (var i = 0; i < left.length; i++) {
-      if (left[i] != right[i]) return false;
-    }
-    return true;
-  }
-
-  bool _maintenanceNullableDateEquals(DateTime? a, DateTime? b) {
-    if (a == null || b == null) return a == b;
-    return a.isAtSameMomentAs(b);
-  }
+  ) => maintenanceLifecycleReplayPinnedFieldDiff(local, remote);
 
   Future<void> _syncTemplates() async {
     final unsynced = await _plannedRepo.getUnsyncedTemplates();
@@ -752,6 +697,94 @@ extension _SyncServiceTicketsTemplates on SyncService {
       }
     }
   }
+}
+
+@visibleForTesting
+bool maintenanceResolvedReplayCanRebase({
+  required MaintenanceRecord local,
+  required MaintenanceRecord remote,
+  required String currentUid,
+}) {
+  final actorUid = currentUid.trim();
+  final closedByUid = local.closedByUid?.trim();
+  return local.isResolved &&
+      !local.isDeleted &&
+      !remote.isResolved &&
+      !remote.isDeleted &&
+      !remote.workflowDeferred &&
+      actorUid.isNotEmpty &&
+      closedByUid != null &&
+      closedByUid == actorUid &&
+      maintenanceLifecycleReplayPinnedFieldDiff(local, remote) == 'none';
+}
+
+@visibleForTesting
+int maintenanceCloseReplayVersion({
+  required bool localIsResolved,
+  required int localVersion,
+  required int priorVersion,
+  int? remoteVersion,
+}) {
+  final proposedVersion = localIsResolved ? localVersion : priorVersion + 1;
+  return remoteVersion != null && proposedVersion <= remoteVersion
+      ? remoteVersion + 1
+      : proposedVersion;
+}
+
+@visibleForTesting
+String maintenanceLifecycleReplayPinnedFieldDiff(
+  MaintenanceRecord local,
+  MaintenanceRecord remote,
+) {
+  final checks = <String, bool>{
+    'assetType': local.assetType == remote.assetType,
+    'assetNumber': local.assetNumber == remote.assetNumber,
+    'maintenanceType': local.maintenanceType == remote.maintenanceType,
+    'description': local.description == remote.description,
+    'routedTo': local.routedTo == remote.routedTo,
+    'isCritical': local.isCritical == remote.isCritical,
+    'loggedByUid': local.loggedByUid == remote.loggedByUid,
+    'createdAt': local.createdAt.isAtSameMomentAs(remote.createdAt),
+    'startDate': local.startDate.isAtSameMomentAs(remote.startDate),
+    'component': local.component == remote.component,
+    'subsystem': local.subsystem == remote.subsystem,
+    'tag': local.tag == remote.tag,
+    'hierarchyPath': _maintenanceReplayStringListEquals(
+      local.hierarchyPath,
+      remote.hierarchyPath,
+    ),
+    'assetHierarchyRefJson': persistedJsonEquivalent(
+      local.assetHierarchyRefJson,
+      remote.assetHierarchyRefJson,
+    ),
+    'classification': local.classification == remote.classification,
+    'otherDepartment': local.otherDepartment == remote.otherDepartment,
+    'reportedBy': local.reportedBy == remote.reportedBy,
+    'chargeNoAtEvent': local.chargeNoAtEvent == remote.chargeNoAtEvent,
+    'metadataJson': persistedJsonEquivalent(
+      local.metadataJson,
+      remote.metadataJson,
+    ),
+    'performedBy': local.performedBy == remote.performedBy,
+  };
+
+  // Acknowledgement and workflow bridge fields are server-owned projections.
+  // A field-scoped close replay preserves their current remote values, so a
+  // stale local copy must not mistake those advances for a business-data edit.
+  for (final entry in checks.entries) {
+    if (!entry.value) return entry.key;
+  }
+  return 'none';
+}
+
+bool _maintenanceReplayStringListEquals(List<String>? a, List<String>? b) {
+  final left = a ?? const <String>[];
+  final right = b ?? const <String>[];
+  if (left.length != right.length) return false;
+  for (var i = 0; i < left.length; i++) {
+    if (left[i] != right[i]) return false;
+  }
+  return true;
 }
 
 bool maintenanceLifecycleReplayOutcomeMatches(

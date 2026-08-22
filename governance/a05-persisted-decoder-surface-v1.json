@@ -1371,7 +1371,7 @@
     {
       "id": "maintenance-resolve-command-presentation",
       "file": "lib/features/maintenance/presentation/resolve_form.dart",
-      "siteFingerprint": "2872a89d43ccb542bdfbb88effc74275b35e3c532834910cbe95fc48dfe18d7e",
+      "siteFingerprint": "6dcef6a75ab8ef58f5d86490474440ad4f469cc245a577ed444a6589ba81cc47",
       "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
       "purpose": "surface resolution-command failure without coercing downtime evidence",
       "authorityBoundary": "operator ticket-resolution command",
