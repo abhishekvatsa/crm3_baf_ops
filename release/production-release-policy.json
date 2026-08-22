@@ -69,7 +69,7 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
+    "status": "completed-non-distributable",
     "priorCompletedBuild": {
       "buildNumber": 13,
       "status": "completed-non-distributable",
@@ -103,7 +103,19 @@
         "distributionPerformed": false
       }
     ],
-    "dualCustodyCompleted": false,
+    "completionReceiptFile": "release/evidence/build-14-finalization-closure.json",
+    "completionReceiptSha256": "E1C714FCEF7F23798E49A797E6F4ADCA7D2A7D57BFFD0F9B7C0B62A50B801DED",
+    "sourceCommit": "f0d51819bfa4c81ad73b5d7f83675fa8b6a07b11",
+    "githubRunId": 32572743604,
+    "governedPackageSha256": "496D990749A0658D73AEE4D908451424B185137F04EDFCA8B1C932195D994F2F",
+    "remoteReservationTagObject": "a9287d5f75cde41b44dffb5ee7e00aa0e54a680e",
+    "remoteBuiltTagObject": "99fdbadd63c59c28906669fa10fac56cc98a6ee5",
+    "closurePackageSha256": "6C17A10C32A71E3D6C9E88E3C51FA4D8196BDB8D502C1E0E5C2F4B3E067C7B30",
+    "custodyRecordSha256": "57A59A3F754AF18D6D6611D69004416986D2932E21663290AB5EB98CA28746B6",
+    "dualCustodyCompleted": true,
+    "runtimeValidationPassed": false,
+    "runtimeDisposition": "not-adjudicated-by-build-finalization",
+    "fullBusinessFlowValidationCompleted": false,
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/pr265-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "A54A0A691C06B030DD9A415771613317108D8D6224F6938645242F52E4DB40A8",
     "exactFirestoreRulesIndexesLiveReadback": {
@@ -242,7 +254,6 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD14_PRODUCTION_SIGNED_FINALIZATION",
     "BUILD14_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
     "BUILD14_EXPLICIT_PILOT_PROMOTION"
   ]
