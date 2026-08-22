@@ -31,6 +31,18 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
+def canonical_receipt_sha(receipt: dict) -> str:
+    body = dict(receipt)
+    body.pop("receiptSha256", None)
+    canonical = json.dumps(
+        body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def text_sha_with_eol(path: Path, eol: str) -> str:
     source = path.read_text(encoding="utf-8")
     normalized = source.replace("\r\n", "\n").replace("\r", "\n")
@@ -4836,6 +4848,8 @@ check(
         == build14_firestore_authority.get("receiptFileSha256")
     and build14_firestore_readback.get("receiptSha256")
         == build14_firestore_authority.get("receiptCanonicalSha256")
+    and canonical_receipt_sha(build14_firestore_readback)
+        == build14_firestore_readback.get("receiptSha256")
     and build14_firestore_readback.get("evidenceType")
         == "firestore-rules-indexes-live-readback"
     and build14_firestore_readback.get("mode") == "STRICT"

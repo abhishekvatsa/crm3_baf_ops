@@ -623,6 +623,12 @@ if ($firestoreReadbackAuthority.verified -ne $true -or
 }
 $firestoreReadback = Get-Content -LiteralPath $firestoreReadbackPath -Raw |
   ConvertFrom-Json
+& node tools/release/collectProductionGlobalPullBackend.js `
+  --verify-receipt $firestoreReadbackPath `
+  --label 'Build 14 Firestore Rules/index live readback' | Out-Null
+if ($LASTEXITCODE -ne 0) {
+  throw 'Exact Firestore Rules/index canonical receipt seal is invalid.'
+}
 $firestoreCheckValues = @(
   $firestoreReadback.checks.PSObject.Properties |
     ForEach-Object { $_.Value }

@@ -13,6 +13,27 @@ List<Map<String, dynamic>> _objects(dynamic value) =>
 String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
+dynamic _canonicalize(dynamic value) {
+  if (value is List<dynamic>) {
+    return value.map(_canonicalize).toList(growable: false);
+  }
+  if (value is Map) {
+    final source = Map<String, dynamic>.from(value);
+    final keys = source.keys.toList(growable: false)..sort();
+    return <String, dynamic>{
+      for (final key in keys) key: _canonicalize(source[key]),
+    };
+  }
+  return value;
+}
+
+String _receiptSeal(Map<String, dynamic> receipt) {
+  final body = Map<String, dynamic>.from(receipt)..remove('receiptSha256');
+  return sha256
+      .convert(utf8.encode(jsonEncode(_canonicalize(body))))
+      .toString();
+}
+
 void main() {
   test('Build 11 closure remains exact while Build 14 gates stay separate', () {
     const evidencePath =
@@ -117,6 +138,7 @@ void main() {
       firestoreReceipt['receiptSha256'],
       firestoreAuthority['receiptCanonicalSha256'],
     );
+    expect(_receiptSeal(firestoreReceipt), firestoreReceipt['receiptSha256']);
     expect(firestoreReceipt['mode'], 'STRICT');
     expect(
       firestoreReceipt['decision'],
