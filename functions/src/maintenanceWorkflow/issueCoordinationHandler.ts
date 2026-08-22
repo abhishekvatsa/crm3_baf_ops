@@ -10,7 +10,7 @@ import {
 } from "./paths";
 import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
 import {JsonMap, LaneKey} from "./types";
-import {cleanText, iso, plusMinutes} from "./utils";
+import {cleanText, isPersistedInstant, iso, plusMinutes} from "./utils";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 
 const PURPOSES = new Set(["deferment", "operationsSupport"]);
@@ -288,7 +288,7 @@ export const startIssueCoordination: CommandHandler = async ({
   if (ticket.isDeleted === true || ticket.isResolved === true ||
       (ticket.status !== "acknowledged" && ticket.status !== "inProgress") ||
       typeof ticket.acknowledgedByUid !== "string" ||
-      typeof ticket.acknowledgedAt !== "string") {
+      !isPersistedInstant(ticket.acknowledgedAt)) {
     throw new WorkflowError(
       "failed-precondition",
       "The receiving maintenance side must acknowledge an open issue before requesting Operations coordination.",
