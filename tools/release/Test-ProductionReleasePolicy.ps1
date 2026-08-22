@@ -609,6 +609,73 @@ if ([string]$functionFleetDeploymentReceipt.decision -ne
       $false) {
   throw 'Exact Function fleet deployment receipt is incomplete.'
 }
+$firestoreReadbackAuthority =
+  $policy.finalization.exactFirestoreRulesIndexesLiveReadback
+$firestoreReadbackPath = [string]$firestoreReadbackAuthority.receiptFile
+if ($firestoreReadbackAuthority.verified -ne $true -or
+    [string]::IsNullOrWhiteSpace($firestoreReadbackPath) -or
+    [string]$firestoreReadbackAuthority.receiptFileSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    (Get-Sha256 $firestoreReadbackPath) -ne
+      ([string]$firestoreReadbackAuthority.receiptFileSha256).
+        ToUpperInvariant()) {
+  throw 'Exact Firestore Rules/index live-readback authority differs from policy.'
+}
+$firestoreReadback = Get-Content -LiteralPath $firestoreReadbackPath -Raw |
+  ConvertFrom-Json
+$firestoreCheckValues = @(
+  $firestoreReadback.checks.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+if ([string]$firestoreReadback.evidenceType -ne
+      'firestore-rules-indexes-live-readback' -or
+    [string]$firestoreReadback.mode -ne 'STRICT' -or
+    [string]$firestoreReadback.projectId -ne 'crm3-baf-ops-b8638' -or
+    [string]$firestoreReadback.decision -ne
+      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK' -or
+    $firestoreReadback.failedChecks.Count -ne 0 -or
+    $firestoreCheckValues.Count -eq 0 -or
+    @($firestoreCheckValues | Where-Object { $_ -ne $true }).Count -ne 0 -or
+    [string]$firestoreReadback.receiptSha256 -ne
+      [string]$firestoreReadbackAuthority.receiptCanonicalSha256 -or
+    [string]$firestoreReadback.source.before.branch -ne 'main' -or
+    [string]$firestoreReadback.source.before.commit -ne
+      [string]$firestoreReadbackAuthority.sourceCommit -or
+    [string]$firestoreReadback.source.before.tree -ne
+      [string]$firestoreReadbackAuthority.sourceTree -or
+    [string]$firestoreReadback.source.before.originMain -ne
+      [string]$firestoreReadbackAuthority.sourceCommit -or
+    [string]$firestoreReadback.source.after.commit -ne
+      [string]$firestoreReadbackAuthority.sourceCommit -or
+    [string]$firestoreReadback.outputs.rules.sourceSha256 -ne
+      [string]$firestoreReadbackAuthority.rulesSha256 -or
+    [string]$firestoreReadback.outputs.rules.activeSha256 -ne
+      [string]$firestoreReadbackAuthority.rulesSha256 -or
+    $firestoreReadback.outputs.rules.byteExact -ne $true -or
+    [int64]$firestoreReadback.outputs.indexes.sourceCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [int64]$firestoreReadback.outputs.indexes.cliCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [int64]$firestoreReadback.outputs.indexes.apiCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [int64]$firestoreReadback.outputs.indexes.apiReadyCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [string]$firestoreReadback.outputs.indexes.sourceSetSha256 -ne
+      [string]$firestoreReadbackAuthority.indexSetSha256 -or
+    [string]$firestoreReadback.outputs.indexes.cliSetSha256 -ne
+      [string]$firestoreReadbackAuthority.indexSetSha256 -or
+    [string]$firestoreReadback.outputs.indexes.apiSetSha256 -ne
+      [string]$firestoreReadbackAuthority.indexSetSha256 -or
+    $firestoreReadback.outputs.indexes.allApiIndexesReady -ne $true -or
+    $firestoreReadbackAuthority.allIndexesReady -ne $true -or
+    $firestoreReadbackAuthority.redundantDeploymentPerformed -ne $false -or
+    $firestoreReadback.mutationBoundary.firestoreRulesDeployed -ne $false -or
+    $firestoreReadback.mutationBoundary.firestoreIndexesDeployed -ne $false -or
+    $firestoreReadback.mutationBoundary.firestoreDocumentsRead -ne $false -or
+    $firestoreReadback.mutationBoundary.firestoreDocumentsWritten -ne $false -or
+    $firestoreReadback.mutationBoundary.businessDataMutated -ne $false) {
+  throw 'Exact Firestore Rules/index live-readback receipt is incomplete.'
+}
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
 $consumedAuthorityValid = $false
 if ([string]$versionSource.consumedBuild.conclusion -eq 'failure' -and

@@ -101,8 +101,55 @@ void main() {
     expect(distribution['appliesToCurrentCandidate'], isFalse);
     expect(distribution['pilotHandoutPerformed'], isFalse);
     expect(distribution['unrestrictedPlantReleaseApproved'], isFalse);
+    final firestoreAuthority = _object(
+      _object(policy['finalization'])['exactFirestoreRulesIndexesLiveReadback'],
+    );
+    final firestoreReceiptPath = firestoreAuthority['receiptFile'] as String;
+    final firestoreReceipt = _object(
+      jsonDecode(File(firestoreReceiptPath).readAsStringSync()),
+    );
+    expect(firestoreAuthority['verified'], isTrue);
+    expect(
+      _sha256(firestoreReceiptPath),
+      firestoreAuthority['receiptFileSha256'],
+    );
+    expect(
+      firestoreReceipt['receiptSha256'],
+      firestoreAuthority['receiptCanonicalSha256'],
+    );
+    expect(firestoreReceipt['mode'], 'STRICT');
+    expect(
+      firestoreReceipt['decision'],
+      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
+    );
+    expect(firestoreReceipt['failedChecks'], isEmpty);
+    expect(_object(firestoreReceipt['checks']).values, everyElement(isTrue));
+    final rules = _object(_object(firestoreReceipt['outputs'])['rules']);
+    expect(rules['byteExact'], isTrue);
+    expect(rules['sourceSha256'], firestoreAuthority['rulesSha256']);
+    expect(rules['activeSha256'], firestoreAuthority['rulesSha256']);
+    final indexes = _object(_object(firestoreReceipt['outputs'])['indexes']);
+    for (final key in <String>[
+      'sourceCount',
+      'cliCount',
+      'apiCount',
+      'apiReadyCount',
+    ]) {
+      expect(indexes[key], firestoreAuthority['indexCount'], reason: key);
+    }
+    for (final key in <String>[
+      'sourceSetSha256',
+      'cliSetSha256',
+      'apiSetSha256',
+    ]) {
+      expect(indexes[key], firestoreAuthority['indexSetSha256'], reason: key);
+    }
+    expect(indexes['allApiIndexesReady'], isTrue);
+    expect(
+      _object(firestoreReceipt['mutationBoundary']).values,
+      everyElement(isFalse),
+    );
     expect(policy['knownOpenGates'], <String>[
-      'BUILD14_EXACT_FIRESTORE_RULES_INDEXES_DEPLOYMENT_READBACK',
       'BUILD14_PRODUCTION_SIGNED_FINALIZATION',
       'BUILD14_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
       'BUILD14_EXPLICIT_PILOT_PROMOTION',
