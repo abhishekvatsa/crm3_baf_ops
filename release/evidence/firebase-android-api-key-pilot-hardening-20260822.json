@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "firebase-android-api-key-pilot-hardening",
+  "source": {
+    "commit": "a78c4723c4a4396c0c9796a5de90486621042514",
+    "originMain": "a78c4723c4a4396c0c9796a5de90486621042514",
+    "policySha256": "C4CF5270D19C2C2157FE05542DEAE7D62B66BC302C79E6442AF16E31044D4E03",
+    "governedWorktreeClean": true,
+    "materialChangeCount": 0,
+    "materialPathSha256": []
+  },
+  "status": "APPLIED_AND_VERIFIED",
+  "applicationRestriction": {
+    "entryCount": 2,
+    "valueSha256": "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692"
+  },
+  "restrictions": {
+    "beforeSha256": "D538DA2EEEF15F6A8076AEF2B0FD517D3FEC7DC5A8F67C9C58D174EB6CCF5CDB",
+    "targetSha256": "CA408F16F24180613872F8554225E82BCEB62B4BC98892D262732D952EBB858F",
+    "apiTargetCount": 27,
+    "apiTargetsPreserved": true
+  },
+  "rollback": {
+    "attempted": false,
+    "succeeded": null
+  },
+  "privacyBoundary": {
+    "rawKeyValuesRead": false,
+    "rawKeyValuesRetained": false,
+    "rawKeyValuesEmitted": false,
+    "resourceNameRetained": false,
+    "accountIdentityRetained": false
+  },
+  "capturedAtUtc": "2026-08-22T00:12:18.062Z"
+}
