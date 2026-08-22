@@ -56,6 +56,12 @@ export type InnerCoverLifecycleState =
   | "disposed";
 
 type InnerCoverSourceType = "purchased" | "fabricated" | "legacyExisting";
+type InnerCoverOriginClassification =
+  | "documentedPurchase"
+  | "documentedFabrication"
+  | "ownerDeclaredNew"
+  | "ownerDeclaredFabricated"
+  | "legacyUndocumented";
 type FabricationSectionType =
   | "lowerAssembly"
   | "flatVertical"
@@ -87,8 +93,10 @@ interface RegistrationDraft {
   serialNumber: string;
   normalizedSerialNumber: string;
   sourceType: InnerCoverSourceType;
+  originClassification: InnerCoverOriginClassification;
   supplierOrFabricator: string | null;
   receivedOrCompletedOn: Date | null;
+  incorporatedOn: Date | null;
   drawingReference: string | null;
   materialGrade: string | null;
   notes: string | null;
@@ -163,6 +171,13 @@ const STATES = new Set<InnerCoverLifecycleState>([
 ]);
 const SOURCE_TYPES = new Set<InnerCoverSourceType>([
   "purchased", "fabricated", "legacyExisting",
+]);
+const ORIGIN_CLASSIFICATIONS = new Set<InnerCoverOriginClassification>([
+  "documentedPurchase",
+  "documentedFabrication",
+  "ownerDeclaredNew",
+  "ownerDeclaredFabricated",
+  "legacyUndocumented",
 ]);
 const SECTION_TYPES = new Set<FabricationSectionType>([
   "lowerAssembly",
@@ -375,9 +390,9 @@ function parseSection(value: unknown, index: number): FabricationSectionDraft {
 function parseRegistrationDraft(value: unknown): RegistrationDraft {
   const map = mapValue(value, "registrationDraft");
   onlyKeys(map, new Set([
-    "serialNumber", "sourceType", "supplierOrFabricator",
-    "receivedOrCompletedOn", "drawingReference", "materialGrade", "notes",
-    "fabricationSections",
+    "serialNumber", "sourceType", "originClassification",
+    "supplierOrFabricator", "receivedOrCompletedOn", "incorporatedOn",
+    "drawingReference", "materialGrade", "notes", "fabricationSections",
   ]), "registrationDraft");
   const serialNumber = requiredString(
     map.serialNumber, "registrationDraft.serialNumber", 160,
@@ -423,10 +438,50 @@ function parseRegistrationDraft(value: unknown): RegistrationDraft {
       "is allowed only for fabricated Inner Covers",
     );
   }
+  const defaultOriginClassification: InnerCoverOriginClassification =
+    sourceType === "purchased" ? "documentedPurchase" :
+      sourceType === "fabricated" ?
+        (sections.some((section) =>
+          section.materialSource === "reusedUnknownLegacyDonor") ?
+          "ownerDeclaredFabricated" : "documentedFabrication") :
+        "legacyUndocumented";
+  const originClassification = map.originClassification == null ?
+    defaultOriginClassification : requiredString(
+      map.originClassification,
+      "registrationDraft.originClassification",
+      40,
+    ) as InnerCoverOriginClassification;
+  if (!ORIGIN_CLASSIFICATIONS.has(originClassification)) {
+    invalid("registrationDraft.originClassification", "is unsupported");
+  }
+  const originMatchesSource =
+    (originClassification === "documentedPurchase" &&
+      sourceType === "purchased") ||
+    (new Set<InnerCoverOriginClassification>([
+      "documentedFabrication", "ownerDeclaredFabricated",
+    ]).has(originClassification) && sourceType === "fabricated") ||
+    (new Set<InnerCoverOriginClassification>([
+      "ownerDeclaredNew", "legacyUndocumented",
+    ]).has(originClassification) && sourceType === "legacyExisting");
+  if (!originMatchesSource) {
+    invalid(
+      "registrationDraft.originClassification",
+      "does not match the compatible source classification",
+    );
+  }
+  if (originClassification === "documentedFabrication" &&
+      sections.some((section) =>
+        section.materialSource === "reusedUnknownLegacyDonor")) {
+    invalid(
+      "registrationDraft.originClassification",
+      "cannot claim documented fabrication with unknown legacy ancestry",
+    );
+  }
   return {
     serialNumber,
     normalizedSerialNumber,
     sourceType,
+    originClassification,
     supplierOrFabricator: optionalString(
       map.supplierOrFabricator,
       "registrationDraft.supplierOrFabricator",
@@ -435,6 +490,10 @@ function parseRegistrationDraft(value: unknown): RegistrationDraft {
     receivedOrCompletedOn: optionalDate(
       map.receivedOrCompletedOn,
       "registrationDraft.receivedOrCompletedOn",
+    ),
+    incorporatedOn: optionalDate(
+      map.incorporatedOn,
+      "registrationDraft.incorporatedOn",
     ),
     drawingReference: optionalString(
       map.drawingReference, "registrationDraft.drawingReference", 240,
@@ -653,10 +712,40 @@ function requireProfile(
   innerCoverId: string,
   label: string,
 ): JsonMap {
+  const originClassification = data.originClassification as
+    InnerCoverOriginClassification | null | undefined;
+  const originMatchesSource = originClassification == null ||
+    (originClassification === "documentedPurchase" &&
+      data.sourceType === "purchased") ||
+    (new Set<InnerCoverOriginClassification>([
+      "documentedFabrication", "ownerDeclaredFabricated",
+    ]).has(originClassification) && data.sourceType === "fabricated") ||
+    (new Set<InnerCoverOriginClassification>([
+      "ownerDeclaredNew", "legacyUndocumented",
+    ]).has(originClassification) && data.sourceType === "legacyExisting");
+  const traceabilityMatchesOrigin = originClassification == null ||
+    (originClassification === "documentedPurchase" &&
+      data.traceabilityGrade === "T3") ||
+    (originClassification === "documentedFabrication" &&
+      new Set(["T2", "T3"]).has(data.traceabilityGrade as string)) ||
+    (originClassification === "ownerDeclaredNew" &&
+      data.traceabilityGrade === "T1") ||
+    (new Set<InnerCoverOriginClassification>([
+      "ownerDeclaredFabricated", "legacyUndocumented",
+    ]).has(originClassification) && data.traceabilityGrade === "T0");
   if (data.schemaVersion !== 1 || data.innerCoverId !== innerCoverId ||
       typeof data.serialNumber !== "string" ||
       typeof data.normalizedSerialNumber !== "string" ||
       normalizedSerial(data.serialNumber) !== data.normalizedSerialNumber ||
+      !SOURCE_TYPES.has(data.sourceType as InnerCoverSourceType) ||
+      (data.originClassification != null &&
+        !ORIGIN_CLASSIFICATIONS.has(
+          data.originClassification as InnerCoverOriginClassification,
+        )) ||
+      !originMatchesSource ||
+      !traceabilityMatchesOrigin ||
+      (data.incorporatedOn != null &&
+        timestampMillis(data.incorporatedOn) == null) ||
       !STATES.has(data.lifecycleState as InnerCoverLifecycleState) ||
       !Number.isSafeInteger(data.version) || (data.version as number) < 1) {
     throw new AssetHierarchyMutationError(
@@ -789,8 +878,10 @@ function requireAssignment(
 }
 
 function traceabilityGrade(draft: RegistrationDraft): string {
-  if (draft.sourceType === "legacyExisting") return "T0";
-  if (draft.sourceType === "purchased") return "T3";
+  if (draft.originClassification === "ownerDeclaredNew") return "T1";
+  if (draft.originClassification === "ownerDeclaredFabricated" ||
+      draft.originClassification === "legacyUndocumented") return "T0";
+  if (draft.originClassification === "documentedPurchase") return "T3";
   if (draft.fabricationSections.some(
     (section) => section.materialSource === "reusedUnknownLegacyDonor",
   )) return "T0";
@@ -805,6 +896,11 @@ function profileSnapshot(data: JsonMap | null): JsonMap | null {
   return {
     innerCoverId: data.innerCoverId,
     serialNumber: data.serialNumber,
+    originClassification: data.originClassification ?? null,
+    incorporatedOn: optionalTimestampIso(
+      data.incorporatedOn,
+      "Inner Cover incorporation date",
+    ),
     lifecycleState: data.lifecycleState,
     currentBaseAssetInstanceId: data.currentBaseAssetInstanceId ?? null,
     currentBaseAssetNumber: data.currentBaseAssetNumber ?? null,
@@ -812,6 +908,19 @@ function profileSnapshot(data: JsonMap | null): JsonMap | null {
     traceabilityGrade: data.traceabilityGrade,
     version: data.version,
   };
+}
+
+function optionalTimestampIso(value: unknown, label: string): string | null {
+  if (value == null) return null;
+  const milliseconds = timestampMillis(value);
+  if (milliseconds == null) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `${label} is malformed.`,
+      {reasonCode: "inner-cover-profile-malformed"},
+    );
+  }
+  return new Date(milliseconds).toISOString();
 }
 
 function linkRecord(args: {
@@ -1118,6 +1227,22 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           "cannot be in the future",
         );
       }
+      if (draft.incorporatedOn != null &&
+          draft.incorporatedOn.getTime() > nowDate.getTime()) {
+        invalid(
+          "registrationDraft.incorporatedOn",
+          "cannot be in the future",
+        );
+      }
+      if (draft.receivedOrCompletedOn != null &&
+          draft.incorporatedOn != null &&
+          draft.receivedOrCompletedOn.getTime() >
+            draft.incorporatedOn.getTime()) {
+        invalid(
+          "registrationDraft.incorporatedOn",
+          "cannot predate receipt or fabrication completion",
+        );
+      }
       const classRef = classes.doc(request.innerCoverAssetClassId!);
       const classData = record(
         await transaction.get(classRef), "Inner Cover asset class",
@@ -1245,11 +1370,14 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
         serialNumber: draft.serialNumber,
         normalizedSerialNumber: draft.normalizedSerialNumber,
         sourceType: draft.sourceType,
+        originClassification: draft.originClassification,
         lifecycleState: "awaitingInspection",
         traceabilityGrade: traceabilityGrade(draft),
         supplierOrFabricator: draft.supplierOrFabricator,
         receivedOrCompletedOn: draft.receivedOrCompletedOn == null ? null :
           toTimestamp(draft.receivedOrCompletedOn),
+        incorporatedOn: draft.incorporatedOn == null ? null :
+          toTimestamp(draft.incorporatedOn),
         drawingReference: draft.drawingReference,
         materialGrade: draft.materialGrade,
         registrationNotes: draft.notes,
@@ -1286,6 +1414,9 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           resultingInnerCoverId: request.innerCoverId,
           resultingSerialNumber: draft.serialNumber,
           supplierOrFabricator: draft.supplierOrFabricator,
+          originClassification: draft.originClassification,
+          incorporatedOn: draft.incorporatedOn == null ? null :
+            toTimestamp(draft.incorporatedOn),
           completedOn: draft.receivedOrCompletedOn == null ? null :
             toTimestamp(draft.receivedOrCompletedOn),
           drawingReference: draft.drawingReference,

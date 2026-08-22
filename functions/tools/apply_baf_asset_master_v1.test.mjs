@@ -9,6 +9,7 @@ import {
   loadManifest,
   validateReceiptAndAudit,
 } from "./apply_baf_asset_master_v1.mjs";
+import "./apply_baf_inner_cover_baseline_v1.test.mjs";
 
 const require = createRequire(import.meta.url);
 const {parseAssetHierarchyMutationRequest} = require("../lib/assetHierarchyMutation.js");

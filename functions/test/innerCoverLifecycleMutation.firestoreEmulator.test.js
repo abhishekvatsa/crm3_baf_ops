@@ -174,8 +174,10 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
       registrationDraft: {
         serialNumber: 'GR30',
         sourceType: 'fabricated',
+        originClassification: 'documentedFabrication',
         supplierOrFabricator: 'BAF approved fabricator',
         receivedOrCompletedOn: '2026-08-14T00:00:00.000Z',
+        incorporatedOn: '2026-08-14T12:00:00.000Z',
         drawingReference: 'IC-001',
         materialGrade: 'SS 321',
         notes: null,

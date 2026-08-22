@@ -564,10 +564,12 @@ class AssetHierarchyRepository {
     required AssetClassRecord innerCoverClass,
     required String serialNumber,
     required InnerCoverSourceType sourceType,
+    required InnerCoverOriginClassification originClassification,
     required AppUser actor,
     required String reason,
     String? supplierOrFabricator,
     DateTime? receivedOrCompletedOn,
+    DateTime? incorporatedOn,
     String? drawingReference,
     String? materialGrade,
     String? notes,
@@ -588,6 +590,19 @@ class AssetHierarchyRepository {
     }
     final errors =
         fabricationSections.expand((section) => section.validate()).toList();
+    final originMatchesSource = switch (originClassification) {
+      InnerCoverOriginClassification.documentedPurchase =>
+        sourceType == InnerCoverSourceType.purchased,
+      InnerCoverOriginClassification.documentedFabrication ||
+      InnerCoverOriginClassification.ownerDeclaredFabricated =>
+        sourceType == InnerCoverSourceType.fabricated,
+      InnerCoverOriginClassification.ownerDeclaredNew ||
+      InnerCoverOriginClassification.legacyUndocumented =>
+        sourceType == InnerCoverSourceType.legacyExisting,
+    };
+    if (!originMatchesSource) {
+      errors.add('The Inner Cover origin does not match its source envelope.');
+    }
     if (sourceType == InnerCoverSourceType.fabricated) {
       final types = fabricationSections.map((section) => section.type).toSet();
       for (final requiredType in const {
@@ -616,9 +631,11 @@ class AssetHierarchyRepository {
       'registrationDraft': <String, dynamic>{
         'serialNumber': serial,
         'sourceType': sourceType.name,
+        'originClassification': originClassification.name,
         'supplierOrFabricator': cleanHierarchyText(supplierOrFabricator),
         'receivedOrCompletedOn':
             receivedOrCompletedOn?.toUtc().toIso8601String(),
+        'incorporatedOn': incorporatedOn?.toUtc().toIso8601String(),
         'drawingReference': cleanHierarchyText(drawingReference),
         'materialGrade': cleanHierarchyText(materialGrade),
         'notes': cleanHierarchyText(notes),
