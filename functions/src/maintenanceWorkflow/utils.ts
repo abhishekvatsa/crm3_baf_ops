@@ -43,6 +43,9 @@ export const iso = (date: Date): string => date.toISOString();
 export const plusMinutes = (date: Date, minutes: number): string =>
   new Date(date.getTime() + minutes * 60_000).toISOString();
 
+const FIRESTORE_MIN_SECONDS = -62_135_596_800;
+const FIRESTORE_MAX_SECONDS = 253_402_300_799;
+
 export const isPersistedInstant = (value: unknown): boolean => {
   if (typeof value === "string") {
     return value.trim().length > 0 && Number.isFinite(Date.parse(value));
@@ -65,6 +68,8 @@ export const isPersistedInstant = (value: unknown): boolean => {
   }
 
   return Number.isSafeInteger(candidate._seconds) &&
+    (candidate._seconds as number) >= FIRESTORE_MIN_SECONDS &&
+    (candidate._seconds as number) <= FIRESTORE_MAX_SECONDS &&
     Number.isSafeInteger(candidate._nanoseconds) &&
     (candidate._nanoseconds as number) >= 0 &&
     (candidate._nanoseconds as number) < 1_000_000_000;

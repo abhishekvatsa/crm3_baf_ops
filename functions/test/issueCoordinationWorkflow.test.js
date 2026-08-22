@@ -201,7 +201,7 @@ describe('Ordinary issue Operations coordination', () => {
   test('rejects a malformed persisted acknowledgement timestamp', async () => {
     const store = new MemoryWorkflowStore();
     seedAcknowledgedTicket(store, {
-      acknowledgedAt: {_seconds: 'invalid', _nanoseconds: 0},
+      acknowledgedAt: {_seconds: Number.MAX_SAFE_INTEGER, _nanoseconds: 0},
     });
     const supervisor = seedActor(store, 'supervisor-1', ['contractSupervisor']);
     const service = new MaintenanceWorkflowCommandService(store);
