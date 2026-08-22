@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "BAF_INNER_COVER_BASELINE_PRODUCTION_POPULATION",
+  "generatedAt": "2026-08-22T17:18:08.242Z",
+  "manifestId": "crm3-baf-inner-cover-baseline-v1",
+  "manifestSha256": "c71d471c08dd56b94c18c51687e16dc3ab223bc4e1514690823bb777e492789c",
+  "projectId": "crm3-baf-ops-b8638",
+  "sourceCommit": "6e86b9a83523842d38041be0d8b6958dbb1606af",
+  "sourceTree": "87c985a90d67747c4275d6dd1c308144d7490f54",
+  "actorUidSha256": "80aa9d5d542c3a17387c5c5f1551c28cf917a3e2d95776fec9c6c77a13ed6ea4",
+  "authorizationBasis": "Owner instruction dated 2026-08-22",
+  "qualification": "The owner supplied current Base/serial associations and incorporation dates. GR means fabricated and N means new, both without prior source documentation. No historical technical inspection record is claimed.",
+  "dateResolution": "The supplied GR15 date 7/14/26 was interpreted as 14 July 2026 because the source list otherwise uses DD/MM/YY and month 14 is impossible.",
+  "counts": {
+    "suppliedPairs": 38,
+    "priorPlannedIntakeSlots": 44,
+    "unresolvedSerialIntakeSlots": 6,
+    "ownerDeclaredFabricated": 14,
+    "ownerDeclaredNew": 8,
+    "legacyUndocumented": 16,
+    "profiles": 38,
+    "assignments": 38,
+    "activeLinkages": 38,
+    "fabricationDossiers": 14,
+    "receipts": 114,
+    "audits": 114
+  },
+  "applied": {
+    "registered": 38,
+    "accepted": 38,
+    "linked": 38,
+    "resumed": 0
+  },
+  "result": "PASS"
+}
