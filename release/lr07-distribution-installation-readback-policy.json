@@ -28,13 +28,13 @@
     },
     {
       "path": "release/production-release-policy.json",
-      "bytes": 13637,
-      "sha256": "420F61F212D4E9BE0AA204EF341C4279E85615B42D79B606661A05A3F3E4F362"
+      "bytes": 12690,
+      "sha256": "E14B4405CDA7DCD13352BC84BB74F8D836D2D73B348649FE5590F6CF69BF08D9"
     },
     {
       "path": "release/build-number-ledger.json",
-      "bytes": 35103,
-      "sha256": "5FDA895D2302FB78BF8A9D22C09335A09EAC29CF07B6434662406107ECECE26D"
+      "bytes": 39295,
+      "sha256": "BC6EB6B7C0FED11035AE2024426A7A758A0FC3DD5CA9C3EF9BC69870BE0AE9F0"
     },
     {
       "path": "release/evidence/build-8-finalization-closure.json",
@@ -60,6 +60,11 @@
       "path": "release/evidence/build-12-finalization-closure.json",
       "bytes": 5968,
       "sha256": "3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC"
+    },
+    {
+      "path": "release/evidence/build-13-finalization-closure.json",
+      "bytes": 4180,
+      "sha256": "63E6B0D21FC369F96C9F621E85FBE59F62B1B726B24CDA5A0D45C371504ABEE7"
     },
     {
       "path": "release/evidence/build-12-closure-custody-reconciliation.json",
@@ -200,6 +205,20 @@
       "governedPackageSha256": "8BBDB5C6F6CB72243F426AB795C1ADA96F78C7C904512784332048C8A9B901CB",
       "authorityReceiptPath": "release/evidence/build-12-finalization-closure.json",
       "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_UPGRADE_PROVED_NON_DISTRIBUTABLE"
+    },
+    {
+      "buildNumber": 13,
+      "id": 9468702427,
+      "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.3-b13-59358123a7f1d9edf7a579b18d3e2407d8a1e48e-run-32545733716",
+      "sizeBytes": 153622704,
+      "digest": "sha256:fdb49957dfd7fd0ba292abda224bcb7192aff2b841664d8e79e4316a791dd0c8",
+      "workflowRunId": 32545733716,
+      "headSha": "59358123a7f1d9edf7a579b18d3e2407d8a1e48e",
+      "ledgerDisposition": "successful-build-finalized-non-distributable",
+      "dualCustodyCompleted": true,
+      "governedPackageSha256": "C5BACE9A71F9490EDA41AD7BDFF7DF3FD223A8BA54A58AC00A3C0ECEF8DD0AE8",
+      "authorityReceiptPath": "release/evidence/build-13-finalization-closure.json",
+      "deletionBasis": "FINALIZED_DUAL_CUSTODY_RUNTIME_UNADJUDICATED_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {
@@ -215,9 +234,9 @@
   },
   "executionAuthority": {
     "artifactDeletionRequiresExplicitOwnerApproval": true,
-    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9307950694",
+    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9468702427",
     "requiredPresentArtifactIds": [
-      9307950694
+      9468702427
     ],
     "deleteOnlyExactArtifactIds": true,
     "workflowRunsAndLogsPreserved": true,

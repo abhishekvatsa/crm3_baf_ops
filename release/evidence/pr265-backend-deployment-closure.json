@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "exact-source-function-fleet-deployment-closure",
+  "decision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+  "recordedAtUtc": "2026-08-22T10:55:05Z",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "sourceAuthority": {
+    "commit": "e565c4d4fccf9556c90b72bda396786875c3ddd9",
+    "tree": "f63358c926c0538177c770995f963f52e3628c77",
+    "pullRequestNumber": 265,
+    "postMergeReleaseGateRunId": 32567109707,
+    "postMergeReleaseGateConclusion": "success"
+  },
+  "deployment": {
+    "campaign": "function-fleet-runtime-identity",
+    "functionCount": 15,
+    "callableCount": 9,
+    "eventAndProtocolTriggerCount": 5,
+    "schedulerCount": 1,
+    "executeMaintenanceWorkflowCommandUpdated": true,
+    "allFunctionsExactSourceVerified": true,
+    "finalRuntimeIdentityReadbackPassed": true,
+    "finalIamDependencyReadbackPassed": true
+  },
+  "privacySafeExternalEvidence": {
+    "folderName": "CRM3_PR265_BACKEND_DEPLOYMENT_EVIDENCE_e565c4d",
+    "receipts": [
+      {"file": "01-preflight.json", "sha256": "A6F1BFF12BC8AB1F5B462CF493D0738DC66966D8E83A517B8FE8934A05D64D8F"},
+      {"file": "02-provisioned.json", "sha256": "33182FC58C9BF82EF48131685C4BF910A6DDB6C36FDAB011D9814A54B82FDFB2"},
+      {"file": "03-callables.json", "sha256": "DE5AF2F2B28DE0E9ED7DE89117CF8BA0A8B371EC2B7709A5829AC20718BDA41E"},
+      {"file": "04-events.json", "sha256": "D67BC1A0EE0AD8E2F8DB3F87BB552D27C8EDC5BA3A6AEC4E8CF4B16AE7AB0122"},
+      {"file": "05-scheduler-preflight.json", "sha256": "686764BCDD3D371EDE8E29669216F8F6ACA3FC3E2F1A0C0D6CCE1A2FCEC62FF4"},
+      {"file": "06-fleet.json", "sha256": "89B069195FEB66E13808DC0AE6E74DCBE951DAC0074C41D8DAAE8849F8DF910C"},
+      {"file": "07-lr03-lr06-prefinal.json", "sha256": "9BF72F9DF6D2FB4CEA0CC6D767EAC40EAF37FFAC09BAA6B6E99189CD39C3FB9C"},
+      {"file": "08-final.json", "sha256": "54F1946D08D23BAEC0B6B1A398B7DB5979767D04F00DC954A0B4C33C5B3613C8"},
+      {"file": "09-lr03-lr06-final.json", "sha256": "F8598F6A391BCEDFEE504317E6B5CBB85E659BA07F3B5ACAE4B6CB25148E37DC"}
+    ]
+  },
+  "controlBoundary": {
+    "temporaryProjectLevelInvokerRolesRemoved": true,
+    "appCheckActivationPerformed": false,
+    "appCheckGovernedDeferralPreserved": true,
+    "firestoreRulesChanged": false,
+    "firestoreIndexesChanged": false,
+    "productionBusinessDataMutated": false,
+    "distributionPerformed": false
+  }
+}

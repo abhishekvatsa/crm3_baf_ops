@@ -1171,6 +1171,11 @@ void main() {
         ),
       );
       expect(policyVerifier, contains('environmentAuthorityMergeCommit'));
+      expect(policyVerifier, contains('exactBackendDeploymentReceiptSha256'));
+      expect(
+        policyVerifier,
+        contains('Exact backend deployment receipt is incomplete.'),
+      );
       expect(
         policyVerifier,
         contains(
@@ -1181,17 +1186,17 @@ void main() {
     });
 
     test(
-      'build 13 reservation preserves build 12 completion and build 10 failure',
+      'build 14 reservation preserves build 13 completion and build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
                 as Map<String, dynamic>;
         final finalization = policy['finalization'] as Map<String, dynamic>;
-        final build12Finalization =
+        final build13Finalization =
             finalization['priorCompletedBuild'] as Map<String, dynamic>;
-        final build12Receipt =
+        final build13Receipt =
             jsonDecode(
-                  read(build12Finalization['completionReceiptFile'] as String),
+                  read(build13Finalization['completionReceiptFile'] as String),
                 )
                 as Map<String, dynamic>;
         final receipt =
@@ -1199,19 +1204,19 @@ void main() {
                   read('release/evidence/build-11-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
-        final build12Source =
-            build12Receipt['sourceAuthority'] as Map<String, dynamic>;
-        final build12Ci = build12Receipt['workflow'] as Map<String, dynamic>;
-        final build12Package =
-            build12Receipt['governedPackage'] as Map<String, dynamic>;
-        final build12Remote =
-            build12Receipt['remoteAuthority'] as Map<String, dynamic>;
-        final build12Custody =
-            build12Receipt['dualCustody'] as Map<String, dynamic>;
-        final build12Runtime =
-            build12Receipt['runtimeAdjudication'] as Map<String, dynamic>;
-        final build12Boundary =
-            build12Receipt['releaseBoundary'] as Map<String, dynamic>;
+        final build13Source =
+            build13Receipt['sourceAuthority'] as Map<String, dynamic>;
+        final build13Ci = build13Receipt['workflow'] as Map<String, dynamic>;
+        final build13Package =
+            build13Receipt['governedPackage'] as Map<String, dynamic>;
+        final build13Remote =
+            build13Receipt['remoteAuthority'] as Map<String, dynamic>;
+        final build13Custody =
+            build13Receipt['dualCustody'] as Map<String, dynamic>;
+        final build13Runtime =
+            build13Receipt['runtimeAdjudication'] as Map<String, dynamic>;
+        final build13Boundary =
+            build13Receipt['releaseBoundary'] as Map<String, dynamic>;
         final sourceAuthority =
             receipt['sourceAuthority'] as Map<String, dynamic>;
         final workflow = receipt['workflow'] as Map<String, dynamic>;
@@ -1257,41 +1262,38 @@ void main() {
           failedAttempt['evidenceSha256'],
           'E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58',
         );
-        expect(build12Finalization['buildNumber'], 12);
-        expect(build12Finalization['status'], 'completed-non-distributable');
-        expect(build12Finalization['dualCustodyCompleted'], isTrue);
-        expect(build12Finalization['runtimeValidationPassed'], isTrue);
+        expect(build13Finalization['buildNumber'], 13);
+        expect(build13Finalization['status'], 'completed-non-distributable');
+        expect(build13Finalization['dualCustodyCompleted'], isTrue);
+        expect(build13Finalization['runtimeValidationPassed'], isFalse);
         expect(
-          build12Finalization['completionReceiptSha256'],
-          '3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC',
+          build13Finalization['completionReceiptSha256'],
+          '63E6B0D21FC369F96C9F621E85FBE59F62B1B726B24CDA5A0D45C371504ABEE7',
         );
-        expect(build12Receipt['schemaVersion'], 1);
-        expect(build12Receipt['status'], 'passed-non-distributable');
+        expect(build13Receipt['schemaVersion'], 1);
+        expect(build13Receipt['status'], 'passed-non-distributable');
         expect(
-          build12Source['commit'],
-          '8ba5b237cef151b001d9bea41e16e68015091e43',
+          build13Source['commit'],
+          '59358123a7f1d9edf7a579b18d3e2407d8a1e48e',
         );
-        expect(build12Ci['runId'], 32088466492);
+        expect(build13Ci['runId'], 32545733716);
         expect(
-          build12Package['sha256'],
-          '8BBDB5C6F6CB72243F426AB795C1ADA96F78C7C904512784332048C8A9B901CB',
+          build13Package['sha256'],
+          'C5BACE9A71F9490EDA41AD7BDFF7DF3FD223A8BA54A58AC00A3C0ECEF8DD0AE8',
         );
-        expect(build12Package['independentVerificationCompleted'], isTrue);
+        expect(build13Package['independentVerificationCompleted'], isTrue);
         expect(
-          build12Remote['builtTagObjectSha'],
-          'b705e33b68a1deaed0d2b71f88d024b8e8db1515',
+          build13Remote['builtTagObjectSha'],
+          'e5db822dededced9815585cd4cc1c8a04a3fd8f0',
         );
-        expect(build12Custody['distinctVolumes'], isTrue);
-        expect(build12Custody['allFileHashesMatched'], isTrue);
-        expect(
-          build12Runtime['status'],
-          'passed-exact-build12-physical-in-place-feature-surfaces',
-        );
-        expect(build12Runtime['physicalTargetCount'], 1);
-        expect(build12Runtime['liveAssetWorkflowValidationCompleted'], isFalse);
-        expect(build12Boundary['controlledPilotApproved'], isFalse);
-        expect(build12Boundary['distributionPerformed'], isFalse);
-        expect(build12Boundary['fullBusinessFlowValidationPassed'], isFalse);
+        expect(build13Custody['distinctVolumes'], isTrue);
+        expect(build13Custody['allFileHashesMatched'], isTrue);
+        expect(build13Runtime['status'], 'not-adjudicated-for-exact-build13');
+        expect(build13Runtime['physicalTargetCount'], 0);
+        expect(build13Runtime['liveBusinessFlowValidationCompleted'], isFalse);
+        expect(build13Boundary['controlledPilotApproved'], isFalse);
+        expect(build13Boundary['distributionPerformed'], isFalse);
+        expect(build13Boundary['fullBusinessFlowValidationPassed'], isFalse);
         expect(receipt['schemaVersion'], 1);
         expect(receipt['status'], 'passed-non-distributable');
         expect(
@@ -1383,12 +1385,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.3\+13$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.4\+14$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.3-b13"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.4-b14"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/13"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/14"'),
       );
       expect(policy, contains('"approved": true'));
       expect(
