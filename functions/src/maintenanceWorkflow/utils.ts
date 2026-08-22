@@ -42,3 +42,30 @@ export const payloadFingerprint = (command: JsonMap): string =>
 export const iso = (date: Date): string => date.toISOString();
 export const plusMinutes = (date: Date, minutes: number): string =>
   new Date(date.getTime() + minutes * 60_000).toISOString();
+
+export const isPersistedInstant = (value: unknown): boolean => {
+  if (typeof value === "string") {
+    return value.trim().length > 0 && Number.isFinite(Date.parse(value));
+  }
+  if (value instanceof Date) return Number.isFinite(value.getTime());
+  if (value == null || typeof value !== "object") return false;
+
+  const candidate = value as {
+    toDate?: unknown;
+    _seconds?: unknown;
+    _nanoseconds?: unknown;
+  };
+  if (typeof candidate.toDate === "function") {
+    try {
+      const date = (candidate.toDate as () => Date)();
+      return date instanceof Date && Number.isFinite(date.getTime());
+    } catch {
+      return false;
+    }
+  }
+
+  return Number.isSafeInteger(candidate._seconds) &&
+    Number.isSafeInteger(candidate._nanoseconds) &&
+    (candidate._nanoseconds as number) >= 0 &&
+    (candidate._nanoseconds as number) < 1_000_000_000;
+};

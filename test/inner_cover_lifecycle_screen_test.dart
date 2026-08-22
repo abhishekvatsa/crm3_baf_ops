@@ -126,6 +126,66 @@ void main() {
     expect(find.textContaining('Available'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Admin registration explains invalid required fields', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2026, 8, 22);
+    final innerCoverClass = AssetClassRecord(
+      id: 'inner-class',
+      code: 'INNER_COVER',
+      name: 'Inner Cover',
+      majorArea: 'BAF shop',
+      legacyAssetTypeKey: 'innerCover',
+      status: AssetHierarchyStatus.active,
+      version: 1,
+      createdAt: now,
+      createdByUid: 'admin-1',
+      updatedAt: now,
+      updatedByUid: 'admin-1',
+      lastMutationId: 'inner-class-mutation',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
+          ),
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value([innerCoverClass]),
+          ),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const <AssetInstanceRecord>[]),
+          ),
+          innerCoverProfilesProvider.overrideWith(
+            (ref) => Stream.value(const <InnerCoverProfile>[]),
+          ),
+          innerCoverAssignmentsProvider.overrideWith(
+            (ref) => Stream.value(const <BaseInnerCoverAssignment>[]),
+          ),
+        ],
+        child: const MaterialApp(home: InnerCoverLifecycleScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Register Inner Cover'));
+    await tester.pumpAndSettle();
+    expect(find.text('Register Inner Cover'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Register'));
+    await tester.pump();
+
+    expect(find.text('Enter an Inner Cover serial number.'), findsOneWidget);
+    expect(
+      find.text('Explain the registration in at least 8 characters.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 InnerCoverProfile _profile({

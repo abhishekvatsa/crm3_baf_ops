@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "39433208E5632CB07E3ABC37E317E53A1EC40C91819E593A404C62F2FCE24175",
+  "inventoryDigest": "FE5B9FD4E232B6AB9E8E61E77B3A874B0EE6179CB501744B15098A611A403116",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "FD47EC6D275E4FF29A03729A5165AE63EAE9477B40CADFC6F7A51C4E2621BA0E",
+  "a05ManifestSha256": "C19CA1E73BFE6BD4BCC1F071061C0CDFCD4DB48749087DF14790485ED1F15B27",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1200,6 +1200,15 @@
       "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
       "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
       "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js"
+    },
+    {
+      "id": "persisted-json-semantic-equality",
+      "file": "lib/core/serialization/persisted_json_equality.dart",
+      "classification": "SYNC_COMPARISON_HELPER",
+      "authorityBoundary": "pinned persisted JSON metadata equality during governed replay",
+      "malformedDisposition": "return false and withhold semantic replay",
+      "compatibility": "decoded JSON value equality, including order-insensitive object keys and order-sensitive arrays",
+      "regression": "test/persisted_json_equality_test.dart; test/maintenance_lifecycle_replay_contract_test.dart"
     },
     {
       "id": "planned-dossier-metadata-display",

@@ -178,6 +178,43 @@ describe('Ordinary issue Operations coordination', () => {
       .toHaveLength(0);
   });
 
+  test('accepts acknowledgedAt in the Firestore persisted timestamp shape', async () => {
+    const store = new MemoryWorkflowStore();
+    seedAcknowledgedTicket(store, {
+      acknowledgedAt: {
+        _seconds: Math.floor(at('2026-08-20T04:00:00Z').getTime() / 1000),
+        _nanoseconds: 0,
+      },
+    });
+    const supervisor = seedActor(store, 'supervisor-1', ['contractSupervisor']);
+    const service = new MaintenanceWorkflowCommandService(store);
+
+    await expect(service.execute(command(), {
+      actor: supervisor,
+      serverNow: at('2026-08-20T04:05:00Z'),
+    })).resolves.toMatchObject({
+      resultKey: 'issue-coordination-started',
+      aggregateVersion: 1,
+    });
+  });
+
+  test('rejects a malformed persisted acknowledgement timestamp', async () => {
+    const store = new MemoryWorkflowStore();
+    seedAcknowledgedTicket(store, {
+      acknowledgedAt: {_seconds: 'invalid', _nanoseconds: 0},
+    });
+    const supervisor = seedActor(store, 'supervisor-1', ['contractSupervisor']);
+    const service = new MaintenanceWorkflowCommandService(store);
+
+    await expect(service.execute(command(), {
+      actor: supervisor,
+      serverNow: at('2026-08-20T04:05:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'issue-coordination-ticket-not-acknowledged'},
+    });
+  });
+
   test('rejects an invalid charge and an unacknowledged issue', async () => {
     const store = new MemoryWorkflowStore();
     seedAcknowledgedTicket(store, {

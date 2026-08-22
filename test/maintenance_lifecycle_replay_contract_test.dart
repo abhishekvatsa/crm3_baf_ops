@@ -521,6 +521,12 @@ void main() {
         ]) {
           expect(diff, contains("'$field'"), reason: 'Pinned field $field');
         }
+        expect(
+          diff,
+          contains('persistedJsonEquivalent('),
+          reason:
+              'Metadata envelopes must compare decoded JSON values rather than map insertion order.',
+        );
 
         for (final mutableLifecycleField in <String>[
           'isResolved',

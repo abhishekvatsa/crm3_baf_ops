@@ -597,7 +597,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
         remote.acknowledgedAt,
       ),
       'chargeNoAtEvent': local.chargeNoAtEvent == remote.chargeNoAtEvent,
-      'metadataJson': local.metadataJson == remote.metadataJson,
+      'metadataJson': persistedJsonEquivalent(
+        local.metadataJson,
+        remote.metadataJson,
+      ),
       'performedBy': local.performedBy == remote.performedBy,
     };
 

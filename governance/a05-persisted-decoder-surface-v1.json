@@ -1024,6 +1024,22 @@
       "regression": "test/template_version_snapshot_contract_test.dart",
       "reArmCondition": "malformed metadata silently selects or authorizes a maintenance class",
       "riskFingerprint": "2a124a35bd917cedf142134d338655ed551fa605dd0544eb1c69ad931cfdb163"
+    },
+    {
+      "id": "persisted-json-semantic-equality",
+      "file": "lib/core/serialization/persisted_json_equality.dart",
+      "markers": [
+        "bool persistedJsonEquivalent(",
+        "_jsonValueEquivalent(jsonDecode(left), jsonDecode(right))"
+      ],
+      "classification": "SYNC_COMPARISON_HELPER",
+      "owner": "synchronization",
+      "authorityBoundary": "pinned persisted JSON metadata equality during governed replay",
+      "malformedDisposition": "return false and withhold semantic replay",
+      "compatibility": "decoded JSON value equality, including order-insensitive object keys and order-sensitive arrays",
+      "regression": "test/persisted_json_equality_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
+      "reArmCondition": "malformed JSON compares equal, collection semantics change, or the helper becomes mutation authority",
+      "riskFingerprint": "2a72abb931c2f78618f11822eaba234c1a39c5c96aadc0c7362a6b97559e52bc"
     }
   ],
   "catchSites": [

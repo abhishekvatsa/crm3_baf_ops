@@ -1431,6 +1431,9 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
   final _material = TextEditingController();
   final _notes = TextEditingController();
   final _reason = TextEditingController();
+  String? _serialError;
+  String? _reasonError;
+  String? _sectionsError;
   InnerCoverSourceType _source = InnerCoverSourceType.purchased;
   late final Map<InnerCoverFabricationSectionType, _SectionEditorState>
   _sections = {
@@ -1479,7 +1482,14 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
               TextField(
                 controller: _serial,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'Serial number'),
+                onChanged:
+                    (_) => setState(() {
+                      _serialError = null;
+                    }),
+                decoration: InputDecoration(
+                  labelText: 'Serial number',
+                  errorText: _serialError,
+                ),
               ),
               DropdownButtonFormField<InnerCoverSourceType>(
                 initialValue: _source,
@@ -1495,7 +1505,10 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                         )
                         .toList(),
                 onChanged:
-                    (value) => setState(() => _source = value ?? _source),
+                    (value) => setState(() {
+                      _source = value ?? _source;
+                      _sectionsError = null;
+                    }),
               ),
               TextField(
                 controller: _supplier,
@@ -1538,9 +1551,26 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                   (state) => _FabricationSectionEditor(
                     state: state,
                     donors: donors,
-                    onChanged: () => setState(() {}),
+                    onChanged:
+                        () => setState(() {
+                          _sectionsError = null;
+                        }),
                   ),
                 ),
+                if (_sectionsError != null) ...[
+                  const SizedBox(height: BafSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _sectionsError!,
+                      style: const TextStyle(
+                        color: BafColors.danger,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ],
               TextField(
                 controller: _notes,
@@ -1552,8 +1582,13 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
               TextField(
                 controller: _reason,
                 maxLines: 2,
-                decoration: const InputDecoration(
+                onChanged:
+                    (_) => setState(() {
+                      _reasonError = null;
+                    }),
+                decoration: InputDecoration(
                   labelText: 'Registration reason',
+                  errorText: _reasonError,
                 ),
               ),
             ],
@@ -1573,9 +1608,6 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
   void _submit() {
     final serial = _serial.text.trim();
     final reason = _reason.text.trim();
-    if (normalizeInnerCoverSerial(serial).length < 2 || reason.length < 8) {
-      return;
-    }
     String? optional(TextEditingController controller) {
       final value = controller.text.trim();
       return value.isEmpty ? null : value;
@@ -1585,7 +1617,30 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
         _source == InnerCoverSourceType.fabricated
             ? _sections.values.map((state) => state.toDraft()).toList()
             : const <InnerCoverFabricationSectionDraft>[];
-    if (sections.expand((section) => section.validate()).isNotEmpty) return;
+    final sectionErrors = sections
+        .expand((section) => section.validate())
+        .toList(growable: false);
+    final serialError =
+        normalizeInnerCoverSerial(serial).length < 2
+            ? 'Enter an Inner Cover serial number.'
+            : null;
+    final reasonError =
+        reason.length < 8
+            ? 'Explain the registration in at least 8 characters.'
+            : null;
+    if (serialError != null ||
+        reasonError != null ||
+        sectionErrors.isNotEmpty) {
+      setState(() {
+        _serialError = serialError;
+        _reasonError = reasonError;
+        _sectionsError =
+            sectionErrors.isEmpty
+                ? null
+                : 'Complete the fabrication evidence: ${sectionErrors.first}';
+      });
+      return;
+    }
     Navigator.pop(
       context,
       _RegistrationResult(
