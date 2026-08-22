@@ -1372,6 +1372,9 @@ firebase_key_decision = text(
 firebase_key_android_live_evidence = data(
     "release/evidence/firebase-android-api-key-pilot-hardening-20260822.json"
 )
+firebase_key_strict_live_evidence = data(
+    "release/evidence/firebase-client-api-key-live-custody-20260822.json"
+)
 root_package = data("package.json")
 firebase_key_source_policy = firebase_key_policy.get("sourceCustody", {})
 firebase_key_live_policy = firebase_key_policy.get("liveReadback", {})
@@ -1594,6 +1597,139 @@ check(
         }
     and "AIza" not in json.dumps(firebase_key_android_live_evidence)
     and "projects/" not in json.dumps(firebase_key_android_live_evidence),
+)
+firebase_key_strict_source = firebase_key_strict_live_evidence.get("source", {})
+firebase_key_strict_keys = firebase_key_strict_live_evidence.get("keys", [])
+firebase_key_strict_key_contract = {
+    key.get("displayName"): {
+        "keyStringSha256": key.get("keyStringSha256"),
+        "apiTargetServices": [
+            target.get("service")
+            for target in key.get("apiTargets", [])
+            if isinstance(target, dict)
+        ],
+        "apiMethods": [
+            target.get("methods")
+            for target in key.get("apiTargets", [])
+            if isinstance(target, dict)
+        ],
+        "applicationRestrictionTypes": key.get(
+            "applicationRestrictionTypes"
+        ),
+        "applicationRestrictionEntryCounts": key.get(
+            "applicationRestrictionEntryCounts"
+        ),
+        "deleted": key.get("deleted"),
+    }
+    for key in firebase_key_strict_keys
+    if isinstance(key, dict)
+}
+check(
+    "Firebase client API key strict live custody is clean-main and exact",
+    firebase_key_strict_live_evidence.get("schemaVersion") == 1
+    and firebase_key_strict_live_evidence.get("evidenceType")
+        == "firebase-client-api-key-live-custody"
+    and firebase_key_strict_live_evidence.get("policyId")
+        == "crm3-firebase-client-api-key-custody-v1"
+    and firebase_key_strict_live_evidence.get("firebaseProjectId")
+        == "crm3-baf-ops-b8638"
+    and firebase_key_strict_live_evidence.get("projectNumber") == "894346496105"
+    and firebase_key_strict_live_evidence.get("mode") == "STRICT"
+    and firebase_key_strict_live_evidence.get("decision")
+        == "PASS_FIREBASE_CLIENT_API_KEY_LIVE_CUSTODY"
+    and firebase_key_strict_live_evidence.get("capturedAtUtc")
+        == "2026-08-22T00:28:25.392Z"
+    and firebase_key_strict_source.get("commit")
+        == "4c9b8eb3e5dcf4a7f9be134bffcf56b07e31e332"
+    and firebase_key_strict_source.get("originMain")
+        == "4c9b8eb3e5dcf4a7f9be134bffcf56b07e31e332"
+    and firebase_key_strict_source.get("policySha256")
+        == sha(ROOT / "release/firebase-client-api-key-policy.json")
+    and firebase_key_strict_source.get("governedWorktreeClean") is True
+    and firebase_key_strict_source.get("materialChangeCount") == 0
+    and firebase_key_strict_source.get("materialPathSha256") == []
+    and set(firebase_key_strict_key_contract)
+        == {
+            "Android key (auto created by Firebase)",
+            "Browser key (auto created by Firebase)",
+            "iOS key (auto created by Firebase)",
+        }
+    and all(
+        contract.get("apiTargetServices") == firebase_key_approved_targets
+        and contract.get("apiMethods") == [[] for _ in firebase_key_approved_targets]
+        and contract.get("deleted") is False
+        for contract in firebase_key_strict_key_contract.values()
+    )
+    and firebase_key_strict_key_contract[
+        "Android key (auto created by Firebase)"
+    ] == {
+        "keyStringSha256": "1D8CA255D2D1370619CBFA84A160451EACD26B3029B76B385049BEBDEB8D02A1",
+        "apiTargetServices": firebase_key_approved_targets,
+        "apiMethods": [[] for _ in firebase_key_approved_targets],
+        "applicationRestrictionTypes": ["android"],
+        "applicationRestrictionEntryCounts": [
+            {
+                "type": "android",
+                "entryCount": 2,
+                "valueSha256": "F9B07890AAD52DD6F0593610254F2C1524D58149CCAAA1AA138FD6F956FFD692",
+            }
+        ],
+        "deleted": False,
+    }
+    and firebase_key_strict_key_contract[
+        "Browser key (auto created by Firebase)"
+    ]["keyStringSha256"]
+        == "7E6D14B01F16C804D76184AEC71D7802BD93E349447B489B64ADBC22F4381B55"
+    and firebase_key_strict_key_contract[
+        "Browser key (auto created by Firebase)"
+    ]["applicationRestrictionTypes"] == ["browser"]
+    and firebase_key_strict_key_contract[
+        "Browser key (auto created by Firebase)"
+    ]["applicationRestrictionEntryCounts"] == [
+        {
+            "type": "browser",
+            "entryCount": 0,
+            "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A",
+        }
+    ]
+    and firebase_key_strict_key_contract[
+        "iOS key (auto created by Firebase)"
+    ]["keyStringSha256"]
+        == "9F16CF3F58CFFE3FD92BC15D419CF075090E03CEDDBA966C6E171E6FCDD82097"
+    and firebase_key_strict_key_contract[
+        "iOS key (auto created by Firebase)"
+    ]["applicationRestrictionTypes"] == ["ios"]
+    and firebase_key_strict_key_contract[
+        "iOS key (auto created by Firebase)"
+    ]["applicationRestrictionEntryCounts"] == [
+        {
+            "type": "ios",
+            "entryCount": 0,
+            "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A",
+        }
+    ]
+    and firebase_key_strict_live_evidence.get("checks")
+        == {
+            "schemaVersion": True,
+            "governedSourceClean": True,
+            "sourceCustody": True,
+            "keyCount": True,
+            "displayNamesExact": True,
+            "sourceKeySetExact": True,
+            "keysActive": True,
+            "apiTargetsExact": True,
+            "apiMethodsUnscoped": True,
+            "forbiddenApiTargetsAbsent": True,
+            "applicationRestrictionShapeExact": True,
+        }
+    and firebase_key_strict_live_evidence.get("privacyBoundary")
+        == {
+            "clientApiKeyValuesReadForHashBinding": True,
+            "rawKeyValuesRetained": False,
+            "rawKeyValuesEmitted": False,
+            "accountIdentityRetained": False,
+        }
+    and "AIza" not in json.dumps(firebase_key_strict_live_evidence),
 )
 
 firestore_readback_source = text(
