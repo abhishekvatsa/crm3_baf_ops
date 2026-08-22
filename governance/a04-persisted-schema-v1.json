@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "645EF38CA90585CBEFD31FF29B02D8E56EA615C4566A305C40B8E3B39A37F5AA",
+  "inventoryDigest": "569B242D7B67DB4BCA0CED8E37E69AEAE812DDEE19A7CDA873A25940E2A4CBB9",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "F7876A78AF438A63948DACBD61D845C42F0729024649C24FCBF413D09ED052CB",
+  "a05ManifestSha256": "4ADBC0D689AD8F7FC38F85D6F3057FE054A63C71AF9B8E4A17CB6400853791A7",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1101,6 +1101,15 @@
       "malformedDisposition": "fail closed before malformed class, completion history, reset-counter, due, scope, chronology, or plan evidence enters maintenance planning",
       "compatibility": "schema version 1 only; complete class identity and state-specific cadence evidence",
       "regression": "test/ui_business_alignment_test.dart; functions/test/maintenanceIntelligence.test.js"
+    },
+    {
+      "id": "maintenance-lifecycle-replay-receipt",
+      "file": "lib/core/services/sync_service.tickets_templates.dart",
+      "classification": "REMOTE_COMMAND_RECEIPT",
+      "authorityBoundary": "exact Firestore maintenance lifecycle replay readback",
+      "malformedDisposition": "fail closed and leave the local maintenance row pending",
+      "compatibility": "none; a synchronized replay requires an exact version and updatedAt receipt",
+      "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart"
     },
     {
       "id": "maintenance-record",

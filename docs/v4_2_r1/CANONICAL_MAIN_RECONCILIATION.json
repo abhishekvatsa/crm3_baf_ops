@@ -1078,9 +1078,9 @@
     {
       "path": "lib/core/services/sync_service.tickets_templates.dart",
       "canonicalSha256": "234C8A55AC89596929E0BBDA8FDA197809502505CD803C814085B37A5B883290",
-      "candidateSha256": "6E085942A1B345D9C09A65B6480CBE9A06D6F68C9C43DAF1191515BCA6864AFF",
+      "candidateSha256": "5D3F7D2AFF12C99C02781FE8B8A8DDD59A7522486041726E3127E83D81827217",
       "canonicalBytes": 20107,
-      "candidateBytes": 27222,
+      "candidateBytes": 28854,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1550,9 +1550,9 @@
     {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "canonicalSha256": "A9ECCD861BAE74BDAE1BD898D9DA47222C003487ECFB5A6C6E134BADB72A5597",
-      "candidateSha256": "39C64AE2917211AC5739C97077B0B1D4261F679454686C13466ED6D512A895F0",
+      "candidateSha256": "2C1C80C2F40BABAF4B36A679AD96EC269DABEABDE6A8982B6FDBB78B01567E0D",
       "canonicalBytes": 54587,
-      "candidateBytes": 19619,
+      "candidateBytes": 20047,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2826,9 +2826,9 @@
     {
       "path": "test/maintenance_lifecycle_replay_contract_test.dart",
       "canonicalSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
-      "candidateSha256": "7A1B1595EE9A558E61BB31F45F8D92EBFA19A269FB2F5D72813DD5155872638E",
+      "candidateSha256": "56380199FAD6562A30CC938461F911F9F071C341A6808DC1C9F204A11ADD4D07",
       "canonicalBytes": 21051,
-      "candidateBytes": 33204,
+      "candidateBytes": 35058,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3086,7 +3086,7 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "7BACDAE4A069E15B8447E5CB5EF95FDF228F2E2332E86B5703CBDA49C8BFB0D8",
+      "candidateSha256": "0BF44F4019897140C0D5C0C3AFCE408B1539BB347DE8738974B9938D67922E97",
       "canonicalBytes": 18375,
       "candidateBytes": 40327,
       "disposition": "SUCCESSOR_MODIFIED"

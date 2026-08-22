@@ -15,11 +15,26 @@ void main() {
         'if (remote == null)',
         'await _pushMissingMaintenanceTicket(record);',
         'continue;',
-        'final replayed = await _tryPushDecomposedMaintenanceTicket',
-        'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
+        'final expectedLocal = _syncPushSnapshot(record);',
+        'final replayReceipt = await _tryPushDecomposedMaintenanceTicket',
+        '.applyMaintenanceLifecycleReplayReceiptForSync(',
+        'serverVersion: replayReceipt.version,',
+        'serverUpdatedAt: replayReceipt.updatedAt,',
         'if (_isRemoteNewer(record, remote))',
         'recordsToPush.add(record);',
       ]);
+
+      final replaySuccess = _blockStartingAt(
+        syncBlock,
+        'if (replayReceipt != null)',
+      );
+      expect(
+        replaySuccess,
+        isNot(contains('skippedButSyncedSnapshots.add')),
+        reason:
+            'A rebased replay must adopt its exact server receipt instead of '
+            'marking the stale local snapshot clean.',
+      );
 
       expect(syncBlock, contains('lastSuccessCount++;'));
       expect(
@@ -794,6 +809,42 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'successful lifecycle replay also requires exact receipt readback',
+      () {
+        final source = _read(_syncPath);
+        final applyStep = _blockStartingAt(
+          source,
+          'Future<_MaintenanceLifecycleReplayReceipt>\n'
+          '  _applyMaintenanceLifecycleReplayStep(',
+        );
+
+        expect(
+          applyStep,
+          contains(
+            'observed ??= await _firestoreMaintenance\n'
+            '        .readRemoteMaintenanceLifecycleReplayFieldsForSync',
+          ),
+          reason:
+              'A successful write must be read back; error-only readback can '
+              'leave the local row at its stale pre-rebase version.',
+        );
+        expect(applyStep, contains('readRequiredPersistedInt('));
+        expect(applyStep, contains("data['version']"));
+        expect(applyStep, contains('readRequiredPersistedDateTime('));
+        expect(applyStep, contains("data['updatedAt']"));
+
+        final provider = _readMaintenanceProviderLibrary();
+        expect(
+          provider,
+          contains('applyMaintenanceLifecycleReplayReceiptForSync('),
+        );
+        expect(provider, contains('..version = serverVersion'));
+        expect(provider, contains('..updatedAt = updatedAt'));
+        expect(provider, contains('..isSynced = true'));
+      },
+    );
 
     test('uncertain reopen outcome preserves exact resolution history', () {
       final updatedAt = DateTime.utc(2026, 8, 21, 10, 5);

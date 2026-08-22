@@ -132,12 +132,26 @@ extension _SyncServiceTicketsTemplates on SyncService {
           continue;
         }
 
-        final replayed = await _tryPushDecomposedMaintenanceTicket(
+        final expectedLocal = _syncPushSnapshot(record);
+        final replayReceipt = await _tryPushDecomposedMaintenanceTicket(
           record,
           remote,
         );
-        if (replayed) {
-          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+        if (replayReceipt != null) {
+          final adopted = await _maintenanceRepo
+              .applyMaintenanceLifecycleReplayReceiptForSync(
+                firestoreId: record.firestoreId!,
+                expectedLocal: expectedLocal,
+                serverVersion: replayReceipt.version,
+                serverUpdatedAt: replayReceipt.updatedAt,
+              );
+          if (!adopted) {
+            debugPrint(
+              'Maintenance lifecycle replay for ${record.id} committed '
+              'remotely, but the local row changed during submission and '
+              'remains pending.',
+            );
+          }
           lastSuccessCount++;
           continue;
         }
@@ -287,16 +301,18 @@ extension _SyncServiceTicketsTemplates on SyncService {
     return (receipt: applied, hasPostCreateLifecycle: false);
   }
 
-  Future<bool> _tryPushDecomposedMaintenanceTicket(
+  Future<_MaintenanceLifecycleReplayReceipt?>
+  _tryPushDecomposedMaintenanceTicket(
     MaintenanceRecord local,
     MaintenanceRecord? remote,
   ) async {
     final plan = _maintenanceLifecycleReplayPlan(local, remote);
-    if (plan.isEmpty) return false;
+    if (plan.isEmpty) return null;
 
     try {
       var stepVersion =
           remote?.version ?? _maintenanceCreateReplayVersion(local);
+      _MaintenanceLifecycleReplayReceipt? receipt;
       for (final step in plan) {
         final stepData = switch (step) {
           _MaintenanceReplayStep.close => _maintenanceCloseReplayStepData(
@@ -309,16 +325,16 @@ extension _SyncServiceTicketsTemplates on SyncService {
           ),
         };
 
-        await _retry(
-          () => _applyMaintenanceLifecycleReplayStep(
+        await _retry(() async {
+          receipt = await _applyMaintenanceLifecycleReplayStep(
             local.firestoreId!,
             stepData,
-          ),
-        );
+          );
+        });
 
         stepVersion = stepData['version'] as int;
       }
-      return true;
+      return receipt;
     } catch (error, stackTrace) {
       // If an early replay step committed but a later one did not, falling
       // through to the normal batch path allows the existing push diagnostics to
@@ -328,14 +344,16 @@ extension _SyncServiceTicketsTemplates on SyncService {
         '⚠️ Maintenance lifecycle replay did not complete for ticket ${local.id}: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
-      return false;
+      return null;
     }
   }
 
-  Future<void> _applyMaintenanceLifecycleReplayStep(
+  Future<_MaintenanceLifecycleReplayReceipt>
+  _applyMaintenanceLifecycleReplayStep(
     String firestoreId,
     Map<String, dynamic> stepData,
   ) async {
+    Map<String, dynamic>? observed;
     try {
       await _firestoreMaintenance
           .applyRemoteMaintenanceLifecycleReplayStepForSync(
@@ -343,17 +361,41 @@ extension _SyncServiceTicketsTemplates on SyncService {
             stepData,
           );
     } catch (_) {
-      final observed = await _firestoreMaintenance
+      observed = await _firestoreMaintenance
           .readRemoteMaintenanceLifecycleReplayFieldsForSync(firestoreId);
-      if (maintenanceLifecycleReplayOutcomeMatches(observed, stepData)) {
-        debugPrint(
-          'Maintenance lifecycle replay for $firestoreId was confirmed by '
-          'readback after an uncertain write outcome.',
-        );
-        return;
+      if (!maintenanceLifecycleReplayOutcomeMatches(observed, stepData)) {
+        rethrow;
       }
-      rethrow;
+      debugPrint(
+        'Maintenance lifecycle replay for $firestoreId was confirmed by '
+        'readback after an uncertain write outcome.',
+      );
     }
+
+    observed ??= await _firestoreMaintenance
+        .readRemoteMaintenanceLifecycleReplayFieldsForSync(firestoreId);
+    final data = observed;
+    if (data == null ||
+        !maintenanceLifecycleReplayOutcomeMatches(data, stepData)) {
+      throw StateError(
+        'Maintenance lifecycle replay for $firestoreId did not match exact '
+        'post-write readback.',
+      );
+    }
+    return (
+      version: readRequiredPersistedInt(
+        data['version'],
+        field: 'version',
+        source: 'maintenance lifecycle replay $firestoreId',
+        minimum: 1,
+      ),
+      updatedAt:
+          readRequiredPersistedDateTime(
+            data['updatedAt'],
+            field: 'updatedAt',
+            source: 'maintenance lifecycle replay $firestoreId',
+          ).toUtc(),
+    );
   }
 
   List<_MaintenanceReplayStep> _maintenanceLifecycleReplayPlan(
@@ -832,6 +874,9 @@ enum _MaintenanceReplayStep { close, reopen }
 
 typedef _MaintenanceCreationReplayResult =
     ({WorkflowCommandReceipt receipt, bool hasPostCreateLifecycle});
+
+typedef _MaintenanceLifecycleReplayReceipt =
+    ({int version, DateTime updatedAt});
 
 typedef _MaintenanceCloseEvidence =
     ({
