@@ -138,8 +138,13 @@ class SyncRunHealth {
 class _QueuedSyncFollowUp {
   final String reason;
   final bool force;
+  final bool recheckPermanentRejections;
 
-  const _QueuedSyncFollowUp({required this.reason, required this.force});
+  const _QueuedSyncFollowUp({
+    required this.reason,
+    required this.force,
+    required this.recheckPermanentRejections,
+  });
 }
 
 final syncRunHealthProvider = StateProvider<SyncRunHealth>(
@@ -160,6 +165,7 @@ class SyncCoordinator {
   bool _followUpRequested = false;
   String? _followUpReason;
   bool _followUpForce = false;
+  bool _followUpRecheckPermanentRejections = false;
 
   DateTime _lastRun = DateTime.fromMillisecondsSinceEpoch(0);
   final Duration minGap = const Duration(seconds: 10);
@@ -178,7 +184,11 @@ class SyncCoordinator {
     String reason = 'unknown',
     bool force = false,
   }) async {
-    await _runFullSync(reason: reason, force: force);
+    await _runFullSync(
+      reason: reason,
+      force: force,
+      recheckPermanentRejections: reason == 'manual_rejection_recheck',
+    );
   }
 
   /// Runs a full sync and distinguishes completion from deferred admission.
@@ -186,18 +196,27 @@ class SyncCoordinator {
     String reason = 'unknown',
     bool force = false,
   }) {
-    return _runFullSync(reason: reason, force: force);
+    return _runFullSync(
+      reason: reason,
+      force: force,
+      recheckPermanentRejections: reason == 'manual_rejection_recheck',
+    );
   }
 
   Future<SyncRequestOutcome> _runFullSync({
     String reason = 'unknown',
     bool force = false,
     bool queuedFollowUp = false,
+    bool recheckPermanentRejections = false,
   }) async {
     final now = DateTime.now();
 
     if (_running) {
-      _queueFollowUp(reason: reason, force: force);
+      _queueFollowUp(
+        reason: reason,
+        force: force,
+        recheckPermanentRejections: recheckPermanentRejections,
+      );
       return SyncRequestOutcome.queued;
     }
 
@@ -235,7 +254,7 @@ class SyncCoordinator {
       // ORDER: ordinary snapshot push → canonical pull → safe replay of
       // uncertain workflow commands → workflow projection pull.
       await _sync.syncAll(
-        recheckPermanentRejections: reason == 'manual_rejection_recheck',
+        recheckPermanentRejections: recheckPermanentRejections,
       );
       await _pull.pullAndReconcile();
 
@@ -396,6 +415,7 @@ class SyncCoordinator {
             reason: '${followUp.reason} (queued follow-up)',
             force: followUp.force,
             queuedFollowUp: true,
+            recheckPermanentRejections: followUp.recheckPermanentRejections,
           ),
         );
       }
@@ -465,13 +485,19 @@ class SyncCoordinator {
     }
   }
 
-  void _queueFollowUp({required String reason, required bool force}) {
+  void _queueFollowUp({
+    required String reason,
+    required bool force,
+    required bool recheckPermanentRejections,
+  }) {
     final queuedAt = DateTime.now();
     final mergedReason = _mergeQueuedSyncReasons(_followUpReason, reason);
 
     _followUpRequested = true;
     _followUpReason = mergedReason;
     _followUpForce = _followUpForce || force;
+    _followUpRecheckPermanentRejections =
+        _followUpRecheckPermanentRejections || recheckPermanentRejections;
 
     _ref.read(syncRunHealthProvider.notifier).state = _health.copyWith(
       lastSkippedAt: queuedAt,
@@ -500,11 +526,13 @@ class SyncCoordinator {
     final followUp = _QueuedSyncFollowUp(
       reason: _followUpReason ?? 'queued sync',
       force: _followUpForce,
+      recheckPermanentRejections: _followUpRecheckPermanentRejections,
     );
 
     _followUpRequested = false;
     _followUpReason = null;
     _followUpForce = false;
+    _followUpRecheckPermanentRejections = false;
 
     return followUp;
   }

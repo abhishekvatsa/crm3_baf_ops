@@ -151,6 +151,7 @@ void main() {
             "recheckPermanentRejections: reason == 'manual_rejection_recheck'",
           ),
         );
+        expect(coordinator, contains('followUp.recheckPermanentRejections'));
         expect(push, contains('if (_recheckPermanentRejections)'));
         expect(
           push,

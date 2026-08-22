@@ -88,7 +88,7 @@ Evidence produced against this source tranche:
 ```text
 Flutter analyze:                         no issues
 Focused sync and business tests:         87 passed
-Full Flutter suite:                   1,173 passed, 1 skipped
+Full Flutter suite:                   1,174 passed, 1 skipped
 Functions Jest:                         553 passed, 80 skipped
 Firestore Rules emulator:               180 passed
 Governed asset-identity emulator:          3 passed
