@@ -114,8 +114,8 @@
       "burner-metadata-semantic-replay",
       "firestore-timestamp-aware-issue-coordination"
     ],
-    "exactBackendDeploymentReceiptFile": "release/evidence/pr265-backend-deployment-closure.json",
-    "exactBackendDeploymentReceiptSha256": "A54A0A691C06B030DD9A415771613317108D8D6224F6938645242F52E4DB40A8",
+    "exactFunctionFleetDeploymentReceiptFile": "release/evidence/pr265-backend-deployment-closure.json",
+    "exactFunctionFleetDeploymentReceiptSha256": "A54A0A691C06B030DD9A415771613317108D8D6224F6938645242F52E4DB40A8",
     "build11FinalizationReceiptFile": "release/evidence/build-13-finalization-closure.json",
     "build11FinalizationReceiptSha256": "63E6B0D21FC369F96C9F621E85FBE59F62B1B726B24CDA5A0D45C371504ABEE7",
     "crashlyticsGradlePluginRequired": true,
@@ -162,7 +162,8 @@
     "inPlaceUpgradeRequired": true,
     "deviceDataClearProhibited": true,
     "build13AuthorityPreserved": true,
-    "exactBackendDeploymentVerified": true,
+    "exactFunctionFleetDeploymentVerified": true,
+    "exactFirestoreRulesIndexesDeploymentReadbackRequired": true,
     "productionBackfillAuthorized": false,
     "globalPullRuntimeContractActivationAuthorized": false,
     "productionDataMutationAuthorized": false,
@@ -175,6 +176,7 @@
     "This approval authorizes construction and device acceptance of Build 14, not unrestricted distribution.",
     "This approval does not authorize clearing or uninstalling application data on any target.",
     "Build 13 is preserved as finalized non-distributable without exact-runtime proof.",
+    "The PR 265 function fleet is deployed and read back, but current Firestore Rules and indexes require separate exact deployment/readback before Build 14 pilot promotion.",
     "A failed, withdrawn or non-finalized Build 14 attempt after remote reservation consumes build number 14.",
     "App Check activation remains under its existing governed deferral."
   ]

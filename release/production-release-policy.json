@@ -63,7 +63,7 @@
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
     "sourceDocumentFile": "release/approvals/build-number-14-successor-approval.json",
-    "sourceDocumentSha256": "EC5893D14DC8080D11A09BA7243F7586A32F7D00EA507E9D9F0BB3089B5DBBEE",
+    "sourceDocumentSha256": "3F1972E1A911D86055C6350917128A34CE25239A9E63924B98EC217F7F76FF4E",
     "remoteReservationTag": "crm3-build-reserved/14",
     "remoteBuiltTag": "crm3-build-built/14",
     "failedOrWithdrawnBuildConsumesNumber": true
@@ -104,8 +104,8 @@
       }
     ],
     "dualCustodyCompleted": false,
-    "exactBackendDeploymentReceiptFile": "release/evidence/pr265-backend-deployment-closure.json",
-    "exactBackendDeploymentReceiptSha256": "A54A0A691C06B030DD9A415771613317108D8D6224F6938645242F52E4DB40A8",
+    "exactFunctionFleetDeploymentReceiptFile": "release/evidence/pr265-backend-deployment-closure.json",
+    "exactFunctionFleetDeploymentReceiptSha256": "A54A0A691C06B030DD9A415771613317108D8D6224F6938645242F52E4DB40A8",
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
@@ -229,6 +229,7 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
+    "BUILD14_EXACT_FIRESTORE_RULES_INDEXES_DEPLOYMENT_READBACK",
     "BUILD14_PRODUCTION_SIGNED_FINALIZATION",
     "BUILD14_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
     "BUILD14_EXPLICIT_PILOT_PROMOTION"

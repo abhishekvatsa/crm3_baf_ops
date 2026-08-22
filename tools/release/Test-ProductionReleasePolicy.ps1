@@ -572,42 +572,42 @@ if (($approvalSecretNames -join "`n") -cne
 $versionSource = Get-Content `
   -LiteralPath $policy.versionPolicy.sourceDocumentFile `
   -Raw | ConvertFrom-Json
-$backendDeploymentReceiptPath =
-  [string]$policy.finalization.exactBackendDeploymentReceiptFile
-if ([string]::IsNullOrWhiteSpace($backendDeploymentReceiptPath) -or
-    [string]$policy.finalization.exactBackendDeploymentReceiptSha256 -notmatch
+$functionFleetDeploymentReceiptPath =
+  [string]$policy.finalization.exactFunctionFleetDeploymentReceiptFile
+if ([string]::IsNullOrWhiteSpace($functionFleetDeploymentReceiptPath) -or
+    [string]$policy.finalization.exactFunctionFleetDeploymentReceiptSha256 -notmatch
       '^[0-9A-Fa-f]{64}$' -or
-    [string]$versionSource.requiredSource.exactBackendDeploymentReceiptFile -ne
-      $backendDeploymentReceiptPath -or
-    [string]$versionSource.requiredSource.exactBackendDeploymentReceiptSha256 -ne
-      [string]$policy.finalization.exactBackendDeploymentReceiptSha256 -or
-    (Get-Sha256 $backendDeploymentReceiptPath) -ne
-      ([string]$policy.finalization.exactBackendDeploymentReceiptSha256).
+    [string]$versionSource.requiredSource.exactFunctionFleetDeploymentReceiptFile -ne
+      $functionFleetDeploymentReceiptPath -or
+    [string]$versionSource.requiredSource.exactFunctionFleetDeploymentReceiptSha256 -ne
+      [string]$policy.finalization.exactFunctionFleetDeploymentReceiptSha256 -or
+    (Get-Sha256 $functionFleetDeploymentReceiptPath) -ne
+      ([string]$policy.finalization.exactFunctionFleetDeploymentReceiptSha256).
         ToUpperInvariant()) {
-  throw 'Exact backend deployment receipt authority differs from policy.'
+  throw 'Exact Function fleet deployment receipt authority differs from policy.'
 }
-$backendDeploymentReceipt = Get-Content `
-  -LiteralPath $backendDeploymentReceiptPath -Raw | ConvertFrom-Json
-if ([string]$backendDeploymentReceipt.decision -ne
+$functionFleetDeploymentReceipt = Get-Content `
+  -LiteralPath $functionFleetDeploymentReceiptPath -Raw | ConvertFrom-Json
+if ([string]$functionFleetDeploymentReceipt.decision -ne
       'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
-    [string]$backendDeploymentReceipt.sourceAuthority.commit -ne
+    [string]$functionFleetDeploymentReceipt.sourceAuthority.commit -ne
       [string]$versionSource.sourceBaseline.commit -or
-    [string]$backendDeploymentReceipt.sourceAuthority.tree -ne
+    [string]$functionFleetDeploymentReceipt.sourceAuthority.tree -ne
       [string]$versionSource.sourceBaseline.tree -or
-    [int64]$backendDeploymentReceipt.sourceAuthority.pullRequestNumber -ne
+    [int64]$functionFleetDeploymentReceipt.sourceAuthority.pullRequestNumber -ne
       265 -or
-    $backendDeploymentReceipt.deployment.functionCount -ne 15 -or
-    $backendDeploymentReceipt.deployment.allFunctionsExactSourceVerified -ne
+    $functionFleetDeploymentReceipt.deployment.functionCount -ne 15 -or
+    $functionFleetDeploymentReceipt.deployment.allFunctionsExactSourceVerified -ne
       $true -or
-    $backendDeploymentReceipt.deployment.finalRuntimeIdentityReadbackPassed -ne
+    $functionFleetDeploymentReceipt.deployment.finalRuntimeIdentityReadbackPassed -ne
       $true -or
-    $backendDeploymentReceipt.deployment.finalIamDependencyReadbackPassed -ne
+    $functionFleetDeploymentReceipt.deployment.finalIamDependencyReadbackPassed -ne
       $true -or
-    $backendDeploymentReceipt.controlBoundary.productionBusinessDataMutated -ne
+    $functionFleetDeploymentReceipt.controlBoundary.productionBusinessDataMutated -ne
       $false -or
-    $backendDeploymentReceipt.controlBoundary.distributionPerformed -ne
+    $functionFleetDeploymentReceipt.controlBoundary.distributionPerformed -ne
       $false) {
-  throw 'Exact backend deployment receipt is incomplete.'
+  throw 'Exact Function fleet deployment receipt is incomplete.'
 }
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
 $consumedAuthorityValid = $false

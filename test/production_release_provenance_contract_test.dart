@@ -1171,10 +1171,13 @@ void main() {
         ),
       );
       expect(policyVerifier, contains('environmentAuthorityMergeCommit'));
-      expect(policyVerifier, contains('exactBackendDeploymentReceiptSha256'));
       expect(
         policyVerifier,
-        contains('Exact backend deployment receipt is incomplete.'),
+        contains('exactFunctionFleetDeploymentReceiptSha256'),
+      );
+      expect(
+        policyVerifier,
+        contains('Exact Function fleet deployment receipt is incomplete.'),
       );
       expect(
         policyVerifier,

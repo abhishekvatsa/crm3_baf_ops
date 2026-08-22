@@ -4759,7 +4759,7 @@ check(
     and build13_entry.get("runtimeValidationPassed") is False
     and build13_entry.get("distributionPerformed") is False
     and sha(build14_approval_path)
-        == "EC5893D14DC8080D11A09BA7243F7586A32F7D00EA507E9D9F0BB3089B5DBBEE"
+        == "3F1972E1A911D86055C6350917128A34CE25239A9E63924B98EC217F7F76FF4E"
     and sha(build14_environment_approval_path)
         == "C0D1FBF081A7EDF7F6BE982317589B8D51F64963F57ABB12BDDFE43A8EFA50F3"
     and build14_approval.get("approvalReference") == "BAF-REF-003-C13"
@@ -4772,15 +4772,18 @@ check(
     and build14_approval.get("controls", {}).get("deviceDataClearProhibited")
         is True
     and build14_approval.get("controls", {}).get(
-        "exactBackendDeploymentVerified"
+        "exactFunctionFleetDeploymentVerified"
+    ) is True
+    and build14_approval.get("controls", {}).get(
+        "exactFirestoreRulesIndexesDeploymentReadbackRequired"
     ) is True
     and sha(pr265_backend_deployment_path)
         == combined_policy.get("finalization", {}).get(
-            "exactBackendDeploymentReceiptSha256"
+            "exactFunctionFleetDeploymentReceiptSha256"
         )
     and sha(pr265_backend_deployment_path)
         == build14_approval.get("requiredSource", {}).get(
-            "exactBackendDeploymentReceiptSha256"
+            "exactFunctionFleetDeploymentReceiptSha256"
         )
     and pr265_backend_deployment.get("decision")
         == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
@@ -10699,16 +10702,16 @@ check(
     )
     and any(
         entry.get("path") == "release/production-release-policy.json"
-        and entry.get("bytes") == 12690
+        and entry.get("bytes") == 12767
         and entry.get("sha256")
-            == "E14B4405CDA7DCD13352BC84BB74F8D836D2D73B348649FE5590F6CF69BF08D9"
+            == "7CA3B2EB15764B049FB8E6072842527F46A0912A7F144BBDFFD82961B23AB97F"
         for entry in lr07_source_evidence
     )
     and any(
         entry.get("path") == "release/build-number-ledger.json"
         and entry.get("bytes") == 39295
         and entry.get("sha256")
-            == "BC6EB6B7C0FED11035AE2024426A7A758A0FC3DD5CA9C3EF9BC69870BE0AE9F0"
+            == "BAB08693B3182A28D3CC5EF840A96C4D2FE124418FD213876818A8CAD00F4E46"
         for entry in lr07_source_evidence
     )
     and lr07_preserved_finalization.get("buildNumber")
