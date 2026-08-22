@@ -1181,21 +1181,23 @@ void main() {
     });
 
     test(
-      'build 12 finalization preserves build 11 completion and build 10 failure',
+      'build 13 reservation preserves build 12 completion and build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
                 as Map<String, dynamic>;
         final finalization = policy['finalization'] as Map<String, dynamic>;
-        final build11Finalization =
+        final build12Finalization =
             finalization['priorCompletedBuild'] as Map<String, dynamic>;
-        final receipt =
+        final build12Receipt =
             jsonDecode(
-                  read(build11Finalization['completionReceiptFile'] as String),
+                  read(build12Finalization['completionReceiptFile'] as String),
                 )
                 as Map<String, dynamic>;
-        final build12Receipt =
-            jsonDecode(read(finalization['completionReceiptFile'] as String))
+        final receipt =
+            jsonDecode(
+                  read('release/evidence/build-11-finalization-closure.json'),
+                )
                 as Map<String, dynamic>;
         final build12Source =
             build12Receipt['sourceAuthority'] as Map<String, dynamic>;
@@ -1239,19 +1241,8 @@ void main() {
         final programmeBoundary =
             backendEvidence['programmeBoundary'] as Map<String, dynamic>;
 
-        expect(finalization['status'], 'completed-non-distributable');
-        expect(
-          finalization['completionReceiptSha256'],
-          '3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC',
-        );
-        expect(
-          finalization['sourceCommit'],
-          '8ba5b237cef151b001d9bea41e16e68015091e43',
-        );
-        expect(finalization['githubRunId'], 32088466492);
-        expect(finalization['dualCustodyCompleted'], isTrue);
-        expect(finalization['runtimeValidationPassed'], isTrue);
-        expect(finalization['fullBusinessFlowValidationCompleted'], isFalse);
+        expect(finalization['status'], 'pending-source-authorized');
+        expect(finalization['dualCustodyCompleted'], isFalse);
         expect(finalization['controlledPilotApproved'], isFalse);
         final failedAttempt =
             (finalization['historicalFailedAttempts'] as List)
@@ -1266,13 +1257,13 @@ void main() {
           failedAttempt['evidenceSha256'],
           'E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58',
         );
-        expect(build11Finalization['buildNumber'], 11);
-        expect(build11Finalization['status'], 'completed-non-distributable');
-        expect(build11Finalization['dualCustodyCompleted'], isTrue);
-        expect(build11Finalization['runtimeValidationPassed'], isTrue);
+        expect(build12Finalization['buildNumber'], 12);
+        expect(build12Finalization['status'], 'completed-non-distributable');
+        expect(build12Finalization['dualCustodyCompleted'], isTrue);
+        expect(build12Finalization['runtimeValidationPassed'], isTrue);
         expect(
-          build11Finalization['completionReceiptSha256'],
-          '59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3',
+          build12Finalization['completionReceiptSha256'],
+          '3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC',
         );
         expect(build12Receipt['schemaVersion'], 1);
         expect(build12Receipt['status'], 'passed-non-distributable');
@@ -1392,12 +1383,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.2\+12$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.3\+13$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.2-b12"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.3-b13"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/12"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/13"'),
       );
       expect(policy, contains('"approved": true'));
       expect(
