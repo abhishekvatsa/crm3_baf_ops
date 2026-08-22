@@ -1,7 +1,5 @@
 // FILE: lib/features/planned_maintenance/presentation/create_template_screen.dart
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -167,18 +165,33 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
 
       await repository.saveTemplate(template, actor: appUser);
 
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'template_created', force: true),
-      );
+      final syncOutcome =
+          template.isSynced
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'template_created',
+                force: true,
+              );
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Template created and synchronized.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Template saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Template saved on this device, but cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
 
       if (!mounted) return;
 
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Template created'),
-          backgroundColor: BafColors.sync,
-        ),
-      );
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
 
       Navigator.pop(context);
     } catch (e) {

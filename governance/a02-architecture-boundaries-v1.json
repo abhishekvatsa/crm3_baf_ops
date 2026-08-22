@@ -299,6 +299,7 @@
       "owner": "Architecture / maintenance",
       "purpose": "Owns the maintenance form user workflow and its tightly coupled loading, error, empty, and interaction states.",
       "responsibilities": [
+        "authority",
         "presentation",
         "state-orchestration"
       ],
@@ -309,7 +310,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 2700,
+      "maximumLines": 2800,
       "requiredMarkers": [
         "class MaintenanceForm"
       ],

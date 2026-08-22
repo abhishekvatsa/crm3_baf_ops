@@ -116,6 +116,68 @@ Future<TemplateVersion> saveAndRefreshComposerTemplateVersionDraft({
   return refreshed;
 }
 
+/// Persists a publish transition and returns only after the governed version,
+/// package pointer, and publication audit have completed the same sync run.
+///
+/// A failed or queued run leaves the local publication intact and retryable,
+/// but it must not be represented as remotely published to the operator.
+Future<TemplateVersion> publishAndRefreshComposerTemplateVersion({
+  required TemplateVersion version,
+  required Future<void> Function() persistLocal,
+  required Future<SyncRequestOutcome> Function() runSync,
+  required Future<TemplateVersion?> Function(String firestoreId) reloadLocal,
+}) async {
+  await persistLocal();
+
+  final firestoreId = version.firestoreId?.trim();
+  if (firestoreId == null || firestoreId.isEmpty) {
+    throw StateError(
+      'Publication was preserved locally but has no stable Firestore identity.',
+    );
+  }
+  final expectedLocalId = version.id;
+  final expectedPackageFirestoreId = version.packageFirestoreId?.trim();
+  final expectedVersionNumber = version.versionNumber;
+  final expectedRecordVersion = version.version;
+  final expectedHash = version.contentHash?.trim();
+
+  final syncOutcome = await runSync();
+  final refreshed = await reloadLocal(firestoreId);
+  if (refreshed == null ||
+      refreshed.firestoreId != firestoreId ||
+      refreshed.id != expectedLocalId ||
+      refreshed.packageFirestoreId?.trim() != expectedPackageFirestoreId ||
+      refreshed.versionNumber != expectedVersionNumber ||
+      refreshed.version != expectedRecordVersion ||
+      refreshed.contentHash?.trim() != expectedHash ||
+      !refreshed.isPublished) {
+    throw StateError(
+      'Publication $firestoreId was preserved locally, but its governed '
+      'identity or content changed before confirmation. Review the saved '
+      'record before retrying sync.',
+    );
+  }
+
+  if (!syncOutcome.isSuccessful || !refreshed.isSynced) {
+    final syncDetail = switch (syncOutcome) {
+      SyncRequestOutcome.succeeded =>
+        'The publication record has not received Firestore confirmation.',
+      SyncRequestOutcome.failed =>
+        'Firestore did not confirm the complete publication transaction.',
+      SyncRequestOutcome.queued =>
+        'Sync is queued behind the run already in progress.',
+      SyncRequestOutcome.throttled =>
+        'Sync was throttled because another run completed recently.',
+    };
+    throw StateError(
+      'Publication $firestoreId remains safely saved on this device and is '
+      'not yet presented as confirmed. $syncDetail Use Sync now to retry.',
+    );
+  }
+
+  return refreshed;
+}
+
 extension _ModuleComposerSupport on _ModuleComposerScreenState {
   ComposerModuleDraft? get _selectedModule {
     if (_selectedModuleIndex < 0 ||

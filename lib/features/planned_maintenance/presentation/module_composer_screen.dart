@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' show Timer;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';

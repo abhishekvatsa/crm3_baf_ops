@@ -243,14 +243,28 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
           return;
         }
 
-        _triggerTemplateGovernanceSync(
-          'template_governance_draft_restored_from_composer',
-        );
+        final syncOutcome = await ref
+            .read(syncCoordinatorProvider)
+            .runFullSyncWithResult(
+              reason: 'template_governance_draft_restored_from_composer',
+              force: true,
+            );
+        if (!mounted) {
+          return;
+        }
+        final restoreMessage = switch (syncOutcome) {
+          SyncRequestOutcome.succeeded =>
+            'Archived draft restored and synchronized under the same governed identity.',
+          SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+            'Archived draft restored on this device; governed synchronization is queued. Reopen it after sync completes.',
+          SyncRequestOutcome.failed =>
+            'Archived draft restored on this device, but governed cloud synchronization needs attention.',
+        };
         _showSnack(
-          selected.version.isSynced
-              ? 'Archived draft restored under the same governed identity and remotely confirmed.'
-              : 'Archived draft restored locally under the same governed identity and queued for sync. Reopen it after restore sync completes.',
-          BafColors.audit,
+          restoreMessage,
+          syncOutcome == SyncRequestOutcome.failed
+              ? BafColors.danger
+              : BafColors.audit,
         );
       } on Object catch (error) {
         if (mounted) {
@@ -292,14 +306,30 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
           });
         }
 
-        _triggerTemplateGovernanceSync(
-          'template_governance_draft_archived_from_composer',
-        );
+        final syncOutcome = await ref
+            .read(syncCoordinatorProvider)
+            .runFullSyncWithResult(
+              reason: 'template_governance_draft_archived_from_composer',
+              force: true,
+            );
+        if (!mounted) {
+          return;
+        }
+        final archiveMessage = switch (syncOutcome) {
+          SyncRequestOutcome.succeeded =>
+            archivedCurrentDraft
+                ? 'Draft archived and synchronized. Current Composer content remains as an unsaved detached copy.'
+                : 'Draft archived and synchronized.',
+          SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+            'Draft archived on this device; governed synchronization is queued.',
+          SyncRequestOutcome.failed =>
+            'Draft archived on this device, but governed cloud synchronization needs attention.',
+        };
         _showSnack(
-          archivedCurrentDraft
-              ? 'Draft archived. Current Composer content is retained as an unsaved detached copy.'
-              : 'Draft archived locally and queued for governed sync.',
-          BafColors.audit,
+          archiveMessage,
+          syncOutcome == SyncRequestOutcome.failed
+              ? BafColors.danger
+              : BafColors.audit,
         );
       } on Object catch (error) {
         if (mounted) {
@@ -456,16 +486,26 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
           );
         },
         publishVersion: (version, actionActor, reason) async {
-          await repository.publishVersion(
-            version,
-            actor: actionActor,
-            reason: reason,
+          final published = await publishAndRefreshComposerTemplateVersion(
+            version: version,
+            persistLocal:
+                () => repository.publishVersion(
+                  version,
+                  actor: actionActor,
+                  reason: reason,
+                ),
+            runSync:
+                () => ref
+                    .read(syncCoordinatorProvider)
+                    .runFullSyncWithResult(
+                      reason:
+                          'template_governance_version_published_from_composer',
+                      force: true,
+                    ),
+            reloadLocal: repository.getVersionByFirestoreId,
           );
           await _clearRecoveryDraft();
-          _triggerTemplateGovernanceSync(
-            'template_governance_version_published_from_composer',
-          );
-          return version;
+          return published;
         },
         nextVersionNumberFor: (package) async {
           final packageId = package.firestoreId;
@@ -500,14 +540,6 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
             ModuleComposerJsonBuilder.semanticFingerprint(_draft);
       }
     });
-  }
-
-  void _triggerTemplateGovernanceSync(String reason) {
-    unawaited(
-      ref
-          .read(syncCoordinatorProvider)
-          .runFullSync(reason: reason, force: true),
-    );
   }
 
   String _suggestPublishPackageCode() {

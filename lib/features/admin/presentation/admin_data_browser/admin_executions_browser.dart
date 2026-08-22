@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -282,15 +280,17 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
         ),
       );
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'admin_execution_deleted',
-          force: true,
-        ),
+      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+        reason: 'admin_execution_deleted',
+        force: true,
       );
 
       if (!mounted) return;
-      showAdminDataSnack(context, 'Execution marked as deleted');
+      showAdminMutationSyncOutcome(
+        context,
+        action: 'Execution deletion',
+        outcome: syncOutcome,
+      );
     } catch (e) {
       if (!mounted) return;
       showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);

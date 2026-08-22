@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../tools/testing/dart_library_source.dart';
@@ -203,6 +204,58 @@ void main() {
           '_versions.doc(id).set(publishData, SetOptions(merge: true));',
         ),
         reason: 'publish replay must remain a field-scoped merge update',
+      );
+    });
+
+    test('uncertain lifecycle writes require exact remote readback', () {
+      final source = _read(_syncPath);
+      final apply = _blockStartingAt(
+        source,
+        'Future<TemplateVersion> _applyTemplateVersionLifecycleReplayStep',
+      );
+
+      expect(apply, contains('await _retry(writeStep);'));
+      expect(
+        apply,
+        contains('_readTemplateVersionLifecycleReplayReceipt(firestoreId)'),
+      );
+      expect(apply, contains('syncLifecycleReplayOutcomeMatches'));
+      expect(apply, contains('uncertain write outcome'));
+      expect(apply, contains('exact post-write readback'));
+      expect(
+        source,
+        contains('_remoteTemplateVersionPublishAlreadySatisfied'),
+        reason:
+            'a completed publish must converge on the next sync even when the original client lost the response',
+      );
+
+      final expected = <String, dynamic>{
+        'status': 'published',
+        'version': 4,
+        'publishedAt': '2026-08-23T01:02:03.000Z',
+        'metadataJson': <String, dynamic>{
+          'scope': 'furnace',
+          'tags': <String>['PT74', 'PCV77'],
+        },
+      };
+      final observed = <String, dynamic>{...expected, 'serverOnlyField': true};
+      expect(syncLifecycleReplayOutcomeMatches(observed, expected), isTrue);
+      expect(
+        syncLifecycleReplayOutcomeMatches(<String, dynamic>{
+          ...observed,
+          'version': 3,
+        }, expected),
+        isFalse,
+      );
+      expect(
+        syncLifecycleReplayOutcomeMatches(<String, dynamic>{
+          ...observed,
+          'metadataJson': <String, dynamic>{
+            'scope': 'furnace',
+            'tags': <String>['PT74'],
+          },
+        }, expected),
+        isFalse,
       );
     });
 

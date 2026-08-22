@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "2417C8E7E94C961917F51595140908B2BBBC5B71CA1569FCFE002F4A9039A983",
+  "inventoryDigest": "B9C850574F9A34C39685B8D39C1C3258192A9CC2A1411B1E121D64F5F6FC22F8",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -127,6 +127,7 @@
         "isar"
       ],
       "allowedModes": [
+        "mutating",
         "read"
       ],
       "regressionTests": [

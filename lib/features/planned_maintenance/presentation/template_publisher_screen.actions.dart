@@ -149,24 +149,33 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         });
       }
 
-      unawaited(
-        ref
-            .read(syncCoordinatorProvider)
-            .runFullSync(
-              reason:
-                  'template_governance_draft_archived_from_legacy_publisher',
-              force: true,
-            ),
-      );
+      final syncOutcome =
+          version.isSynced
+              ? SyncRequestOutcome.succeeded
+              : await ref
+                  .read(syncCoordinatorProvider)
+                  .runFullSyncWithResult(
+                    reason:
+                        'template_governance_draft_archived_from_legacy_publisher',
+                    force: true,
+                  );
 
       if (!mounted) return;
+      final archiveMessage = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded =>
+          archivedWorkingDraft
+              ? 'Draft archived and synchronized. Current editor content remains as an unsaved new-draft copy.'
+              : 'Draft archived and synchronized.',
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+          'Draft archived on this device; governed synchronization is queued.',
+        SyncRequestOutcome.failed =>
+          'Draft archived on this device, but governed cloud synchronization needs attention.',
+      };
       _showSnack(
-        archivedWorkingDraft
-            ? 'Draft archived. Current editor content is retained as an unsaved new-draft copy.'
-            : version.isSynced
-            ? 'Draft archived and audit synchronized.'
-            : 'Draft archived locally and queued for governed sync.',
-        BafColors.audit,
+        archiveMessage,
+        syncOutcome == SyncRequestOutcome.failed
+            ? BafColors.danger
+            : BafColors.audit,
       );
     } catch (error) {
       if (!mounted) return;
@@ -211,22 +220,31 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         reason: reason,
       );
 
-      unawaited(
-        ref
-            .read(syncCoordinatorProvider)
-            .runFullSync(
-              reason:
-                  'template_governance_draft_restored_from_legacy_publisher',
-              force: true,
-            ),
-      );
+      final syncOutcome =
+          version.isSynced
+              ? SyncRequestOutcome.succeeded
+              : await ref
+                  .read(syncCoordinatorProvider)
+                  .runFullSyncWithResult(
+                    reason:
+                        'template_governance_draft_restored_from_legacy_publisher',
+                    force: true,
+                  );
 
       if (!mounted) return;
+      final restoreMessage = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded =>
+          'Archived draft restored and synchronized. It is available to resume.',
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+          'Archived draft restored on this device; governed synchronization is queued.',
+        SyncRequestOutcome.failed =>
+          'Archived draft restored on this device, but governed cloud synchronization needs attention.',
+      };
       _showSnack(
-        version.isSynced
-            ? 'Archived draft restored and synchronized. It is available to resume.'
-            : 'Archived draft restored locally and queued for governed sync.',
-        BafColors.audit,
+        restoreMessage,
+        syncOutcome == SyncRequestOutcome.failed
+            ? BafColors.danger
+            : BafColors.audit,
       );
     } catch (error) {
       if (!mounted) return;
@@ -259,14 +277,29 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       );
       await repo.saveVersion(version, actor: actor);
       _workingDraft = version;
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'template_governance_draft_saved',
-          force: true,
-        ),
-      );
+      final syncOutcome =
+          version.isSynced
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'template_governance_draft_saved',
+                force: true,
+              );
       if (!mounted) return;
-      _showSnack('Draft version saved.', BafColors.sync);
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Draft version saved and synchronized.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Draft version saved on this device; governed synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Draft version saved on this device, but governed cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
+      _showSnack(message, color);
     } catch (e) {
       if (!mounted) return;
       _showSnack('Draft save failed: $e', BafColors.danger);
@@ -303,12 +336,13 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         reason: _publishReasonController.text.trim(),
       );
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'template_governance_version_published',
-          force: true,
-        ),
-      );
+      final syncOutcome =
+          version.isSynced
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'template_governance_version_published',
+                force: true,
+              );
 
       if (!mounted) return;
       if (version.versionNumber > package.latestVersionNumber) {
@@ -317,10 +351,21 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       package.activeVersionFirestoreId = version.firestoreId;
       _selectedPackage = package;
       _selectedPackageId = package.firestoreId;
-      _showSnack(
-        'Published ${package.packageCode} v${version.versionNumber}.',
-        BafColors.sync,
-      );
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Published and synchronized ${package.packageCode} v${version.versionNumber}.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          '${package.packageCode} v${version.versionNumber} is saved as published on this device; governed synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          '${package.packageCode} v${version.versionNumber} is saved as published on this device, but governed cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
+      _showSnack(message, color);
       _workingDraft = null;
       _resetVersionPayloads(keepVersionLabel: false);
     } catch (e) {

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -286,15 +284,17 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
         ),
       );
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'admin_template_deleted',
-          force: true,
-        ),
+      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+        reason: 'admin_template_deleted',
+        force: true,
       );
 
       if (!mounted) return;
-      showAdminDataSnack(context, 'Template marked as deleted');
+      showAdminMutationSyncOutcome(
+        context,
+        action: 'Template deletion',
+        outcome: syncOutcome,
+      );
     } catch (e) {
       if (!mounted) return;
       showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);

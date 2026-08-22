@@ -284,6 +284,23 @@ extension _SyncServicePushInfrastructure on SyncService {
 
     if (rejectionsByEntityId.isEmpty) return records;
 
+    if (_recheckPermanentRejections) {
+      final rejectionIds =
+          rejectionsByEntityId.values.map((rejection) => rejection.id).toSet();
+      await localIsar.writeTxn(() async {
+        for (final rejectionId in rejectionIds) {
+          final rejection = await localIsar.syncRejections.get(rejectionId);
+          if (rejection == null || rejection.isResolved) continue;
+          rejection.markResolved(
+            notes:
+                'Manual server recheck released the local retry hold. No source record was marked synchronized, changed, or deleted by this action.',
+          );
+          await localIsar.syncRejections.put(rejection);
+        }
+      });
+      return records;
+    }
+
     final eligible = <T>[];
     for (final record in records) {
       final entityId = _syncEntityId(record);

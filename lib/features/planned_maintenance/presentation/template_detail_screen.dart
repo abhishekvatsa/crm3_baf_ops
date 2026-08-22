@@ -1,6 +1,5 @@
 // FILE: lib/features/planned_maintenance/presentation/template_detail_screen.dart
 
-import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -207,19 +206,30 @@ class TemplateDetailScreen extends ConsumerWidget {
         ),
       );
 
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'template_deleted', force: true),
+      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
+        reason: 'template_deleted',
+        force: true,
       );
 
       if (!context.mounted) {
         return;
       }
 
-      _showTemplateDetailSnack(
-        context,
-        'Template marked as deleted',
-        color: BafColors.sync,
-      );
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Template deletion synchronized.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Template marked deleted on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Template marked deleted on this device, but cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
+      _showTemplateDetailSnack(context, message, color: color);
 
       Navigator.pop(context);
     } catch (e) {

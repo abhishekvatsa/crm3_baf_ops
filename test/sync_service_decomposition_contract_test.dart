@@ -192,11 +192,15 @@ void main() {
 
     test('syncAll preserves the full baseline push sequence', () {
       final shell = _read(_shellFile);
-      final syncAllBlock = _blockStartingAt(shell, 'Future<void> syncAll()');
+      final syncAllBlock = _blockStartingAt(
+        shell,
+        'Future<void> syncAll({bool recheckPermanentRejections = false})',
+      );
 
       _expectOrder(syncAllBlock, const [
         'if (_isSyncing)',
         '_isSyncing = true;',
+        '_recheckPermanentRejections = recheckPermanentRejections;',
         'lastSuccessCount = 0;',
         'lastFailureCount = 0;',
         'lastConflictCount = 0;',
@@ -216,13 +220,17 @@ void main() {
         'await _syncChargeAbnormalities();',
         'await _auditRepo.syncPendingAuditEvents();',
         '_isSyncing = false;',
+        '_recheckPermanentRejections = false;',
         'lastSyncTime = DateTime.now();',
       ]);
     });
 
     test('planned job closure order remains protected in syncAll', () {
       final shell = _read(_shellFile);
-      final syncAllBlock = _blockStartingAt(shell, 'Future<void> syncAll()');
+      final syncAllBlock = _blockStartingAt(
+        shell,
+        'Future<void> syncAll({bool recheckPermanentRejections = false})',
+      );
 
       _expectOrder(syncAllBlock, const [
         'await _syncExecutions(skipCompletedClosures: true);',
@@ -511,7 +519,7 @@ String _blockStartingAt(String source, String marker) {
   final markerIndex = source.indexOf(marker);
   expect(markerIndex, isNot(-1), reason: 'Missing marker: $marker');
 
-  final openBrace = source.indexOf('{', markerIndex);
+  final openBrace = source.indexOf('{', markerIndex + marker.length);
   expect(openBrace, isNot(-1), reason: 'Missing opening brace after $marker');
 
   var depth = 0;

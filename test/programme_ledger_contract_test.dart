@@ -699,7 +699,7 @@ void main() {
     expect(a03Manifest['findingId'], 'A-03');
     expect(
       a03Manifest['inventoryDigest'],
-      '2417C8E7E94C961917F51595140908B2BBBC5B71CA1569FCFE002F4A9039A983',
+      'B9C850574F9A34C39685B8D39C1C3258192A9CC2A1411B1E121D64F5F6FC22F8',
     );
     expect(_objects(a03Manifest['surfaces']), hasLength(49));
 
@@ -760,7 +760,7 @@ void main() {
     expect(a04Manifest['findingId'], 'A-04');
     expect(
       a04Manifest['inventoryDigest'],
-      '569B242D7B67DB4BCA0CED8E37E69AEAE812DDEE19A7CDA873A25940E2A4CBB9',
+      'A95703BD6C7AC648AAAAF0D822B6A2793CC79F85BFD04E6B053C9DC7525FCAFD',
     );
     expect(_objects(a04Manifest['fields']), hasLength(53));
     expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(67));

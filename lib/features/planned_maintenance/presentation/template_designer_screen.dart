@@ -1,7 +1,5 @@
 // FILE: lib/features/planned_maintenance/presentation/template_designer_screen.dart
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -116,18 +114,33 @@ class _TemplateDesignerScreenState
       final syncCoordinator = ref.read(syncCoordinatorProvider);
       await repo.saveTemplate(updatedTemplate, actor: appUser);
 
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'template_updated', force: true),
-      );
+      final syncOutcome =
+          updatedTemplate.isSynced
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'template_updated',
+                force: true,
+              );
+      final (message, color) = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded => (
+          'Template design saved and synchronized.',
+          BafColors.sync,
+        ),
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+          'Template design saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.failed => (
+          'Template design saved on this device, but cloud synchronization needs attention.',
+          BafColors.danger,
+        ),
+      };
 
       if (!mounted) return;
 
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Template design saved successfully'),
-          backgroundColor: BafColors.sync,
-        ),
-      );
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
 
       Navigator.pop(context);
     } catch (e) {

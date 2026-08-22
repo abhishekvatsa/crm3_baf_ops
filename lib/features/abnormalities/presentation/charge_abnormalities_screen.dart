@@ -255,27 +255,54 @@ class _ChargeAbnormalitiesScreenState
         await repository.updateAbnormalityFromRemote(result.abnormality);
       }
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason:
-              existing == null
-                  ? 'charge_abnormality_created'
-                  : 'charge_abnormality_edited',
+      SyncRequestOutcome? createSyncOutcome;
+      if (existing == null && !record.isSynced) {
+        createSyncOutcome = await syncCoordinator.runFullSyncWithResult(
+          reason: 'charge_abnormality_created',
           force: true,
-        ),
-      );
+        );
+      } else {
+        // Updates already carry an authoritative callable receipt. This sync
+        // only refreshes related local projections and may remain background.
+        unawaited(
+          syncCoordinator.runFullSync(
+            reason:
+                existing == null
+                    ? 'charge_abnormality_created_refresh'
+                    : 'charge_abnormality_edited_refresh',
+            force: true,
+          ),
+        );
+      }
 
       if (!mounted) return;
 
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(
-            existing == null
-                ? 'Charge abnormality logged'
-                : 'Charge abnormality updated',
-          ),
-        ),
-      );
+      final (message, color) =
+          existing != null || record.isSynced
+              ? (
+                existing == null
+                    ? 'Charge abnormality logged and synchronized.'
+                    : 'Charge abnormality updated in the plant system.',
+                BafColors.sync,
+              )
+              : switch (createSyncOutcome!) {
+                SyncRequestOutcome.succeeded => (
+                  'Charge abnormality logged and synchronized.',
+                  BafColors.sync,
+                ),
+                SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+                  'Charge abnormality saved on this device; synchronization is queued.',
+                  BafColors.warning,
+                ),
+                SyncRequestOutcome.failed => (
+                  'Charge abnormality saved on this device, but cloud synchronization needs attention.',
+                  BafColors.danger,
+                ),
+              };
+
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
     } catch (e) {
       if (!mounted) return;
 

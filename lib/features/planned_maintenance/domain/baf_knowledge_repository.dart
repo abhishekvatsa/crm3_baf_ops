@@ -1,6 +1,7 @@
 // FILE: lib/features/planned_maintenance/domain/baf_knowledge_repository.dart
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart' hide Query;
 
 import '../../../core/persistence/app_database.dart';
+import '../../../core/serialization/persisted_json_equality.dart';
 import '../../../core/services/global_pull_protocol.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../data/baf_knowledge_model.dart';
@@ -536,14 +538,17 @@ class BafKnowledgeRepository {
         version: row.version,
         updatedAt: row.updatedAt,
       );
-      await _pushLocalRow(row);
+      final receipt = await _pushLocalRow(row);
       pushed++;
-      await _markLocalRowSyncedIfUnchanged(snapshot);
+      await _applyKnowledgePushReceiptIfUnchanged(snapshot, receipt);
     }
     return pushed;
   }
 
-  Future<void> _markLocalRowSyncedIfUnchanged(SyncPushSnapshot snapshot) async {
+  Future<void> _applyKnowledgePushReceiptIfUnchanged(
+    SyncPushSnapshot snapshot,
+    BafKnowledgeRow receipt,
+  ) async {
     if (_isar == null || _rows == null) return;
 
     await _isar.writeTxn(() async {
@@ -557,8 +562,10 @@ class BafKnowledgeRepository {
         return;
       }
 
-      current.isSynced = true;
-      await _rows!.put(current);
+      receipt
+        ..id = current.id
+        ..isSynced = true;
+      await _rows!.put(receipt);
     });
   }
 
@@ -696,15 +703,50 @@ class BafKnowledgeRepository {
         .length;
   }
 
-  Future<void> _pushLocalRow(BafKnowledgeRow row) async {
+  Future<BafKnowledgeRow> _pushLocalRow(BafKnowledgeRow row) async {
     final isCreate = row.version <= 1 && row.createdByUid == row.updatedByUid;
     final map = row.toCloudMap();
     map['updatedAt'] = FieldValue.serverTimestamp();
     if (isCreate) map['createdAt'] = FieldValue.serverTimestamp();
-    await _firestore
-        .collection(collectionPath)
-        .doc(row.rowCode)
-        .set(map, SetOptions(merge: !isCreate));
+    final reference = _firestore.collection(collectionPath).doc(row.rowCode);
+    DocumentSnapshot<Map<String, dynamic>>? observed;
+    try {
+      await reference.set(map, SetOptions(merge: !isCreate));
+    } catch (_) {
+      observed = await reference.get();
+      if (!observed.exists ||
+          !_knowledgePushReceiptMatches(row, observed.data()!)) {
+        rethrow;
+      }
+    }
+
+    observed ??= await reference.get();
+    if (!observed.exists ||
+        !_knowledgePushReceiptMatches(row, observed.data()!)) {
+      throw StateError(
+        'Knowledge row ${row.rowCode} did not match exact post-write readback.',
+      );
+    }
+    return BafKnowledgeRow.fromCloudMap(observed.data()!, observed.id);
+  }
+
+  bool _knowledgePushReceiptMatches(
+    BafKnowledgeRow local,
+    Map<String, dynamic> remoteData,
+  ) {
+    final remote = BafKnowledgeRow.fromCloudMap(remoteData, local.rowCode);
+    final localPayload =
+        local.toCloudMap()
+          ..remove('createdAt')
+          ..remove('updatedAt');
+    final remotePayload =
+        remote.toCloudMap()
+          ..remove('createdAt')
+          ..remove('updatedAt');
+    return persistedJsonEquivalent(
+      jsonEncode(localPayload),
+      jsonEncode(remotePayload),
+    );
   }
 
   Map<String, dynamic> _entryToCloudMap(BafKnowledgeEntry entry) {

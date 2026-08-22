@@ -11,10 +11,6 @@ void main() {
       contains("import '../../../core/services/sync_coordinator.dart';"),
     );
     expect(source, contains('syncCoordinatorProvider'));
-    expect(
-      source,
-      contains('void _triggerTemplateGovernanceSync(String reason)'),
-    );
     expect(source, contains('template_governance_draft_saved_from_composer'));
     expect(source, contains('saveAndRefreshComposerTemplateVersionDraft('));
     expect(source, contains('runFullSyncWithResult('));
@@ -23,7 +19,19 @@ void main() {
       source,
       contains('template_governance_version_published_from_composer'),
     );
-    expect(source, contains('runFullSync(reason: reason, force: true)'));
+    expect(source, contains('publishAndRefreshComposerTemplateVersion('));
+    expect(
+      source,
+      contains('template_governance_draft_archived_from_composer'),
+    );
+    expect(
+      source,
+      contains('template_governance_draft_restored_from_composer'),
+    );
+    expect(
+      source,
+      contains(r'Published and sync-confirmed for ${package.packageCode}.'),
+    );
   });
 }
 
@@ -36,6 +44,7 @@ String _readModuleComposerLibrary() {
     'lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart',
     'lib/features/planned_maintenance/presentation/module_composer_widgets.dart',
     'lib/features/planned_maintenance/presentation/module_composer_dialogs.dart',
+    'lib/features/planned_maintenance/presentation/widgets/publish_metadata_dialog.dart',
   ];
   return paths.map((path) => File(path).readAsStringSync()).join('\\n');
 }

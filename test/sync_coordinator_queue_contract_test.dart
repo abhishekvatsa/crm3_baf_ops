@@ -15,7 +15,11 @@ void main() {
         expect(source, contains('bool _followUpForce = false'));
         expect(
           source,
-          contains('_queueFollowUp(reason: reason, force: force)'),
+          contains('bool _followUpRecheckPermanentRejections = false'),
+        );
+        expect(
+          source,
+          contains('recheckPermanentRejections: recheckPermanentRejections'),
         );
         expect(source, contains('return SyncRequestOutcome.queued'));
         expect(
@@ -27,6 +31,39 @@ void main() {
         expect(source, contains("queuedFollowUp: true"));
       },
     );
+
+    test('queued rejection recheck preserves typed intent', () {
+      final source =
+          File('lib/core/services/sync_coordinator.dart').readAsStringSync();
+
+      expect(
+        source,
+        contains(
+          "recheckPermanentRejections: reason == 'manual_rejection_recheck'",
+        ),
+      );
+      expect(
+        source,
+        contains(
+          '_followUpRecheckPermanentRejections || recheckPermanentRejections',
+        ),
+      );
+      expect(
+        source,
+        contains(
+          'recheckPermanentRejections: _followUpRecheckPermanentRejections',
+        ),
+      );
+      expect(source, contains('followUp.recheckPermanentRejections'));
+      expect(
+        source,
+        isNot(
+          contains(
+            "recheckPermanentRejections: reason == 'manual_rejection_recheck (queued follow-up)'",
+          ),
+        ),
+      );
+    });
 
     test(
       'queued follow-up bypasses throttle but keeps normal throttle intact',

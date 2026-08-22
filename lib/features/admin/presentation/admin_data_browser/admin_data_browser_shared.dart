@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/theme/baf_design_system.dart';
 
 void showAdminDataSnack(BuildContext context, String message, {Color? color}) {
@@ -10,6 +11,28 @@ void showAdminDataSnack(BuildContext context, String message, {Color? color}) {
   messenger?.showSnackBar(
     SnackBar(content: Text(message), backgroundColor: color),
   );
+}
+
+void showAdminMutationSyncOutcome(
+  BuildContext context, {
+  required String action,
+  required SyncRequestOutcome outcome,
+}) {
+  final (message, color) = switch (outcome) {
+    SyncRequestOutcome.succeeded => (
+      '$action saved and synchronized.',
+      BafColors.sync,
+    ),
+    SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+      '$action saved on this device; synchronization is queued.',
+      BafColors.warning,
+    ),
+    SyncRequestOutcome.failed => (
+      '$action saved on this device, but cloud synchronization needs attention.',
+      BafColors.danger,
+    ),
+  };
+  showAdminDataSnack(context, message, color: color);
 }
 
 class MiniChip extends StatelessWidget {

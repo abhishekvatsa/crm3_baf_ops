@@ -121,11 +121,51 @@ class OperationalDirective {
 
   bool get hasComponentContext =>
       _hasMeaningfulDirectiveText(component) ||
-          _hasMeaningfulDirectiveText(tag) ||
-          _hasMeaningfulDirectiveText(subsystem) ||
-          (hierarchyPath?.isNotEmpty ?? false);
+      _hasMeaningfulDirectiveText(tag) ||
+      _hasMeaningfulDirectiveText(subsystem) ||
+      (hierarchyPath?.isNotEmpty ?? false);
 
   String get debugLabel => '$title → ${directedTo.name} (${status.name})';
+
+  Map<String, dynamic> toMap() => {
+    'firestoreId': firestoreId,
+    'title': title,
+    'description': description,
+    'assetType': assetType?.name,
+    'assetNumber': assetNumber,
+    'component': component,
+    'subsystem': subsystem,
+    'tag': tag,
+    'hierarchyPath': hierarchyPath,
+    'directedTo': directedTo.name,
+    'status': status.name,
+    'priority': priority.name,
+    'createdByUid': createdByUid,
+    'createdByName': createdByName,
+    'issuedByUid': issuedByUid,
+    'issuedByName': issuedByName,
+    'issuedAt': issuedAt?.toIso8601String(),
+    'isActive': isActive,
+    'acknowledgedByUid': acknowledgedByUid,
+    'acknowledgedByName': acknowledgedByName,
+    'acknowledgedAt': acknowledgedAt?.toIso8601String(),
+    'closedByUid': closedByUid,
+    'closedByName': closedByName,
+    'closedAt': closedAt?.toIso8601String(),
+    'closedWithoutAcknowledgement': closedWithoutAcknowledgement,
+    'remarks': remarks,
+    'linkedMaintenanceFirestoreId': linkedMaintenanceFirestoreId,
+    'linkedExecutionFirestoreId': linkedExecutionFirestoreId,
+    'metadataJson': metadataJson,
+    'isDeleted': isDeleted,
+    'deletedAt': deletedAt?.toIso8601String(),
+    'deletedByUid': deletedByUid,
+    'deletedByName': deletedByName,
+    'deleteReason': deleteReason,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'version': version,
+  };
 
   // ─── AUDIT SNAPSHOT ────────────────────────────────────────
   Map<String, dynamic> toAuditMap() => {

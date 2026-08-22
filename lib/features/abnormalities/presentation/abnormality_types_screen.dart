@@ -1,7 +1,5 @@
 // FILE: lib/features/abnormalities/presentation/abnormality_types_screen.dart
 
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -217,13 +215,29 @@ class _AbnormalityTypesScreenState
 
       await repository.seedDefaultTypes(actor: actor);
 
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'abnormality_type_seeded', force: true),
-      );
+      final syncOutcome =
+          kIsWeb
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'abnormality_type_seeded',
+                force: true,
+              );
 
       if (!mounted) return;
 
-      _showAbnormalityTypeSnack('Default abnormality types checked');
+      final message = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded =>
+          'Default abnormality types checked and synchronized.',
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+          'Default abnormality types checked on this device; synchronization is queued.',
+        SyncRequestOutcome.failed =>
+          'Default abnormality types were checked locally, but cloud synchronization needs attention.',
+      };
+      _showAbnormalityTypeSnack(
+        message,
+        color:
+            syncOutcome == SyncRequestOutcome.failed ? BafColors.danger : null,
+      );
     } catch (e) {
       if (!mounted) return;
 
@@ -242,21 +256,29 @@ class _AbnormalityTypesScreenState
       return;
     }
 
-    final saved = await showDialog<bool>(
+    final syncOutcome = await showDialog<SyncRequestOutcome>(
       context: context,
       barrierDismissible: false,
       builder:
           (_) => _AbnormalityTypeFormDialog(actor: actor, existing: existing),
     );
 
-    if (!mounted || saved != true) {
+    if (!mounted || syncOutcome == null) {
       return;
     }
 
+    final action = existing == null ? 'created' : 'updated';
+    final message = switch (syncOutcome) {
+      SyncRequestOutcome.succeeded =>
+        'Abnormality type $action and synchronized.',
+      SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+        'Abnormality type $action on this device; synchronization is queued.',
+      SyncRequestOutcome.failed =>
+        'Abnormality type $action on this device, but cloud synchronization needs attention.',
+    };
     _showAbnormalityTypeSnack(
-      existing == null
-          ? 'Abnormality type created. Saved locally; sync has been queued.'
-          : 'Abnormality type updated. Saved locally; sync has been queued.',
+      message,
+      color: syncOutcome == SyncRequestOutcome.failed ? BafColors.danger : null,
     );
   }
 
@@ -295,25 +317,39 @@ class _AbnormalityTypesScreenState
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
       await repository.softDeleteType(
-            id,
-            actor: actor,
-            auditContext: AuditContext(
-              performedByUid: actor.uid,
-              performedByName: actor.name,
-              reason: decision.reason,
-              reasonNotes: decision.notes,
-              before: type.toAuditMap(),
-            ),
-          );
-
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'abnormality_type_deleted', force: true),
+        id,
+        actor: actor,
+        auditContext: AuditContext(
+          performedByUid: actor.uid,
+          performedByName: actor.name,
+          reason: decision.reason,
+          reasonNotes: decision.notes,
+          before: type.toAuditMap(),
+        ),
       );
+
+      final syncOutcome =
+          kIsWeb
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason: 'abnormality_type_deleted',
+                force: true,
+              );
 
       if (!mounted) return;
 
+      final message = switch (syncOutcome) {
+        SyncRequestOutcome.succeeded =>
+          'Abnormality type marked as deleted and synchronized.',
+        SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
+          'Abnormality type marked as deleted on this device; synchronization is queued.',
+        SyncRequestOutcome.failed =>
+          'Abnormality type marked as deleted on this device, but cloud synchronization needs attention.',
+      };
       _showAbnormalityTypeSnack(
-        'Abnormality type marked as deleted. Saved locally; sync has been queued.',
+        message,
+        color:
+            syncOutcome == SyncRequestOutcome.failed ? BafColors.danger : null,
       );
     } catch (e) {
       if (!mounted) return;
@@ -653,18 +689,19 @@ class _AbnormalityTypeFormDialogState
         );
       }
 
-      unawaited(
-        syncCoordinator.runFullSync(
-          reason:
-              existing == null
-                  ? 'abnormality_type_created'
-                  : 'abnormality_type_edited',
-          force: true,
-        ),
-      );
+      final syncOutcome =
+          kIsWeb
+              ? SyncRequestOutcome.succeeded
+              : await syncCoordinator.runFullSyncWithResult(
+                reason:
+                    existing == null
+                        ? 'abnormality_type_created'
+                        : 'abnormality_type_edited',
+                force: true,
+              );
 
       if (!mounted) return;
-      Navigator.pop(context, true);
+      Navigator.pop(context, syncOutcome);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
