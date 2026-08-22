@@ -715,6 +715,10 @@ bool maintenanceResolvedReplayCanRebase({
       actorUid.isNotEmpty &&
       closedByUid != null &&
       closedByUid == actorUid &&
+      persistedJsonEquivalent(
+        local.resolutionHistoryJson,
+        remote.resolutionHistoryJson,
+      ) &&
       maintenanceLifecycleReplayPinnedFieldDiff(local, remote) == 'none';
 }
 

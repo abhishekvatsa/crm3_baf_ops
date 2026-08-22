@@ -85,6 +85,22 @@ void main() {
           isFalse,
           reason: 'A genuine concurrent business edit must remain a conflict.',
         );
+
+        remote
+          ..description = local.description
+          ..resolutionHistoryJson =
+              '[{"resolvedByUid":"other-user","resolvedAt":"2026-08-22T08:07:00.000Z"}]';
+        expect(
+          maintenanceResolvedReplayCanRebase(
+            local: local,
+            remote: remote,
+            currentUid: 'maintenance-supervisor',
+          ),
+          isFalse,
+          reason:
+              'A newer remote close-and-reopen cycle must not be reversed by '
+              'an older local closure.',
+        );
       },
     );
 
