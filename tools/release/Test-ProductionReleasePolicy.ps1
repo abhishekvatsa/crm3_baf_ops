@@ -572,6 +572,43 @@ if (($approvalSecretNames -join "`n") -cne
 $versionSource = Get-Content `
   -LiteralPath $policy.versionPolicy.sourceDocumentFile `
   -Raw | ConvertFrom-Json
+$functionFleetDeploymentReceiptPath =
+  [string]$policy.finalization.exactFunctionFleetDeploymentReceiptFile
+if ([string]::IsNullOrWhiteSpace($functionFleetDeploymentReceiptPath) -or
+    [string]$policy.finalization.exactFunctionFleetDeploymentReceiptSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    [string]$versionSource.requiredSource.exactFunctionFleetDeploymentReceiptFile -ne
+      $functionFleetDeploymentReceiptPath -or
+    [string]$versionSource.requiredSource.exactFunctionFleetDeploymentReceiptSha256 -ne
+      [string]$policy.finalization.exactFunctionFleetDeploymentReceiptSha256 -or
+    (Get-Sha256 $functionFleetDeploymentReceiptPath) -ne
+      ([string]$policy.finalization.exactFunctionFleetDeploymentReceiptSha256).
+        ToUpperInvariant()) {
+  throw 'Exact Function fleet deployment receipt authority differs from policy.'
+}
+$functionFleetDeploymentReceipt = Get-Content `
+  -LiteralPath $functionFleetDeploymentReceiptPath -Raw | ConvertFrom-Json
+if ([string]$functionFleetDeploymentReceipt.decision -ne
+      'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
+    [string]$functionFleetDeploymentReceipt.sourceAuthority.commit -ne
+      [string]$versionSource.sourceBaseline.commit -or
+    [string]$functionFleetDeploymentReceipt.sourceAuthority.tree -ne
+      [string]$versionSource.sourceBaseline.tree -or
+    [int64]$functionFleetDeploymentReceipt.sourceAuthority.pullRequestNumber -ne
+      265 -or
+    $functionFleetDeploymentReceipt.deployment.functionCount -ne 15 -or
+    $functionFleetDeploymentReceipt.deployment.allFunctionsExactSourceVerified -ne
+      $true -or
+    $functionFleetDeploymentReceipt.deployment.finalRuntimeIdentityReadbackPassed -ne
+      $true -or
+    $functionFleetDeploymentReceipt.deployment.finalIamDependencyReadbackPassed -ne
+      $true -or
+    $functionFleetDeploymentReceipt.controlBoundary.productionBusinessDataMutated -ne
+      $false -or
+    $functionFleetDeploymentReceipt.controlBoundary.distributionPerformed -ne
+      $false) {
+  throw 'Exact Function fleet deployment receipt is incomplete.'
+}
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
 $consumedAuthorityValid = $false
 if ([string]$versionSource.consumedBuild.conclusion -eq 'failure' -and

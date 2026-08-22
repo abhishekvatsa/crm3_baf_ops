@@ -14,7 +14,7 @@ String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
 void main() {
-  test('Build 11 closure remains exact while Build 12 gates stay separate', () {
+  test('Build 11 closure remains exact while Build 14 gates stay separate', () {
     const evidencePath =
         'release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json';
     final evidence = _object(jsonDecode(File(evidencePath).readAsStringSync()));
@@ -102,10 +102,10 @@ void main() {
     expect(distribution['pilotHandoutPerformed'], isFalse);
     expect(distribution['unrestrictedPlantReleaseApproved'], isFalse);
     expect(policy['knownOpenGates'], <String>[
-      'BUILD13_EXACT_BACKEND_RULES_INDEXES_DEPLOYMENT_READBACK',
-      'BUILD13_PRODUCTION_SIGNED_FINALIZATION',
-      'BUILD13_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
-      'BUILD13_EXPLICIT_PILOT_PROMOTION',
+      'BUILD14_EXACT_FIRESTORE_RULES_INDEXES_DEPLOYMENT_READBACK',
+      'BUILD14_PRODUCTION_SIGNED_FINALIZATION',
+      'BUILD14_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
+      'BUILD14_EXPLICIT_PILOT_PROMOTION',
     ]);
   });
 }

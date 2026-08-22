@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "recordingTiming": "POST_FINALIZATION_SOURCE_RECONCILIATION",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.3-b13",
+    "versionName": "1.0.0-rc.3",
+    "buildNumber": 13,
+    "releaseChannel": "production-candidate",
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "distributionAuthority": "production-signed-pre-release-candidate"
+  },
+  "sourceAuthority": {
+    "commit": "59358123a7f1d9edf7a579b18d3e2407d8a1e48e",
+    "tree": "63ccf8dd50e8c28621032b7d61a37badb11ac8d9",
+    "pullRequestNumber": 264
+  },
+  "workflow": {
+    "provider": "github-actions",
+    "workflow": ".github/workflows/production-artifact.yml",
+    "runId": 32545733716,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/32545733716",
+    "startedAtUtc": "2026-08-22T02:15:07Z",
+    "completedAtUtc": "2026-08-22T02:34:22Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C12",
+    "environmentReviewControlMode": "public-repository-required-reviewer",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false,
+    "environment": "crm3-baf-ops-production-signing",
+    "environmentApprovalReference": "BAF-GH-ENV-009"
+  },
+  "githubArtifact": {
+    "id": 9468702427,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.3-b13-59358123a7f1d9edf7a579b18d3e2407d8a1e48e-run-32545733716",
+    "sizeBytes": 153622704,
+    "digest": "sha256:fdb49957dfd7fd0ba292abda224bcb7192aff2b841664d8e79e4316a791dd0c8"
+  },
+  "governedPackage": {
+    "sha256": "C5BACE9A71F9490EDA41AD7BDFF7DF3FD223A8BA54A58AC00A3C0ECEF8DD0AE8",
+    "sidecarSha256": "C5CBEF1EABB9DA1D29B69F5DFD4C701186BB4B3A2EC4488A146BA27B006FB3C2",
+    "manifestSha256": "79314AB8B64516CC9338A9AE924A1B23C40814CE12B91BDB13BFAAFEB5541059",
+    "apkSha256": "00F3B973B63F6AB25C9E194FEA8500664A72440DFEA998A5935BB0C81BD4F106",
+    "apkSizeBytes": 86267848,
+    "aabSha256": "E70D51650624F859EE1D7A2CA613158205DA34965BBC30C710AAA13DFBCEA431",
+    "aabSizeBytes": 79665525,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "version": "1.0.0-rc.3+13",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/13",
+    "reservationTagObjectSha": "bbf85635beea12366de74c2bd0492cb45492c17d",
+    "reservationTagCommit": "59358123a7f1d9edf7a579b18d3e2407d8a1e48e",
+    "builtTag": "crm3-build-built/13",
+    "builtTagObjectSha": "e5db822dededced9815585cd4cc1c8a04a3fd8f0",
+    "builtTagCommit": "59358123a7f1d9edf7a579b18d3e2407d8a1e48e"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "governedPackageCompletedAtUtc": "2026-08-22T02:38:20.2210168Z",
+    "closureArchiveCompletedAtUtc": "2026-08-22T02:38:54.6032644Z",
+    "distinctVolumes": true,
+    "allFileHashesMatched": true
+  },
+  "closure": {
+    "decisionAtUtc": "2026-08-22T02:38:29.5027009Z",
+    "closurePackageSha256": "0FEAB20E2CC187F2DF3A322199E3EEC9D6AAFBC4D78E74F43BA3B5E033C9E374",
+    "closurePackageSidecarSha256": "7DA76FBE73B1D1F9AEADAF2AFF0F2E22EB9FC162D2DB2FCB052E68807742AECF",
+    "custodyRecordSha256": "B95E09C748001A199502073FCF17BEF72F46661645C466B56237F1A873F7CFA1"
+  },
+  "runtimeAdjudication": {
+    "status": "not-adjudicated-for-exact-build13",
+    "runtimeValidationPassed": false,
+    "physicalTargetCount": 0,
+    "emulatorTargetCount": 0,
+    "appDataClearPerformed": false,
+    "liveBusinessFlowValidationCompleted": false,
+    "qualification": "No repository-bound evidence proves the exact Build 13 package on a device. Runtime claims are intentionally withheld; Build 14 is the next repaired device candidate."
+  },
+  "releaseBoundary": {
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "runtimeValidationPassed": false,
+    "fullBusinessFlowValidationPassed": false
+  }
+}
