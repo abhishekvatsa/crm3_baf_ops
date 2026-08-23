@@ -156,11 +156,15 @@ export const ticketLanePlan = (
       status === "resolved" ? [route] : [],
     completed: status === "resolved" ? [route] : [],
   };
+  const otherDepartment = typeof ticket.otherDepartment === "string" ?
+    ticket.otherDepartment.trim() : null;
+  const hasValidOtherDepartment = otherDepartment != null &&
+    otherDepartment.length >= 2 && otherDepartment.length <= 80;
+  const otherDepartmentMatches = plan.assigned.includes("others") ?
+    hasValidOtherDepartment : ticket.otherDepartment == null;
   if (plan.assigned[0] !== route ||
       (!options.allowOtherDepartmentRepair &&
-        plan.assigned.includes("others") !==
-          (typeof ticket.otherDepartment === "string" &&
-            ticket.otherDepartment.trim().length > 0))) {
+        !otherDepartmentMatches)) {
     throw new WorkflowError(
       "failed-precondition",
       "Ticket routing does not match its accountable lane plan.",

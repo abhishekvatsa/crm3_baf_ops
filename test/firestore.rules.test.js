@@ -1514,6 +1514,68 @@ describe("maintenance_records", () => {
     );
   });
 
+  test("Other-department lane projection requires at least two characters", async () => {
+    const createdAt = new Date(Date.now() - 60000).toISOString();
+    const closedAt = new Date().toISOString();
+    const ticket = {
+      version: 1,
+      assetType: "base",
+      assetNumber: 201,
+      maintenanceType: "breakdown",
+      description: "Specialist attendance is required.",
+      routedTo: "others",
+      status: "acknowledged",
+      isResolved: false,
+      isCritical: false,
+      loggedByUid: "ops1",
+      acknowledgedByUid: "supervisor1",
+      acknowledgedByName: "Contract Supervisor",
+      acknowledgedAt: createdAt,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ["others"],
+      issueAcknowledgedLanes: ["others"],
+      issueCompletedLanes: [],
+      createdAt,
+      updatedAt: createdAt,
+      isDeleted: false,
+    };
+    await seedDoc("maintenance_records/ticketOtherShort", {
+      ...ticket,
+      firestoreId: "ticketOtherShort",
+      otherDepartment: "X",
+    });
+    await seedDoc("maintenance_records/ticketOtherValid", {
+      ...ticket,
+      firestoreId: "ticketOtherValid",
+      otherDepartment: "QA",
+    });
+    const close = {
+      isResolved: true,
+      status: "resolved",
+      endDate: closedAt,
+      closedByUid: "supervisor1",
+      closedByName: "Contract Supervisor",
+      remarks: "Specialist work was completed and verified.",
+      downtimeHours: 1,
+      teamsInvolved: ["others"],
+      actionsJson: "[]",
+      issueCompletedLanes: ["others"],
+      updatedAt: closedAt,
+      updatedByUid: "supervisor1",
+      updatedByName: "Contract Supervisor",
+      version: 2,
+    };
+    const db = dbAs("supervisor1");
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketOtherShort"), close)
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, "maintenance_records/ticketOtherValid"), close)
+    );
+  });
+
   test("partial lane adoption cannot be smuggled into a legacy closure", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const closedAt = new Date().toISOString();

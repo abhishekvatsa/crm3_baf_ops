@@ -251,12 +251,22 @@ class MaintenanceRecord {
   String? otherDepartment;
 
   @ignore
-  IssueLanePlan get issueLanePlan {
+  IssueLanePlan get issueLanePlan => _readIssueLanePlan();
+
+  @ignore
+  IssueLanePlan get issueLanePlanForOtherDepartmentRepair =>
+      _readIssueLanePlan(allowOtherDepartmentRepair: true);
+
+  IssueLanePlan _readIssueLanePlan({bool allowOtherDepartmentRepair = false}) {
     final synchronized = IssueLanePlan.tryDecodeLocal(metadataJson);
     final plan =
         synchronized ??
         IssueLanePlan.legacy(primaryLane: routedTo.name, status: status.name);
-    _validateIssueLanePlan(plan, isCanonical: synchronized != null);
+    _validateIssueLanePlan(
+      plan,
+      isCanonical: synchronized != null,
+      allowOtherDepartmentRepair: allowOtherDepartmentRepair,
+    );
     return plan;
   }
 
@@ -280,7 +290,11 @@ class MaintenanceRecord {
   Map<String, dynamic> get issueLaneSynchronizedFields =>
       issueLanePlan.toSynchronizedFields();
 
-  void _validateIssueLanePlan(IssueLanePlan plan, {required bool isCanonical}) {
+  void _validateIssueLanePlan(
+    IssueLanePlan plan, {
+    required bool isCanonical,
+    bool allowOtherDepartmentRepair = false,
+  }) {
     final source =
         firestoreId == null
             ? 'local maintenance record $id'
@@ -290,9 +304,12 @@ class MaintenanceRecord {
         cleanOtherDepartment != null &&
         cleanOtherDepartment.length >= 2 &&
         cleanOtherDepartment.length <= 80;
+    final otherDepartmentMatches =
+        plan.assignedLanes.contains(RoutedTo.others.name)
+            ? hasValidOtherDepartment
+            : otherDepartment == null;
     if (plan.primaryLane != routedTo.name ||
-        plan.assignedLanes.contains(RoutedTo.others.name) !=
-            hasValidOtherDepartment) {
+        (!allowOtherDepartmentRepair && !otherDepartmentMatches)) {
       throw PersistedDataFormatException(
         field: 'issueAssignedLanes',
         source: source,

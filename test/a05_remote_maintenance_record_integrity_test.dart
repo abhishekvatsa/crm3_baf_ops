@@ -72,6 +72,29 @@ void main() {
         ),
         throwsA(isA<PersistedDataFormatException>()),
       );
+
+      final shortOtherDepartment = readRemoteMaintenanceRecord(
+        _validRecord()
+          ..['routedTo'] = 'others'
+          ..['otherDepartment'] = 'X'
+          ..addAll(<String, dynamic>{
+            'issueLaneSchemaVersion': 1,
+            'issueLaneRevision': 1,
+            'issueAssignedLanes': <String>['others'],
+            'issueAcknowledgedLanes': <String>[],
+            'issueCompletedLanes': <String>[],
+          }),
+        documentId: 'ticket-1',
+      );
+      expect(shortOtherDepartment.issueLanePlanReadResult.isValid, isFalse);
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()..['otherDepartment'] = 'X',
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
     });
 
     test('partial or contradictory workflow projection fails closed', () {

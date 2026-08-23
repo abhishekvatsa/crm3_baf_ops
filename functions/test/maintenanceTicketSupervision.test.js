@@ -239,6 +239,36 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('rejects one-character Other-department names on create and reconfiguration', async () => {
+    const created = createServiceFor(mechanical);
+    await expect(created.service.execute(createCommand({
+      commandId: 'create-short-other-department',
+      ticketId: 'short-other-department',
+      ticket: {
+        routedTo: 'others',
+        otherDepartment: 'X',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['others'],
+        issueAcknowledgedLanes: [],
+        issueCompletedLanes: [],
+      },
+    }), created.context)).rejects.toMatchObject({code: 'invalid-argument'});
+
+    const reconfigured = serviceFor(contractSupervisor);
+    await expect(reconfigured.service.execute({
+      commandId: 'reconfigure-short-other-department',
+      commandType: 'reconfigureMaintenanceTicketLanes',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        lanes: ['others'],
+        otherDepartment: 'X',
+        reason: 'A specialist contractor is now accountable.',
+      },
+    }, reconfigured.context)).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
   test('creates a quality warning with the issue in the same command', async () => {
     const {store, service, context} = createServiceFor(electrical);
     const command = createCommand({
@@ -1087,6 +1117,25 @@ describe('governed maintenance-ticket supervision', () => {
         corrections: {otherDepartment: null},
       },
     }, repairedDepartment.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    const legacyShortDepartment = serviceFor(admin, {
+      routedTo: 'others',
+      otherDepartment: 'X',
+    });
+    await expect(legacyShortDepartment.service.execute({
+      commandId: 'repair-short-other-department',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Expanded the legacy receiving-department abbreviation.',
+        corrections: {otherDepartment: 'QA'},
+      },
+    }, legacyShortDepartment.context)).resolves.toMatchObject({
+      aggregateVersion: 4,
+    });
+    expect(legacyShortDepartment.store.read('maintenance_records/ticket-1'))
+      .toMatchObject({routedTo: 'others', otherDepartment: 'QA'});
 
     const valid = serviceFor(admin);
     await expect(valid.service.execute({

@@ -161,6 +161,22 @@ const optionalText = (
   return cleaned;
 };
 
+const optionalBoundedText = (
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+): string | null => {
+  const cleaned = optionalText(value, field, max);
+  if (cleaned != null && cleaned.length < min) {
+    throw new WorkflowError(
+      "invalid-argument",
+      `${field} must contain at least ${min} characters.`,
+    );
+  }
+  return cleaned;
+};
+
 const boundedText = (
   value: unknown,
   field: string,
@@ -1245,7 +1261,12 @@ export const createMaintenanceTicket = async ({
     throw new WorkflowError("invalid-argument", "routedTo is unsupported.");
   }
   const lanePlan = createTicketLanePlan(input, routedTo);
-  const otherDepartment = optionalText(input.otherDepartment, "otherDepartment", 80);
+  const otherDepartment = optionalBoundedText(
+    input.otherDepartment,
+    "otherDepartment",
+    2,
+    80,
+  );
   if ((lanePlan.assigned.includes("others")) !== (otherDepartment != null)) {
     throw new WorkflowError(
       "invalid-argument",
@@ -2149,9 +2170,10 @@ export const reconfigureMaintenanceTicketLanes = async ({
   exactKeys(command.payload, ["lanes", "otherDepartment", "reason"], "payload");
   const reason = boundedText(command.payload.reason, "reason", 12, 2000);
   const lanes = requestedTicketLanes(command.payload.lanes);
-  const otherDepartment = optionalText(
+  const otherDepartment = optionalBoundedText(
     command.payload.otherDepartment,
     "otherDepartment",
+    2,
     80,
   );
   if (lanes.includes("others") !== (otherDepartment != null)) {
@@ -2301,7 +2323,7 @@ const normalizeCorrections = (
       break;
     }
     case "otherDepartment":
-      corrections[key] = optionalText(value, key, 80);
+      corrections[key] = optionalBoundedText(value, key, 2, 80);
       break;
     case "remarks":
       corrections[key] = optionalText(value, key, 4000);

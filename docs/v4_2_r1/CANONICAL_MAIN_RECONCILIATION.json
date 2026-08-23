@@ -466,9 +466,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "44CFD0C4264FDAD5B5BF39AA22381BE277E319BD27A07CA82ACC9062CE835792",
+      "candidateSha256": "8B879FE1BC038E03D2D03860DEFD69C20C40E64940FFF0BBB06DF6746C72517B",
       "canonicalBytes": 111981,
-      "candidateBytes": 174373,
+      "candidateBytes": 174436,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1334,9 +1334,9 @@
     {
       "path": "lib/features/admin/utils/admin_ticket_helpers.dart",
       "canonicalSha256": "9B0864D1917DE518350DB0573AE9B2C8833E03E31E4C3F008305EAA66DFB5ECE",
-      "candidateSha256": "4302E830AAF8E48D29E1A2B60811BFB89706BD4A90FB7FBEBA4A7F644C2FEF6E",
+      "candidateSha256": "5241FD1B4E40AD417DBEC88EC52C9A6A467E7F77B773F810FFC59E0D1ECD9573",
       "canonicalBytes": 3691,
-      "candidateBytes": 5993,
+      "candidateBytes": 5735,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1502,9 +1502,9 @@
     {
       "path": "lib/features/maintenance/data/maintenance_model.dart",
       "canonicalSha256": "61C343EC35262FCDDB54F0E5014427C7625E10445A7405125311457C0809750A",
-      "candidateSha256": "C46D050E4080F12DF1397AB303C9622ED7BC387EA17304D299750E88A740768F",
+      "candidateSha256": "E22EF4EA65238E3BAFED0F9333AA8F2FDD7EA52903DAAEF0814E9B12FF756FF5",
       "canonicalBytes": 8820,
-      "candidateBytes": 21614,
+      "candidateBytes": 22128,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2730,9 +2730,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "B8079BF2C9C2CFE8F2D071B2928081476E56BA43FDD293FD300254F00FB8E54D",
+      "candidateSha256": "A15B9747F001557A845FFA85DBB935C74FAA2D70AB4EABB9AC0371EE1BF18C44",
       "canonicalBytes": 78841,
-      "candidateBytes": 146333,
+      "candidateBytes": 148262,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

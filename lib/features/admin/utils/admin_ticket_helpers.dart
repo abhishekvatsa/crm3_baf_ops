@@ -57,16 +57,9 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
       detail: 'saved resolution history needs repair',
     );
   }
-  if (!source.issueLanePlanReadResult.isValid) {
-    throw PersistedDataFormatException(
-      field: 'issueLanePlan',
-      source:
-          source.firestoreId == null
-              ? 'local maintenance ${source.id}'
-              : 'maintenance ${source.firestoreId}',
-      detail: 'saved accountable lane evidence needs repair',
-    );
-  }
+  final sourceLanePlan =
+      source.issueLanePlanReadResult.value ??
+      source.issueLanePlanForOtherDepartmentRepair;
   final cleanDescription = description.trim();
   if (cleanDescription.length < 3) {
     throw ArgumentError('Description must contain at least 3 characters.');
@@ -119,9 +112,7 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
   final effectiveLanes =
       routeChanges
           ? <RoutedTo>{routedTo}
-          : source.issueLanePlan.assignedLanes
-              .map(RoutedTo.values.byName)
-              .toSet();
+          : sourceLanePlan.assignedLanes.map(RoutedTo.values.byName).toSet();
   final proposed = <String, Object?>{
     'description': cleanDescription,
     'routedTo': routedTo.name,

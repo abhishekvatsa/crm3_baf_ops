@@ -2661,7 +2661,8 @@ service cloud.firestore {
           && acknowledged.hasAll(completed)
           && assigned[0] == data.get('routedTo', null)
           && (assigned.hasAny(['others'])
-            ? validNonEmptyString(data.get('otherDepartment', null), 80)
+            ? (validNonEmptyString(data.get('otherDepartment', null), 80)
+              && data.get('otherDepartment', '').size() >= 2)
             : data.get('otherDepartment', null) == null)
           && (status == 'open'
             ? acknowledged.size() == 0 && completed.size() == 0
