@@ -667,7 +667,10 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     ChargeAbnormality remote, {
     required SyncPushSnapshot expectedLocal,
     required bool expectedLocalSynced,
-  }) async => false;
+  }) async {
+    // Web reads directly from Firestore, so there is no local mirror to race.
+    return true;
+  }
 
   @override
   Future<void> batchUpsertTypes(List<AbnormalityType> records) async {

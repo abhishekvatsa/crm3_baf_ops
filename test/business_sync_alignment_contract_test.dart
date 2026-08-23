@@ -175,6 +175,20 @@ void main() {
       );
     });
 
+    test('web abnormality commands accept their authoritative readback', () {
+      final repository =
+          File(
+            'lib/features/abnormalities/providers/abnormality_provider.remote.dart',
+          ).readAsStringSync();
+      final readback = _functionBody(
+        repository,
+        'Future<bool> applyAbnormalityServerReadbackIfUnchanged(',
+      );
+
+      expect(readback, contains('return true;'));
+      expect(readback, isNot(contains('return false;')));
+    });
+
     test('every cloud-first mutating callable verifies its response evidence', () {
       final expectedReceiptBoundaries = <String, String>{
         'lib/features/assets/repositories/asset_hierarchy_repository.dart':
