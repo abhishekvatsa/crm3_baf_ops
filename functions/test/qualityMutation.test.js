@@ -73,6 +73,7 @@ const IDS = {
   reopen: '33333333-3333-4333-8333-333333333333',
   monitoring: '44444444-4444-4444-8444-444444444444',
   monitoringClose: '55555555-5555-4555-8555-555555555555',
+  raRequired: '66666666-6666-4666-8666-666666666666',
 };
 
 function user(role, name = role) {
@@ -121,6 +122,55 @@ function seed() {
     'users/si-1': user('si', 'SI One'),
     'users/admin-1': user('admin', 'Admin One'),
     'quality_warnings/issue_ticket-1': warning(),
+  };
+}
+
+function linkedAbnormality(overrides = {}) {
+  return {
+    firestoreId: 'issue_quality_ticket-1',
+    sourceChargeNo: 12001,
+    abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+    abnormalityTypeTitle: 'Atmosphere deviation',
+    abnormalityTypeCode: 'ATM-DEV',
+    category: 'process',
+    severity: 'critical',
+    affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+    component: 'Atmosphere control',
+    observedReason: 'Atmosphere interruption may affect coil quality.',
+    description: 'Created from maintenance issue ticket-1.',
+    possibleRootReasonCategory: 'unknown',
+    possibleRootReasonNotes: null,
+    reannealingStatus: 'pendingDecision',
+    reannealedToChargeNo: null,
+    loggedAt: new Date('2026-08-14T08:00:00.000Z'),
+    updatedAt: new Date('2026-08-14T08:00:00.000Z'),
+    loggedByUid: 'ops-1',
+    loggedByName: 'Operations One',
+    updatedByUid: 'ops-1',
+    updatedByName: 'Operations One',
+    linkedTicketFirestoreId: 'ticket-1',
+    linkedExecutionFirestoreId: null,
+    version: 1,
+    isDeleted: false,
+    deletedAt: null,
+    deletedByUid: null,
+    deletedByName: null,
+    deleteReason: null,
+    ...overrides,
+  };
+}
+
+function linkedIssueSeed(overrides = {}) {
+  return {
+    ...seed(),
+    'maintenance_records/ticket-1': {
+      qualityAbnormalityId: 'issue_quality_ticket-1',
+      qualityWarningId: 'issue_ticket-1',
+      chargeQualityCaseId: 'issue_ticket-1',
+    },
+    'charge_abnormalities/issue_quality_ticket-1': linkedAbnormality(
+      overrides,
+    ),
   };
 }
 
@@ -175,6 +225,9 @@ describe('quality mutation', () => {
   test('quality operations map to persisted audit enums', () => {
     expect(qualityAuditActionForOperation(
       'REQUEST_QUALITY_WARNING_CLOSURE',
+    )).toBe('update');
+    expect(qualityAuditActionForOperation(
+      'DECLARE_QUALITY_CASE_RA_REQUIRED',
     )).toBe('update');
     expect(qualityAuditActionForOperation('CLOSE_QUALITY_WARNING'))
       .toBe('resolve');
@@ -244,6 +297,105 @@ describe('quality mutation', () => {
       closureDisposition: 'coilFoundAcceptable',
       closedByUid: 'si-1',
     });
+  });
+
+  test('linked issue case keeps RA status and warning lifecycle atomic', async () => {
+    const memory = fakeDb(linkedIssueSeed());
+    const declared = await invoke(memory, 'si-1', {
+      requestId: IDS.raRequired,
+      operation: 'DECLARE_QUALITY_CASE_RA_REQUIRED',
+      warningId: 'issue_ticket-1',
+      expectedVersion: 1,
+      reason: 'The affected charge requires a governed re-annealing cycle.',
+    });
+    expect(declared).toMatchObject({version: 2});
+    expect(memory.store.get('quality_warnings/issue_ticket-1')).toMatchObject({
+      status: 'open',
+      version: 2,
+    });
+    expect(
+      memory.store.get('charge_abnormalities/issue_quality_ticket-1'),
+    ).toMatchObject({reannealingStatus: 'required', version: 2});
+
+    const completedRequest = {
+      requestId: IDS.close,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: 'issue_ticket-1',
+      expectedVersion: 2,
+      reason: 'The charge completed the approved re-annealing cycle.',
+      disposition: 'reannealingCompleted',
+      linkedReannealingChargeNos: [13001],
+    };
+    const completed = await invoke(memory, 'si-1', completedRequest);
+    const writesAfterCompletion = memory.writes.length;
+    const replay = await invoke(memory, 'si-1', completedRequest);
+    expect(completed).toMatchObject({version: 3, idempotentReplay: false});
+    expect(replay).toEqual({...completed, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writesAfterCompletion);
+    expect(memory.store.get('quality_warnings/issue_ticket-1')).toMatchObject({
+      status: 'closed',
+      closureDisposition: 'reannealingCompleted',
+      linkedReannealingChargeNos: [13001],
+      version: 3,
+    });
+    expect(
+      memory.store.get('charge_abnormalities/issue_quality_ticket-1'),
+    ).toMatchObject({
+      reannealingStatus: 'completed',
+      reannealedToChargeNo: 13001,
+      version: 3,
+    });
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.reopen,
+      operation: 'REOPEN_QUALITY_WARNING',
+      warningId: 'issue_ticket-1',
+      expectedVersion: 3,
+      reason: 'New evidence requires the quality case to be reviewed again.',
+    });
+    expect(memory.store.get('quality_warnings/issue_ticket-1')).toMatchObject({
+      status: 'open',
+      version: 4,
+    });
+    expect(
+      memory.store.get('charge_abnormalities/issue_quality_ticket-1'),
+    ).toMatchObject({
+      reannealingStatus: 'pendingDecision',
+      reannealedToChargeNo: null,
+      version: 4,
+    });
+  });
+
+  test('linked issue case rejects ambiguous RA targets and missing linkage', async () => {
+    const ambiguous = fakeDb(linkedIssueSeed({reannealingStatus: 'required'}));
+    await expect(invoke(ambiguous, 'si-1', {
+      requestId: IDS.close,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: 'issue_ticket-1',
+      expectedVersion: 1,
+      reason: 'Attempted closure with two resulting charge identities.',
+      disposition: 'reannealingCompleted',
+      linkedReannealingChargeNos: [13001, 13002],
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'charge-quality-ra-charge-count-invalid'},
+    });
+    expect(ambiguous.writes).toHaveLength(0);
+
+    const missingSeed = linkedIssueSeed();
+    delete missingSeed['charge_abnormalities/issue_quality_ticket-1'];
+    const missing = fakeDb(missingSeed);
+    await expect(invoke(missing, 'si-1', {
+      requestId: IDS.raRequired,
+      operation: 'DECLARE_QUALITY_CASE_RA_REQUIRED',
+      warningId: 'issue_ticket-1',
+      expectedVersion: 1,
+      reason: 'The affected charge requires a governed re-annealing cycle.',
+    })).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'charge-quality-abnormality-missing'},
+    });
+    expect(missing.writes).toHaveLength(0);
   });
 
   test('re-annealing closure requires one or more distinct target charges', () => {

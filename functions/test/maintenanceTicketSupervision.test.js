@@ -94,6 +94,17 @@ function createServiceFor(currentActor = admin) {
     ownerDiscipline: 'Operations',
     accountableRoleKeys: ['operations'],
   });
+  store.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+    firestoreId: 'ATMOSPHERE_DEVIATION',
+    code: 'ATMOSPHERE_DEVIATION',
+    title: 'Atmosphere deviation',
+    category: 'process',
+    severity: 'high',
+    applicableAssetTypes: ['furnace', 'base'],
+    suggestsReannealing: true,
+    isActive: true,
+    isDeleted: false,
+  });
   return {
     store,
     service: new MaintenanceWorkflowCommandService(store),
@@ -335,14 +346,19 @@ describe('governed maintenance-ticket supervision', () => {
       ticket: {
         isCritical: true,
         chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
         qualityImpactAssessment: 'suspected',
         qualityWarningReason: 'Temperature deviation may have affected the coil.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
       },
     });
 
     const receipt = await service.execute(command, context);
 
-    expect(receipt.result.warningId).toBe('issue_quality-ticket');
+    expect(receipt.result).toMatchObject({
+      warningId: 'issue_quality-ticket',
+      abnormalityId: 'issue_quality_quality-ticket',
+    });
     expect(store.read('quality_warnings/issue_quality-ticket')).toMatchObject({
       warningId: 'issue_quality-ticket',
       sourceType: 'issue',
@@ -353,6 +369,94 @@ describe('governed maintenance-ticket supervision', () => {
       status: 'open',
       createdByUid: electrical.uid,
       createdAt: at.toISOString(),
+    });
+    expect(
+      store.read('charge_abnormalities/issue_quality_quality-ticket'),
+    ).toMatchObject({
+      firestoreId: 'issue_quality_quality-ticket',
+      sourceChargeNo: 12345,
+      abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+      abnormalityTypeTitle: 'Atmosphere deviation',
+      category: 'process',
+      severity: 'critical',
+      reannealingStatus: 'pendingDecision',
+      linkedTicketFirestoreId: 'quality-ticket',
+      loggedByUid: electrical.uid,
+      version: 1,
+    });
+    expect(store.read('maintenance_records/quality-ticket')).toMatchObject({
+      qualityAbnormalityId: 'issue_quality_quality-ticket',
+      qualityWarningId: 'issue_quality-ticket',
+      chargeQualityCaseId: 'issue_quality-ticket',
+    });
+  });
+
+  test('suspected quality impact requires an active applicable classification', async () => {
+    for (const ticket of [
+      {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 1,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'Legacy suspected evidence cannot create a new case.',
+      },
+      {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'Current suspected evidence needs a classification.',
+      },
+    ]) {
+      const missing = createServiceFor(electrical);
+      await expect(missing.service.execute(createCommand({
+        commandId: `reject-quality-classification-${ticket.qualityIntentSchemaVersion}`,
+        ticketId: `reject-quality-classification-${ticket.qualityIntentSchemaVersion}`,
+        ticket,
+      }), missing.context)).rejects.toMatchObject({
+        code: 'invalid-argument',
+        details: {
+          reasonCode: 'maintenance-ticket-quality-classification-invalid',
+        },
+      });
+    }
+
+    const inactive = createServiceFor(electrical);
+    inactive.store.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+      ...inactive.store.read('abnormality_types/ATMOSPHERE_DEVIATION'),
+      isActive: false,
+    });
+    await expect(inactive.service.execute(createCommand({
+      commandId: 'reject-inactive-quality-classification',
+      ticketId: 'reject-inactive-quality-classification',
+      ticket: {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'The inactive classification must not be accepted.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+      },
+    }), inactive.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-quality-type-unavailable'},
+    });
+
+    const inapplicable = createServiceFor(electrical);
+    inapplicable.store.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+      ...inapplicable.store.read('abnormality_types/ATMOSPHERE_DEVIATION'),
+      applicableAssetTypes: ['base'],
+    });
+    await expect(inapplicable.service.execute(createCommand({
+      commandId: 'reject-inapplicable-quality-classification',
+      ticketId: 'reject-inapplicable-quality-classification',
+      ticket: {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'The classification does not apply to this furnace.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+      },
+    }), inapplicable.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-quality-type-inapplicable'},
     });
   });
 
@@ -440,8 +544,10 @@ describe('governed maintenance-ticket supervision', () => {
       ticketId: 'replay-quality',
       ticket: {
         chargeNoAtEvent: 22334,
+        qualityIntentSchemaVersion: 2,
         qualityImpactAssessment: 'suspected',
         qualityWarningReason: 'The reported deviation requires quality review.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
       },
     });
     await service.execute(command, context);
@@ -455,6 +561,27 @@ describe('governed maintenance-ticket supervision', () => {
     await expect(service.execute(command, context)).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {reasonCode: 'maintenance-ticket-create-replay-warning-invalid'},
+    });
+
+    const abnormalityDrift = createServiceFor(admin);
+    await abnormalityDrift.service.execute(command, abnormalityDrift.context);
+    abnormalityDrift.store.seed(
+      'charge_abnormalities/issue_quality_replay-quality',
+      {
+        ...abnormalityDrift.store.read(
+          'charge_abnormalities/issue_quality_replay-quality',
+        ),
+        linkedTicketFirestoreId: 'another-ticket',
+      },
+    );
+    await expect(abnormalityDrift.service.execute(
+      command,
+      abnormalityDrift.context,
+    )).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-create-replay-abnormality-invalid',
+      },
     });
 
     const noDerived = createServiceFor(admin);

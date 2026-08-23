@@ -2,15 +2,20 @@ import 'dart:convert';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 
-const issueQualityIntentSchemaVersion = 1;
+const issueQualityIntentSchemaVersion = 2;
 
 enum IssueQualityAssessment { notSuspected, suspected }
 
 class IssueQualityIntent {
-  const IssueQualityIntent({required this.assessment, this.warningReason});
+  const IssueQualityIntent({
+    required this.assessment,
+    this.warningReason,
+    this.abnormalityTypeId,
+  });
 
   final IssueQualityAssessment assessment;
   final String? warningReason;
+  final String? abnormalityTypeId;
 
   bool get isSuspected => assessment == IssueQualityAssessment.suspected;
 
@@ -18,12 +23,14 @@ class IssueQualityIntent {
     'schemaVersion': issueQualityIntentSchemaVersion,
     'assessment': assessment.name,
     'warningReason': warningReason,
+    'abnormalityTypeId': abnormalityTypeId,
   };
 
   Map<String, dynamic> toSynchronizedFields() => <String, dynamic>{
     'qualityIntentSchemaVersion': issueQualityIntentSchemaVersion,
     'qualityImpactAssessment': assessment.name,
     'qualityWarningReason': warningReason,
+    'qualityAbnormalityTypeId': abnormalityTypeId,
   };
 
   String encode() => jsonEncode(<String, dynamic>{'qualityIntent': toMap()});
@@ -32,13 +39,13 @@ class IssueQualityIntent {
     Map<String, dynamic> map, {
     required String source,
   }) {
-    const fields = <String>{
+    const baseFields = <String>{
       'qualityIntentSchemaVersion',
       'qualityImpactAssessment',
       'qualityWarningReason',
     };
-    final present = fields.where(map.containsKey).toSet();
-    if (present.length != fields.length) {
+    final present = baseFields.where(map.containsKey).toSet();
+    if (present.length != baseFields.length) {
       throw PersistedDataFormatException(
         field: 'qualityImpactAssessment',
         source: source,
@@ -50,7 +57,8 @@ class IssueQualityIntent {
       field: 'qualityIntentSchemaVersion',
       source: source,
     );
-    if (schemaVersion != issueQualityIntentSchemaVersion) {
+    if (schemaVersion != 1 &&
+        schemaVersion != issueQualityIntentSchemaVersion) {
       throw PersistedDataFormatException(
         field: 'qualityIntentSchemaVersion',
         source: source,
@@ -78,6 +86,30 @@ class IssueQualityIntent {
       field: 'qualityWarningReason',
       source: source,
     );
+    final hasAbnormalityType = map.containsKey('qualityAbnormalityTypeId');
+    final abnormalityTypeId =
+        hasAbnormalityType
+            ? readOptionalPersistedString(
+              map['qualityAbnormalityTypeId'],
+              field: 'qualityAbnormalityTypeId',
+              source: source,
+            )
+            : null;
+    if (schemaVersion == 1 && hasAbnormalityType) {
+      throw PersistedDataFormatException(
+        field: 'qualityAbnormalityTypeId',
+        source: source,
+        detail: 'legacy quality intent cannot carry abnormality classification',
+      );
+    }
+    if (schemaVersion == issueQualityIntentSchemaVersion &&
+        !hasAbnormalityType) {
+      throw PersistedDataFormatException(
+        field: 'qualityAbnormalityTypeId',
+        source: source,
+        detail: 'v2 quality intent requires the classification field',
+      );
+    }
     if (assessment == IssueQualityAssessment.suspected &&
         (warningReason == null || warningReason.trim().isEmpty)) {
       throw PersistedDataFormatException(
@@ -94,9 +126,27 @@ class IssueQualityIntent {
         detail: 'a negative assessment cannot carry a warning reason',
       );
     }
+    if (assessment == IssueQualityAssessment.suspected &&
+        schemaVersion == issueQualityIntentSchemaVersion &&
+        abnormalityTypeId == null) {
+      throw PersistedDataFormatException(
+        field: 'qualityAbnormalityTypeId',
+        source: source,
+        detail: 'suspected impact requires governed abnormality classification',
+      );
+    }
+    if (assessment == IssueQualityAssessment.notSuspected &&
+        abnormalityTypeId != null) {
+      throw PersistedDataFormatException(
+        field: 'qualityAbnormalityTypeId',
+        source: source,
+        detail: 'a negative assessment cannot carry abnormality classification',
+      );
+    }
     return IssueQualityIntent(
       assessment: assessment,
       warningReason: warningReason,
+      abnormalityTypeId: abnormalityTypeId,
     );
   }
 
@@ -125,6 +175,8 @@ class IssueQualityIntent {
       'qualityIntentSchemaVersion': intent['schemaVersion'],
       'qualityImpactAssessment': intent['assessment'],
       'qualityWarningReason': intent['warningReason'],
+      if (intent.containsKey('abnormalityTypeId'))
+        'qualityAbnormalityTypeId': intent['abnormalityTypeId'],
     }, source: 'local maintenance metadata');
   }
 
@@ -136,6 +188,7 @@ class IssueQualityIntent {
       'qualityIntentSchemaVersion',
       'qualityImpactAssessment',
       'qualityWarningReason',
+      'qualityAbnormalityTypeId',
     };
     final present = fields.where(map.containsKey).toSet();
     if (present.isEmpty) return null;

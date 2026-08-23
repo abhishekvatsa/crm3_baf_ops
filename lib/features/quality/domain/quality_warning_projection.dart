@@ -1,6 +1,7 @@
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import 'issue_quality_intent.dart';
 
 const qualityWarningSchemaVersion = 1;
 
@@ -69,7 +70,9 @@ Map<String, dynamic>? qualityWarningProjectionForIssueMap(
   final assetType = _cleanDynamic(ticket['assetType']);
   final assetNumber = ticket['assetNumber'];
   final createdAt = _cleanDynamic(ticket['createdAt']);
-  if (ticket['qualityIntentSchemaVersion'] != 1 ||
+  final qualitySchemaVersion = ticket['qualityIntentSchemaVersion'];
+  if ((qualitySchemaVersion != 1 &&
+          qualitySchemaVersion != issueQualityIntentSchemaVersion) ||
       chargeNo is! int ||
       !isValidChargeNumber(chargeNo) ||
       version is! int ||

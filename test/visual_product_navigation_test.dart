@@ -187,11 +187,13 @@ void main() {
             workflowAttentionCount: 1,
             operationalEventCount: 1,
             qualityWarningCount: 3,
+            qualityMonitoringCount: 2,
             inspectionFindingCount: 2,
             directiveDataUnavailable: false,
             workflowDataUnavailable: false,
             operationalEventsUnavailable: false,
             qualityWarningsUnavailable: false,
+            qualityMonitoringUnavailable: false,
             inspectionFindingsUnavailable: false,
             onDirectives: () {},
             onWorkflow: () {},
@@ -210,6 +212,7 @@ void main() {
     expect(find.text('Directives'), findsOneWidget);
     expect(find.text('Plant disruptions'), findsOneWidget);
     expect(find.text('Cycle abnormalities'), findsOneWidget);
+    expect(find.text('Cycle monitoring'), findsOneWidget);
     expect(find.text('Inspection findings'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

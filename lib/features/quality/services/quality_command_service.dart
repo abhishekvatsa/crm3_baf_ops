@@ -9,6 +9,7 @@ const qualityCommandCallableRegion = 'asia-south1';
 
 enum QualityCommandOperation {
   requestWarningClosure('REQUEST_QUALITY_WARNING_CLOSURE'),
+  declareRaRequired('DECLARE_QUALITY_CASE_RA_REQUIRED'),
   closeWarning('CLOSE_QUALITY_WARNING'),
   reopenWarning('REOPEN_QUALITY_WARNING'),
   createMonitoringRequest('CREATE_QUALITY_MONITORING_REQUEST'),
@@ -20,6 +21,7 @@ enum QualityCommandOperation {
 
   bool get targetsWarning =>
       this == requestWarningClosure ||
+      this == declareRaRequired ||
       this == closeWarning ||
       this == reopenWarning;
 }
@@ -235,6 +237,15 @@ class QualityCommandService {
     'reason': reason,
     'disposition': disposition.name,
     'linkedReannealingChargeNos': linkedReannealingChargeNos,
+  });
+
+  Future<QualityCommandResult> declareRaRequired({
+    required QualityWarning warning,
+    required String reason,
+  }) => _call(QualityCommandOperation.declareRaRequired, <String, dynamic>{
+    'warningId': warning.warningId,
+    'expectedVersion': warning.version,
+    'reason': reason,
   });
 
   Future<QualityCommandResult> reopenWarning({

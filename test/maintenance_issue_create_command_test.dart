@@ -195,6 +195,7 @@ void main() {
           ..qualityIntent = const IssueQualityIntent(
             assessment: IssueQualityAssessment.suspected,
             warningReason: 'The reported deviation requires quality review.',
+            abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
           );
     final command = buildMaintenanceIssueCreateCommand(
       record,
@@ -208,6 +209,7 @@ void main() {
         'ticketId': command.aggregateId,
         'auditId': 'server_maintenance_ticket_${command.commandId}',
         'warningId': 'issue_${command.aggregateId}',
+        'abnormalityId': 'issue_quality_${command.aggregateId}',
         'directiveId': null,
       },
       appliedAt: DateTime.utc(2026, 8, 17, 1),

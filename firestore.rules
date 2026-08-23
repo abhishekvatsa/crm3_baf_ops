@@ -2389,10 +2389,16 @@ service cloud.firestore {
       let qualityFields = [
         'qualityIntentSchemaVersion',
         'qualityImpactAssessment',
+        'qualityWarningReason',
+        'qualityAbnormalityTypeId'
+      ];
+      let legacyFields = [
+        'qualityIntentSchemaVersion',
+        'qualityImpactAssessment',
         'qualityWarningReason'
       ];
       let hasAny = request.resource.data.keys().hasAny(qualityFields);
-      let hasAll = request.resource.data.keys().hasAll(qualityFields);
+      let hasLegacy = request.resource.data.keys().hasAll(legacyFields);
       let assessment = request.resource.data.get(
         'qualityImpactAssessment',
         null
@@ -2402,15 +2408,28 @@ service cloud.firestore {
         null
       );
       let chargeNo = request.resource.data.get('chargeNoAtEvent', null);
+      let schemaVersion = request.resource.data.get(
+        'qualityIntentSchemaVersion',
+        -1
+      );
+      let abnormalityTypeId = request.resource.data.get(
+        'qualityAbnormalityTypeId',
+        null
+      );
       return !hasAny
-        || (hasAll
-          && request.resource.data.get('qualityIntentSchemaVersion', -1) == 1
+        || (hasLegacy
+          && (schemaVersion == 1 || schemaVersion == 2)
+          && (schemaVersion == 1
+            ? !request.resource.data.keys().hasAny(['qualityAbnormalityTypeId'])
+            : request.resource.data.keys().hasAll(['qualityAbnormalityTypeId']))
           && (assessment == 'notSuspected' || assessment == 'suspected')
           && (assessment == 'notSuspected'
-            ? warningReason == null
+            ? (warningReason == null && abnormalityTypeId == null)
             : (warningReason is string
               && warningReason.size() >= 8
               && warningReason.size() <= 1000
+              && (schemaVersion == 1
+                || validNonEmptyString(abnormalityTypeId, 512))
               && isFiveDigitChargeNumber(chargeNo))));
     }
 

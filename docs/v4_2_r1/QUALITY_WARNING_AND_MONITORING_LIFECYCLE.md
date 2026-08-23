@@ -12,6 +12,8 @@ It covers:
 
 - issue-originated quality warnings;
 - abnormality-originated quality warnings;
+- connected issue, charge-abnormality and warning cases;
+- governed RA decision, completion and reopening transitions;
 - operational requests to close a warning;
 - SI/Admin adjudication, closure and reopening;
 - Base, Grade, cycle and optional charge monitoring requests; and
@@ -19,24 +21,35 @@ It covers:
 
 ## Warning Creation
 
-An issue records one complete quality assessment:
+An issue records one complete quality assessment under schema version 2:
 
 - `notSuspected`; or
-- `suspected`, with a positive charge number and a reason of at least eight
-  characters.
+- `suspected`, with an exact five-digit charge number, a reason of at least
+  eight characters and an active governed abnormality type that applies to the
+  selected asset class.
 
 The assessment fields are present together or absent together for a legacy
 record. A partial current field set fails closed. Opaque pre-feature local
 metadata remains readable only when it does not claim to contain a current
 `qualityIntent` envelope.
 
-A suspected issue and its warning are written atomically by the governed
-maintenance command, together with its audit and idempotency evidence. Direct
-client creation of both the issue and its issue-originated warning is denied.
-A charge abnormality still requires a paired warning in the same client batch.
-Warning IDs are deterministic:
+A suspected issue, linked charge abnormality and one shared warning are written
+atomically by the governed maintenance command, together with audit and
+idempotency evidence. The linked abnormality begins at `pendingDecision` and
+uses the issue's charge, asset, component, observation, severity, actor and
+timestamp evidence. Their deterministic identities are:
 
-- `issue_<maintenance-record-id>`; and
+- issue: `<maintenance-record-id>`;
+- abnormality: `issue_quality_<maintenance-record-id>`;
+- warning and shared case: `issue_<maintenance-record-id>`.
+
+The maintenance record retains all three links. Replay revalidates the issue,
+abnormality and warning before returning the original receipt. Direct client
+creation of an issue-originated connected case is denied.
+
+A standalone charge abnormality still requires a paired warning in the same
+client batch. Standalone warning IDs are deterministic:
+
 - `abnormality_<charge-abnormality-id>`.
 
 The governed maintenance command validates and constructs the complete issue
@@ -61,6 +74,7 @@ separated as follows:
 |---|---:|---:|---:|---:|
 | View warnings | Yes | Yes | Yes | Yes |
 | Request warning closure | Yes | Yes | Yes | Yes |
+| Declare RA required | No | No | Yes | Yes |
 | Close or reopen warning | No | No | Yes | Yes |
 | Create or close monitoring request | No | No | Yes | Yes |
 
@@ -78,7 +92,7 @@ same result without additional writes.
 
 ## Closure Lifecycle
 
-Warnings move through:
+Warning review state moves through:
 
 `open -> closureRequested -> closed`
 
@@ -93,11 +107,23 @@ A closed warning records one disposition:
 - `reannealingCompleted`; or
 - `qualityAdjudication`.
 
-Re-annealing closure requires one to twenty distinct positive target charge
-numbers. Those references are explicit evidence supplied and accepted by the
-SI/Admin adjudicator. They are not represented as an automatic database lookup
-or a machine assertion that the referenced RA records exist. Other
-dispositions reject RA charge references.
+For a connected case, quality adjudication also advances the charge
+abnormality in the same transaction:
+
+- initial suspicion or reopening -> `pendingDecision`;
+- explicit SI/Admin decision -> `required`, while the warning remains open;
+- coil acceptable or other non-RA adjudication -> `notRequired` and warning
+  closure; and
+- re-annealing closure -> `completed` with exactly one new and different
+  five-digit charge number.
+
+The warning and abnormality versions advance together and both are bound into
+the immutable audit and replay receipt. A missing or contradictory case link,
+multiple RA targets, or an RA target matching the source charge fails closed.
+Standalone abnormalities follow the same warning synchronization rule when
+their source or RA state is changed. Linked issue abnormalities cannot be
+deleted independently; a standalone abnormality can be retired only after its
+warning is closed.
 
 SI/Admin may reopen a closed warning with a reason. Reopening clears the prior
 closure decision while preserving the action in immutable audit history.
@@ -120,10 +146,15 @@ The request remains active until SI/Admin records completion evidence. The
 quality workspace presents warnings and monitoring as separate views, with
 open, review and closed warning filters and role-appropriate actions.
 
-The operational screen uses bounded live windows: 500 recently updated
-warnings and 250 recently updated monitoring requests. It discloses the bound
+The operational screen uses bounded live windows: every non-closed warning plus
+500 recently updated warnings, and every active monitoring request plus 250
+recently updated monitoring requests. It discloses the recent-history bound
 when reached. Complete historical analysis belongs to the report/archive path
 rather than an unbounded live Firestore listener.
+
+The Quality workspace opens on Warnings and shows actionable counts in both tab
+labels. Operational Control presents separate warning and cycle-monitoring
+counts so active monitoring is visible without first opening its tab.
 
 ## Persisted-State Coverage
 

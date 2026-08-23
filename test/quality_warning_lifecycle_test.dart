@@ -1,9 +1,14 @@
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
+import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
 import 'package:crm3_baf_ops/features/quality/domain/issue_quality_intent.dart';
 import 'package:crm3_baf_ops/features/quality/domain/quality_warning_projection.dart';
+import 'package:crm3_baf_ops/features/quality/presentation/quality_home_screen.dart';
 import 'package:crm3_baf_ops/features/quality/providers/quality_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -26,6 +31,7 @@ void main() {
             ..qualityIntent = const IssueQualityIntent(
               assessment: IssueQualityAssessment.suspected,
               warningReason: 'Atmosphere interruption may affect coil quality.',
+              abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
             );
 
       expect(qualityWarningProjectionForIssue(ticket), <String, dynamic>{
@@ -201,7 +207,83 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('live window retains every active request and removes duplicates', () {
+      final oldActive = QualityMonitoringRequest.fromMap(
+        _monitoring()
+          ..['requestId'] = 'monitoring-old-active'
+          ..['createdAt'] = DateTime.utc(2025, 1, 1)
+          ..['updatedAt'] = DateTime.utc(2025, 1, 1),
+        'monitoring-old-active',
+      );
+      final recentActive = QualityMonitoringRequest.fromMap(
+        _monitoring()
+          ..['requestId'] = 'monitoring-recent-active'
+          ..['createdAt'] = DateTime.utc(2026, 8, 15)
+          ..['updatedAt'] = DateTime.utc(2026, 8, 15),
+        'monitoring-recent-active',
+      );
+      final merged = mergeQualityMonitoringWindows(
+        <QualityMonitoringRequest>[oldActive, recentActive],
+        <QualityMonitoringRequest>[recentActive],
+      );
+
+      expect(merged.map((request) => request.requestId), <String>[
+        'monitoring-recent-active',
+        'monitoring-old-active',
+      ]);
+    });
   });
+
+  testWidgets(
+    'quality tabs expose separate live counts and open warnings first',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final review = QualityWarning.fromMap(
+        _warning()
+          ..['status'] = 'closureRequested'
+          ..['closureRequestReason'] =
+              'Operations found the affected material satisfactory.'
+          ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
+          ..['closureRequestedByUid'] = 'operations-1'
+          ..['closureRequestedByName'] = 'Operations One',
+        'issue_ticket-1',
+      );
+      final active = QualityMonitoringRequest.fromMap(
+        _monitoring(),
+        'monitoring-1',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+            qualityWarningsProvider.overrideWith(
+              (ref) => Stream.value(<QualityWarning>[review]),
+            ),
+            qualityMonitoringRequestsProvider.overrideWith(
+              (ref) => Stream.value(<QualityMonitoringRequest>[active]),
+            ),
+          ],
+          child: MaterialApp(
+            theme: BafAppTheme.light,
+            home: const QualityHomeScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Warnings (1)'), findsOneWidget);
+      expect(find.text('Monitoring (1)'), findsOneWidget);
+      expect(find.text('No warnings in this view'), findsOneWidget);
+
+      await tester.tap(find.text('Monitoring (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Base 12 · CRGO M4'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 Map<String, dynamic> _warning() {

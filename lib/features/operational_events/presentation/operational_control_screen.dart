@@ -14,11 +14,13 @@ class OperationalControlScreen extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.operationalEventCount,
     required this.qualityWarningCount,
+    required this.qualityMonitoringCount,
     required this.inspectionFindingCount,
     required this.directiveDataUnavailable,
     required this.workflowDataUnavailable,
     required this.operationalEventsUnavailable,
     required this.qualityWarningsUnavailable,
+    required this.qualityMonitoringUnavailable,
     required this.inspectionFindingsUnavailable,
     required this.onDirectives,
     required this.onWorkflow,
@@ -33,11 +35,13 @@ class OperationalControlScreen extends StatelessWidget {
   final int workflowAttentionCount;
   final int operationalEventCount;
   final int qualityWarningCount;
+  final int qualityMonitoringCount;
   final int inspectionFindingCount;
   final bool directiveDataUnavailable;
   final bool workflowDataUnavailable;
   final bool operationalEventsUnavailable;
   final bool qualityWarningsUnavailable;
+  final bool qualityMonitoringUnavailable;
   final bool inspectionFindingsUnavailable;
   final VoidCallback onDirectives;
   final VoidCallback onWorkflow;
@@ -80,7 +84,17 @@ class OperationalControlScreen extends StatelessWidget {
           color: BafColors.charges,
           title: 'Quality warnings',
           value: qualityWarningsUnavailable ? '--' : '$qualityWarningCount',
-          detail: 'Warnings, closure requests and monitored cycles',
+          detail: 'Open warnings and closure requests',
+          onTap: onQuality,
+        ),
+      if (appUser.canViewQuality)
+        _ControlDomain(
+          icon: Icons.monitor_heart_outlined,
+          color: BafColors.instrument,
+          title: 'Cycle monitoring',
+          value:
+              qualityMonitoringUnavailable ? '--' : '$qualityMonitoringCount',
+          detail: 'Active Base, Grade and charge surveillance',
           onTap: onQuality,
         ),
       _ControlDomain(
@@ -201,7 +215,9 @@ class OperationalControlScreen extends StatelessWidget {
       if (operationalEventsUnavailable)
         (label: 'Plant disruptions', onTap: onOperationalEvents),
       if (qualityWarningsUnavailable && appUser.canViewQuality)
-        (label: 'Quality', onTap: onQuality),
+        (label: 'Quality warnings', onTap: onQuality),
+      if (qualityMonitoringUnavailable && appUser.canViewQuality)
+        (label: 'Cycle monitoring', onTap: onQuality),
       if (inspectionFindingsUnavailable)
         (label: 'Inspection findings', onTap: onInspections),
     ];
@@ -230,6 +246,20 @@ class OperationalControlScreen extends StatelessWidget {
             '${qualityWarningCount == 1 ? 'warning remains' : 'warnings remain'} open',
         detail:
             'Review affected charges, evidence and any pending closure requests.',
+        actionLabel: 'Open quality',
+        onTap: onQuality,
+      );
+    }
+    if (qualityMonitoringCount > 0 && appUser.canViewQuality) {
+      return _ControlSignal(
+        icon: Icons.monitor_heart_outlined,
+        color: BafColors.instrument,
+        eyebrow: 'ACTIVE QUALITY MONITORING',
+        title:
+            '$qualityMonitoringCount cycle monitoring '
+            '${qualityMonitoringCount == 1 ? 'request remains' : 'requests remain'} active',
+        detail:
+            'Review the selected Bases, Grades, cycles and charge coverage.',
         actionLabel: 'Open quality',
         onTap: onQuality,
       );

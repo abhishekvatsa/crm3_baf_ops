@@ -8,8 +8,12 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../abnormalities/data/abnormality_model.dart';
+import '../../abnormalities/providers/abnormality_provider.dart';
 import '../data/quality_warning.dart';
 import '../providers/quality_provider.dart';
+
+part 'quality_home_screen.widgets.dart';
 
 enum _WarningFilter { open, review, closed }
 
@@ -27,8 +31,24 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final actor = ref.watch(currentAppUserProvider).value;
+    final warnings = ref.watch(qualityWarningsProvider);
+    final monitoring = ref.watch(qualityMonitoringRequestsProvider);
+    final warningCount = warnings.whenOrNull(
+      data: (items) => items.where((warning) => warning.isOpen).length,
+    );
+    final monitoringCount = monitoring.whenOrNull(
+      data:
+          (items) =>
+              items
+                  .where(
+                    (request) =>
+                        request.status == QualityMonitoringStatus.active,
+                  )
+                  .length,
+    );
     return DefaultTabController(
       length: 2,
+      initialIndex: 0,
       child: Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(
@@ -38,10 +58,16 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
             icon: Icons.verified_user_outlined,
             accent: BafColors.charges,
           ),
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.warning_amber_rounded), text: 'Warnings'),
-              Tab(icon: Icon(Icons.monitor_heart_outlined), text: 'Monitoring'),
+              Tab(
+                icon: const Icon(Icons.warning_amber_rounded),
+                text: 'Warnings (${warningCount ?? '--'})',
+              ),
+              Tab(
+                icon: const Icon(Icons.monitor_heart_outlined),
+                text: 'Monitoring (${monitoringCount ?? '--'})',
+              ),
             ],
           ),
         ),
@@ -144,6 +170,7 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                     actor: actor,
                     busy: _submitting,
                     onRequestClosure: () => _requestWarningClosure(warning),
+                    onDeclareRaRequired: () => _declareRaRequired(warning),
                     onClose: () => _closeWarning(warning),
                     onReopen: () => _reopenWarning(warning),
                   ),
@@ -191,10 +218,11 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                       label: const Text('New monitoring request'),
                     ),
                   ),
-                if (items.length == qualityMonitoringLiveWindowLimit) ...[
+                if (items.length >= qualityMonitoringLiveWindowLimit) ...[
                   const SizedBox(height: BafSpacing.sm),
                   const _WindowScopeNotice(
-                    text: 'Showing the 250 most recently updated requests',
+                    text:
+                        'Showing every active request plus up to 250 recent requests',
                   ),
                 ],
                 const SizedBox(height: BafSpacing.lg),
@@ -247,6 +275,19 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
             reason: decision.reason,
             linkedReannealingChargeNos: decision.raChargeNumbers,
           ),
+    );
+  }
+
+  Future<void> _declareRaRequired(QualityWarning warning) async {
+    final reason = await _reasonDialog(
+      title: 'Declare re-annealing required',
+      label: 'Decision evidence',
+    );
+    if (reason == null) return;
+    await _runCommand(
+      () => ref
+          .read(qualityCommandServiceProvider)
+          .declareRaRequired(warning: warning, reason: reason),
     );
   }
 
@@ -384,12 +425,13 @@ class _SummaryMetric extends StatelessWidget {
   );
 }
 
-class _WarningCard extends StatelessWidget {
+class _WarningCard extends ConsumerWidget {
   const _WarningCard({
     required this.warning,
     required this.actor,
     required this.busy,
     required this.onRequestClosure,
+    required this.onDeclareRaRequired,
     required this.onClose,
     required this.onReopen,
   });
@@ -398,132 +440,172 @@ class _WarningCard extends StatelessWidget {
   final AppUser? actor;
   final bool busy;
   final VoidCallback onRequestClosure;
+  final VoidCallback onDeclareRaRequired;
   final VoidCallback onClose;
   final VoidCallback onReopen;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    elevation: 0,
-    color: BafColors.card,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: const BorderSide(color: BafColors.border),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                _statusIcon(warning.status),
-                color: _statusColor(warning.status),
-              ),
-              const SizedBox(width: BafSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Charge ${warning.sourceChargeNo}',
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: BafColors.textPrimary,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final linkedAbnormality = ref
+        .watch(abnormalitiesForChargeProvider(warning.sourceChargeNo))
+        .whenOrNull(
+          data:
+              (items) =>
+                  items
+                      .where(
+                        (abnormality) =>
+                            warning.sourceType == QualityWarningSourceType.issue
+                                ? abnormality.linkedTicketFirestoreId ==
+                                    warning.sourceId
+                                : abnormality.firestoreId == warning.sourceId,
+                      )
+                      .firstOrNull,
+        );
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: BafColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: BafColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(BafSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _statusIcon(warning.status),
+                  color: _statusColor(warning.status),
+                ),
+                const SizedBox(width: BafSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Charge ${warning.sourceChargeNo}',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: BafColors.textPrimary,
+                    ),
                   ),
                 ),
-              ),
-              _StatusLabel(status: warning.status),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          Text(
-            warning.sourceSummary,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: BafColors.textPrimary,
+                _StatusLabel(status: warning.status),
+              ],
             ),
-          ),
-          const SizedBox(height: BafSpacing.xs),
-          Text(
-            warning.warningReason,
-            style: const TextStyle(color: BafColors.textSecondary),
-          ),
-          const SizedBox(height: BafSpacing.md),
-          Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.xs,
-            children: [
-              _Fact(
-                icon: Icons.precision_manufacturing_outlined,
-                text:
-                    warning.affectedAssets.isEmpty
-                        ? 'No asset recorded'
-                        : warning.affectedAssets
-                            .map((asset) => asset.label)
-                            .join(', '),
-              ),
-              if (warning.component != null)
-                _Fact(icon: Icons.settings_outlined, text: warning.component!),
-              _Fact(
-                icon: Icons.schedule_outlined,
-                text: DateFormat(
-                  'dd MMM yyyy, HH:mm',
-                ).format(warning.createdAt),
-              ),
-            ],
-          ),
-          if (warning.closureRequestReason != null) ...[
-            const SizedBox(height: BafSpacing.md),
+            const SizedBox(height: BafSpacing.sm),
             Text(
-              'Closure request: ${warning.closureRequestReason}',
+              warning.sourceSummary,
               style: const TextStyle(
-                color: BafColors.warning,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          if (warning.status == QualityWarningStatus.closed) ...[
-            const SizedBox(height: BafSpacing.md),
-            Text(
-              _closureLabel(warning),
-              style: const TextStyle(
-                color: BafColors.sync,
                 fontWeight: FontWeight.w800,
+                color: BafColors.textPrimary,
               ),
             ),
-          ],
-          const SizedBox(height: BafSpacing.md),
-          Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.sm,
-            children: [
-              if (warning.status == QualityWarningStatus.open &&
-                  actor?.canRequestQualityWarningClosure == true)
-                OutlinedButton.icon(
-                  onPressed: busy ? null : onRequestClosure,
-                  icon: const Icon(Icons.forward_to_inbox_outlined),
-                  label: const Text('Request closure'),
+            const SizedBox(height: BafSpacing.xs),
+            Text(
+              warning.warningReason,
+              style: const TextStyle(color: BafColors.textSecondary),
+            ),
+            const SizedBox(height: BafSpacing.md),
+            Wrap(
+              spacing: BafSpacing.sm,
+              runSpacing: BafSpacing.xs,
+              children: [
+                _Fact(
+                  icon: Icons.precision_manufacturing_outlined,
+                  text:
+                      warning.affectedAssets.isEmpty
+                          ? 'No asset recorded'
+                          : warning.affectedAssets
+                              .map((asset) => asset.label)
+                              .join(', '),
                 ),
-              if (warning.status != QualityWarningStatus.closed &&
-                  actor?.canCloseQualityWarning == true)
-                FilledButton.icon(
-                  onPressed: busy ? null : onClose,
-                  icon: const Icon(Icons.verified_rounded),
-                  label: const Text('Adjudicate'),
+                if (warning.component != null)
+                  _Fact(
+                    icon: Icons.settings_outlined,
+                    text: warning.component!,
+                  ),
+                _Fact(
+                  icon: Icons.schedule_outlined,
+                  text: DateFormat(
+                    'dd MMM yyyy, HH:mm',
+                  ).format(warning.createdAt),
                 ),
-              if (warning.status == QualityWarningStatus.closed &&
-                  actor?.canCloseQualityWarning == true)
-                OutlinedButton.icon(
-                  onPressed: busy ? null : onReopen,
-                  icon: const Icon(Icons.replay_rounded),
-                  label: const Text('Reopen'),
-                ),
+              ],
+            ),
+            if (linkedAbnormality != null) ...[
+              const SizedBox(height: BafSpacing.md),
+              _RaStateBand(abnormality: linkedAbnormality),
             ],
-          ),
-        ],
+            if (warning.closureRequestReason != null) ...[
+              const SizedBox(height: BafSpacing.md),
+              Text(
+                'Closure request: ${warning.closureRequestReason}',
+                style: const TextStyle(
+                  color: BafColors.warning,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            if (warning.status == QualityWarningStatus.closed) ...[
+              const SizedBox(height: BafSpacing.md),
+              Text(
+                _closureLabel(warning),
+                style: const TextStyle(
+                  color: BafColors.sync,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+            const SizedBox(height: BafSpacing.md),
+            Wrap(
+              spacing: BafSpacing.sm,
+              runSpacing: BafSpacing.sm,
+              children: [
+                if (warning.status == QualityWarningStatus.open &&
+                    actor?.canRequestQualityWarningClosure == true)
+                  OutlinedButton.icon(
+                    onPressed: busy ? null : onRequestClosure,
+                    icon: const Icon(Icons.forward_to_inbox_outlined),
+                    label: const Text('Request closure'),
+                  ),
+                if (warning.status != QualityWarningStatus.closed &&
+                    actor?.canCloseQualityWarning == true)
+                  OutlinedButton.icon(
+                    onPressed:
+                        busy ||
+                                linkedAbnormality == null ||
+                                linkedAbnormality.reannealingStatus ==
+                                    ReannealingStatus.required ||
+                                linkedAbnormality.reannealingStatus ==
+                                    ReannealingStatus.completed
+                            ? null
+                            : onDeclareRaRequired,
+                    icon: const Icon(Icons.repeat_rounded),
+                    label: const Text('RA required'),
+                  ),
+                if (warning.status != QualityWarningStatus.closed &&
+                    actor?.canCloseQualityWarning == true)
+                  FilledButton.icon(
+                    onPressed: busy ? null : onClose,
+                    icon: const Icon(Icons.verified_rounded),
+                    label: const Text('Adjudicate'),
+                  ),
+                if (warning.status == QualityWarningStatus.closed &&
+                    actor?.canCloseQualityWarning == true)
+                  OutlinedButton.icon(
+                    onPressed: busy ? null : onReopen,
+                    icon: const Icon(Icons.replay_rounded),
+                    label: const Text('Reopen'),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   static IconData _statusIcon(QualityWarningStatus status) => switch (status) {
     QualityWarningStatus.open => Icons.warning_amber_rounded,
@@ -551,56 +633,6 @@ class _WarningCard extends StatelessWidget {
     final ra = warning.linkedReannealingChargeNos;
     return ra.isEmpty ? label : '$label · RA ${ra.join(', ')}';
   }
-}
-
-class _StatusLabel extends StatelessWidget {
-  const _StatusLabel({required this.status});
-
-  final QualityWarningStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (status) {
-      QualityWarningStatus.open => 'Open',
-      QualityWarningStatus.closureRequested => 'Review',
-      QualityWarningStatus.closed => 'Closed',
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: _WarningCard._statusColor(status).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          color: _WarningCard._statusColor(status),
-        ),
-      ),
-    );
-  }
-}
-
-class _Fact extends StatelessWidget {
-  const _Fact({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 15, color: BafColors.textSecondary),
-      const SizedBox(width: 4),
-      Text(
-        text,
-        style: const TextStyle(fontSize: 12, color: BafColors.textSecondary),
-      ),
-    ],
-  );
 }
 
 class _MonitoringCard extends StatelessWidget {

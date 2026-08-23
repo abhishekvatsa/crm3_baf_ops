@@ -6,16 +6,19 @@ void main() {
     const source = IssueQualityIntent(
       assessment: IssueQualityAssessment.suspected,
       warningReason: 'Atmosphere interruption may affect the coil.',
+      abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
     );
 
     final decoded = IssueQualityIntent.tryDecodeLocal(source.encode());
 
     expect(decoded?.assessment, IssueQualityAssessment.suspected);
     expect(decoded?.warningReason, source.warningReason);
+    expect(decoded?.abnormalityTypeId, 'ATMOSPHERE_DEVIATION');
     expect(decoded?.toSynchronizedFields(), <String, dynamic>{
-      'qualityIntentSchemaVersion': 1,
+      'qualityIntentSchemaVersion': 2,
       'qualityImpactAssessment': 'suspected',
       'qualityWarningReason': source.warningReason,
+      'qualityAbnormalityTypeId': 'ATMOSPHERE_DEVIATION',
     });
   });
 
@@ -39,6 +42,38 @@ void main() {
         source: 'legacy ticket',
       ),
       isNull,
+    );
+  });
+
+  test(
+    'legacy v1 suspected intent remains readable without classification',
+    () {
+      final intent = IssueQualityIntent.readOptionalSynchronizedFields(
+        const <String, dynamic>{
+          'qualityIntentSchemaVersion': 1,
+          'qualityImpactAssessment': 'suspected',
+          'qualityWarningReason': 'Legacy suspected quality evidence.',
+        },
+        source: 'legacy ticket',
+      );
+
+      expect(intent?.isSuspected, isTrue);
+      expect(intent?.abnormalityTypeId, isNull);
+    },
+  );
+
+  test('v2 suspected intent fails closed without governed classification', () {
+    expect(
+      () => IssueQualityIntent.readOptionalSynchronizedFields(
+        const <String, dynamic>{
+          'qualityIntentSchemaVersion': 2,
+          'qualityImpactAssessment': 'suspected',
+          'qualityWarningReason': 'Current suspected quality evidence.',
+          'qualityAbnormalityTypeId': null,
+        },
+        source: 'current ticket',
+      ),
+      throwsFormatException,
     );
   });
 

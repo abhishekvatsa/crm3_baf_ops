@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const {
   mutateChargeAbnormalityWithDb,
 } = require('../lib/chargeAbnormalityMutation');
+const {mutateQualityWithDb} = require('../lib/qualityMutation');
 
 jest.setTimeout(60000);
 
@@ -20,6 +21,7 @@ const IDS = {
   replay: '33333333-3333-4333-8333-333333333333',
   malformed: '44444444-4444-4444-8444-444444444444',
   deleted: '55555555-5555-4555-8555-555555555555',
+  qualityReplay: '66666666-6666-4666-8666-666666666666',
 };
 
 function abnormality(overrides = {}) {
@@ -53,6 +55,41 @@ function abnormality(overrides = {}) {
     deletedByUid: null,
     deletedByName: null,
     deleteReason: null,
+    ...overrides,
+  };
+}
+
+function warningForAbnormality(record, overrides = {}) {
+  return {
+    schemaVersion: 1,
+    warningId: `abnormality_${record.firestoreId}`,
+    sourceType: 'abnormality',
+    sourceId: record.firestoreId,
+    sourceVersion: record.version,
+    sourceChargeNo: record.sourceChargeNo,
+    sourceSummary: record.abnormalityTypeTitle,
+    sourceSeverity: record.severity,
+    warningReason: record.observedReason,
+    affectedAssets: record.affectedAssets,
+    component: record.component,
+    status: 'open',
+    closureRequestReason: null,
+    closureRequestedAt: null,
+    closureRequestedByUid: null,
+    closureRequestedByName: null,
+    closedAt: null,
+    closedByUid: null,
+    closedByName: null,
+    closureDisposition: null,
+    linkedReannealingChargeNos: [],
+    decisionReason: null,
+    createdAt: record.loggedAt,
+    createdByUid: record.loggedByUid,
+    createdByName: record.loggedByName,
+    updatedAt: record.loggedAt,
+    updatedByUid: record.loggedByUid,
+    updatedByName: record.loggedByName,
+    version: 1,
     ...overrides,
   };
 }
@@ -92,7 +129,8 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
     }
   }
 
-  async function seed() {
+  async function seed({warningOverrides = {}} = {}) {
+    const record = abnormality();
     await db.collection('users').doc('admin-1').set({
       name: 'Admin One',
       email: 'admin-1@test.local',
@@ -101,7 +139,10 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
       createdAt: new Date('2026-07-20T00:00:00.000Z'),
     });
     await db.collection('charge_abnormalities').doc('abn-1').set(
-      abnormality(),
+      record,
+    );
+    await db.collection('quality_warnings').doc('abnormality_abn-1').set(
+      warningForAbnormality(record, warningOverrides),
     );
     await db.collection('abnormality_types').doc('TYPE_NEW').set({
       firestoreId: 'TYPE_NEW',
@@ -122,6 +163,16 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
       now: () => new Date('2026-07-26T10:00:00.000Z'),
       timestampFromDate: admin.firestore.Timestamp.fromDate,
       ...extra,
+    });
+  }
+
+  async function invokeQuality(data) {
+    return mutateQualityWithDb({
+      db,
+      authUid: 'admin-1',
+      data,
+      now: () => new Date('2026-07-26T10:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
     });
   }
 
@@ -179,6 +230,16 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
       abnormalityTypeTitle: 'Canonical new title',
       category: 'process',
     });
+    expect(
+      (await db.collection('quality_warnings').doc('abnormality_abn-1').get())
+        .data(),
+    ).toMatchObject({
+      status: 'open',
+      sourceVersion: 5,
+      sourceSummary: 'Canonical new title',
+      warningReason: expect.stringMatching(/concurrent correction$/),
+      version: 2,
+    });
     expect(await collectionState('charge_abnormality_mutation_receipts'))
       .toHaveLength(1);
     expect(
@@ -206,6 +267,66 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
     ).toHaveLength(1);
   });
 
+  test('connected RA decision atomically advances warning and abnormality', async () => {
+    const record = abnormality({
+      firestoreId: 'issue_quality_ticket-1',
+      linkedTicketFirestoreId: 'ticket-1',
+      reannealingStatus: 'pendingDecision',
+      version: 1,
+    });
+    const warningId = 'issue_ticket-1';
+    await db.collection('users').doc('admin-1').set({
+      name: 'Admin One',
+      email: 'admin-1@test.local',
+      isApproved: true,
+      roles: ['admin'],
+      createdAt: new Date('2026-07-20T00:00:00.000Z'),
+    });
+    await db.collection('maintenance_records').doc('ticket-1').set({
+      chargeNoAtEvent: record.sourceChargeNo,
+      qualityAbnormalityId: record.firestoreId,
+      qualityWarningId: warningId,
+      chargeQualityCaseId: warningId,
+    });
+    await db.collection('charge_abnormalities').doc(record.firestoreId).set(
+      record,
+    );
+    await db.collection('quality_warnings').doc(warningId).set(
+      warningForAbnormality(record, {
+        warningId,
+        sourceType: 'issue',
+        sourceId: 'ticket-1',
+        sourceVersion: 1,
+      }),
+    );
+
+    const request = {
+      requestId: IDS.qualityReplay,
+      operation: 'DECLARE_QUALITY_CASE_RA_REQUIRED',
+      warningId,
+      expectedVersion: 1,
+      reason: 'SI review confirms re-annealing is required.',
+    };
+    const first = await invokeQuality(request);
+    const replay = await invokeQuality(request);
+
+    expect(first).toMatchObject({version: 2, idempotentReplay: false});
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect(
+      (await db.collection('quality_warnings').doc(warningId).get()).data(),
+    ).toMatchObject({status: 'open', version: 2});
+    expect(
+      (await db.collection('charge_abnormalities').doc(record.firestoreId)
+        .get()).data(),
+    ).toMatchObject({reannealingStatus: 'required', version: 2});
+    expect(await collectionState('quality_mutation_receipts')).toHaveLength(1);
+    expect(
+      (await collectionState('audit_logs')).filter(({id}) =>
+        id.startsWith('server_quality_'),
+      ),
+    ).toHaveLength(1);
+  });
+
   test('malformed current state rolls back without target, audit, or receipt write', async () => {
     await seed();
     const before = abnormality();
@@ -229,7 +350,16 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
   });
 
   test('soft delete commits tombstone and evidence in one transaction', async () => {
-    await seed();
+    await seed({
+      warningOverrides: {
+        status: 'closed',
+        closedAt: '2026-07-25T09:00:00.000Z',
+        closedByUid: 'admin-1',
+        closedByName: 'Admin One',
+        closureDisposition: 'qualityAdjudication',
+        decisionReason: 'Duplicate disposition evidence was confirmed.',
+      },
+    });
     const result = await invoke({
       requestId: IDS.deleted,
       abnormalityId: 'abn-1',
