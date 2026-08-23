@@ -395,6 +395,30 @@ describe('quality mutation', () => {
     });
   });
 
+  test('RA completion requires a prior required decision', async () => {
+    const memory = fakeDb(linkedIssueSeed());
+    const writesBefore = memory.writes.length;
+
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.close,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: 'issue_ticket-1',
+      expectedVersion: 1,
+      reason: 'Attempted completion without a prior RA-required decision.',
+      disposition: 'reannealingCompleted',
+      linkedReannealingChargeNos: [13001],
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'charge-quality-ra-not-required'},
+    });
+    expect(memory.writes).toHaveLength(writesBefore);
+    expect(memory.store.get('quality_warnings/issue_ticket-1'))
+      .toMatchObject({status: 'open', version: 1});
+    expect(
+      memory.store.get('charge_abnormalities/issue_quality_ticket-1'),
+    ).toMatchObject({reannealingStatus: 'pendingDecision', version: 1});
+  });
+
   test('reopening a retired standalone case reactivates its abnormality', async () => {
     const warningId = 'abnormality_abn-1';
     const memory = fakeDb({

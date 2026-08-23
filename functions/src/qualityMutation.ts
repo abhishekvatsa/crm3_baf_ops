@@ -1216,6 +1216,13 @@ export async function mutateQualityWithDb(args: {
         } else if (request.operation === "REOPEN_QUALITY_WARNING") {
           reannealingStatus = "pendingDecision";
         } else if (request.disposition === "reannealingCompleted") {
+          if (linkedAbnormality.before.reannealingStatus !== "required") {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "Re-annealing completion requires a prior RA-required decision.",
+              {reasonCode: "charge-quality-ra-not-required"},
+            );
+          }
           if (request.linkedReannealingChargeNos.length !== 1) {
             throw new QualityMutationError(
               "failed-precondition",
