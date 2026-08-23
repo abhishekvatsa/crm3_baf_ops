@@ -38,6 +38,12 @@ const ASSET_TYPES = new Set([
   "base", "furnace", "forceCooler", "innerCover", "governedCustom",
 ]);
 const QUALITY_ASSESSMENTS = new Set(["notSuspected", "suspected"]);
+const ABNORMALITY_CATEGORIES = new Set([
+  "process", "equipment", "resultQuality", "reannealing", "other",
+]);
+const ABNORMALITY_SEVERITIES = new Set([
+  "low", "medium", "high", "critical",
+]);
 const BURNER_CYCLE_STAGES = new Set([
   "notRecorded", "purge", "ignition", "firing", "unknown",
 ]);
@@ -85,6 +91,7 @@ const CREATE_TICKET_FIELDS = [
   "qualityIntentSchemaVersion", "qualityImpactAssessment",
   "qualityWarningReason",
 ] as const;
+const QUALITY_ABNORMALITY_TYPE_FIELD = "qualityAbnormalityTypeId";
 const CREATE_BURNER_FIELDS = [
   "burnerLockoutSchemaVersion", "burnerPositions", "burnerCommonMode",
   "burnerCycleStage", "burnerHmiAlarm", "burnerFlameObservation",
@@ -1030,6 +1037,113 @@ const qualityWarningProjection = (args: {
   };
 };
 
+type CanonicalQualityAbnormalityType = {
+  readonly id: string;
+  readonly code: string;
+  readonly title: string;
+  readonly category: string;
+  readonly severity: string;
+};
+
+const canonicalQualityAbnormalityType = (args: {
+  snapshot: {readonly exists: boolean; readonly data: JsonMap | null};
+  typeId: string;
+  assetType: string;
+}): CanonicalQualityAbnormalityType => {
+  const data = args.snapshot.data;
+  if (!args.snapshot.exists || data == null || data.firestoreId !== args.typeId ||
+      data.isActive !== true || data.isDeleted !== false) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected abnormality classification is unavailable.",
+      {
+        reasonCode: "maintenance-ticket-quality-type-unavailable",
+        abnormalityTypeId: args.typeId,
+      },
+    );
+  }
+  const code = boundedText(data.code, "abnormalityType.code", 1, 160);
+  const title = boundedText(data.title, "abnormalityType.title", 1, 500);
+  const category = cleanText(data.category, "abnormalityType.category");
+  const severity = cleanText(data.severity, "abnormalityType.severity");
+  const applicableAssetTypes = optionalStringList(
+    data.applicableAssetTypes,
+    "abnormalityType.applicableAssetTypes",
+    ASSET_TYPES.size,
+    40,
+  ) ?? [];
+  if (!ABNORMALITY_CATEGORIES.has(category) ||
+      !ABNORMALITY_SEVERITIES.has(severity) ||
+      new Set(applicableAssetTypes).size !== applicableAssetTypes.length ||
+      applicableAssetTypes.some((value) => !ASSET_TYPES.has(value)) ||
+      (applicableAssetTypes.length > 0 &&
+        !applicableAssetTypes.includes(args.assetType))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected abnormality classification does not apply to this asset.",
+      {
+        reasonCode: "maintenance-ticket-quality-type-inapplicable",
+        abnormalityTypeId: args.typeId,
+        assetType: args.assetType,
+      },
+    );
+  }
+  return {id: args.typeId, code, title, category, severity};
+};
+
+const qualityRootReasonForAsset = (assetType: string): string => {
+  switch (assetType) {
+  case "base": return "baseRelated";
+  case "furnace": return "furnaceRelated";
+  case "forceCooler": return "forceCoolerRelated";
+  default: return "unknown";
+  }
+};
+
+const qualityAbnormalityProjection = (args: {
+  abnormalityId: string;
+  ticketId: string;
+  ticket: JsonMap;
+  type: CanonicalQualityAbnormalityType;
+  actor: Actor;
+  timestamp: string;
+}): JsonMap => ({
+  firestoreId: args.abnormalityId,
+  sourceChargeNo: args.ticket.chargeNoAtEvent as number,
+  abnormalityTypeId: args.type.id,
+  abnormalityTypeTitle: args.type.title,
+  abnormalityTypeCode: args.type.code,
+  category: args.type.category,
+  severity: args.ticket.isCritical === true ? "critical" : args.type.severity,
+  affectedAssets: [{
+    assetType: args.ticket.assetType as string,
+    assetNumber: args.ticket.assetNumber as number,
+  }],
+  component: args.ticket.component ?? null,
+  observedReason: args.ticket.qualityWarningReason as string,
+  description: args.ticket.description as string,
+  possibleRootReasonCategory: qualityRootReasonForAsset(
+    args.ticket.assetType as string,
+  ),
+  possibleRootReasonNotes: null,
+  reannealingStatus: "pendingDecision",
+  reannealedToChargeNo: null,
+  loggedAt: args.timestamp,
+  updatedAt: args.timestamp,
+  loggedByUid: args.actor.uid,
+  loggedByName: args.actor.name,
+  updatedByUid: args.actor.uid,
+  updatedByName: args.actor.name,
+  linkedTicketFirestoreId: args.ticketId,
+  linkedExecutionFirestoreId: null,
+  version: 1,
+  isDeleted: false,
+  deletedAt: null,
+  deletedByUid: null,
+  deletedByName: null,
+  deleteReason: null,
+});
+
 const redHotDirectiveProjection = (args: {
   ticketId: string;
   ticket: JsonMap;
@@ -1262,15 +1376,24 @@ export const createMaintenanceTicket = async ({
   );
   const hasLanePlan = TICKET_LANE_FIELDS.some((field) =>
     Object.prototype.hasOwnProperty.call(input, field));
+  const hasQualityAbnormalityType = Object.prototype.hasOwnProperty.call(
+    input,
+    QUALITY_ABNORMALITY_TYPE_FIELD,
+  );
   exactKeys(
     input,
-    burner ? [...CREATE_TICKET_FIELDS, ...CREATE_BURNER_FIELDS,
+    burner ? [...CREATE_TICKET_FIELDS,
+      ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+      ...CREATE_BURNER_FIELDS,
       ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
       ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
-      stuckup ? [...CREATE_TICKET_FIELDS, ...CREATE_STUCKUP_FIELDS,
+      stuckup ? [...CREATE_TICKET_FIELDS,
+        ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+        ...CREATE_STUCKUP_FIELDS,
         ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
         ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
         [...CREATE_TICKET_FIELDS,
+          ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
           ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
           ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])],
     "ticket",
@@ -1332,7 +1455,8 @@ export const createMaintenanceTicket = async ({
       {reasonCode: "charge-number-invalid", field: "chargeNoAtEvent"},
     );
   }
-  if (input.qualityIntentSchemaVersion !== 1 ||
+  if ((input.qualityIntentSchemaVersion !== 1 &&
+        input.qualityIntentSchemaVersion !== 2) ||
       typeof input.qualityImpactAssessment !== "string" ||
       !QUALITY_ASSESSMENTS.has(input.qualityImpactAssessment)) {
     throw new WorkflowError(
@@ -1347,6 +1471,13 @@ export const createMaintenanceTicket = async ({
     1000,
   );
   const suspected = input.qualityImpactAssessment === "suspected";
+  const qualityAbnormalityTypeId = hasQualityAbnormalityType ?
+    optionalBoundedText(
+      input.qualityAbnormalityTypeId,
+      "qualityAbnormalityTypeId",
+      1,
+      512,
+    ) : null;
   if (suspected ?
     (qualityWarningReason == null || qualityWarningReason.length < 8 ||
       chargeNoAtEvent == null) : qualityWarningReason != null) {
@@ -1354,6 +1485,19 @@ export const createMaintenanceTicket = async ({
       "invalid-argument",
       "Suspected quality impact requires charge and warning-reason evidence.",
       {reasonCode: "maintenance-ticket-quality-evidence-invalid"},
+    );
+  }
+  if ((input.qualityIntentSchemaVersion === 1 &&
+        hasQualityAbnormalityType) ||
+      (input.qualityIntentSchemaVersion === 2 &&
+        !hasQualityAbnormalityType) ||
+      (suspected && (input.qualityIntentSchemaVersion !== 2 ||
+        qualityAbnormalityTypeId == null)) ||
+      (!suspected && qualityAbnormalityTypeId != null)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Suspected quality impact requires a governed abnormality classification.",
+      {reasonCode: "maintenance-ticket-quality-classification-invalid"},
     );
   }
 
@@ -1473,6 +1617,16 @@ export const createMaintenanceTicket = async ({
     serverNow: context.serverNow,
   });
   const canonicalAssetReference = JSON.parse(assetHierarchyRefJson) as JsonMap;
+  const qualityAbnormalityId = suspected ?
+    `issue_quality_${command.aggregateId}` : null;
+  const warningId = `issue_${command.aggregateId}`;
+  const qualityType = suspected ? canonicalQualityAbnormalityType({
+    snapshot: await tx.get(
+      `abnormality_types/${qualityAbnormalityTypeId as string}`,
+    ),
+    typeId: qualityAbnormalityTypeId as string,
+    assetType,
+  }) : null;
   const frequentIssueSelection = await resolveFrequentIssueSelection({
     tx,
     selection: requestedFrequentIssueSelection,
@@ -1590,9 +1744,13 @@ export const createMaintenanceTicket = async ({
     metadataJson: null,
     actionsJson: "[]",
     resolutionHistoryJson: "[]",
-    qualityIntentSchemaVersion: 1,
+    qualityIntentSchemaVersion: input.qualityIntentSchemaVersion as number,
     qualityImpactAssessment: input.qualityImpactAssessment as string,
     qualityWarningReason,
+    ...(hasQualityAbnormalityType ? {qualityAbnormalityTypeId} : {}),
+    qualityAbnormalityId,
+    qualityWarningId: suspected ? warningId : null,
+    chargeQualityCaseId: suspected ? `issue_${command.aggregateId}` : null,
     ...(frequentIssueSelection == null ? {} : {frequentIssueSelection}),
     ...burnerFields,
     ...(stuckup ? {
@@ -1614,24 +1772,40 @@ export const createMaintenanceTicket = async ({
     actor: context.actor,
     timestamp,
   });
+  const abnormality = qualityType == null || qualityAbnormalityId == null ?
+    null : qualityAbnormalityProjection({
+      abnormalityId: qualityAbnormalityId,
+      ticketId: command.aggregateId,
+      ticket,
+      type: qualityType,
+      actor: context.actor,
+      timestamp,
+    });
   const directive = redHotDirectiveProjection({
     ticketId: command.aggregateId,
     ticket,
     actor: context.actor,
     timestamp,
   });
-  const warningId = `issue_${command.aggregateId}`;
   const directiveId = `burner_red_hot_${command.aggregateId}`;
   const reviewQueueId = frequentIssueSelection?.selectionType === "unlisted" ?
     command.aggregateId : null;
-  const [existingTicket, existingWarning, existingDirective, existingReview] =
+  const [
+    existingTicket,
+    existingWarning,
+    existingAbnormality,
+    existingDirective,
+    existingReview,
+  ] =
     await Promise.all([
     tx.get(maintenancePath(command.aggregateId)),
     tx.get(`quality_warnings/${warningId}`),
+    tx.get(`charge_abnormalities/issue_quality_${command.aggregateId}`),
     tx.get(`directives/${directiveId}`),
     tx.get(`issue_governance_review_queue/${command.aggregateId}`),
   ]);
-  if (existingTicket.exists || existingWarning.exists || existingDirective.exists ||
+  if (existingTicket.exists || existingWarning.exists ||
+      existingAbnormality.exists || existingDirective.exists ||
       existingReview.exists) {
     throw new WorkflowError(
       "failed-precondition",
@@ -1875,6 +2049,9 @@ export const createMaintenanceTicket = async ({
     });
   }
   if (warning != null) tx.create(`quality_warnings/${warningId}`, warning);
+  if (abnormality != null && qualityAbnormalityId != null) {
+    tx.create(`charge_abnormalities/${qualityAbnormalityId}`, abnormality);
+  }
   if (directive != null) tx.create(`directives/${directiveId}`, directive);
   return {
     resultKey: "maintenance-ticket-created",
@@ -1883,6 +2060,7 @@ export const createMaintenanceTicket = async ({
       ticketId: command.aggregateId,
       auditId: id,
       warningId: warning == null ? null : warningId,
+      abnormalityId: qualityAbnormalityId,
       directiveId: directive == null ? null : directiveId,
       stuckupCaseId,
       reviewQueueId,
@@ -2744,6 +2922,35 @@ export const verifyMaintenanceTicketAudit = async (args: {
         "failed-precondition",
         "Maintenance ticket warning evidence is missing or inconsistent.",
         {reasonCode: "maintenance-ticket-create-replay-warning-invalid"},
+      );
+    }
+  }
+  const abnormalityId = args.receipt.result.abnormalityId;
+  const deterministicAbnormalityId =
+    `issue_quality_${args.command.aggregateId}`;
+  const abnormality = await args.tx.get(
+    `charge_abnormalities/${deterministicAbnormalityId}`,
+  );
+  if (abnormalityId == null && abnormality.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket abnormality evidence contradicts its receipt.",
+      {reasonCode: "maintenance-ticket-create-replay-abnormality-invalid"},
+    );
+  }
+  if (abnormalityId != null) {
+    if (abnormalityId !== deterministicAbnormalityId ||
+        ticketData.qualityAbnormalityId !== abnormalityId ||
+        ticketData.qualityWarningId !== deterministicWarningId ||
+        !abnormality.exists || abnormality.data == null ||
+        abnormality.data.firestoreId !== abnormalityId ||
+        abnormality.data.linkedTicketFirestoreId !== args.command.aggregateId ||
+        abnormality.data.sourceChargeNo !== ticketData.chargeNoAtEvent ||
+        abnormality.data.loggedByUid !== args.actor.uid) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket abnormality evidence is missing or inconsistent.",
+        {reasonCode: "maintenance-ticket-create-replay-abnormality-invalid"},
       );
     }
   }

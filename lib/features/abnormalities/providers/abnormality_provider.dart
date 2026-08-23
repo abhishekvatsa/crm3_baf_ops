@@ -247,7 +247,10 @@ final allAbnormalityTypesProvider = StreamProvider<List<AbnormalityType>>((
 });
 
 final abnormalitiesForChargeProvider =
-    StreamProvider.family<List<ChargeAbnormality>, int>((ref, sourceChargeNo) {
+    StreamProvider.autoDispose.family<List<ChargeAbnormality>, int>((
+      ref,
+      sourceChargeNo,
+    ) {
       return ref
           .watch(abnormalityRepositoryProvider)
           .watchAbnormalitiesForCharge(sourceChargeNo);

@@ -89,6 +89,11 @@ void validateMaintenanceIssueCreateReceipt({
       ticket['qualityImpactAssessment'] == 'suspected'
           ? 'issue_${command.aggregateId}'
           : null;
+  final expectedAbnormalityId =
+      ticket['qualityIntentSchemaVersion'] == 2 &&
+              ticket['qualityImpactAssessment'] == 'suspected'
+          ? 'issue_quality_${command.aggregateId}'
+          : null;
   final redHotPositions = ticket['burnerRedHotPositions'];
   final expectedDirectiveId =
       redHotPositions is List && redHotPositions.isNotEmpty
@@ -104,6 +109,7 @@ void validateMaintenanceIssueCreateReceipt({
           ? command.aggregateId
           : null;
   if (receipt.result['warningId'] != expectedWarningId ||
+      receipt.result['abnormalityId'] != expectedAbnormalityId ||
       receipt.result['directiveId'] != expectedDirectiveId ||
       receipt.result['stuckupCaseId'] != expectedStuckupCaseId ||
       receipt.result['reviewQueueId'] != expectedReviewQueueId) {

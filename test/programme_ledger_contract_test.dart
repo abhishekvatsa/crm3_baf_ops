@@ -699,7 +699,7 @@ void main() {
     expect(a03Manifest['findingId'], 'A-03');
     expect(
       a03Manifest['inventoryDigest'],
-      'ED5EE167E6946A021CC64151FDA1456F7DEC369A405C147D991E3A40F82A43BF',
+      '4DA08280668603D0CA7A90FBEAA53DBEACE939F4F102DEC771CBE2DA18AD4155',
     );
     expect(_objects(a03Manifest['surfaces']), hasLength(49));
 

@@ -81,6 +81,7 @@ void main() {
     expect(operationalControl, contains("title: 'Workflow obligations'"));
     expect(operationalControl, contains("title: 'Plant disruptions'"));
     expect(operationalControl, contains("title: 'Quality warnings'"));
+    expect(operationalControl, contains("title: 'Cycle monitoring'"));
     expect(operationalControl, contains("title: 'Cycle abnormalities'"));
     expect(operationalControl, contains("title: 'Inspection findings'"));
     for (final provider in [

@@ -282,6 +282,17 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
         ownerDiscipline: 'Operations',
         accountableRoleKeys: ['operations'],
       }),
+      db.collection('abnormality_types').doc('ATMOSPHERE_DEVIATION').set({
+        firestoreId: 'ATMOSPHERE_DEVIATION',
+        code: 'ATMOSPHERE_DEVIATION',
+        title: 'Atmosphere deviation',
+        category: 'process',
+        severity: 'high',
+        applicableAssetTypes: ['furnace'],
+        suggestsReannealing: true,
+        isActive: true,
+        isDeleted: false,
+      }),
     ]);
     const command = {
       commandId: 'ticket-create-command',
@@ -313,10 +324,11 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
           isCritical: true,
           startDate: '2026-08-14T16:20:00.000Z',
           chargeNoAtEvent: 12345,
-          qualityIntentSchemaVersion: 1,
+          qualityIntentSchemaVersion: 2,
           qualityImpactAssessment: 'suspected',
           qualityWarningReason:
             'Burner instability may have affected temperature uniformity.',
+          qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
           burnerLockoutSchemaVersion: 1,
           burnerPositions: [2, 5],
           burnerCommonMode: true,
@@ -347,6 +359,7 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       result: {
         ticketId: 'ticket-create',
         warningId: 'issue_ticket-create',
+        abnormalityId: 'issue_quality_ticket-create',
         directiveId: 'burner_red_hot_ticket-create',
       },
     });

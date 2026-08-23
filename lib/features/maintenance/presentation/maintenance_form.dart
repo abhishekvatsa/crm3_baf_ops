@@ -15,6 +15,8 @@ import '../providers/maintenance_provider.dart';
 import '../services/maintenance_issue_create_command.dart';
 import '../validation/maintenance_input_validator.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../abnormalities/data/abnormality_model.dart';
+import '../../abnormalities/providers/abnormality_provider.dart';
 import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
 import '../../../core/services/auto_sync_service.dart';
 import '../../../core/services/sync_coordinator.dart';
@@ -66,6 +68,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   bool _burnerCommonMode = false;
   bool _burnerRemainsLockedOut = true;
   IssueQualityAssessment? _qualityAssessment;
+  String? _qualityAbnormalityTypeId;
   BurnerCycleStage _burnerCycleStage = BurnerCycleStage.notRecorded;
   BurnerObservation _burnerFlameObservation = BurnerObservation.notChecked;
   BurnerObservation _burnerSparkObservation = BurnerObservation.notChecked;
@@ -331,6 +334,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _issueAssetClassId = route?.issueClass.id;
       _assetInstanceId = null;
       _assetType = route?.assetType ?? AssetType.base;
+      _qualityAbnormalityTypeId = null;
       if (_assetType != AssetType.furnace) _resetBurnerLockout();
       _resetAssetEvidence();
     });
@@ -386,6 +390,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       (lane) => lane != _routedTo && _routedLanes.contains(lane),
     ),
   ];
+
+  List<AbnormalityType> _qualityTypesForCurrentAsset(
+    Iterable<AbnormalityType> types,
+  ) => types
+      .where(
+        (type) =>
+            type.isActive &&
+            !type.isDeleted &&
+            (type.applicableAssetTypes.isEmpty ||
+                type.applicableAssetTypes.contains(_assetType)),
+      )
+      .toList(growable: false);
 
   RoutedTo? get _mandatoryRoute =>
       _isBurnerLockout
@@ -457,6 +473,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _resetBurnerLockout();
         _issueAssetClassId = route.issueClass.id;
         _assetType = AssetType.furnace;
+        _qualityAbnormalityTypeId = null;
         _assetInstanceId = null;
         _stuckupBaseAssetId = null;
         _stuckupConfirmedLinkageId = null;
@@ -481,6 +498,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _issueAssetClassId = null;
       _assetInstanceId = null;
       _assetType = AssetType.base;
+      _qualityAbnormalityTypeId = null;
       _resetAssetEvidence();
       _isCritical = false;
     });
@@ -921,6 +939,28 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       return;
     }
 
+    if (_qualityAssessment == IssueQualityAssessment.suspected) {
+      final availableTypes = ref.read(activeAbnormalityTypesProvider).value;
+      final selectedTypeId = _qualityAbnormalityTypeId;
+      final selectedType =
+          availableTypes == null || selectedTypeId == null
+              ? null
+              : _qualityTypesForCurrentAsset(
+                availableTypes,
+              ).where((type) => type.firestoreId == selectedTypeId).firstOrNull;
+      if (selectedType == null) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Select an active abnormality classification for the affected asset.',
+            ),
+            backgroundColor: BafColors.warning,
+          ),
+        );
+        return;
+      }
+    }
+
     final inputValidation = MaintenanceInputValidator.validateCreate(
       MaintenanceCreateInput(
         assetType: assetType,
@@ -1097,6 +1137,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             _qualityAssessment == IssueQualityAssessment.suspected
                 ? _cleanRequiredText(_qualityReasonController.text)
                 : null,
+        abnormalityTypeId:
+            _qualityAssessment == IssueQualityAssessment.suspected
+                ? _qualityAbnormalityTypeId
+                : null,
       );
       record.issueLanePlan = IssueLanePlan.initial(
         _orderedRoutedLanes.map((lane) => lane.name),
@@ -1209,6 +1253,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   Widget build(BuildContext context) {
     final appUser = ref.watch(currentAppUserProvider).value;
     final frequentIssues = ref.watch(frequentIssueDefinitionsProvider);
+    final qualityTypesAsync = ref.watch(activeAbnormalityTypesProvider);
+    final applicableQualityTypes = _qualityTypesForCurrentAsset(
+      qualityTypesAsync.value ?? const <AbnormalityType>[],
+    );
+    final selectedQualityType =
+        applicableQualityTypes
+            .where((type) => type.firestoreId == _qualityAbnormalityTypeId)
+            .firstOrNull;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -1264,11 +1316,56 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       if (_qualityAssessment !=
                           IssueQualityAssessment.suspected) {
                         _qualityReasonController.clear();
+                        _qualityAbnormalityTypeId = null;
                       }
                     });
                   },
                 ),
                 if (_qualityAssessment == IssueQualityAssessment.suspected) ...[
+                  const SizedBox(height: BafSpacing.md),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey<String>(
+                      'quality-abnormality-${_assetType.name}',
+                    ),
+                    initialValue: selectedQualityType?.firestoreId,
+                    isExpanded: true,
+                    decoration: _inputDecoration(
+                      'Suspected abnormality classification',
+                      hint:
+                          qualityTypesAsync.value == null
+                              ? 'Synchronizing governed classifications'
+                              : applicableQualityTypes.isEmpty
+                              ? 'No active classification for this asset'
+                              : 'Select from the governed list',
+                    ),
+                    items: applicableQualityTypes
+                        .map(
+                          (type) => DropdownMenuItem<String>(
+                            value: type.firestoreId,
+                            child: Text(
+                              '${type.code} · ${type.title}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged:
+                        applicableQualityTypes.isEmpty
+                            ? null
+                            : (value) => setState(
+                              () => _qualityAbnormalityTypeId = value,
+                            ),
+                    validator: (value) {
+                      if (_qualityAssessment !=
+                          IssueQualityAssessment.suspected) {
+                        return null;
+                      }
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Select the governed abnormality type';
+                      }
+                      return null;
+                    },
+                  ),
                   const SizedBox(height: BafSpacing.md),
                   TextFormField(
                     controller: _qualityReasonController,

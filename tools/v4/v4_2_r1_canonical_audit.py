@@ -7433,9 +7433,18 @@ check(
     and "const actorSnapshot = await transaction.get(actorRef);"
         in s07_source
     and "existing.version !== request.expectedVersion" in s07_source
-    and "const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS];"
+    and "const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter("
+        in s07_source
+    and '(field) => field !== "_globalPullServerUpdatedAt"'
+        in s07_source
+    and "!validServerTimestamp(data._globalPullServerUpdatedAt)"
+        in s07_source
+    and "const after: UserAuthorityJsonMap = {...existing};"
         in s07_source
     and "reannealed-charge-matches-source" in s07_source
+    and "charge-quality-ra-not-required" in s07_source
+    and "Admin RA completion requires a prior required decision"
+        in s07_unit_test
     and 'transaction.set(abnormalityRef, after);' in s07_source
     and 'transaction.set(auditRef, {' in s07_source
     and 'transaction.set(receiptRef, {' in s07_source
@@ -9521,7 +9530,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "ED5EE167E6946A021CC64151FDA1456F7DEC369A405C147D991E3A40F82A43BF"
+        == "4DA08280668603D0CA7A90FBEAA53DBEACE939F4F102DEC771CBE2DA18AD4155"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9545,7 +9554,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "505 operations" in a03_remediation
+    and "507 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(
