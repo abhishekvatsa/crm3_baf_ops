@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../data/maintenance_model.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
+
+const _reasonMinimumLength = 12;
+const _reasonMaximumLength = 2000;
+const _otherDepartmentMinimumLength = 2;
+const _otherDepartmentMaximumLength = 80;
 
 class IssueLaneChange {
   const IssueLaneChange({
@@ -87,12 +93,24 @@ class _IssueLaneManagementDialogState
   void _submit() {
     final reason = _reasonController.text.trim();
     final otherDepartment = _otherDepartmentController.text.trim();
-    if (reason.length < 12) {
+    if (reason.length < _reasonMinimumLength) {
       setState(() => _error = 'Give a clear reason of at least 12 characters.');
       return;
     }
-    if (_selected.contains(RoutedTo.others) && otherDepartment.length < 2) {
+    if (reason.length > _reasonMaximumLength) {
+      setState(() => _error = 'Keep the reason within 2,000 characters.');
+      return;
+    }
+    if (_selected.contains(RoutedTo.others) &&
+        otherDepartment.length < _otherDepartmentMinimumLength) {
       setState(() => _error = 'Name the receiving team represented by Others.');
+      return;
+    }
+    if (_selected.contains(RoutedTo.others) &&
+        otherDepartment.length > _otherDepartmentMaximumLength) {
+      setState(
+        () => _error = 'Keep the receiving team name within 80 characters.',
+      );
       return;
     }
     final lanes = <RoutedTo>[
@@ -170,8 +188,11 @@ class _IssueLaneManagementDialogState
               if (_selected.contains(RoutedTo.others)) ...[
                 const SizedBox(height: BafSpacing.md),
                 TextField(
+                  key: const Key('issue-lane-other-department'),
                   controller: _otherDepartmentController,
                   textCapitalization: TextCapitalization.words,
+                  maxLength: _otherDepartmentMaximumLength,
+                  maxLengthEnforcement: MaxLengthEnforcement.none,
                   decoration: const InputDecoration(
                     labelText: 'Other receiving team',
                   ),
@@ -179,8 +200,11 @@ class _IssueLaneManagementDialogState
               ],
               const SizedBox(height: BafSpacing.md),
               TextField(
+                key: const Key('issue-lane-change-reason'),
                 controller: _reasonController,
                 maxLines: 3,
+                maxLength: _reasonMaximumLength,
+                maxLengthEnforcement: MaxLengthEnforcement.none,
                 decoration: const InputDecoration(
                   labelText: 'Reason for lane change',
                   alignLabelWithHint: true,
