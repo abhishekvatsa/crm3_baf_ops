@@ -83,179 +83,190 @@ class _OperationalEventsScreenState
           accent: BafColors.warning,
         ),
       ),
-      body: eventsAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading operational events',
-              color: BafColors.warning,
+      body: Column(
+        children: [
+          if (actor.canRecordOperationalEvent)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  key: const ValueKey('operational-events-add'),
+                  onPressed:
+                      _busy
+                          ? null
+                          : () => _editEvent(
+                            actor: actor,
+                            classes: classes,
+                            assets: assets,
+                          ),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Add event'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: BafColors.warning,
+                    foregroundColor: BafColors.graphite,
+                  ),
+                ),
+              ),
             ),
-        error:
-            (error, _) => _ErrorState(
-              message: error.toString(),
-              onRetry: () => ref.invalidate(operationalEventsProvider),
-            ),
-        data: (events) {
-          final open = events.where((event) => event.isOpen).toList();
-          final resolved = events.where((event) => !event.isOpen).toList();
-          final visible = _showOpen ? open : resolved;
-          final critical =
-              open
-                  .where(
-                    (event) =>
-                        event.severity == OperationalEventSeverity.critical,
-                  )
-                  .length;
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(operationalEventsProvider),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                if (actor.canRecordOperationalEvent)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
-                          key: const ValueKey('operational-events-add'),
-                          onPressed:
-                              _busy
-                                  ? null
-                                  : () => _editEvent(
-                                    actor: actor,
-                                    classes: classes,
-                                    assets: assets,
-                                  ),
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Add event'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: BafColors.warning,
-                            foregroundColor: BafColors.graphite,
+          Expanded(
+            child: eventsAsync.when(
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Loading operational events',
+                    color: BafColors.warning,
+                  ),
+              error:
+                  (error, _) => _ErrorState(
+                    message: error.toString(),
+                    onRetry: () => ref.invalidate(operationalEventsProvider),
+                  ),
+              data: (events) {
+                final open = events.where((event) => event.isOpen).toList();
+                final resolved =
+                    events.where((event) => !event.isOpen).toList();
+                final visible = _showOpen ? open : resolved;
+                final critical =
+                    open
+                        .where(
+                          (event) =>
+                              event.severity ==
+                              OperationalEventSeverity.critical,
+                        )
+                        .length;
+                return RefreshIndicator(
+                  onRefresh:
+                      () async => ref.invalidate(operationalEventsProvider),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _EventSummary(
+                          openCount: open.length,
+                          criticalCount: critical,
+                          resolvedCount: resolved.length,
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: _EventImpactPanel(
+                          eventsAsync: reportEventsAsync,
+                          selectedMonth: _selectedMonth,
+                          selectedTopic: _selectedTopic,
+                          asOf: asOf,
+                          onPreviousMonth:
+                              _selectedMonth.isAfter(DateTime(2020))
+                                  ? () => setState(
+                                    () =>
+                                        _selectedMonth = DateTime(
+                                          _selectedMonth.year,
+                                          _selectedMonth.month - 1,
+                                        ),
+                                  )
+                                  : null,
+                          onNextMonth:
+                              _selectedMonth.isBefore(_monthStart(asOf))
+                                  ? () => setState(
+                                    () =>
+                                        _selectedMonth = DateTime(
+                                          _selectedMonth.year,
+                                          _selectedMonth.month + 1,
+                                        ),
+                                  )
+                                  : null,
+                          onPickMonth: _pickImpactMonth,
+                          onTopicChanged:
+                              (value) => setState(() => _selectedTopic = value),
+                          onRetry:
+                              () => ref.invalidate(
+                                operationalEventsForReportsProvider,
+                              ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(
+                                value: true,
+                                icon: Icon(Icons.warning_amber_rounded),
+                                label: Text('Open'),
+                              ),
+                              ButtonSegment(
+                                value: false,
+                                icon: Icon(Icons.task_alt_rounded),
+                                label: Text('Recent resolved'),
+                              ),
+                            ],
+                            selected: {_showOpen},
+                            onSelectionChanged:
+                                (selection) =>
+                                    setState(() => _showOpen = selection.first),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                SliverToBoxAdapter(
-                  child: _EventSummary(
-                    openCount: open.length,
-                    criticalCount: critical,
-                    resolvedCount: resolved.length,
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: _EventImpactPanel(
-                    eventsAsync: reportEventsAsync,
-                    selectedMonth: _selectedMonth,
-                    selectedTopic: _selectedTopic,
-                    asOf: asOf,
-                    onPreviousMonth:
-                        _selectedMonth.isAfter(DateTime(2020))
-                            ? () => setState(
-                              () =>
-                                  _selectedMonth = DateTime(
-                                    _selectedMonth.year,
-                                    _selectedMonth.month - 1,
-                                  ),
-                            )
-                            : null,
-                    onNextMonth:
-                        _selectedMonth.isBefore(_monthStart(asOf))
-                            ? () => setState(
-                              () =>
-                                  _selectedMonth = DateTime(
-                                    _selectedMonth.year,
-                                    _selectedMonth.month + 1,
-                                  ),
-                            )
-                            : null,
-                    onPickMonth: _pickImpactMonth,
-                    onTopicChanged:
-                        (value) => setState(() => _selectedTopic = value),
-                    onRetry:
-                        () =>
-                            ref.invalidate(operationalEventsForReportsProvider),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(
-                          value: true,
-                          icon: Icon(Icons.warning_amber_rounded),
-                          label: Text('Open'),
-                        ),
-                        ButtonSegment(
-                          value: false,
-                          icon: Icon(Icons.task_alt_rounded),
-                          label: Text('Recent resolved'),
-                        ),
-                      ],
-                      selected: {_showOpen},
-                      onSelectionChanged:
-                          (selection) =>
-                              setState(() => _showOpen = selection.first),
-                    ),
-                  ),
-                ),
-                if (!_showOpen)
-                  const SliverToBoxAdapter(child: _HistoryWindowNotice()),
-                if (visible.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyState(showingOpen: _showOpen),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                    sliver: SliverList.separated(
-                      itemCount: visible.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder:
-                          (context, index) => _EventCard(
-                            event: visible[index],
-                            asOf: asOf,
-                            classNames: {
-                              for (final record in classes)
-                                record.id: record.name,
-                            },
-                            assetNames: {
-                              for (final record in assets)
-                                record.id:
-                                    '${record.assetClassName} ${record.assetNumber}',
-                            },
-                            canEdit:
-                                actor.canRecordOperationalEvent &&
-                                visible[index].isOpen,
-                            canResolve: actor.canResolveOperationalEvent,
-                            onEdit:
-                                () => _editEvent(
-                                  actor: actor,
-                                  classes: classes,
-                                  assets: assets,
+                      if (!_showOpen)
+                        const SliverToBoxAdapter(child: _HistoryWindowNotice()),
+                      if (visible.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptyState(showingOpen: _showOpen),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                          sliver: SliverList.separated(
+                            itemCount: visible.length,
+                            separatorBuilder:
+                                (_, _) => const SizedBox(height: 10),
+                            itemBuilder:
+                                (context, index) => _EventCard(
                                   event: visible[index],
-                                ),
-                            onResolve: () => _resolveEvent(visible[index]),
-                            onReopen: () => _reopenEvent(visible[index]),
-                            onIssues:
-                                () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder:
-                                        (_) => OperationalEventIssueLinksScreen(
-                                          event: visible[index],
+                                  asOf: asOf,
+                                  classNames: {
+                                    for (final record in classes)
+                                      record.id: record.name,
+                                  },
+                                  assetNames: {
+                                    for (final record in assets)
+                                      record.id:
+                                          '${record.assetClassName} ${record.assetNumber}',
+                                  },
+                                  canEdit:
+                                      actor.canRecordOperationalEvent &&
+                                      visible[index].isOpen,
+                                  canResolve: actor.canResolveOperationalEvent,
+                                  onEdit:
+                                      () => _editEvent(
+                                        actor: actor,
+                                        classes: classes,
+                                        assets: assets,
+                                        event: visible[index],
+                                      ),
+                                  onResolve:
+                                      () => _resolveEvent(visible[index]),
+                                  onReopen: () => _reopenEvent(visible[index]),
+                                  onIssues:
+                                      () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder:
+                                              (_) =>
+                                                  OperationalEventIssueLinksScreen(
+                                                    event: visible[index],
+                                                  ),
                                         ),
-                                  ),
+                                      ),
                                 ),
                           ),
-                    ),
+                        ),
+                    ],
                   ),
-              ],
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }

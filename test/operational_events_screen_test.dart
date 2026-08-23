@@ -118,6 +118,70 @@ void main() {
     expect(find.text('Monthly impact'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('authorized event entry remains available while feed loads', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final events = StreamController<List<OperationalEvent>>();
+    addTearDown(events.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_operationsUser(now)),
+          ),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationalEventsProvider.overrideWith((ref) => events.stream),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.widgetWithText(FilledButton, 'Add event'), findsOneWidget);
+    expect(find.text('Loading operational events'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('authorized event entry remains available when feed fails', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_operationsUser(now)),
+          ),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationalEventsProvider.overrideWith(
+            (ref) => Stream.error(StateError('event feed unavailable')),
+          ),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Add event'), findsOneWidget);
+    expect(find.textContaining('event feed unavailable'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 AppUser _operationsUser(DateTime now, {bool approved = true}) => AppUser(
