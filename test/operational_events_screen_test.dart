@@ -70,14 +70,47 @@ void main() {
     expect(find.textContaining('ongoing'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('unapproved direct entry performs no operational data reads', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_operationsUser(now, approved: false)),
+          ),
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.error(StateError('asset classes must not be read')),
+          ),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.error(StateError('assets must not be read')),
+          ),
+          operationalEventsProvider.overrideWith(
+            (ref) => Stream.error(StateError('events must not be read')),
+          ),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref) => Stream.error(StateError('history must not be read')),
+          ),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Operational-event access required'), findsOneWidget);
+    expect(find.text('Monthly impact'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
-AppUser _operationsUser(DateTime now) => AppUser(
+AppUser _operationsUser(DateTime now, {bool approved = true}) => AppUser(
   uid: 'operations-1',
   name: 'Operations One',
   email: 'operations@example.com',
   roles: const [AppRole.operations],
-  isApproved: true,
+  isApproved: approved,
   createdAt: now,
 );
 

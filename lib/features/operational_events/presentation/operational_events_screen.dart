@@ -34,7 +34,37 @@ class _OperationalEventsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final actor = ref.watch(currentAppUserProvider).value;
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Operational events',
+        appBarSubtitle: 'Verifying your approved operational scope',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        label: 'Checking operational-event access',
+      );
+    }
+    if (actorAsync.hasError && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Operational events',
+        appBarSubtitle: 'Verifying your approved operational scope',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        message: 'Operational-event access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Operational events',
+        appBarSubtitle: 'Approved operational access only',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        title: 'Operational-event access required',
+        message:
+            'An approved operational role is required to view plant events.',
+      );
+    }
     final eventsAsync = ref.watch(operationalEventsProvider);
     final reportEventsAsync = ref.watch(operationalEventsForReportsProvider);
     final classes = ref.watch(assetClassesProvider).value ?? const [];
@@ -78,7 +108,7 @@ class _OperationalEventsScreenState
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                if (actor?.canRecordOperationalEvent == true)
+                if (actor.canRecordOperationalEvent)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -90,7 +120,7 @@ class _OperationalEventsScreenState
                               _busy
                                   ? null
                                   : () => _editEvent(
-                                    actor: actor!,
+                                    actor: actor,
                                     classes: classes,
                                     assets: assets,
                                   ),
@@ -195,13 +225,12 @@ class _OperationalEventsScreenState
                                     '${record.assetClassName} ${record.assetNumber}',
                             },
                             canEdit:
-                                actor?.canRecordOperationalEvent == true &&
+                                actor.canRecordOperationalEvent &&
                                 visible[index].isOpen,
-                            canResolve:
-                                actor?.canResolveOperationalEvent == true,
+                            canResolve: actor.canResolveOperationalEvent,
                             onEdit:
                                 () => _editEvent(
-                                  actor: actor!,
+                                  actor: actor,
                                   classes: classes,
                                   assets: assets,
                                   event: visible[index],
