@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
+import 'package:crm3_baf_ops/features/operational_events/data/operational_event_impact.dart';
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_events_screen.dart';
 import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,42 @@ Map<String, dynamic> record({
   'updatedByName': 'Operations One',
   'lastMutationId': 'request-1',
 };
+
+OperationalEvent impactEvent({
+  required String id,
+  required OperationalEventType type,
+  required DateTime startedAt,
+  DateTime? resolvedAt,
+  List<OperationalEventInterval> completedIntervals = const [],
+}) => OperationalEvent(
+  eventId: id,
+  eventType: type,
+  title: '${type.label} disruption',
+  description: 'Recorded operational impact for reporting.',
+  severity: OperationalEventSeverity.significant,
+  scope: OperationalEventScope.plantWide,
+  affectedAssetClassIds: const [],
+  affectedAssetInstanceIds: const [],
+  completedIntervals: completedIntervals,
+  startedAt: startedAt,
+  status:
+      resolvedAt == null
+          ? OperationalEventStatus.open
+          : OperationalEventStatus.resolved,
+  createdAt: startedAt,
+  createdByUid: 'ops-1',
+  createdByName: 'Operations One',
+  resolvedAt: resolvedAt,
+  resolvedByUid: resolvedAt == null ? null : 'ops-2',
+  resolvedByName: resolvedAt == null ? null : 'Operations Two',
+  resolutionNote:
+      resolvedAt == null ? null : 'Supply remained stable after restoration.',
+  version: 2,
+  updatedAt: resolvedAt ?? startedAt,
+  updatedByUid: 'ops-1',
+  updatedByName: 'Operations One',
+  lastMutationId: 'request-$id',
+);
 
 void main() {
   test('event editor removes retired scope IDs and derives exact classes', () {
@@ -215,6 +252,78 @@ void main() {
           .inMinutes,
       15,
     );
+  });
+
+  test('monthly impact clips boundaries and filters recurrence by topic', () {
+    final power = impactEvent(
+      id: 'power-event',
+      type: OperationalEventType.powerTrip,
+      startedAt: DateTime.utc(2026, 8, 20, 10),
+      resolvedAt: DateTime.utc(2026, 8, 20, 12),
+      completedIntervals: [
+        OperationalEventInterval(
+          eventType: OperationalEventType.powerTrip,
+          title: 'Incoming power interruption',
+          description: 'The first occurrence crossed the month boundary.',
+          severity: OperationalEventSeverity.critical,
+          startedAt: DateTime.utc(2026, 7, 31, 23),
+          resolvedAt: DateTime.utc(2026, 8, 1, 1),
+          scope: OperationalEventScope.plantWide,
+          affectedAssetClassIds: const [],
+          affectedAssetInstanceIds: const [],
+          resolvedByUid: 'ops-2',
+          resolvedByName: 'Operations Two',
+          resolutionNote: 'Incoming supply remained stable after checks.',
+        ),
+      ],
+    );
+    final water = impactEvent(
+      id: 'water-event',
+      type: OperationalEventType.water,
+      startedAt: DateTime.utc(2026, 8, 5, 8),
+      resolvedAt: DateTime.utc(2026, 8, 5, 9),
+    );
+    final asOf = DateTime.utc(2026, 8, 23, 12);
+
+    final allTopics = summarizeOperationalEventImpact(
+      events: [power, water],
+      month: DateTime.utc(2026, 8),
+      asOf: asOf,
+    );
+    expect(allTopics.eventCount, 2);
+    expect(allTopics.occurrenceCount, 3);
+    expect(allTopics.cumulativeDuration, const Duration(hours: 4));
+    expect(allTopics.leadingType, OperationalEventType.powerTrip);
+    expect(allTopics.leadingTypeDuration, const Duration(hours: 3));
+
+    final waterOnly = summarizeOperationalEventImpact(
+      events: [power, water],
+      month: DateTime.utc(2026, 8),
+      asOf: asOf,
+      topic: OperationalEventType.water,
+    );
+    expect(waterOnly.eventCount, 1);
+    expect(waterOnly.occurrenceCount, 1);
+    expect(waterOnly.cumulativeDuration, const Duration(hours: 1));
+    expect(waterOnly.leadingType, OperationalEventType.water);
+  });
+
+  test('current-month impact stops an open event at the reporting clock', () {
+    final open = impactEvent(
+      id: 'crane-event',
+      type: OperationalEventType.crane,
+      startedAt: DateTime.utc(2026, 8, 23, 10),
+    );
+
+    final summary = summarizeOperationalEventImpact(
+      events: [open],
+      month: DateTime.utc(2026, 8),
+      asOf: DateTime.utc(2026, 8, 23, 12),
+    );
+
+    expect(summary.occurrenceCount, 1);
+    expect(summary.cumulativeDuration, const Duration(hours: 2));
+    expect(summary.endExclusive, DateTime.utc(2026, 8, 23, 12));
   });
 
   test('keeps reopened disruption occurrences separate', () {
