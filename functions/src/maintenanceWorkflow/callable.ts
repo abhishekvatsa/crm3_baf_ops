@@ -46,6 +46,8 @@ const commandTypes = new Set<WorkflowCommandType>([
   "decideCounterCondition", "prepareRedLane", "reopenWorkflowModule", "finalizeJob", "deployEquipment",
   "reconcileEquipment",
   "createMaintenanceTicket", "acknowledgeMaintenanceTicket",
+  "completeMaintenanceTicketLane", "reconfigureMaintenanceTicketLanes",
+  "resolveMaintenanceTicket", "reopenMaintenanceTicket",
   "correctMaintenanceTicket",
   "releaseFurnaceStuckup", "adjudicateFurnaceStuckup",
 ]);

@@ -382,12 +382,13 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     List<ComponentAction>? actions,
     BurnerLockoutResolution? burnerResolution,
   }) async {
-    _requireCanCloseMaintenanceTicket(actor);
+    _requireCanAttemptCloseMaintenanceTicket(actor);
     final ticketId = id as int;
 
     await isar.writeTxn(() async {
       final t = await isar.maintenanceRecords.get(ticketId);
       if (t != null && !t.isResolved && !t.isDeleted) {
+        _requireCanCloseMaintenanceTicket(actor, t);
         _requireMaintenanceWorkflowAllowsAction(t, 'resolve this ticket');
         _requireValidMaintenanceEvidence(t);
         final lockout = t.burnerLockoutCase;
@@ -411,6 +412,14 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
             'Burner outcomes cannot be attached to a standard issue.',
           );
         }
+        final completedLanePlan = t.issueLanePlan.completeAll();
+        t.issueLanePlan = completedLanePlan;
+        if (t.acknowledgedByUid == null) {
+          t.acknowledgedByUid = closedByUid ?? actor.uid;
+          t.acknowledgedByName =
+              closedByName ?? (actor.name.isNotEmpty ? actor.name : actor.uid);
+          t.acknowledgedAt = endDate ?? DateTime.now();
+        }
         t.isResolved = true;
         t.status = TicketStatus.resolved;
         t.endDate = endDate ?? DateTime.now();
@@ -418,7 +427,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         t.closedByName = closedByName;
         t.remarks = remarks;
         t.downtimeHours = downtimeHours;
-        t.teamsInvolved = teamsInvolved ?? [];
+        t.teamsInvolved = <String>{
+          ...completedLanePlan.assignedLanes,
+          ...?teamsInvolved,
+        }.toList(growable: false);
         if (actions != null) t.actions = actions;
         t.updatedAt = DateTime.now();
         t.version += 1;
@@ -468,6 +480,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
 
         t.isResolved = false;
         t.status = TicketStatus.open;
+        t.issueLanePlan = t.issueLanePlan.reopen();
+        t.acknowledgedByUid = null;
+        t.acknowledgedByName = null;
+        t.acknowledgedAt = null;
         t.endDate = null;
         t.closedByUid = null;
         t.closedByName = null;
@@ -544,6 +560,15 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(
+    String firestoreId,
+  ) {
+    throw UnsupportedError(
+      'The local maintenance repository cannot prove Firestore server state.',
+    );
+  }
+
+  @override
   Future<void> insertFromRemote(MaintenanceRecord remote) async {
     if (remote.isDeleted) return;
     await isar.writeTxn(() async {
@@ -603,70 +628,81 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
       if (isLocalUnsynced && !isRemoteNewer) return;
       if (!isLocalUnsynced && isLocalNewer) return;
 
-      local
-        ..version = remote.version
-        ..assetType = remote.assetType
-        ..assetNumber = remote.assetNumber
-        ..component = remote.component
-        ..subsystem = remote.subsystem
-        ..tag = remote.tag
-        ..hierarchyPath = remote.hierarchyPath
-        ..assetHierarchyRefJson = remote.assetHierarchyRefJson
-        ..maintenanceType = remote.maintenanceType
-        ..classification = remote.classification
-        ..description = remote.description
-        ..routedTo = remote.routedTo
-        ..otherDepartment = remote.otherDepartment
-        ..status = remote.status
-        ..isResolved = remote.isResolved
-        ..workflowDeferred = remote.workflowDeferred
-        ..workflowQueueState = remote.workflowQueueState
-        ..workflowAggregateId = remote.workflowAggregateId
-        ..workflowComplianceId = remote.workflowComplianceId
-        ..workflowOriginLaneKey = remote.workflowOriginLaneKey
-        ..workflowTargetLaneKey = remote.workflowTargetLaneKey
-        ..workflowConditionTypeKey = remote.workflowConditionTypeKey
-        ..workflowConditionRef = remote.workflowConditionRef
-        ..workflowDeferredAt = remote.workflowDeferredAt
-        ..workflowDeferredByUid = remote.workflowDeferredByUid
-        ..workflowDeferredByName = remote.workflowDeferredByName
-        ..workflowReactivatedAt = remote.workflowReactivatedAt
-        ..workflowReactivatedByUid = remote.workflowReactivatedByUid
-        ..workflowReactivatedByName = remote.workflowReactivatedByName
-        ..workflowReleasedAt = remote.workflowReleasedAt
-        ..workflowReleasedByUid = remote.workflowReleasedByUid
-        ..workflowReleasedByName = remote.workflowReleasedByName
-        ..workflowCorrectionReason = remote.workflowCorrectionReason
-        ..workflowUpdatedAt = remote.workflowUpdatedAt
-        ..isCritical = remote.isCritical
-        ..loggedByUid = remote.loggedByUid
-        ..loggedByName = remote.loggedByName
-        ..reportedBy = remote.reportedBy
-        ..acknowledgedByUid = remote.acknowledgedByUid
-        ..acknowledgedByName = remote.acknowledgedByName
-        ..acknowledgedAt = remote.acknowledgedAt
-        ..closedByUid = remote.closedByUid
-        ..closedByName = remote.closedByName
-        ..teamsInvolved = remote.teamsInvolved
-        ..performedBy = remote.performedBy
-        ..remarks = remote.remarks
-        ..startDate = remote.startDate
-        ..endDate = remote.endDate
-        ..downtimeHours = remote.downtimeHours
-        ..chargeNoAtEvent = remote.chargeNoAtEvent
-        ..metadataJson = remote.metadataJson
-        ..actionsJson = remote.actionsJson
-        ..resolutionHistoryJson = remote.resolutionHistoryJson
-        ..isDeleted = remote.isDeleted
-        ..deletedAt = remote.deletedAt
-        ..deletedByUid = remote.deletedByUid
-        ..deletedByName = remote.deletedByName
-        ..deleteReason = remote.deleteReason
-        ..createdAt = remote.createdAt
-        ..updatedAt = remote.updatedAt
-        ..isSynced = true;
+      _overwriteLocalMaintenanceRecord(local, remote);
 
       await isar.maintenanceRecords.put(local);
+    });
+  }
+
+  @override
+  Future<bool> applyMaintenanceIssueCommandReadback({
+    required MaintenanceRecord remote,
+    required int expectedLocalVersion,
+    required DateTime expectedLocalUpdatedAt,
+  }) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null ||
+        firestoreId.isEmpty ||
+        remote.isDeleted ||
+        expectedLocalVersion < 1) {
+      throw ArgumentError('Maintenance issue command readback is invalid.');
+    }
+    final expectedUpdatedAt = expectedLocalUpdatedAt.toUtc();
+    return isar.writeTxn<bool>(() async {
+      final local =
+          await isar.maintenanceRecords
+              .filter()
+              .firestoreIdEqualTo(firestoreId)
+              .findFirst();
+      if (local == null || local.isDeleted || !local.isSynced) return false;
+
+      final alreadyAtServerVersion =
+          local.version == remote.version &&
+          local.updatedAt.toUtc() == remote.updatedAt.toUtc();
+      final stillAtCommandBoundary =
+          local.version == expectedLocalVersion &&
+          local.updatedAt.toUtc() == expectedUpdatedAt;
+      if (!alreadyAtServerVersion && !stillAtCommandBoundary) return false;
+
+      _overwriteLocalMaintenanceRecord(local, remote);
+      await isar.maintenanceRecords.put(local);
+      return true;
+    });
+  }
+
+  @override
+  Future<bool> applyMaintenanceIssueServerRefresh({
+    required MaintenanceRecord remote,
+    required int expectedLocalVersion,
+    required DateTime expectedLocalUpdatedAt,
+  }) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null ||
+        firestoreId.isEmpty ||
+        expectedLocalVersion < 1 ||
+        remote.version < expectedLocalVersion) {
+      throw ArgumentError('Maintenance issue server refresh is invalid.');
+    }
+    final expectedUpdatedAt = expectedLocalUpdatedAt.toUtc();
+    return isar.writeTxn<bool>(() async {
+      final local =
+          await isar.maintenanceRecords
+              .filter()
+              .firestoreIdEqualTo(firestoreId)
+              .findFirst();
+      if (local == null || !local.isSynced) return false;
+
+      final alreadyAtServerVersion =
+          local.version == remote.version &&
+          local.updatedAt.toUtc() == remote.updatedAt.toUtc();
+      final stillAtRefreshBoundary =
+          local.version == expectedLocalVersion &&
+          local.updatedAt.toUtc() == expectedUpdatedAt;
+      if (!alreadyAtServerVersion && !stillAtRefreshBoundary) return false;
+
+      _overwriteLocalMaintenanceRecord(local, remote);
+      await isar.maintenanceRecords.put(local);
+      return true;
     });
   }
 
@@ -727,17 +763,17 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
-  Future<bool> applyGovernedCreationReceiptForSync({
-    required String firestoreId,
+  Future<bool> applyGovernedCreationServerStateForSync({
+    required MaintenanceRecord remote,
     required SyncPushSnapshot expectedLocal,
-    required int serverCreateVersion,
-    required DateTime serverAppliedAt,
-    required bool hasPostCreateLifecycle,
   }) async {
-    if (firestoreId.trim().isEmpty || serverCreateVersion < 1) {
-      throw ArgumentError('Governed creation receipt evidence is invalid.');
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null ||
+        firestoreId.isEmpty ||
+        remote.isDeleted ||
+        remote.version < 1) {
+      throw ArgumentError('Governed creation server state is invalid.');
     }
-    final appliedAt = serverAppliedAt.toUtc();
     return isar.writeTxn<bool>(() async {
       final record = await isar.maintenanceRecords.get(expectedLocal.id);
       if (record == null ||
@@ -750,17 +786,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         return false;
       }
 
-      record.createdAt = appliedAt;
-      if (hasPostCreateLifecycle) {
-        if (record.updatedAt.isBefore(appliedAt)) {
-          record.updatedAt = appliedAt;
-        }
-      } else {
-        record
-          ..version = serverCreateVersion
-          ..updatedAt = appliedAt;
-      }
-      record.isSynced = true;
+      _overwriteLocalMaintenanceRecord(record, remote);
       await isar.maintenanceRecords.put(record);
       return true;
     });
@@ -768,17 +794,16 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
 
   @override
   Future<bool> applyMaintenanceLifecycleReplayReceiptForSync({
-    required String firestoreId,
+    required MaintenanceRecord remote,
     required SyncPushSnapshot expectedLocal,
-    required int serverVersion,
-    required DateTime serverUpdatedAt,
   }) async {
-    if (firestoreId.trim().isEmpty ||
-        serverVersion < 1 ||
-        serverVersion < expectedLocal.version) {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null ||
+        firestoreId.isEmpty ||
+        remote.isDeleted ||
+        remote.version < expectedLocal.version) {
       throw ArgumentError('Maintenance lifecycle replay receipt is invalid.');
     }
-    final updatedAt = serverUpdatedAt.toUtc();
     return isar.writeTxn<bool>(() async {
       final record = await isar.maintenanceRecords.get(expectedLocal.id);
       if (record == null ||
@@ -791,10 +816,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         return false;
       }
 
-      record
-        ..version = serverVersion
-        ..updatedAt = updatedAt
-        ..isSynced = true;
+      _overwriteLocalMaintenanceRecord(record, remote);
       await isar.maintenanceRecords.put(record);
       return true;
     });

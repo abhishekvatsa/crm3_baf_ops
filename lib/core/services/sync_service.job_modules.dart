@@ -265,12 +265,26 @@ extension _SyncServiceJobModules on SyncService {
                   remoteSnapshot: remote!.toMap(),
                 );
 
-                await _jobModuleRepo.forceRebaseModuleFromRemote(
-                  remote,
-                  reason:
-                      'Rules rejected a dirty terminal-state module push. '
-                      'The local snapshot was preserved in audit before rebasing.',
-                );
+                final rebased = await _jobModuleRepo
+                    .applyModuleServerReadbackIfUnchanged(
+                      remote,
+                      expectedLocal: _syncPushSnapshot(record),
+                      expectedLocalSynced: record.isSynced,
+                      reason:
+                          'Rules rejected a dirty terminal-state module push. '
+                          'The local snapshot was preserved in audit before rebasing.',
+                    );
+                if (!rebased) {
+                  lastFailureCount++;
+                  _recordPushFailureDetail(
+                    entityType: 'job_module',
+                    entityId: _syncEntityId(record),
+                    firestoreId: _syncFirestoreId(record),
+                    error:
+                        'Newer local module work was preserved while applying the audited remote repair.',
+                  );
+                  continue;
+                }
 
                 await _resolveRecheckedPermanentRejectionsForRecords(
                   entityType: 'job_module',

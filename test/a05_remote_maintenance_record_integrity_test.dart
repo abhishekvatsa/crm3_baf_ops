@@ -3,6 +3,7 @@ import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/frequent_issue_selection.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/furnace_stuckup_case.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -105,6 +106,145 @@ void main() {
         () => readRemoteMaintenanceRecord(
           Map<String, dynamic>.from(linked)..['workflowDeferred'] = true,
           documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
+
+    test(
+      'complete multi-lane issue projection decodes without losing progress',
+      () {
+        final record = readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['status'] = 'inProgress'
+            ..['acknowledgedByUid'] = 'mechanical-1'
+            ..['acknowledgedByName'] = 'Senior Mechanical'
+            ..['acknowledgedAt'] = '2026-08-12T10:05:00Z'
+            ..addAll(<String, dynamic>{
+              'issueLaneSchemaVersion': 1,
+              'issueLaneRevision': 3,
+              'issueAssignedLanes': <String>['mechanical', 'electrical'],
+              'issueAcknowledgedLanes': <String>['mechanical', 'electrical'],
+              'issueCompletedLanes': <String>['mechanical'],
+            }),
+          documentId: 'ticket-1',
+        );
+
+        expect(record.issueLanePlan.revision, 3);
+        expect(record.issueLanePlan.assignedLanes, <String>[
+          'mechanical',
+          'electrical',
+        ]);
+        expect(record.issueLanePlan.acknowledgedLanes, <String>[
+          'mechanical',
+          'electrical',
+        ]);
+        expect(record.issueLanePlan.completedLanes, <String>['mechanical']);
+      },
+    );
+
+    test(
+      'legacy resolved issue without acknowledgement remains readable while canonical evidence stays strict',
+      () {
+        final legacy = readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['status'] = 'resolved'
+            ..['isResolved'] = true
+            ..['endDate'] = '2026-08-12T11:00:00Z'
+            ..['closedByUid'] = 'mechanical-1'
+            ..['closedByName'] = 'Senior Mechanical',
+          documentId: 'ticket-1',
+        );
+        expect(legacy.status, TicketStatus.resolved);
+        expect(legacy.issueLanePlan.isFullyCompleted, isTrue);
+        expect(legacy.acknowledgedByUid, isNull);
+
+        expect(
+          () => readRemoteMaintenanceRecord(
+            _validRecord()
+              ..['status'] = 'resolved'
+              ..['isResolved'] = true
+              ..['endDate'] = '2026-08-12T11:00:00Z'
+              ..['closedByUid'] = 'mechanical-1'
+              ..['closedByName'] = 'Senior Mechanical'
+              ..addAll(<String, dynamic>{
+                'issueLaneSchemaVersion': 1,
+                'issueLaneRevision': 1,
+                'issueAssignedLanes': <String>['mechanical'],
+                'issueAcknowledgedLanes': <String>['mechanical'],
+                'issueCompletedLanes': <String>['mechanical'],
+              }),
+            documentId: 'ticket-1',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      },
+    );
+
+    test('partial or lifecycle-invalid issue lane projection fails closed', () {
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()..['issueLaneSchemaVersion'] = 1,
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()..addAll(<String, dynamic>{
+            'issueLaneSchemaVersion': 1,
+            'issueLaneRevision': 1,
+            'issueAssignedLanes': <String>['mechanical'],
+            'issueAcknowledgedLanes': null,
+            'issueCompletedLanes': <String>[],
+          }),
+          documentId: 'null-lane-progress',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()..['acknowledgedByUid'] = 'mechanical-1',
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['status'] = 'resolved'
+            ..['isResolved'] = true
+            ..addAll(<String, dynamic>{
+              'issueLaneSchemaVersion': 1,
+              'issueLaneRevision': 2,
+              'issueAssignedLanes': <String>['mechanical', 'electrical'],
+              'issueAcknowledgedLanes': <String>['mechanical', 'electrical'],
+              'issueCompletedLanes': <String>['mechanical'],
+            }),
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['status'] = 'acknowledged'
+            ..['acknowledgedByUid'] = 'mechanical-1'
+            ..['acknowledgedByName'] = 'Mechanical One'
+            ..['acknowledgedAt'] =
+                DateTime.utc(2026, 8, 23, 4).toIso8601String()
+            ..addAll(<String, dynamic>{
+              'issueLaneSchemaVersion': 1,
+              'issueLaneRevision': 1,
+              'issueAssignedLanes': <String>['mechanical', 'electrical'],
+              'issueAcknowledgedLanes': <String>['mechanical'],
+              'issueCompletedLanes': <String>[],
+            }),
+          documentId: 'partial-acknowledgement-label',
         ),
         throwsA(isA<PersistedDataFormatException>()),
       );
@@ -240,6 +380,39 @@ void main() {
       );
     });
 
+    test('furnace stuck-up fields are all-or-none and route to Mechanical', () {
+      final valid =
+          _validRecord()
+            ..['assetType'] = 'furnace'
+            ..['assetNumber'] = 7
+            ..['component'] = 'Furnace / Inner Cover interface'
+            ..['classification'] = furnaceStuckupClassification
+            ..['routedTo'] = 'mechanical'
+            ..addAll(_stuckupCase().toSynchronizedFields());
+
+      expect(
+        readRemoteMaintenanceRecord(
+          valid,
+          documentId: 'ticket-1',
+        ).furnaceStuckupCase?.baseNumber,
+        117,
+      );
+      expect(
+        () => readRemoteMaintenanceRecord(
+          Map<String, dynamic>.from(valid)..['routedTo'] = 'electrical',
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+      expect(
+        () => readRemoteMaintenanceRecord(
+          Map<String, dynamic>.from(valid)..remove('stuckupOperatingContext'),
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
+
     test('frequent issue selection is strict and preserved locally', () {
       final record = readRemoteMaintenanceRecord(
         _validRecord()
@@ -282,6 +455,43 @@ void main() {
     });
   });
 }
+
+FurnaceStuckupCase _stuckupCase() => FurnaceStuckupCase(
+  baseNumber: 117,
+  baseAssetReference: AssetHierarchyReference(
+    scope: AssetHierarchyReferenceScope.physicalAsset,
+    assetClassId: 'base-class',
+    assetClassCode: 'BASE',
+    assetClassName: 'Base',
+    nodeId: 'base-root',
+    nodeVersion: 3,
+    nodeName: 'Base',
+    assetInstanceId: 'base-117',
+    assetInstanceVersion: 8,
+    assetNumber: 117,
+    assetInstanceName: 'Base 117',
+    hierarchyPath: const <String>['Base'],
+    ownershipStatus: AssetOwnershipStatus.confirmed,
+    ownerDiscipline: 'Operations',
+    accountableRoleKeys: const <String>['operations'],
+    innerCoverAssociation: InnerCoverEventReference(
+      baseAssetInstanceId: 'base-117',
+      baseAssetNumber: 117,
+      positionState: InnerCoverPositionState.linked,
+      innerCoverId: 'inner-cover-gr26',
+      innerCoverSerialNumber: 'GR26',
+      linkageId: 'link-gr26-base-117',
+      assignmentVersion: 4,
+      linkedAt: DateTime.utc(2026, 8, 1),
+      eventAt: DateTime.utc(2026, 8, 20, 8),
+      confirmedAt: DateTime.utc(2026, 8, 20, 8, 1),
+      confirmedByUid: 'operations-1',
+      confirmedByName: 'Operations One',
+    ),
+  ),
+  suspectedCause: FurnaceStuckupCause.innerCoverBulging,
+  operatingContext: FurnaceStuckupOperatingContext.postAnnealingRemoval,
+);
 
 Map<String, dynamic> _openBurnerLockoutFields() => <String, dynamic>{
   'burnerLockoutSchemaVersion': 1,

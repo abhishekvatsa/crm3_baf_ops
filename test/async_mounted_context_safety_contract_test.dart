@@ -96,7 +96,7 @@ void main() {
         _expectCapturedSyncBeforeAwait(
           path: 'lib/features/maintenance/presentation/resolve_form.dart',
           methodMarker: 'Future<void> _submit',
-          awaitMarker: 'await repository.resolveTicket(',
+          awaitMarker: 'final receipt = await ref',
           syncReason: 'ticket_resolved',
         );
         _expectCapturedSyncBeforeAwait(

@@ -121,12 +121,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
             final expectedLocal = _syncPushSnapshot(record);
             final creation = await _pushMissingMaintenanceTicket(record);
             final adopted = await _maintenanceRepo
-                .applyGovernedCreationReceiptForSync(
-                  firestoreId: record.firestoreId!,
+                .applyGovernedCreationServerStateForSync(
+                  remote: creation.serverRecord,
                   expectedLocal: expectedLocal,
-                  serverCreateVersion: creation.receipt.aggregateVersion,
-                  serverAppliedAt: creation.receipt.appliedAt,
-                  hasPostCreateLifecycle: creation.hasPostCreateLifecycle,
                 );
             if (!adopted) {
               debugPrint(
@@ -157,6 +154,31 @@ extension _SyncServiceTicketsTemplates on SyncService {
         }
 
         final expectedLocal = _syncPushSnapshot(record);
+        final recoveredCreation = await _tryRecoverAcceptedMaintenanceCreation(
+          record,
+        );
+        if (recoveredCreation != null) {
+          final adopted = await _maintenanceRepo
+              .applyGovernedCreationServerStateForSync(
+                remote: recoveredCreation,
+                expectedLocal: expectedLocal,
+              );
+          if (!adopted) {
+            debugPrint(
+              'Governed ticket ${record.id} was recovered remotely, but the '
+              'local row changed during recovery and remains pending.',
+            );
+          }
+          await _resolveRecheckedPermanentRejectionsForRecords(
+            entityType: 'maintenance_ticket',
+            records: <MaintenanceRecord>[record],
+            evidence:
+                'The idempotent creation receipt and exact server state were recovered after an interrupted submission.',
+          );
+          lastSuccessCount++;
+          continue;
+        }
+
         final replayReceipt = await _tryPushDecomposedMaintenanceTicket(
           record,
           remote,
@@ -164,10 +186,8 @@ extension _SyncServiceTicketsTemplates on SyncService {
         if (replayReceipt != null) {
           final adopted = await _maintenanceRepo
               .applyMaintenanceLifecycleReplayReceiptForSync(
-                firestoreId: record.firestoreId!,
+                remote: replayReceipt.serverRecord,
                 expectedLocal: expectedLocal,
-                serverVersion: replayReceipt.version,
-                serverUpdatedAt: replayReceipt.updatedAt,
               );
           if (!adopted) {
             debugPrint(
@@ -273,6 +293,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
   }
 
   String? _maintenanceEvidenceIntegrityError(MaintenanceRecord record) {
+    if (!record.issueLanePlanReadResult.isValid) {
+      return 'Saved accountable lane evidence needs repair before synchronization.';
+    }
     final actions = record.actionsReadResult;
     if (!actions.isValid) {
       return 'Saved action evidence needs repair before synchronization.';
@@ -296,7 +319,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         'Only the original signed-in reporter may synchronize this issue.',
       );
     }
-    final createVersion = _maintenanceCreateReplayVersion(local);
+    final createVersion = maintenanceCreateReplayVersion(local);
     final command = buildMaintenanceIssueCreateCommand(
       local,
       createVersion: createVersion,
@@ -319,10 +342,21 @@ extension _SyncServiceTicketsTemplates on SyncService {
         createVersion,
         applied.appliedAt,
       );
-      await _retry(
-        () => _applyMaintenanceLifecycleReplayStep(local.firestoreId!, close),
+      _MaintenanceLifecycleReplayReceipt? lifecycle;
+      await _retry(() async {
+        lifecycle = await _applyMaintenanceLifecycleReplayStep(
+          local.firestoreId!,
+          close,
+        );
+      });
+      return (
+        receipt: applied,
+        serverRecord: _validateGovernedCreationServerRecord(
+          lifecycle!.serverRecord,
+          applied,
+          currentUid,
+        ),
       );
-      return (receipt: applied, hasPostCreateLifecycle: true);
     }
     if (_hasMaintenanceReopenEvidence(local)) {
       final close = _maintenanceCloseReplayStepData(
@@ -335,12 +369,120 @@ extension _SyncServiceTicketsTemplates on SyncService {
         () => _applyMaintenanceLifecycleReplayStep(local.firestoreId!, close),
       );
       final reopen = _maintenanceReopenReplayStepData(local, applied.appliedAt);
-      await _retry(
-        () => _applyMaintenanceLifecycleReplayStep(local.firestoreId!, reopen),
+      _MaintenanceLifecycleReplayReceipt? lifecycle;
+      await _retry(() async {
+        lifecycle = await _applyMaintenanceLifecycleReplayStep(
+          local.firestoreId!,
+          reopen,
+        );
+      });
+      return (
+        receipt: applied,
+        serverRecord: _validateGovernedCreationServerRecord(
+          lifecycle!.serverRecord,
+          applied,
+          currentUid,
+        ),
       );
-      return (receipt: applied, hasPostCreateLifecycle: true);
     }
-    return (receipt: applied, hasPostCreateLifecycle: false);
+    final serverRecord = await _firestoreMaintenance
+        .readMaintenanceIssueCommandServerState(local.firestoreId!);
+    if (serverRecord == null) {
+      throw StateError(
+        'The governed issue-creation receipt has no server record.',
+      );
+    }
+    return (
+      receipt: applied,
+      serverRecord: _validateGovernedCreationServerRecord(
+        serverRecord,
+        applied,
+        currentUid,
+      ),
+    );
+  }
+
+  Future<MaintenanceRecord?> _tryRecoverAcceptedMaintenanceCreation(
+    MaintenanceRecord local,
+  ) async {
+    final currentUid = _cleanMaintenanceText(
+      FirebaseAuth.instance.currentUser?.uid,
+    );
+    if (currentUid == null ||
+        !_canReplayMaintenanceCreateForCurrentUser(local, currentUid)) {
+      return null;
+    }
+
+    final createVersion = maintenanceCreateReplayVersion(local);
+    final command = buildMaintenanceIssueCreateCommand(
+      local,
+      createVersion: createVersion,
+    );
+    try {
+      final receipt = await _maintenanceCommands.execute(command);
+      validateMaintenanceIssueCreateReceipt(
+        command: command,
+        receipt: receipt,
+        createVersion: createVersion,
+      );
+      final exactRemote = await _firestoreMaintenance
+          .readMaintenanceIssueCommandServerState(local.firestoreId!);
+      if (exactRemote == null) {
+        throw StateError(
+          'The recovered issue-creation receipt has no server record.',
+        );
+      }
+      final validatedRemote = _validateGovernedCreationServerRecord(
+        exactRemote,
+        receipt,
+        currentUid,
+      );
+      final replayPlan = _maintenanceLifecycleReplayPlan(
+        local,
+        validatedRemote,
+      );
+      if (replayPlan.isNotEmpty) {
+        final lifecycle = await _tryPushDecomposedMaintenanceTicket(
+          local,
+          validatedRemote,
+        );
+        if (lifecycle == null) {
+          throw StateError(
+            'The recovered issue creation could not complete its pending lifecycle.',
+          );
+        }
+        return _validateGovernedCreationServerRecord(
+          lifecycle.serverRecord,
+          receipt,
+          currentUid,
+        );
+      }
+      return validatedRemote;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Governed creation recovery was not applicable to ticket '
+        '${local.id}: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return null;
+    }
+  }
+
+  MaintenanceRecord _validateGovernedCreationServerRecord(
+    MaintenanceRecord remote,
+    WorkflowCommandReceipt receipt,
+    String reporterUid,
+  ) {
+    if (remote.firestoreId != receipt.result['ticketId'] ||
+        remote.isDeleted ||
+        remote.version < 1 ||
+        remote.loggedByUid != reporterUid ||
+        remote.createdAt.toUtc() != receipt.appliedAt.toUtc()) {
+      throw StateError(
+        'The governed issue-creation receipt does not match exact server state.',
+      );
+    }
+    return remote;
   }
 
   Future<_MaintenanceLifecycleReplayReceipt?>
@@ -353,7 +495,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
     try {
       var stepVersion =
-          remote?.version ?? _maintenanceCreateReplayVersion(local);
+          remote?.version ?? maintenanceCreateReplayVersion(local);
       _MaintenanceLifecycleReplayReceipt? receipt;
       for (final step in plan) {
         final stepData = switch (step) {
@@ -424,20 +566,29 @@ extension _SyncServiceTicketsTemplates on SyncService {
         'post-write readback.',
       );
     }
-    return (
-      version: readRequiredPersistedInt(
-        data['version'],
-        field: 'version',
-        source: 'maintenance lifecycle replay $firestoreId',
-        minimum: 1,
-      ),
-      updatedAt:
-          readRequiredPersistedDateTime(
-            data['updatedAt'],
-            field: 'updatedAt',
-            source: 'maintenance lifecycle replay $firestoreId',
-          ).toUtc(),
+    final version = readRequiredPersistedInt(
+      data['version'],
+      field: 'version',
+      source: 'maintenance lifecycle replay $firestoreId',
+      minimum: 1,
     );
+    final updatedAt =
+        readRequiredPersistedDateTime(
+          data['updatedAt'],
+          field: 'updatedAt',
+          source: 'maintenance lifecycle replay $firestoreId',
+        ).toUtc();
+    final serverRecord = readRemoteMaintenanceRecord(
+      data,
+      documentId: firestoreId,
+    );
+    if (serverRecord.version != version ||
+        serverRecord.updatedAt.toUtc() != updatedAt) {
+      throw StateError(
+        'Maintenance lifecycle replay $firestoreId returned inconsistent server authority.',
+      );
+    }
+    return (version: version, updatedAt: updatedAt, serverRecord: serverRecord);
   }
 
   List<_MaintenanceReplayStep> _maintenanceLifecycleReplayPlan(
@@ -515,17 +666,6 @@ extension _SyncServiceTicketsTemplates on SyncService {
     return local.resolutionHistory.isNotEmpty;
   }
 
-  int _maintenanceCreateReplayVersion(MaintenanceRecord local) {
-    if (local.version <= 1) return 1;
-    if (!local.isResolved && !_hasMaintenanceReopenEvidence(local)) {
-      return local.version;
-    }
-    if (_hasMaintenanceReopenEvidence(local)) {
-      return local.version > 2 ? local.version - 2 : 1;
-    }
-    return local.version - 1;
-  }
-
   Map<String, dynamic> _maintenanceCloseReplayStepData(
     MaintenanceRecord local,
     MaintenanceRecord? remote,
@@ -555,6 +695,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
         source: 'maintenance replay ${local.firestoreId} closure',
       ),
     );
+    final completedLanePlan = local.issueLanePlan.completeAll();
+    final acknowledgementUid =
+        remote?.acknowledgedByUid ?? evidence.closedByUid;
+    final acknowledgementName =
+        remote?.acknowledgedByName ?? evidence.closedByName;
+    final acknowledgementAt =
+        remote?.acknowledgedAt ?? evidence.closedAt ?? local.updatedAt;
 
     return {
       'isResolved': true,
@@ -565,6 +712,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'remarks': evidence.remarks,
       'downtimeHours': evidence.downtimeHours,
       'teamsInvolved': evidence.teamsInvolved,
+      'issueLaneSchemaVersion': 1,
+      'issueLaneRevision': completedLanePlan.revision,
+      'issueAssignedLanes': completedLanePlan.assignedLanes,
+      'issueAcknowledgedLanes': completedLanePlan.acknowledgedLanes,
+      'issueCompletedLanes': completedLanePlan.completedLanes,
+      'acknowledgedByUid': acknowledgementUid,
+      'acknowledgedByName': acknowledgementName,
+      'acknowledgedAt': acknowledgementAt.toUtc().toIso8601String(),
       'actionsJson': evidence.actionsJson ?? '[]',
       if (resolvedBurnerLockout != null)
         'burnerAttendedPositions': resolvedBurnerLockout.attendedPositions,
@@ -584,6 +739,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     DateTime? serverMutationFloor,
   ]) {
     final burnerLockout = local.burnerLockoutCase;
+    final reopenedLanePlan = local.issueLanePlan.reopen();
     final mutationTimestamp =
         serverMutationFloor != null &&
                 local.updatedAt.isBefore(serverMutationFloor)
@@ -592,6 +748,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
     return {
       'isResolved': false,
       'status': TicketStatus.open.name,
+      'issueLaneSchemaVersion': 1,
+      'issueLaneRevision': reopenedLanePlan.revision,
+      'issueAssignedLanes': reopenedLanePlan.assignedLanes,
+      'issueAcknowledgedLanes': reopenedLanePlan.acknowledgedLanes,
+      'issueCompletedLanes': reopenedLanePlan.completedLanes,
+      'acknowledgedByUid': null,
+      'acknowledgedByName': null,
+      'acknowledgedAt': null,
       'endDate': null,
       'closedByUid': null,
       'closedByName': null,
@@ -855,6 +1019,17 @@ int maintenanceCloseReplayVersion({
 }
 
 @visibleForTesting
+int maintenanceCreateReplayVersion(MaintenanceRecord local) {
+  if (local.version < 1 || local.firestoreId?.trim().isEmpty != false) {
+    throw StateError('A local maintenance issue has no valid create boundary.');
+  }
+  // Local Isar revisions exist before the aggregate exists in Firestore.
+  // The governed aggregate always begins at v1; any collapsed close/reopen
+  // transitions are replayed separately against that authoritative baseline.
+  return 1;
+}
+
+@visibleForTesting
 String maintenanceLifecycleReplayPinnedFieldDiff(
   MaintenanceRecord local,
   MaintenanceRecord remote,
@@ -884,9 +1059,15 @@ String maintenanceLifecycleReplayPinnedFieldDiff(
     'otherDepartment': local.otherDepartment == remote.otherDepartment,
     'reportedBy': local.reportedBy == remote.reportedBy,
     'chargeNoAtEvent': local.chargeNoAtEvent == remote.chargeNoAtEvent,
-    'metadataJson': persistedJsonEquivalent(
+    'metadataJson': _maintenanceMetadataEquivalentExcludingLanePlan(
       local.metadataJson,
       remote.metadataJson,
+    ),
+    'issueLaneRevision':
+        local.issueLanePlan.revision == remote.issueLanePlan.revision,
+    'issueAssignedLanes': _maintenanceReplayStringListEquals(
+      local.issueLanePlan.assignedLanes,
+      remote.issueLanePlan.assignedLanes,
     ),
     'performedBy': local.performedBy == remote.performedBy,
   };
@@ -908,6 +1089,25 @@ bool _maintenanceReplayStringListEquals(List<String>? a, List<String>? b) {
     if (left[i] != right[i]) return false;
   }
   return true;
+}
+
+bool _maintenanceMetadataEquivalentExcludingLanePlan(String? a, String? b) {
+  dynamic decodeWithoutLanePlan(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! Map) return decoded;
+      final map = Map<String, dynamic>.from(decoded)..remove('issueLanePlan');
+      return map.isEmpty ? null : map;
+    } on FormatException {
+      return value;
+    }
+  }
+
+  return persistedJsonEquivalent(
+    jsonEncode(decodeWithoutLanePlan(a)),
+    jsonEncode(decodeWithoutLanePlan(b)),
+  );
 }
 
 bool maintenanceLifecycleReplayOutcomeMatches(
@@ -966,10 +1166,10 @@ bool _syncReplayValueEquals(Object? remote, Object? expected) {
 enum _MaintenanceReplayStep { close, reopen }
 
 typedef _MaintenanceCreationReplayResult =
-    ({WorkflowCommandReceipt receipt, bool hasPostCreateLifecycle});
+    ({WorkflowCommandReceipt receipt, MaintenanceRecord serverRecord});
 
 typedef _MaintenanceLifecycleReplayReceipt =
-    ({int version, DateTime updatedAt});
+    ({int version, DateTime updatedAt, MaintenanceRecord serverRecord});
 
 typedef _MaintenanceCloseEvidence =
     ({

@@ -12,6 +12,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../data/job_module_model.dart';
 import '../data/template_governance_model.dart';
 import '../data/maintenance_intelligence.dart';
 import '../domain/governed_planned_work_asset_selection.dart';
@@ -21,6 +22,7 @@ import '../providers/job_module_provider.dart';
 import '../providers/planned_maintenance_provider.dart';
 import '../providers/template_governance_provider.dart';
 import '../services/published_template_assignment_idempotency_store.dart';
+import '../services/published_template_assignment_local_reconciler.dart';
 import '../services/published_template_assignment_server_service.dart';
 import 'governed_planned_work_asset_selector.dart';
 import 'template_publisher_screen.dart';
@@ -30,7 +32,6 @@ import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
-import '../data/job_module_model.dart';
 
 class PublishedTemplateAssignmentScreen extends ConsumerStatefulWidget {
   const PublishedTemplateAssignmentScreen({super.key, this.sourcePlan});
@@ -808,52 +809,10 @@ class _PublishedTemplateAssignmentScreenState
   Future<void> _persistCanonicalServerAssignment(
     PublishedTemplateAssignmentServerResult result,
   ) async {
-    final plannedRepository = ref.read(plannedRepositoryProvider);
-    final moduleRepository = ref.read(jobModuleRepositoryProvider);
-    final executionFirestoreId = result.execution.firestoreId!;
-
-    final existingExecution = await plannedRepository.getExecutionByFirestoreId(
-      executionFirestoreId,
-    );
-    if (existingExecution == null) {
-      await plannedRepository.insertExecutionFromRemote(result.execution);
-    } else {
-      result.execution.id = existingExecution.id;
-      await plannedRepository.updateExecutionFromRemote(result.execution);
-    }
-
-    final localExecution = await plannedRepository.getExecutionByFirestoreId(
-      executionFirestoreId,
-    );
-    if (localExecution == null) {
-      throw StateError(
-        'The server-created JobExecution could not be reconciled into the local store.',
-      );
-    }
-
-    final moduleFirestoreIds = result.modules
-        .map((module) => module.firestoreId!)
-        .toList(growable: false);
-    final existingModules = await moduleRepository.getModulesByFirestoreIds(
-      moduleFirestoreIds,
-    );
-    final existingModuleIds = <String, int>{
-      for (final module in existingModules)
-        if (module.firestoreId != null) module.firestoreId!: module.id,
-    };
-
-    for (final module in result.modules) {
-      final firestoreId = module.firestoreId!;
-      final existingLocalId = existingModuleIds[firestoreId];
-      if (existingLocalId != null) {
-        module.id = existingLocalId;
-      }
-      module
-        ..jobExecutionFirestoreId = executionFirestoreId
-        ..jobExecutionLocalId = null
-        ..isSynced = true;
-    }
-    await moduleRepository.batchUpsertModules(result.modules);
+    await PublishedTemplateAssignmentLocalReconciler(
+      plannedRepository: ref.read(plannedRepositoryProvider),
+      moduleRepository: ref.read(jobModuleRepositoryProvider),
+    ).persist(result);
   }
 
   Future<TemplatePackage?> _selectedPackage() async {

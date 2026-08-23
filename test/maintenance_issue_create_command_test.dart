@@ -3,6 +3,7 @@ import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_cre
 import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/frequent_issue_selection.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'package:crm3_baf_ops/features/quality/domain/issue_quality_intent.dart';
@@ -108,6 +109,16 @@ void main() {
           ..qualityIntent = const IssueQualityIntent(
             assessment: IssueQualityAssessment.notSuspected,
           )
+          ..status = TicketStatus.resolved
+          ..isResolved = true
+          ..acknowledgedByUid = 'instrumentation-supervisor-1'
+          ..acknowledgedByName = 'Instrumentation Supervisor'
+          ..acknowledgedAt = DateTime.utc(2026, 8, 17, 8)
+          ..issueLanePlan =
+              IssueLanePlan.initial(const <String>[
+                'instrumentation',
+                'electrical',
+              ]).completeAll()
           ..burnerLockoutCase = BurnerLockoutCase(
             positions: const <int>[2],
             commonMode: false,
@@ -135,6 +146,31 @@ void main() {
     expect(ticket['burnerAttendedPositions'], isEmpty);
     expect(ticket['burnerResolutionEvidence'], isEmpty);
     expect(ticket['burnerPositions'], <int>[2]);
+    expect(ticket['issueAssignedLanes'], const <String>[
+      'instrumentation',
+      'electrical',
+    ]);
+    expect(ticket['issueAcknowledgedLanes'], isEmpty);
+    expect(ticket['issueCompletedLanes'], isEmpty);
+  });
+
+  test('governed creation rejects a local revision as the server baseline', () {
+    final record =
+        MaintenanceRecord()
+          ..firestoreId = 'ticket-local-revision'
+          ..assetHierarchyRefJson =
+              '{"schemaVersion":3,"scope":"physicalAsset",'
+              '"assetClassId":"class-furnace",'
+              '"assetInstanceId":"asset-furnace-7",'
+              '"assetInstanceVersion":1}'
+          ..qualityIntent = const IssueQualityIntent(
+            assessment: IssueQualityAssessment.notSuspected,
+          );
+
+    expect(
+      () => buildMaintenanceIssueCreateCommand(record, createVersion: 2),
+      throwsStateError,
+    );
   });
 
   test('creation receipt must match command and derived evidence', () {

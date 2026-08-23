@@ -18,11 +18,13 @@ The governed manifest `governance/a04-persisted-schema-v1.json` classifies 53
 fields: 47 JSON strings and six nested dynamic values. Three are registered
 extension bags. The current extension registry contains zero fields, so an
 unknown key cannot silently acquire authority or business meaning. The
-inventory now inherits all 65 strict A-05 decoder surfaces, including the
-business-function tranche added on 21 August 2026. Text-file authority is
+inventory now inherits all 70 strict A-05 decoder surfaces, including the
+business-function tranche added on 21 August 2026 and the strict issue-lane
+topology plus strict asset-hierarchy and workflow command receipts added on
+23 August 2026. Text-file authority is
 canonicalized to LF before hashing so the same tracked content has one digest
 on Windows and Linux. Its current stable digest is
-`39433208E5632CB07E3ABC37E317E53A1EC40C91819E593A404C62F2FCE24175`.
+`DF8FEDBDC04994401AD4713D3AF22472DAB2F75571399C81EB2D745EBEE5D547`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing

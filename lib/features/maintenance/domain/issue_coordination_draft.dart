@@ -167,10 +167,12 @@ class IssueCoordinationDraft {
     required String ticketId,
     required int expectedTicketVersion,
     required String complianceId,
+    String? originRoute,
   }) => <String, Object?>{
     'ticketId': ticketId,
     'expectedTicketVersion': expectedTicketVersion,
     'complianceId': complianceId,
+    if (originRoute != null) 'originRoute': originRoute,
     'requestPurposeKey': purpose.name,
     'conditionTypeKey':
         purpose == IssueCoordinationPurpose.operationsSupport

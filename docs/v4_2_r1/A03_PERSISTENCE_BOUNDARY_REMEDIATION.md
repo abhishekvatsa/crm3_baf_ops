@@ -30,10 +30,14 @@ source evidence. A late review correction now retains that hold through failed
 or uncertain rechecks and resolves it only after authoritative remote
 acceptance or exact readback for the same record. The 23 August
 reporting-completeness correction also classifies one additional read-only
-quality-monitoring query and binds its focused regression. The current
-manifest therefore covers 501 operations and 1,599 sites across 49 surfaces
+quality-monitoring query and binds its focused regression. The issue multi-lane
+workflow re-arm classifies its additional local reconciliation sites under the
+existing maintenance repository boundary. Strict server-readback adoption for
+planned executions, runtime modules and charge abnormalities adds two further
+compare-and-apply operations under their existing repository adapters. The
+current manifest therefore covers 505 operations and 1,612 sites across 49 surfaces
 with digest
-`7DC995C3C83B733AC4B8A2EF3B3D0F51E452C197014FD9C62EF0809B7FD98EAB`;
+`ED5EE167E6946A021CC64151FDA1456F7DEC369A405C147D991E3A40F82A43BF`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

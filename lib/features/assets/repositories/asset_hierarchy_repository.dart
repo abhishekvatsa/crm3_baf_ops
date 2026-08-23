@@ -15,6 +15,38 @@ import '../data/asset_registry_model.dart';
 const assetHierarchyCallableName = 'mutateAssetHierarchy';
 const assetHierarchyCallableRegion = 'asia-south1';
 
+const _hierarchyMutationOperations = <String>{
+  'CREATE_CLASS',
+  'UPDATE_CLASS',
+  'SET_CLASS_STATUS',
+  'CREATE_NODE',
+  'UPDATE_NODE',
+  'SET_NODE_STATUS',
+};
+const _registryMutationOperations = <String>{
+  'CREATE_ASSET_INSTANCE',
+  'UPDATE_ASSET_INSTANCE',
+  'SET_ASSET_INSTANCE_STATUS',
+  'CREATE_COMPONENT_INSTANCE',
+  'UPDATE_COMPONENT_INSTANCE',
+  'REPLACE_COMPONENT_INSTANCE',
+  'SET_COMPONENT_INSTANCE_STATUS',
+};
+const _innerCoverMutationOperations = <String>{
+  'REGISTER_INNER_COVER',
+  'ACCEPT_INNER_COVER',
+  'SET_INNER_COVER_STATE',
+  'LINK_INNER_COVER',
+  'DELINK_INNER_COVER',
+  'TRANSFER_INNER_COVER',
+  'REPLACE_INNER_COVER',
+  'SWAP_INNER_COVERS',
+};
+const _assetConditionMutationOperations = <String>{
+  'DECLARE_ASSET_CONDITION',
+  'RESTORE_ASSET_CONDITION',
+};
+
 bool _sameStrings(List<String> left, List<String> right) =>
     left.length == right.length &&
     left.asMap().entries.every((entry) => entry.value == right[entry.key]);
@@ -61,6 +93,261 @@ class AssetTagCollisionException extends AssetHierarchyException {
     this.transferSupported = true,
   }) : super('Tag $normalizedTag already belongs to $existingNodeName.');
 }
+
+class AssetHierarchyMutationReceipt {
+  const AssetHierarchyMutationReceipt({
+    required this.requestId,
+    required this.operation,
+    required this.entityId,
+    required this.version,
+    required this.auditId,
+    required this.committedAt,
+    required this.idempotentReplay,
+    this.secondaryVersion,
+  });
+
+  final String requestId;
+  final String operation;
+  final String entityId;
+  final int version;
+  final int? secondaryVersion;
+  final String auditId;
+  final DateTime committedAt;
+  final bool idempotentReplay;
+
+  factory AssetHierarchyMutationReceipt.fromMap(
+    Map<String, dynamic> map, {
+    required Map<String, dynamic> request,
+  }) {
+    final expectedRequestId = readRequiredPersistedString(
+      request['requestId'],
+      field: 'request.requestId',
+      source: assetHierarchyCallableName,
+    );
+    final expectedOperation = readRequiredPersistedString(
+      request['operation'],
+      field: 'request.operation',
+      source: assetHierarchyCallableName,
+    );
+    final source = '$assetHierarchyCallableName/$expectedRequestId';
+    if (map['ok'] != true ||
+        map['requestId'] != expectedRequestId ||
+        map['operation'] != expectedOperation) {
+      throw PersistedDataFormatException(
+        field: 'responseIdentity',
+        source: source,
+        detail: 'request, operation, or success identity mismatch',
+      );
+    }
+
+    late final Set<String> expectedKeys;
+    late final String entityId;
+    late final String expectedAuditId;
+    int? secondaryVersion;
+    if (_hierarchyMutationOperations.contains(expectedOperation)) {
+      expectedKeys = const <String>{
+        'ok',
+        'requestId',
+        'operation',
+        'assetClassId',
+        'nodeId',
+        'version',
+        'auditId',
+        'committedAt',
+        'idempotentReplay',
+      };
+      final expectedClassId = _requiredRequestIdentity(
+        request,
+        'assetClassId',
+        source,
+      );
+      final expectedNodeId = request['nodeId'];
+      if (map['assetClassId'] != expectedClassId ||
+          map['nodeId'] != expectedNodeId) {
+        throw PersistedDataFormatException(
+          field: 'entityIdentity',
+          source: source,
+          detail: 'asset class or hierarchy node mismatch',
+        );
+      }
+      entityId = expectedNodeId is String ? expectedNodeId : expectedClassId;
+      expectedAuditId = 'asset_hierarchy_$expectedRequestId';
+    } else if (_registryMutationOperations.contains(expectedOperation)) {
+      expectedKeys = const <String>{
+        'ok',
+        'requestId',
+        'operation',
+        'assetClassId',
+        'nodeId',
+        'version',
+        'auditId',
+        'committedAt',
+        'idempotentReplay',
+      };
+      final expectedClassId = _requiredRequestIdentity(
+        request,
+        'assetClassId',
+        source,
+      );
+      final expectedEntityId = switch (expectedOperation) {
+        'CREATE_ASSET_INSTANCE' ||
+        'UPDATE_ASSET_INSTANCE' ||
+        'SET_ASSET_INSTANCE_STATUS' => _requiredRequestIdentity(
+          request,
+          'assetInstanceId',
+          source,
+        ),
+        'REPLACE_COMPONENT_INSTANCE' => _requiredRequestIdentity(
+          request,
+          'replacementComponentInstanceId',
+          source,
+        ),
+        _ => _requiredRequestIdentity(request, 'componentInstanceId', source),
+      };
+      if (map['assetClassId'] != expectedClassId ||
+          map['nodeId'] != expectedEntityId) {
+        throw PersistedDataFormatException(
+          field: 'entityIdentity',
+          source: source,
+          detail: 'asset class or registry entity mismatch',
+        );
+      }
+      entityId = expectedEntityId;
+      expectedAuditId = 'asset_registry_$expectedRequestId';
+    } else if (_innerCoverMutationOperations.contains(expectedOperation)) {
+      expectedKeys = const <String>{
+        'ok',
+        'requestId',
+        'operation',
+        'innerCoverId',
+        'version',
+        'secondaryVersion',
+        'auditId',
+        'committedAt',
+        'idempotentReplay',
+      };
+      entityId = _requiredRequestIdentity(request, 'innerCoverId', source);
+      if (map['innerCoverId'] != entityId) {
+        throw PersistedDataFormatException(
+          field: 'entityIdentity',
+          source: source,
+          detail: 'Inner Cover identity mismatch',
+        );
+      }
+      secondaryVersion = readOptionalPersistedInt(
+        map['secondaryVersion'],
+        field: 'secondaryVersion',
+        source: source,
+        minimum: 1,
+      );
+      expectedAuditId = 'inner_cover_$expectedRequestId';
+    } else if (_assetConditionMutationOperations.contains(expectedOperation)) {
+      expectedKeys = const <String>{
+        'ok',
+        'requestId',
+        'operation',
+        'assetClassId',
+        'assetInstanceId',
+        'condition',
+        'version',
+        'auditId',
+        'committedAt',
+        'idempotentReplay',
+      };
+      final expectedClassId = _requiredRequestIdentity(
+        request,
+        'assetClassId',
+        source,
+      );
+      entityId = _requiredRequestIdentity(request, 'assetInstanceId', source);
+      final expectedCondition =
+          expectedOperation == 'RESTORE_ASSET_CONDITION'
+              ? 'available'
+              : request['condition'];
+      if (map['assetClassId'] != expectedClassId ||
+          map['assetInstanceId'] != entityId ||
+          map['condition'] != expectedCondition) {
+        throw PersistedDataFormatException(
+          field: 'entityIdentity',
+          source: source,
+          detail: 'asset condition identity or state mismatch',
+        );
+      }
+      expectedAuditId = 'asset_condition_$expectedRequestId';
+    } else {
+      throw PersistedDataFormatException(
+        field: 'operation',
+        source: source,
+        detail: 'unsupported asset mutation receipt operation',
+      );
+    }
+
+    if (map.keys.toSet().length != expectedKeys.length ||
+        !map.keys.toSet().containsAll(expectedKeys)) {
+      throw PersistedDataFormatException(
+        field: 'response',
+        source: source,
+        detail: 'response field set does not match the operation contract',
+      );
+    }
+    final auditId = readRequiredPersistedString(
+      map['auditId'],
+      field: 'auditId',
+      source: source,
+    );
+    if (auditId != expectedAuditId) {
+      throw PersistedDataFormatException(
+        field: 'auditId',
+        source: source,
+        detail: 'audit identity mismatch',
+      );
+    }
+    final committedAtRaw = map['committedAt'];
+    final committedAt = readRequiredPersistedDateTime(
+      map['committedAt'],
+      field: 'committedAt',
+      source: source,
+    );
+    if (committedAtRaw is! String ||
+        committedAtRaw.trim() != committedAt.toUtc().toIso8601String()) {
+      throw PersistedDataFormatException(
+        field: 'committedAt',
+        source: source,
+        detail: 'must be a canonical UTC ISO instant',
+      );
+    }
+
+    return AssetHierarchyMutationReceipt(
+      requestId: expectedRequestId,
+      operation: expectedOperation,
+      entityId: entityId,
+      version: readRequiredPersistedInt(
+        map['version'],
+        field: 'version',
+        source: source,
+        minimum: 1,
+      ),
+      secondaryVersion: secondaryVersion,
+      auditId: auditId,
+      committedAt: committedAt,
+      idempotentReplay: readRequiredPersistedBool(
+        map['idempotentReplay'],
+        field: 'idempotentReplay',
+        source: source,
+      ),
+    );
+  }
+}
+
+String _requiredRequestIdentity(
+  Map<String, dynamic> request,
+  String field,
+  String source,
+) => readRequiredPersistedString(
+  request[field],
+  field: 'request.$field',
+  source: source,
+);
 
 class GovernedAssetEventContext {
   final AssetClassRecord assetClass;
@@ -1121,12 +1408,17 @@ class AssetHierarchyRepository {
     });
   }
 
-  Future<Map<String, dynamic>> _invoke(Map<String, dynamic> request) async {
+  Future<AssetHierarchyMutationReceipt> _invoke(
+    Map<String, dynamic> request,
+  ) async {
     try {
       final response = await _client
           .httpsCallable(assetHierarchyCallableName)
           .call<Map<String, dynamic>>(request);
-      return Map<String, dynamic>.from(response.data);
+      return AssetHierarchyMutationReceipt.fromMap(
+        Map<String, dynamic>.from(response.data),
+        request: request,
+      );
     } on FirebaseFunctionsException catch (error) {
       final details = error.details;
       final map =
@@ -1174,6 +1466,10 @@ class AssetHierarchyRepository {
       }
       throw AssetHierarchyException(
         error.message ?? 'The hierarchy change could not be completed.',
+      );
+    } on PersistedDataFormatException catch (error) {
+      throw AssetHierarchyException(
+        'The hierarchy service returned invalid mutation evidence: $error',
       );
     }
   }

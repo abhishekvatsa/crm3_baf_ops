@@ -302,7 +302,10 @@ const readResolutionHistory = (value: unknown): JsonMap[] => {
   });
 };
 
-const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
+export const maintenanceResolutionHistoryWithCurrentClosure = (
+  maintenance: JsonMap,
+  reopenedByWorkflow = true,
+): string => {
   const history = readResolutionHistory(maintenance.resolutionHistoryJson);
   if (maintenance.isResolved === true) {
     if (
@@ -327,7 +330,7 @@ const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
       remarks: maintenance.remarks ?? null,
       downtimeHours: maintenance.downtimeHours ?? null,
       teamsInvolved: historyTeams(maintenance.teamsInvolved, "teamsInvolved"),
-      reopenedByWorkflow: true,
+      ...(reopenedByWorkflow ? {reopenedByWorkflow: true} : {}),
     });
   }
   return JSON.stringify(history);
@@ -357,7 +360,8 @@ export const maintenanceProjectionForCorrection = (args: {
     teamsInvolved: [],
     actionsJson: "[]",
     remarks: args.reason,
-    resolutionHistoryJson: resolutionHistoryWithCurrentClosure(args.maintenance),
+    resolutionHistoryJson:
+      maintenanceResolutionHistoryWithCurrentClosure(args.maintenance),
   } : {}),
   updatedAt: iso(args.at),
   version: maintenanceVersion(args.maintenance) + 1,

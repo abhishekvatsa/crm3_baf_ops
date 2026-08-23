@@ -453,14 +453,34 @@ export function buildTicketCreatedNotification(ticket: Record<string, unknown>):
       : "New breakdown";
   const routedTo = typeof ticket.routedTo === "string" ? ticket.routedTo : "";
 
-  const roles = ["admin", "si", "contractSupervisor", "shiftSupervisor"];
-  if (routedTo === "refractory") {
-    roles.push("refractory", "seniorRefractory");
-  }
+  const rawAssignedLanes = ticket.issueAssignedLanes;
+  const assignedLanes = Array.isArray(rawAssignedLanes) ?
+    rawAssignedLanes.filter((lane): lane is string =>
+      typeof lane === "string" && lane.length > 0) : [];
+  const hasCanonicalLaneSet =
+    Array.isArray(rawAssignedLanes) &&
+    assignedLanes.length > 0 &&
+    assignedLanes.length === rawAssignedLanes.length &&
+    new Set(assignedLanes).size === assignedLanes.length &&
+    assignedLanes.every((lane) =>
+      Object.prototype.hasOwnProperty.call(AGENCY_TO_ROLES, lane));
+  const lanes = hasCanonicalLaneSet ?
+    assignedLanes : (routedTo.length > 0 ? [routedTo] : []);
+  const laneRoles = agenciesToRoles(lanes).roles;
+
+  const roles = [...new Set([
+    "admin",
+    "si",
+    "contractSupervisor",
+    "shiftSupervisor",
+    ...laneRoles,
+  ])];
+  const laneLabel = lanes.length === 0 ?
+    "UNASSIGNED" : lanes.map((lane) => lane.toUpperCase()).join(" + ");
 
   return {
     title: `🔴 Breakdown: ${assetType.toUpperCase()} ${assetNumber}`,
-    body: `${description} — Routed to ${routedTo.toUpperCase()}`,
+    body: `${description} — Routed to ${laneLabel}`,
     roles,
   };
 }

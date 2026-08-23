@@ -249,10 +249,36 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
               constraints: const BoxConstraints(maxWidth: 680),
               child: Padding(
                 padding: const EdgeInsets.all(BafSpacing.lg),
-                child: PersistedDataIntegrityNotice(
-                  title: 'Saved composer payload needs repair',
-                  message:
-                      'The saved template was left unchanged and authoring is blocked until its payload is repaired. $initialPayloadError',
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PersistedDataIntegrityNotice(
+                      title: 'Saved composer payload needs repair',
+                      message:
+                          'The saved template was left unchanged and authoring is blocked until its payload is repaired. $initialPayloadError',
+                    ),
+                    const SizedBox(height: BafSpacing.md),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: BafSpacing.sm,
+                      runSpacing: BafSpacing.sm,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.maybePop(context),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          label: const Text('Leave unchanged'),
+                        ),
+                        FilledButton.icon(
+                          key: const Key('composer-start-fresh-after-repair'),
+                          onPressed:
+                              () => _startFreshAfterMalformedPayload(actor.uid),
+                          icon: const Icon(Icons.note_add_outlined),
+                          label: const Text('Start fresh draft'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),

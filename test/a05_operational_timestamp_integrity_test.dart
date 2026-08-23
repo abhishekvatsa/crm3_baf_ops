@@ -201,6 +201,32 @@ void main() {
         }),
         _invalidField('appliedAt'),
       );
+      expect(
+        () => WorkflowCommandReceipt.fromMap(<String, dynamic>{
+          ...valid,
+          'appliedAt': '2026-08-06T06:30:00.000+05:30',
+        }),
+        _invalidField('appliedAt'),
+      );
+      expect(
+        () => WorkflowCommandReceipt.fromMap(<String, dynamic>{
+          ...valid,
+          'unexpected': true,
+        }),
+        _invalidField('response'),
+      );
+
+      for (final malformed in <Map<String, dynamic>>[
+        <String, dynamic>{...valid, 'commandId': ''},
+        <String, dynamic>{...valid, 'resultKey': null},
+        <String, dynamic>{...valid, 'aggregateVersion': 1.5},
+        <String, dynamic>{...valid, 'result': <Object?>[]},
+      ]) {
+        expect(
+          () => WorkflowCommandReceipt.fromMap(malformed),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
     });
   });
 }

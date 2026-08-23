@@ -34,6 +34,8 @@ import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../data/frequent_issue_definition.dart';
 import '../domain/frequent_issue_selection.dart';
+import '../domain/issue_lane_plan.dart';
+import 'issue_lane_selector.dart';
 import '../providers/frequent_issue_provider.dart';
 
 part 'maintenance_form_asset_widgets.dart';
@@ -75,6 +77,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   String? _assetInstanceId;
   MaintenanceType _maintenanceType = MaintenanceType.breakdown;
   RoutedTo _routedTo = RoutedTo.mechanical;
+  final Set<RoutedTo> _routedLanes = <RoutedTo>{RoutedTo.mechanical};
   DateTime _startTime = DateTime.now();
 
   final _descController = TextEditingController();
@@ -377,6 +380,36 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     _burnerRelightAttemptsController.text = '0';
   }
 
+  List<RoutedTo> get _orderedRoutedLanes => <RoutedTo>[
+    _routedTo,
+    ...RoutedTo.values.where(
+      (lane) => lane != _routedTo && _routedLanes.contains(lane),
+    ),
+  ];
+
+  RoutedTo? get _mandatoryRoute =>
+      _isBurnerLockout
+          ? RoutedTo.instrumentation
+          : _isFurnaceStuckup
+          ? RoutedTo.mechanical
+          : null;
+
+  void _toggleRoute(RoutedTo lane, bool selected) {
+    final mandatory = _mandatoryRoute;
+    if (!selected && (lane == mandatory || _routedLanes.length == 1)) return;
+    setState(() {
+      if (selected) {
+        _routedLanes.add(lane);
+      } else {
+        _routedLanes.remove(lane);
+        if (_routedTo == lane) {
+          _routedTo = RoutedTo.values.firstWhere(_routedLanes.contains);
+        }
+        if (lane == RoutedTo.others) _otherDepartmentController.clear();
+      }
+    });
+  }
+
   void _setBurnerLockout(bool enabled) {
     setState(() {
       _resetBurnerLockout();
@@ -385,6 +418,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       if (enabled) {
         _componentController.text = 'Burner system';
         _routedTo = RoutedTo.instrumentation;
+        _routedLanes
+          ..clear()
+          ..add(RoutedTo.instrumentation);
         _maintenanceType = MaintenanceType.breakdown;
       } else {
         _componentController.clear();
@@ -430,6 +466,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _resolvedSubsystem = 'Furnace positioning and sealing';
         _maintenanceType = MaintenanceType.breakdown;
         _routedTo = RoutedTo.mechanical;
+        _routedLanes
+          ..clear()
+          ..add(RoutedTo.mechanical);
         _isCritical = true;
       });
       return;
@@ -602,6 +641,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _descController.text = definition.description;
       }
       _routedTo = RoutedTo.values.byName(definition.defaultRouteKey);
+      _routedLanes
+        ..clear()
+        ..add(_routedTo);
       _maintenanceType = MaintenanceType.values.byName(
         definition.suggestedMaintenanceTypeKey,
       );
@@ -764,6 +806,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
+    if (_routedLanes.contains(RoutedTo.others) &&
+        _cleanOptionalText(_otherDepartmentController.text) == null) {
+      _showMessage(
+        'Specify the receiving team when Others is selected.',
+        BafColors.warning,
+      );
+      return;
+    }
 
     final assetRoute = _selectedAssetRoute();
     final selectedAsset = _selectedPhysicalAsset();
@@ -887,7 +937,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         chargeNumberText: _chargeNoController.text,
         startDate: _startTime,
         routedTo: _routedTo,
-        otherDepartment: _otherDepartmentController.text,
+        otherDepartment:
+            _routedTo == RoutedTo.others
+                ? _otherDepartmentController.text
+                : null,
       ),
     );
     if (inputValidation.isInvalid) {
@@ -1007,7 +1060,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     ? RoutedTo.mechanical
                     : _routedTo
             ..otherDepartment =
-                _routedTo == RoutedTo.others
+                _routedLanes.contains(RoutedTo.others)
                     ? _cleanOptionalText(_otherDepartmentController.text)
                     : null
             ..description = _cleanRequiredText(_descController.text)
@@ -1044,6 +1097,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             _qualityAssessment == IssueQualityAssessment.suspected
                 ? _cleanRequiredText(_qualityReasonController.text)
                 : null,
+      );
+      record.issueLanePlan = IssueLanePlan.initial(
+        _orderedRoutedLanes.map((lane) => lane.name),
       );
       if (!_isBurnerLockout && !_isFurnaceStuckup) {
         record.frequentIssueSelection =
@@ -1511,53 +1567,28 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           : (value) => setState(() => _isCritical = value),
                 ),
                 const SizedBox(height: BafSpacing.md),
-                DropdownButtonFormField<RoutedTo>(
-                  key: ValueKey('issue-route-${_routedTo.name}'),
-                  initialValue: _routedTo,
-                  isExpanded: true,
-                  decoration: _inputDecoration('Route to'),
-                  items:
-                      RoutedTo.values
-                          .map(
-                            (dept) => DropdownMenuItem<RoutedTo>(
-                              value: dept,
-                              child: Text(
-                                _deptLabel(dept),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      _isBurnerLockout || _isFurnaceStuckup
-                          ? null
-                          : (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _routedTo = value;
-                              if (_routedTo != RoutedTo.others) {
-                                _otherDepartmentController.clear();
-                              }
-                            });
-                          },
-                ),
-                if (_routedTo == RoutedTo.others) ...[
-                  const SizedBox(height: BafSpacing.md),
-                  TextFormField(
-                    controller: _otherDepartmentController,
-                    decoration: _inputDecoration(
-                      'Other department',
-                      hint: 'Specify receiving team / agency',
-                    ),
-                    textCapitalization: TextCapitalization.words,
-                    validator:
-                        (value) =>
-                            MaintenanceInputValidator.validateOtherDepartment(
-                              routedTo: _routedTo,
-                              value: value,
-                            ).messageFor('otherDepartment'),
+                IssueLaneSelector(
+                  selectedLanes: _routedLanes,
+                  primaryLane: _routedTo,
+                  mandatoryLane: _mandatoryRoute,
+                  otherDepartmentController: _otherDepartmentController,
+                  lanesDecoration: _inputDecoration(
+                    'Accountable lanes',
+                    hint: 'Select every team needed for this issue',
                   ),
-                ],
+                  primaryDecoration: _inputDecoration(
+                    'Primary lane',
+                    hint: 'Lead accountable team',
+                  ),
+                  otherDepartmentDecoration: _inputDecoration(
+                    'Other department',
+                    hint: 'Specify receiving team / agency',
+                  ),
+                  onLaneChanged: _toggleRoute,
+                  onPrimaryChanged: (lane) {
+                    setState(() => _routedTo = lane);
+                  },
+                ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<MaintenanceType>(
                   key: ValueKey('issue-type-${_maintenanceType.name}'),
@@ -1736,27 +1767,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         return 'OVERHAUL';
     }
   }
-
-  String _deptLabel(RoutedTo dept) {
-    switch (dept) {
-      case RoutedTo.operations:
-        return 'Operations';
-      case RoutedTo.electrical:
-        return 'Electrical';
-      case RoutedTo.mechanical:
-        return 'Mechanical';
-      case RoutedTo.instrumentation:
-        return 'I&A';
-      case RoutedTo.refractory:
-        return 'RED / Refractory';
-      case RoutedTo.emd:
-        return 'EMD';
-      case RoutedTo.shiftInCharge:
-        return 'Shift In-Charge';
-      case RoutedTo.others:
-        return 'Others';
-    }
-  }
 }
 
 class _BurnerRouteNotice extends StatelessWidget {
@@ -1779,9 +1789,9 @@ class _BurnerRouteNotice extends StatelessWidget {
           SizedBox(width: BafSpacing.sm),
           Expanded(
             child: Text(
-              'Burner lockout is routed to I&A as a breakdown issue. Other '
-              'disciplines can be requested through the existing scoped-help '
-              'workflow.',
+              'Burner lockout keeps I&A as its primary accountable lane. Add '
+              'Electrical or another lane here when joint attendance is '
+              'already known.',
               style: TextStyle(
                 color: BafColors.textPrimary,
                 height: 1.35,

@@ -744,31 +744,47 @@ class IsarJobModuleRepository implements JobModuleRepository {
   }
 
   @override
-  Future<void> forceRebaseModuleFromRemote(
+  Future<bool> applyModuleServerReadbackIfUnchanged(
     JobModuleInstance remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
     String? reason,
   }) async {
-    if (remote.firestoreId == null) return;
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty) return false;
 
-    await isar.writeTxn(() async {
+    final applied = await isar.writeTxn<bool>(() async {
       final local =
           await isar.jobModuleInstances
               .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
+              .firestoreIdEqualTo(firestoreId)
               .findFirst();
 
-      if (local == null) return;
+      if (local == null || local.id != expectedLocal.id) return false;
+      final alreadyAtServerBoundary =
+          local.isSynced &&
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt);
+      final stillAtExpectedBoundary =
+          local.isSynced == expectedLocalSynced &&
+          expectedLocal.matches(
+            currentVersion: local.version,
+            currentUpdatedAt: local.updatedAt,
+          );
+      if (!alreadyAtServerBoundary && !stillAtExpectedBoundary) return false;
 
       _copyRemoteModuleIntoLocal(local, remote);
       await isar.jobModuleInstances.put(local);
+      return true;
     });
 
-    if (reason != null && reason.trim().isNotEmpty) {
+    if (applied && reason != null && reason.trim().isNotEmpty) {
       debugPrint(
         '🛡️ Rebased local job module from remote canonical state: '
         'firestoreId=${remote.firestoreId}, reason=$reason',
       );
     }
+    return applied;
   }
 
   @override

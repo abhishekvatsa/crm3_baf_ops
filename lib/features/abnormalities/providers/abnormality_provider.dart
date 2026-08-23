@@ -171,6 +171,11 @@ abstract class AbnormalityRepository {
 
   Future<void> insertAbnormalityFromRemote(ChargeAbnormality remote);
   Future<void> updateAbnormalityFromRemote(ChargeAbnormality remote);
+  Future<bool> applyAbnormalityServerReadbackIfUnchanged(
+    ChargeAbnormality remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
+  });
 
   Future<void> batchUpsertTypes(List<AbnormalityType> records);
   Future<void> batchUpsertAbnormalities(List<ChargeAbnormality> records);

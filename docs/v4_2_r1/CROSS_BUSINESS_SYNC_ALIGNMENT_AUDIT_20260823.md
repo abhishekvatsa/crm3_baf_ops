@@ -39,6 +39,46 @@ state, or non-matching readback leaves the source evidence dirty or held.
 | Workflow command outbox | Governed workflow callable | Idempotency receipt and uncertain-command retry; projection pull is isolated |
 | Audit events | Append-only Firestore record with deterministic ID | Acknowledged idempotent commit; uncertain writes remain dirty for safe retry |
 
+## Cloud-First Command Inventory
+
+These surfaces do not maintain an optimistic Isar business record. Their UI
+reads the authoritative Firestore projection, and command completion is
+accepted only after a response parser binds the receipt to the submitted
+request:
+
+| Surface | Receipt boundary |
+| --- | --- |
+| Asset hierarchy, registry, Inner Cover lifecycle, asset condition | Exact request, operation, entity, version, audit, UTC time and replay evidence |
+| Burner condition rounds | Exact round/asset identity plus durable same-payload retry identity |
+| Quality warnings and monitoring requests | Exact entity capsule, mutation ID, version, audit and time |
+| Operational events and issue links | Exact event/issue/link identity, version, audit and time |
+| User authority | Exact target, operation, authority digest, audit and time |
+
+The asset hierarchy family previously treated any returned map as success.
+That gap is closed in this tranche by `AssetHierarchyMutationReceipt`; all 23
+hierarchy, registry, Inner Cover and asset-condition operations now fail closed
+on malformed or mismatched response evidence.
+
+## Additional No-Loss Corrections In This Tranche
+
+- Planned-job completion now applies the authoritative execution only under a
+  local compare-and-set and copies the complete server-owned execution shape.
+  A user edit made while the callable is in flight remains dirty.
+- Terminal job-module repair uses the same compare-and-set rule; a stale
+  readback cannot erase newer responses.
+- Charge-abnormality command results are adopted in one atomic operation. The
+  old mark-clean-then-copy sequence can no longer leave divergent content
+  labelled synchronized.
+- Published-template assignment replay inserts missing modules but reconciles
+  existing modules through the repository's dirty-work guard; completed or
+  edited module responses survive an idempotent assignment replay.
+- Workflow commands preserve a successful receipt even when the following
+  projection pull fails, and a projection already adopted by an intervening
+  full sync is recognized as convergence.
+- A malformed saved Module Composer payload remains fail-closed, but an
+  authorized user can now open a detached clean draft after confirmation. The
+  malformed governed version or publisher JSON is not overwritten.
+
 The machine-checked `syncAll()` operation inventory is exact. Adding or
 removing a sync operation now requires explicit test adjudication instead of
 silently inheriting an unsuitable strategy.
@@ -90,16 +130,17 @@ Rules. Those are reconciled rather than guessed.
 
 ## Static and Emulator Evidence
 
-Evidence produced against this source tranche:
+The figures below are branch-bound source and local-emulator evidence for this
+remediation tranche:
 
 ```text
 Flutter analyze:                         no issues
-Focused sync and business tests:         87 passed
-Full Flutter suite:                   1,182 passed, 1 skipped
-Functions Jest:                         553 passed, 80 skipped
-Firestore Rules emulator:               180 passed
+Full Flutter suite:                   1,233 passed, 1 skipped
+Functions Jest:                         567 passed, 80 skipped
+Firestore Rules emulator:               182 passed
 Governed asset-identity emulator:          3 passed
 Governed callable emulator:              80 passed
+Expanded implementation audit:           15 passed, 0 failed
 Canonical R1 audit:                     147 passed, 0 failed
 ```
 

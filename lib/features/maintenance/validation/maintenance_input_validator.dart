@@ -62,6 +62,8 @@ class MaintenanceInputValidator {
     'refractory',
     'emd',
     'operations',
+    'shiftincharge',
+    'others',
   };
 
   const MaintenanceInputValidator._();

@@ -285,11 +285,13 @@ abstract class PlannedMaintenanceRepository {
   Future<void> insertExecutionFromRemote(JobExecution remote);
   Future<void> updateExecutionFromRemote(JobExecution remote);
 
-  /// Forcefully rebases a dirty local execution from the remote canonical copy.
-  /// Used only by sync repair after Firestore rules reject an impossible
-  /// local tombstone push and the local snapshot has been preserved in audit.
-  Future<void> forceRebaseExecutionFromRemote(
+  /// Adopts an authoritative server execution only while the local row still
+  /// matches the boundary that was inspected before the network operation.
+  /// A row already at the returned server boundary also counts as converged.
+  Future<bool> applyExecutionServerReadbackIfUnchanged(
     JobExecution remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
     String? reason,
   });
 

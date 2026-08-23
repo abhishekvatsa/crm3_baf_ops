@@ -205,7 +205,24 @@
       "compatibility": "absent pre-feature payload only",
       "regression": "test/a05_maintenance_audit_integrity_test.dart",
       "reArmCondition": "invalid history row is dropped or rewritten empty",
-      "riskFingerprint": "f8e9c3467c499fad84077d3dde1edcd43e96a5e026fc0608c484ffe0c4059715"
+      "riskFingerprint": "727dcea50058dc5d380ab4c8e57f5401d96ccb9a57c37e2f67ec0c71a434fd84"
+    },
+    {
+      "id": "maintenance-issue-lane-plan",
+      "file": "lib/features/maintenance/domain/issue_lane_plan.dart",
+      "markers": [
+        "static IssueLanePlan fromSynchronizedFields(",
+        "static IssueLanePlan? tryDecodeLocal(",
+        "String mergeIssueLanePlanIntoMaintenanceMetadata("
+      ],
+      "classification": "NESTED_OPERATIONAL_STATE",
+      "owner": "maintenance",
+      "authorityBoundary": "persisted issue lane membership, acknowledgement, completion, and revision topology",
+      "malformedDisposition": "fail closed on partial or malformed canonical lane state and withhold acknowledgement, reconfiguration, coordination, and closure",
+      "compatibility": "a wholly absent canonical lane set only; legacy records derive one accountable lane from the validated route and status",
+      "regression": "test/issue_multi_lane_workflow_test.dart; test/a05_maintenance_audit_integrity_test.dart; test/a05_remote_maintenance_record_integrity_test.dart",
+      "reArmCondition": "new lane fields, membership fallback, suppressed decode error, or malformed topology permits a workflow mutation",
+      "riskFingerprint": "a95bb5434a9d95b45b0f2cd3883e59a274987e231d50cf37e6a7eb05c32dfb49"
     },
     {
       "id": "maintenance-record",
@@ -1008,7 +1025,7 @@
       "compatibility": "absent pre-feature metadata and unrelated or malformed opaque metadata only",
       "regression": "test/operational_ux_restructure_test.dart; functions/test/maintenanceIntelligence.test.js",
       "reArmCondition": "decoded ticket metadata becomes mutation authority or malformed metadata enables maintenance classification",
-      "riskFingerprint": "16181ba05c48297231a854c8d9bb63394e1ee094100acad8d832596ceb2d2be6"
+      "riskFingerprint": "33f018a0e329052ade46f4d21f67b853d8cf3e13db94dfcee0c3b5299c81858c"
     },
     {
       "id": "template-publisher-maintenance-metadata-display",
@@ -1055,7 +1072,38 @@
       "compatibility": "none; a synchronized replay requires an exact version and updatedAt receipt",
       "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
       "reArmCondition": "readback becomes optional, receipt fields default, or a stale local row is marked synchronized",
-      "riskFingerprint": "247661324a135dfcf9d3f2b21d7a073c216c5d77d76e474a0182f65e47dc3ef6"
+      "riskFingerprint": "8e4bacc01597443501cb3d304c5cf6b3a6c2ddda7bcd0201b6c5fcc9841a9662"
+    },
+    {
+      "id": "asset-hierarchy-command-receipt",
+      "file": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
+      "markers": [
+        "factory AssetHierarchyMutationReceipt.fromMap",
+        "Future<AssetHierarchyMutationReceipt> _invoke("
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "asset-governance",
+      "authorityBoundary": "governed hierarchy, registry, Inner Cover, and asset-condition mutation result",
+      "malformedDisposition": "translate invalid callable evidence to a blocking hierarchy error and never report command success",
+      "compatibility": "none for request identity, operation, entity identity, versions, audit identity, canonical commit time, or replay status",
+      "regression": "test/asset_hierarchy_command_receipt_test.dart",
+      "reArmCondition": "any hierarchy callable response field is defaulted, coerced, or accepted without request binding",
+      "riskFingerprint": "f6a8618078db9edb73fa9644ef2cf459e86a070647e49548d3d8e8220fcb5c69"
+    },
+    {
+      "id": "workflow-command-receipt",
+      "file": "lib/features/maintenance_workflow/domain/workflow_command_contract.dart",
+      "markers": [
+        "factory WorkflowCommandReceipt.fromMap"
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "maintenance-workflow",
+      "authorityBoundary": "governed maintenance workflow command result",
+      "malformedDisposition": "fail closed before malformed receipt evidence can enter local workflow state",
+      "compatibility": "none for the exact field set, command identity, result key, aggregate version, bounded result object, or canonical application time",
+      "regression": "test/a05_operational_timestamp_integrity_test.dart; test/business_sync_alignment_contract_test.dart",
+      "reArmCondition": "any workflow receipt field is defaulted, coerced, or admitted outside the strict decoder",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "catchSites": [
@@ -1112,17 +1160,30 @@
       "reArmCondition": "profile format error is caught, authority is retained, or retry budget broadens"
     },
     {
-      "id": "workflow-command-transport-translation",
+      "id": "workflow-command-receipt-translation",
       "file": "lib/features/maintenance_workflow/services/workflow_command_gateway.dart",
-      "siteFingerprint": "af1e8ecb20c98a526390d883645f35f998441fe18092516f65a8d7139430a477",
-      "classification": "TRANSPORT_ERROR_TRANSLATION",
-      "purpose": "map Cloud Functions transport errors to workflow-domain errors",
+      "siteFingerprint": "5ac0fde2bdbd293b88cf892c0f0318d78d67edb4da1d4c984d30102e7fb5846e",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate malformed workflow callable evidence into a stable reconciliable workflow error",
       "authorityBoundary": "server workflow command receipt",
-      "mutability": "remote command already governed by server",
+      "mutability": "the remote command may already be committed; no local success state is manufactured",
       "dataScope": "workflow callable response",
-      "malformedDisposition": "receipt format errors escape; only FirebaseFunctionsException is translated",
-      "regression": "test/maintenance_workflow/workflow_command_gateway_test.dart",
-      "reArmCondition": "malformed receipt becomes a successful command"
+      "malformedDisposition": "throw a stable unavailable workflow error and require same-command reconciliation",
+      "regression": "test/a05_operational_timestamp_integrity_test.dart; test/business_sync_alignment_contract_test.dart",
+      "reArmCondition": "malformed receipt becomes a successful command or loses its reconciliation warning"
+    },
+    {
+      "id": "asset-hierarchy-command-receipt-translation",
+      "file": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
+      "siteFingerprint": "a24f6f14f0d5f1039b5684a2835a4ed666838c15db0f1b143af0480658799a36",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate malformed hierarchy callable evidence into a blocking feature error",
+      "authorityBoundary": "server asset-hierarchy command receipt",
+      "mutability": "the remote command may already be committed; no local success state is manufactured",
+      "dataScope": "hierarchy, registry, Inner Cover, and asset-condition callable responses",
+      "malformedDisposition": "throw AssetHierarchyException and require authoritative refresh before further mutation",
+      "regression": "test/asset_hierarchy_command_receipt_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed receipt becomes a successful hierarchy mutation"
     },
     {
       "id": "workflow-cursor-repair-error",
@@ -1383,19 +1444,6 @@
       "malformedDisposition": "throw invalid population response and do not accept local state",
       "regression": "test/runtime_job_module_population_service_test.dart",
       "reArmCondition": "malformed returned module is stored or shown as successful"
-    },
-    {
-      "id": "maintenance-resolve-command-presentation",
-      "file": "lib/features/maintenance/presentation/resolve_form.dart",
-      "siteFingerprint": "6dcef6a75ab8ef58f5d86490474440ad4f469cc245a577ed444a6589ba81cc47",
-      "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
-      "purpose": "surface resolution-command failure without coercing downtime evidence",
-      "authorityBoundary": "operator ticket-resolution command",
-      "mutability": "command-owned mutation only after form validation",
-      "dataScope": "operator-entered resolution and downtime fields",
-      "malformedDisposition": "show failure and do not substitute a parsed value",
-      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "invalid input receives a default or command failure is reported as success"
     },
     {
       "id": "workflow-event-summary-display",

@@ -10,6 +10,8 @@ import 'package:intl/intl.dart';
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
 import '../services/closed_ticket_history_service.dart';
+import '../services/maintenance_issue_command_reconciler.dart';
+import '../services/maintenance_issue_resolution_command.dart';
 import '../../../core/providers/refresh_providers.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/services/sync_coordinator.dart';
@@ -213,12 +215,14 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     return 'local:${ticket.id}';
   }
 
-  static String? _cleanOptionalText(String value) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
   Future<void> _reopenTicket(MaintenanceRecord ticket) async {
+    if (!ticket.isSynced) {
+      _showSnack(
+        message: 'Synchronize this issue before reopening it.',
+        color: BafColors.warning,
+      );
+      return;
+    }
     if (ticket.workflowDeferred) {
       _showSnack(
         message:
@@ -249,68 +253,78 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     try {
       final appUser = ref.read(currentAppUserProvider).value;
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
-      if (appUser == null || !appUser.canReopenMaintenanceTicket) {
+      if (appUser == null ||
+          firebaseUser == null ||
+          firebaseUser.uid != appUser.uid ||
+          !appUser.canReopenMaintenanceTicket) {
         throw StateError(
           'You are not authorized to reopen maintenance tickets.',
         );
       }
-      final reopenedByUid = appUser.uid;
-
-      final reopenedByName =
-          <String?>[
-                appUser.name,
-                firebaseUser?.displayName,
-                firebaseUser?.email,
-              ]
-              .firstWhere(
-                (value) => value != null && value.trim().isNotEmpty,
-                orElse: () => 'Unknown',
-              )!
-              .trim();
-
-      final id = kIsWeb ? ticket.firestoreId : ticket.id;
-      if (id == null) {
-        throw Exception('Ticket ID missing');
+      final ticketId = ticket.firestoreId?.trim();
+      if (ticketId == null || ticketId.isEmpty) {
+        throw StateError('This issue has no governed server identity.');
       }
-
-      final repo = ref.read(maintenanceRepositoryProvider);
-      await repo.reopenTicket(
-        id,
-        actor: appUser,
-        reopenedByUid: reopenedByUid,
-        reopenedByName: reopenedByName,
-        reopenRemarks: _cleanOptionalText(remarks),
+      final command = buildMaintenanceIssueReopenCommand(
+        ticket: ticket,
+        remarks: remarks,
+      );
+      final expectedLocalVersion = ticket.version;
+      final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command);
+      validateMaintenanceIssueReopenReceipt(
+        command: command,
+        receipt: receipt,
+        assignedLanes: ticket.issueLanePlan.assignedLanes,
       );
 
-      if (!mounted) {
-        return;
+      var converged = false;
+      if (kIsWeb) {
+        final remote = await ref
+            .read(firestoreMaintenanceRepo)
+            .readMaintenanceIssueCommandServerState(ticketId);
+        final remotePlan = remote?.issueLanePlanReadResult.value;
+        converged =
+            remote != null &&
+            remote.version >= receipt.aggregateVersion &&
+            !remote.isResolved &&
+            remote.status == TicketStatus.open &&
+            remotePlan != null &&
+            remotePlan.acknowledgedLanes.isEmpty &&
+            remotePlan.completedLanes.isEmpty;
+      } else {
+        try {
+          await ref
+              .read(maintenanceIssueCommandReconcilerProvider)
+              .adoptServerMutation(
+                firestoreId: ticketId,
+                expectedLocalVersion: expectedLocalVersion,
+                expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+                minimumServerVersion: receipt.aggregateVersion,
+              );
+          converged = true;
+        } on MaintenanceIssueCommandConvergenceException {
+          converged = false;
+        }
       }
 
-      final syncOutcome =
-          kIsWeb
-              ? SyncRequestOutcome.succeeded
-              : await ref
-                  .read(syncCoordinatorProvider)
-                  .runFullSyncWithResult(
-                    reason: 'ticket_reopened',
-                    force: true,
-                  );
+      try {
+        await ref
+            .read(syncCoordinatorProvider)
+            .runFullSync(reason: 'ticket_reopened', force: true);
+      } catch (_) {
+        // The server has already accepted the reopen. A later sync can repeat
+        // exact point-read adoption without recreating the transition.
+      }
       ref.read(refreshClosedTicketsProvider.notifier).state++;
 
-      final (message, color) = switch (syncOutcome) {
-        SyncRequestOutcome.succeeded => (
-          'Ticket reopened and synchronized.',
-          BafColors.maintenance,
-        ),
-        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
-          'Reopen saved on this device; synchronization is queued.',
-          BafColors.warning,
-        ),
-        SyncRequestOutcome.failed => (
-          'Reopen saved on this device, but cloud synchronization needs attention.',
-          BafColors.danger,
-        ),
-      };
+      final message =
+          converged
+              ? 'Ticket reopened and verified against the plant system.'
+              : 'Ticket reopen accepted. Exact device refresh is pending and will retry during sync.';
+      final color = converged ? BafColors.maintenance : BafColors.warning;
       _showSnack(message: message, color: color);
     } catch (e) {
       if (!mounted) {
@@ -853,7 +867,10 @@ class _ClosedTicketCard extends StatelessWidget {
     final closedAt = ticket.endDate ?? ticket.updatedAt;
     final hoursSince = DateTime.now().difference(closedAt).inHours;
     final canReopen =
-        canReopenTicket && hoursSince <= 4 && !ticket.workflowDeferred;
+        canReopenTicket &&
+        ticket.isSynced &&
+        hoursSince <= 4 &&
+        !ticket.workflowDeferred;
     final agencyColor = _agencyColor(ticket.routedTo);
     final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
     final burnerReadings =
@@ -945,13 +962,22 @@ class _ClosedTicketCard extends StatelessWidget {
                             icon: Icons.check_circle_rounded,
                           ),
                           StatusBadge(
-                            label: canReopen ? 'Reopen window' : 'Locked',
+                            label:
+                                !ticket.isSynced
+                                    ? 'Sync pending'
+                                    : canReopen
+                                    ? 'Reopen window'
+                                    : 'Locked',
                             color:
-                                canReopen
+                                !ticket.isSynced
+                                    ? BafColors.warning
+                                    : canReopen
                                     ? BafColors.maintenance
                                     : BafColors.admin,
                             icon:
-                                canReopen
+                                !ticket.isSynced
+                                    ? Icons.cloud_off_rounded
+                                    : canReopen
                                     ? Icons.refresh_rounded
                                     : Icons.lock_clock_rounded,
                           ),

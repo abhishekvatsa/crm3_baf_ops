@@ -179,6 +179,62 @@ Future<TemplateVersion> publishAndRefreshComposerTemplateVersion({
 }
 
 extension _ModuleComposerSupport on _ModuleComposerScreenState {
+  Future<void> _startFreshAfterMalformedPayload(String expectedActorUid) async {
+    if (!_hasLiveComposerAuthority(expectedUid: expectedActorUid)) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Start a separate clean draft?'),
+            content: const Text(
+              'The malformed saved template or publisher JSON will remain unchanged for later repair. This opens a new detached draft and will not overwrite the damaged source.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.icon(
+                key: const Key('composer-confirm-start-fresh'),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.note_add_outlined),
+                label: const Text('Start fresh'),
+              ),
+            ],
+          ),
+    );
+    if (!mounted ||
+        confirmed != true ||
+        !_hasLiveComposerAuthority(expectedUid: expectedActorUid)) {
+      return;
+    }
+
+    final fresh =
+        TemplateComposerDraft.empty()
+          ..localId =
+              'detached_repair_${DateTime.now().toUtc().microsecondsSinceEpoch}';
+    _suppressRecoverySave = true;
+    try {
+      setState(() {
+        _initialPayloadError = null;
+        _editingTemplateVersion = null;
+        _editingTemplateDraftFingerprint = null;
+        _draft = fresh;
+        _governedAssetClassId = null;
+        _governedDefinitionNodeId = null;
+        _selectedModuleIndex = -1;
+        _mergeSelection.clear();
+        _initializedForActorUid = null;
+        _initializingForActorUid = null;
+        _synchronizeTitleControllerFromDraft();
+      });
+    } finally {
+      _suppressRecoverySave = false;
+    }
+  }
+
   ComposerModuleDraft? get _selectedModule {
     if (_selectedModuleIndex < 0 ||
         _selectedModuleIndex >= _draft.modules.length) {

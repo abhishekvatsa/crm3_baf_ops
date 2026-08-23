@@ -53,19 +53,68 @@ class WorkflowCommandReceipt {
   });
 
   factory WorkflowCommandReceipt.fromMap(Map<String, dynamic> map) {
+    const source = 'workflow command receipt';
+    final appliedAtRaw = map['appliedAt'];
     final appliedAt = readRequiredPersistedDateTime(
       map['appliedAt'],
       field: 'appliedAt',
-      source: 'workflow command receipt',
+      source: source,
     );
+    if (appliedAtRaw is! String ||
+        appliedAtRaw.trim() != appliedAt.toUtc().toIso8601String()) {
+      throw PersistedDataFormatException(
+        field: 'appliedAt',
+        source: source,
+        detail: 'must be a canonical UTC ISO instant',
+      );
+    }
+    final result = readOptionalBoundedJsonObject(
+      map['result'],
+      field: 'result',
+      source: source,
+    );
+    if (result == null) {
+      throw PersistedDataFormatException(
+        field: 'result',
+        source: source,
+        detail: 'required result object',
+      );
+    }
+    const expectedFields = <String>{
+      'commandId',
+      'resultKey',
+      'aggregateVersion',
+      'result',
+      'appliedAt',
+    };
+    final receivedFields = map.keys.toSet();
+    if (receivedFields.length != expectedFields.length ||
+        !receivedFields.containsAll(expectedFields)) {
+      throw PersistedDataFormatException(
+        field: 'response',
+        source: source,
+        detail: 'response field set does not match the command contract',
+      );
+    }
     return WorkflowCommandReceipt(
-      commandId: '${map['commandId'] ?? ''}',
-      resultKey: '${map['resultKey'] ?? ''}',
-      aggregateVersion: (map['aggregateVersion'] as num?)?.toInt() ?? 0,
-      result: Map<String, Object?>.from(
-        (map['result'] as Map?) ?? const <String, Object?>{},
+      commandId: readRequiredPersistedString(
+        map['commandId'],
+        field: 'commandId',
+        source: source,
       ),
-      appliedAt: appliedAt.toUtc(),
+      resultKey: readRequiredPersistedString(
+        map['resultKey'],
+        field: 'resultKey',
+        source: source,
+      ),
+      aggregateVersion: readRequiredPersistedInt(
+        map['aggregateVersion'],
+        field: 'aggregateVersion',
+        source: source,
+        minimum: 1,
+      ),
+      result: Map<String, Object?>.unmodifiable(result),
+      appliedAt: appliedAt,
     );
   }
 }

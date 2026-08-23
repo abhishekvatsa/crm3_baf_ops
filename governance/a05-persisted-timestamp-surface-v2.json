@@ -52,6 +52,18 @@
       "reArmCondition": "any user-authority callable response timestamp change"
     },
     {
+      "id": "asset-hierarchy-command-response",
+      "readerFile": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
+      "readerMarker": "factory AssetHierarchyMutationReceipt.fromMap",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "asset-governance",
+      "purpose": "verify server-committed hierarchy, registry, Inner Cover, and asset-condition mutation evidence",
+      "authorityBoundary": "remote-command-response",
+      "regression": "test/asset_hierarchy_command_receipt_test.dart",
+      "reArmCondition": "any asset-hierarchy callable response timestamp change"
+    },
+    {
       "id": "published-template-assignment-response",
       "readerFile": "lib/features/planned_maintenance/services/published_template_assignment_server_service.dart",
       "readerMarker": "factory PublishedTemplateAssignmentServerResult.fromCallableData",

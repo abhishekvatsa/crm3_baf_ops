@@ -20,6 +20,8 @@ import '../../maintenance_workflow/presentation/screens/compliance_detail_screen
 import '../../operational_events/presentation/operational_event_issue_links_screen.dart';
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
+import '../services/maintenance_issue_command_reconciler.dart';
+import 'issue_lane_management_dialog.dart';
 import 'maintenance_form.dart';
 import 'issue_coordination_dialog.dart';
 import 'resolve_form.dart';
@@ -138,14 +140,19 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     List<MaintenanceRecord> allTickets,
     AppUser appUser,
   ) {
-    return allTickets
-        .where(
-          (ticket) => appUser.canViewMaintenanceTicket(
-            loggedByUid: ticket.loggedByUid,
-            routedTo: ticket.routedTo,
-          ),
-        )
-        .toList();
+    return allTickets.where((ticket) {
+      final laneRead = ticket.issueLanePlanReadResult;
+      if (!laneRead.isValid) {
+        return appUser.canViewMaintenanceTicket(
+          loggedByUid: ticket.loggedByUid,
+          routedTo: ticket.routedTo,
+        );
+      }
+      return appUser.canViewMaintenanceIssue(
+        loggedByUid: ticket.loggedByUid,
+        lanes: laneRead.value!.assignedLanes.map(RoutedTo.values.byName),
+      );
+    }).toList();
   }
 
   Widget _buildLoadingState() {
@@ -196,7 +203,6 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     AppUser appUser,
     SyncStatus syncStatus,
   ) {
-    final canResolveAnyTicket = appUser.canCloseAnyTicket;
     final filtered = _filterTickets(tickets, _query);
 
     return _BoundedIssuesContent(
@@ -225,26 +231,48 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
             const _NoMatchingIssuesState()
           else
             ...filtered.map((ticket) {
+              final laneRead = ticket.issueLanePlanReadResult;
+              final plan = laneRead.value;
+              final assignedRoutes =
+                  plan?.assignedLanes.map(RoutedTo.values.byName).toList() ??
+                  const <RoutedTo>[];
               final canResolveThis =
-                  ticket.routedTo == RoutedTo.refractory
-                      ? appUser.canCloseRedTicket
-                      : canResolveAnyTicket;
+                  ticket.isSynced &&
+                  laneRead.isValid &&
+                  appUser.canFinalizeMaintenanceIssue(assignedRoutes);
               final ticketId = ticket.firestoreId?.trim();
+              final hasGovernedServerState =
+                  ticket.isSynced && ticketId != null && ticketId.isNotEmpty;
+              final acknowledgeableLanes =
+                  plan?.lanesAwaitingAcknowledgement
+                      .map(RoutedTo.values.byName)
+                      .where(appUser.canAcknowledgeMaintenanceTicket)
+                      .toList(growable: false) ??
+                  const <RoutedTo>[];
+              final completableLanes =
+                  plan?.acknowledgedLanes
+                      .where((lane) => !plan.completedLanes.contains(lane))
+                      .map(RoutedTo.values.byName)
+                      .where(appUser.canCompleteMaintenanceIssueLane)
+                      .toList(growable: false) ??
+                  const <RoutedTo>[];
               final canAcknowledge =
-                  ticket.status == TicketStatus.open &&
+                  laneRead.isValid &&
+                  acknowledgeableLanes.isNotEmpty &&
                   !ticket.workflowDeferred &&
-                  ticketId != null &&
-                  ticketId.isNotEmpty &&
-                  appUser.canAcknowledgeMaintenanceTicket(ticket.routedTo);
+                  hasGovernedServerState;
               final canCoordinate =
                   (ticket.status == TicketStatus.acknowledged ||
                       ticket.status == TicketStatus.inProgress) &&
                   !ticket.isResolved &&
                   (ticket.workflowQueueState == 'independent' ||
                       ticket.workflowQueueState == 'released') &&
-                  ticketId != null &&
-                  ticketId.isNotEmpty &&
-                  appUser.canStartIssueCoordination(ticket.routedTo);
+                  hasGovernedServerState &&
+                  plan != null &&
+                  plan.acknowledgedLanes
+                      .where((lane) => !plan.completedLanes.contains(lane))
+                      .map(RoutedTo.values.byName)
+                      .any(appUser.canStartIssueCoordination);
               return Padding(
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _TicketCard(
@@ -254,6 +282,24 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   canAcknowledge: canAcknowledge,
                   isBusy: _busyTicketId == ticketId,
                   onAcknowledge: () => _acknowledgeTicket(ticket),
+                  canCompleteLane:
+                      completableLanes.isNotEmpty &&
+                      !ticket.workflowDeferred &&
+                      hasGovernedServerState,
+                  onCompleteLane: () => _completeTicketLane(ticket),
+                  canManageLanes:
+                      laneRead.isValid &&
+                      appUser.canManageMaintenanceIssueLanes &&
+                      hasGovernedServerState &&
+                      !ticket.workflowDeferred &&
+                      (ticket.workflowQueueState == 'independent' ||
+                          ticket.workflowQueueState == 'released'),
+                  onManageLanes: () => _manageTicketLanes(ticket),
+                  canRepairLaneData:
+                      !laneRead.isValid && hasGovernedServerState,
+                  onRepairLaneData: () => _repairTicketFromServer(ticket),
+                  canRefreshServer: laneRead.isValid && hasGovernedServerState,
+                  onRefreshServer: () => _repairTicketFromServer(ticket),
                   canCoordinate: canCoordinate,
                   onCoordinate: () => _startIssueCoordination(ticket),
                   onOpenCoordination:
@@ -321,13 +367,27 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   Future<void> _acknowledgeTicket(MaintenanceRecord ticket) async {
     final ticketId = ticket.firestoreId?.trim();
     if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
+    final expectedLocalVersion = ticket.version;
+    final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+    final appUser = ref.read(currentAppUserProvider).value;
+    final plan = ticket.issueLanePlanReadResult.value;
+    if (appUser == null || plan == null) return;
+    final candidates = plan.lanesAwaitingAcknowledgement
+        .map(RoutedTo.values.byName)
+        .where(appUser.canAcknowledgeMaintenanceTicket)
+        .toList(growable: false);
+    final lane = await _selectIssueLane(
+      title: 'Acknowledge accountable lane',
+      lanes: candidates,
+    );
+    if (lane == null || !mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder:
           (dialogContext) => AlertDialog(
             title: const Text('Acknowledge this issue?'),
             content: Text(
-              'This records that ${_TicketCard._deptLabel(ticket.routedTo)} has received and accepted responsibility for triage. It does not resolve the issue.',
+              'This records that ${_TicketCard._deptLabel(lane)} has received and accepted responsibility for triage. It does not resolve the issue or another lane.',
             ),
             actions: [
               TextButton(
@@ -345,23 +405,35 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     if (confirmed != true || !mounted) return;
     setState(() => _busyTicketId = ticketId);
     try {
-      await ref
+      final command = WorkflowCommandFactory.create(
+        type: WorkflowCommandType.acknowledgeMaintenanceTicket,
+        aggregateId: ticketId,
+        expectedVersion: expectedLocalVersion,
+        payload: <String, Object?>{'lane': lane.name},
+      );
+      final receipt = await ref
           .read(workflowCommandControllerProvider.notifier)
-          .execute(
-            WorkflowCommandFactory.create(
-              type: WorkflowCommandType.acknowledgeMaintenanceTicket,
-              aggregateId: ticketId,
-              expectedVersion: ticket.version,
-            ),
-          );
-      await ref
-          .read(syncCoordinatorProvider)
-          .runFullSync(reason: 'maintenance_ticket_acknowledged', force: true);
+          .execute(command);
+      validateMaintenanceIssueLaneCommandReceipt(
+        command: command,
+        receipt: receipt,
+      );
+      final converged = await _adoptAcceptedIssueCommand(
+        ticketId: ticketId,
+        expectedLocalVersion: expectedLocalVersion,
+        expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+        minimumServerVersion: receipt.aggregateVersion,
+        syncReason: 'maintenance_ticket_acknowledged',
+      );
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Issue acknowledged'),
-          backgroundColor: BafColors.success,
+        SnackBar(
+          content: Text(
+            converged
+                ? 'Issue lane acknowledged'
+                : 'Acknowledgement accepted. Exact device refresh is pending and will retry during sync.',
+          ),
+          backgroundColor: converged ? BafColors.success : BafColors.warning,
         ),
       );
     } catch (error) {
@@ -377,40 +449,329 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     }
   }
 
+  Future<void> _completeTicketLane(MaintenanceRecord ticket) async {
+    final ticketId = ticket.firestoreId?.trim();
+    if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
+    final expectedLocalVersion = ticket.version;
+    final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+    final appUser = ref.read(currentAppUserProvider).value;
+    final plan = ticket.issueLanePlanReadResult.value;
+    if (appUser == null || plan == null) return;
+    final candidates = plan.acknowledgedLanes
+        .where((lane) => !plan.completedLanes.contains(lane))
+        .map(RoutedTo.values.byName)
+        .where(appUser.canCompleteMaintenanceIssueLane)
+        .toList(growable: false);
+    final lane = await _selectIssueLane(
+      title: 'Complete accountable lane',
+      lanes: candidates,
+    );
+    if (lane == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text('Complete ${_TicketCard._deptLabel(lane)}?'),
+            content: const Text(
+              'This settles only this lane. Final issue closure remains a separate supervisory decision.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.task_alt_rounded),
+                label: const Text('Complete lane'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busyTicketId = ticketId);
+    try {
+      final command = WorkflowCommandFactory.create(
+        type: WorkflowCommandType.completeMaintenanceTicketLane,
+        aggregateId: ticketId,
+        expectedVersion: expectedLocalVersion,
+        payload: <String, Object?>{'lane': lane.name},
+      );
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command);
+      validateMaintenanceIssueLaneCommandReceipt(
+        command: command,
+        receipt: receipt,
+      );
+      final converged = await _adoptAcceptedIssueCommand(
+        ticketId: ticketId,
+        expectedLocalVersion: expectedLocalVersion,
+        expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+        minimumServerVersion: receipt.aggregateVersion,
+        syncReason: 'maintenance_ticket_lane_completed',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            converged
+                ? '${_TicketCard._deptLabel(lane)} lane completed'
+                : 'Lane completion accepted. Exact device refresh is pending and will retry during sync.',
+          ),
+          backgroundColor: converged ? BafColors.success : BafColors.warning,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Could not complete issue lane: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyTicketId = null);
+    }
+  }
+
+  Future<RoutedTo?> _selectIssueLane({
+    required String title,
+    required List<RoutedTo> lanes,
+  }) async {
+    if (lanes.isEmpty) return null;
+    if (lanes.length == 1) return lanes.single;
+    return showDialog<RoutedTo>(
+      context: context,
+      builder:
+          (dialogContext) => SimpleDialog(
+            title: Text(title),
+            children: [
+              for (final lane in lanes)
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(dialogContext, lane),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.route_rounded,
+                        color: _TicketCard._agencyColor(lane),
+                      ),
+                      const SizedBox(width: BafSpacing.md),
+                      Text(_TicketCard._deptLabel(lane)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+    );
+  }
+
+  Future<bool> _adoptAcceptedIssueCommand({
+    required String ticketId,
+    required int expectedLocalVersion,
+    required DateTime expectedLocalUpdatedAt,
+    required int minimumServerVersion,
+    required String syncReason,
+  }) async {
+    if (ticketId.isEmpty || minimumServerVersion < 1) {
+      return false;
+    }
+    final reconciler = ref.read(maintenanceIssueCommandReconcilerProvider);
+
+    Future<bool> adopt() async {
+      try {
+        await reconciler.adoptServerMutation(
+          firestoreId: ticketId,
+          expectedLocalVersion: expectedLocalVersion,
+          expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+          minimumServerVersion: minimumServerVersion,
+        );
+        return true;
+      } on MaintenanceIssueCommandConvergenceException {
+        return false;
+      }
+    }
+
+    var converged = await adopt();
+    try {
+      await ref
+          .read(syncCoordinatorProvider)
+          .runFullSync(reason: syncReason, force: true);
+    } catch (_) {
+      // The governed command has already succeeded. Exact point-read adoption
+      // above is sufficient; ordinary sync remains available for later retry.
+    }
+    if (!converged) converged = await adopt();
+    return converged;
+  }
+
+  Future<void> _manageTicketLanes(MaintenanceRecord ticket) async {
+    final ticketId = ticket.firestoreId?.trim();
+    final plan = ticket.issueLanePlanReadResult.value;
+    if (ticketId == null ||
+        ticketId.isEmpty ||
+        plan == null ||
+        _busyTicketId != null) {
+      return;
+    }
+    final expectedLocalVersion = ticket.version;
+    final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+    final change = await showIssueLaneManagementDialog(context, ticket: ticket);
+    if (change == null || !mounted) return;
+    setState(() => _busyTicketId = ticketId);
+    try {
+      final command = WorkflowCommandFactory.create(
+        type: WorkflowCommandType.reconfigureMaintenanceTicketLanes,
+        aggregateId: ticketId,
+        expectedVersion: expectedLocalVersion,
+        payload: <String, Object?>{
+          'lanes': change.lanes.map((lane) => lane.name).toList(),
+          'otherDepartment': change.otherDepartment,
+          'reason': change.reason,
+        },
+      );
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command);
+      validateMaintenanceIssueLaneCommandReceipt(
+        command: command,
+        receipt: receipt,
+      );
+      final converged = await _adoptAcceptedIssueCommand(
+        ticketId: ticketId,
+        expectedLocalVersion: expectedLocalVersion,
+        expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+        minimumServerVersion: receipt.aggregateVersion,
+        syncReason: 'maintenance_ticket_lanes_changed',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            converged
+                ? 'Accountable lanes updated'
+                : 'Lane change accepted. Exact device refresh is pending and will retry during sync.',
+          ),
+          backgroundColor: converged ? BafColors.success : BafColors.warning,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Could not update accountable lanes: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyTicketId = null);
+    }
+  }
+
+  Future<void> _repairTicketFromServer(MaintenanceRecord ticket) async {
+    final ticketId = ticket.firestoreId?.trim();
+    if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
+    final expectedLocalVersion = ticket.version;
+    final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+    setState(() => _busyTicketId = ticketId);
+    try {
+      final refreshed = await ref
+          .read(maintenanceIssueCommandReconcilerProvider)
+          .refreshServerState(
+            firestoreId: ticketId,
+            expectedLocalVersion: expectedLocalVersion,
+            expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            refreshed.isDeleted
+                ? 'This stale issue was removed from the active device list.'
+                : 'Issue refreshed from its exact server record',
+          ),
+          backgroundColor: BafColors.success,
+        ),
+      );
+    } on MaintenanceIssueCommandConvergenceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Could not repair this issue: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyTicketId = null);
+    }
+  }
+
   Future<void> _startIssueCoordination(MaintenanceRecord ticket) async {
     final ticketId = ticket.firestoreId?.trim();
     if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
+    final expectedLocalVersion = ticket.version;
+    final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+    final appUser = ref.read(currentAppUserProvider).value;
+    final plan = ticket.issueLanePlanReadResult.value;
+    if (appUser == null || plan == null) return;
+    final candidates = plan.acknowledgedLanes
+        .where((lane) => !plan.completedLanes.contains(lane))
+        .map(RoutedTo.values.byName)
+        .where(appUser.canStartIssueCoordination)
+        .toList(growable: false);
+    final originLane = await _selectIssueLane(
+      title: 'Lane requesting Operations',
+      lanes: candidates,
+    );
+    if (originLane == null || !mounted) return;
     final draft = await showIssueCoordinationDialog(context, ticket: ticket);
     if (draft == null || !mounted) return;
     final workflowId = WorkflowCommandFactory.uniqueId('issue_coordination');
     final complianceId = WorkflowCommandFactory.uniqueId('issue_compliance');
     setState(() => _busyTicketId = ticketId);
     try {
-      await ref
+      final command = WorkflowCommandFactory.create(
+        type: WorkflowCommandType.startIssueCoordination,
+        aggregateId: workflowId,
+        expectedVersion: 0,
+        payload: draft.toCommandPayload(
+          ticketId: ticketId,
+          expectedTicketVersion: expectedLocalVersion,
+          complianceId: complianceId,
+          originRoute: originLane.name,
+        ),
+      );
+      final receipt = await ref
           .read(workflowCommandControllerProvider.notifier)
-          .execute(
-            WorkflowCommandFactory.create(
-              type: WorkflowCommandType.startIssueCoordination,
-              aggregateId: workflowId,
-              expectedVersion: 0,
-              payload: draft.toCommandPayload(
-                ticketId: ticketId,
-                expectedTicketVersion: ticket.version,
-                complianceId: complianceId,
-              ),
-            ),
-          );
-      await ref
-          .read(syncCoordinatorProvider)
-          .runFullSync(
-            reason: 'maintenance_issue_coordination_started',
-            force: true,
-          );
+          .execute(command);
+      final ticketVersion = validateMaintenanceIssueCoordinationReceipt(
+        command: command,
+        receipt: receipt,
+      );
+      final converged = await _adoptAcceptedIssueCommand(
+        ticketId: ticketId,
+        expectedLocalVersion: expectedLocalVersion,
+        expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+        minimumServerVersion: ticketVersion,
+        syncReason: 'maintenance_issue_coordination_started',
+      );
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Operations coordination started'),
-          backgroundColor: BafColors.success,
+        SnackBar(
+          content: Text(
+            converged
+                ? 'Operations coordination started'
+                : 'Operations coordination accepted. Exact device refresh is pending and will retry during sync.',
+          ),
+          backgroundColor: converged ? BafColors.success : BafColors.warning,
         ),
       );
     } catch (error) {
@@ -658,6 +1019,14 @@ class _TicketCard extends StatelessWidget {
   final bool canAcknowledge;
   final bool isBusy;
   final VoidCallback onAcknowledge;
+  final bool canCompleteLane;
+  final VoidCallback onCompleteLane;
+  final bool canManageLanes;
+  final VoidCallback onManageLanes;
+  final bool canRepairLaneData;
+  final VoidCallback onRepairLaneData;
+  final bool canRefreshServer;
+  final VoidCallback onRefreshServer;
   final bool canCoordinate;
   final VoidCallback onCoordinate;
   final VoidCallback? onOpenCoordination;
@@ -670,6 +1039,14 @@ class _TicketCard extends StatelessWidget {
     required this.canAcknowledge,
     required this.isBusy,
     required this.onAcknowledge,
+    required this.canCompleteLane,
+    required this.onCompleteLane,
+    required this.canManageLanes,
+    required this.onManageLanes,
+    required this.canRepairLaneData,
+    required this.onRepairLaneData,
+    required this.canRefreshServer,
+    required this.onRefreshServer,
     required this.canCoordinate,
     required this.onCoordinate,
     required this.onOpenCoordination,
@@ -695,6 +1072,8 @@ class _TicketCard extends StatelessWidget {
     final burnerReadings =
         burnerLockout?.resolutionMicroampReadings.entries.toList() ?? [];
     burnerReadings.sort((left, right) => left.key.compareTo(right.key));
+    final laneRead = ticket.issueLanePlanReadResult;
+    final lanePlan = laneRead.value;
 
     return Material(
       color: BafColors.card,
@@ -755,15 +1134,41 @@ class _TicketCard extends StatelessWidget {
                           spacing: BafSpacing.sm,
                           runSpacing: BafSpacing.sm,
                           children: [
-                            StatusBadge(
-                              label: _deptLabel(ticket.routedTo),
-                              color: deptColor,
-                            ),
+                            if (lanePlan != null)
+                              for (final laneName in lanePlan.assignedLanes)
+                                StatusBadge(
+                                  label: _deptLabel(
+                                    RoutedTo.values.byName(laneName),
+                                  ),
+                                  color: _agencyColor(
+                                    RoutedTo.values.byName(laneName),
+                                  ),
+                                  icon:
+                                      lanePlan.completedLanes.contains(laneName)
+                                          ? Icons.task_alt_rounded
+                                          : lanePlan.acknowledgedLanes.contains(
+                                            laneName,
+                                          )
+                                          ? Icons.verified_rounded
+                                          : Icons.schedule_rounded,
+                                )
+                            else
+                              const StatusBadge(
+                                label: 'LANE DATA ERROR',
+                                color: BafColors.danger,
+                                icon: Icons.error_outline_rounded,
+                              ),
                             if (ticket.isCritical)
                               const StatusBadge(
                                 label: 'CRITICAL',
                                 color: BafColors.danger,
                                 icon: Icons.priority_high_rounded,
+                              ),
+                            if (!ticket.isSynced)
+                              const StatusBadge(
+                                label: 'SYNC PENDING',
+                                color: BafColors.warning,
+                                icon: Icons.cloud_off_rounded,
                               ),
                             if (burnerLockout != null)
                               StatusBadge(
@@ -783,6 +1188,8 @@ class _TicketCard extends StatelessWidget {
                               label:
                                   ticket.status == TicketStatus.acknowledged
                                       ? 'Acknowledged'
+                                      : ticket.status == TicketStatus.inProgress
+                                      ? 'In progress'
                                       : 'Open $elapsedText',
                               color:
                                   ticket.status == TicketStatus.acknowledged
@@ -817,6 +1224,12 @@ class _TicketCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (canRefreshServer)
+                    IconButton(
+                      tooltip: 'Refresh this issue from server',
+                      onPressed: isBusy ? null : onRefreshServer,
+                      icon: const Icon(Icons.cloud_sync_rounded),
+                    ),
                 ],
               ),
               const SizedBox(height: BafSpacing.md),
@@ -885,7 +1298,7 @@ class _TicketCard extends StatelessWidget {
                 const SizedBox(height: 5),
                 _MetaRow(
                   icon: Icons.verified_user_outlined,
-                  text: 'Acknowledged by ${ticket.acknowledgedByName}',
+                  text: 'First accepted by ${ticket.acknowledgedByName}',
                 ),
               ],
               if (ticket.workflowDeferred) ...[
@@ -934,6 +1347,28 @@ class _TicketCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (canManageLanes) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onManageLanes,
+                    icon: const Icon(Icons.account_tree_rounded),
+                    label: const Text('Manage accountable lanes'),
+                  ),
+                ),
+              ],
+              if (canRepairLaneData) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onRepairLaneData,
+                    icon: const Icon(Icons.cloud_sync_rounded),
+                    label: const Text('Repair issue from server'),
+                  ),
+                ),
+              ],
               if (canAcknowledge) ...[
                 const SizedBox(height: BafSpacing.lg),
                 SizedBox(
@@ -948,6 +1383,17 @@ class _TicketCard extends StatelessWidget {
                             )
                             : const Icon(Icons.verified_rounded, size: 20),
                     label: Text(isBusy ? 'Acknowledging...' : 'Acknowledge'),
+                  ),
+                ),
+              ],
+              if (canCompleteLane) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onCompleteLane,
+                    icon: const Icon(Icons.task_alt_rounded, size: 20),
+                    label: const Text('Complete accountable lane'),
                   ),
                 ),
               ],

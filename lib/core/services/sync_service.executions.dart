@@ -102,12 +102,25 @@ extension _SyncServiceExecutions on SyncService {
               remoteSnapshot: remote!.toMap(),
             );
 
-            await _plannedRepo.forceRebaseExecutionFromRemote(
-              remote,
-              reason:
-                  'Rules reject local job-execution tombstones. '
-                  'The local snapshot was preserved in audit before rebasing.',
-            );
+            final rebased = await _plannedRepo
+                .applyExecutionServerReadbackIfUnchanged(
+                  remote,
+                  expectedLocal: _syncPushSnapshot(record),
+                  expectedLocalSynced: record.isSynced,
+                  reason:
+                      'Rules reject local job-execution tombstones. '
+                      'The local snapshot was preserved in audit before rebasing.',
+                );
+            if (!rebased) {
+              lastFailureCount++;
+              _recordPushFailureDetail(
+                entityType: 'job_execution',
+                entityId: _syncEntityId(record),
+                error:
+                    'Newer local job-execution work was preserved while applying the audited remote repair.',
+              );
+              continue;
+            }
 
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'job_execution',
@@ -240,12 +253,25 @@ extension _SyncServiceExecutions on SyncService {
                   remoteSnapshot: remote!.toMap(),
                 );
 
-                await _plannedRepo.forceRebaseExecutionFromRemote(
-                  remote,
-                  reason:
-                      'Rules rejected a dirty local job-execution tombstone. '
-                      'The local snapshot was preserved in audit before rebasing.',
-                );
+                final rebased = await _plannedRepo
+                    .applyExecutionServerReadbackIfUnchanged(
+                      remote,
+                      expectedLocal: _syncPushSnapshot(record),
+                      expectedLocalSynced: record.isSynced,
+                      reason:
+                          'Rules rejected a dirty local job-execution tombstone. '
+                          'The local snapshot was preserved in audit before rebasing.',
+                    );
+                if (!rebased) {
+                  lastFailureCount++;
+                  _recordPushFailureDetail(
+                    entityType: 'job_execution',
+                    entityId: _syncEntityId(record),
+                    error:
+                        'Newer local job-execution work was preserved while applying the audited remote repair.',
+                  );
+                  continue;
+                }
 
                 await _resolveRecheckedPermanentRejectionsForRecords(
                   entityType: 'job_execution',
@@ -425,12 +451,25 @@ extension _SyncServiceExecutions on SyncService {
         localSnapshot: local.toAuditMap(),
         remoteSnapshot: remote.toAuditMap(),
       );
-      await _plannedRepo.forceRebaseExecutionFromRemote(
+      final rebased = await _plannedRepo.applyExecutionServerReadbackIfUnchanged(
         remote,
+        expectedLocal: _syncPushSnapshot(local),
+        expectedLocalSynced: local.isSynced,
         reason:
             'Remote job execution is already server-completed. '
             'Local dirty completion snapshot was preserved in audit before rebasing.',
       );
+      if (!rebased) {
+        lastFailureCount++;
+        _recordPushFailureDetail(
+          entityType: 'job_execution',
+          entityId: _syncEntityId(local),
+          firestoreId: firestoreId,
+          error:
+              'Newer local completion work was preserved while applying the audited server completion.',
+        );
+        return false;
+      }
       await _resolveRecheckedPermanentRejectionsForRecords(
         entityType: 'job_execution',
         records: <JobExecution>[local],
@@ -517,11 +556,19 @@ extension _SyncServiceExecutions on SyncService {
         expectedCompletionVersion: local.version,
       );
 
-      await _plannedRepo.forceRebaseExecutionFromRemote(
+      final rebased = await _plannedRepo.applyExecutionServerReadbackIfUnchanged(
         completed,
+        expectedLocal: _syncPushSnapshot(local),
+        expectedLocalSynced: local.isSynced,
         reason:
             'Local completed execution was accepted by server-side closure function.',
       );
+      if (!rebased) {
+        throw StateError(
+          'The server completed the planned job, but newer local work was '
+          'preserved for reconciliation.',
+        );
+      }
       await _resolveRecheckedPermanentRejectionsForRecords(
         entityType: 'job_execution',
         records: <JobExecution>[local],

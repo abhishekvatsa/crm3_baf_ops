@@ -385,7 +385,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     List<ComponentAction>? actions,
     BurnerLockoutResolution? burnerResolution,
   }) async {
-    _requireCanCloseMaintenanceTicket(actor);
+    _requireCanAttemptCloseMaintenanceTicket(actor);
     final docId = id as String;
     final current = await _collection.doc(docId).get();
     if (!current.exists || current.data() == null) {
@@ -396,6 +396,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       'resolve this ticket',
     );
     final ticket = _mapTicket(current);
+    _requireCanCloseMaintenanceTicket(actor, ticket);
     _requireValidMaintenanceEvidence(ticket);
     final lockout = ticket.burnerLockoutCase;
     if (lockout != null) {
@@ -424,7 +425,17 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       'closedByName': closedByName,
       'remarks': remarks,
       'downtimeHours': downtimeHours,
-      'teamsInvolved': teamsInvolved ?? [],
+      'teamsInvolved': <String>{
+        ...ticket.issueLanePlan.assignedLanes,
+        ...?teamsInvolved,
+      }.toList(growable: false),
+      ...ticket.issueLanePlan.completeAll().toSynchronizedFields(),
+      if (ticket.acknowledgedByUid == null)
+        'acknowledgedByUid': closedByUid ?? actor.uid,
+      if (ticket.acknowledgedByUid == null)
+        'acknowledgedByName':
+            closedByName ?? (actor.name.isNotEmpty ? actor.name : actor.uid),
+      if (ticket.acknowledgedByUid == null) 'acknowledgedAt': now,
       'updatedAt': updatedAt,
       'version': ticket.version + 1,
     };
@@ -502,10 +513,15 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     );
     final newHistoryJson = jsonEncode(historyPayload.rows);
     final burnerLockout = current.burnerLockoutCase;
+    final reopenedLanePlan = current.issueLanePlan.reopen();
 
     await _collection.doc(docId).update({
       'isResolved': false,
       'status': TicketStatus.open.name,
+      ...reopenedLanePlan.toSynchronizedFields(),
+      'acknowledgedByUid': null,
+      'acknowledgedByName': null,
+      'acknowledgedAt': null,
       'endDate': FieldValue.delete(),
       'closedByUid': FieldValue.delete(),
       'closedByName': FieldValue.delete(),
@@ -528,14 +544,12 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     int offset = 0,
     DocumentSnapshot? lastDocument,
   }) async {
-    // Build query
     var query = _collection
         .where('isResolved', isEqualTo: true)
         .where('isDeleted', isEqualTo: false)
         .orderBy('endDate', descending: true)
         .limit(limit);
 
-    // Apply cursor pagination if lastDocument provided
     if (lastDocument != null) {
       query = query.startAfterDocument(lastDocument);
     }
@@ -589,8 +603,36 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   Future<void> updateFromRemote(MaintenanceRecord remote) async {}
 
   @override
+  Future<bool> applyMaintenanceIssueCommandReadback({
+    required MaintenanceRecord remote,
+    required int expectedLocalVersion,
+    required DateTime expectedLocalUpdatedAt,
+  }) async {
+    return remote.firestoreId?.trim().isNotEmpty == true && !remote.isDeleted;
+  }
+
+  @override
+  Future<bool> applyMaintenanceIssueServerRefresh({
+    required MaintenanceRecord remote,
+    required int expectedLocalVersion,
+    required DateTime expectedLocalUpdatedAt,
+  }) async {
+    return remote.firestoreId?.trim().isNotEmpty == true;
+  }
+
+  @override
   Future<MaintenanceRecord?> getByFirestoreId(String firestoreId) async {
     final doc = await _collection.doc(firestoreId).get();
+    return doc.exists ? _mapTicket(doc) : null;
+  }
+
+  @override
+  Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(
+    String firestoreId,
+  ) async {
+    final doc = await _collection
+        .doc(firestoreId)
+        .get(const GetOptions(source: Source.server));
     return doc.exists ? _mapTicket(doc) : null;
   }
 
@@ -722,7 +764,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         'non-empty firestoreId',
       );
     }
-    final document = await _collection.doc(id).get();
+    final document = await _collection
+        .doc(id)
+        .get(const GetOptions(source: Source.server));
     final data = document.data();
     return document.exists && data != null
         ? Map<String, dynamic>.from(data)
@@ -730,25 +774,20 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
-  Future<bool> applyGovernedCreationReceiptForSync({
-    required String firestoreId,
+  Future<bool> applyGovernedCreationServerStateForSync({
+    required MaintenanceRecord remote,
     required SyncPushSnapshot expectedLocal,
-    required int serverCreateVersion,
-    required DateTime serverAppliedAt,
-    required bool hasPostCreateLifecycle,
   }) {
     throw UnsupportedError(
-      'applyGovernedCreationReceiptForSync is a local sync primitive and is '
-      'not supported by the Firestore maintenance repository.',
+      'applyGovernedCreationServerStateForSync is a local sync primitive and '
+      'is not supported by the Firestore maintenance repository.',
     );
   }
 
   @override
   Future<bool> applyMaintenanceLifecycleReplayReceiptForSync({
-    required String firestoreId,
+    required MaintenanceRecord remote,
     required SyncPushSnapshot expectedLocal,
-    required int serverVersion,
-    required DateTime serverUpdatedAt,
   }) {
     throw UnsupportedError(
       'applyMaintenanceLifecycleReplayReceiptForSync is a local sync '
@@ -806,6 +845,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   Map<String, dynamic> _ticketToMap(MaintenanceRecord t) => {
     ...t.qualityIntentSynchronizedFields,
     ...t.burnerLockoutSynchronizedFields,
+    ...t.issueLaneSynchronizedFields,
     'firestoreId': t.firestoreId,
     'version': t.version,
     'assetType': t.assetType.name,

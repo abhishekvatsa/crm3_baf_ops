@@ -319,11 +319,36 @@ describe('buildTicketCreatedNotification', () => {
     );
   });
 
-  test('non-refractory routing uses governance roles only', () => {
+  test('single-lane routing includes governance and receiving discipline', () => {
     const plan = buildTicketCreatedNotification({
       assetType: 'baf', assetNumber: 1, description: 'X', routedTo: 'mechanical',
     });
-    expect(plan.roles).toEqual(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']);
+    expect(plan.roles).toEqual([
+      'admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorMechanical',
+    ]);
+  });
+
+  test('canonical multi-lane routing notifies every accountable discipline', () => {
+    const plan = buildTicketCreatedNotification({
+      assetType: 'furnace',
+      assetNumber: 7,
+      description: 'Joint burner attendance required',
+      routedTo: 'instrumentation',
+      issueAssignedLanes: ['instrumentation', 'electrical', 'mechanical'],
+    });
+
+    expect(plan.roles).toEqual(expect.arrayContaining([
+      'admin',
+      'si',
+      'contractSupervisor',
+      'shiftSupervisor',
+      'seniorInstrumentation',
+      'seniorElectrical',
+      'seniorMechanical',
+    ]));
+    expect(plan.body).toContain(
+      'Routed to INSTRUMENTATION + ELECTRICAL + MECHANICAL',
+    );
   });
 
   test('empty description falls back to "New breakdown"', () => {

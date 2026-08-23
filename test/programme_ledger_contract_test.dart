@@ -699,7 +699,7 @@ void main() {
     expect(a03Manifest['findingId'], 'A-03');
     expect(
       a03Manifest['inventoryDigest'],
-      '7DC995C3C83B733AC4B8A2EF3B3D0F51E452C197014FD9C62EF0809B7FD98EAB',
+      'ED5EE167E6946A021CC64151FDA1456F7DEC369A405C147D991E3A40F82A43BF',
     );
     expect(_objects(a03Manifest['surfaces']), hasLength(49));
 
@@ -760,10 +760,10 @@ void main() {
     expect(a04Manifest['findingId'], 'A-04');
     expect(
       a04Manifest['inventoryDigest'],
-      'A95703BD6C7AC648AAAAF0D822B6A2793CC79F85BFD04E6B053C9DC7525FCAFD',
+      'DF8FEDBDC04994401AD4713D3AF22472DAB2F75571399C81EB2D745EBEE5D547',
     );
     expect(_objects(a04Manifest['fields']), hasLength(53));
-    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(67));
+    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(70));
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

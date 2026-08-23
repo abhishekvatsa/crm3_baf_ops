@@ -663,6 +663,13 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<void> updateAbnormalityFromRemote(ChargeAbnormality remote) async {}
 
   @override
+  Future<bool> applyAbnormalityServerReadbackIfUnchanged(
+    ChargeAbnormality remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
+  }) async => false;
+
+  @override
   Future<void> batchUpsertTypes(List<AbnormalityType> records) async {
     if (records.isEmpty) return;
 

@@ -9521,7 +9521,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "7DC995C3C83B733AC4B8A2EF3B3D0F51E452C197014FD9C62EF0809B7FD98EAB"
+        == "ED5EE167E6946A021CC64151FDA1456F7DEC369A405C147D991E3A40F82A43BF"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9545,7 +9545,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "501 operations" in a03_remediation
+    and "505 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(
@@ -9558,16 +9558,16 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 67
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 70
     and a04_inventory_report.get("inventoryDigest")
-    == "A95703BD6C7AC648AAAAF0D822B6A2793CC79F85BFD04E6B053C9DC7525FCAFD"
+    == "DF8FEDBDC04994401AD4713D3AF22472DAB2F75571399C81EB2D745EBEE5D547"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
     and len(a04_fields) == 53
     and len({field.get("id") for field in a04_fields}) == 53
-    and len(a04_inherited_decoders) == 67
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 67
+    and len(a04_inherited_decoders) == 70
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 70
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -9835,9 +9835,9 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 68
-    and a05_timestamp_inventory_report.get("directCallCount") == 162
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 96
+    and a05_timestamp_inventory_report.get("readerCount") == 69
+    and a05_timestamp_inventory_report.get("directCallCount") == 163
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 97
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 64
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
@@ -9852,7 +9852,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 68
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 69
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -9877,16 +9877,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 67
+    and a05_decoder_inventory_report.get("surfaceCount") == 70
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 45
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 44
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 32
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 341
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 47
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 34
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 370
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 67
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 70
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 45
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool

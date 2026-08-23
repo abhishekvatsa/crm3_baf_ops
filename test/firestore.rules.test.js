@@ -778,6 +778,8 @@ describe("maintenance_records", () => {
   beforeEach(async () => {
     await seedUser("admin1", ["admin"]);
     await seedUser("seniorMech", ["seniorMechanical"]);
+    await seedUser("seniorElec", ["seniorElectrical"]);
+    await seedUser("supervisor1", ["contractSupervisor"]);
     await seedUser("ops1", ["operations"]);
     await seedUser("ia1", ["seniorInstrumentation"]);
   });
@@ -1443,6 +1445,107 @@ describe("maintenance_records", () => {
         downtimeHours: 1.5,
         teamsInvolved: ["mechanical"],
         actionsJson: "[]",
+        updatedAt: closedAt,
+        updatedByUid: "seniorMech",
+        updatedByName: "Senior Mechanical",
+        version: 2,
+      })
+    );
+  });
+
+  test("multi-lane closure is supervisory and requires a complete lane projection", async () => {
+    const createdAt = new Date(Date.now() - 60000).toISOString();
+    const closedAt = new Date().toISOString();
+    await seedDoc("maintenance_records/ticketMultiLane", {
+      firestoreId: "ticketMultiLane",
+      version: 3,
+      assetType: "furnace",
+      assetNumber: 7,
+      maintenanceType: "breakdown",
+      description: "Joint electrical and mechanical attendance is required.",
+      routedTo: "mechanical",
+      otherDepartment: null,
+      status: "inProgress",
+      isResolved: false,
+      isCritical: true,
+      loggedByUid: "ops1",
+      acknowledgedByUid: "seniorMech",
+      acknowledgedByName: "Senior Mechanical",
+      acknowledgedAt: createdAt,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ["mechanical", "electrical"],
+      issueAcknowledgedLanes: ["mechanical", "electrical"],
+      issueCompletedLanes: ["mechanical"],
+      createdAt,
+      updatedAt: createdAt,
+      isDeleted: false,
+    });
+    const close = {
+      isResolved: true,
+      status: "resolved",
+      endDate: closedAt,
+      closedByName: "Contract Supervisor",
+      remarks: "Both accountable disciplines confirmed restoration.",
+      downtimeHours: 1.5,
+      teamsInvolved: ["mechanical", "electrical"],
+      actionsJson: "[]",
+      issueAcknowledgedLanes: ["mechanical", "electrical"],
+      issueCompletedLanes: ["mechanical", "electrical"],
+      updatedAt: closedAt,
+      version: 4,
+    };
+
+    await assertFails(
+      updateDoc(doc(dbAs("seniorMech"), "maintenance_records/ticketMultiLane"), {
+        ...close,
+        closedByUid: "seniorMech",
+        updatedByUid: "seniorMech",
+        updatedByName: "Senior Mechanical",
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbAs("supervisor1"), "maintenance_records/ticketMultiLane"), {
+        ...close,
+        closedByUid: "supervisor1",
+        updatedByUid: "supervisor1",
+        updatedByName: "Contract Supervisor",
+      })
+    );
+  });
+
+  test("partial lane adoption cannot be smuggled into a legacy closure", async () => {
+    const createdAt = new Date(Date.now() - 60000).toISOString();
+    const closedAt = new Date().toISOString();
+    await seedDoc("maintenance_records/ticketPartialLane", {
+      firestoreId: "ticketPartialLane",
+      version: 1,
+      assetType: "base",
+      assetNumber: 1,
+      maintenanceType: "breakdown",
+      description: "Legacy issue awaiting closure.",
+      routedTo: "mechanical",
+      status: "open",
+      isResolved: false,
+      isCritical: false,
+      loggedByUid: "ops1",
+      createdAt,
+      updatedAt: createdAt,
+      isDeleted: false,
+    });
+
+    await assertFails(
+      updateDoc(doc(dbAs("seniorMech"), "maintenance_records/ticketPartialLane"), {
+        isResolved: true,
+        status: "resolved",
+        endDate: closedAt,
+        closedByUid: "seniorMech",
+        closedByName: "Senior Mechanical",
+        remarks: "Attempted closure with partial lane evidence.",
+        downtimeHours: 1,
+        teamsInvolved: ["mechanical"],
+        actionsJson: "[]",
+        issueLaneSchemaVersion: 1,
         updatedAt: closedAt,
         updatedByUid: "seniorMech",
         updatedByName: "Senior Mechanical",

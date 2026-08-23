@@ -1,5 +1,41 @@
 part of 'abnormality_provider.dart';
 
+void _copyRemoteChargeAbnormalityIntoLocal(
+  ChargeAbnormality local,
+  ChargeAbnormality remote,
+) {
+  local
+    ..sourceChargeNo = remote.sourceChargeNo
+    ..abnormalityTypeId = remote.abnormalityTypeId
+    ..abnormalityTypeTitle = remote.abnormalityTypeTitle
+    ..abnormalityTypeCode = remote.abnormalityTypeCode
+    ..category = remote.category
+    ..severity = remote.severity
+    ..affectedAssetsJson = remote.affectedAssetsJson
+    ..component = remote.component
+    ..observedReason = remote.observedReason
+    ..description = remote.description
+    ..possibleRootReasonCategory = remote.possibleRootReasonCategory
+    ..possibleRootReasonNotes = remote.possibleRootReasonNotes
+    ..reannealingStatus = remote.reannealingStatus
+    ..reannealedToChargeNo = remote.reannealedToChargeNo
+    ..loggedAt = remote.loggedAt
+    ..updatedAt = remote.updatedAt
+    ..loggedByUid = remote.loggedByUid
+    ..loggedByName = remote.loggedByName
+    ..updatedByUid = remote.updatedByUid
+    ..updatedByName = remote.updatedByName
+    ..linkedTicketFirestoreId = remote.linkedTicketFirestoreId
+    ..linkedExecutionFirestoreId = remote.linkedExecutionFirestoreId
+    ..version = remote.version
+    ..isDeleted = remote.isDeleted
+    ..deletedAt = remote.deletedAt
+    ..deletedByUid = remote.deletedByUid
+    ..deletedByName = remote.deletedByName
+    ..deleteReason = remote.deleteReason
+    ..isSynced = true;
+}
+
 class IsarAbnormalityRepository implements AbnormalityRepository {
   static const _uuid = Uuid();
 
@@ -909,38 +945,51 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       if (isLocalUnsynced && !isRemoteNewer) return;
       if (!isLocalUnsynced && isLocalNewer) return;
 
-      local
-        ..sourceChargeNo = remote.sourceChargeNo
-        ..abnormalityTypeId = remote.abnormalityTypeId
-        ..abnormalityTypeTitle = remote.abnormalityTypeTitle
-        ..abnormalityTypeCode = remote.abnormalityTypeCode
-        ..category = remote.category
-        ..severity = remote.severity
-        ..affectedAssetsJson = remote.affectedAssetsJson
-        ..component = remote.component
-        ..observedReason = remote.observedReason
-        ..description = remote.description
-        ..possibleRootReasonCategory = remote.possibleRootReasonCategory
-        ..possibleRootReasonNotes = remote.possibleRootReasonNotes
-        ..reannealingStatus = remote.reannealingStatus
-        ..reannealedToChargeNo = remote.reannealedToChargeNo
-        ..loggedAt = remote.loggedAt
-        ..updatedAt = remote.updatedAt
-        ..loggedByUid = remote.loggedByUid
-        ..loggedByName = remote.loggedByName
-        ..updatedByUid = remote.updatedByUid
-        ..updatedByName = remote.updatedByName
-        ..linkedTicketFirestoreId = remote.linkedTicketFirestoreId
-        ..linkedExecutionFirestoreId = remote.linkedExecutionFirestoreId
-        ..version = remote.version
-        ..isDeleted = remote.isDeleted
-        ..deletedAt = remote.deletedAt
-        ..deletedByUid = remote.deletedByUid
-        ..deletedByName = remote.deletedByName
-        ..deleteReason = remote.deleteReason
-        ..isSynced = true;
+      _copyRemoteChargeAbnormalityIntoLocal(local, remote);
 
       await _abnormalityBox.put(local);
+    });
+  }
+
+  @override
+  Future<bool> applyAbnormalityServerReadbackIfUnchanged(
+    ChargeAbnormality remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
+  }) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty) return false;
+    if (remote.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        remote.deletedAt,
+        entityLabel: 'charge abnormality',
+        firestoreId: firestoreId,
+      );
+    }
+
+    return isar.writeTxn<bool>(() async {
+      final local =
+          await _abnormalityBox
+              .filter()
+              .firestoreIdEqualTo(firestoreId)
+              .findFirst();
+      if (local == null || local.id != expectedLocal.id) return false;
+
+      final alreadyAtServerBoundary =
+          local.isSynced &&
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt);
+      final stillAtExpectedBoundary =
+          local.isSynced == expectedLocalSynced &&
+          expectedLocal.matches(
+            currentVersion: local.version,
+            currentUpdatedAt: local.updatedAt,
+          );
+      if (!alreadyAtServerBoundary && !stillAtExpectedBoundary) return false;
+
+      _copyRemoteChargeAbnormalityIntoLocal(local, remote);
+      await _abnormalityBox.put(local);
+      return true;
     });
   }
 
