@@ -522,17 +522,17 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "8741550B67CC8FABABC4B26FF2EB1BB1FE7065D3E3F44D3A30003D9C41BB1FED",
+      "candidateSha256": "F86976B892F6FF9A03432B14EBFF7D90E2E4576DAEF8EEDC912D874B994845BB",
       "canonicalBytes": 9674,
-      "candidateBytes": 26685,
+      "candidateBytes": 26826,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "functions/src/notifications.ts",
       "canonicalSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
-      "candidateSha256": "0104F40B589DD5FDE78F3F7C531C7777C43FFDEE1D5B949CFE91539414CEBDBF",
+      "candidateSha256": "C0B40C1B48927A66796E49B7414CBC43A775BFDB11F5050420C89156F36FC236",
       "canonicalBytes": 15314,
-      "candidateBytes": 19184,
+      "candidateBytes": 21448,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -610,9 +610,9 @@
     {
       "path": "functions/test/notifications.test.js",
       "canonicalSha256": "7B27BE26533F60BAF001759FA8182D326AA347DA74EE1EC78F2434083904C378",
-      "candidateSha256": "E5968A8328B69B29E3C9C89722B8374E485BF8007D063824AA54C9244D582FD4",
+      "candidateSha256": "3D1EFECE2FE784D36B3509FE7085E4AA66296BF2CC4C11A4883C88DDD5B22142",
       "canonicalBytes": 17292,
-      "candidateBytes": 28653,
+      "candidateBytes": 30503,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
