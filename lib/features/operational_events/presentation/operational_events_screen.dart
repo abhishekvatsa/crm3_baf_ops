@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/providers/operations_report_clock_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -69,7 +70,8 @@ class _OperationalEventsScreenState
     final reportEventsAsync = ref.watch(operationalEventsForReportsProvider);
     final classes = ref.watch(assetClassesProvider).value ?? const [];
     final assets = ref.watch(allAssetInstancesProvider).value ?? const [];
-    final asOf = DateTime.now();
+    final asOf =
+        ref.watch(operationsReportClockProvider).value ?? DateTime.now();
 
     return Scaffold(
       backgroundColor: BafColors.background,

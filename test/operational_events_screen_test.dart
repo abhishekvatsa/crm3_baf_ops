@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:crm3_baf_ops/core/providers/operations_report_clock_provider.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -17,6 +20,9 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final now = DateTime.now();
+    final clock = StreamController<DateTime>();
+    addTearDown(clock.close);
+    clock.add(now);
     final event = _openCraneEvent(now);
     await tester.pumpWidget(
       ProviderScope(
@@ -34,6 +40,7 @@ void main() {
           operationalEventsForReportsProvider.overrideWith(
             (ref) => Stream.value([event]),
           ),
+          operationsReportClockProvider.overrideWith((ref) => clock.stream),
         ],
         child: const MaterialApp(home: OperationalEventsScreen()),
       ),
@@ -67,7 +74,12 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(totalImpact, findsOneWidget);
+    expect(find.textContaining('Total impact 1h 30m'), findsOneWidget);
     expect(find.textContaining('ongoing'), findsOneWidget);
+
+    clock.add(now.add(const Duration(minutes: 1)));
+    await tester.pump();
+    expect(find.textContaining('Total impact 1h 31m'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -92,6 +104,9 @@ void main() {
           ),
           operationalEventsForReportsProvider.overrideWith(
             (ref) => Stream.error(StateError('history must not be read')),
+          ),
+          operationsReportClockProvider.overrideWith(
+            (ref) => Stream.error(StateError('clock must not be read')),
           ),
         ],
         child: const MaterialApp(home: OperationalEventsScreen()),
