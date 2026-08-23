@@ -917,6 +917,13 @@ function warningAfterAbnormalityUpdate(args: {
         decisionReason: args.reason,
       });
     } else if (afterAbnormality.reannealingStatus === "completed") {
+      if (beforeAbnormality.reannealingStatus !== "required") {
+        throw new ChargeAbnormalityMutationError(
+          "failed-precondition",
+          "Re-annealing completion requires a prior RA-required decision.",
+          {reasonCode: "charge-quality-ra-not-required"},
+        );
+      }
       Object.assign(after, {
         status: "closed",
         closedAt: args.committedAt,

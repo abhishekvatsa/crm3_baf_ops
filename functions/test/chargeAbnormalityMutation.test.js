@@ -100,7 +100,7 @@ function abnormality(overrides = {}) {
     description: null,
     possibleRootReasonCategory: 'unknown',
     possibleRootReasonNotes: null,
-    reannealingStatus: 'notApplicable',
+    reannealingStatus: 'required',
     reannealedToChargeNo: null,
     loggedAt: '2026-07-20T08:00:00.000Z',
     updatedAt: '2026-07-20T08:00:00.000Z',
@@ -386,6 +386,39 @@ describe('charge-abnormality admin mutation', () => {
       closureDisposition: 'coilFoundAcceptable',
       version: 2,
     });
+  });
+
+  test('Admin RA completion requires a prior required decision', async () => {
+    const record = abnormality({
+      firestoreId: 'issue_quality_ticket-1',
+      linkedTicketFirestoreId: 'ticket-1',
+      reannealingStatus: 'pendingDecision',
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...linkedIssueCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await expect(invoke(state.db, updateRequest({
+      abnormalityId: record.firestoreId,
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'charge-quality-ra-not-required'},
+    });
+    expect(state.writes).toHaveLength(0);
+    expect(state.store.get(`charge_abnormalities/${record.firestoreId}`))
+      .toMatchObject({
+        reannealingStatus: 'pendingDecision',
+        reannealedToChargeNo: null,
+        version: 4,
+      });
+    expect(state.store.get('quality_warnings/issue_ticket-1'))
+      .toMatchObject({
+        status: 'open',
+        linkedReannealingChargeNos: [],
+        version: 1,
+      });
   });
 
   test('missing warnings and independent deletion of linked cases fail closed', async () => {

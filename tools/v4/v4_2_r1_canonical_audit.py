@@ -7442,6 +7442,9 @@ check(
     and "const after: UserAuthorityJsonMap = {...existing};"
         in s07_source
     and "reannealed-charge-matches-source" in s07_source
+    and "charge-quality-ra-not-required" in s07_source
+    and "Admin RA completion requires a prior required decision"
+        in s07_unit_test
     and 'transaction.set(abnormalityRef, after);' in s07_source
     and 'transaction.set(auditRef, {' in s07_source
     and 'transaction.set(receiptRef, {' in s07_source
