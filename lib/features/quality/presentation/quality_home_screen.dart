@@ -121,62 +121,73 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
 
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(qualityWarningsProvider),
-          child: ListView(
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
               BafSpacing.lg,
               BafSpacing.lg,
               BafSpacing.lg,
               BafSpacing.xl,
             ),
-            children: [
-              _SummaryStrip(open: open, review: review, closed: closed),
-              if (items.length >= qualityWarningLiveWindowLimit) ...[
-                const SizedBox(height: BafSpacing.sm),
-                const _WindowScopeNotice(
-                  text:
-                      'Showing every open or review warning plus up to 500 recent warnings',
+            itemCount: visible.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SummaryStrip(open: open, review: review, closed: closed),
+                    if (items.length >= qualityWarningLiveWindowLimit) ...[
+                      const SizedBox(height: BafSpacing.sm),
+                      const _WindowScopeNotice(
+                        text:
+                            'Showing every open or review warning plus up to 500 recent warnings',
+                      ),
+                    ],
+                    const SizedBox(height: BafSpacing.lg),
+                    SegmentedButton<_WarningFilter>(
+                      segments: const [
+                        ButtonSegment(
+                          value: _WarningFilter.open,
+                          label: Text('Open'),
+                        ),
+                        ButtonSegment(
+                          value: _WarningFilter.review,
+                          label: Text('Review'),
+                        ),
+                        ButtonSegment(
+                          value: _WarningFilter.closed,
+                          label: Text('Closed'),
+                        ),
+                      ],
+                      selected: <_WarningFilter>{_filter},
+                      onSelectionChanged:
+                          (selection) =>
+                              setState(() => _filter = selection.first),
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    if (visible.isEmpty)
+                      const _EmptyState(
+                        icon: Icons.fact_check_outlined,
+                        title: 'No warnings in this view',
+                      ),
+                  ],
+                );
+              }
+
+              final warning = visible[index - 1];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: BafSpacing.md),
+                child: _WarningCard(
+                  warning: warning,
+                  actor: actor,
+                  busy: _submitting,
+                  onRequestClosure: () => _requestWarningClosure(warning),
+                  onDeclareRaRequired: () => _declareRaRequired(warning),
+                  onClose: () => _closeWarning(warning),
+                  onReopen: () => _reopenWarning(warning),
                 ),
-              ],
-              const SizedBox(height: BafSpacing.lg),
-              SegmentedButton<_WarningFilter>(
-                segments: const [
-                  ButtonSegment(
-                    value: _WarningFilter.open,
-                    label: Text('Open'),
-                  ),
-                  ButtonSegment(
-                    value: _WarningFilter.review,
-                    label: Text('Review'),
-                  ),
-                  ButtonSegment(
-                    value: _WarningFilter.closed,
-                    label: Text('Closed'),
-                  ),
-                ],
-                selected: <_WarningFilter>{_filter},
-                onSelectionChanged:
-                    (selection) => setState(() => _filter = selection.first),
-              ),
-              const SizedBox(height: BafSpacing.lg),
-              if (visible.isEmpty)
-                const _EmptyState(
-                  icon: Icons.fact_check_outlined,
-                  title: 'No warnings in this view',
-                )
-              else
-                for (final warning in visible) ...[
-                  _WarningCard(
-                    warning: warning,
-                    actor: actor,
-                    busy: _submitting,
-                    onRequestClosure: () => _requestWarningClosure(warning),
-                    onDeclareRaRequired: () => _declareRaRequired(warning),
-                    onClose: () => _closeWarning(warning),
-                    onReopen: () => _reopenWarning(warning),
-                  ),
-                  const SizedBox(height: BafSpacing.md),
-                ],
-            ],
+              );
+            },
           ),
         );
       },

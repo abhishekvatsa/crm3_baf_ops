@@ -7433,7 +7433,13 @@ check(
     and "const actorSnapshot = await transaction.get(actorRef);"
         in s07_source
     and "existing.version !== request.expectedVersion" in s07_source
-    and "const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS];"
+    and "const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter("
+        in s07_source
+    and '(field) => field !== "_globalPullServerUpdatedAt"'
+        in s07_source
+    and "!validServerTimestamp(data._globalPullServerUpdatedAt)"
+        in s07_source
+    and "const after: UserAuthorityJsonMap = {...existing};"
         in s07_source
     and "reannealed-charge-matches-source" in s07_source
     and 'transaction.set(abnormalityRef, after);' in s07_source

@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
+import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -281,6 +282,64 @@ void main() {
       await tester.tap(find.text('Monitoring (1)'));
       await tester.pumpAndSettle();
       expect(find.text('Base 12 · CRGO M4'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'warning cards create only visible charge listeners and dispose them',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final activeCharges = <int>{};
+      final warnings = List<QualityWarning>.generate(80, (index) {
+        final id = 'issue_ticket-$index';
+        return QualityWarning.fromMap(
+          _warning()
+            ..['warningId'] = id
+            ..['sourceId'] = 'ticket-$index'
+            ..['sourceChargeNo'] = 12000 + index
+            ..['sourceSummary'] = 'Warning summary $index',
+          id,
+        );
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+            qualityWarningsProvider.overrideWith(
+              (ref) => Stream.value(warnings),
+            ),
+            qualityMonitoringRequestsProvider.overrideWith(
+              (ref) => Stream.value(const <QualityMonitoringRequest>[]),
+            ),
+            abnormalitiesForChargeProvider.overrideWith((
+              ref,
+              sourceChargeNo,
+            ) {
+              activeCharges.add(sourceChargeNo);
+              ref.onDispose(() => activeCharges.remove(sourceChargeNo));
+              return Stream.value(const <ChargeAbnormality>[]);
+            }),
+          ],
+          child: MaterialApp(
+            theme: BafAppTheme.light,
+            home: const QualityHomeScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(activeCharges, isNotEmpty);
+      expect(activeCharges.length, lessThan(warnings.length));
+      expect(find.text('Warning summary 79'), findsNothing);
+
+      await tester.tap(find.text('Review').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('No warnings in this view'), findsOneWidget);
+      expect(activeCharges, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
