@@ -316,7 +316,13 @@ const closureTeams = (
   return [...new Set([...assigned, ...requested])];
 };
 
+const burnerAttendanceSessionId = (
+  ticketId: string,
+  burnerPosition: number,
+): string => `burner_${ticketId}_${burnerPosition}`;
+
 const burnerResolutionProjection = (
+  ticketId: string,
   ticket: JsonMap,
   actions: readonly JsonMap[],
 ): {readonly attended: number[]; readonly evidence: JsonMap} | null => {
@@ -344,7 +350,10 @@ const burnerResolutionProjection = (
     const normalizedReading = reading == null ? null : reading as number;
     if (!Number.isSafeInteger(position) ||
         !positions.includes(position as number) ||
-        action.attendanceSessionId !== ticket.firestoreId ||
+        action.attendanceSessionId !== burnerAttendanceSessionId(
+          ticketId,
+          position as number,
+        ) ||
         typeof actionCode !== "string" ||
         !BURNER_ACTION_CODES.has(actionCode) ||
         typeof outcome !== "string" ||
@@ -1995,7 +2004,11 @@ export const resolveMaintenanceTicket = async ({
     plan.assigned,
   );
   const actions = closureActionPayload(command.payload.actionsJson);
-  const burner = burnerResolutionProjection(ticket, actions.rows);
+  const burner = burnerResolutionProjection(
+    command.aggregateId,
+    ticket,
+    actions.rows,
+  );
   if (burner != null && actions.rows.length === 0) {
     throw new WorkflowError(
       "failed-precondition",

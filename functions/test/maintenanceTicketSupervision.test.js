@@ -145,6 +145,29 @@ function createCommand({
   };
 }
 
+function burnerResolutionAction({
+  position,
+  code = 'uvDetectorCleaning',
+  reading,
+  attendanceSessionId = `burner_ticket-1_${position}`,
+}) {
+  return {
+    schemaVersion: 1,
+    asset: 'Furnace 7',
+    component: `Burner ${position}`,
+    actionType: 'repair',
+    isAutoResolved: false,
+    createdAt: '2026-08-14T16:00:00.000Z',
+    severity: 'high',
+    version: 1,
+    attendanceSessionId,
+    burnerPosition: position,
+    burnerActionCode: code,
+    burnerOutcome: 'returnedToService',
+    burnerMicroampReading: reading,
+  };
+}
+
 describe('governed maintenance-ticket supervision', () => {
   test('creates an asset-bound issue atomically with server actor and time', async () => {
     const {store, service, context} = createServiceFor(mechanical);
@@ -718,22 +741,6 @@ describe('governed maintenance-ticket supervision', () => {
       burnerResolutionEvidence: {},
       updatedAt: '2026-08-14T12:00:00.000Z',
     });
-    const action = (position, code, reading) => ({
-      schemaVersion: 1,
-      asset: 'Furnace 7',
-      component: `Burner ${position}`,
-      actionType: 'repair',
-      isAutoResolved: false,
-      createdAt: '2026-08-14T16:00:00.000Z',
-      severity: 'high',
-      version: 1,
-      attendanceSessionId: 'ticket-1',
-      burnerPosition: position,
-      burnerActionCode: code,
-      burnerOutcome: 'returnedToService',
-      burnerMicroampReading: reading,
-    });
-
     await expect(seeded.service.execute({
       commandId: 'resolve-burner-ticket',
       commandType: 'resolveMaintenanceTicket',
@@ -744,8 +751,8 @@ describe('governed maintenance-ticket supervision', () => {
         remarks: 'Both burners returned to service after UV cleaning.',
         teamsInvolved: ['instrumentation'],
         actionsJson: JSON.stringify([
-          action(2, 'uvDetectorCleaning', 4.2),
-          action(5, 'uvDetectorCleaning', 4.8),
+          burnerResolutionAction({position: 2, reading: 4.2}),
+          burnerResolutionAction({position: 5, reading: 4.8}),
         ]),
       },
     }, seeded.context)).resolves.toMatchObject({aggregateVersion: 4});
@@ -771,6 +778,37 @@ describe('governed maintenance-ticket supervision', () => {
         sourceVersion: 4,
         closedByUid: admin.uid,
       });
+  });
+
+  test('rejects burner evidence bound to another attendance session', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      routedTo: 'instrumentation',
+      classification: 'furnaceBurnerLockout',
+      burnerPositions: [2],
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'resolve-mismatched-burner-session',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Attempted closure with mismatched burner evidence.',
+        teamsInvolved: ['instrumentation'],
+        actionsJson: JSON.stringify([
+          burnerResolutionAction({
+            position: 2,
+            reading: 4.2,
+            attendanceSessionId: 'burner_ticket-1_5',
+          }),
+        ]),
+      },
+    }, seeded.context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {reasonCode: 'maintenance-ticket-burner-resolution-invalid'},
+    });
   });
 
   test('operations reopens an exact resolved record and preserves closure history', async () => {
