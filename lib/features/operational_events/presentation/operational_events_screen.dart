@@ -45,7 +45,7 @@ class _OperationalEventsScreenState
         label: 'Checking operational-event access',
       );
     }
-    if (actorAsync.hasError && !actorAsync.hasValue) {
+    if (actorAsync.hasError) {
       return BafScreenStateScaffold.error(
         appBarTitle: 'Operational events',
         appBarSubtitle: 'Verifying your approved operational scope',

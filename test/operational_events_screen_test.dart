@@ -119,6 +119,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('authority failure hides a previously approved event view', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final actors = StreamController<AppUser?>();
+    addTearDown(actors.close);
+    actors.add(_operationsUser(now));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationalEventsProvider.overrideWith(
+            (ref) => Stream.value([_openCraneEvent(now)]),
+          ),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilledButton, 'Add event'), findsOneWidget);
+
+    actors.addError(StateError('authority stream failed'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Operational-event access could not be verified.'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(FilledButton, 'Add event'), findsNothing);
+    expect(find.text('Monthly impact'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('authorized event entry remains available while feed loads', (
     tester,
   ) async {
