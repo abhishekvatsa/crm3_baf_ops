@@ -74,20 +74,46 @@ void main() {
     );
     expect(knowledgeReads, 1);
   });
+
+  testWidgets('publisher-formatted empty JSON opens a fresh composer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _composerApp(
+        actorStream: Stream<AppUser?>.value(_admin()),
+        knowledgeLoader: () async => _knowledgeBundle(),
+        initialJobTemplateJson: '{\n  \n}',
+        initialModuleSnapshotsJson: '[\n  \n]',
+        initialFieldDefinitionsJson: '[\n  \n]',
+        initialChecklistJson: '[\n  \n]',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved composer payload needs repair'), findsNothing);
+    expect(
+      find.byKey(const Key('module-composer-template-title')),
+      findsOneWidget,
+    );
+  });
 }
 
 Widget _composerApp({
   required Stream<AppUser?> actorStream,
   required Future<BafKnowledgeBundle> Function() knowledgeLoader,
+  String initialJobTemplateJson = '{}',
+  String initialModuleSnapshotsJson = '[]',
+  String initialFieldDefinitionsJson = '[]',
+  String initialChecklistJson = '[]',
 }) {
   return ProviderScope(
     overrides: [currentAppUserProvider.overrideWith((ref) => actorStream)],
     child: MaterialApp(
       home: ModuleComposerScreen(
-        initialJobTemplateJson: '{}',
-        initialModuleSnapshotsJson: '[]',
-        initialFieldDefinitionsJson: '[]',
-        initialChecklistJson: '[]',
+        initialJobTemplateJson: initialJobTemplateJson,
+        initialModuleSnapshotsJson: initialModuleSnapshotsJson,
+        initialFieldDefinitionsJson: initialFieldDefinitionsJson,
+        initialChecklistJson: initialChecklistJson,
         knowledgeBundleLoader: knowledgeLoader,
       ),
     ),
