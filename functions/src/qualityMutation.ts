@@ -178,6 +178,7 @@ const LINKED_ABNORMALITY_FIELDS = new Set([
   "deletedByUid",
   "deletedByName",
   "deleteReason",
+  "_globalPullServerUpdatedAt",
 ]);
 const WARNING_FIELDS = new Set([
   "schemaVersion",
@@ -666,7 +667,8 @@ function validateLinkedAbnormality(
       malformed("charge-quality-abnormality", key);
     }
   }
-  for (const field of LINKED_ABNORMALITY_FIELDS) {
+  for (const field of [...LINKED_ABNORMALITY_FIELDS].filter((value) =>
+    value !== "_globalPullServerUpdatedAt")) {
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       malformed("charge-quality-abnormality", field);
     }
@@ -714,6 +716,10 @@ function validateLinkedAbnormality(
   if (!validDate(data.loggedAt) || !validDate(data.updatedAt) ||
       !REANNEALING_STATUSES.has(data.reannealingStatus as string)) {
     malformed("charge-quality-abnormality", "reannealingStatus");
+  }
+  if (data._globalPullServerUpdatedAt != null &&
+      !validDate(data._globalPullServerUpdatedAt)) {
+    malformed("charge-quality-abnormality", "_globalPullServerUpdatedAt");
   }
   const completed = data.reannealingStatus === "completed";
   const target = data.reannealedToChargeNo;

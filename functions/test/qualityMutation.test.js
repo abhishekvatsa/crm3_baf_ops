@@ -299,8 +299,11 @@ describe('quality mutation', () => {
     });
   });
 
-  test('linked issue case keeps RA status and warning lifecycle atomic', async () => {
-    const memory = fakeDb(linkedIssueSeed());
+  test('stamped linked issue keeps RA and warning lifecycle atomic', async () => {
+    const serverStamp = new Date('2026-08-14T09:00:00.000Z');
+    const memory = fakeDb(linkedIssueSeed({
+      _globalPullServerUpdatedAt: serverStamp,
+    }));
     const declared = await invoke(memory, 'si-1', {
       requestId: IDS.raRequired,
       operation: 'DECLARE_QUALITY_CASE_RA_REQUIRED',
@@ -315,7 +318,11 @@ describe('quality mutation', () => {
     });
     expect(
       memory.store.get('charge_abnormalities/issue_quality_ticket-1'),
-    ).toMatchObject({reannealingStatus: 'required', version: 2});
+    ).toMatchObject({
+      reannealingStatus: 'required',
+      version: 2,
+      _globalPullServerUpdatedAt: serverStamp,
+    });
 
     const completedRequest = {
       requestId: IDS.close,
@@ -344,6 +351,7 @@ describe('quality mutation', () => {
       reannealingStatus: 'completed',
       reannealedToChargeNo: 13001,
       version: 3,
+      _globalPullServerUpdatedAt: serverStamp,
     });
 
     await invoke(memory, 'si-1', {
@@ -363,6 +371,27 @@ describe('quality mutation', () => {
       reannealingStatus: 'pendingDecision',
       reannealedToChargeNo: null,
       version: 4,
+      _globalPullServerUpdatedAt: serverStamp,
+    });
+  });
+
+  test('malformed linked abnormality server clock fails closed', async () => {
+    const memory = fakeDb(linkedIssueSeed({
+      _globalPullServerUpdatedAt: 'not-a-timestamp',
+    }));
+
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.raRequired,
+      operation: 'DECLARE_QUALITY_CASE_RA_REQUIRED',
+      warningId: 'issue_ticket-1',
+      expectedVersion: 1,
+      reason: 'The affected charge requires a governed re-annealing cycle.',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'charge-quality-abnormality-malformed',
+        field: '_globalPullServerUpdatedAt',
+      },
     });
   });
 
