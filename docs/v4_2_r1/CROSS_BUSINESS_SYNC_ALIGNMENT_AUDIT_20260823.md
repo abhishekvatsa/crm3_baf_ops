@@ -54,6 +54,11 @@ silently inheriting an unsuitable strategy.
 - Approved users can select **Recheck with server** for held records. This runs
   the normal rules and callables again; it does not bypass authority, delete a
   source row, overwrite it, or mark it synchronized merely by releasing a hold.
+- The exact unresolved hold remains in place during that recheck. It is
+  resolved per record only after an accepted remote write, an authoritative
+  callable receipt, or an exact remote readback has been reconciled. A network
+  failure, server rejection, conflict, or partial batch failure retains the
+  original hold.
 - Admin review remains available for diagnostic disposition, but ordinary
   recovery no longer depends on an Admin being present.
 
@@ -88,7 +93,7 @@ Evidence produced against this source tranche:
 ```text
 Flutter analyze:                         no issues
 Focused sync and business tests:         87 passed
-Full Flutter suite:                   1,174 passed, 1 skipped
+Full Flutter suite:                   1,182 passed, 1 skipped
 Functions Jest:                         553 passed, 80 skipped
 Firestore Rules emulator:               180 passed
 Governed asset-identity emulator:          3 passed

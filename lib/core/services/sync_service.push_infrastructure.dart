@@ -177,11 +177,18 @@ extension _SyncServicePushInfrastructure on SyncService {
                 .findFirst();
 
         if (existing != null) {
+          final preservePermanentEvidence =
+              existing.isLikelyPermanent && !detail.isLikelyPermanent;
           existing.markSeenAgain(
-            message: detail.message,
-            errorCode: detail.errorCode,
+            message:
+                preservePermanentEvidence ? existing.message : detail.message,
+            errorCode:
+                preservePermanentEvidence
+                    ? existing.errorCode
+                    : detail.errorCode,
             firestoreId: detail.firestoreId,
-            isLikelyPermanent: detail.isLikelyPermanent,
+            isLikelyPermanent:
+                existing.isLikelyPermanent || detail.isLikelyPermanent,
             at: detail.occurredAt,
           );
           await localIsar.syncRejections.put(existing);
@@ -285,19 +292,9 @@ extension _SyncServicePushInfrastructure on SyncService {
     if (rejectionsByEntityId.isEmpty) return records;
 
     if (_recheckPermanentRejections) {
-      final rejectionIds =
-          rejectionsByEntityId.values.map((rejection) => rejection.id).toSet();
-      await localIsar.writeTxn(() async {
-        for (final rejectionId in rejectionIds) {
-          final rejection = await localIsar.syncRejections.get(rejectionId);
-          if (rejection == null || rejection.isResolved) continue;
-          rejection.markResolved(
-            notes:
-                'Manual server recheck released the local retry hold. No source record was marked synchronized, changed, or deleted by this action.',
-          );
-          await localIsar.syncRejections.put(rejection);
-        }
-      });
+      _permanentRejectionIdsUnderRecheck.addAll(
+        rejectionsByEntityId.values.map((rejection) => rejection.id),
+      );
       return records;
     }
 
@@ -323,6 +320,81 @@ extension _SyncServicePushInfrastructure on SyncService {
     }
 
     return eligible;
+  }
+
+  Future<void> _resolveRecheckedPermanentRejectionsForRecords({
+    required String entityType,
+    required Iterable<dynamic> records,
+    required String evidence,
+  }) async {
+    if (!_recheckPermanentRejections ||
+        _permanentRejectionIdsUnderRecheck.isEmpty ||
+        kIsWeb) {
+      return;
+    }
+
+    final candidateEntityIds = <String>{};
+    final candidateFirestoreIds = <String>{};
+    for (final record in records) {
+      candidateEntityIds.add(_syncEntityId(record));
+      final firestoreId = _syncFirestoreId(record);
+      if (firestoreId != null) candidateFirestoreIds.add(firestoreId);
+    }
+    await _resolveRecheckedPermanentRejections(
+      entityType: entityType,
+      entityIds: candidateEntityIds,
+      firestoreIds: candidateFirestoreIds,
+      evidence: evidence,
+    );
+  }
+
+  Future<void> _resolveRecheckedPermanentRejections({
+    required String entityType,
+    required Set<String> entityIds,
+    Set<String> firestoreIds = const <String>{},
+    required String evidence,
+  }) async {
+    if (!_recheckPermanentRejections ||
+        _permanentRejectionIdsUnderRecheck.isEmpty ||
+        kIsWeb ||
+        (entityIds.isEmpty && firestoreIds.isEmpty)) {
+      return;
+    }
+
+    final localIsar = Isar.getInstance();
+    if (localIsar == null) return;
+
+    final resolvedIds = <int>{};
+    final trackedIds = _permanentRejectionIdsUnderRecheck.toList();
+    await localIsar.writeTxn(() async {
+      for (final rejectionId in trackedIds) {
+        final rejection = await localIsar.syncRejections.get(rejectionId);
+        if (rejection == null || rejection.isResolved) {
+          resolvedIds.add(rejectionId);
+          continue;
+        }
+        if (!rejection.isLikelyPermanent ||
+            rejection.entityType != entityType) {
+          continue;
+        }
+
+        final rejectionFirestoreId = rejection.firestoreId?.trim();
+        final matches =
+            entityIds.contains(rejection.entityId) ||
+            (rejectionFirestoreId != null &&
+                rejectionFirestoreId.isNotEmpty &&
+                firestoreIds.contains(rejectionFirestoreId));
+        if (!matches) continue;
+
+        rejection.markResolved(
+          notes:
+              'Manual server recheck confirmed authoritative remote acceptance or exact remote readback before releasing this retry hold. Evidence: $evidence.',
+        );
+        await localIsar.syncRejections.put(rejection);
+        resolvedIds.add(rejectionId);
+      }
+    });
+    _permanentRejectionIdsUnderRecheck.removeAll(resolvedIds);
   }
 
   void _recordAutomaticRetryHeld({

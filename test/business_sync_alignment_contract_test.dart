@@ -140,6 +140,10 @@ void main() {
             File(
               'lib/core/services/sync_service.push_infrastructure.dart',
             ).readAsStringSync();
+        final knowledge =
+            File(
+              'lib/core/services/sync_service.knowledge_base.dart',
+            ).readAsStringSync();
         final indicator =
             File(
               'lib/core/widgets/sync_status_indicator.dart',
@@ -152,13 +156,33 @@ void main() {
           ),
         );
         expect(coordinator, contains('followUp.recheckPermanentRejections'));
-        expect(push, contains('if (_recheckPermanentRejections)'));
+        final eligibility = _functionBody(
+          push,
+          'Future<List<T>> _recordsEligibleForAutomaticPush<T>',
+        );
+        expect(eligibility, contains('if (_recheckPermanentRejections)'));
+        expect(
+          eligibility,
+          contains('_permanentRejectionIdsUnderRecheck.addAll'),
+        );
+        expect(eligibility, isNot(contains('markResolved(')));
         expect(
           push,
-          contains(
-            'No source record was marked synchronized, changed, or deleted',
-          ),
+          contains('_resolveRecheckedPermanentRejectionsForRecords'),
         );
+        expect(
+          push,
+          contains('authoritative remote acceptance or exact remote readback'),
+        );
+        expect(
+          _functionBody(
+            knowledge,
+            'Future<bool> _isKnowledgeBaseBatchHeldByPermanentRejection()',
+          ),
+          isNot(contains('markResolved(')),
+        );
+        expect(knowledge, contains('if (pushed > 0)'));
+        expect(knowledge, contains('_resolveRecheckedPermanentRejections('));
         expect(indicator, contains('Recheck with server'));
         expect(indicator, contains("reason: 'manual_rejection_recheck'"));
         expect(indicator, contains('Local evidence was preserved'));

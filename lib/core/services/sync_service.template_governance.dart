@@ -42,6 +42,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
       final recordsToPush = <TemplatePackage>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final convergedRecords = <TemplatePackage>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -64,6 +65,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
             !remote.isDeleted &&
             syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          convergedRecords.add(record);
           lastSuccessCount++;
           continue;
         }
@@ -71,6 +73,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            convergedRecords.add(record);
             lastSuccessCount++;
             continue;
           }
@@ -80,6 +83,12 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
         if (remote != null && remote.isDeleted) {
           await _templateGovernanceRepo.applyTombstoneFromPackageRemote(remote);
+          await _resolveRecheckedPermanentRejectionsForRecords(
+            entityType: 'template_package',
+            records: <TemplatePackage>[record],
+            evidence:
+                'The canonical remote template-package tombstone was adopted locally.',
+          );
           lastSuccessCount++;
           continue;
         }
@@ -123,10 +132,17 @@ extension _SyncServiceTemplateGovernance on SyncService {
       final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
       if (pushSuccess) {
         snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+        convergedRecords.addAll(recordsToPush);
       }
       if (snapshotsToMark.isNotEmpty) {
         await _templateGovernanceRepo.markPackagesSyncedIfUnchanged(
           snapshotsToMark,
+        );
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'template_package',
+          records: convergedRecords,
+          evidence:
+              'The remote template-package write or exact readback completed and the local snapshot was reconciled.',
         );
       }
     }
@@ -165,6 +181,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
       final recordsToPush = <TemplateVersion>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final convergedRecords = <TemplateVersion>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -187,6 +204,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
             !remote.isDeleted &&
             syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          convergedRecords.add(record);
           lastSuccessCount++;
           continue;
         }
@@ -194,6 +212,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            convergedRecords.add(record);
             lastSuccessCount++;
             continue;
           }
@@ -203,6 +222,12 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
         if (remote != null && remote.isDeleted) {
           await _templateGovernanceRepo.applyTombstoneFromVersionRemote(remote);
+          await _resolveRecheckedPermanentRejectionsForRecords(
+            entityType: 'template_version',
+            records: <TemplateVersion>[record],
+            evidence:
+                'The canonical remote template-version tombstone was adopted locally.',
+          );
           lastSuccessCount++;
           continue;
         }
@@ -225,6 +250,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (archiveReplayed) {
           lastSuccessCount++;
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          convergedRecords.add(record);
           debugPrint(
             '🪜 Replayed collapsed TemplateVersion draft→archive lifecycle: '
             '${record.firestoreId} (package=${record.packageFirestoreId ?? 'unknown'})',
@@ -239,6 +265,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (publishReplayed) {
           lastSuccessCount++;
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          convergedRecords.add(record);
           debugPrint(
             '🪜 Replayed collapsed TemplateVersion draft→publish lifecycle: '
             '${record.firestoreId} (package=${record.packageFirestoreId ?? 'unknown'})',
@@ -278,10 +305,17 @@ extension _SyncServiceTemplateGovernance on SyncService {
       final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
       if (pushSuccess) {
         snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+        convergedRecords.addAll(recordsToPush);
       }
       if (snapshotsToMark.isNotEmpty) {
         await _templateGovernanceRepo.markVersionsSyncedIfUnchanged(
           snapshotsToMark,
+        );
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'template_version',
+          records: convergedRecords,
+          evidence:
+              'The governed version replay, remote write, or exact readback completed and the local snapshot was reconciled.',
         );
       }
     }
@@ -977,6 +1011,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
       final recordsToPush = <TemplatePublishAudit>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final convergedRecords = <TemplatePublishAudit>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -997,6 +1032,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (existingRemote != null) {
           if (_templatePublishAuditMatchesRemote(record, existingRemote)) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            convergedRecords.add(record);
             lastSuccessCount++;
           } else {
             lastFailureCount++;
@@ -1053,10 +1089,17 @@ extension _SyncServiceTemplateGovernance on SyncService {
       final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
       if (pushSuccess) {
         snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+        convergedRecords.addAll(recordsToPush);
       }
       if (snapshotsToMark.isNotEmpty) {
         await _templateGovernanceRepo.markAuditsSyncedIfUnchanged(
           snapshotsToMark,
+        );
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'template_publish_audit',
+          records: convergedRecords,
+          evidence:
+              'The immutable publish audit was accepted remotely or matched exact remote evidence and was reconciled locally.',
         );
       }
     }
