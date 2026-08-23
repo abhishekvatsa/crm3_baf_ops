@@ -83,6 +83,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('multi-day impact retains its remaining minutes', (tester) async {
+    final now = DateTime(2026, 8, 24, 12);
+    final event = _openCraneEvent(
+      now,
+      elapsed: const Duration(days: 1, minutes: 59),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_operationsUser(now)),
+          ),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationalEventsProvider.overrideWith(
+            (ref) => Stream.value([event]),
+          ),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref) => Stream.value([event]),
+          ),
+          operationsReportClockProvider.overrideWith(
+            (ref) => Stream.value(now),
+          ),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1d 59m'), findsWidgets);
+    expect(find.textContaining('Total impact 1d 59m'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('unapproved direct entry performs no operational data reads', (
     tester,
   ) async {
@@ -234,8 +271,11 @@ AppUser _operationsUser(DateTime now, {bool approved = true}) => AppUser(
   createdAt: now,
 );
 
-OperationalEvent _openCraneEvent(DateTime now) {
-  final startedAt = now.subtract(const Duration(minutes: 90));
+OperationalEvent _openCraneEvent(
+  DateTime now, {
+  Duration elapsed = const Duration(minutes: 90),
+}) {
+  final startedAt = now.subtract(elapsed);
   return OperationalEvent(
     eventId: 'crane-event-1',
     eventType: OperationalEventType.crane,

@@ -1185,7 +1185,12 @@ String _formatImpactDuration(Duration value) {
   final days = value.inDays;
   final hours = value.inHours.remainder(24);
   final minutes = value.inMinutes.remainder(60);
-  if (days > 0) return hours > 0 ? '${days}d ${hours}h' : '${days}d';
+  if (days > 0) {
+    final parts = <String>['${days}d'];
+    if (hours > 0) parts.add('${hours}h');
+    if (minutes > 0) parts.add('${minutes}m');
+    return parts.join(' ');
+  }
   if (value.inHours > 0) {
     return minutes > 0 ? '${value.inHours}h ${minutes}m' : '${value.inHours}h';
   }
