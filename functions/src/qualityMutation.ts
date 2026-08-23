@@ -659,6 +659,7 @@ function validateLinkedAbnormality(
   data: UserAuthorityJsonMap,
   abnormalityId: string,
   warning: UserAuthorityJsonMap,
+  allowDeleted: boolean,
 ): UserAuthorityJsonMap {
   for (const key of Object.keys(data)) {
     if (!LINKED_ABNORMALITY_FIELDS.has(key)) {
@@ -670,8 +671,11 @@ function validateLinkedAbnormality(
       malformed("charge-quality-abnormality", field);
     }
   }
-  if (data.firestoreId !== abnormalityId || data.isDeleted !== false) {
+  if (data.firestoreId !== abnormalityId) {
     malformed("charge-quality-abnormality", "firestoreId");
+  }
+  if (typeof data.isDeleted !== "boolean") {
+    malformed("charge-quality-abnormality", "isDeleted");
   }
   positiveExistingInteger(
     data.sourceChargeNo,
@@ -718,7 +722,26 @@ function validateLinkedAbnormality(
         target === data.sourceChargeNo))) {
     malformed("charge-quality-abnormality", "reannealedToChargeNo");
   }
-  if (data.deletedAt != null || data.deletedByUid != null ||
+  if (data.isDeleted === true) {
+    if (!allowDeleted || !validDate(data.deletedAt)) {
+      malformed("charge-quality-abnormality", "isDeleted");
+    }
+    requiredExistingString(
+      data.deletedByUid,
+      "deletedByUid",
+      "charge-quality-abnormality",
+    );
+    requiredExistingString(
+      data.deletedByName,
+      "deletedByName",
+      "charge-quality-abnormality",
+    );
+    requiredExistingString(
+      data.deleteReason,
+      "deleteReason",
+      "charge-quality-abnormality",
+    );
+  } else if (data.deletedAt != null || data.deletedByUid != null ||
       data.deletedByName != null || data.deleteReason != null) {
     malformed("charge-quality-abnormality", "isDeleted");
   }
@@ -740,8 +763,9 @@ async function linkedAbnormalityForWarning(args: {
   db: QualityMutationFirestoreLike;
   transaction: TransactionLike;
   warning: UserAuthorityJsonMap;
+  allowDeleted: boolean;
 }): Promise<LinkedAbnormality | null> {
-  const {db, transaction, warning} = args;
+  const {db, transaction, warning, allowDeleted} = args;
   let abnormalityId: string | null = null;
   if (warning.sourceType === "abnormality") {
     abnormalityId = warning.sourceId as string;
@@ -784,6 +808,7 @@ async function linkedAbnormalityForWarning(args: {
       snapshot.data() ?? {},
       abnormalityId,
       warning,
+      allowDeleted,
     ),
   };
 }
@@ -1026,6 +1051,9 @@ export async function mutateQualityWithDb(args: {
         db: args.db,
         transaction,
         warning: warningBefore,
+        allowDeleted:
+          request.operation === "REOPEN_QUALITY_WARNING" &&
+          warningBefore.sourceType === "abnormality",
       });
 
     if (receiptSnapshot.exists) {
@@ -1205,6 +1233,13 @@ export async function mutateQualityWithDb(args: {
           ...linkedAbnormality.before,
           reannealingStatus,
           reannealedToChargeNo,
+          ...(request.operation === "REOPEN_QUALITY_WARNING" ? {
+            isDeleted: false,
+            deletedAt: null,
+            deletedByUid: null,
+            deletedByName: null,
+            deleteReason: null,
+          } : {}),
           updatedAt: committedAtIso,
           updatedByUid: actorUid,
           updatedByName: actor.name,

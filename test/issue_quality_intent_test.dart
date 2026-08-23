@@ -59,6 +59,16 @@ void main() {
 
       expect(intent?.isSuspected, isTrue);
       expect(intent?.abnormalityTypeId, isNull);
+      expect(intent?.schemaVersion, 1);
+      expect(intent?.toSynchronizedFields(), <String, dynamic>{
+        'qualityIntentSchemaVersion': 1,
+        'qualityImpactAssessment': 'suspected',
+        'qualityWarningReason': 'Legacy suspected quality evidence.',
+      });
+      expect(
+        IssueQualityIntent.tryDecodeLocal(intent!.encode())?.schemaVersion,
+        1,
+      );
     },
   );
 

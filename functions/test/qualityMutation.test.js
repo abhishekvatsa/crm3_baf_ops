@@ -366,6 +366,67 @@ describe('quality mutation', () => {
     });
   });
 
+  test('reopening a retired standalone case reactivates its abnormality', async () => {
+    const warningId = 'abnormality_abn-1';
+    const memory = fakeDb({
+      'users/si-1': user('si', 'SI One'),
+      [`quality_warnings/${warningId}`]: warning({
+        warningId,
+        sourceType: 'abnormality',
+        sourceId: 'abn-1',
+        sourceVersion: 4,
+        status: 'closed',
+        closedAt: new Date('2026-08-14T10:00:00.000Z'),
+        closedByUid: 'si-1',
+        closedByName: 'SI One',
+        closureDisposition: 'coilFoundAcceptable',
+        decisionReason: 'Inspection found the affected coil acceptable.',
+        version: 2,
+      }),
+      'charge_abnormalities/abn-1': linkedAbnormality({
+        firestoreId: 'abn-1',
+        linkedTicketFirestoreId: null,
+        reannealingStatus: 'notRequired',
+        version: 5,
+        isDeleted: true,
+        deletedAt: new Date('2026-08-14T11:00:00.000Z'),
+        deletedByUid: 'admin-1',
+        deletedByName: 'Admin One',
+        deleteReason: 'Duplicate record confirmed after quality closure.',
+      }),
+    });
+    const request = {
+      requestId: IDS.reopen,
+      operation: 'REOPEN_QUALITY_WARNING',
+      warningId,
+      expectedVersion: 2,
+      reason: 'New evidence requires the retired case to be reviewed again.',
+    };
+
+    const first = await invoke(memory, 'si-1', request);
+    const writesAfterFirst = memory.writes.length;
+    const replay = await invoke(memory, 'si-1', request);
+
+    expect(first).toMatchObject({version: 3, idempotentReplay: false});
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writesAfterFirst);
+    expect(memory.store.get(`quality_warnings/${warningId}`)).toMatchObject({
+      status: 'open',
+      sourceVersion: 6,
+      version: 3,
+    });
+    expect(memory.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      reannealingStatus: 'pendingDecision',
+      reannealedToChargeNo: null,
+      version: 6,
+      isDeleted: false,
+      deletedAt: null,
+      deletedByUid: null,
+      deletedByName: null,
+      deleteReason: null,
+    });
+  });
+
   test('linked issue case rejects ambiguous RA targets and missing linkage', async () => {
     const ambiguous = fakeDb(linkedIssueSeed({reannealingStatus: 'required'}));
     await expect(invoke(ambiguous, 'si-1', {

@@ -90,7 +90,8 @@ void validateMaintenanceIssueCreateReceipt({
           ? 'issue_${command.aggregateId}'
           : null;
   final expectedAbnormalityId =
-      ticket['qualityImpactAssessment'] == 'suspected'
+      ticket['qualityIntentSchemaVersion'] == 2 &&
+              ticket['qualityImpactAssessment'] == 'suspected'
           ? 'issue_quality_${command.aggregateId}'
           : null;
   final redHotPositions = ticket['burnerRedHotPositions'];

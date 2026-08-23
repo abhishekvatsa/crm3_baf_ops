@@ -11,26 +11,30 @@ class IssueQualityIntent {
     required this.assessment,
     this.warningReason,
     this.abnormalityTypeId,
+    this.schemaVersion = issueQualityIntentSchemaVersion,
   });
 
   final IssueQualityAssessment assessment;
   final String? warningReason;
   final String? abnormalityTypeId;
+  final int schemaVersion;
 
   bool get isSuspected => assessment == IssueQualityAssessment.suspected;
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-    'schemaVersion': issueQualityIntentSchemaVersion,
+    'schemaVersion': schemaVersion,
     'assessment': assessment.name,
     'warningReason': warningReason,
-    'abnormalityTypeId': abnormalityTypeId,
+    if (schemaVersion == issueQualityIntentSchemaVersion)
+      'abnormalityTypeId': abnormalityTypeId,
   };
 
   Map<String, dynamic> toSynchronizedFields() => <String, dynamic>{
-    'qualityIntentSchemaVersion': issueQualityIntentSchemaVersion,
+    'qualityIntentSchemaVersion': schemaVersion,
     'qualityImpactAssessment': assessment.name,
     'qualityWarningReason': warningReason,
-    'qualityAbnormalityTypeId': abnormalityTypeId,
+    if (schemaVersion == issueQualityIntentSchemaVersion)
+      'qualityAbnormalityTypeId': abnormalityTypeId,
   };
 
   String encode() => jsonEncode(<String, dynamic>{'qualityIntent': toMap()});
@@ -147,6 +151,7 @@ class IssueQualityIntent {
       assessment: assessment,
       warningReason: warningReason,
       abnormalityTypeId: abnormalityTypeId,
+      schemaVersion: schemaVersion,
     );
   }
 
