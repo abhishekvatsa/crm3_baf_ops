@@ -572,6 +572,98 @@ if (($approvalSecretNames -join "`n") -cne
 $versionSource = Get-Content `
   -LiteralPath $policy.versionPolicy.sourceDocumentFile `
   -Raw | ConvertFrom-Json
+$predecessorBindingsPath =
+  'release/predecessor-finalization-receipt-bindings.json'
+$predecessorBindings = Get-Content `
+  -LiteralPath $predecessorBindingsPath -Raw | ConvertFrom-Json
+if ($predecessorBindings.schemaVersion -ne 1 -or
+    [string]$predecessorBindings.recordType -ne
+      'historical-predecessor-finalization-receipt-normalization' -or
+    [string]$predecessorBindings.status -ne
+      'ACTIVE_COMPATIBILITY_CONTRACT' -or
+    $predecessorBindings.historicalApprovalFilesImmutable -ne $true -or
+    [string]$predecessorBindings.legacyFieldNames.file -ne
+      'build11FinalizationReceiptFile' -or
+    [string]$predecessorBindings.legacyFieldNames.sha256 -ne
+      'build11FinalizationReceiptSha256' -or
+    [string]$predecessorBindings.futureFieldContract.object -ne
+      'predecessorFinalizationReceipt' -or
+    $predecessorBindings.futureFieldContract.
+      legacyAliasPermittedOnlyWhenRegisteredHere -ne $true) {
+  throw 'Predecessor finalization receipt normalization is incomplete.'
+}
+
+$legacyBindings = @($predecessorBindings.compatibilityBindings)
+foreach ($binding in $legacyBindings) {
+  $bindingApproval = Get-Content `
+    -LiteralPath ([string]$binding.approvalFile) -Raw | ConvertFrom-Json
+  $bindingReceipt = Get-Content `
+    -LiteralPath ([string]$binding.receiptFile) -Raw | ConvertFrom-Json
+  if ([int64]$binding.successorBuildNumber -ne
+        ([int64]$binding.predecessorBuildNumber + 1) -or
+      (Get-Sha256 ([string]$binding.approvalFile)) -ne
+        ([string]$binding.approvalSha256).ToUpperInvariant() -or
+      [int64]$bindingApproval.nextBuild.buildNumber -ne
+        [int64]$binding.successorBuildNumber -or
+      [int64]$bindingApproval.preservedCompletedBuild.buildNumber -ne
+        [int64]$binding.predecessorBuildNumber -or
+      [string]$bindingApproval.requiredSource.
+        build11FinalizationReceiptFile -ne [string]$binding.receiptFile -or
+      [string]$bindingApproval.requiredSource.
+        build11FinalizationReceiptSha256 -ne [string]$binding.receiptSha256 -or
+      (Get-Sha256 ([string]$binding.receiptFile)) -ne
+        ([string]$binding.receiptSha256).ToUpperInvariant() -or
+      [int64]$bindingReceipt.release.buildNumber -ne
+        [int64]$binding.predecessorBuildNumber) {
+    throw 'A historical predecessor finalization receipt binding is invalid.'
+  }
+}
+
+$directPredecessorProperty = $versionSource.requiredSource.PSObject.Properties[
+  'predecessorFinalizationReceipt'
+]
+if ($null -ne $directPredecessorProperty) {
+  $directPredecessor = $directPredecessorProperty.Value
+  $predecessorBuildNumber = [int64]$directPredecessor.buildNumber
+  $predecessorReceiptFile = [string]$directPredecessor.file
+  $predecessorReceiptSha256 = [string]$directPredecessor.sha256
+} else {
+  $currentApprovalSha =
+    (Get-Sha256 ([string]$policy.versionPolicy.sourceDocumentFile))
+  $currentBindings = @(
+    $legacyBindings | Where-Object {
+      [string]$_.approvalFile -eq
+        [string]$policy.versionPolicy.sourceDocumentFile -and
+      [string]$_.approvalSha256 -eq $currentApprovalSha -and
+      [int64]$_.successorBuildNumber -eq
+        [int64]$versionSource.nextBuild.buildNumber
+    }
+  )
+  if ($currentBindings.Count -ne 1) {
+    throw 'Legacy predecessor receipt alias is not explicitly registered.'
+  }
+  $currentBinding = $currentBindings[0]
+  $predecessorBuildNumber = [int64]$currentBinding.predecessorBuildNumber
+  $predecessorReceiptFile = [string]$currentBinding.receiptFile
+  $predecessorReceiptSha256 = [string]$currentBinding.receiptSha256
+}
+$predecessorReceipt = Get-Content `
+  -LiteralPath $predecessorReceiptFile -Raw | ConvertFrom-Json
+if ($predecessorBuildNumber -ne
+      ([int64]$versionSource.nextBuild.buildNumber - 1) -or
+    $predecessorBuildNumber -ne
+      [int64]$versionSource.preservedCompletedBuild.buildNumber -or
+    $predecessorReceiptFile -ne
+      [string]$versionSource.preservedCompletedBuild.completionReceiptFile -or
+    $predecessorReceiptSha256 -ne
+      [string]$versionSource.preservedCompletedBuild.completionReceiptSha256 -or
+    $predecessorReceiptSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+    (Get-Sha256 $predecessorReceiptFile) -ne
+      $predecessorReceiptSha256.ToUpperInvariant() -or
+    [int64]$predecessorReceipt.release.buildNumber -ne
+      $predecessorBuildNumber) {
+  throw 'Resolved predecessor finalization receipt differs from authority.'
+}
 $functionFleetDeploymentReceiptPath =
   [string]$policy.finalization.exactFunctionFleetDeploymentReceiptFile
 if ([string]::IsNullOrWhiteSpace($functionFleetDeploymentReceiptPath) -or
@@ -859,10 +951,6 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       $true -or
     $versionSource.requiredSource.exactReleaseApkColdStartCiRequired -ne
       $true -or
-    [string]$versionSource.requiredSource.build11FinalizationReceiptFile -ne
-      [string]$versionSource.preservedCompletedBuild.completionReceiptFile -or
-    [string]$versionSource.requiredSource.build11FinalizationReceiptSha256 -ne
-      [string]$versionSource.preservedCompletedBuild.completionReceiptSha256 -or
     $versionSource.distributionApproved -ne $false -or
     $versionSource.unrestrictedPlantReleaseApproved -ne $false) {
   throw 'Governed build-number rollover authority is incomplete.'

@@ -26,9 +26,11 @@ the rebased server version is stored before the row is marked synchronized.
 A further cross-business alignment pass adds exact lost-response convergence,
 server-timestamp receipt adoption for knowledge rows, and an explicit
 ordinary-user server recheck for held records that neither changes nor deletes
-source evidence. The current manifest therefore covers 499 operations and
-1,600 sites across 49 surfaces with digest
-`B9C850574F9A34C39685B8D39C1C3258192A9CC2A1411B1E121D64F5F6FC22F8`;
+source evidence. The 23 August reporting-completeness correction classifies
+one additional read-only quality-monitoring query and binds its focused
+regression. The current manifest therefore covers 500 operations and 1,603
+sites across 49 surfaces with digest
+`88DD51A3EF29EC3D2332B2082717F8B5E649C512A0B0C3B262B531CFAAA4EE83`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event_issue_link.dart';
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_event_issue_links_screen.dart';
+import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
 import 'package:crm3_baf_ops/features/operational_events/services/operational_event_issue_link_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -210,6 +213,35 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('issue dossier retains and orders more than fifty event links', () {
+    final links = List<OperationalEventIssueLink>.generate(51, (index) {
+      final currentLinkId =
+          'event_issue_${index.toRadixString(16).padLeft(48, '0')}';
+      return OperationalEventIssueLink.fromMap(
+        linkRecord(
+          linkedAt: DateTime.utc(2026, 8, 14, 12).add(Duration(hours: index)),
+        )..['linkId'] = currentLinkId,
+        currentLinkId,
+      );
+    });
+
+    final sorted = sortOperationalEventIssueLinks(links.reversed);
+    expect(sorted, hasLength(51));
+    expect(sorted.first.linkedAt, DateTime.utc(2026, 8, 16, 14));
+    expect(sorted.last.linkedAt, DateTime.utc(2026, 8, 14, 12));
+
+    final providerSource =
+        File(
+          'lib/features/operational_events/providers/operational_event_provider.dart',
+        ).readAsStringSync();
+    final issueProvider = RegExp(
+      r'operationalIssueEventLinksProvider[\s\S]*?'
+      r'_decodeOperationalEventIssueLinks\);',
+    ).firstMatch(providerSource);
+    expect(issueProvider, isNotNull);
+    expect(issueProvider!.group(0), isNot(contains('.limit(')));
   });
 
   test(

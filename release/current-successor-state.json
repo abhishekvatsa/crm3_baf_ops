@@ -1,73 +1,67 @@
 {
-  "schemaVersion": 1,
-  "indexId": "CRM3-CURRENT-SUCCESSOR-STATE-2026-08-16",
-  "asOfDate": "2026-08-18",
-  "status": "BUILD12_FINALIZED_DEVICE_UPGRADE_PROVED_POST_ASSET_LIVE_WORKFLOW_AND_PILOT_PENDING",
-  "source": {
-    "admittedBaselineCommit": "b020dc639cd0b69bf09808de9f6a750cde38259c",
-    "admittedBaselineTree": "a65ff08db541bea2aa72c6930ead60b430028eea",
-    "successorEngineeringAuthority": "governance/successor-engineering-rearm-2026-08-16.json",
-    "liveDeploymentAuthority": "release/approvals/build12-backend-rules-indexes-deployment-authorization.json",
-    "exactCandidateBinding": "release/build12-live-deployment-authority.json",
-    "build12LiveDeploymentAuthorityCommit": "ce2a85acc9eca322dc1288c1df600d4c84f0e738",
-    "build12LiveDeploymentAuthorityTree": "84bba6dcb204c141924450a149d84cd7a92a00de",
-    "build12LiveDeploymentPostMergeReleaseGateRunId": 32083536385,
-    "build12ArtifactDispatchCommit": "8ba5b237cef151b001d9bea41e16e68015091e43",
-    "build12FinalizationReceipt": "release/evidence/build-12-finalization-closure.json",
-    "build12FinalizationReceiptSha256": "3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC"
+  "schemaVersion": 2,
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-23",
+  "asOfDate": "2026-08-23",
+  "status": "POST_BUILD14_SOURCE_BUILD14_FINALIZED_BUILD11_PILOT_ONLY",
+  "authorityPlanes": {
+    "currentSource": {
+      "reference": "refs/heads/main",
+      "packageVersion": "1.0.0-rc.4+14",
+      "relationshipToLatestFinalizedArtifact": "DESCENDANT_SOURCE_NOT_CONTAINED_IN_BUILD14",
+      "sourceAndCiAuthority": true,
+      "artifactConstructionAuthority": false,
+      "deploymentAuthority": false,
+      "distributionAuthority": false,
+      "sameBuildNumberReuseProhibited": true
+    },
+    "latestFinalizedArtifact": {
+      "buildNumber": 14,
+      "version": "1.0.0-rc.4+14",
+      "sourceCommit": "f0d51819bfa4c81ad73b5d7f83675fa8b6a07b11",
+      "status": "COMPLETED_NON_DISTRIBUTABLE",
+      "completionReceiptFile": "release/evidence/build-14-finalization-closure.json",
+      "completionReceiptSha256": "E1C714FCEF7F23798E49A797E6F4ADCA7D2A7D57BFFD0F9B7C0B62A50B801DED",
+      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD14",
+      "pilotPromotion": "NOT_AUTHORIZED",
+      "unrestrictedDistribution": "NOT_AUTHORIZED"
+    },
+    "deployedBackend": {
+      "functionFleetEvidenceFile": "release/evidence/pr265-backend-deployment-closure.json",
+      "functionFleetSourceCommit": "e565c4d4fccf9556c90b72bda396786875c3ddd9",
+      "rulesAndIndexesEvidenceFile": "release/evidence/build14-firestore-rules-indexes-live-readback.json",
+      "rulesAndIndexesSourceCommit": "a9882c23afe1daf458e66f7c07e6095d19a60b99",
+      "currentSourceFunctionDeployment": "NOT_PROVED_AFTER_BUILD14",
+      "currentSourceRulesAndIndexesDeployment": "NOT_CLAIMED_BY_THIS_INDEX"
+    },
+    "controlledPilot": {
+      "buildNumber": 11,
+      "status": "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER_ONLY",
+      "promotionReceiptFile": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+      "handoutPerformed": false,
+      "appliesToCurrentSource": false,
+      "appliesToBuild14": false
+    },
+    "nextCandidate": {
+      "minimumBuildNumber": 15,
+      "status": "UNRESERVED",
+      "constructionRequiresFreshGovernedApproval": true,
+      "deviceValidationRequiresExactNewArtifact": true,
+      "pilotPromotionRequiresSeparateDecision": true
+    }
   },
   "localStore": {
     "schemaVersion": 6,
-    "verifier": "tools/isar/verify_v4_isar_schema.py --release",
-    "governedIdentityCrossingRepair": "SOURCE_CORRECTED_WITH_POPULATED_V3_V4_TO_V6_REGRESSIONS_MERGED_CI_PROVED"
-  },
-  "deployedBackend": {
-    "historicCapture": "release/backend-current-state.prod.json",
-    "historicCaptureStatus": "PRESERVED_NOT_CURRENT_SOURCE_AUTHORITY",
-    "currentSuccessorSourceDeployment": "PROVED_EXACT_FUNCTION_FLEET",
-    "deploymentCommit": "08ee9eb70c930204f942d1094eb9257ef1e192c5",
-    "functionsSourceUnchangedThroughBuild12LiveDeploymentAuthorityCommit": true,
-    "functionCount": 15,
-    "evidenceAuthority": "release/build12-live-deployment-authority.json"
-  },
-  "rulesAndIndexes": {
-    "sourceFiles": [
-      "firestore.rules",
-      "firestore.indexes.json"
-    ],
-    "currentSuccessorDeploymentReadback": "PASS_EXACT_RULES_AND_61_READY_INDEXES",
-    "rulesSha256": "ED6D3E0A67E7C2353BE0B691594E27EEC230596155EAA4365DDA97EBCDB6D87A",
-    "indexCount": 61,
-    "burnerSelectedFurnaceIndex": "DEPLOYED_AND_READY",
-    "evidenceAuthority": "release/build12-live-deployment-authority.json"
-  },
-  "runtimeIam": {
-    "dedicatedIdentityProgramme": "CLOSED_FOR_ITS_CAPTURED_DEPLOYMENT",
-    "currentSuccessorDeploymentBinding": "PASS_EXACT_LIVE_READBACK",
-    "defaultCompute": "BUILD_ONLY_NO_EDITOR",
-    "evidenceAuthority": "release/build12-live-deployment-authority.json"
+    "verifier": "tools/isar/verify_v4_isar_schema.py --release"
   },
   "appCheck": {
     "mutatingCallableSourceDefault": false,
     "programmeStatus": "GOVERNED_DEFERRAL",
     "broadDistributionStatus": "BLOCKER_UNTIL_REARMED_AND_PROVED"
   },
-  "client": {
-    "sealedBuild11": "AUTHORIZED_EXACT_ARTIFACT_AND_ROSTER_ONLY",
-    "currentSourcePackageVersion": "1.0.0-rc.2+12",
-    "successorBuild": "BUILD12_PRODUCTION_SIGNED_FINALIZED_NON_DISTRIBUTABLE",
-    "releaseAuthority": "release/production-release-policy.json",
-    "build11SameVersionOverwriteProhibited": true
-  },
-  "deviceAndPilot": {
-    "sealedBuild11Evidence": "PRESERVED_HISTORIC_EXACT_ARTIFACT",
-    "currentSuccessorDeviceProof": "PASS_EXACT_BUILD12_PHYSICAL_IN_PLACE_UPGRADE_AND_FEATURE_SURFACES",
-    "postAssetPopulationLiveWorkflowProof": "PENDING",
-    "currentSuccessorPilotHandout": "NOT_AUTHORIZED",
-    "unrestrictedDistribution": "NO_GO"
-  },
-  "nextRequiredSequence": [
-    "validate Build 12 live asset workflows after governed asset-master population",
-    "issue explicit successor pilot decision"
+  "authoritativeSources": [
+    "release/production-release-policy.json",
+    "release/build-number-ledger.json",
+    "release/evidence/build-14-finalization-closure.json",
+    "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
   ]
 }

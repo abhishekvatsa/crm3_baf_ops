@@ -15,11 +15,11 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` contains capabilities merged after the Build 11 source and now
-reserves the separate successor identity `1.0.0-rc.2+12`. Build 12 is source
-authorized but has not yet been remotely reserved, production signed,
-deployed, device proved or promoted for pilot use. It must not be represented
-or distributed as Build 11 authority.
+Current `main` contains capabilities merged after the latest finalized
+artifact. Build 14 (`1.0.0-rc.4+14`) was production signed and finalized into
+dual custody, but it remains non-distributable and has not been promoted for
+pilot use. Source merged after its artifact commit is source-and-CI work only;
+it is not contained in Build 14 and cannot reuse Build 14's package identity.
 
 Authoritative status sources:
 
@@ -32,12 +32,11 @@ Authoritative status sources:
 
 The sealed Build 11 decision remains exact to that artifact and roster. A
 separate source-and-CI successor campaign was re-armed on 16 August 2026 for
-audit remediation, remaining business capability and UI/UX redesign. Build 12
-now provides its separately numbered construction route, but exact backend
-deployment/readback, signed-device validation and an explicit pilot decision
-remain open and separately governed. Unrestricted distribution remains
-prohibited, and App Check/Play Integrity activation remains a governed
-decision.
+audit remediation, remaining business capability and UI/UX redesign. Any new
+artifact requires a fresh governed reservation at Build 15 or higher, exact
+signed-device validation and a separate pilot decision. Unrestricted
+distribution remains prohibited, and App Check/Play Integrity activation
+remains a governed decision.
 
 ## Product scope
 

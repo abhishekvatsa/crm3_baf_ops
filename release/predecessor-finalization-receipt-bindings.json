@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "recordType": "historical-predecessor-finalization-receipt-normalization",
+  "status": "ACTIVE_COMPATIBILITY_CONTRACT",
+  "historicalApprovalFilesImmutable": true,
+  "legacyFieldNames": {
+    "file": "build11FinalizationReceiptFile",
+    "sha256": "build11FinalizationReceiptSha256",
+    "qualification": "The names were accurate for Build 12 but were copied into the immutable Build 13 and Build 14 approvals. For those approvals they mean the immediately preceding finalized build, not Build 11."
+  },
+  "futureFieldContract": {
+    "object": "predecessorFinalizationReceipt",
+    "requiredFields": [
+      "buildNumber",
+      "file",
+      "sha256"
+    ],
+    "legacyAliasPermittedOnlyWhenRegisteredHere": true
+  },
+  "compatibilityBindings": [
+    {
+      "successorBuildNumber": 12,
+      "predecessorBuildNumber": 11,
+      "approvalFile": "release/approvals/build-number-12-successor-approval.json",
+      "approvalSha256": "E7E0F289A99B062F8EECDFCDE944B9C4266F58F00542C34AF49FBB7834469985",
+      "receiptFile": "release/evidence/build-11-finalization-closure.json",
+      "receiptSha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3"
+    },
+    {
+      "successorBuildNumber": 13,
+      "predecessorBuildNumber": 12,
+      "approvalFile": "release/approvals/build-number-13-successor-approval.json",
+      "approvalSha256": "77C9B4168A9149E1C31205703B0346249C2D415C3DEB9B072DAA627337D62E2C",
+      "receiptFile": "release/evidence/build-12-finalization-closure.json",
+      "receiptSha256": "3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC"
+    },
+    {
+      "successorBuildNumber": 14,
+      "predecessorBuildNumber": 13,
+      "approvalFile": "release/approvals/build-number-14-successor-approval.json",
+      "approvalSha256": "3F1972E1A911D86055C6350917128A34CE25239A9E63924B98EC217F7F76FF4E",
+      "receiptFile": "release/evidence/build-13-finalization-closure.json",
+      "receiptSha256": "63E6B0D21FC369F96C9F621E85FBE59F62B1B726B24CDA5A0D45C371504ABEE7"
+    }
+  ]
+}

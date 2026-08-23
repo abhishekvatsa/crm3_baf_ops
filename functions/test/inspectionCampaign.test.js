@@ -451,6 +451,7 @@ describe('cross-asset inspection campaigns', () => {
       payload: {
         findingId: 'inspection-finding-observation-1',
         observationId: 'correction-1',
+        expectedFindingVersion: 2,
         outcome: 'resolved',
         reason: 'The corrected setting was rechecked at the same governed test point.',
       },
@@ -461,10 +462,98 @@ describe('cross-asset inspection campaigns', () => {
       });
     expect(store.read('inspection_findings/inspection-finding-observation-1'))
       .toMatchObject({
+        version: 3,
         status: 'verifiedResolved',
         currentObservationId: 'correction-1',
         verificationCount: 1,
+        lastVerifiedObservationId: 'correction-1',
       });
+
+    await expect(service.execute({
+      commandId: 'verify-stale-finding-version',
+      commandType: 'verifyInspectionFinding',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 3,
+      payload: {
+        findingId: 'inspection-finding-observation-1',
+        observationId: 'correction-1',
+        expectedFindingVersion: 2,
+        outcome: 'improved',
+        reason: 'A stale finding version cannot append a second verification decision.',
+      },
+    }, {actor: observer, serverNow: at('2026-08-21T05:46:00Z')}))
+      .rejects.toMatchObject({code: 'aborted'});
+
+    await expect(service.execute({
+      commandId: 'verify-same-observation-again',
+      commandType: 'verifyInspectionFinding',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 3,
+      payload: {
+        findingId: 'inspection-finding-observation-1',
+        observationId: 'correction-1',
+        expectedFindingVersion: 3,
+        outcome: 'improved',
+        reason: 'Even a current client cannot reverse the decision without a later observation.',
+      },
+    }, {actor: observer, serverNow: at('2026-08-21T05:47:00Z')}))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+
+    expect(store.read('inspection_findings/inspection-finding-observation-1'))
+      .toMatchObject({
+        version: 3,
+        status: 'verifiedResolved',
+        verificationCount: 1,
+        lastVerificationId: 'verify-1',
+        lastVerifiedObservationId: 'correction-1',
+      });
+    expect(store.read('inspection_verifications/verify-stale-finding-version'))
+      .toBeNull();
+    expect(store.read('inspection_verifications/verify-same-observation-again'))
+      .toBeNull();
+  });
+
+  test('fails closed on malformed prior verification state', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    await service.execute(observation(), {
+      actor: observer,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    });
+    store.seed('inspection_findings/inspection-finding-observation-1', {
+      ...store.read('inspection_findings/inspection-finding-observation-1'),
+      verificationCount: '1',
+      lastVerificationId: null,
+    });
+
+    await expect(service.execute({
+      commandId: 'verify-malformed-prior-state',
+      commandType: 'verifyInspectionFinding',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 2,
+      payload: {
+        findingId: 'inspection-finding-observation-1',
+        observationId: 'observation-1',
+        expectedFindingVersion: 1,
+        outcome: 'deteriorated',
+        reason: 'Malformed persisted counters must not be normalized by verification.',
+      },
+    }, {actor: observer, serverNow: at('2026-08-21T05:44:00Z')}))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+
+    expect(store.read('inspection_verifications/verify-malformed-prior-state'))
+      .toBeNull();
   });
 
   test('rejects verification against an observation superseded by a later fault', async () => {
@@ -508,6 +597,7 @@ describe('cross-asset inspection campaigns', () => {
       payload: {
         findingId: 'inspection-finding-observation-1',
         observationId: 'in-range-2',
+        expectedFindingVersion: 3,
         outcome: 'resolved',
         reason: 'Attempt to reuse an older in-range reading after recurrence.',
       },

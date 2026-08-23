@@ -7,10 +7,22 @@ import 'package:flutter_test/flutter_test.dart';
 Map<String, dynamic> _readObject(String path) =>
     (jsonDecode(File(path).readAsStringSync()) as Map).cast<String, dynamic>();
 
+List<Map<String, dynamic>> _objects(dynamic value) => (value as List<dynamic>)
+    .map((entry) => (entry as Map).cast<String, dynamic>())
+    .toList(growable: false);
+
 List<String> _strings(dynamic value) => (value as List<dynamic>).cast<String>();
 
 String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
+
+String _packageVersion() {
+  final match = RegExp(
+    r'^version:\s*(\S+)\s*$',
+    multiLine: true,
+  ).firstMatch(File('pubspec.yaml').readAsStringSync());
+  return match!.group(1)!;
+}
 
 void main() {
   test(
@@ -51,112 +63,220 @@ void main() {
     },
   );
 
-  test('current successor index distinguishes every release authority plane', () {
-    final state = _readObject('release/current-successor-state.json');
-    final successorSource = (state['source'] as Map).cast<String, dynamic>();
-    final localStore = (state['localStore'] as Map).cast<String, dynamic>();
-    final backend = (state['deployedBackend'] as Map).cast<String, dynamic>();
-    final rules = (state['rulesAndIndexes'] as Map).cast<String, dynamic>();
-    final runtimeIam = (state['runtimeIam'] as Map).cast<String, dynamic>();
-    final appCheck = (state['appCheck'] as Map).cast<String, dynamic>();
-    final client = (state['client'] as Map).cast<String, dynamic>();
-    final device = (state['deviceAndPilot'] as Map).cast<String, dynamic>();
+  test(
+    'current index derives each release plane from live authority records',
+    () {
+      final state = _readObject('release/current-successor-state.json');
+      final planes = (state['authorityPlanes'] as Map).cast<String, dynamic>();
+      final currentSource =
+          (planes['currentSource'] as Map).cast<String, dynamic>();
+      final artifact =
+          (planes['latestFinalizedArtifact'] as Map).cast<String, dynamic>();
+      final deployed =
+          (planes['deployedBackend'] as Map).cast<String, dynamic>();
+      final pilot = (planes['controlledPilot'] as Map).cast<String, dynamic>();
+      final next = (planes['nextCandidate'] as Map).cast<String, dynamic>();
+      final policy = _readObject('release/production-release-policy.json');
+      final release = (policy['release'] as Map).cast<String, dynamic>();
+      final finalization =
+          (policy['finalization'] as Map).cast<String, dynamic>();
+      final promotion =
+          (policy['postBuildPromotion'] as Map).cast<String, dynamic>();
+      final ledger = _readObject('release/build-number-ledger.json');
+      final latestLedgerEntry = _objects(ledger['entries']).last;
+      final receipt = _readObject(
+        finalization['completionReceiptFile'] as String,
+      );
+      final receiptRelease =
+          (receipt['release'] as Map).cast<String, dynamic>();
+
+      expect(state['schemaVersion'], 2);
+      expect(
+        state['status'],
+        'POST_BUILD14_SOURCE_BUILD14_FINALIZED_BUILD11_PILOT_ONLY',
+      );
+      expect(currentSource['reference'], 'refs/heads/main');
+      expect(currentSource['packageVersion'], _packageVersion());
+      expect(
+        currentSource['relationshipToLatestFinalizedArtifact'],
+        'DESCENDANT_SOURCE_NOT_CONTAINED_IN_BUILD14',
+      );
+      expect(currentSource['sourceAndCiAuthority'], isTrue);
+      expect(currentSource['artifactConstructionAuthority'], isFalse);
+      expect(currentSource['deploymentAuthority'], isFalse);
+      expect(currentSource['distributionAuthority'], isFalse);
+      expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
+
+      expect(artifact['buildNumber'], release['buildNumber']);
+      expect(artifact['buildNumber'], latestLedgerEntry['buildNumber']);
+      expect(artifact['buildNumber'], receiptRelease['buildNumber']);
+      expect(
+        artifact['version'],
+        '${release['versionName']}+${release['buildNumber']}',
+      );
+      expect(artifact['sourceCommit'], finalization['sourceCommit']);
+      final artifactIsAncestor = Process.runSync('git', <String>[
+        'merge-base',
+        '--is-ancestor',
+        artifact['sourceCommit'] as String,
+        'HEAD',
+      ]);
+      expect(
+        artifactIsAncestor.exitCode,
+        0,
+        reason: 'Current source must descend from the finalized artifact.',
+      );
+      expect(artifact['status'], 'COMPLETED_NON_DISTRIBUTABLE');
+      expect(
+        artifact['completionReceiptFile'],
+        finalization['completionReceiptFile'],
+      );
+      expect(
+        artifact['completionReceiptSha256'],
+        finalization['completionReceiptSha256'],
+      );
+      expect(
+        _sha256(artifact['completionReceiptFile'] as String),
+        artifact['completionReceiptSha256'],
+      );
+      expect(artifact['pilotPromotion'], 'NOT_AUTHORIZED');
+      expect(artifact['unrestrictedDistribution'], 'NOT_AUTHORIZED');
+
+      expect(
+        deployed['functionFleetEvidenceFile'],
+        finalization['exactFunctionFleetDeploymentReceiptFile'],
+      );
+      expect(
+        deployed['currentSourceFunctionDeployment'],
+        'NOT_PROVED_AFTER_BUILD14',
+      );
+      expect(pilot['buildNumber'], promotion['buildNumber']);
+      expect(
+        pilot['buildNumber'],
+        policy['distribution']['approvedBuildNumber'],
+      );
+      expect(pilot['handoutPerformed'], isFalse);
+      expect(pilot['appliesToCurrentSource'], isFalse);
+      expect(pilot['appliesToBuild14'], isFalse);
+      expect(next['minimumBuildNumber'], (release['buildNumber'] as int) + 1);
+      expect(next['status'], 'UNRESERVED');
+      expect(next['constructionRequiresFreshGovernedApproval'], isTrue);
+      expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
+      expect(next['pilotPromotionRequiresSeparateDecision'], isTrue);
+      expect(state['localStore']['schemaVersion'], 6);
+      expect(state['appCheck']['mutatingCallableSourceDefault'], isFalse);
+
+      final readme = File('README.md').readAsStringSync();
+      expect(readme, contains('Build 14 (`1.0.0-rc.4+14`)'));
+      expect(readme, contains('Build 15 or higher'));
+      expect(readme, isNot(contains('Build 12 is source authorized')));
+    },
+  );
+
+  test('historical Build 12 deployment record remains exact', () {
     final deployment = _readObject(
       'release/build12-live-deployment-authority.json',
     );
-    final deploymentApproval = _readObject(
+    final approval = _readObject(
       'release/approvals/build12-backend-rules-indexes-deployment-authorization.json',
     );
-    final deploymentSource =
-        (deployment['source'] as Map).cast<String, dynamic>();
-    final deploymentBoundary =
+    final source = (deployment['source'] as Map).cast<String, dynamic>();
+    final boundary =
         (deployment['authorityBoundary'] as Map).cast<String, dynamic>();
 
-    expect(
-      state['status'],
-      'BUILD12_FINALIZED_DEVICE_UPGRADE_PROVED_POST_ASSET_LIVE_WORKFLOW_AND_PILOT_PENDING',
-    );
-    expect(localStore['schemaVersion'], 6);
-    expect(
-      backend['currentSuccessorSourceDeployment'],
-      'PROVED_EXACT_FUNCTION_FLEET',
-    );
-    expect(
-      rules['currentSuccessorDeploymentReadback'],
-      'PASS_EXACT_RULES_AND_61_READY_INDEXES',
-    );
-    expect(
-      runtimeIam['currentSuccessorDeploymentBinding'],
-      'PASS_EXACT_LIVE_READBACK',
-    );
-    expect(appCheck['mutatingCallableSourceDefault'], isFalse);
-    expect(
-      client['successorBuild'],
-      'BUILD12_PRODUCTION_SIGNED_FINALIZED_NON_DISTRIBUTABLE',
-    );
     expect(
       deployment['status'],
       'PASS_BUILD12_BACKEND_RULES_INDEXES_IAM_DEPLOYED_EXACT',
     );
-    expect(deploymentApproval['approved'], isTrue);
-    expect(deploymentApproval['approvalReference'], 'BAF-FIREBASE-DEPLOY-012');
+    expect(approval['approved'], isTrue);
+    expect(approval['approvalReference'], 'BAF-FIREBASE-DEPLOY-012');
     expect(
-      deploymentApproval['recordingTiming'],
-      'POST_DEPLOYMENT_RECORD_OF_PREEXISTING_TASK_AUTHORIZATION',
-    );
-    expect(
-      (deployment['authorization'] as Map<String, dynamic>)['recordSha256'],
+      (deployment['authorization'] as Map)['recordSha256'],
       _sha256(
         'release/approvals/build12-backend-rules-indexes-deployment-authorization.json',
       ),
     );
-    final deploymentControls =
-        (deploymentApproval['requiredControls'] as Map).cast<String, dynamic>();
-    expect(deploymentControls['exactCleanMergedMain'], isTrue);
-    expect(deploymentControls['fullReleaseGateRequired'], isTrue);
     expect(
-      deploymentControls['productionBusinessDataMutationAuthorized'],
-      isFalse,
-    );
-    expect(deploymentControls['appCheckActivationAuthorized'], isFalse);
-    expect(deploymentControls['pilotHandoutAuthorized'], isFalse);
-    expect(
-      deploymentSource['liveDeploymentAuthorityCommit'],
-      'ce2a85acc9eca322dc1288c1df600d4c84f0e738',
-    );
-    expect(
-      deploymentSource['artifactDispatchCommit'],
-      '8ba5b237cef151b001d9bea41e16e68015091e43',
-    );
-    expect(
-      deploymentSource['finalizationReceiptSha256'],
+      source['finalizationReceiptSha256'],
       _sha256('release/evidence/build-12-finalization-closure.json'),
     );
+    expect(boundary['backendDeploymentProved'], isTrue);
+    expect(boundary['rulesAndIndexesDeploymentProved'], isTrue);
+    expect(boundary['runtimeIamProved'], isTrue);
+    expect(boundary['productionSignedClientConstructed'], isTrue);
+    expect(boundary['deviceUpgradeProved'], isTrue);
     expect(
-      successorSource['build12FinalizationReceiptSha256'],
-      _sha256('release/evidence/build-12-finalization-closure.json'),
-    );
-    expect(
-      deploymentSource['functionsSourceUnchangedThroughLiveDeploymentAuthorityCommit'],
-      isTrue,
-    );
-    expect((deployment['externalEvidence'] as List<dynamic>), hasLength(4));
-    expect(deploymentBoundary['backendDeploymentProved'], isTrue);
-    expect(deploymentBoundary['rulesAndIndexesDeploymentProved'], isTrue);
-    expect(deploymentBoundary['runtimeIamProved'], isTrue);
-    expect(deploymentBoundary['productionSignedClientConstructed'], isTrue);
-    expect(deploymentBoundary['deviceUpgradeProved'], isTrue);
-    expect(
-      deploymentBoundary['postAssetPopulationLiveWorkflowValidationProved'],
+      boundary['postAssetPopulationLiveWorkflowValidationProved'],
       isFalse,
     );
-    expect(deploymentBoundary['pilotHandoutAuthorized'], isFalse);
-    expect(
-      device['currentSuccessorDeviceProof'],
-      'PASS_EXACT_BUILD12_PHYSICAL_IN_PLACE_UPGRADE_AND_FEATURE_SURFACES',
+    expect(boundary['pilotHandoutAuthorized'], isFalse);
+  });
+
+  test('legacy receipt labels resolve to exact predecessor evidence', () {
+    final registry = _readObject(
+      'release/predecessor-finalization-receipt-bindings.json',
     );
-    expect(device['postAssetPopulationLiveWorkflowProof'], 'PENDING');
-    expect(device['currentSuccessorPilotHandout'], 'NOT_AUTHORIZED');
-    expect(device['unrestrictedDistribution'], 'NO_GO');
+    final legacy =
+        (registry['legacyFieldNames'] as Map).cast<String, dynamic>();
+    final future =
+        (registry['futureFieldContract'] as Map).cast<String, dynamic>();
+    final bindings = _objects(registry['compatibilityBindings']);
+
+    expect(registry['schemaVersion'], 1);
+    expect(registry['historicalApprovalFilesImmutable'], isTrue);
+    expect(legacy['file'], 'build11FinalizationReceiptFile');
+    expect(legacy['sha256'], 'build11FinalizationReceiptSha256');
+    expect(future['object'], 'predecessorFinalizationReceipt');
+    expect(future['legacyAliasPermittedOnlyWhenRegisteredHere'], isTrue);
+    expect(
+      bindings.map((entry) => entry['successorBuildNumber']),
+      orderedEquals(<int>[12, 13, 14]),
+    );
+
+    for (final binding in bindings) {
+      final approvalPath = binding['approvalFile'] as String;
+      final receiptPath = binding['receiptFile'] as String;
+      final approval = _readObject(approvalPath);
+      final requiredSource =
+          (approval['requiredSource'] as Map).cast<String, dynamic>();
+      final preserved =
+          (approval['preservedCompletedBuild'] as Map).cast<String, dynamic>();
+      final receipt = _readObject(receiptPath);
+      final receiptRelease =
+          (receipt['release'] as Map).cast<String, dynamic>();
+
+      expect(_sha256(approvalPath), binding['approvalSha256']);
+      expect(_sha256(receiptPath), binding['receiptSha256']);
+      expect(
+        binding['successorBuildNumber'],
+        (binding['predecessorBuildNumber'] as int) + 1,
+      );
+      expect(
+        (approval['nextBuild'] as Map)['buildNumber'],
+        binding['successorBuildNumber'],
+      );
+      expect(preserved['buildNumber'], binding['predecessorBuildNumber']);
+      expect(requiredSource[legacy['file']], binding['receiptFile']);
+      expect(requiredSource[legacy['sha256']], binding['receiptSha256']);
+      expect(receiptRelease['buildNumber'], binding['predecessorBuildNumber']);
+    }
+
+    final verifier =
+        File(
+          'tools/release/Test-ProductionReleasePolicy.ps1',
+        ).readAsStringSync();
+    expect(verifier, contains('predecessorFinalizationReceipt'));
+    expect(
+      verifier,
+      contains(
+        'Legacy predecessor receipt alias is not explicitly registered.',
+      ),
+    );
+    expect(
+      verifier,
+      contains(
+        'Resolved predecessor finalization receipt differs from authority.',
+      ),
+    );
   });
 }
