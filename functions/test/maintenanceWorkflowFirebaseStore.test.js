@@ -141,7 +141,25 @@ describe('maintenance workflow Firestore persistence adapter', () => {
     const projection = maintenanceProjectionForCorrection({
       maintenance: {
         version: 7,
+        routedTo: 'instrumentation',
+        status: 'resolved',
         isResolved: true,
+        classification: 'furnaceBurnerLockout',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 3,
+        issueAssignedLanes: ['instrumentation', 'electrical'],
+        issueAcknowledgedLanes: ['instrumentation', 'electrical'],
+        issueCompletedLanes: ['instrumentation', 'electrical'],
+        acknowledgedByUid: 'inst-1',
+        acknowledgedByName: 'Instrumentation',
+        acknowledgedAt: '2026-07-21T04:00:00.000Z',
+        burnerAttendedPositions: [2],
+        burnerResolutionEvidence: {
+          '2': {
+            outcome: 'returnedToService',
+            actionCodes: ['uvDetectorCleaning'],
+          },
+        },
         endDate: closedAt,
         closedByUid: 'ops-1',
         closedByName: 'Operations',
@@ -164,6 +182,20 @@ describe('maintenance workflow Firestore persistence adapter', () => {
     expect(rows[0].futureHistoryField).toEqual({retained: true});
     expect(rows[1].resolvedAt).toBe('2026-07-21T05:00:00.000Z');
     expect(JSON.parse(rows[1].actionsJson)[0]).toEqual(action);
+    expect(projection).toMatchObject({
+      status: 'open',
+      isResolved: false,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 3,
+      issueAssignedLanes: ['instrumentation', 'electrical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+      acknowledgedByUid: null,
+      acknowledgedByName: null,
+      acknowledgedAt: null,
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+    });
   });
 
   test('workflow correction rejects unregistered action extensions', () => {

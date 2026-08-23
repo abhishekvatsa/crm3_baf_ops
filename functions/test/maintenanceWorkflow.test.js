@@ -1214,6 +1214,93 @@ describe('maintenance workflow command integration', () => {
     });
   });
 
+  test('compliance correction reopens canonical issue progress atomically', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-correction-bridge', 'awaitingCompliance', 5);
+    store.seed('compliance_requests/c-correction-bridge', {
+      linkedWorkflowId: 'wf-correction-bridge',
+      linkedMaintenanceFirestoreId: 'm-correction-bridge',
+      originLaneKey: 'elec',
+      targetLaneKey: 'oprn',
+      status: 'complied',
+      currentAttemptId: 'c-correction-bridge_1',
+      version: 3,
+    });
+    store.seed('compliance_attempts/c-correction-bridge_1', {
+      complianceRequestId: 'c-correction-bridge',
+      attemptNumber: 1,
+      accepted: false,
+    });
+    store.seed('maintenance_records/m-correction-bridge', {
+      firestoreId: 'm-correction-bridge',
+      assetType: 'furnace',
+      assetNumber: 7,
+      routedTo: 'instrumentation',
+      classification: 'furnaceBurnerLockout',
+      status: 'resolved',
+      isResolved: true,
+      isDeleted: false,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 4,
+      issueAssignedLanes: ['instrumentation', 'electrical'],
+      issueAcknowledgedLanes: ['instrumentation', 'electrical'],
+      issueCompletedLanes: ['instrumentation', 'electrical'],
+      acknowledgedByUid: 'inst-1',
+      acknowledgedByName: 'Instrumentation',
+      acknowledgedAt: '2026-07-20T15:00:00.000Z',
+      burnerAttendedPositions: [2],
+      burnerResolutionEvidence: {
+        '2': {
+          outcome: 'returnedToService',
+          actionCodes: ['uvDetectorCleaning'],
+        },
+      },
+      endDate: '2026-07-20T15:30:00.000Z',
+      closedByUid: 'inst-1',
+      closedByName: 'Instrumentation',
+      teamsInvolved: ['instrumentation', 'electrical'],
+      actionsJson: '[]',
+      resolutionHistoryJson: '[]',
+      workflowAggregateId: 'wf-correction-bridge',
+      workflowComplianceId: 'c-correction-bridge',
+      workflowQueueState: 'awaitingConfirmation',
+      workflowDeferred: false,
+      version: 8,
+    });
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'return-correction-bridge',
+      commandType: 'returnComplianceForCorrection',
+      aggregateId: 'wf-correction-bridge',
+      expectedVersion: 5,
+      payload: {
+        complianceId: 'c-correction-bridge',
+        reason: 'Burner evidence requires another attendance pass',
+      },
+    }, {actor: electrical, serverNow: at('2026-07-20T16:00:00Z')});
+
+    const reopened = store.read('maintenance_records/m-correction-bridge');
+    expect(reopened).toMatchObject({
+      status: 'open',
+      isResolved: false,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 4,
+      issueAssignedLanes: ['instrumentation', 'electrical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+      acknowledgedByUid: null,
+      acknowledgedByName: null,
+      acknowledgedAt: null,
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+      workflowQueueState: 'correctionRequired',
+      workflowDeferred: true,
+      version: 9,
+    });
+    expect(JSON.parse(reopened.resolutionHistoryJson)).toHaveLength(1);
+  });
+
   test('compliance cannot bind a maintenance ticket from another asset', async () => {
     const store = new MemoryWorkflowStore();
     store.seed('maintenance_workflows/wf-wrong-asset', {

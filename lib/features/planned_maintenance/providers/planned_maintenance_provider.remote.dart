@@ -516,10 +516,12 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   Future<void> updateExecutionFromRemote(JobExecution remote) async {}
 
   @override
-  Future<void> forceRebaseExecutionFromRemote(
+  Future<bool> applyExecutionServerReadbackIfUnchanged(
     JobExecution remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
     String? reason,
-  }) async {}
+  }) async => false;
 
   @override
   Future<PaginatedTemplateResult> getUpdatedTemplates({

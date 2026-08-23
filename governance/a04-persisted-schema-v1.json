@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "A95703BD6C7AC648AAAAF0D822B6A2793CC79F85BFD04E6B053C9DC7525FCAFD",
+  "inventoryDigest": "DF8FEDBDC04994401AD4713D3AF22472DAB2F75571399C81EB2D745EBEE5D547",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "E3CE5B1AC17B721D7BA75A11AD6D15BB4308B6F1DC23A62F4611298A09B419C0",
+  "a05ManifestSha256": "8088D6028BA22123E3447CCD6A4456797B5429C81B33F6426F8BC5D7346AA29E",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -788,6 +788,15 @@
       "regression": "test/asset_availability_record_test.dart"
     },
     {
+      "id": "asset-hierarchy-command-receipt",
+      "file": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "authorityBoundary": "governed hierarchy, registry, Inner Cover, and asset-condition mutation result",
+      "malformedDisposition": "translate invalid callable evidence to a blocking hierarchy error and never report command success",
+      "compatibility": "none for request identity, operation, entity identity, versions, audit identity, canonical commit time, or replay status",
+      "regression": "test/asset_hierarchy_command_receipt_test.dart"
+    },
+    {
       "id": "asset-hierarchy-records",
       "file": "lib/features/assets/data/asset_hierarchy_model.dart",
       "classification": "REMOTE_GOVERNANCE_RECORD",
@@ -1103,6 +1112,15 @@
       "regression": "test/ui_business_alignment_test.dart; functions/test/maintenanceIntelligence.test.js"
     },
     {
+      "id": "maintenance-issue-lane-plan",
+      "file": "lib/features/maintenance/domain/issue_lane_plan.dart",
+      "classification": "NESTED_OPERATIONAL_STATE",
+      "authorityBoundary": "persisted issue lane membership, acknowledgement, completion, and revision topology",
+      "malformedDisposition": "fail closed on partial or malformed canonical lane state and withhold acknowledgement, reconfiguration, coordination, and closure",
+      "compatibility": "a wholly absent canonical lane set only; legacy records derive one accountable lane from the validated route and status",
+      "regression": "test/issue_multi_lane_workflow_test.dart; test/a05_maintenance_audit_integrity_test.dart; test/a05_remote_maintenance_record_integrity_test.dart"
+    },
+    {
       "id": "maintenance-lifecycle-replay-receipt",
       "file": "lib/core/services/sync_service.tickets_templates.dart",
       "classification": "REMOTE_COMMAND_RECEIPT",
@@ -1317,6 +1335,15 @@
       "malformedDisposition": "quarantine local record and report sync failure",
       "compatibility": "none",
       "regression": "test/a05_template_governance_integrity_test.dart"
+    },
+    {
+      "id": "workflow-command-receipt",
+      "file": "lib/features/maintenance_workflow/domain/workflow_command_contract.dart",
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "authorityBoundary": "governed maintenance workflow command result",
+      "malformedDisposition": "fail closed before malformed receipt evidence can enter local workflow state",
+      "compatibility": "none for the exact field set, command identity, result key, aggregate version, bounded result object, or canonical application time",
+      "regression": "test/a05_operational_timestamp_integrity_test.dart; test/business_sync_alignment_contract_test.dart"
     },
     {
       "id": "workflow-firestore-records",

@@ -25,6 +25,7 @@ import '../../directives/data/operational_directive_model.dart';
 import '../domain/burner_lockout_case.dart';
 
 part 'maintenance_provider.local.dart';
+part 'maintenance_provider.copy.dart';
 part 'maintenance_provider.remote.dart';
 
 const maintenancePairedBatchMaximum = 166;
@@ -351,8 +352,31 @@ abstract class MaintenanceRepository {
   Future<List<MaintenanceRecord>> getUnsyncedTickets();
   Future<void> markTicketSynced(dynamic id, String firestoreId);
   Future<MaintenanceRecord?> getByFirestoreId(String firestoreId);
+
+  /// Reads exact command state from the server; local stores cannot prove it.
+  Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(
+    String firestoreId,
+  );
+
   Future<void> insertFromRemote(MaintenanceRecord remote);
   Future<void> updateFromRemote(MaintenanceRecord remote);
+
+  /// Adopts exact command readback only at the unchanged local boundary or
+  /// when another synchronization path already adopted that server version.
+  Future<bool> applyMaintenanceIssueCommandReadback({
+    required MaintenanceRecord remote,
+    required int expectedLocalVersion,
+    required DateTime expectedLocalUpdatedAt,
+  });
+
+  /// Applies an exact point-read refresh, including a canonical tombstone,
+  /// only while the local row remains synchronized at the observed boundary.
+  Future<bool> applyMaintenanceIssueServerRefresh({
+    required MaintenanceRecord remote,
+    required int expectedLocalVersion,
+    required DateTime expectedLocalUpdatedAt,
+  });
+
   Future<void> upsertTicket(MaintenanceRecord record);
 
   Future<PaginatedMaintenanceResult> getUpdatedTickets({
@@ -367,40 +391,32 @@ abstract class MaintenanceRepository {
   );
   Future<void> batchUpsertTickets(List<MaintenanceRecord> records);
 
-  /// Applies one server-visible maintenance lifecycle replay step as a remote
-  /// field-scoped merge. Used only by sync when offline local-first ticket
-  /// actions collapsed create/close/reopen transitions into one dirty snapshot.
-  /// Local repositories do not support this remote push primitive.
+  /// Applies one field-scoped remote lifecycle replay when offline transitions
+  /// collapsed into one dirty snapshot; local stores do not support it.
   Future<void> applyRemoteMaintenanceLifecycleReplayStepForSync(
     String firestoreId,
     Map<String, dynamic> stepData,
   );
 
-  /// Reads the exact remote document shape used to adjudicate an uncertain
-  /// lifecycle replay write. Model decoding is intentionally bypassed because
-  /// the replay surface includes server-only audit and burner evidence fields.
+  /// Reads exact remote replay fields, including server-only burner evidence,
+  /// to adjudicate an uncertain lifecycle write.
   Future<Map<String, dynamic>?>
   readRemoteMaintenanceLifecycleReplayFieldsForSync(String firestoreId);
 
-  /// Adopts server-owned creation evidence after an idempotent create command.
-  /// The local row is changed only if it still matches the snapshot sent to the
-  /// server; concurrent local edits therefore remain dirty for a later sync.
-  Future<bool> applyGovernedCreationReceiptForSync({
-    required String firestoreId,
+  /// Adopts the complete authoritative server record after an idempotent create
+  /// command. Local-only revision numbers are deliberately replaced by the
+  /// server version, but only at the unchanged snapshot boundary.
+  Future<bool> applyGovernedCreationServerStateForSync({
+    required MaintenanceRecord remote,
     required SyncPushSnapshot expectedLocal,
-    required int serverCreateVersion,
-    required DateTime serverAppliedAt,
-    required bool hasPostCreateLifecycle,
   });
 
-  /// Adopts the exact server version and mutation time confirmed after a
+  /// Adopts the complete authoritative server record confirmed after a
   /// maintenance lifecycle replay. The local row is changed only if it still
   /// matches the snapshot used to construct the replay.
   Future<bool> applyMaintenanceLifecycleReplayReceiptForSync({
-    required String firestoreId,
+    required MaintenanceRecord remote,
     required SyncPushSnapshot expectedLocal,
-    required int serverVersion,
-    required DateTime serverUpdatedAt,
   });
 
   Future<void> markTicketsSynced(List<int> ids);
@@ -417,8 +433,24 @@ String? _cleanOptionalMaintenanceText(String? value) {
   return trimmed;
 }
 
-void _requireCanCloseMaintenanceTicket(AppUser actor) {
+void _requireCanAttemptCloseMaintenanceTicket(AppUser actor) {
   if (!actor.canCloseMaintenanceTicket) {
+    throw StateError('Not authorized to close maintenance tickets.');
+  }
+}
+
+void _requireCanCloseMaintenanceTicket(
+  AppUser actor,
+  MaintenanceRecord record,
+) {
+  final laneRead = record.issueLanePlanReadResult;
+  if (!laneRead.isValid) {
+    throw StateError(
+      'Saved accountable lane evidence needs reconciliation before closure.',
+    );
+  }
+  final lanes = laneRead.value!.assignedLanes.map(RoutedTo.values.byName);
+  if (!actor.canFinalizeMaintenanceIssue(lanes)) {
     throw StateError('Not authorized to close maintenance tickets.');
   }
 }
@@ -450,6 +482,11 @@ void _requireMaintenanceWorkflowAllowsAction(
 }
 
 void _requireValidMaintenanceEvidence(MaintenanceRecord record) {
+  if (!record.issueLanePlanReadResult.isValid) {
+    throw StateError(
+      'Saved accountable lane evidence needs repair before this ticket can be changed.',
+    );
+  }
   if (!record.actionsReadResult.isValid) {
     throw StateError(
       'Saved action evidence needs repair before this ticket can be changed.',

@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/services/sync_coordinator.dart';
+import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -252,7 +253,22 @@ class _ChargeAbnormalitiesScreenState
               expectedVersion: existing.version,
               reason: 'Updated charge abnormality',
             );
-        await repository.updateAbnormalityFromRemote(result.abnormality);
+        final adopted = await repository
+            .applyAbnormalityServerReadbackIfUnchanged(
+              result.abnormality,
+              expectedLocal: SyncPushSnapshot(
+                id: existing.id,
+                version: existing.version,
+                updatedAt: existing.updatedAt,
+              ),
+              expectedLocalSynced: existing.isSynced,
+            );
+        if (!adopted) {
+          throw StateError(
+            'The abnormality was updated by the server, but newer local work '
+            'was preserved for reconciliation.',
+          );
+        }
       }
 
       SyncRequestOutcome? createSyncOutcome;
@@ -359,7 +375,22 @@ class _ChargeAbnormalitiesScreenState
             expectedVersion: record.version,
             reason: deleteReason,
           );
-      await repository.applyTombstoneFromAbnormalityRemote(result.abnormality);
+      final adopted = await repository
+          .applyAbnormalityServerReadbackIfUnchanged(
+            result.abnormality,
+            expectedLocal: SyncPushSnapshot(
+              id: record.id,
+              version: record.version,
+              updatedAt: record.updatedAt,
+            ),
+            expectedLocalSynced: record.isSynced,
+          );
+      if (!adopted) {
+        throw StateError(
+          'The abnormality was deleted by the server, but newer local work '
+          'was preserved for reconciliation.',
+        );
+      }
 
       unawaited(
         syncCoordinator.runFullSync(

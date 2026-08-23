@@ -10,6 +10,7 @@ import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../maintenance/data/maintenance_model.dart';
 import '../../../maintenance/domain/burner_lockout_case.dart';
+import '../../../maintenance/domain/furnace_stuckup_case.dart';
 import '../../../maintenance/providers/maintenance_provider.dart';
 import '../../../maintenance_workflow/domain/workflow_types.dart';
 import '../../../maintenance_workflow/providers/workflow_providers.dart';
@@ -64,15 +65,29 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
   bool get _isBurnerLockout =>
       widget.ticket.classification == burnerLockoutClassification;
 
+  bool get _isFurnaceStuckup =>
+      widget.ticket.classification == furnaceStuckupClassification;
+
+  bool get _isSpecializedIssue => _isBurnerLockout || _isFurnaceStuckup;
+
   bool get _hasRedHotBurner =>
       widget.ticket.burnerLockoutReadResult.value?.hasRedHotObservation == true;
 
   bool get _canCorrectRoute =>
-      !_isBurnerLockout &&
+      !_isSpecializedIssue &&
       widget.ticket.status == TicketStatus.open &&
       widget.ticket.acknowledgedByUid == null &&
       widget.ticket.acknowledgedByName == null &&
       widget.ticket.acknowledgedAt == null;
+
+  bool get _usesOtherDepartment {
+    if (_selectedRouted != widget.ticket.routedTo) {
+      return _selectedRouted == RoutedTo.others;
+    }
+    final lanePlan = widget.ticket.issueLanePlanReadResult.value;
+    return lanePlan?.assignedLanes.contains(RoutedTo.others.name) ??
+        _selectedRouted == RoutedTo.others;
+  }
 
   @override
   void initState() {
@@ -150,6 +165,8 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                     helperText:
                         _isBurnerLockout
                             ? 'Burner lockout remains accountable to I&A.'
+                            : _isFurnaceStuckup
+                            ? 'Furnace stuck-up remains accountable to Mechanical.'
                             : _canCorrectRoute
                             ? null
                             : 'Route is locked after acknowledgement or work starts.',
@@ -189,7 +206,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                         );
                       }).toList(),
                   onChanged:
-                      _isBurnerLockout
+                      _isSpecializedIssue
                           ? null
                           : (value) {
                             if (value == null) {
@@ -210,7 +227,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                 ),
                 TextFormField(
                   controller: _componentController,
-                  enabled: !_isBurnerLockout,
+                  enabled: !_isSpecializedIssue,
                   decoration: const InputDecoration(
                     labelText: 'Component (optional)',
                   ),
@@ -235,7 +252,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
                   controller: _tagController,
-                  enabled: !_isBurnerLockout,
+                  enabled: !_isSpecializedIssue,
                   decoration: const InputDecoration(
                     labelText: 'Instrument Tag (optional)',
                   ),
@@ -248,17 +265,17 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
                   controller: _classificationController,
-                  enabled: !_isBurnerLockout,
+                  enabled: !_isSpecializedIssue,
                   decoration: const InputDecoration(
                     labelText: 'Classification (optional)',
                   ),
                 ),
                 const SizedBox(height: BafSpacing.sm),
-                if (_selectedRouted == RoutedTo.others) ...[
+                if (_usesOtherDepartment) ...[
                   TextFormField(
                     controller: _otherDepartmentController,
                     decoration: const InputDecoration(
-                      labelText: 'Other department',
+                      labelText: 'Other accountable team',
                     ),
                     validator: (value) {
                       final length = value?.trim().length ?? 0;

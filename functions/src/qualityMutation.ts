@@ -9,6 +9,7 @@ import {
 
 export type QualityMutationOperation =
   | "REQUEST_QUALITY_WARNING_CLOSURE"
+  | "DECLARE_QUALITY_CASE_RA_REQUIRED"
   | "CLOSE_QUALITY_WARNING"
   | "REOPEN_QUALITY_WARNING"
   | "CREATE_QUALITY_MONITORING_REQUEST"
@@ -19,6 +20,7 @@ export function qualityAuditActionForOperation(
 ): "create" | "update" | "resolve" | "reopen" {
   switch (operation) {
   case "REQUEST_QUALITY_WARNING_CLOSURE":
+  case "DECLARE_QUALITY_CASE_RA_REQUIRED":
     return "update";
   case "CLOSE_QUALITY_WARNING":
   case "CLOSE_QUALITY_MONITORING_REQUEST":
@@ -120,6 +122,7 @@ const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPERATIONS = new Set<QualityMutationOperation>([
   "REQUEST_QUALITY_WARNING_CLOSURE",
+  "DECLARE_QUALITY_CASE_RA_REQUIRED",
   "CLOSE_QUALITY_WARNING",
   "REOPEN_QUALITY_WARNING",
   "CREATE_QUALITY_MONITORING_REQUEST",
@@ -138,6 +141,45 @@ const DISPOSITIONS = new Set([
   "qualityAdjudication",
 ]);
 const WARNING_STATUSES = new Set(["open", "closureRequested", "closed"]);
+const REANNEALING_STATUSES = new Set([
+  "notApplicable",
+  "pendingDecision",
+  "required",
+  "notRequired",
+  "completed",
+]);
+const LINKED_ABNORMALITY_FIELDS = new Set([
+  "firestoreId",
+  "sourceChargeNo",
+  "abnormalityTypeId",
+  "abnormalityTypeTitle",
+  "abnormalityTypeCode",
+  "category",
+  "severity",
+  "affectedAssets",
+  "component",
+  "observedReason",
+  "description",
+  "possibleRootReasonCategory",
+  "possibleRootReasonNotes",
+  "reannealingStatus",
+  "reannealedToChargeNo",
+  "loggedAt",
+  "updatedAt",
+  "loggedByUid",
+  "loggedByName",
+  "updatedByUid",
+  "updatedByName",
+  "linkedTicketFirestoreId",
+  "linkedExecutionFirestoreId",
+  "version",
+  "isDeleted",
+  "deletedAt",
+  "deletedByUid",
+  "deletedByName",
+  "deleteReason",
+  "_globalPullServerUpdatedAt",
+]);
 const WARNING_FIELDS = new Set([
   "schemaVersion",
   "warningId",
@@ -442,7 +484,7 @@ function malformed(entity: string, field?: string): never {
   );
 }
 
-function validateWarning(
+export function validateQualityWarningRecord(
   data: UserAuthorityJsonMap,
   warningId: string,
 ): UserAuthorityJsonMap {
@@ -614,6 +656,169 @@ function validateWarning(
   return {...data};
 }
 
+function validateLinkedAbnormality(
+  data: UserAuthorityJsonMap,
+  abnormalityId: string,
+  warning: UserAuthorityJsonMap,
+  allowDeleted: boolean,
+): UserAuthorityJsonMap {
+  for (const key of Object.keys(data)) {
+    if (!LINKED_ABNORMALITY_FIELDS.has(key)) {
+      malformed("charge-quality-abnormality", key);
+    }
+  }
+  for (const field of [...LINKED_ABNORMALITY_FIELDS].filter((value) =>
+    value !== "_globalPullServerUpdatedAt")) {
+    if (!Object.prototype.hasOwnProperty.call(data, field)) {
+      malformed("charge-quality-abnormality", field);
+    }
+  }
+  if (data.firestoreId !== abnormalityId) {
+    malformed("charge-quality-abnormality", "firestoreId");
+  }
+  if (typeof data.isDeleted !== "boolean") {
+    malformed("charge-quality-abnormality", "isDeleted");
+  }
+  positiveExistingInteger(
+    data.sourceChargeNo,
+    "sourceChargeNo",
+    "charge-quality-abnormality",
+  );
+  if (!isFiveDigitChargeNumber(data.sourceChargeNo) ||
+      data.sourceChargeNo !== warning.sourceChargeNo) {
+    malformed("charge-quality-abnormality", "sourceChargeNo");
+  }
+  positiveExistingInteger(
+    data.version,
+    "version",
+    "charge-quality-abnormality",
+  );
+  requiredExistingString(
+    data.abnormalityTypeId,
+    "abnormalityTypeId",
+    "charge-quality-abnormality",
+  );
+  requiredExistingString(
+    data.observedReason,
+    "observedReason",
+    "charge-quality-abnormality",
+  );
+  requiredExistingString(
+    data.loggedByUid,
+    "loggedByUid",
+    "charge-quality-abnormality",
+  );
+  requiredExistingString(
+    data.updatedByUid,
+    "updatedByUid",
+    "charge-quality-abnormality",
+  );
+  if (!validDate(data.loggedAt) || !validDate(data.updatedAt) ||
+      !REANNEALING_STATUSES.has(data.reannealingStatus as string)) {
+    malformed("charge-quality-abnormality", "reannealingStatus");
+  }
+  if (data._globalPullServerUpdatedAt != null &&
+      !validDate(data._globalPullServerUpdatedAt)) {
+    malformed("charge-quality-abnormality", "_globalPullServerUpdatedAt");
+  }
+  const completed = data.reannealingStatus === "completed";
+  const target = data.reannealedToChargeNo;
+  if (completed !== (target != null) ||
+      (target != null && (!isFiveDigitChargeNumber(target) ||
+        target === data.sourceChargeNo))) {
+    malformed("charge-quality-abnormality", "reannealedToChargeNo");
+  }
+  if (data.isDeleted === true) {
+    if (!allowDeleted || !validDate(data.deletedAt)) {
+      malformed("charge-quality-abnormality", "isDeleted");
+    }
+    requiredExistingString(
+      data.deletedByUid,
+      "deletedByUid",
+      "charge-quality-abnormality",
+    );
+    requiredExistingString(
+      data.deletedByName,
+      "deletedByName",
+      "charge-quality-abnormality",
+    );
+    requiredExistingString(
+      data.deleteReason,
+      "deleteReason",
+      "charge-quality-abnormality",
+    );
+  } else if (data.deletedAt != null || data.deletedByUid != null ||
+      data.deletedByName != null || data.deleteReason != null) {
+    malformed("charge-quality-abnormality", "isDeleted");
+  }
+  const expectedTicketId = warning.sourceType === "issue" ?
+    warning.sourceId : null;
+  if (data.linkedTicketFirestoreId !== expectedTicketId) {
+    malformed("charge-quality-abnormality", "linkedTicketFirestoreId");
+  }
+  return {...data};
+}
+
+type LinkedAbnormality = {
+  readonly id: string;
+  readonly ref: DocumentRefLike;
+  readonly before: UserAuthorityJsonMap;
+};
+
+async function linkedAbnormalityForWarning(args: {
+  db: QualityMutationFirestoreLike;
+  transaction: TransactionLike;
+  warning: UserAuthorityJsonMap;
+  allowDeleted: boolean;
+}): Promise<LinkedAbnormality | null> {
+  const {db, transaction, warning, allowDeleted} = args;
+  let abnormalityId: string | null = null;
+  if (warning.sourceType === "abnormality") {
+    abnormalityId = warning.sourceId as string;
+  } else {
+    const ticketId = warning.sourceId as string;
+    const ticketSnapshot = await transaction.get(
+      db.collection("maintenance_records").doc(ticketId),
+    );
+    if (!ticketSnapshot.exists) return null;
+    const ticket = ticketSnapshot.data() ?? {};
+    const linkValues = [
+      ticket.qualityAbnormalityId,
+      ticket.qualityWarningId,
+      ticket.chargeQualityCaseId,
+    ];
+    if (linkValues.every((value) => value == null)) return null;
+    const expectedAbnormalityId = `issue_quality_${ticketId}`;
+    const expectedWarningId = `issue_${ticketId}`;
+    if (ticket.qualityAbnormalityId !== expectedAbnormalityId ||
+        ticket.qualityWarningId !== expectedWarningId ||
+        ticket.chargeQualityCaseId !== expectedWarningId ||
+        warning.warningId !== expectedWarningId) {
+      malformed("charge-quality-case", "qualityAbnormalityId");
+    }
+    abnormalityId = expectedAbnormalityId;
+  }
+  const ref = db.collection("charge_abnormalities").doc(abnormalityId);
+  const snapshot = await transaction.get(ref);
+  if (!snapshot.exists) {
+    throw new QualityMutationError(
+      "data-loss",
+      "The quality warning is missing its linked charge abnormality.",
+      {reasonCode: "charge-quality-abnormality-missing", abnormalityId},
+    );
+  }
+  return {
+    id: abnormalityId,
+    ref,
+    before: validateLinkedAbnormality(
+      snapshot.data() ?? {},
+      abnormalityId,
+      warning,
+      allowDeleted,
+    ),
+  };
+}
+
 function validateMonitoring(
   data: UserAuthorityJsonMap,
   requestId: string,
@@ -729,9 +934,18 @@ function replayResult(args: {
   receipt: UserAuthorityJsonMap;
   audit: UserAuthorityJsonMap | null;
   target: UserAuthorityJsonMap | null;
+  linkedAbnormality: LinkedAbnormality | null;
   auditId: string;
 }): QualityMutationResult {
-  const {request, actorUid, receipt, audit, target, auditId} = args;
+  const {
+    request,
+    actorUid,
+    receipt,
+    audit,
+    target,
+    linkedAbnormality,
+    auditId,
+  } = args;
   const entityId = targetIdentity(request);
   if (receipt.payloadFingerprint !== request.fingerprint ||
       receipt.actorUid !== actorUid ||
@@ -751,7 +965,25 @@ function replayResult(args: {
     );
   }
   const current = "warningId" in request ?
-    validateWarning(target, entityId) : validateMonitoring(target, entityId);
+    validateQualityWarningRecord(target, entityId) :
+    validateMonitoring(target, entityId);
+  const hasLinkedEvidence = Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedAbnormalityId",
+  ) || Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedAbnormalityVersion",
+  );
+  if (hasLinkedEvidence &&
+      (receipt.linkedAbnormalityId !== (linkedAbnormality?.id ?? null) ||
+        receipt.linkedAbnormalityVersion !==
+          (linkedAbnormality?.before.version ?? null))) {
+    throw new QualityMutationError(
+      "data-loss",
+      "Linked charge-abnormality replay evidence has drifted.",
+      {reasonCode: "quality-replay-linked-abnormality-drift"},
+    );
+  }
   if (receipt.resultVersion !== current.version ||
       current.lastMutationId !== request.requestId ||
       receipt.schemaVersion !== 1 ||
@@ -814,6 +1046,21 @@ export async function mutateQualityWithDb(args: {
     const actor = actorFromSnapshot(actorSnapshot, actorUid, request.operation);
     const targetSnapshot = await transaction.get(targetRef);
     const auditSnapshot = await transaction.get(auditRef);
+    const warningBefore =
+      "warningId" in request && targetSnapshot.exists ?
+        validateQualityWarningRecord(
+          targetSnapshot.data() ?? {},
+          request.warningId,
+        ) : null;
+    const linkedAbnormality = warningBefore == null ? null :
+      await linkedAbnormalityForWarning({
+        db: args.db,
+        transaction,
+        warning: warningBefore,
+        allowDeleted:
+          request.operation === "REOPEN_QUALITY_WARNING" &&
+          warningBefore.sourceType === "abnormality",
+      });
 
     if (receiptSnapshot.exists) {
       return replayResult({
@@ -822,6 +1069,7 @@ export async function mutateQualityWithDb(args: {
         receipt: receiptSnapshot.data() ?? {},
         audit: auditSnapshot.exists ? auditSnapshot.data() ?? {} : null,
         target: targetSnapshot.exists ? targetSnapshot.data() ?? {} : null,
+        linkedAbnormality,
         auditId,
       });
     }
@@ -836,6 +1084,7 @@ export async function mutateQualityWithDb(args: {
     let before: UserAuthorityJsonMap | null = null;
     let after: UserAuthorityJsonMap;
     let resultVersion: number;
+    let linkedAbnormalityAfter: UserAuthorityJsonMap | null = null;
     const committedDate = now();
     const committedAtIso = committedDate.toISOString();
     const committedAt = timestampFromDate(committedDate);
@@ -848,7 +1097,7 @@ export async function mutateQualityWithDb(args: {
           {reasonCode: "quality-warning-not-found"},
         );
       }
-      before = validateWarning(targetSnapshot.data() ?? {}, request.warningId);
+      before = warningBefore as UserAuthorityJsonMap;
       if (before.version !== request.expectedVersion) {
         throw new QualityMutationError(
           "aborted",
@@ -875,6 +1124,34 @@ export async function mutateQualityWithDb(args: {
           closureRequestedAt: committedAt,
           closureRequestedByUid: actorUid,
           closureRequestedByName: actor.name,
+          closedAt: null,
+          closedByUid: null,
+          closedByName: null,
+          closureDisposition: null,
+          linkedReannealingChargeNos: [],
+          decisionReason: null,
+        });
+      } else if (request.operation === "DECLARE_QUALITY_CASE_RA_REQUIRED") {
+        if (linkedAbnormality == null) {
+          throw new QualityMutationError(
+            "failed-precondition",
+            "This legacy warning has no linked RA case.",
+            {reasonCode: "quality-warning-ra-case-missing"},
+          );
+        }
+        if (before.status === "closed") {
+          throw new QualityMutationError(
+            "failed-precondition",
+            "Reopen the warning before declaring re-annealing required.",
+            {reasonCode: "quality-warning-closed"},
+          );
+        }
+        Object.assign(after, {
+          status: "open",
+          closureRequestReason: null,
+          closureRequestedAt: null,
+          closureRequestedByUid: null,
+          closureRequestedByName: null,
           closedAt: null,
           closedByUid: null,
           closedByName: null,
@@ -920,6 +1197,70 @@ export async function mutateQualityWithDb(args: {
           linkedReannealingChargeNos: [],
           decisionReason: null,
         });
+      }
+      if (linkedAbnormality != null &&
+          request.operation !== "REQUEST_QUALITY_WARNING_CLOSURE") {
+        const linkedVersion = linkedAbnormality.before.version as number;
+        const nextLinkedVersion = linkedVersion + 1;
+        if (!Number.isSafeInteger(nextLinkedVersion)) {
+          throw new QualityMutationError(
+            "failed-precondition",
+            "The linked charge-abnormality version cannot advance safely.",
+            {reasonCode: "charge-quality-abnormality-version-overflow"},
+          );
+        }
+        let reannealingStatus: string;
+        let reannealedToChargeNo: number | null = null;
+        if (request.operation === "DECLARE_QUALITY_CASE_RA_REQUIRED") {
+          reannealingStatus = "required";
+        } else if (request.operation === "REOPEN_QUALITY_WARNING") {
+          reannealingStatus = "pendingDecision";
+        } else if (request.disposition === "reannealingCompleted") {
+          if (linkedAbnormality.before.reannealingStatus !== "required") {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "Re-annealing completion requires a prior RA-required decision.",
+              {reasonCode: "charge-quality-ra-not-required"},
+            );
+          }
+          if (request.linkedReannealingChargeNos.length !== 1) {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "A connected RA case requires exactly one resulting charge.",
+              {reasonCode: "charge-quality-ra-charge-count-invalid"},
+            );
+          }
+          reannealingStatus = "completed";
+          reannealedToChargeNo = request.linkedReannealingChargeNos[0];
+        } else {
+          reannealingStatus = "notRequired";
+        }
+        if (reannealedToChargeNo === linkedAbnormality.before.sourceChargeNo) {
+          throw new QualityMutationError(
+            "failed-precondition",
+            "The re-annealed charge must differ from the source charge.",
+            {reasonCode: "reannealed-charge-matches-source"},
+          );
+        }
+        linkedAbnormalityAfter = {
+          ...linkedAbnormality.before,
+          reannealingStatus,
+          reannealedToChargeNo,
+          ...(request.operation === "REOPEN_QUALITY_WARNING" ? {
+            isDeleted: false,
+            deletedAt: null,
+            deletedByUid: null,
+            deletedByName: null,
+            deleteReason: null,
+          } : {}),
+          updatedAt: committedAtIso,
+          updatedByUid: actorUid,
+          updatedByName: actor.name,
+          version: nextLinkedVersion,
+        };
+        if (before.sourceType === "abnormality") {
+          after.sourceVersion = nextLinkedVersion;
+        }
       }
     } else if (request.operation === "CREATE_QUALITY_MONITORING_REQUEST") {
       if (targetSnapshot.exists) {
@@ -1007,6 +1348,9 @@ export async function mutateQualityWithDb(args: {
       lastMutationId: request.requestId,
     });
     transaction.set(targetRef, after);
+    if (linkedAbnormality != null && linkedAbnormalityAfter != null) {
+      transaction.set(linkedAbnormality.ref, linkedAbnormalityAfter);
+    }
     transaction.set(auditRef, {
       schemaVersion: 1,
       eventType: "qualityMutation",
@@ -1027,6 +1371,11 @@ export async function mutateQualityWithDb(args: {
       operation: request.operation,
       expectedVersion: request.expectedVersion,
       resultVersion,
+      linkedAbnormalityId: linkedAbnormality?.id ?? null,
+      linkedAbnormalityBeforeVersion:
+        linkedAbnormality?.before.version ?? null,
+      linkedAbnormalityResultVersion:
+        linkedAbnormalityAfter?.version ?? linkedAbnormality?.before.version ?? null,
     });
     transaction.set(receiptRef, {
       schemaVersion: 1,
@@ -1037,6 +1386,9 @@ export async function mutateQualityWithDb(args: {
       payloadFingerprint: request.fingerprint,
       expectedVersion: request.expectedVersion,
       resultVersion,
+      linkedAbnormalityId: linkedAbnormality?.id ?? null,
+      linkedAbnormalityVersion:
+        linkedAbnormalityAfter?.version ?? linkedAbnormality?.before.version ?? null,
       auditId,
       committedAt,
       committedAtIso,

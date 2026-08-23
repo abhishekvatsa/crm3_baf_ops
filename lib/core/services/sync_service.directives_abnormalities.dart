@@ -444,8 +444,22 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
         if (_governedChargeAbnormalityStateMatches(record, remote)) {
           final snapshot = _syncPushSnapshot(record);
-          await _abnormalityRepo.markAbnormalitiesSyncedIfUnchanged([snapshot]);
-          await _abnormalityRepo.updateAbnormalityFromRemote(remote);
+          final adopted = await _abnormalityRepo
+              .applyAbnormalityServerReadbackIfUnchanged(
+                remote,
+                expectedLocal: snapshot,
+                expectedLocalSynced: record.isSynced,
+              );
+          if (!adopted) {
+            lastFailureCount++;
+            _recordPushFailureDetail(
+              entityType: 'charge_abnormality',
+              entityId: _syncEntityId(record),
+              error:
+                  'Newer local abnormality work was preserved while adopting the exact server record.',
+            );
+            continue;
+          }
           await _resolveRecheckedPermanentRejectionsForRecords(
             entityType: 'charge_abnormality',
             records: <ChargeAbnormality>[record],
@@ -587,8 +601,18 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           reasonCode: 'abnormality-response-missing',
         );
       }
-      await _abnormalityRepo.markAbnormalitiesSyncedIfUnchanged([snapshot]);
-      await _abnormalityRepo.updateAbnormalityFromRemote(accepted.abnormality);
+      final adopted = await _abnormalityRepo
+          .applyAbnormalityServerReadbackIfUnchanged(
+            accepted.abnormality,
+            expectedLocal: snapshot,
+            expectedLocalSynced: local.isSynced,
+          );
+      if (!adopted) {
+        throw StateError(
+          'The governed abnormality mutation was accepted, but newer local '
+          'work was preserved for reconciliation.',
+        );
+      }
       await _resolveRecheckedPermanentRejectionsForRecords(
         entityType: 'charge_abnormality',
         records: <ChargeAbnormality>[local],

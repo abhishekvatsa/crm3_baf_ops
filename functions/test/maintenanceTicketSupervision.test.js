@@ -7,6 +7,10 @@ const {
 const {
   payloadFingerprint,
 } = require('../lib/maintenanceWorkflow/utils');
+const {
+  reopenMaintenanceTicket,
+  resolveMaintenanceTicket,
+} = require('../lib/maintenanceWorkflow/ticketHandlers');
 
 const at = new Date('2026-08-14T16:30:00.000Z');
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
@@ -14,10 +18,13 @@ const admin = actor('admin-1', ['admin']);
 const electrical = actor('electrical-1', ['seniorElectrical']);
 const mechanical = actor('mechanical-1', ['seniorMechanical']);
 const contractSupervisor = actor('contract-1', ['contractSupervisor']);
+const operations = actor('operations-1', ['operations']);
 
 function serviceFor(currentActor, ticket = {}) {
   const store = new MemoryWorkflowStore();
-  for (const current of [admin, electrical, mechanical, contractSupervisor]) {
+  for (const current of [
+    admin, electrical, mechanical, contractSupervisor, operations,
+  ]) {
     store.seed(`users/${current.uid}`, {
       isApproved: true,
       roles: [...current.roles],
@@ -56,7 +63,9 @@ const acknowledgeCommand = (commandId = 'ack-ticket-1') => ({
 
 function createServiceFor(currentActor = admin) {
   const store = new MemoryWorkflowStore();
-  for (const current of [admin, electrical, mechanical, contractSupervisor]) {
+  for (const current of [
+    admin, electrical, mechanical, contractSupervisor, operations,
+  ]) {
     store.seed(`users/${current.uid}`, {
       isApproved: true,
       roles: [...current.roles],
@@ -84,6 +93,17 @@ function createServiceFor(currentActor = admin) {
     ownershipStatus: 'confirmed',
     ownerDiscipline: 'Operations',
     accountableRoleKeys: ['operations'],
+  });
+  store.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+    firestoreId: 'ATMOSPHERE_DEVIATION',
+    code: 'ATMOSPHERE_DEVIATION',
+    title: 'Atmosphere deviation',
+    category: 'process',
+    severity: 'high',
+    applicableAssetTypes: ['furnace', 'base'],
+    suggestsReannealing: true,
+    isActive: true,
+    isDeleted: false,
   });
   return {
     store,
@@ -140,6 +160,60 @@ function createCommand({
   };
 }
 
+function burnerResolutionAction({
+  position,
+  code = 'uvDetectorCleaning',
+  reading,
+  attendanceSessionId = `burner_ticket-1_${position}`,
+}) {
+  return {
+    schemaVersion: 1,
+    asset: 'Furnace 7',
+    component: `Burner ${position}`,
+    actionType: 'repair',
+    isAutoResolved: false,
+    createdAt: '2026-08-14T16:00:00.000Z',
+    severity: 'high',
+    version: 1,
+    attendanceSessionId,
+    burnerPosition: position,
+    burnerActionCode: code,
+    burnerOutcome: 'returnedToService',
+    burnerMicroampReading: reading,
+  };
+}
+
+const firestoreTimestamp = (value) => ({
+  toDate: () => new Date(value),
+});
+
+function directHandlerTransaction(ticketId, ticket) {
+  const docs = new Map([[`maintenance_records/${ticketId}`, ticket]]);
+  const tx = {
+    async get(path) {
+      const data = docs.get(path);
+      return {path, exists: data != null, data: data ?? null};
+    },
+    async query() {
+      return [];
+    },
+    create(path, data) {
+      if (docs.has(path)) throw new Error(`already-exists:${path}`);
+      docs.set(path, data);
+    },
+    set(path, data, merge = false) {
+      const prior = docs.get(path);
+      docs.set(path, merge && prior != null ? {...prior, ...data} : data);
+    },
+    update(path, data) {
+      const prior = docs.get(path);
+      if (prior == null) throw new Error(`not-found:${path}`);
+      docs.set(path, {...prior, ...data});
+    },
+  };
+  return {tx, read: (path) => docs.get(path)};
+}
+
 describe('governed maintenance-ticket supervision', () => {
   test('creates an asset-bound issue atomically with server actor and time', async () => {
     const {store, service, context} = createServiceFor(mechanical);
@@ -162,6 +236,11 @@ describe('governed maintenance-ticket supervision', () => {
     const created = store.read('maintenance_records/ticket-2');
     expect(created).toMatchObject({
       firestoreId: 'ticket-2',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ['mechanical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
       version: 1,
       loggedByUid: mechanical.uid,
       loggedByName: mechanical.name,
@@ -199,6 +278,66 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('creates a multi-lane issue with the selected primary route', async () => {
+    const {store, service, context} = createServiceFor(mechanical);
+    const receipt = await service.execute(createCommand({
+      commandId: 'create-multi-lane-ticket',
+      ticketId: 'multi-lane-ticket',
+      ticket: {
+        routedTo: 'mechanical',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['mechanical', 'electrical', 'instrumentation'],
+        issueAcknowledgedLanes: [],
+        issueCompletedLanes: [],
+      },
+    }), context);
+
+    expect(receipt).toMatchObject({
+      resultKey: 'maintenance-ticket-created',
+      aggregateVersion: 1,
+    });
+    expect(store.read('maintenance_records/multi-lane-ticket')).toMatchObject({
+      routedTo: 'mechanical',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ['mechanical', 'electrical', 'instrumentation'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+      status: 'open',
+    });
+  });
+
+  test('rejects one-character Other-department names on create and reconfiguration', async () => {
+    const created = createServiceFor(mechanical);
+    await expect(created.service.execute(createCommand({
+      commandId: 'create-short-other-department',
+      ticketId: 'short-other-department',
+      ticket: {
+        routedTo: 'others',
+        otherDepartment: 'X',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['others'],
+        issueAcknowledgedLanes: [],
+        issueCompletedLanes: [],
+      },
+    }), created.context)).rejects.toMatchObject({code: 'invalid-argument'});
+
+    const reconfigured = serviceFor(contractSupervisor);
+    await expect(reconfigured.service.execute({
+      commandId: 'reconfigure-short-other-department',
+      commandType: 'reconfigureMaintenanceTicketLanes',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        lanes: ['others'],
+        otherDepartment: 'X',
+        reason: 'A specialist contractor is now accountable.',
+      },
+    }, reconfigured.context)).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
   test('creates a quality warning with the issue in the same command', async () => {
     const {store, service, context} = createServiceFor(electrical);
     const command = createCommand({
@@ -207,14 +346,19 @@ describe('governed maintenance-ticket supervision', () => {
       ticket: {
         isCritical: true,
         chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
         qualityImpactAssessment: 'suspected',
         qualityWarningReason: 'Temperature deviation may have affected the coil.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
       },
     });
 
     const receipt = await service.execute(command, context);
 
-    expect(receipt.result.warningId).toBe('issue_quality-ticket');
+    expect(receipt.result).toMatchObject({
+      warningId: 'issue_quality-ticket',
+      abnormalityId: 'issue_quality_quality-ticket',
+    });
     expect(store.read('quality_warnings/issue_quality-ticket')).toMatchObject({
       warningId: 'issue_quality-ticket',
       sourceType: 'issue',
@@ -225,6 +369,94 @@ describe('governed maintenance-ticket supervision', () => {
       status: 'open',
       createdByUid: electrical.uid,
       createdAt: at.toISOString(),
+    });
+    expect(
+      store.read('charge_abnormalities/issue_quality_quality-ticket'),
+    ).toMatchObject({
+      firestoreId: 'issue_quality_quality-ticket',
+      sourceChargeNo: 12345,
+      abnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+      abnormalityTypeTitle: 'Atmosphere deviation',
+      category: 'process',
+      severity: 'critical',
+      reannealingStatus: 'pendingDecision',
+      linkedTicketFirestoreId: 'quality-ticket',
+      loggedByUid: electrical.uid,
+      version: 1,
+    });
+    expect(store.read('maintenance_records/quality-ticket')).toMatchObject({
+      qualityAbnormalityId: 'issue_quality_quality-ticket',
+      qualityWarningId: 'issue_quality-ticket',
+      chargeQualityCaseId: 'issue_quality-ticket',
+    });
+  });
+
+  test('suspected quality impact requires an active applicable classification', async () => {
+    for (const ticket of [
+      {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 1,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'Legacy suspected evidence cannot create a new case.',
+      },
+      {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'Current suspected evidence needs a classification.',
+      },
+    ]) {
+      const missing = createServiceFor(electrical);
+      await expect(missing.service.execute(createCommand({
+        commandId: `reject-quality-classification-${ticket.qualityIntentSchemaVersion}`,
+        ticketId: `reject-quality-classification-${ticket.qualityIntentSchemaVersion}`,
+        ticket,
+      }), missing.context)).rejects.toMatchObject({
+        code: 'invalid-argument',
+        details: {
+          reasonCode: 'maintenance-ticket-quality-classification-invalid',
+        },
+      });
+    }
+
+    const inactive = createServiceFor(electrical);
+    inactive.store.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+      ...inactive.store.read('abnormality_types/ATMOSPHERE_DEVIATION'),
+      isActive: false,
+    });
+    await expect(inactive.service.execute(createCommand({
+      commandId: 'reject-inactive-quality-classification',
+      ticketId: 'reject-inactive-quality-classification',
+      ticket: {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'The inactive classification must not be accepted.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+      },
+    }), inactive.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-quality-type-unavailable'},
+    });
+
+    const inapplicable = createServiceFor(electrical);
+    inapplicable.store.seed('abnormality_types/ATMOSPHERE_DEVIATION', {
+      ...inapplicable.store.read('abnormality_types/ATMOSPHERE_DEVIATION'),
+      applicableAssetTypes: ['base'],
+    });
+    await expect(inapplicable.service.execute(createCommand({
+      commandId: 'reject-inapplicable-quality-classification',
+      ticketId: 'reject-inapplicable-quality-classification',
+      ticket: {
+        chargeNoAtEvent: 12345,
+        qualityIntentSchemaVersion: 2,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'The classification does not apply to this furnace.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
+      },
+    }), inapplicable.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-quality-type-inapplicable'},
     });
   });
 
@@ -291,6 +523,20 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('rejects a non-initial client version for a new ticket', async () => {
+    const seeded = createServiceFor(admin);
+    await expect(seeded.service.execute(createCommand({
+      commandId: 'create-version-two-ticket',
+      ticketId: 'version-two-ticket',
+      ticket: {version: 2},
+    }), seeded.context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {reasonCode: 'maintenance-ticket-create-version-invalid'},
+    });
+    expect(seeded.store.read('maintenance_records/version-two-ticket'))
+      .toBeNull();
+  });
+
   test('replay fails closed when derived evidence no longer matches', async () => {
     const {store, service, context} = createServiceFor(admin);
     const command = createCommand({
@@ -298,8 +544,10 @@ describe('governed maintenance-ticket supervision', () => {
       ticketId: 'replay-quality',
       ticket: {
         chargeNoAtEvent: 22334,
+        qualityIntentSchemaVersion: 2,
         qualityImpactAssessment: 'suspected',
         qualityWarningReason: 'The reported deviation requires quality review.',
+        qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION',
       },
     });
     await service.execute(command, context);
@@ -313,6 +561,27 @@ describe('governed maintenance-ticket supervision', () => {
     await expect(service.execute(command, context)).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {reasonCode: 'maintenance-ticket-create-replay-warning-invalid'},
+    });
+
+    const abnormalityDrift = createServiceFor(admin);
+    await abnormalityDrift.service.execute(command, abnormalityDrift.context);
+    abnormalityDrift.store.seed(
+      'charge_abnormalities/issue_quality_replay-quality',
+      {
+        ...abnormalityDrift.store.read(
+          'charge_abnormalities/issue_quality_replay-quality',
+        ),
+        linkedTicketFirestoreId: 'another-ticket',
+      },
+    );
+    await expect(abnormalityDrift.service.execute(
+      command,
+      abnormalityDrift.context,
+    )).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-create-replay-abnormality-invalid',
+      },
     });
 
     const noDerived = createServiceFor(admin);
@@ -384,11 +653,546 @@ describe('governed maintenance-ticket supervision', () => {
     )).resolves.toMatchObject({aggregateVersion: 4});
   });
 
+  test('multi-lane issue tracks acknowledgement and completion per accountable lane', async () => {
+    const seeded = serviceFor(electrical, {
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+
+    await expect(seeded.service.execute({
+      ...acknowledgeCommand('ack-electrical'),
+      payload: {lane: 'electrical'},
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 4});
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'inProgress',
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: [],
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'complete-electrical',
+      commandType: 'completeMaintenanceTicketLane',
+      aggregateId: 'ticket-1',
+      expectedVersion: 4,
+      payload: {lane: 'electrical'},
+    }, {...seeded.context, actor: mechanical})).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+    await expect(seeded.service.execute({
+      commandId: 'complete-electrical',
+      commandType: 'completeMaintenanceTicketLane',
+      aggregateId: 'ticket-1',
+      expectedVersion: 4,
+      payload: {lane: 'electrical'},
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 5});
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'inProgress',
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: ['electrical'],
+    });
+  });
+
+  test('supervisor can recompose single and multi-lane issues while retaining common progress', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      status: 'inProgress',
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: at.toISOString(),
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: [],
+    });
+    const receipt = await seeded.service.execute({
+      commandId: 'reconfigure-ticket-lanes',
+      commandType: 'reconfigureMaintenanceTicketLanes',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        lanes: ['electrical', 'instrumentation'],
+        otherDepartment: null,
+        reason: 'Mechanical support is replaced by I&A attendance.',
+      },
+    }, seeded.context);
+
+    expect(receipt).toMatchObject({
+      resultKey: 'maintenance-ticket-lanes-reconfigured',
+      aggregateVersion: 4,
+      result: {lanes: ['electrical', 'instrumentation']},
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      routedTo: 'electrical',
+      status: 'inProgress',
+      issueLaneRevision: 3,
+      issueAssignedLanes: ['electrical', 'instrumentation'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: [],
+    });
+  });
+
+  test('supervisor can transform single to multi, multi to multi, and multi to single', async () => {
+    const seeded = serviceFor(contractSupervisor);
+
+    await expect(seeded.service.execute({
+      commandId: 'single-to-multi',
+      commandType: 'reconfigureMaintenanceTicketLanes',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        lanes: ['electrical', 'mechanical'],
+        otherDepartment: null,
+        reason: 'Mechanical attendance is now also required.',
+      },
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 4});
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      routedTo: 'electrical',
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'multi-to-another-multi',
+      commandType: 'reconfigureMaintenanceTicketLanes',
+      aggregateId: 'ticket-1',
+      expectedVersion: 4,
+      payload: {
+        lanes: ['mechanical', 'instrumentation'],
+        otherDepartment: null,
+        reason: 'I&A replaces Electrical after field triage.',
+      },
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 5});
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      issueLaneRevision: 3,
+      issueAssignedLanes: ['mechanical', 'instrumentation'],
+      routedTo: 'mechanical',
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'multi-to-single',
+      commandType: 'reconfigureMaintenanceTicketLanes',
+      aggregateId: 'ticket-1',
+      expectedVersion: 5,
+      payload: {
+        lanes: ['instrumentation'],
+        otherDepartment: null,
+        reason: 'Only I&A remains accountable after inspection.',
+      },
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 6});
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      issueLaneRevision: 4,
+      issueAssignedLanes: ['instrumentation'],
+      routedTo: 'instrumentation',
+      status: 'open',
+    });
+  });
+
+  test('supervisor resolves a multi-lane issue atomically with all parties', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      status: 'inProgress',
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T15:00:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: [],
+    });
+    const command = {
+      commandId: 'resolve-multi-lane-ticket',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Both disciplines completed the field repair and checks.',
+        teamsInvolved: ['mechanical', 'operations'],
+        actionsJson: '[]',
+      },
+    };
+
+    const receipt = await seeded.service.execute(command, seeded.context);
+    await expect(seeded.service.execute(command, seeded.context))
+      .resolves.toEqual(receipt);
+
+    expect(receipt).toMatchObject({
+      resultKey: 'maintenance-ticket-resolved',
+      aggregateVersion: 4,
+      result: {
+        ticketId: 'ticket-1',
+        completedLanes: ['electrical', 'mechanical'],
+      },
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'resolved',
+      isResolved: true,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: ['electrical', 'mechanical'],
+      issueCompletedLanes: ['electrical', 'mechanical'],
+      closedByUid: contractSupervisor.uid,
+      endDate: '2026-08-14T16:00:00.000Z',
+      downtimeHours: 1.5,
+      teamsInvolved: ['electrical', 'mechanical', 'operations'],
+      version: 4,
+    });
+    expect(seeded.store.read(
+      'audit_logs/server_maintenance_ticket_resolve-multi-lane-ticket',
+    )).toMatchObject({
+      operation: 'resolveMaintenanceTicket',
+      performedByUid: contractSupervisor.uid,
+      resultVersion: 4,
+    });
+  });
+
+  test('discipline closer resolves one lane but cannot finalize multiple lanes', async () => {
+    const single = serviceFor(electrical, {
+      startDate: '2026-08-14T14:30:00.000Z',
+    });
+    await expect(single.service.execute({
+      commandId: 'resolve-single-lane-ticket',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Electrical repair and functional check completed.',
+        teamsInvolved: ['electrical'],
+        actionsJson: '[]',
+      },
+    }, single.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    const multi = serviceFor(electrical, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    await expect(multi.service.execute({
+      commandId: 'deny-multi-lane-resolution',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Attempted multi-lane closure.',
+        teamsInvolved: ['electrical', 'mechanical'],
+        actionsJson: '[]',
+      },
+    }, multi.context)).rejects.toMatchObject({code: 'permission-denied'});
+  });
+
+  test('resolution accepts persisted timestamps but keeps command time text-only', async () => {
+    const ticketId = 'timestamp-resolution';
+    const ticket = {
+      firestoreId: ticketId,
+      version: 3,
+      routedTo: 'electrical',
+      status: 'open',
+      isResolved: false,
+      isDeleted: false,
+      workflowDeferred: false,
+      startDate: firestoreTimestamp('2026-08-14T14:30:00.000Z'),
+    };
+    const command = {
+      commandId: 'resolve-timestamp-ticket',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: ticketId,
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Electrical repair and functional check completed.',
+        teamsInvolved: ['electrical'],
+        actionsJson: '[]',
+      },
+    };
+    const accepted = directHandlerTransaction(ticketId, ticket);
+
+    await expect(resolveMaintenanceTicket({
+      tx: accepted.tx,
+      command,
+      context: {actor: electrical, serverNow: at},
+    })).resolves.toMatchObject({aggregateVersion: 4});
+    expect(accepted.read(`maintenance_records/${ticketId}`)).toMatchObject({
+      endDate: '2026-08-14T16:00:00.000Z',
+      downtimeHours: 1.5,
+    });
+
+    const rejected = directHandlerTransaction(ticketId, ticket);
+    await expect(resolveMaintenanceTicket({
+      tx: rejected.tx,
+      command: {
+        ...command,
+        commandId: 'reject-non-text-command-time',
+        payload: {
+          ...command.payload,
+          endDate: firestoreTimestamp('2026-08-14T16:00:00.000Z'),
+        },
+      },
+      context: {actor: electrical, serverNow: at},
+    })).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
+  test('burner resolution derives immutable closure evidence from work actions', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      routedTo: 'instrumentation',
+      classification: 'furnaceBurnerLockout',
+      burnerPositions: [2, 5],
+    });
+    seeded.store.seed('maintenance_burner_closures/ticket-1', {
+      firestoreId: 'ticket-1',
+      sourceMaintenanceId: 'ticket-1',
+      sourceVersion: 2,
+      closedByUid: 'historical-closer',
+      burnerResolutionEvidence: {},
+      updatedAt: '2026-08-14T12:00:00.000Z',
+    });
+    await expect(seeded.service.execute({
+      commandId: 'resolve-burner-ticket',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Both burners returned to service after UV cleaning.',
+        teamsInvolved: ['instrumentation'],
+        actionsJson: JSON.stringify([
+          burnerResolutionAction({position: 2, reading: 4.2}),
+          burnerResolutionAction({position: 5, reading: 4.8}),
+        ]),
+      },
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      burnerAttendedPositions: [2, 5],
+      burnerResolutionEvidence: {
+        '2': {
+          outcome: 'returnedToService',
+          actionCodes: ['uvDetectorCleaning'],
+          microampReading: 4.2,
+        },
+        '5': {
+          outcome: 'returnedToService',
+          actionCodes: ['uvDetectorCleaning'],
+          microampReading: 4.8,
+        },
+      },
+    });
+    expect(seeded.store.read('maintenance_burner_closures/ticket-1'))
+      .toMatchObject({
+        sourceMaintenanceId: 'ticket-1',
+        sourceVersion: 4,
+        closedByUid: admin.uid,
+      });
+  });
+
+  test('rejects burner evidence bound to another attendance session', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      routedTo: 'instrumentation',
+      classification: 'furnaceBurnerLockout',
+      burnerPositions: [2],
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'resolve-mismatched-burner-session',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Attempted closure with mismatched burner evidence.',
+        teamsInvolved: ['instrumentation'],
+        actionsJson: JSON.stringify([
+          burnerResolutionAction({
+            position: 2,
+            reading: 4.2,
+            attendanceSessionId: 'burner_ticket-1_5',
+          }),
+        ]),
+      },
+    }, seeded.context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {reasonCode: 'maintenance-ticket-burner-resolution-invalid'},
+    });
+  });
+
+  test('operations reopens an exact resolved record and preserves closure history', async () => {
+    const seeded = serviceFor(operations, {
+      startDate: '2026-08-14T13:00:00.000Z',
+      status: 'resolved',
+      isResolved: true,
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T14:00:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: ['electrical', 'mechanical'],
+      issueCompletedLanes: ['electrical', 'mechanical'],
+      endDate: '2026-08-14T15:30:00.000Z',
+      closedByUid: contractSupervisor.uid,
+      closedByName: contractSupervisor.name,
+      remarks: 'Initial repair completed.',
+      downtimeHours: 2.5,
+      teamsInvolved: ['electrical', 'mechanical'],
+      actionsJson: '[]',
+      resolutionHistoryJson: '[]',
+    });
+    const command = {
+      commandId: 'reopen-maintenance-ticket',
+      commandType: 'reopenMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {remarks: 'The same symptom returned during operation.'},
+    };
+
+    const receipt = await seeded.service.execute(command, seeded.context);
+    await expect(seeded.service.execute(command, seeded.context))
+      .resolves.toEqual(receipt);
+    expect(receipt).toMatchObject({
+      resultKey: 'maintenance-ticket-reopened',
+      aggregateVersion: 4,
+      result: {
+        ticketId: 'ticket-1',
+        assignedLanes: ['electrical', 'mechanical'],
+      },
+    });
+    const reopened = seeded.store.read('maintenance_records/ticket-1');
+    expect(reopened).toMatchObject({
+      status: 'open',
+      isResolved: false,
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+      endDate: null,
+      closedByUid: null,
+      teamsInvolved: [],
+      actionsJson: '[]',
+      reopenedByUid: operations.uid,
+      version: 4,
+    });
+    expect(JSON.parse(reopened.resolutionHistoryJson)).toEqual([
+      expect.objectContaining({
+        resolvedByUid: contractSupervisor.uid,
+        resolvedAt: '2026-08-14T15:30:00.000Z',
+        remarks: 'Initial repair completed.',
+        downtimeHours: 2.5,
+        teamsInvolved: ['electrical', 'mechanical'],
+      }),
+    ]);
+  });
+
+  test('reopen accepts a persisted timestamp and absent legacy history', async () => {
+    const ticketId = 'legacy-timestamp-reopen';
+    const ticket = {
+      firestoreId: ticketId,
+      version: 3,
+      routedTo: 'electrical',
+      status: 'resolved',
+      isResolved: true,
+      isDeleted: false,
+      workflowDeferred: false,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: ['electrical'],
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T14:00:00.000Z',
+      endDate: firestoreTimestamp('2026-08-14T15:30:00.000Z'),
+      closedByUid: electrical.uid,
+      closedByName: electrical.name,
+      remarks: 'Initial repair completed.',
+      downtimeHours: 2.5,
+      teamsInvolved: ['electrical'],
+      actionsJson: '[]',
+    };
+    const state = directHandlerTransaction(ticketId, ticket);
+
+    await expect(reopenMaintenanceTicket({
+      tx: state.tx,
+      command: {
+        commandId: 'reopen-legacy-timestamp-ticket',
+        commandType: 'reopenMaintenanceTicket',
+        aggregateId: ticketId,
+        expectedVersion: 3,
+        payload: {remarks: 'The symptom returned during operation.'},
+      },
+      context: {actor: operations, serverNow: at},
+    })).resolves.toMatchObject({aggregateVersion: 4});
+
+    const reopened = state.read(`maintenance_records/${ticketId}`);
+    expect(reopened).toMatchObject({
+      status: 'open',
+      endDate: null,
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    expect(JSON.parse(reopened.resolutionHistoryJson)).toEqual([
+      expect.objectContaining({
+        resolvedAt: '2026-08-14T15:30:00.000Z',
+        resolvedByUid: electrical.uid,
+      }),
+    ]);
+
+    const corrupt = directHandlerTransaction(ticketId, {
+      ...ticket,
+      resolutionHistoryJson: '',
+    });
+    await expect(reopenMaintenanceTicket({
+      tx: corrupt.tx,
+      command: {
+        commandId: 'reject-blank-legacy-history',
+        commandType: 'reopenMaintenanceTicket',
+        aggregateId: ticketId,
+        expectedVersion: 3,
+        payload: {remarks: 'Attempted reopen with corrupt history.'},
+      },
+      context: {actor: operations, serverNow: at},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-resolution-history-invalid',
+        field: 'resolutionHistoryJson',
+      },
+    });
+  });
+
+  test('new lane projections require the complete field set', async () => {
+    const {service, context} = createServiceFor(mechanical);
+    await expect(service.execute(createCommand({
+      commandId: 'partial-lane-create',
+      ticketId: 'partial-lane-create',
+      ticket: {issueLaneSchemaVersion: 1},
+    }), context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+    });
+  });
+
   test('acknowledgement fails closed on stale, deferred, or partial evidence', async () => {
     for (const ticket of [
       {workflowDeferred: true},
       {acknowledgedByUid: 'old-actor'},
       {status: 'resolved', isResolved: false},
+      {
+        status: 'acknowledged',
+        acknowledgedByUid: electrical.uid,
+        acknowledgedByName: electrical.name,
+        acknowledgedAt: at.toISOString(),
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['electrical', 'mechanical'],
+        issueAcknowledgedLanes: ['electrical'],
+        issueCompletedLanes: [],
+      },
     ]) {
       const {service, context} = serviceFor(electrical, ticket);
       await expect(service.execute(acknowledgeCommand(), context))
@@ -514,6 +1318,50 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('admin correction preserves Furnace stuck-up specialization', async () => {
+    const stuckupTicket = {
+      classification: 'furnaceStuckup',
+      routedTo: 'mechanical',
+      component: 'Furnace / Inner Cover interface',
+      maintenanceType: 'breakdown',
+      tag: null,
+    };
+    const allowed = serviceFor(admin, stuckupTicket);
+    await expect(allowed.service.execute({
+      commandId: 'correct-stuckup-description',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Description clarified after the stuck-up field review.',
+        corrections: {description: 'Furnace remains held at Base 117'},
+      },
+    }, allowed.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    for (const [commandId, corrections] of [
+      ['change-stuckup-route', {routedTo: 'electrical'}],
+      ['change-stuckup-class', {classification: 'general'}],
+      ['change-stuckup-component', {component: 'Furnace shell'}],
+      ['change-stuckup-type', {maintenanceType: 'inspection'}],
+      ['add-stuckup-tag', {tag: 'FR-07'}],
+    ]) {
+      const current = serviceFor(admin, stuckupTicket);
+      await expect(current.service.execute({
+        commandId,
+        commandType: 'correctMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          reason: 'Attempted correction was checked against stuck-up identity.',
+          corrections,
+        },
+      }, current.context)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'maintenance-stuckup-specialization-immutable'},
+      });
+    }
+  });
+
   test('correction rejects non-admin, forbidden fields, and no-op changes', async () => {
     const command = {
       commandId: 'correct-ticket-1',
@@ -583,6 +1431,39 @@ describe('governed maintenance-ticket supervision', () => {
       code: 'invalid-argument',
       details: {reasonCode: 'maintenance-ticket-route-department-invalid'},
     });
+
+    const repairedDepartment = serviceFor(admin, {
+      otherDepartment: 'Hydraulics contractor',
+    });
+    await expect(repairedDepartment.service.execute({
+      commandId: 'remove-stale-other-department',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Removed stale Other-department evidence from Electrical routing.',
+        corrections: {otherDepartment: null},
+      },
+    }, repairedDepartment.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    const legacyShortDepartment = serviceFor(admin, {
+      routedTo: 'others',
+      otherDepartment: 'X',
+    });
+    await expect(legacyShortDepartment.service.execute({
+      commandId: 'repair-short-other-department',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Expanded the legacy receiving-department abbreviation.',
+        corrections: {otherDepartment: 'QA'},
+      },
+    }, legacyShortDepartment.context)).resolves.toMatchObject({
+      aggregateVersion: 4,
+    });
+    expect(legacyShortDepartment.store.read('maintenance_records/ticket-1'))
+      .toMatchObject({routedTo: 'others', otherDepartment: 'QA'});
 
     const valid = serviceFor(admin);
     await expect(valid.service.execute({
@@ -660,6 +1541,76 @@ describe('governed maintenance-ticket supervision', () => {
     await expect(service.execute(command, context)).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {reasonCode: 'maintenance-ticket-replay-audit-invalid'},
+    });
+  });
+
+  test('historical single-lane acknowledgement receipt remains replayable', async () => {
+    const command = acknowledgeCommand('legacy-acknowledgement');
+    const {store, service, context} = serviceFor(electrical, {
+      version: 4,
+      status: 'acknowledged',
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: at.toISOString(),
+    });
+    const receipt = {
+      receiptSchemaVersion: 2,
+      commandId: command.commandId,
+      commandType: command.commandType,
+      aggregateId: command.aggregateId,
+      actorUid: electrical.uid,
+      authorityScope: {
+        schemaVersion: 1,
+        capability: 'ticket.acknowledge',
+        laneKey: 'elec',
+      },
+      payloadFingerprint: payloadFingerprint(command),
+      resultKey: 'maintenance-ticket-acknowledged',
+      aggregateVersion: 4,
+      result: {
+        ticketId: 'ticket-1',
+        auditId: 'server_maintenance_ticket_legacy-acknowledgement',
+      },
+      appliedAt: at.toISOString(),
+    };
+    store.seed(
+      'maintenance_workflow_command_receipts/legacy-acknowledgement',
+      receipt,
+    );
+    store.seed(
+      'audit_logs/server_maintenance_ticket_legacy-acknowledgement',
+      {
+        schemaVersion: 1,
+        auditId: 'server_maintenance_ticket_legacy-acknowledgement',
+        entityType: 'maintenance',
+        entityId: 'ticket-1',
+        action: 'update',
+        operation: 'acknowledgeMaintenanceTicket',
+        performedByUid: electrical.uid,
+        requestId: command.commandId,
+        resultVersion: 4,
+        beforeJson: JSON.stringify({
+          routedTo: 'electrical',
+          status: 'open',
+          acknowledgedByUid: null,
+          acknowledgedByName: null,
+          acknowledgedAt: null,
+        }),
+        afterJson: JSON.stringify({
+          routedTo: 'electrical',
+          status: 'acknowledged',
+          acknowledgedByUid: electrical.uid,
+          acknowledgedByName: electrical.name,
+          acknowledgedAt: at.toISOString(),
+        }),
+      },
+    );
+
+    await expect(service.execute(command, context)).resolves.toMatchObject({
+      commandId: command.commandId,
+      resultKey: receipt.resultKey,
+      aggregateVersion: receipt.aggregateVersion,
+      result: receipt.result,
     });
   });
 });

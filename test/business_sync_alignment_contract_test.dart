@@ -90,7 +90,10 @@ void main() {
               'lib/core/services/sync_service.tickets_templates.dart',
             ).readAsStringSync();
         expect(maintenance, contains('_applyMaintenanceLifecycleReplayStep'));
-        expect(maintenance, contains('applyGovernedCreationReceiptForSync'));
+        expect(
+          maintenance,
+          contains('applyGovernedCreationServerStateForSync'),
+        );
 
         final modules =
             File(
@@ -129,6 +132,94 @@ void main() {
         source,
         isNot(contains('await _markLocalRowSyncedIfUnchanged(snapshot);')),
       );
+    });
+
+    test('governed local mirrors adopt receipts without losing newer work', () {
+      final executionRepository =
+          File(
+            'lib/features/planned_maintenance/providers/planned_maintenance_provider.local.dart',
+          ).readAsStringSync();
+      final moduleRepository =
+          File(
+            'lib/features/planned_maintenance/providers/job_module_provider.local.dart',
+          ).readAsStringSync();
+      final abnormalityRepository =
+          File(
+            'lib/features/abnormalities/providers/abnormality_provider.local.dart',
+          ).readAsStringSync();
+      final assignmentReconciler =
+          File(
+            'lib/features/planned_maintenance/services/published_template_assignment_local_reconciler.dart',
+          ).readAsStringSync();
+
+      expect(
+        executionRepository,
+        contains('applyExecutionServerReadbackIfUnchanged'),
+      );
+      expect(executionRepository, contains('_copyRemoteExecutionIntoLocal'));
+      expect(
+        moduleRepository,
+        contains('applyModuleServerReadbackIfUnchanged'),
+      );
+      expect(
+        abnormalityRepository,
+        contains('applyAbnormalityServerReadbackIfUnchanged'),
+      );
+      expect(
+        assignmentReconciler,
+        contains('updateModuleFromRemote(module)'),
+      );
+      expect(
+        assignmentReconciler,
+        isNot(contains('batchUpsertModules(result.modules)')),
+      );
+    });
+
+    test('web abnormality commands accept their authoritative readback', () {
+      final repository =
+          File(
+            'lib/features/abnormalities/providers/abnormality_provider.remote.dart',
+          ).readAsStringSync();
+      final readback = _functionBody(
+        repository,
+        'Future<bool> applyAbnormalityServerReadbackIfUnchanged(',
+      );
+
+      expect(readback, contains('return true;'));
+      expect(readback, isNot(contains('return false;')));
+    });
+
+    test('every cloud-first mutating callable verifies its response evidence', () {
+      final expectedReceiptBoundaries = <String, String>{
+        'lib/features/assets/repositories/asset_hierarchy_repository.dart':
+            'AssetHierarchyMutationReceipt.fromMap',
+        'lib/features/assets/services/burner_condition_round_service.dart':
+            'BurnerConditionRoundResult.fromCallableData',
+        'lib/features/quality/services/quality_command_service.dart':
+            'QualityCommandResult.fromMap',
+        'lib/features/operational_events/services/operational_event_service.dart':
+            'OperationalEventCommandResult.fromMap',
+        'lib/features/operational_events/services/operational_event_issue_link_service.dart':
+            'OperationalEventIssueLinkCommandResult.fromMap',
+        'lib/features/admin/services/user_authority_command_service.dart':
+            '_parseResult(',
+        'lib/features/abnormalities/services/charge_abnormality_command_service.dart':
+            '_parseResult(',
+        'lib/features/maintenance_workflow/services/workflow_command_gateway.dart':
+            'WorkflowCommandReceipt.fromMap',
+        'lib/features/planned_maintenance/services/planned_job_server_completion_service.dart':
+            'JobExecution.fromMap',
+        'lib/features/planned_maintenance/services/runtime_job_module_population_service.dart':
+            'JobModuleInstance.fromMap',
+        'lib/features/planned_maintenance/services/published_template_assignment_server_service.dart':
+            'PublishedTemplateAssignmentServerResult.fromCallableData',
+      };
+
+      for (final entry in expectedReceiptBoundaries.entries) {
+        final source = File(entry.key).readAsStringSync();
+        expect(source, contains('httpsCallable('), reason: entry.key);
+        expect(source, contains(entry.value), reason: entry.key);
+      }
     });
 
     test(

@@ -1,5 +1,59 @@
 part of 'planned_maintenance_provider.dart';
 
+void _copyRemoteExecutionIntoLocal(JobExecution local, JobExecution remote) {
+  local
+    ..version = remote.version
+    ..templateFirestoreId = remote.templateFirestoreId
+    ..templateName = _cleanOptionalText(remote.templateName)
+    ..templatePackageId = _cleanOptionalText(remote.templatePackageId)
+    ..templateVersionId = _cleanOptionalText(remote.templateVersionId)
+    ..templateVersionNumber = remote.templateVersionNumber
+    ..templateVersionLabel = _cleanOptionalText(remote.templateVersionLabel)
+    ..templateContentHash = _cleanOptionalText(remote.templateContentHash)
+    ..templatePackageCode = _cleanOptionalText(remote.templatePackageCode)
+    ..assetType = remote.assetType
+    ..assetNumber = remote.assetNumber
+    ..isCompleted = remote.isCompleted
+    ..isCancelled = remote.isCancelled
+    ..cancelledAt = remote.cancelledAt
+    ..cancelledByUid = _cleanOptionalText(remote.cancelledByUid)
+    ..cancelledByName = _cleanOptionalText(remote.cancelledByName)
+    ..cancellationReason = _cleanOptionalText(remote.cancellationReason)
+    ..assignedByUid = _cleanOptionalText(remote.assignedByUid)
+    ..assignedByName = _cleanOptionalText(remote.assignedByName)
+    ..assignedAgencies = _cleanStringList(remote.assignedAgencies)
+    ..workflowSchemaVersion = remote.workflowSchemaVersion
+    ..laneSetVersion = remote.laneSetVersion
+    ..laneSetFinalizedAt = remote.laneSetFinalizedAt
+    ..laneSetFinalizedByUid = _cleanOptionalText(remote.laneSetFinalizedByUid)
+    ..laneSetFinalizedByName = _cleanOptionalText(remote.laneSetFinalizedByName)
+    ..laneMappingReview = remote.laneMappingReview
+    ..parentExecutionFirestoreId = _cleanOptionalText(
+      remote.parentExecutionFirestoreId,
+    )
+    ..spawnedRedExecutionFirestoreId = _cleanOptionalText(
+      remote.spawnedRedExecutionFirestoreId,
+    )
+    ..redAnswerJson = _cleanOptionalText(remote.redAnswerJson)
+    ..completedByUid = _cleanOptionalText(remote.completedByUid)
+    ..completedByName = _cleanOptionalText(remote.completedByName)
+    ..remarks = _cleanOptionalText(remote.remarks)
+    ..teamsInvolved = _cleanStringList(remote.teamsInvolved)
+    ..chargeNoAtEvent = remote.chargeNoAtEvent
+    ..responsesJson = remote.responsesJson
+    ..actionsJson = remote.actionsJson
+    ..metadataJson = _cleanOptionalText(remote.metadataJson)
+    ..isDeleted = remote.isDeleted
+    ..deletedAt = remote.deletedAt
+    ..deletedByUid = _cleanOptionalText(remote.deletedByUid)
+    ..deletedByName = _cleanOptionalText(remote.deletedByName)
+    ..deleteReason = _cleanOptionalText(remote.deleteReason)
+    ..createdAt = remote.createdAt
+    ..completedAt = remote.completedAt
+    ..updatedAt = remote.updatedAt
+    ..isSynced = true;
+}
+
 class IsarPlannedRepository extends PlannedMaintenanceRepository {
   final AuditRepository _auditRepo;
   final PlannedJobServerCompletionService _serverCompletion;
@@ -587,46 +641,22 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
       expectedCompletionVersion: local.version + 1,
     );
 
-    await isar.writeTxn(() async {
-      final current = await isar.jobExecutions.get(executionId);
-      if (current == null) return;
-
-      current
-        ..version = remote.version
-        ..templateFirestoreId = remote.templateFirestoreId
-        ..templateName = _cleanOptionalText(remote.templateName)
-        ..templatePackageId = _cleanOptionalText(remote.templatePackageId)
-        ..templateVersionId = _cleanOptionalText(remote.templateVersionId)
-        ..templateVersionNumber = remote.templateVersionNumber
-        ..templateVersionLabel = _cleanOptionalText(remote.templateVersionLabel)
-        ..templateContentHash = _cleanOptionalText(remote.templateContentHash)
-        ..templatePackageCode = _cleanOptionalText(remote.templatePackageCode)
-        ..assetType = remote.assetType
-        ..assetNumber = remote.assetNumber
-        ..isCompleted = remote.isCompleted
-        ..assignedByUid = _cleanOptionalText(remote.assignedByUid)
-        ..assignedByName = _cleanOptionalText(remote.assignedByName)
-        ..assignedAgencies = _cleanStringList(remote.assignedAgencies)
-        ..completedByUid = _cleanOptionalText(remote.completedByUid)
-        ..completedByName = _cleanOptionalText(remote.completedByName)
-        ..remarks = _cleanOptionalText(remote.remarks)
-        ..teamsInvolved = _cleanStringList(remote.teamsInvolved)
-        ..chargeNoAtEvent = remote.chargeNoAtEvent
-        ..responsesJson = remote.responsesJson
-        ..actionsJson = remote.actionsJson
-        ..metadataJson = _cleanOptionalText(remote.metadataJson)
-        ..isDeleted = remote.isDeleted
-        ..deletedAt = remote.deletedAt
-        ..deletedByUid = _cleanOptionalText(remote.deletedByUid)
-        ..deletedByName = _cleanOptionalText(remote.deletedByName)
-        ..deleteReason = _cleanOptionalText(remote.deleteReason)
-        ..createdAt = remote.createdAt
-        ..completedAt = remote.completedAt
-        ..updatedAt = remote.updatedAt
-        ..isSynced = true;
-
-      await isar.jobExecutions.put(current);
-    });
+    final adopted = await applyExecutionServerReadbackIfUnchanged(
+      remote,
+      expectedLocal: SyncPushSnapshot(
+        id: local.id,
+        version: local.version,
+        updatedAt: local.updatedAt,
+      ),
+      expectedLocalSynced: local.isSynced,
+      reason: 'Planned-job completion was accepted by the server.',
+    );
+    if (!adopted) {
+      throw StateError(
+        'The planned job was completed by the server, but newer local work '
+        'was preserved for reconciliation.',
+      );
+    }
   }
 
   @override
@@ -901,96 +931,53 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
       if (isLocalUnsynced && !isRemoteNewer) return;
       if (!isLocalUnsynced && isLocalNewer) return;
 
-      local
-        ..version = remote.version
-        ..templateFirestoreId = remote.templateFirestoreId
-        ..templateName = _cleanOptionalText(remote.templateName)
-        ..templatePackageId = _cleanOptionalText(remote.templatePackageId)
-        ..templateVersionId = _cleanOptionalText(remote.templateVersionId)
-        ..templateVersionNumber = remote.templateVersionNumber
-        ..templateVersionLabel = _cleanOptionalText(remote.templateVersionLabel)
-        ..templateContentHash = _cleanOptionalText(remote.templateContentHash)
-        ..templatePackageCode = _cleanOptionalText(remote.templatePackageCode)
-        ..assetType = remote.assetType
-        ..assetNumber = remote.assetNumber
-        ..isCompleted = remote.isCompleted
-        ..assignedByUid = _cleanOptionalText(remote.assignedByUid)
-        ..assignedByName = _cleanOptionalText(remote.assignedByName)
-        ..assignedAgencies = _cleanStringList(remote.assignedAgencies)
-        ..completedByUid = _cleanOptionalText(remote.completedByUid)
-        ..completedByName = _cleanOptionalText(remote.completedByName)
-        ..remarks = _cleanOptionalText(remote.remarks)
-        ..teamsInvolved = _cleanStringList(remote.teamsInvolved)
-        ..chargeNoAtEvent = remote.chargeNoAtEvent
-        ..responsesJson = remote.responsesJson
-        ..actionsJson = remote.actionsJson
-        ..metadataJson = _cleanOptionalText(remote.metadataJson)
-        ..isDeleted = remote.isDeleted
-        ..deletedAt = remote.deletedAt
-        ..deletedByUid = _cleanOptionalText(remote.deletedByUid)
-        ..deletedByName = _cleanOptionalText(remote.deletedByName)
-        ..deleteReason = _cleanOptionalText(remote.deleteReason)
-        ..createdAt = remote.createdAt
-        ..completedAt = remote.completedAt
-        ..updatedAt = remote.updatedAt
-        ..isSynced = true;
+      _copyRemoteExecutionIntoLocal(local, remote);
       await isar.jobExecutions.put(local);
     });
   }
 
   @override
-  Future<void> forceRebaseExecutionFromRemote(
+  Future<bool> applyExecutionServerReadbackIfUnchanged(
     JobExecution remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
     String? reason,
   }) async {
-    if (remote.firestoreId == null) return;
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty) return false;
 
-    await isar.writeTxn(() async {
+    final applied = await isar.writeTxn<bool>(() async {
       final local =
           await isar.jobExecutions
               .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
+              .firestoreIdEqualTo(firestoreId)
               .findFirst();
 
-      if (local == null) return;
+      if (local == null || local.id != expectedLocal.id) return false;
+      final alreadyAtServerBoundary =
+          local.isSynced &&
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt);
+      final stillAtExpectedBoundary =
+          local.isSynced == expectedLocalSynced &&
+          expectedLocal.matches(
+            currentVersion: local.version,
+            currentUpdatedAt: local.updatedAt,
+          );
+      if (!alreadyAtServerBoundary && !stillAtExpectedBoundary) return false;
 
-      local
-        ..version = remote.version
-        ..templateFirestoreId = remote.templateFirestoreId
-        ..templateName = _cleanOptionalText(remote.templateName)
-        ..assetType = remote.assetType
-        ..assetNumber = remote.assetNumber
-        ..isCompleted = remote.isCompleted
-        ..assignedByUid = _cleanOptionalText(remote.assignedByUid)
-        ..assignedByName = _cleanOptionalText(remote.assignedByName)
-        ..assignedAgencies = _cleanStringList(remote.assignedAgencies)
-        ..completedByUid = _cleanOptionalText(remote.completedByUid)
-        ..completedByName = _cleanOptionalText(remote.completedByName)
-        ..remarks = _cleanOptionalText(remote.remarks)
-        ..teamsInvolved = _cleanStringList(remote.teamsInvolved)
-        ..chargeNoAtEvent = remote.chargeNoAtEvent
-        ..responsesJson = remote.responsesJson
-        ..actionsJson = remote.actionsJson
-        ..metadataJson = _cleanOptionalText(remote.metadataJson)
-        ..isDeleted = remote.isDeleted
-        ..deletedAt = remote.deletedAt
-        ..deletedByUid = _cleanOptionalText(remote.deletedByUid)
-        ..deletedByName = _cleanOptionalText(remote.deletedByName)
-        ..deleteReason = _cleanOptionalText(remote.deleteReason)
-        ..createdAt = remote.createdAt
-        ..completedAt = remote.completedAt
-        ..updatedAt = remote.updatedAt
-        ..isSynced = true;
-
+      _copyRemoteExecutionIntoLocal(local, remote);
       await isar.jobExecutions.put(local);
+      return true;
     });
 
-    if (reason != null && reason.trim().isNotEmpty) {
+    if (applied && reason != null && reason.trim().isNotEmpty) {
       debugPrint(
         '🛡️ Rebased local job execution from remote canonical state: '
         'firestoreId=${remote.firestoreId}, reason=$reason',
       );
     }
+    return applied;
   }
 
   @override

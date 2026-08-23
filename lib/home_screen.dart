@@ -178,6 +178,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final plantOverviewAsync = ref.watch(plantAssetOverviewProvider);
         final operationalEventsAsync = ref.watch(operationalEventsProvider);
         final qualityWarningsAsync = ref.watch(qualityWarningsProvider);
+        final qualityMonitoringAsync = ref.watch(
+          qualityMonitoringRequestsProvider,
+        );
         final maintenanceDueStatesAsync = ref.watch(
           maintenanceDueStatesProvider,
         );
@@ -225,6 +228,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
                 .length ??
             0;
+        final activeQualityMonitoringCount =
+            qualityMonitoringAsync.value
+                ?.where(
+                  (request) => request.status == QualityMonitoringStatus.active,
+                )
+                .length ??
+            0;
         final overdueMaintenanceCount =
             maintenanceDueStatesAsync.value
                 ?.where((state) => state.isOverdue)
@@ -244,6 +254,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final operationalEventsUnavailable =
             operationalEventsAsync.value == null;
         final qualityWarningsUnavailable = qualityWarningsAsync.value == null;
+        final qualityMonitoringUnavailable =
+            qualityMonitoringAsync.value == null;
         final attentionDataUnavailable =
             ticketCountAsync.value == null ||
             directiveCountAsync.value == null ||
@@ -254,6 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 workflowComplianceAsync.value == null) ||
             operationalEventsUnavailable ||
             qualityWarningsUnavailable ||
+            qualityMonitoringUnavailable ||
             maintenanceDueStatesAsync.value == null ||
             inspectionFindingsAsync.value == null;
 
@@ -265,10 +278,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           workflowAttentionCount: workflowAttentionCount,
           openOperationalEventCount: openOperationalEventCount,
           openQualityWarningCount: openQualityWarningCount,
+          activeQualityMonitoringCount: activeQualityMonitoringCount,
           overdueMaintenanceCount: overdueMaintenanceCount,
           activeInspectionFindingCount: activeInspectionFindingCount,
           operationalEventsUnavailable: operationalEventsUnavailable,
           qualityWarningsUnavailable: qualityWarningsUnavailable,
+          qualityMonitoringUnavailable: qualityMonitoringUnavailable,
           directiveDataUnavailable: directiveCountAsync.value == null,
           workflowDataUnavailable:
               workflowLanesAsync?.value == null ||
@@ -387,10 +402,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int workflowAttentionCount,
     required int openOperationalEventCount,
     required int openQualityWarningCount,
+    required int activeQualityMonitoringCount,
     required int overdueMaintenanceCount,
     required int activeInspectionFindingCount,
     required bool operationalEventsUnavailable,
     required bool qualityWarningsUnavailable,
+    required bool qualityMonitoringUnavailable,
     required bool directiveDataUnavailable,
     required bool workflowDataUnavailable,
     required bool inspectionFindingsUnavailable,
@@ -492,11 +509,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               workflowAttentionCount: workflowAttentionCount,
               operationalEventCount: openOperationalEventCount,
               qualityWarningCount: openQualityWarningCount,
+              qualityMonitoringCount: activeQualityMonitoringCount,
               inspectionFindingCount: activeInspectionFindingCount,
               directiveDataUnavailable: directiveDataUnavailable,
               workflowDataUnavailable: workflowDataUnavailable,
               operationalEventsUnavailable: operationalEventsUnavailable,
               qualityWarningsUnavailable: qualityWarningsUnavailable,
+              qualityMonitoringUnavailable: qualityMonitoringUnavailable,
               inspectionFindingsUnavailable: inspectionFindingsUnavailable,
               onDirectives: () => _push(context, const DirectivesScreen()),
               onWorkflow: () => setState(() => _currentIndex = 2),
@@ -514,10 +533,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 directiveCount +
                     openOperationalEventCount +
                     openQualityWarningCount +
+                    activeQualityMonitoringCount +
                     activeInspectionFindingCount >
                 0,
             label: Text(
-              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeInspectionFindingCount}',
+              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount}',
             ),
             child: const Icon(Icons.radar_outlined),
           ),
@@ -526,10 +546,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 directiveCount +
                     openOperationalEventCount +
                     openQualityWarningCount +
+                    activeQualityMonitoringCount +
                     activeInspectionFindingCount >
                 0,
             label: Text(
-              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeInspectionFindingCount}',
+              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount}',
             ),
             child: const Icon(Icons.radar_rounded),
           ),

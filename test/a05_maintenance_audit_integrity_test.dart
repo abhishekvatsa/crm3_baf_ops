@@ -8,6 +8,8 @@ import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/furnace_stuckup_case.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/resolve_form.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter/material.dart';
@@ -329,6 +331,196 @@ void main() {
         ),
         throwsA(isA<PersistedDataFormatException>()),
       );
+    });
+
+    test('admin correction preserves Furnace stuck-up identity', () {
+      final now = DateTime.utc(2026, 8, 23, 5);
+      final source =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-stuckup'
+            ..assetType = AssetType.furnace
+            ..assetNumber = 7
+            ..maintenanceType = MaintenanceType.breakdown
+            ..classification = furnaceStuckupClassification
+            ..component = 'Furnace / Inner Cover interface'
+            ..description = 'Furnace remains held at Base 117'
+            ..routedTo = RoutedTo.mechanical
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now.subtract(const Duration(hours: 1))
+            ..createdAt = now.subtract(const Duration(hours: 1))
+            ..updatedAt = now;
+
+      final allowed = buildAdminTicketCorrection(
+        source: source,
+        description: 'Furnace movement remains restricted at Base 117',
+        routedTo: source.routedTo,
+        maintenanceType: source.maintenanceType,
+        isCritical: source.isCritical,
+        component: source.component,
+        subsystem: source.subsystem,
+        tag: source.tag,
+        classification: source.classification,
+        otherDepartment: source.otherDepartment,
+        remarks: source.remarks,
+        reason: 'Description clarified after physical verification.',
+      );
+      expect(allowed.corrections.keys, <String>['description']);
+
+      expect(
+        () => buildAdminTicketCorrection(
+          source: source,
+          description: source.description,
+          routedTo: RoutedTo.electrical,
+          maintenanceType: source.maintenanceType,
+          isCritical: source.isCritical,
+          component: source.component,
+          subsystem: source.subsystem,
+          tag: source.tag,
+          classification: source.classification,
+          otherDepartment: source.otherDepartment,
+          remarks: source.remarks,
+          reason: 'Attempted route change checked against stuck-up identity.',
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('admin correction preserves a secondary Other accountable lane', () {
+      final now = DateTime.utc(2026, 8, 23, 5, 30);
+      final source =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-other-lane'
+            ..assetType = AssetType.base
+            ..assetNumber = 117
+            ..maintenanceType = MaintenanceType.breakdown
+            ..description = 'Mechanical and contractor attendance required'
+            ..routedTo = RoutedTo.mechanical
+            ..otherDepartment = 'Hydraulics contractor'
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now.subtract(const Duration(hours: 1))
+            ..createdAt = now.subtract(const Duration(hours: 1))
+            ..updatedAt = now;
+      source.issueLanePlan = IssueLanePlan.initial(const <String>[
+        'mechanical',
+        'others',
+      ]);
+
+      final draft = buildAdminTicketCorrection(
+        source: source,
+        description: 'Mechanical and contractor attendance confirmed',
+        routedTo: source.routedTo,
+        maintenanceType: source.maintenanceType,
+        isCritical: source.isCritical,
+        component: source.component,
+        subsystem: source.subsystem,
+        tag: source.tag,
+        classification: source.classification,
+        otherDepartment: source.otherDepartment,
+        remarks: source.remarks,
+        reason: 'Description clarified after receiving-team confirmation.',
+      );
+
+      expect(draft.corrections, <String, Object?>{
+        'description': 'Mechanical and contractor attendance confirmed',
+      });
+    });
+
+    test(
+      'admin correction can repair only malformed Other-department evidence',
+      () {
+        final now = DateTime.utc(2026, 8, 23, 5, 45);
+        final source =
+            MaintenanceRecord()
+              ..firestoreId = 'ticket-short-other-lane'
+              ..assetType = AssetType.base
+              ..assetNumber = 117
+              ..maintenanceType = MaintenanceType.breakdown
+              ..description = 'Mechanical and contractor attendance required'
+              ..routedTo = RoutedTo.mechanical
+              ..otherDepartment = 'X'
+              ..status = TicketStatus.open
+              ..isResolved = false
+              ..startDate = now.subtract(const Duration(hours: 1))
+              ..createdAt = now.subtract(const Duration(hours: 1))
+              ..updatedAt = now;
+        source.issueLanePlan = IssueLanePlan.initial(const <String>[
+          'mechanical',
+          'others',
+        ]);
+        expect(source.issueLanePlanReadResult.isValid, isFalse);
+
+        final draft = buildAdminTicketCorrection(
+          source: source,
+          description: source.description,
+          routedTo: source.routedTo,
+          maintenanceType: source.maintenanceType,
+          isCritical: source.isCritical,
+          component: source.component,
+          subsystem: source.subsystem,
+          tag: source.tag,
+          classification: source.classification,
+          otherDepartment: 'QA',
+          remarks: source.remarks,
+          reason: 'Expanded the legacy receiving-team abbreviation.',
+        );
+        expect(draft.corrections, <String, Object?>{'otherDepartment': 'QA'});
+
+        source.status = TicketStatus.inProgress;
+        expect(
+          () => buildAdminTicketCorrection(
+            source: source,
+            description: source.description,
+            routedTo: source.routedTo,
+            maintenanceType: source.maintenanceType,
+            isCritical: source.isCritical,
+            component: source.component,
+            subsystem: source.subsystem,
+            tag: source.tag,
+            classification: source.classification,
+            otherDepartment: 'QA',
+            remarks: source.remarks,
+            reason: 'Attempted repair with invalid lifecycle evidence.',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      },
+    );
+
+    test('local lane evidence rejects route and acknowledgement drift', () {
+      final now = DateTime.utc(2026, 8, 23, 6);
+      final source =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-lane-drift'
+            ..assetType = AssetType.base
+            ..assetNumber = 101
+            ..maintenanceType = MaintenanceType.breakdown
+            ..description = 'Joint attendance is required'
+            ..routedTo = RoutedTo.mechanical
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now
+            ..createdAt = now
+            ..updatedAt = now;
+      source.issueLanePlan = IssueLanePlan.initial(const <String>[
+        'mechanical',
+        'electrical',
+      ]);
+
+      source.routedTo = RoutedTo.electrical;
+      expect(source.issueLanePlanReadResult.isValid, isFalse);
+
+      source
+        ..routedTo = RoutedTo.mechanical
+        ..status = TicketStatus.inProgress
+        ..issueLanePlan =
+            source.issueLanePlanReadResult.value ??
+            IssueLanePlan.initial(const <String>[
+              'mechanical',
+              'electrical',
+            ]).acknowledge('mechanical');
+      expect(source.issueLanePlanReadResult.isValid, isFalse);
     });
 
     test('remote audit records require their persisted authority fields', () {

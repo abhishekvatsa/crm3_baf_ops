@@ -401,10 +401,12 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
   Future<void> updateModuleFromRemote(JobModuleInstance remote) async {}
 
   @override
-  Future<void> forceRebaseModuleFromRemote(
+  Future<bool> applyModuleServerReadbackIfUnchanged(
     JobModuleInstance remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
     String? reason,
-  }) async {}
+  }) async => false;
 
   @override
   Future<RemoteTombstoneApplyResult> applyTombstoneFromRemote(

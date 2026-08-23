@@ -805,6 +805,24 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "issueAssignedLanes",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "maintenance_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isResolved",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "loggedByUid",
           "order": "ASCENDING"
         }

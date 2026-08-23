@@ -29,6 +29,10 @@ import {canonicalApprovedUserAuthority} from "../userAuthority";
 import {
   createMaintenanceTicket,
   acknowledgeMaintenanceTicket,
+  completeMaintenanceTicketLane,
+  reconfigureMaintenanceTicketLanes,
+  resolveMaintenanceTicket,
+  reopenMaintenanceTicket,
   correctMaintenanceTicket,
   verifyMaintenanceTicketAudit,
 } from "./ticketHandlers";
@@ -114,6 +118,10 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   deployEquipment,
   reconcileEquipment,
   acknowledgeMaintenanceTicket,
+  completeMaintenanceTicketLane,
+  reconfigureMaintenanceTicketLanes,
+  resolveMaintenanceTicket,
+  reopenMaintenanceTicket,
   correctMaintenanceTicket,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,

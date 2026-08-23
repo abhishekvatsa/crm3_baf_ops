@@ -15,6 +15,8 @@ import '../providers/maintenance_provider.dart';
 import '../services/maintenance_issue_create_command.dart';
 import '../validation/maintenance_input_validator.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../abnormalities/data/abnormality_model.dart';
+import '../../abnormalities/providers/abnormality_provider.dart';
 import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
 import '../../../core/services/auto_sync_service.dart';
 import '../../../core/services/sync_coordinator.dart';
@@ -34,6 +36,8 @@ import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../data/frequent_issue_definition.dart';
 import '../domain/frequent_issue_selection.dart';
+import '../domain/issue_lane_plan.dart';
+import 'issue_lane_selector.dart';
 import '../providers/frequent_issue_provider.dart';
 
 part 'maintenance_form_asset_widgets.dart';
@@ -64,6 +68,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   bool _burnerCommonMode = false;
   bool _burnerRemainsLockedOut = true;
   IssueQualityAssessment? _qualityAssessment;
+  String? _qualityAbnormalityTypeId;
   BurnerCycleStage _burnerCycleStage = BurnerCycleStage.notRecorded;
   BurnerObservation _burnerFlameObservation = BurnerObservation.notChecked;
   BurnerObservation _burnerSparkObservation = BurnerObservation.notChecked;
@@ -75,6 +80,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   String? _assetInstanceId;
   MaintenanceType _maintenanceType = MaintenanceType.breakdown;
   RoutedTo _routedTo = RoutedTo.mechanical;
+  final Set<RoutedTo> _routedLanes = <RoutedTo>{RoutedTo.mechanical};
   DateTime _startTime = DateTime.now();
 
   final _descController = TextEditingController();
@@ -328,6 +334,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _issueAssetClassId = route?.issueClass.id;
       _assetInstanceId = null;
       _assetType = route?.assetType ?? AssetType.base;
+      _qualityAbnormalityTypeId = null;
       if (_assetType != AssetType.furnace) _resetBurnerLockout();
       _resetAssetEvidence();
     });
@@ -377,6 +384,48 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     _burnerRelightAttemptsController.text = '0';
   }
 
+  List<RoutedTo> get _orderedRoutedLanes => <RoutedTo>[
+    _routedTo,
+    ...RoutedTo.values.where(
+      (lane) => lane != _routedTo && _routedLanes.contains(lane),
+    ),
+  ];
+
+  List<AbnormalityType> _qualityTypesForCurrentAsset(
+    Iterable<AbnormalityType> types,
+  ) => types
+      .where(
+        (type) =>
+            type.isActive &&
+            !type.isDeleted &&
+            (type.applicableAssetTypes.isEmpty ||
+                type.applicableAssetTypes.contains(_assetType)),
+      )
+      .toList(growable: false);
+
+  RoutedTo? get _mandatoryRoute =>
+      _isBurnerLockout
+          ? RoutedTo.instrumentation
+          : _isFurnaceStuckup
+          ? RoutedTo.mechanical
+          : null;
+
+  void _toggleRoute(RoutedTo lane, bool selected) {
+    final mandatory = _mandatoryRoute;
+    if (!selected && (lane == mandatory || _routedLanes.length == 1)) return;
+    setState(() {
+      if (selected) {
+        _routedLanes.add(lane);
+      } else {
+        _routedLanes.remove(lane);
+        if (_routedTo == lane) {
+          _routedTo = RoutedTo.values.firstWhere(_routedLanes.contains);
+        }
+        if (lane == RoutedTo.others) _otherDepartmentController.clear();
+      }
+    });
+  }
+
   void _setBurnerLockout(bool enabled) {
     setState(() {
       _resetBurnerLockout();
@@ -385,6 +434,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       if (enabled) {
         _componentController.text = 'Burner system';
         _routedTo = RoutedTo.instrumentation;
+        _routedLanes
+          ..clear()
+          ..add(RoutedTo.instrumentation);
         _maintenanceType = MaintenanceType.breakdown;
       } else {
         _componentController.clear();
@@ -421,6 +473,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _resetBurnerLockout();
         _issueAssetClassId = route.issueClass.id;
         _assetType = AssetType.furnace;
+        _qualityAbnormalityTypeId = null;
         _assetInstanceId = null;
         _stuckupBaseAssetId = null;
         _stuckupConfirmedLinkageId = null;
@@ -430,6 +483,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _resolvedSubsystem = 'Furnace positioning and sealing';
         _maintenanceType = MaintenanceType.breakdown;
         _routedTo = RoutedTo.mechanical;
+        _routedLanes
+          ..clear()
+          ..add(RoutedTo.mechanical);
         _isCritical = true;
       });
       return;
@@ -442,6 +498,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _issueAssetClassId = null;
       _assetInstanceId = null;
       _assetType = AssetType.base;
+      _qualityAbnormalityTypeId = null;
       _resetAssetEvidence();
       _isCritical = false;
     });
@@ -602,6 +659,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _descController.text = definition.description;
       }
       _routedTo = RoutedTo.values.byName(definition.defaultRouteKey);
+      _routedLanes
+        ..clear()
+        ..add(_routedTo);
       _maintenanceType = MaintenanceType.values.byName(
         definition.suggestedMaintenanceTypeKey,
       );
@@ -764,6 +824,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
+    if (_routedLanes.contains(RoutedTo.others) &&
+        _cleanOptionalText(_otherDepartmentController.text) == null) {
+      _showMessage(
+        'Specify the receiving team when Others is selected.',
+        BafColors.warning,
+      );
+      return;
+    }
 
     final assetRoute = _selectedAssetRoute();
     final selectedAsset = _selectedPhysicalAsset();
@@ -871,6 +939,28 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       return;
     }
 
+    if (_qualityAssessment == IssueQualityAssessment.suspected) {
+      final availableTypes = ref.read(activeAbnormalityTypesProvider).value;
+      final selectedTypeId = _qualityAbnormalityTypeId;
+      final selectedType =
+          availableTypes == null || selectedTypeId == null
+              ? null
+              : _qualityTypesForCurrentAsset(
+                availableTypes,
+              ).where((type) => type.firestoreId == selectedTypeId).firstOrNull;
+      if (selectedType == null) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Select an active abnormality classification for the affected asset.',
+            ),
+            backgroundColor: BafColors.warning,
+          ),
+        );
+        return;
+      }
+    }
+
     final inputValidation = MaintenanceInputValidator.validateCreate(
       MaintenanceCreateInput(
         assetType: assetType,
@@ -887,7 +977,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         chargeNumberText: _chargeNoController.text,
         startDate: _startTime,
         routedTo: _routedTo,
-        otherDepartment: _otherDepartmentController.text,
+        otherDepartment:
+            _routedTo == RoutedTo.others
+                ? _otherDepartmentController.text
+                : null,
       ),
     );
     if (inputValidation.isInvalid) {
@@ -1007,7 +1100,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     ? RoutedTo.mechanical
                     : _routedTo
             ..otherDepartment =
-                _routedTo == RoutedTo.others
+                _routedLanes.contains(RoutedTo.others)
                     ? _cleanOptionalText(_otherDepartmentController.text)
                     : null
             ..description = _cleanRequiredText(_descController.text)
@@ -1044,6 +1137,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             _qualityAssessment == IssueQualityAssessment.suspected
                 ? _cleanRequiredText(_qualityReasonController.text)
                 : null,
+        abnormalityTypeId:
+            _qualityAssessment == IssueQualityAssessment.suspected
+                ? _qualityAbnormalityTypeId
+                : null,
+      );
+      record.issueLanePlan = IssueLanePlan.initial(
+        _orderedRoutedLanes.map((lane) => lane.name),
       );
       if (!_isBurnerLockout && !_isFurnaceStuckup) {
         record.frequentIssueSelection =
@@ -1153,6 +1253,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   Widget build(BuildContext context) {
     final appUser = ref.watch(currentAppUserProvider).value;
     final frequentIssues = ref.watch(frequentIssueDefinitionsProvider);
+    final qualityTypesAsync = ref.watch(activeAbnormalityTypesProvider);
+    final applicableQualityTypes = _qualityTypesForCurrentAsset(
+      qualityTypesAsync.value ?? const <AbnormalityType>[],
+    );
+    final selectedQualityType =
+        applicableQualityTypes
+            .where((type) => type.firestoreId == _qualityAbnormalityTypeId)
+            .firstOrNull;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -1208,11 +1316,56 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       if (_qualityAssessment !=
                           IssueQualityAssessment.suspected) {
                         _qualityReasonController.clear();
+                        _qualityAbnormalityTypeId = null;
                       }
                     });
                   },
                 ),
                 if (_qualityAssessment == IssueQualityAssessment.suspected) ...[
+                  const SizedBox(height: BafSpacing.md),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey<String>(
+                      'quality-abnormality-${_assetType.name}',
+                    ),
+                    initialValue: selectedQualityType?.firestoreId,
+                    isExpanded: true,
+                    decoration: _inputDecoration(
+                      'Suspected abnormality classification',
+                      hint:
+                          qualityTypesAsync.value == null
+                              ? 'Synchronizing governed classifications'
+                              : applicableQualityTypes.isEmpty
+                              ? 'No active classification for this asset'
+                              : 'Select from the governed list',
+                    ),
+                    items: applicableQualityTypes
+                        .map(
+                          (type) => DropdownMenuItem<String>(
+                            value: type.firestoreId,
+                            child: Text(
+                              '${type.code} · ${type.title}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged:
+                        applicableQualityTypes.isEmpty
+                            ? null
+                            : (value) => setState(
+                              () => _qualityAbnormalityTypeId = value,
+                            ),
+                    validator: (value) {
+                      if (_qualityAssessment !=
+                          IssueQualityAssessment.suspected) {
+                        return null;
+                      }
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Select the governed abnormality type';
+                      }
+                      return null;
+                    },
+                  ),
                   const SizedBox(height: BafSpacing.md),
                   TextFormField(
                     controller: _qualityReasonController,
@@ -1511,53 +1664,28 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           : (value) => setState(() => _isCritical = value),
                 ),
                 const SizedBox(height: BafSpacing.md),
-                DropdownButtonFormField<RoutedTo>(
-                  key: ValueKey('issue-route-${_routedTo.name}'),
-                  initialValue: _routedTo,
-                  isExpanded: true,
-                  decoration: _inputDecoration('Route to'),
-                  items:
-                      RoutedTo.values
-                          .map(
-                            (dept) => DropdownMenuItem<RoutedTo>(
-                              value: dept,
-                              child: Text(
-                                _deptLabel(dept),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      _isBurnerLockout || _isFurnaceStuckup
-                          ? null
-                          : (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _routedTo = value;
-                              if (_routedTo != RoutedTo.others) {
-                                _otherDepartmentController.clear();
-                              }
-                            });
-                          },
-                ),
-                if (_routedTo == RoutedTo.others) ...[
-                  const SizedBox(height: BafSpacing.md),
-                  TextFormField(
-                    controller: _otherDepartmentController,
-                    decoration: _inputDecoration(
-                      'Other department',
-                      hint: 'Specify receiving team / agency',
-                    ),
-                    textCapitalization: TextCapitalization.words,
-                    validator:
-                        (value) =>
-                            MaintenanceInputValidator.validateOtherDepartment(
-                              routedTo: _routedTo,
-                              value: value,
-                            ).messageFor('otherDepartment'),
+                IssueLaneSelector(
+                  selectedLanes: _routedLanes,
+                  primaryLane: _routedTo,
+                  mandatoryLane: _mandatoryRoute,
+                  otherDepartmentController: _otherDepartmentController,
+                  lanesDecoration: _inputDecoration(
+                    'Accountable lanes',
+                    hint: 'Select every team needed for this issue',
                   ),
-                ],
+                  primaryDecoration: _inputDecoration(
+                    'Primary lane',
+                    hint: 'Lead accountable team',
+                  ),
+                  otherDepartmentDecoration: _inputDecoration(
+                    'Other department',
+                    hint: 'Specify receiving team / agency',
+                  ),
+                  onLaneChanged: _toggleRoute,
+                  onPrimaryChanged: (lane) {
+                    setState(() => _routedTo = lane);
+                  },
+                ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<MaintenanceType>(
                   key: ValueKey('issue-type-${_maintenanceType.name}'),
@@ -1736,27 +1864,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         return 'OVERHAUL';
     }
   }
-
-  String _deptLabel(RoutedTo dept) {
-    switch (dept) {
-      case RoutedTo.operations:
-        return 'Operations';
-      case RoutedTo.electrical:
-        return 'Electrical';
-      case RoutedTo.mechanical:
-        return 'Mechanical';
-      case RoutedTo.instrumentation:
-        return 'I&A';
-      case RoutedTo.refractory:
-        return 'RED / Refractory';
-      case RoutedTo.emd:
-        return 'EMD';
-      case RoutedTo.shiftInCharge:
-        return 'Shift In-Charge';
-      case RoutedTo.others:
-        return 'Others';
-    }
-  }
 }
 
 class _BurnerRouteNotice extends StatelessWidget {
@@ -1779,9 +1886,9 @@ class _BurnerRouteNotice extends StatelessWidget {
           SizedBox(width: BafSpacing.sm),
           Expanded(
             child: Text(
-              'Burner lockout is routed to I&A as a breakdown issue. Other '
-              'disciplines can be requested through the existing scoped-help '
-              'workflow.',
+              'Burner lockout keeps I&A as its primary accountable lane. Add '
+              'Electrical or another lane here when joint attendance is '
+              'already known.',
               style: TextStyle(
                 color: BafColors.textPrimary,
                 height: 1.35,

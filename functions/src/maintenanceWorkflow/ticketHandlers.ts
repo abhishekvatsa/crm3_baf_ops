@@ -10,6 +10,21 @@ import {
 import {cleanText, iso, stableJson} from "./utils";
 import {WorkflowTransaction} from "./store";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
+import {
+  PersistedActionPayloadError,
+  readComponentActionPayload,
+} from "../persistedActionPayload";
+import {
+  maintenanceResolutionHistoryWithCurrentClosure,
+} from "./maintenanceBridge";
+import {
+  createTicketLanePlan,
+  requestedTicketLanes,
+  TICKET_LANE_FIELDS,
+  ticketLanePlan,
+  ticketLaneProjection,
+  ticketLaneStatus,
+} from "./ticketLanePlan";
 
 const ROUTES = new Set([
   "operations", "electrical", "mechanical", "instrumentation",
@@ -23,6 +38,12 @@ const ASSET_TYPES = new Set([
   "base", "furnace", "forceCooler", "innerCover", "governedCustom",
 ]);
 const QUALITY_ASSESSMENTS = new Set(["notSuspected", "suspected"]);
+const ABNORMALITY_CATEGORIES = new Set([
+  "process", "equipment", "resultQuality", "reannealing", "other",
+]);
+const ABNORMALITY_SEVERITIES = new Set([
+  "low", "medium", "high", "critical",
+]);
 const BURNER_CYCLE_STAGES = new Set([
   "notRecorded", "purge", "ignition", "firing", "unknown",
 ]);
@@ -46,6 +67,22 @@ const STUCKUP_CONTEXTS = new Set([
   "maintenanceMovement",
   "other",
 ]);
+const BURNER_RESOLUTION_OUTCOMES = new Set([
+  "returnedToService", "remainsLockedOut", "isolatedForFollowUp",
+]);
+const BURNER_ACTION_CODES = new Set([
+  "feedbackReset", "airLineCleaning", "uvDetectorCleaning", "poking",
+  "flameAdjustment", "igniterRodHolderCleaning", "burnerControllerReset",
+  "burnerControllerPowerOn", "safetyShutoffValveRelayWork",
+  "relay6A6BWork", "igniterRodReplacement", "uvDetectorReplacement",
+  "safetyShutoffValveSolenoidWork", "other",
+]);
+const BURNER_RETURN_TO_SERVICE_ACTIONS = new Set([
+  "airLineCleaning", "uvDetectorCleaning", "poking", "flameAdjustment",
+  "igniterRodHolderCleaning", "safetyShutoffValveRelayWork",
+  "relay6A6BWork", "igniterRodReplacement", "uvDetectorReplacement",
+  "safetyShutoffValveSolenoidWork", "other",
+]);
 const CREATE_TICKET_FIELDS = [
   "schemaVersion", "version", "assetType", "assetNumber", "component",
   "subsystem", "tag", "hierarchyPath", "assetHierarchyRefJson",
@@ -54,6 +91,7 @@ const CREATE_TICKET_FIELDS = [
   "qualityIntentSchemaVersion", "qualityImpactAssessment",
   "qualityWarningReason",
 ] as const;
+const QUALITY_ABNORMALITY_TYPE_FIELD = "qualityAbnormalityTypeId";
 const CREATE_BURNER_FIELDS = [
   "burnerLockoutSchemaVersion", "burnerPositions", "burnerCommonMode",
   "burnerCycleStage", "burnerHmiAlarm", "burnerFlameObservation",
@@ -125,6 +163,22 @@ const optionalText = (
     throw new WorkflowError(
       "invalid-argument",
       `${field} must be at most ${max} characters.`,
+    );
+  }
+  return cleaned;
+};
+
+const optionalBoundedText = (
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+): string | null => {
+  const cleaned = optionalText(value, field, max);
+  if (cleaned != null && cleaned.length < min) {
+    throw new WorkflowError(
+      "invalid-argument",
+      `${field} must contain at least ${min} characters.`,
     );
   }
   return cleaned;
@@ -208,6 +262,199 @@ const persistedStringList = (
 ): string[] => optionalStringList(
   value ?? [], field, maximumItems, maximumLength,
 ) ?? [];
+
+const requiredInstantDate = (value: unknown, field: string): Date => {
+  const text = cleanText(value, field);
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new WorkflowError(
+      "invalid-argument",
+      `${field} must be a valid timestamp.`,
+      {reasonCode: "maintenance-ticket-resolution-time-invalid", field},
+    );
+  }
+  return parsed;
+};
+
+const requiredPersistedInstantDate = (
+  value: unknown,
+  field: string,
+): Date => {
+  let parsed: Date | null = null;
+  if (value instanceof Date) {
+    parsed = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    parsed = new Date(value);
+  } else if (
+    value != null &&
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof (value as {toDate?: unknown}).toDate === "function"
+  ) {
+    try {
+      const converted = (value as {toDate: () => unknown}).toDate();
+      if (converted instanceof Date) parsed = converted;
+    } catch (_) {
+      parsed = null;
+    }
+  }
+  if (parsed == null || Number.isNaN(parsed.getTime())) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket timestamp evidence is malformed.",
+      {reasonCode: "maintenance-ticket-timestamp-invalid", field},
+    );
+  }
+  return parsed;
+};
+
+const closureActionPayload = (
+  value: unknown,
+): {readonly text: string; readonly rows: readonly JsonMap[]} => {
+  try {
+    const parsed = readComponentActionPayload(value, {
+      field: "actionsJson",
+    });
+    return {
+      text: parsed.text,
+      rows: parsed.rows as readonly JsonMap[],
+    };
+  } catch (error) {
+    if (error instanceof PersistedActionPayloadError) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "actionsJson contains invalid component-action evidence.",
+        {
+          reasonCode: "maintenance-ticket-resolution-actions-invalid",
+          field: error.field,
+        },
+      );
+    }
+    throw error;
+  }
+};
+
+const closureTeams = (
+  value: unknown,
+  assigned: readonly string[],
+): string[] => {
+  const requested = optionalStringList(
+    value,
+    "teamsInvolved",
+    ROUTES.size,
+    40,
+  ) ?? [];
+  if (new Set(requested).size !== requested.length ||
+      requested.some((team) => !ROUTES.has(team))) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "teamsInvolved must be a unique supported maintenance-team list.",
+      {reasonCode: "maintenance-ticket-resolution-teams-invalid"},
+    );
+  }
+  return [...new Set([...assigned, ...requested])];
+};
+
+const burnerAttendanceSessionId = (
+  ticketId: string,
+  burnerPosition: number,
+): string => `burner_${ticketId}_${burnerPosition}`;
+
+const burnerResolutionProjection = (
+  ticketId: string,
+  ticket: JsonMap,
+  actions: readonly JsonMap[],
+): {readonly attended: number[]; readonly evidence: JsonMap} | null => {
+  if (ticket.classification !== BURNER_LOCKOUT_CLASSIFICATION) return null;
+  const positions = ticket.burnerPositions;
+  if (!isValidBurnerPositionList(positions, false)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Saved burner positions need repair before issue closure.",
+      {reasonCode: "maintenance-ticket-burner-evidence-invalid"},
+    );
+  }
+
+  const grouped = new Map<number, {
+    outcome: string;
+    actionCodes: Set<string>;
+    microampReading: number | null;
+  }>();
+  for (const action of actions) {
+    if (action.burnerPosition == null) continue;
+    const position = action.burnerPosition;
+    const actionCode = action.burnerActionCode;
+    const outcome = action.burnerOutcome;
+    const reading = action.burnerMicroampReading;
+    const normalizedReading = reading == null ? null : reading as number;
+    if (!Number.isSafeInteger(position) ||
+        !positions.includes(position as number) ||
+        action.attendanceSessionId !== burnerAttendanceSessionId(
+          ticketId,
+          position as number,
+        ) ||
+        typeof actionCode !== "string" ||
+        !BURNER_ACTION_CODES.has(actionCode) ||
+        typeof outcome !== "string" ||
+        !BURNER_RESOLUTION_OUTCOMES.has(outcome) ||
+        (reading != null &&
+          (typeof reading !== "number" || !Number.isFinite(reading) ||
+            reading < 0 || reading > 1000000))) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Burner attendance actions contain invalid resolution evidence.",
+        {reasonCode: "maintenance-ticket-burner-resolution-invalid"},
+      );
+    }
+    const existing = grouped.get(position as number);
+    if (existing != null &&
+        (existing.outcome !== outcome ||
+          existing.microampReading !== normalizedReading)) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Burner attendance actions disagree on their terminal outcome.",
+        {reasonCode: "maintenance-ticket-burner-resolution-inconsistent"},
+      );
+    }
+    const entry = existing ?? {
+      outcome,
+      actionCodes: new Set<string>(),
+      microampReading: normalizedReading,
+    };
+    if (entry.actionCodes.has(actionCode)) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Burner attendance actions contain duplicate work codes.",
+        {reasonCode: "maintenance-ticket-burner-resolution-duplicate"},
+      );
+    }
+    entry.actionCodes.add(actionCode);
+    grouped.set(position as number, entry);
+  }
+
+  const evidence: Record<string, unknown> = {};
+  for (const position of positions) {
+    const entry = grouped.get(position);
+    if (entry == null || entry.actionCodes.size === 0 ||
+        (entry.outcome === "returnedToService" &&
+          ![...entry.actionCodes].some((code) =>
+            BURNER_RETURN_TO_SERVICE_ACTIONS.has(code)))) {
+      throw new WorkflowError(
+        "failed-precondition",
+        `Burner ${position} requires complete terminal work evidence.`,
+        {reasonCode: "maintenance-ticket-burner-resolution-incomplete"},
+      );
+    }
+    evidence[String(position)] = {
+      outcome: entry.outcome,
+      actionCodes: [...entry.actionCodes],
+      ...(entry.microampReading == null ? {} : {
+        microampReading: entry.microampReading,
+      }),
+    };
+  }
+  return {attended: [...positions], evidence: evidence as JsonMap};
+};
 
 const parseFrequentIssueSelectionShape = (value: unknown): JsonMap => {
   const selection = record(value, FREQUENT_ISSUE_SELECTION_FIELD);
@@ -790,6 +1037,113 @@ const qualityWarningProjection = (args: {
   };
 };
 
+type CanonicalQualityAbnormalityType = {
+  readonly id: string;
+  readonly code: string;
+  readonly title: string;
+  readonly category: string;
+  readonly severity: string;
+};
+
+const canonicalQualityAbnormalityType = (args: {
+  snapshot: {readonly exists: boolean; readonly data: JsonMap | null};
+  typeId: string;
+  assetType: string;
+}): CanonicalQualityAbnormalityType => {
+  const data = args.snapshot.data;
+  if (!args.snapshot.exists || data == null || data.firestoreId !== args.typeId ||
+      data.isActive !== true || data.isDeleted !== false) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected abnormality classification is unavailable.",
+      {
+        reasonCode: "maintenance-ticket-quality-type-unavailable",
+        abnormalityTypeId: args.typeId,
+      },
+    );
+  }
+  const code = boundedText(data.code, "abnormalityType.code", 1, 160);
+  const title = boundedText(data.title, "abnormalityType.title", 1, 500);
+  const category = cleanText(data.category, "abnormalityType.category");
+  const severity = cleanText(data.severity, "abnormalityType.severity");
+  const applicableAssetTypes = optionalStringList(
+    data.applicableAssetTypes,
+    "abnormalityType.applicableAssetTypes",
+    ASSET_TYPES.size,
+    40,
+  ) ?? [];
+  if (!ABNORMALITY_CATEGORIES.has(category) ||
+      !ABNORMALITY_SEVERITIES.has(severity) ||
+      new Set(applicableAssetTypes).size !== applicableAssetTypes.length ||
+      applicableAssetTypes.some((value) => !ASSET_TYPES.has(value)) ||
+      (applicableAssetTypes.length > 0 &&
+        !applicableAssetTypes.includes(args.assetType))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected abnormality classification does not apply to this asset.",
+      {
+        reasonCode: "maintenance-ticket-quality-type-inapplicable",
+        abnormalityTypeId: args.typeId,
+        assetType: args.assetType,
+      },
+    );
+  }
+  return {id: args.typeId, code, title, category, severity};
+};
+
+const qualityRootReasonForAsset = (assetType: string): string => {
+  switch (assetType) {
+  case "base": return "baseRelated";
+  case "furnace": return "furnaceRelated";
+  case "forceCooler": return "forceCoolerRelated";
+  default: return "unknown";
+  }
+};
+
+const qualityAbnormalityProjection = (args: {
+  abnormalityId: string;
+  ticketId: string;
+  ticket: JsonMap;
+  type: CanonicalQualityAbnormalityType;
+  actor: Actor;
+  timestamp: string;
+}): JsonMap => ({
+  firestoreId: args.abnormalityId,
+  sourceChargeNo: args.ticket.chargeNoAtEvent as number,
+  abnormalityTypeId: args.type.id,
+  abnormalityTypeTitle: args.type.title,
+  abnormalityTypeCode: args.type.code,
+  category: args.type.category,
+  severity: args.ticket.isCritical === true ? "critical" : args.type.severity,
+  affectedAssets: [{
+    assetType: args.ticket.assetType as string,
+    assetNumber: args.ticket.assetNumber as number,
+  }],
+  component: args.ticket.component ?? null,
+  observedReason: args.ticket.qualityWarningReason as string,
+  description: args.ticket.description as string,
+  possibleRootReasonCategory: qualityRootReasonForAsset(
+    args.ticket.assetType as string,
+  ),
+  possibleRootReasonNotes: null,
+  reannealingStatus: "pendingDecision",
+  reannealedToChargeNo: null,
+  loggedAt: args.timestamp,
+  updatedAt: args.timestamp,
+  loggedByUid: args.actor.uid,
+  loggedByName: args.actor.name,
+  updatedByUid: args.actor.uid,
+  updatedByName: args.actor.name,
+  linkedTicketFirestoreId: args.ticketId,
+  linkedExecutionFirestoreId: null,
+  version: 1,
+  isDeleted: false,
+  deletedAt: null,
+  deletedByUid: null,
+  deletedByName: null,
+  deleteReason: null,
+});
+
 const redHotDirectiveProjection = (args: {
   ticketId: string;
   ticket: JsonMap;
@@ -870,6 +1224,24 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   acknowledgedByUid: ticket.acknowledgedByUid ?? null,
   acknowledgedByName: ticket.acknowledgedByName ?? null,
   acknowledgedAt: instantText(ticket.acknowledgedAt),
+  issueLaneSchemaVersion: ticket.issueLaneSchemaVersion ?? null,
+  issueLaneRevision: ticket.issueLaneRevision ?? null,
+  issueAssignedLanes: ticket.issueAssignedLanes ?? null,
+  issueAcknowledgedLanes: ticket.issueAcknowledgedLanes ?? null,
+  issueCompletedLanes: ticket.issueCompletedLanes ?? null,
+  endDate: instantText(ticket.endDate),
+  closedByUid: ticket.closedByUid ?? null,
+  closedByName: ticket.closedByName ?? null,
+  downtimeHours: ticket.downtimeHours ?? null,
+  teamsInvolved: ticket.teamsInvolved ?? null,
+  actionsJson: ticket.actionsJson ?? null,
+  resolutionHistoryJson: ticket.resolutionHistoryJson ?? null,
+  reopenedByUid: ticket.reopenedByUid ?? null,
+  reopenedByName: ticket.reopenedByName ?? null,
+  reopenedAt: instantText(ticket.reopenedAt),
+  reopenReason: ticket.reopenReason ?? null,
+  burnerAttendedPositions: ticket.burnerAttendedPositions ?? null,
+  burnerResolutionEvidence: ticket.burnerResolutionEvidence ?? null,
   workflowDeferred: ticket.workflowDeferred ?? false,
   isDeleted: ticket.isDeleted ?? null,
 });
@@ -1002,13 +1374,27 @@ export const createMaintenanceTicket = async ({
     input,
     FREQUENT_ISSUE_SELECTION_FIELD,
   );
+  const hasLanePlan = TICKET_LANE_FIELDS.some((field) =>
+    Object.prototype.hasOwnProperty.call(input, field));
+  const hasQualityAbnormalityType = Object.prototype.hasOwnProperty.call(
+    input,
+    QUALITY_ABNORMALITY_TYPE_FIELD,
+  );
   exactKeys(
     input,
-    burner ? [...CREATE_TICKET_FIELDS, ...CREATE_BURNER_FIELDS,
+    burner ? [...CREATE_TICKET_FIELDS,
+      ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+      ...CREATE_BURNER_FIELDS,
+      ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
       ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
-      stuckup ? [...CREATE_TICKET_FIELDS, ...CREATE_STUCKUP_FIELDS,
+      stuckup ? [...CREATE_TICKET_FIELDS,
+        ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+        ...CREATE_STUCKUP_FIELDS,
+        ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
         ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
         [...CREATE_TICKET_FIELDS,
+          ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+          ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
           ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])],
     "ticket",
   );
@@ -1018,6 +1404,13 @@ export const createMaintenanceTicket = async ({
     throw new WorkflowError("invalid-argument", "ticket schemaVersion is unsupported.");
   }
   const version = requiredInteger(input.version, "version", 1, 2147483647);
+  if (version !== 1) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "A new maintenance ticket must begin at version 1.",
+      {reasonCode: "maintenance-ticket-create-version-invalid"},
+    );
+  }
   const assetType = cleanText(input.assetType, "assetType");
   if (!ASSET_TYPES.has(assetType)) {
     throw new WorkflowError("invalid-argument", "assetType is unsupported.");
@@ -1031,8 +1424,14 @@ export const createMaintenanceTicket = async ({
   if (!ROUTES.has(routedTo)) {
     throw new WorkflowError("invalid-argument", "routedTo is unsupported.");
   }
-  const otherDepartment = optionalText(input.otherDepartment, "otherDepartment", 80);
-  if ((routedTo === "others") !== (otherDepartment != null)) {
+  const lanePlan = createTicketLanePlan(input, routedTo);
+  const otherDepartment = optionalBoundedText(
+    input.otherDepartment,
+    "otherDepartment",
+    2,
+    80,
+  );
+  if ((lanePlan.assigned.includes("others")) !== (otherDepartment != null)) {
     throw new WorkflowError(
       "invalid-argument",
       "Other department is required only when the issue route is Others.",
@@ -1056,7 +1455,8 @@ export const createMaintenanceTicket = async ({
       {reasonCode: "charge-number-invalid", field: "chargeNoAtEvent"},
     );
   }
-  if (input.qualityIntentSchemaVersion !== 1 ||
+  if ((input.qualityIntentSchemaVersion !== 1 &&
+        input.qualityIntentSchemaVersion !== 2) ||
       typeof input.qualityImpactAssessment !== "string" ||
       !QUALITY_ASSESSMENTS.has(input.qualityImpactAssessment)) {
     throw new WorkflowError(
@@ -1071,6 +1471,13 @@ export const createMaintenanceTicket = async ({
     1000,
   );
   const suspected = input.qualityImpactAssessment === "suspected";
+  const qualityAbnormalityTypeId = hasQualityAbnormalityType ?
+    optionalBoundedText(
+      input.qualityAbnormalityTypeId,
+      "qualityAbnormalityTypeId",
+      1,
+      512,
+    ) : null;
   if (suspected ?
     (qualityWarningReason == null || qualityWarningReason.length < 8 ||
       chargeNoAtEvent == null) : qualityWarningReason != null) {
@@ -1078,6 +1485,19 @@ export const createMaintenanceTicket = async ({
       "invalid-argument",
       "Suspected quality impact requires charge and warning-reason evidence.",
       {reasonCode: "maintenance-ticket-quality-evidence-invalid"},
+    );
+  }
+  if ((input.qualityIntentSchemaVersion === 1 &&
+        hasQualityAbnormalityType) ||
+      (input.qualityIntentSchemaVersion === 2 &&
+        !hasQualityAbnormalityType) ||
+      (suspected && (input.qualityIntentSchemaVersion !== 2 ||
+        qualityAbnormalityTypeId == null)) ||
+      (!suspected && qualityAbnormalityTypeId != null)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Suspected quality impact requires a governed abnormality classification.",
+      {reasonCode: "maintenance-ticket-quality-classification-invalid"},
     );
   }
 
@@ -1089,7 +1509,9 @@ export const createMaintenanceTicket = async ({
     const redHot = input.burnerRedHotPositions;
     if (input.burnerLockoutSchemaVersion !== 1 ||
         assetType !== "furnace" || maintenanceType !== "breakdown" ||
-        routedTo !== "instrumentation" || component !== "Burner system" ||
+        routedTo !== "instrumentation" ||
+        !lanePlan.assigned.includes("instrumentation") ||
+        component !== "Burner system" ||
         tag != null || !isValidBurnerPositionList(positions, false) ||
         !isValidBurnerPositionList(redHot, true) ||
         !redHot.every((position) => positions.includes(position)) ||
@@ -1164,6 +1586,8 @@ export const createMaintenanceTicket = async ({
     );
     if (input.furnaceStuckupSchemaVersion !== 1 ||
         assetType !== "furnace" || maintenanceType !== "breakdown" ||
+        routedTo !== "mechanical" ||
+        !lanePlan.assigned.includes("mechanical") ||
         component !== "Furnace / Inner Cover interface" ||
         tag != null || !STUCKUP_CAUSES.has(stuckupSuspectedCause) ||
         !STUCKUP_CONTEXTS.has(stuckupOperatingContext)) {
@@ -1193,6 +1617,16 @@ export const createMaintenanceTicket = async ({
     serverNow: context.serverNow,
   });
   const canonicalAssetReference = JSON.parse(assetHierarchyRefJson) as JsonMap;
+  const qualityAbnormalityId = suspected ?
+    `issue_quality_${command.aggregateId}` : null;
+  const warningId = `issue_${command.aggregateId}`;
+  const qualityType = suspected ? canonicalQualityAbnormalityType({
+    snapshot: await tx.get(
+      `abnormality_types/${qualityAbnormalityTypeId as string}`,
+    ),
+    typeId: qualityAbnormalityTypeId as string,
+    assetType,
+  }) : null;
   const frequentIssueSelection = await resolveFrequentIssueSelection({
     tx,
     selection: requestedFrequentIssueSelection,
@@ -1295,6 +1729,7 @@ export const createMaintenanceTicket = async ({
     acknowledgedByUid: null,
     acknowledgedByName: null,
     acknowledgedAt: null,
+    ...ticketLaneProjection(lanePlan),
     closedByUid: null,
     closedByName: null,
     teamsInvolved: [],
@@ -1309,9 +1744,13 @@ export const createMaintenanceTicket = async ({
     metadataJson: null,
     actionsJson: "[]",
     resolutionHistoryJson: "[]",
-    qualityIntentSchemaVersion: 1,
+    qualityIntentSchemaVersion: input.qualityIntentSchemaVersion as number,
     qualityImpactAssessment: input.qualityImpactAssessment as string,
     qualityWarningReason,
+    ...(hasQualityAbnormalityType ? {qualityAbnormalityTypeId} : {}),
+    qualityAbnormalityId,
+    qualityWarningId: suspected ? warningId : null,
+    chargeQualityCaseId: suspected ? `issue_${command.aggregateId}` : null,
     ...(frequentIssueSelection == null ? {} : {frequentIssueSelection}),
     ...burnerFields,
     ...(stuckup ? {
@@ -1333,24 +1772,40 @@ export const createMaintenanceTicket = async ({
     actor: context.actor,
     timestamp,
   });
+  const abnormality = qualityType == null || qualityAbnormalityId == null ?
+    null : qualityAbnormalityProjection({
+      abnormalityId: qualityAbnormalityId,
+      ticketId: command.aggregateId,
+      ticket,
+      type: qualityType,
+      actor: context.actor,
+      timestamp,
+    });
   const directive = redHotDirectiveProjection({
     ticketId: command.aggregateId,
     ticket,
     actor: context.actor,
     timestamp,
   });
-  const warningId = `issue_${command.aggregateId}`;
   const directiveId = `burner_red_hot_${command.aggregateId}`;
   const reviewQueueId = frequentIssueSelection?.selectionType === "unlisted" ?
     command.aggregateId : null;
-  const [existingTicket, existingWarning, existingDirective, existingReview] =
+  const [
+    existingTicket,
+    existingWarning,
+    existingAbnormality,
+    existingDirective,
+    existingReview,
+  ] =
     await Promise.all([
     tx.get(maintenancePath(command.aggregateId)),
     tx.get(`quality_warnings/${warningId}`),
+    tx.get(`charge_abnormalities/issue_quality_${command.aggregateId}`),
     tx.get(`directives/${directiveId}`),
     tx.get(`issue_governance_review_queue/${command.aggregateId}`),
   ]);
-  if (existingTicket.exists || existingWarning.exists || existingDirective.exists ||
+  if (existingTicket.exists || existingWarning.exists ||
+      existingAbnormality.exists || existingDirective.exists ||
       existingReview.exists) {
     throw new WorkflowError(
       "failed-precondition",
@@ -1594,6 +2049,9 @@ export const createMaintenanceTicket = async ({
     });
   }
   if (warning != null) tx.create(`quality_warnings/${warningId}`, warning);
+  if (abnormality != null && qualityAbnormalityId != null) {
+    tx.create(`charge_abnormalities/${qualityAbnormalityId}`, abnormality);
+  }
   if (directive != null) tx.create(`directives/${directiveId}`, directive);
   return {
     resultKey: "maintenance-ticket-created",
@@ -1602,6 +2060,7 @@ export const createMaintenanceTicket = async ({
       ticketId: command.aggregateId,
       auditId: id,
       warningId: warning == null ? null : warningId,
+      abnormalityId: qualityAbnormalityId,
       directiveId: directive == null ? null : directiveId,
       stuckupCaseId,
       reviewQueueId,
@@ -1614,25 +2073,34 @@ export const acknowledgeMaintenanceTicket = async ({
   command,
   context,
 }: HandlerArgs): Promise<HandlerResult> => {
-  exactKeys(command.payload, [], "payload");
+  const payloadKeys = Object.keys(command.payload);
+  if (payloadKeys.length !== 0) exactKeys(command.payload, ["lane"], "payload");
   const {ticket, version} = await requireTicket(tx, command);
   await requireVacantAudit(tx, command.commandId);
-  if (ticket.status !== "open" ||
-      ticket.acknowledgedByUid != null ||
-      ticket.acknowledgedByName != null ||
-      ticket.acknowledgedAt != null) {
+  const plan = ticketLanePlan(ticket);
+  const lane = payloadKeys.length === 0 ? plan.assigned[0] :
+    cleanText(command.payload.lane, "lane");
+  if (ticket.status === "resolved" || !plan.assigned.includes(lane) ||
+      plan.acknowledged.includes(lane)) {
     throw new WorkflowError(
       "failed-precondition",
-      "Only a clean open maintenance ticket can be acknowledged.",
+      "Only an active unacknowledged issue lane can be acknowledged.",
       {reasonCode: "maintenance-ticket-not-open-for-acknowledgement"},
     );
   }
+  const nextPlan = {
+    ...plan,
+    acknowledged: [...plan.acknowledged, lane],
+  };
   const nextVersion = version + 1;
   const update: JsonMap = {
-    status: "acknowledged",
-    acknowledgedByUid: context.actor.uid,
-    acknowledgedByName: context.actor.name,
-    acknowledgedAt: iso(context.serverNow),
+    status: ticketLaneStatus(nextPlan),
+    ...(plan.acknowledged.length === 0 ? {
+      acknowledgedByUid: context.actor.uid,
+      acknowledgedByName: context.actor.name,
+      acknowledgedAt: iso(context.serverNow),
+    } : {}),
+    ...ticketLaneProjection(nextPlan),
     updatedAt: iso(context.serverNow),
     updatedByUid: context.actor.uid,
     updatedByName: context.actor.name,
@@ -1645,8 +2113,8 @@ export const acknowledgeMaintenanceTicket = async ({
     command,
     actor: context.actor,
     at: context.serverNow,
-    reason: "Maintenance ticket acknowledged by the accountable receiving authority.",
-    summary: "Maintenance ticket acknowledged",
+    reason: `Maintenance issue lane ${lane} acknowledged by its receiving authority.`,
+    summary: `Maintenance issue lane acknowledged: ${lane}`,
     severity: "low",
     before,
     after,
@@ -1656,7 +2124,379 @@ export const acknowledgeMaintenanceTicket = async ({
   return {
     resultKey: "maintenance-ticket-acknowledged",
     aggregateVersion: nextVersion,
-    result: {ticketId: command.aggregateId, auditId: id},
+    result: {ticketId: command.aggregateId, auditId: id, lane},
+  };
+};
+
+export const completeMaintenanceTicketLane = async ({
+  tx,
+  command,
+  context,
+}: HandlerArgs): Promise<HandlerResult> => {
+  exactKeys(command.payload, ["lane"], "payload");
+  const {ticket, version} = await requireTicket(tx, command);
+  await requireVacantAudit(tx, command.commandId);
+  const plan = ticketLanePlan(ticket);
+  const lane = cleanText(command.payload.lane, "lane");
+  if (ticket.status === "resolved" || !plan.assigned.includes(lane) ||
+      !plan.acknowledged.includes(lane) || plan.completed.includes(lane)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only an acknowledged active issue lane can be completed.",
+      {reasonCode: "maintenance-ticket-lane-not-ready-for-completion"},
+    );
+  }
+  const nextPlan = {...plan, completed: [...plan.completed, lane]};
+  const nextVersion = version + 1;
+  const update: JsonMap = {
+    status: ticketLaneStatus(nextPlan),
+    ...ticketLaneProjection(nextPlan),
+    updatedAt: iso(context.serverNow),
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+    version: nextVersion,
+  };
+  const before = ticketSnapshot(ticket);
+  const after = ticketSnapshot({...ticket, ...update});
+  const id = writeAudit({
+    tx,
+    command,
+    actor: context.actor,
+    at: context.serverNow,
+    reason: `Maintenance issue lane ${lane} marked complete by its closing authority.`,
+    summary: `Maintenance issue lane completed: ${lane}`,
+    severity: "low",
+    before,
+    after,
+    resultVersion: nextVersion,
+  });
+  tx.update(maintenancePath(command.aggregateId), update);
+  return {
+    resultKey: "maintenance-ticket-lane-completed",
+    aggregateVersion: nextVersion,
+    result: {ticketId: command.aggregateId, auditId: id, lane},
+  };
+};
+
+export const resolveMaintenanceTicket = async ({
+  tx,
+  command,
+  context,
+}: HandlerArgs): Promise<HandlerResult> => {
+  exactKeys(
+    command.payload,
+    ["endDate", "remarks", "teamsInvolved", "actionsJson"],
+    "payload",
+  );
+  const {ticket, version} = await requireTicket(tx, command);
+  await requireVacantAudit(tx, command.commandId);
+  if (ticket.isResolved === true || ticket.status === "resolved") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only an active maintenance issue can be resolved.",
+      {reasonCode: "maintenance-ticket-not-open-for-resolution"},
+    );
+  }
+  const plan = ticketLanePlan(ticket);
+  const endDate = requiredInstantDate(command.payload.endDate, "endDate");
+  const startDate = requiredPersistedInstantDate(
+    ticket.startDate,
+    "ticket.startDate",
+  );
+  if (endDate.getTime() < startDate.getTime() ||
+      endDate.getTime() > context.serverNow.getTime() + 5 * 60 * 1000) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Resolution time must be between issue start and current server time.",
+      {reasonCode: "maintenance-ticket-resolution-time-invalid"},
+    );
+  }
+  const remarks = boundedText(command.payload.remarks, "remarks", 1, 4000);
+  const teamsInvolved = closureTeams(
+    command.payload.teamsInvolved,
+    plan.assigned,
+  );
+  const actions = closureActionPayload(command.payload.actionsJson);
+  const burner = burnerResolutionProjection(
+    command.aggregateId,
+    ticket,
+    actions.rows,
+  );
+  if (burner != null && actions.rows.length === 0) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Burner-lockout closure requires component-action evidence.",
+      {reasonCode: "maintenance-ticket-burner-resolution-incomplete"},
+    );
+  }
+
+  const nextPlan = {
+    ...plan,
+    acknowledged: [...plan.assigned],
+    completed: [...plan.assigned],
+  };
+  const nextVersion = version + 1;
+  const updatedAt = iso(context.serverNow);
+  const update: JsonMap = {
+    isResolved: true,
+    status: "resolved",
+    endDate: endDate.toISOString(),
+    closedByUid: context.actor.uid,
+    closedByName: context.actor.name,
+    remarks,
+    downtimeHours:
+      (endDate.getTime() - startDate.getTime()) / (60 * 60 * 1000),
+    teamsInvolved,
+    actionsJson: actions.text,
+    ...ticketLaneProjection(nextPlan),
+    ...(plan.acknowledged.length === 0 ? {
+      acknowledgedByUid: context.actor.uid,
+      acknowledgedByName: context.actor.name,
+      acknowledgedAt: endDate.toISOString(),
+    } : {}),
+    ...(burner == null ? {} : {
+      burnerAttendedPositions: burner.attended,
+      burnerResolutionEvidence: burner.evidence,
+    }),
+    updatedAt,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+    version: nextVersion,
+  };
+  const before = ticketSnapshot(ticket);
+  const after = ticketSnapshot({...ticket, ...update});
+  const id = writeAudit({
+    tx,
+    command,
+    actor: context.actor,
+    at: context.serverNow,
+    reason: "Maintenance issue resolved through the governed command boundary.",
+    summary: `Maintenance issue resolved across ${plan.assigned.length} lane(s)`,
+    severity: "medium",
+    before,
+    after,
+    resultVersion: nextVersion,
+  });
+  tx.update(maintenancePath(command.aggregateId), update);
+  if (burner != null) {
+    tx.set(`maintenance_burner_closures/${command.aggregateId}`, {
+      firestoreId: command.aggregateId,
+      sourceMaintenanceId: command.aggregateId,
+      sourceVersion: nextVersion,
+      closedByUid: context.actor.uid,
+      burnerResolutionEvidence: burner.evidence,
+      updatedAt,
+    });
+  }
+  return {
+    resultKey: "maintenance-ticket-resolved",
+    aggregateVersion: nextVersion,
+    result: {
+      ticketId: command.aggregateId,
+      auditId: id,
+      completedLanes: [...plan.assigned],
+    },
+  };
+};
+
+export const reopenMaintenanceTicket = async ({
+  tx,
+  command,
+  context,
+}: HandlerArgs): Promise<HandlerResult> => {
+  exactKeys(command.payload, ["remarks"], "payload");
+  const {ticket, version} = await requireTicket(tx, command);
+  await requireVacantAudit(tx, command.commandId);
+  if (ticket.isResolved !== true || ticket.status !== "resolved") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only a resolved maintenance issue can be reopened.",
+      {reasonCode: "maintenance-ticket-not-closed-for-reopen"},
+    );
+  }
+  const closedAt = requiredPersistedInstantDate(
+    ticket.endDate,
+    "ticket.endDate",
+  );
+  const elapsed = context.serverNow.getTime() - closedAt.getTime();
+  if (elapsed < 0 || elapsed > 4 * 60 * 60 * 1000) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance issues may be reopened only within four hours of closure.",
+      {reasonCode: "maintenance-ticket-reopen-window-expired"},
+    );
+  }
+  const plan = ticketLanePlan(ticket);
+  const reopenedPlan = {
+    ...plan,
+    acknowledged: [] as string[],
+    completed: [] as string[],
+  };
+  const remarks = optionalText(command.payload.remarks, "remarks", 4000);
+  const resolutionHistoryJson =
+    maintenanceResolutionHistoryWithCurrentClosure(ticket, false);
+  const nextVersion = version + 1;
+  const updatedAt = iso(context.serverNow);
+  const update: JsonMap = {
+    isResolved: false,
+    status: "open",
+    ...ticketLaneProjection(reopenedPlan),
+    acknowledgedByUid: null,
+    acknowledgedByName: null,
+    acknowledgedAt: null,
+    endDate: null,
+    closedByUid: null,
+    closedByName: null,
+    downtimeHours: null,
+    teamsInvolved: [],
+    actionsJson: "[]",
+    ...(ticket.classification === BURNER_LOCKOUT_CLASSIFICATION ? {
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+    } : {}),
+    remarks,
+    resolutionHistoryJson,
+    reopenedByUid: context.actor.uid,
+    reopenedByName: context.actor.name,
+    reopenedAt: updatedAt,
+    reopenReason: remarks,
+    updatedAt,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+    version: nextVersion,
+  };
+  const before = ticketSnapshot(ticket);
+  const after = ticketSnapshot({...ticket, ...update});
+  const id = writeAudit({
+    tx,
+    command,
+    actor: context.actor,
+    at: context.serverNow,
+    reason: remarks ?? "Maintenance issue reopened for further work.",
+    summary: "Maintenance issue reopened",
+    severity: "medium",
+    before,
+    after,
+    resultVersion: nextVersion,
+  });
+  tx.update(maintenancePath(command.aggregateId), update);
+  return {
+    resultKey: "maintenance-ticket-reopened",
+    aggregateVersion: nextVersion,
+    result: {
+      ticketId: command.aggregateId,
+      auditId: id,
+      assignedLanes: [...plan.assigned],
+    },
+  };
+};
+
+export const reconfigureMaintenanceTicketLanes = async ({
+  tx,
+  command,
+  context,
+}: HandlerArgs): Promise<HandlerResult> => {
+  exactKeys(command.payload, ["lanes", "otherDepartment", "reason"], "payload");
+  const reason = boundedText(command.payload.reason, "reason", 12, 2000);
+  const lanes = requestedTicketLanes(command.payload.lanes);
+  const otherDepartment = optionalBoundedText(
+    command.payload.otherDepartment,
+    "otherDepartment",
+    2,
+    80,
+  );
+  if (lanes.includes("others") !== (otherDepartment != null)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Other department is required exactly when Others is an active lane.",
+      {reasonCode: "maintenance-ticket-route-department-invalid"},
+    );
+  }
+  const {ticket, version} = await requireTicket(tx, command);
+  await requireVacantAudit(tx, command.commandId);
+  if (ticket.status === "resolved") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A resolved issue cannot have its accountable lanes changed.",
+      {reasonCode: "maintenance-ticket-lanes-closed"},
+    );
+  }
+  const queueState = typeof ticket.workflowQueueState === "string" ?
+    ticket.workflowQueueState : "independent";
+  if (queueState !== "independent" && queueState !== "released") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Finish or release active Operations coordination before changing lanes.",
+      {reasonCode: "maintenance-ticket-lanes-workflow-active"},
+    );
+  }
+  if (ticket.classification === BURNER_LOCKOUT_CLASSIFICATION &&
+      (lanes[0] !== "instrumentation" || !lanes.includes("instrumentation"))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Burner-lockout issues must retain I&A as their primary lane.",
+      {reasonCode: "maintenance-burner-specialization-immutable"},
+    );
+  }
+  if (ticket.classification === FURNACE_STUCKUP_CLASSIFICATION &&
+      (lanes[0] !== "mechanical" || !lanes.includes("mechanical"))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Furnace stuck-up issues must retain Mechanical as their primary lane.",
+      {reasonCode: "maintenance-stuckup-specialization-immutable"},
+    );
+  }
+  const plan = ticketLanePlan(ticket);
+  const selected = new Set(lanes);
+  const nextPlan = {
+    revision: plan.revision + 1,
+    assigned: lanes,
+    acknowledged: plan.acknowledged.filter((lane) => selected.has(lane)),
+    completed: plan.completed.filter((lane) => selected.has(lane)),
+  };
+  if (JSON.stringify(plan.assigned) === JSON.stringify(lanes) &&
+      (ticket.otherDepartment ?? null) === otherDepartment) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The requested lane set does not change the maintenance issue.",
+      {reasonCode: "maintenance-ticket-lane-reconfiguration-noop"},
+    );
+  }
+  const nextVersion = version + 1;
+  const update: JsonMap = {
+    routedTo: lanes[0],
+    otherDepartment,
+    status: ticketLaneStatus(nextPlan),
+    ...ticketLaneProjection(nextPlan),
+    ...(nextPlan.acknowledged.length === 0 ? {
+      acknowledgedByUid: null,
+      acknowledgedByName: null,
+      acknowledgedAt: null,
+    } : {}),
+    updatedAt: iso(context.serverNow),
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+    version: nextVersion,
+  };
+  const before = ticketSnapshot(ticket);
+  const after = ticketSnapshot({...ticket, ...update});
+  const id = writeAudit({
+    tx,
+    command,
+    actor: context.actor,
+    at: context.serverNow,
+    reason,
+    summary: `Maintenance issue lanes changed: ${lanes.join(", ")}`,
+    severity: "medium",
+    before,
+    after,
+    resultVersion: nextVersion,
+  });
+  tx.update(maintenancePath(command.aggregateId), update);
+  return {
+    resultKey: "maintenance-ticket-lanes-reconfigured",
+    aggregateVersion: nextVersion,
+    result: {ticketId: command.aggregateId, auditId: id, lanes},
   };
 };
 
@@ -1712,7 +2552,7 @@ const normalizeCorrections = (
       break;
     }
     case "otherDepartment":
-      corrections[key] = optionalText(value, key, 80);
+      corrections[key] = optionalBoundedText(value, key, 2, 80);
       break;
     case "remarks":
       corrections[key] = optionalText(value, key, 4000);
@@ -1736,6 +2576,9 @@ export const correctMaintenanceTicket = async ({
   );
   const {ticket, version} = await requireTicket(tx, command);
   await requireVacantAudit(tx, command.commandId);
+  const currentLanePlan = ticketLanePlan(ticket, {
+    allowOtherDepartmentRepair: true,
+  });
   const changed: {[key: string]: string | boolean | null} = {};
   for (const [key, value] of Object.entries(corrections)) {
     if ((ticket[key] ?? null) !== value) changed[key] = value;
@@ -1792,11 +2635,40 @@ export const correctMaintenanceTicket = async ({
       );
     }
   }
+  if (currentClassification !== FURNACE_STUCKUP_CLASSIFICATION &&
+      nextClassification === FURNACE_STUCKUP_CLASSIFICATION) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A standard issue cannot be reclassified as a Furnace stuck-up.",
+      {reasonCode: "maintenance-stuckup-specialization-immutable"},
+    );
+  }
+  if (currentClassification === FURNACE_STUCKUP_CLASSIFICATION) {
+    const nextRoute = Object.prototype.hasOwnProperty.call(changed, "routedTo") ?
+      changed.routedTo : ticket.routedTo;
+    const nextType = Object.prototype.hasOwnProperty.call(
+      changed,
+      "maintenanceType",
+    ) ? changed.maintenanceType : ticket.maintenanceType;
+    const nextComponent = Object.prototype.hasOwnProperty.call(
+      changed,
+      "component",
+    ) ? changed.component : ticket.component;
+    const nextTag = Object.prototype.hasOwnProperty.call(changed, "tag") ?
+      changed.tag : ticket.tag ?? null;
+    if (nextClassification !== FURNACE_STUCKUP_CLASSIFICATION ||
+        nextRoute !== "mechanical" || nextType !== "breakdown" ||
+        nextComponent !== "Furnace / Inner Cover interface" || nextTag != null) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Furnace stuck-up identity, Mechanical routing, and breakdown type are immutable.",
+        {reasonCode: "maintenance-stuckup-specialization-immutable"},
+      );
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(changed, "routedTo") &&
       (ticket.status !== "open" ||
-        ticket.acknowledgedByUid != null ||
-        ticket.acknowledgedByName != null ||
-        ticket.acknowledgedAt != null)) {
+        currentLanePlan.acknowledged.length > 0)) {
     throw new WorkflowError(
       "failed-precondition",
       "A ticket route cannot be corrected after acknowledgement or work has started.",
@@ -1804,6 +2676,10 @@ export const correctMaintenanceTicket = async ({
     );
   }
   const effectiveRoute = changed.routedTo ?? ticket.routedTo;
+  const effectiveLanes = Object.prototype.hasOwnProperty.call(
+    changed,
+    "routedTo",
+  ) ? [effectiveRoute] : currentLanePlan.assigned;
   const effectiveOtherDepartment = Object.prototype.hasOwnProperty.call(
     changed,
     "otherDepartment",
@@ -1812,7 +2688,7 @@ export const correctMaintenanceTicket = async ({
     effectiveOtherDepartment.trim().length >= 2 &&
     effectiveOtherDepartment.length <= 80;
   if (typeof effectiveRoute !== "string" || !ROUTES.has(effectiveRoute) ||
-      (effectiveRoute === "others" ?
+      (effectiveLanes.includes("others") ?
         !validOtherDepartment : effectiveOtherDepartment != null)) {
     throw new WorkflowError(
       "invalid-argument",
@@ -1828,8 +2704,18 @@ export const correctMaintenanceTicket = async ({
     );
   }
   const nextVersion = version + 1;
+  const laneProjectionUpdate = Object.prototype.hasOwnProperty.call(
+    changed,
+    "routedTo",
+  ) ? ticketLaneProjection({
+      revision: currentLanePlan.revision + 1,
+      assigned: [effectiveRoute as string],
+      acknowledged: [],
+      completed: [],
+    }) : {};
   const update: JsonMap = {
     ...changed,
+    ...laneProjectionUpdate,
     updatedAt: iso(context.serverNow),
     updatedByUid: context.actor.uid,
     updatedByName: context.actor.name,
@@ -1872,6 +2758,12 @@ const parsedAuditObject = (value: unknown): JsonMap | null => {
   }
 };
 
+const sameAuditStringList = (left: unknown, right: unknown): boolean =>
+  Array.isArray(left) && Array.isArray(right) &&
+  left.length === right.length &&
+  left.every((value, index) =>
+    typeof value === "string" && value === right[index]);
+
 export const verifyMaintenanceTicketAudit = async (args: {
   tx: WorkflowTransaction;
   command: WorkflowCommand;
@@ -1880,10 +2772,16 @@ export const verifyMaintenanceTicketAudit = async (args: {
 }): Promise<void> => {
   if (args.command.commandType !== "createMaintenanceTicket" &&
       args.command.commandType !== "acknowledgeMaintenanceTicket" &&
+      args.command.commandType !== "completeMaintenanceTicketLane" &&
+      args.command.commandType !== "reconfigureMaintenanceTicketLanes" &&
+      args.command.commandType !== "resolveMaintenanceTicket" &&
+      args.command.commandType !== "reopenMaintenanceTicket" &&
       args.command.commandType !== "correctMaintenanceTicket") return;
   const id = auditId(args.command.commandId);
   const audit = await args.tx.get(auditPath(args.command.commandId));
   const data = audit.data;
+  const before = parsedAuditObject(data?.beforeJson);
+  const after = parsedAuditObject(data?.afterJson);
   if (!audit.exists || data == null ||
       data.schemaVersion !== 1 || data.auditId !== id ||
       data.entityType !== "maintenance" ||
@@ -1895,13 +2793,91 @@ export const verifyMaintenanceTicketAudit = async (args: {
       data.performedByUid !== args.actor.uid ||
       data.resultVersion !== args.receipt.aggregateVersion ||
       args.receipt.result.auditId !== id ||
-      parsedAuditObject(data.beforeJson) == null ||
-      parsedAuditObject(data.afterJson) == null) {
+      before == null || after == null) {
     throw new WorkflowError(
       "failed-precondition",
       "Maintenance ticket receipt no longer matches its immutable audit.",
       {reasonCode: "maintenance-ticket-replay-audit-invalid"},
     );
+  }
+  if (args.command.commandType === "acknowledgeMaintenanceTicket" ||
+      args.command.commandType === "completeMaintenanceTicketLane") {
+    const resultLane = args.receipt.result.lane;
+    const explicitLane = args.command.payload.lane;
+    const assigned = after.issueAssignedLanes;
+    const expectedLane = typeof explicitLane === "string" ? explicitLane :
+      (Array.isArray(assigned) ? assigned[0] : null);
+    const acknowledged = after.issueAcknowledgedLanes;
+    const completed = after.issueCompletedLanes;
+    const legacySingleLaneAcknowledgement =
+      args.command.commandType === "acknowledgeMaintenanceTicket" &&
+      explicitLane == null && resultLane == null && assigned == null &&
+      typeof after.routedTo === "string" &&
+      after.status === "acknowledged" &&
+      typeof after.acknowledgedByUid === "string" &&
+      typeof after.acknowledgedByName === "string" &&
+      after.acknowledgedAt != null;
+    if (!legacySingleLaneAcknowledgement &&
+        (typeof resultLane !== "string" || resultLane !== expectedLane ||
+          !Array.isArray(acknowledged) || !acknowledged.includes(resultLane) ||
+          (args.command.commandType === "completeMaintenanceTicketLane" &&
+            (!Array.isArray(completed) || !completed.includes(resultLane))))) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket lane receipt no longer matches its immutable audit.",
+        {reasonCode: "maintenance-ticket-replay-lane-invalid"},
+      );
+    }
+  }
+  if (args.command.commandType === "reconfigureMaintenanceTicketLanes" &&
+      (!sameAuditStringList(
+        args.receipt.result.lanes,
+        args.command.payload.lanes,
+      ) || !sameAuditStringList(
+        after.issueAssignedLanes,
+        args.command.payload.lanes,
+      ))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket lane-change receipt no longer matches its immutable audit.",
+      {reasonCode: "maintenance-ticket-replay-lanes-invalid"},
+    );
+  }
+  if (args.command.commandType === "resolveMaintenanceTicket") {
+    const completed = after.issueCompletedLanes;
+    const assigned = after.issueAssignedLanes;
+    if (args.receipt.result.ticketId !== args.command.aggregateId ||
+        after.status !== "resolved" || after.isResolved !== true ||
+        after.closedByUid !== args.actor.uid ||
+        after.version !== args.receipt.aggregateVersion ||
+        !sameAuditStringList(
+          args.receipt.result.completedLanes,
+          completed,
+        ) || !sameAuditStringList(assigned, completed)) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket resolution receipt no longer matches its immutable audit.",
+        {reasonCode: "maintenance-ticket-replay-resolution-invalid"},
+      );
+    }
+  }
+  if (args.command.commandType === "reopenMaintenanceTicket") {
+    const assigned = after.issueAssignedLanes;
+    if (args.receipt.result.ticketId !== args.command.aggregateId ||
+        after.status !== "open" || after.isResolved !== false ||
+        after.reopenedByUid !== args.actor.uid ||
+        after.version !== args.receipt.aggregateVersion ||
+        !sameAuditStringList(
+          args.receipt.result.assignedLanes,
+          assigned,
+        ) || !sameAuditStringList(after.issueAcknowledgedLanes, []) ||
+        !sameAuditStringList(after.issueCompletedLanes, [])) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket reopen receipt no longer matches its immutable audit.",
+        {reasonCode: "maintenance-ticket-replay-reopen-invalid"},
+      );
+    }
   }
   if (args.command.commandType !== "createMaintenanceTicket") return;
   const ticket = await args.tx.get(maintenancePath(args.command.aggregateId));
@@ -1946,6 +2922,35 @@ export const verifyMaintenanceTicketAudit = async (args: {
         "failed-precondition",
         "Maintenance ticket warning evidence is missing or inconsistent.",
         {reasonCode: "maintenance-ticket-create-replay-warning-invalid"},
+      );
+    }
+  }
+  const abnormalityId = args.receipt.result.abnormalityId;
+  const deterministicAbnormalityId =
+    `issue_quality_${args.command.aggregateId}`;
+  const abnormality = await args.tx.get(
+    `charge_abnormalities/${deterministicAbnormalityId}`,
+  );
+  if (abnormalityId == null && abnormality.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket abnormality evidence contradicts its receipt.",
+      {reasonCode: "maintenance-ticket-create-replay-abnormality-invalid"},
+    );
+  }
+  if (abnormalityId != null) {
+    if (abnormalityId !== deterministicAbnormalityId ||
+        ticketData.qualityAbnormalityId !== abnormalityId ||
+        ticketData.qualityWarningId !== deterministicWarningId ||
+        !abnormality.exists || abnormality.data == null ||
+        abnormality.data.firestoreId !== abnormalityId ||
+        abnormality.data.linkedTicketFirestoreId !== args.command.aggregateId ||
+        abnormality.data.sourceChargeNo !== ticketData.chargeNoAtEvent ||
+        abnormality.data.loggedByUid !== args.actor.uid) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket abnormality evidence is missing or inconsistent.",
+        {reasonCode: "maintenance-ticket-create-replay-abnormality-invalid"},
       );
     }
   }

@@ -2,6 +2,7 @@ import '../data/maintenance_model.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../domain/furnace_stuckup_case.dart';
+import '../domain/issue_lane_plan.dart';
 
 WorkflowCommand buildMaintenanceIssueCreateCommand(
   MaintenanceRecord record, {
@@ -19,12 +20,15 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
   if (qualityIntent == null) {
     throw StateError('A governed issue requires a quality assessment.');
   }
-  if (createVersion < 1) {
-    throw StateError('A governed issue requires a positive create version.');
+  if (createVersion != 1) {
+    throw StateError('A governed issue must begin at version 1.');
   }
   final burnerLockout = record.burnerLockoutCase;
   final furnaceStuckup = record.furnaceStuckupCase;
   final frequentIssueSelection = record.frequentIssueSelection;
+  final createLanePlan = IssueLanePlan.initial(
+    record.issueLanePlan.assignedLanes,
+  );
   final ticket = <String, Object?>{
     'schemaVersion': 1,
     'version': createVersion,
@@ -40,6 +44,7 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     'description': record.description,
     'routedTo': record.routedTo.name,
     'otherDepartment': record.otherDepartment,
+    ...createLanePlan.toSynchronizedFields(),
     'isCritical': record.isCritical,
     'startDate': record.startDate.toUtc().toIso8601String(),
     'chargeNoAtEvent': record.chargeNoAtEvent,
@@ -67,6 +72,8 @@ void validateMaintenanceIssueCreateReceipt({
   final ticket = command.payload['ticket'];
   if (command.type != WorkflowCommandType.createMaintenanceTicket ||
       ticket is! Map ||
+      createVersion != 1 ||
+      ticket['version'] != 1 ||
       receipt.commandId != command.commandId ||
       receipt.resultKey != 'maintenance-ticket-created' ||
       receipt.aggregateVersion != createVersion ||
@@ -81,6 +88,11 @@ void validateMaintenanceIssueCreateReceipt({
   final expectedWarningId =
       ticket['qualityImpactAssessment'] == 'suspected'
           ? 'issue_${command.aggregateId}'
+          : null;
+  final expectedAbnormalityId =
+      ticket['qualityIntentSchemaVersion'] == 2 &&
+              ticket['qualityImpactAssessment'] == 'suspected'
+          ? 'issue_quality_${command.aggregateId}'
           : null;
   final redHotPositions = ticket['burnerRedHotPositions'];
   final expectedDirectiveId =
@@ -97,6 +109,7 @@ void validateMaintenanceIssueCreateReceipt({
           ? command.aggregateId
           : null;
   if (receipt.result['warningId'] != expectedWarningId ||
+      receipt.result['abnormalityId'] != expectedAbnormalityId ||
       receipt.result['directiveId'] != expectedDirectiveId ||
       receipt.result['stuckupCaseId'] != expectedStuckupCaseId ||
       receipt.result['reviewQueueId'] != expectedReviewQueueId) {

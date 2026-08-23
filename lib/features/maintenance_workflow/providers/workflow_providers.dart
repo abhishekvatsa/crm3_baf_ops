@@ -132,27 +132,50 @@ final equipmentStatusProvider = StreamProvider.family<
 
 class WorkflowCommandController
     extends StateNotifier<AsyncValue<WorkflowCommandReceipt?>> {
-  final WorkflowOnlineExecutor executor;
-  final WorkflowPullService pullService;
-  WorkflowCommandController(this.executor, this.pullService)
-    : super(const AsyncData(null));
+  WorkflowCommandController(
+    WorkflowOnlineExecutor executor,
+    WorkflowPullService pullService,
+  ) : _executeCommand = executor.execute,
+      _pullProjections = (() async {
+        await pullService.pull();
+      }),
+      super(const AsyncData(null));
+
+  WorkflowCommandController.forTesting({
+    required Future<WorkflowCommandReceipt> Function(WorkflowCommand command)
+    executeCommand,
+    required Future<void> Function() pullProjections,
+  }) : _executeCommand = executeCommand,
+       _pullProjections = pullProjections,
+       super(const AsyncData(null));
+
+  final Future<WorkflowCommandReceipt> Function(WorkflowCommand command)
+  _executeCommand;
+  final Future<void> Function() _pullProjections;
 
   Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async {
     state = const AsyncLoading();
+    late final WorkflowCommandReceipt receipt;
     try {
-      final receipt = await executor.execute(command);
-      await pullService.pull();
-      state = AsyncData(receipt);
-      return receipt;
+      receipt = await _executeCommand(command);
     } catch (error, stackTrace) {
       try {
-        await pullService.pull();
+        await _pullProjections();
       } catch (_) {
         // Preserve the original command failure; reconciliation is best effort.
       }
       state = AsyncError(error, stackTrace);
       rethrow;
     }
+
+    state = AsyncData(receipt);
+    try {
+      await _pullProjections();
+    } catch (_) {
+      // The receipt proves that the command succeeded. Projection refresh is
+      // independent and will retry through normal synchronization.
+    }
+    return receipt;
   }
 }
 

@@ -23,6 +23,23 @@ candidates. The new asset-availability, Furnace stuck-up, frequent-issue,
 maintenance-intelligence and inspection records are explicitly classified;
 the current inventories again report no unclassified or stale policy.
 
+The 23 August 2026 issue-workflow re-arm brings the current inventory to 68
+decoder surfaces, 44 decoder catch sites, 68 timestamp readers and 348 risk
+candidates. It classifies the complete issue-lane topology and refreshes the
+resolution-history, closed-ticket display and maintenance replay boundaries.
+The prior presentation catch for local downtime parsing was removed because
+downtime is now calculated by the governed server command; no decoder catch is
+left unclassified or stale.
+
+The same-day cross-business receipt re-arm brings the current inventory to 70
+decoder surfaces, 45 decoder catch sites, 69 timestamp readers and 370 risk
+candidates. Asset hierarchy, registry, Inner Cover and asset-condition
+mutations now require request-bound, versioned, canonical server receipts.
+Maintenance-workflow receipts require their exact field set and canonical UTC
+application time. Invalid evidence is reported as an uncertain remote outcome
+and never manufactures local success. The current inventories again report no
+unclassified file, timestamp call, catch site, direct parser or stale policy.
+
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not
 manufactured. Maintenance and workflow synchronization quarantine or reject

@@ -145,6 +145,19 @@ class AppUser {
 
   bool get canCloseRedTicket => canCloseMaintenanceTicket;
 
+  bool get canManageMaintenanceIssueLanes => isModuleLifecycleSupervisor;
+
+  bool canCompleteMaintenanceIssueLane(RoutedTo lane) =>
+      isModuleLifecycleSupervisor || canCloseMaintenanceLane(lane.name);
+
+  bool canFinalizeMaintenanceIssue(Iterable<RoutedTo> lanes) {
+    final assigned = lanes.toSet();
+    if (!isApproved || assigned.isEmpty) return false;
+    if (isModuleLifecycleSupervisor) return true;
+    return assigned.length == 1 &&
+        canCloseMaintenanceLane(assigned.single.name);
+  }
+
   /// Ticket acknowledgement is receiving-lane acceptance. Plant supervisors
   /// may triage every route; discipline actors may accept only their route.
   bool canAcknowledgeMaintenanceTicket(RoutedTo routedTo) {
@@ -199,6 +212,15 @@ class AppUser {
       (canSeeAllTickets ||
           loggedByUid == uid ||
           canAcknowledgeMaintenanceTicket(routedTo));
+
+  bool canViewMaintenanceIssue({
+    required String? loggedByUid,
+    required Iterable<RoutedTo> lanes,
+  }) =>
+      isApproved &&
+      (canSeeAllTickets ||
+          loggedByUid == uid ||
+          lanes.any(canAcknowledgeMaintenanceTicket));
 
   /// Every approved user may inspect the cross-record equipment timeline.
   /// Ticket visibility within that timeline remains repository/rules governed.

@@ -1,5 +1,6 @@
 import {createHash} from "crypto";
 import {isFiveDigitChargeNumber} from "./chargeNumber";
+import {validateQualityWarningRecord} from "./qualityMutation";
 
 import {
   canonicalApprovedUserAuthority,
@@ -184,8 +185,11 @@ const ABNORMALITY_FIELDS = new Set([
   "deletedByUid",
   "deletedByName",
   "deleteReason",
+  "_globalPullServerUpdatedAt",
 ]);
-const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS];
+const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter(
+  (field) => field !== "_globalPullServerUpdatedAt",
+);
 const MAX_AFFECTED_ASSETS = 50;
 
 export class ChargeAbnormalityMutationError extends Error {
@@ -518,6 +522,20 @@ function validIsoTimestamp(value: unknown): value is string {
     !Number.isNaN(Date.parse(value));
 }
 
+function validServerTimestamp(value: unknown): boolean {
+  if (value instanceof Date) return !Number.isNaN(value.valueOf());
+  if (validIsoTimestamp(value)) return true;
+  if (value == null || typeof value !== "object") return false;
+  const timestamp = value as {
+    toDate?: unknown;
+    seconds?: unknown;
+    nanoseconds?: unknown;
+  };
+  return typeof timestamp.toDate === "function" ||
+    (Number.isSafeInteger(timestamp.seconds) &&
+      Number.isSafeInteger(timestamp.nanoseconds));
+}
+
 function malformedExisting(message: string, field?: string): never {
   throw new ChargeAbnormalityMutationError(
     "failed-precondition",
@@ -591,6 +609,13 @@ function validateExistingAbnormality(
     return malformedExisting(
       "The charge-abnormality updatedAt value is malformed.",
       "updatedAt",
+    );
+  }
+  if (data._globalPullServerUpdatedAt != null &&
+      !validServerTimestamp(data._globalPullServerUpdatedAt)) {
+    return malformedExisting(
+      "The charge-abnormality server clock value is malformed.",
+      "_globalPullServerUpdatedAt",
     );
   }
   if (typeof data.isDeleted !== "boolean") {
@@ -828,15 +853,132 @@ function canonicalType(
   }
 }
 
+function warningAfterAbnormalityUpdate(args: {
+  beforeAbnormality: UserAuthorityJsonMap;
+  afterAbnormality: UserAuthorityJsonMap;
+  warning: UserAuthorityJsonMap;
+  warningId: string;
+  linkedTicketId: string | null;
+  actorUid: string;
+  actorName: string;
+  requestId: string;
+  reason: string;
+  committedAt: unknown;
+}): UserAuthorityJsonMap | null {
+  const {
+    beforeAbnormality,
+    afterAbnormality,
+    warning,
+    warningId,
+    linkedTicketId,
+  } = args;
+  const raChanged =
+    beforeAbnormality.reannealingStatus !== afterAbnormality.reannealingStatus ||
+    beforeAbnormality.reannealedToChargeNo !==
+      afterAbnormality.reannealedToChargeNo;
+  const sourceChanged = linkedTicketId == null && [
+    "abnormalityTypeTitle",
+    "severity",
+    "affectedAssets",
+    "component",
+    "observedReason",
+  ].some((field) => JSON.stringify(beforeAbnormality[field]) !==
+    JSON.stringify(afterAbnormality[field]));
+  if (!raChanged && !sourceChanged) return null;
+
+  const nextVersion = (warning.version as number) + 1;
+  if (!Number.isSafeInteger(nextVersion)) {
+    throw new ChargeAbnormalityMutationError(
+      "failed-precondition",
+      "The linked quality-warning version cannot advance safely.",
+      {reasonCode: "charge-quality-warning-version-overflow"},
+    );
+  }
+  const after: UserAuthorityJsonMap = {...warning};
+  if (linkedTicketId == null) {
+    Object.assign(after, {
+      sourceVersion: afterAbnormality.version,
+      sourceSummary: afterAbnormality.abnormalityTypeTitle,
+      sourceSeverity: afterAbnormality.severity,
+      warningReason: afterAbnormality.observedReason,
+      affectedAssets: afterAbnormality.affectedAssets,
+      component: afterAbnormality.component,
+    });
+  }
+  if (raChanged) {
+    if (afterAbnormality.reannealingStatus === "notRequired") {
+      Object.assign(after, {
+        status: "closed",
+        closedAt: args.committedAt,
+        closedByUid: args.actorUid,
+        closedByName: args.actorName,
+        closureDisposition: "coilFoundAcceptable",
+        linkedReannealingChargeNos: [],
+        decisionReason: args.reason,
+      });
+    } else if (afterAbnormality.reannealingStatus === "completed") {
+      if (beforeAbnormality.reannealingStatus !== "required") {
+        throw new ChargeAbnormalityMutationError(
+          "failed-precondition",
+          "Re-annealing completion requires a prior RA-required decision.",
+          {reasonCode: "charge-quality-ra-not-required"},
+        );
+      }
+      Object.assign(after, {
+        status: "closed",
+        closedAt: args.committedAt,
+        closedByUid: args.actorUid,
+        closedByName: args.actorName,
+        closureDisposition: "reannealingCompleted",
+        linkedReannealingChargeNos: [afterAbnormality.reannealedToChargeNo],
+        decisionReason: args.reason,
+      });
+    } else {
+      Object.assign(after, {
+        status: "open",
+        closureRequestReason: null,
+        closureRequestedAt: null,
+        closureRequestedByUid: null,
+        closureRequestedByName: null,
+        closedAt: null,
+        closedByUid: null,
+        closedByName: null,
+        closureDisposition: null,
+        linkedReannealingChargeNos: [],
+        decisionReason: null,
+      });
+    }
+  }
+  Object.assign(after, {
+    updatedAt: args.committedAt,
+    updatedByUid: args.actorUid,
+    updatedByName: args.actorName,
+    version: nextVersion,
+    lastMutationId: args.requestId,
+  });
+  return validateQualityWarningRecord(after, warningId);
+}
+
 function replayResult(args: {
   request: ParsedChargeAbnormalityMutationRequest;
   actorUid: string;
   receipt: UserAuthorityJsonMap;
   abnormality: UserAuthorityJsonMap;
   audit: UserAuthorityJsonMap | null;
+  warning: UserAuthorityJsonMap | null;
+  warningId: string;
   auditId: string;
 }): ChargeAbnormalityMutationResult {
-  const {request, actorUid, receipt, abnormality, audit, auditId} = args;
+  const {
+    request,
+    actorUid,
+    receipt,
+    abnormality,
+    audit,
+    warning,
+    warningId,
+    auditId,
+  } = args;
   if (
     receipt.payloadFingerprint !== request.payloadFingerprint ||
     receipt.actorUid !== actorUid ||
@@ -861,6 +1003,24 @@ function replayResult(args: {
   );
   const resultVersion = receipt.resultVersion;
   const committedAt = receipt.committedAtIso;
+  const hasWarningEvidence = Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedWarningId",
+  ) || Object.prototype.hasOwnProperty.call(
+    receipt,
+    "linkedWarningVersion",
+  );
+  if (hasWarningEvidence) {
+    if (warning == null ||
+        receipt.linkedWarningId !== warningId ||
+        receipt.linkedWarningVersion !== warning.version) {
+      throw new ChargeAbnormalityMutationError(
+        "data-loss",
+        "The linked quality-warning replay evidence has drifted.",
+        {reasonCode: "abnormality-replay-warning-drift"},
+      );
+    }
+  }
   if (
     Number.isSafeInteger(resultVersion) &&
     current.version !== resultVersion
@@ -962,6 +1122,51 @@ export async function mutateChargeAbnormalityWithDb(args: {
       );
     }
     const existingData = abnormalitySnapshot.data() ?? {};
+    const existing = validateExistingAbnormality(
+      existingData,
+      request.abnormalityId,
+    );
+    const linkedTicketId = typeof existing.linkedTicketFirestoreId === "string" ?
+      existing.linkedTicketFirestoreId.trim() : null;
+    const warningId = linkedTicketId == null ?
+      `abnormality_${request.abnormalityId}` : `issue_${linkedTicketId}`;
+    if (linkedTicketId != null) {
+      const ticketSnapshot = await transaction.get(
+        db.collection("maintenance_records").doc(linkedTicketId),
+      );
+      const ticket = ticketSnapshot.exists ? ticketSnapshot.data() ?? {} : {};
+      if (!ticketSnapshot.exists ||
+          ticket.qualityAbnormalityId !== request.abnormalityId ||
+          ticket.qualityWarningId !== warningId ||
+          ticket.chargeQualityCaseId !== warningId ||
+          ticket.chargeNoAtEvent !== existing.sourceChargeNo) {
+        throw new ChargeAbnormalityMutationError(
+          "data-loss",
+          "The linked charge-quality case is incomplete.",
+          {reasonCode: "charge-quality-case-link-invalid"},
+        );
+      }
+    }
+    const warningRef = db.collection("quality_warnings").doc(warningId);
+    const warningSnapshot = await transaction.get(warningRef);
+    const warning = warningSnapshot.exists ? validateQualityWarningRecord(
+      warningSnapshot.data() ?? {},
+      warningId,
+    ) : null;
+    if (warning != null &&
+        (warning.sourceChargeNo !== existing.sourceChargeNo ||
+          (linkedTicketId == null ?
+            (warning.sourceType !== "abnormality" ||
+              warning.sourceId !== request.abnormalityId ||
+              (warning.sourceVersion as number) > (existing.version as number)) :
+            (warning.sourceType !== "issue" ||
+              warning.sourceId !== linkedTicketId)))) {
+      throw new ChargeAbnormalityMutationError(
+        "data-loss",
+        "The charge abnormality and quality warning do not describe one case.",
+        {reasonCode: "charge-quality-warning-link-invalid"},
+      );
+    }
     if (receiptSnapshot.exists) {
       return replayResult({
         request,
@@ -969,6 +1174,8 @@ export async function mutateChargeAbnormalityWithDb(args: {
         receipt: receiptSnapshot.data() ?? {},
         abnormality: existingData,
         audit: auditSnapshot.exists ? auditSnapshot.data() ?? {} : null,
+        warning,
+        warningId,
         auditId,
       });
     }
@@ -980,10 +1187,13 @@ export async function mutateChargeAbnormalityWithDb(args: {
       );
     }
 
-    const existing = validateExistingAbnormality(
-      existingData,
-      request.abnormalityId,
-    );
+    if (warning == null) {
+      throw new ChargeAbnormalityMutationError(
+        "data-loss",
+        "The charge abnormality is missing its quality warning.",
+        {reasonCode: "charge-quality-warning-missing", warningId},
+      );
+    }
     if (existing.isDeleted === true) {
       throw new ChargeAbnormalityMutationError(
         "failed-precondition",
@@ -1071,9 +1281,40 @@ export async function mutateChargeAbnormalityWithDb(args: {
       version: resultVersion,
     });
 
+    if (request.operation === "SOFT_DELETE") {
+      if (linkedTicketId != null) {
+        throw new ChargeAbnormalityMutationError(
+          "failed-precondition",
+          "A linked issue abnormality cannot be deleted independently.",
+          {reasonCode: "linked-charge-abnormality-delete-denied"},
+        );
+      }
+      if (warning.status !== "closed") {
+        throw new ChargeAbnormalityMutationError(
+          "failed-precondition",
+          "Close the related quality warning before deleting this abnormality.",
+          {reasonCode: "charge-quality-warning-open"},
+        );
+      }
+    }
+    const warningAfter = request.operation === "UPDATE" ?
+      warningAfterAbnormalityUpdate({
+        beforeAbnormality: existing,
+        afterAbnormality: after,
+        warning,
+        warningId,
+        linkedTicketId,
+        actorUid,
+        actorName: actor.name,
+        requestId: request.requestId,
+        reason: request.reason,
+        committedAt,
+      }) : null;
+
     const auditAction =
       request.operation === "UPDATE" ? "update" : "delete";
     transaction.set(abnormalityRef, after);
+    if (warningAfter != null) transaction.set(warningRef, warningAfter);
     transaction.set(auditRef, {
       schemaVersion: 1,
       eventType: "chargeAbnormalityMutation",
@@ -1096,6 +1337,9 @@ export async function mutateChargeAbnormalityWithDb(args: {
       operation: request.operation,
       expectedVersion: request.expectedVersion,
       resultVersion,
+      linkedWarningId: warningId,
+      linkedWarningBeforeVersion: warning.version,
+      linkedWarningResultVersion: warningAfter?.version ?? warning.version,
     });
     transaction.set(receiptRef, {
       schemaVersion: 1,
@@ -1106,6 +1350,8 @@ export async function mutateChargeAbnormalityWithDb(args: {
       payloadFingerprint: request.payloadFingerprint,
       expectedVersion: request.expectedVersion,
       resultVersion,
+      linkedWarningId: warningId,
+      linkedWarningVersion: warningAfter?.version ?? warning.version,
       auditId,
       committedAt,
       committedAtIso,

@@ -31,6 +31,10 @@ EXPECTED_WORKFLOW_COMMANDS = frozenset({
     'deployEquipment',
     'reconcileEquipment',
     'acknowledgeMaintenanceTicket',
+    'completeMaintenanceTicketLane',
+    'reconfigureMaintenanceTicketLanes',
+    'resolveMaintenanceTicket',
+    'reopenMaintenanceTicket',
     'correctMaintenanceTicket',
     'createMaintenanceTicket',
     'startIssueCoordination',
@@ -135,7 +139,7 @@ add(
 inbox = text('lib/features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart')
 add(
     all(token in inbox for token in [
-        'For my lane', 'Raised by us', "_ComplianceInboxView.all",
+        'For my lane', 'Raised by us', "ComplianceRequestView.all",
         'escalationTier', 'Dormant until', 'Overdue since',
     ]),
     'compliance inbox exposes role-aware operational views and due state',

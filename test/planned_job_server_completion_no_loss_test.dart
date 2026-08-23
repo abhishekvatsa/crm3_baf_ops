@@ -134,10 +134,11 @@ JobModuleInstance _acceptedModule({bool isSynced = true}) {
 }
 
 class _FakeServerCompletion extends PlannedJobServerCompletionService {
-  _FakeServerCompletion({this.response, this.error});
+  _FakeServerCompletion({this.response, this.error, this.beforeReturn});
 
   final JobExecution? response;
   final Object? error;
+  final Future<void> Function()? beforeReturn;
   int calls = 0;
   int? lastExpectedCompletionVersion;
 
@@ -154,6 +155,7 @@ class _FakeServerCompletion extends PlannedJobServerCompletionService {
     lastExpectedCompletionVersion = expectedCompletionVersion;
     final failure = error;
     if (failure != null) throw failure;
+    await beforeReturn?.call();
     return response ?? _remoteCompletedExecution();
   }
 }
@@ -477,5 +479,109 @@ void main() {
         });
       },
     );
+
+    test(
+      'server completion preserves a newer local edit made while the call is in flight',
+      () async {
+        await _withTestIsar((isar) async {
+          final execution = await _putExecution(
+            isar,
+            _localExecution(version: 2),
+          );
+          await _putModule(isar, _acceptedModule());
+          final newerUpdatedAt = DateTime.utc(2026, 5, 16, 9, 30);
+          final fakeServer = _FakeServerCompletion(
+            response: _remoteCompletedExecution(version: 3),
+            beforeReturn: () async {
+              await isar.writeTxn(() async {
+                final current = await isar.jobExecutions.get(execution.id);
+                current!
+                  ..remarks = 'New local evidence recorded during completion'
+                  ..version = 4
+                  ..updatedAt = newerUpdatedAt
+                  ..isSynced = false;
+                await isar.jobExecutions.put(current);
+              });
+            },
+          );
+          final repo = IsarPlannedRepository(serverCompletion: fakeServer);
+
+          await expectLater(
+            repo.completeExecution(execution.id, actor: _supervisor()),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                contains('newer local work'),
+              ),
+            ),
+          );
+
+          final after = await isar.jobExecutions.get(execution.id);
+          expect(after!.isCompleted, isFalse);
+          expect(after.version, 4);
+          expect(after.updatedAt.toUtc(), newerUpdatedAt);
+          expect(
+            after.remarks,
+            'New local evidence recorded during completion',
+          );
+          expect(after.isSynced, isFalse);
+        });
+      },
+    );
+
+    test('remote refresh adopts every server-owned execution field', () async {
+      await _withTestIsar((isar) async {
+        final execution = await _putExecution(
+          isar,
+          _localExecution(version: 2),
+        );
+        final remote =
+            _localExecution(version: 3)
+              ..templatePackageId = 'package_1'
+              ..templateVersionId = 'version_4'
+              ..templateVersionNumber = 4
+              ..templateVersionLabel = 'v4'
+              ..templateContentHash = 'sha256-content'
+              ..templatePackageCode = 'BAF-PM'
+              ..isCancelled = true
+              ..cancelledAt = DateTime.utc(2026, 5, 16, 9)
+              ..cancelledByUid = 'supervisor_1'
+              ..cancelledByName = 'Shift Supervisor'
+              ..cancellationReason = 'Asset unavailable'
+              ..workflowSchemaVersion = 1
+              ..laneSetVersion = 2
+              ..laneSetFinalizedAt = DateTime.utc(2026, 5, 16, 8, 45)
+              ..laneSetFinalizedByUid = 'supervisor_1'
+              ..laneSetFinalizedByName = 'Shift Supervisor'
+              ..laneMappingReview = true
+              ..parentExecutionFirestoreId = 'parent_execution'
+              ..spawnedRedExecutionFirestoreId = 'red_execution'
+              ..redAnswerJson = '{"answer":"required"}'
+              ..updatedAt = DateTime.utc(2026, 5, 16, 9)
+              ..isSynced = true;
+        final repo = IsarPlannedRepository();
+
+        await repo.updateExecutionFromRemote(remote);
+
+        final after = await isar.jobExecutions.get(execution.id);
+        expect(after!.templatePackageId, 'package_1');
+        expect(after.templateVersionId, 'version_4');
+        expect(after.templateVersionNumber, 4);
+        expect(after.templateVersionLabel, 'v4');
+        expect(after.templateContentHash, 'sha256-content');
+        expect(after.templatePackageCode, 'BAF-PM');
+        expect(after.isCancelled, isTrue);
+        expect(after.cancelledByUid, 'supervisor_1');
+        expect(after.cancellationReason, 'Asset unavailable');
+        expect(after.workflowSchemaVersion, 1);
+        expect(after.laneSetVersion, 2);
+        expect(after.laneMappingReview, isTrue);
+        expect(after.parentExecutionFirestoreId, 'parent_execution');
+        expect(after.spawnedRedExecutionFirestoreId, 'red_execution');
+        expect(after.redAnswerJson, '{"answer":"required"}');
+        expect(after.isSynced, isTrue);
+      });
+    });
   });
 }

@@ -9,6 +9,7 @@ import '../../quality/domain/issue_quality_intent.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/frequent_issue_selection.dart';
+import '../domain/issue_lane_plan.dart';
 import 'remote_maintenance_timestamps.dart';
 
 const _workflowQueueStates = <String>{
@@ -107,6 +108,74 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       detail: 'must agree with status ${status.name}',
     );
   }
+  final routedTo = readRequiredPersistedEnum(
+    RoutedTo.values,
+    map['routedTo'],
+    field: 'routedTo',
+    source: source,
+  );
+  final otherDepartment = _optionalString(map, 'otherDepartment', source);
+  final acknowledgedByUid = _optionalString(map, 'acknowledgedByUid', source);
+  final acknowledgedByName = _optionalString(map, 'acknowledgedByName', source);
+  final synchronizedLanePlan = IssueLanePlan.readOptionalSynchronizedFields(
+    map,
+    source: source,
+  );
+  final lanePlan =
+      synchronizedLanePlan ??
+      IssueLanePlan.legacy(primaryLane: routedTo.name, status: status.name);
+  if (lanePlan.primaryLane != routedTo.name ||
+      (lanePlan.assignedLanes.contains(RoutedTo.others.name) !=
+          (otherDepartment != null))) {
+    throw PersistedDataFormatException(
+      field: 'issueAssignedLanes',
+      source: source,
+      detail: 'primary routing or Other-department evidence is inconsistent',
+    );
+  }
+  if (synchronizedLanePlan != null) {
+    final statusIsOpen = status == TicketStatus.open;
+    final statusHasWork =
+        status == TicketStatus.acknowledged ||
+        status == TicketStatus.inProgress;
+    if ((statusIsOpen &&
+            (lanePlan.acknowledgedLanes.isNotEmpty ||
+                lanePlan.completedLanes.isNotEmpty)) ||
+        (statusHasWork && lanePlan.acknowledgedLanes.isEmpty) ||
+        (status == TicketStatus.acknowledged &&
+            (lanePlan.acknowledgedLanes.length !=
+                    lanePlan.assignedLanes.length ||
+                lanePlan.completedLanes.isNotEmpty)) ||
+        (status == TicketStatus.resolved && !lanePlan.isFullyCompleted)) {
+      throw PersistedDataFormatException(
+        field: 'issueAcknowledgedLanes',
+        source: source,
+        detail: 'lane lifecycle must agree with ticket status',
+      );
+    }
+  }
+  final hasLaneAcknowledgement = lanePlan.acknowledgedLanes.isNotEmpty;
+  final hasCompleteAcknowledgementEvidence =
+      acknowledgedByUid != null &&
+      acknowledgedByName != null &&
+      timestamps.acknowledgedAt != null;
+  final hasNoAcknowledgementEvidence =
+      acknowledgedByUid == null &&
+      acknowledgedByName == null &&
+      timestamps.acknowledgedAt == null;
+  final legacyResolvedWithoutAcknowledgement =
+      synchronizedLanePlan == null &&
+      status == TicketStatus.resolved &&
+      hasNoAcknowledgementEvidence;
+  if (!legacyResolvedWithoutAcknowledgement &&
+      ((hasLaneAcknowledgement && !hasCompleteAcknowledgementEvidence) ||
+          (!hasLaneAcknowledgement && !hasNoAcknowledgementEvidence))) {
+    throw PersistedDataFormatException(
+      field: 'acknowledgedByUid',
+      source: source,
+      detail: 'acknowledgement evidence must match issue lane progress',
+    );
+  }
   final classification = _optionalString(map, 'classification', source);
   final burnerLockout = BurnerLockoutCase.readOptionalSynchronizedFields(
     map,
@@ -132,7 +201,8 @@ MaintenanceRecord readRemoteMaintenanceRecord(
   }
   if (burnerLockout != null &&
       (assetType != AssetType.furnace ||
-          map['routedTo'] != RoutedTo.instrumentation.name ||
+          routedTo != RoutedTo.instrumentation ||
+          !lanePlan.assignedLanes.contains(RoutedTo.instrumentation.name) ||
           map['component'] != 'Burner system')) {
     throw PersistedDataFormatException(
       field: 'classification',
@@ -151,6 +221,8 @@ MaintenanceRecord readRemoteMaintenanceRecord(
   }
   if (furnaceStuckup != null &&
       (assetType != AssetType.furnace ||
+          routedTo != RoutedTo.mechanical ||
+          !lanePlan.assignedLanes.contains(RoutedTo.mechanical.name) ||
           map['component'] != 'Furnace / Inner Cover interface' ||
           map['maintenanceType'] != MaintenanceType.breakdown.name)) {
     throw PersistedDataFormatException(
@@ -217,6 +289,39 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     firestoreId: embeddedId,
     source: source,
   );
+  final mergedMetadata = mergeFrequentIssueSelectionIntoMaintenanceMetadata(
+    mergeFurnaceStuckupIntoMaintenanceMetadata(
+      qualityIntent != null || burnerLockout != null
+          ? mergeMaintenanceMetadataEnvelopes(
+            existing: _optionalString(
+              map,
+              'metadataJson',
+              source,
+              emptyAsNull: false,
+            ),
+            qualityIntent: qualityIntent?.toMap(),
+            burnerLockout: burnerLockout,
+          )
+          : _optionalString(map, 'metadataJson', source, emptyAsNull: false),
+      furnaceStuckup,
+    ),
+    frequentIssueSelection,
+  );
+  if (synchronizedLanePlan == null &&
+      IssueLanePlan.tryDecodeLocal(mergedMetadata) != null) {
+    throw PersistedDataFormatException(
+      field: 'issueLaneSchemaVersion',
+      source: source,
+      detail: 'metadata lane evidence requires the synchronized lane field set',
+    );
+  }
+  final localMetadata =
+      synchronizedLanePlan == null
+          ? mergedMetadata
+          : mergeIssueLanePlanIntoMaintenanceMetadata(
+            mergedMetadata,
+            synchronizedLanePlan,
+          );
 
   return MaintenanceRecord()
     ..firestoreId = embeddedId
@@ -249,13 +354,8 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       field: 'description',
       source: source,
     )
-    ..routedTo = readRequiredPersistedEnum(
-      RoutedTo.values,
-      map['routedTo'],
-      field: 'routedTo',
-      source: source,
-    )
-    ..otherDepartment = _optionalString(map, 'otherDepartment', source)
+    ..routedTo = routedTo
+    ..otherDepartment = otherDepartment
     ..status = status
     ..isResolved = isResolved
     ..workflowDeferred = workflow.deferred
@@ -321,8 +421,8 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     )
     ..loggedByName = _optionalString(map, 'loggedByName', source)
     ..reportedBy = _optionalString(map, 'reportedBy', source)
-    ..acknowledgedByUid = _optionalString(map, 'acknowledgedByUid', source)
-    ..acknowledgedByName = _optionalString(map, 'acknowledgedByName', source)
+    ..acknowledgedByUid = acknowledgedByUid
+    ..acknowledgedByName = acknowledgedByName
     ..acknowledgedAt = timestamps.acknowledgedAt
     ..closedByUid = _optionalString(map, 'closedByUid', source)
     ..closedByName = _optionalString(map, 'closedByName', source)
@@ -347,24 +447,7 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     )
     ..createdAt = timestamps.createdAt
     ..updatedAt = timestamps.updatedAt
-    ..metadataJson = mergeFrequentIssueSelectionIntoMaintenanceMetadata(
-      mergeFurnaceStuckupIntoMaintenanceMetadata(
-        qualityIntent != null || burnerLockout != null
-            ? mergeMaintenanceMetadataEnvelopes(
-              existing: _optionalString(
-                map,
-                'metadataJson',
-                source,
-                emptyAsNull: false,
-              ),
-              qualityIntent: qualityIntent?.toMap(),
-              burnerLockout: burnerLockout,
-            )
-            : _optionalString(map, 'metadataJson', source, emptyAsNull: false),
-        furnaceStuckup,
-      ),
-      frequentIssueSelection,
-    )
+    ..metadataJson = localMetadata
     ..actionsJson = actionsJson
     ..resolutionHistoryJson = resolutionHistoryJson
     ..isDeleted = isDeleted

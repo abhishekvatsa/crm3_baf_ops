@@ -53,7 +53,8 @@ export interface WorkflowCommand {
 export type WorkflowAuthorityCapability =
   | "lane.acknowledge" | "lane.work" | "lane.close"
   | "compliance.raise"
-  | "ticket.create" | "ticket.acknowledge" | "ticket.correct"
+  | "ticket.create" | "ticket.acknowledge" | "ticket.complete"
+  | "ticket.lanes.manage" | "ticket.reopen" | "ticket.correct"
   | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
   | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
   | "job.finalize" | "equipment.deploy" | "equipment.reconcile"
@@ -93,7 +94,10 @@ export type WorkflowCommandType =
   | "proposeCounterCondition" | "decideCounterCondition"
   | "prepareRedLane" | "reopenWorkflowModule" | "finalizeJob"
   | "deployEquipment" | "reconcileEquipment"
-  | "acknowledgeMaintenanceTicket" | "correctMaintenanceTicket"
+  | "acknowledgeMaintenanceTicket" | "completeMaintenanceTicketLane"
+  | "reconfigureMaintenanceTicketLanes" | "resolveMaintenanceTicket"
+  | "reopenMaintenanceTicket"
+  | "correctMaintenanceTicket"
   | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup";
 
 export interface WorkflowCommandReceipt {

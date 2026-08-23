@@ -547,11 +547,12 @@ abstract class JobModuleRepository {
   Future<void> insertModuleFromRemote(JobModuleInstance remote);
   Future<void> updateModuleFromRemote(JobModuleInstance remote);
 
-  /// Forcefully rebases a dirty local module from the remote canonical copy.
-  /// Used only by sync repair after Firestore rules reject an impossible
-  /// terminal-state push and the local snapshot has been preserved in audit.
-  Future<void> forceRebaseModuleFromRemote(
+  /// Adopts an audited terminal-state repair only while the local module still
+  /// matches the row that was inspected before the network operation.
+  Future<bool> applyModuleServerReadbackIfUnchanged(
     JobModuleInstance remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
     String? reason,
   });
 

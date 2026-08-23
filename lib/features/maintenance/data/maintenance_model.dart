@@ -7,6 +7,7 @@ import '../../quality/domain/issue_quality_intent.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/frequent_issue_selection.dart';
+import '../domain/issue_lane_plan.dart';
 
 part 'maintenance_model.g.dart';
 
@@ -248,6 +249,117 @@ class MaintenanceRecord {
   late RoutedTo routedTo;
 
   String? otherDepartment;
+
+  @ignore
+  IssueLanePlan get issueLanePlan => _readIssueLanePlan();
+
+  @ignore
+  IssueLanePlan get issueLanePlanForOtherDepartmentRepair =>
+      _readIssueLanePlan(allowOtherDepartmentRepair: true);
+
+  IssueLanePlan _readIssueLanePlan({bool allowOtherDepartmentRepair = false}) {
+    final synchronized = IssueLanePlan.tryDecodeLocal(metadataJson);
+    final plan =
+        synchronized ??
+        IssueLanePlan.legacy(primaryLane: routedTo.name, status: status.name);
+    _validateIssueLanePlan(
+      plan,
+      isCanonical: synchronized != null,
+      allowOtherDepartmentRepair: allowOtherDepartmentRepair,
+    );
+    return plan;
+  }
+
+  @ignore
+  IssueLanePlanReadResult get issueLanePlanReadResult {
+    try {
+      return IssueLanePlanReadResult(value: issueLanePlan);
+    } on FormatException catch (error) {
+      return IssueLanePlanReadResult(value: null, error: error);
+    }
+  }
+
+  set issueLanePlan(IssueLanePlan value) {
+    metadataJson = mergeIssueLanePlanIntoMaintenanceMetadata(
+      metadataJson,
+      value,
+    );
+  }
+
+  @ignore
+  Map<String, dynamic> get issueLaneSynchronizedFields =>
+      issueLanePlan.toSynchronizedFields();
+
+  void _validateIssueLanePlan(
+    IssueLanePlan plan, {
+    required bool isCanonical,
+    bool allowOtherDepartmentRepair = false,
+  }) {
+    final source =
+        firestoreId == null
+            ? 'local maintenance record $id'
+            : 'maintenance record $firestoreId';
+    final cleanOtherDepartment = otherDepartment?.trim();
+    final hasValidOtherDepartment =
+        cleanOtherDepartment != null &&
+        cleanOtherDepartment.length >= 2 &&
+        cleanOtherDepartment.length <= 80;
+    final otherDepartmentMatches =
+        plan.assignedLanes.contains(RoutedTo.others.name)
+            ? hasValidOtherDepartment
+            : otherDepartment == null;
+    if (plan.primaryLane != routedTo.name ||
+        (!allowOtherDepartmentRepair && !otherDepartmentMatches)) {
+      throw PersistedDataFormatException(
+        field: 'issueAssignedLanes',
+        source: source,
+        detail: 'primary routing or Other-department evidence is inconsistent',
+      );
+    }
+
+    final statusIsOpen = status == TicketStatus.open;
+    final statusHasWork =
+        status == TicketStatus.acknowledged ||
+        status == TicketStatus.inProgress;
+    if ((status == TicketStatus.resolved) != isResolved ||
+        (statusIsOpen &&
+            (plan.acknowledgedLanes.isNotEmpty ||
+                plan.completedLanes.isNotEmpty)) ||
+        (statusHasWork && plan.acknowledgedLanes.isEmpty) ||
+        (status == TicketStatus.acknowledged &&
+            (plan.acknowledgedLanes.length != plan.assignedLanes.length ||
+                plan.completedLanes.isNotEmpty)) ||
+        (status == TicketStatus.resolved && !plan.isFullyCompleted)) {
+      throw PersistedDataFormatException(
+        field: 'issueAcknowledgedLanes',
+        source: source,
+        detail: 'lane lifecycle must agree with ticket status',
+      );
+    }
+
+    final hasAcknowledgement = plan.acknowledgedLanes.isNotEmpty;
+    final acknowledgementComplete =
+        acknowledgedByUid?.trim().isNotEmpty == true &&
+        acknowledgedByName?.trim().isNotEmpty == true &&
+        acknowledgedAt != null;
+    final acknowledgementAbsent =
+        acknowledgedByUid == null &&
+        acknowledgedByName == null &&
+        acknowledgedAt == null;
+    final legacyResolvedWithoutAcknowledgement =
+        !isCanonical &&
+        status == TicketStatus.resolved &&
+        acknowledgementAbsent;
+    if (!legacyResolvedWithoutAcknowledgement &&
+        ((hasAcknowledgement && !acknowledgementComplete) ||
+            (!hasAcknowledgement && !acknowledgementAbsent))) {
+      throw PersistedDataFormatException(
+        field: 'acknowledgedByUid',
+        source: source,
+        detail: 'acknowledgement evidence must match issue lane progress',
+      );
+    }
+  }
 
   // ── Operational Criticality ───────────────────────────────────────────────
   // Operator-selected safety flag. Critical raised issues are pushed immediately

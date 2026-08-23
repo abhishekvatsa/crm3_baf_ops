@@ -94,12 +94,19 @@ Stream<List<QualityWarning>> _combineQualityWarningWindows(
 
 final qualityMonitoringRequestsProvider =
     StreamProvider<List<QualityMonitoringRequest>>((ref) {
-      return FirebaseFirestore.instance
-          .collection('quality_monitoring_requests')
+      final requests = FirebaseFirestore.instance.collection(
+        'quality_monitoring_requests',
+      );
+      final active = requests
+          .where('status', isEqualTo: QualityMonitoringStatus.active.name)
+          .snapshots()
+          .map(_decodeQualityMonitoringRequests);
+      final recent = requests
           .orderBy('updatedAt', descending: true)
           .limit(qualityMonitoringLiveWindowLimit)
           .snapshots()
           .map(_decodeQualityMonitoringRequests);
+      return _combineQualityMonitoringWindows(active, recent);
     });
 
 /// Complete quality-monitoring population for date- and asset-bound reports.
@@ -136,6 +143,52 @@ List<QualityMonitoringRequest> sortQualityMonitoringRequests(
     return right.createdAt.compareTo(left.createdAt);
   });
   return List<QualityMonitoringRequest>.unmodifiable(requests);
+}
+
+List<QualityMonitoringRequest> mergeQualityMonitoringWindows(
+  List<QualityMonitoringRequest> active,
+  List<QualityMonitoringRequest> recent,
+) {
+  return sortQualityMonitoringRequests(
+    <String, QualityMonitoringRequest>{
+      for (final request in recent) request.requestId: request,
+      for (final request in active) request.requestId: request,
+    }.values,
+  );
+}
+
+Stream<List<QualityMonitoringRequest>> _combineQualityMonitoringWindows(
+  Stream<List<QualityMonitoringRequest>> active,
+  Stream<List<QualityMonitoringRequest>> recent,
+) {
+  late StreamController<List<QualityMonitoringRequest>> controller;
+  StreamSubscription<List<QualityMonitoringRequest>>? activeSubscription;
+  StreamSubscription<List<QualityMonitoringRequest>>? recentSubscription;
+  List<QualityMonitoringRequest>? latestActive;
+  List<QualityMonitoringRequest>? latestRecent;
+
+  void emitWhenReady() {
+    if (latestActive == null || latestRecent == null) return;
+    controller.add(mergeQualityMonitoringWindows(latestActive!, latestRecent!));
+  }
+
+  controller = StreamController<List<QualityMonitoringRequest>>(
+    onListen: () {
+      activeSubscription = active.listen((value) {
+        latestActive = value;
+        emitWhenReady();
+      }, onError: controller.addError);
+      recentSubscription = recent.listen((value) {
+        latestRecent = value;
+        emitWhenReady();
+      }, onError: controller.addError);
+    },
+    onCancel: () async {
+      await activeSubscription?.cancel();
+      await recentSubscription?.cancel();
+    },
+  );
+  return controller.stream;
 }
 
 int _warningStatusRank(QualityWarningStatus status) => switch (status) {

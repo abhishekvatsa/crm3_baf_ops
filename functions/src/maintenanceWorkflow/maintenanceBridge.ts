@@ -4,6 +4,11 @@ import {
   readComponentActionPayload,
 } from "../persistedActionPayload";
 import {DocSnapshot} from "./store";
+import {
+  hasCompleteTicketLaneFields,
+  ticketLanePlan,
+  ticketLaneProjection,
+} from "./ticketLanePlan";
 import {JsonMap} from "./types";
 import {iso} from "./utils";
 
@@ -262,6 +267,7 @@ const actionPayloadText = (
 };
 
 const readResolutionHistory = (value: unknown): JsonMap[] => {
+  if (value == null) return [];
   if (typeof value !== "string" || value.trim().length === 0) {
     return maintenanceHistoryError("resolutionHistoryJson");
   }
@@ -302,7 +308,10 @@ const readResolutionHistory = (value: unknown): JsonMap[] => {
   });
 };
 
-const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
+export const maintenanceResolutionHistoryWithCurrentClosure = (
+  maintenance: JsonMap,
+  reopenedByWorkflow = true,
+): string => {
   const history = readResolutionHistory(maintenance.resolutionHistoryJson);
   if (maintenance.isResolved === true) {
     if (
@@ -327,10 +336,33 @@ const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
       remarks: maintenance.remarks ?? null,
       downtimeHours: maintenance.downtimeHours ?? null,
       teamsInvolved: historyTeams(maintenance.teamsInvolved, "teamsInvolved"),
-      reopenedByWorkflow: true,
+      ...(reopenedByWorkflow ? {reopenedByWorkflow: true} : {}),
     });
   }
   return JSON.stringify(history);
+};
+
+const maintenanceClosureResetProjection = (maintenance: JsonMap): JsonMap => {
+  const laneProjection = hasCompleteTicketLaneFields(maintenance) ? (() => {
+    const plan = ticketLanePlan(maintenance);
+    return ticketLaneProjection({
+      ...plan,
+      acknowledged: [],
+      completed: [],
+    });
+  })() : {};
+  const burnerProjection =
+    maintenance.classification === "furnaceBurnerLockout" ? {
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+    } : {};
+  return {
+    ...laneProjection,
+    acknowledgedByUid: null,
+    acknowledgedByName: null,
+    acknowledgedAt: null,
+    ...burnerProjection,
+  };
 };
 
 export const maintenanceProjectionForCorrection = (args: {
@@ -348,6 +380,7 @@ export const maintenanceProjectionForCorrection = (args: {
   workflowCorrectionReason: args.reason,
   workflowUpdatedAt: iso(args.at),
   ...(args.maintenance.isResolved === true ? {
+    ...maintenanceClosureResetProjection(args.maintenance),
     isResolved: false,
     status: "open",
     endDate: null,
@@ -357,7 +390,8 @@ export const maintenanceProjectionForCorrection = (args: {
     teamsInvolved: [],
     actionsJson: "[]",
     remarks: args.reason,
-    resolutionHistoryJson: resolutionHistoryWithCurrentClosure(args.maintenance),
+    resolutionHistoryJson:
+      maintenanceResolutionHistoryWithCurrentClosure(args.maintenance),
   } : {}),
   updatedAt: iso(args.at),
   version: maintenanceVersion(args.maintenance) + 1,

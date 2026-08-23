@@ -16,10 +16,13 @@ void main() {
         'await _pushMissingMaintenanceTicket(record);',
         'continue;',
         'final expectedLocal = _syncPushSnapshot(record);',
+        'await _tryRecoverAcceptedMaintenanceCreation(',
+        '.applyGovernedCreationServerStateForSync(',
+        'continue;',
         'final replayReceipt = await _tryPushDecomposedMaintenanceTicket',
         '.applyMaintenanceLifecycleReplayReceiptForSync(',
-        'serverVersion: replayReceipt.version,',
-        'serverUpdatedAt: replayReceipt.updatedAt,',
+        'remote: replayReceipt.serverRecord,',
+        'expectedLocal: expectedLocal,',
         'if (_isRemoteNewer(record, remote))',
         'recordsToPush.add(record);',
       ]);
@@ -153,21 +156,32 @@ void main() {
     });
 
     test(
-      'resolve UI reports the governed sync outcome instead of local-only success',
+      'resolve UI accepts only governed server closure before local convergence',
       () {
         final source = _read(
           'lib/features/maintenance/presentation/resolve_form.dart',
         );
         final submit = _blockStartingAt(source, 'Future<void> _submit()');
 
+        _expectOrder(submit, const <String>[
+          'buildMaintenanceIssueResolutionCommand(',
+          '.execute(command);',
+          'validateMaintenanceIssueResolutionReceipt(',
+          '.adoptServerMutation(',
+          'await syncCoordinator.runFullSync(',
+        ]);
         expect(
           submit,
-          contains('await syncCoordinator.runFullSyncWithResult('),
+          contains('Issue resolved and verified against the plant system'),
         );
-        expect(submit, contains('SyncRequestOutcome.succeeded'));
-        expect(submit, contains('SyncRequestOutcome.failed'));
-        expect(submit, contains('synchronization is queued'));
-        expect(submit, contains('cloud sync needs attention'));
+        expect(
+          submit,
+          contains(
+            'Issue resolution accepted. Exact device refresh is pending',
+          ),
+        );
+        expect(submit, isNot(contains('repository.resolveTicket(')));
+        expect(submit, isNot(contains('runFullSyncWithResult(')));
         expect(
           submit,
           isNot(contains("unawaited(\n        syncCoordinator.runFullSync")),
@@ -220,6 +234,11 @@ void main() {
       expect(create, contains('_maintenanceCommands.execute(command)'));
       expect(create, contains('_maintenanceCloseReplayStepData'));
       expect(create, contains('_maintenanceReopenReplayStepData'));
+      expect(
+        create,
+        contains('readMaintenanceIssueCommandServerState'),
+        reason: 'Creation must adopt an exact server record before sync.',
+      );
       expect(plan, contains('local.isResolved'));
       expect(plan, contains('_hasMaintenanceReopenEvidence(local)'));
       expect(plan, contains('remote.isResolved'));
@@ -236,6 +255,28 @@ void main() {
       expect(source, isNot(contains('TemplateVersion')));
       expect(source, isNot(contains('ModuleRegistry')));
       expect(source, isNot(contains('Directive')));
+    });
+
+    test('an interrupted creation is replayed before generic update logic', () {
+      final source = _read(_syncPath);
+      final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
+      final recovery = _blockStartingAt(
+        source,
+        'Future<MaintenanceRecord?> _tryRecoverAcceptedMaintenanceCreation',
+      );
+
+      _expectOrder(syncBlock, const <String>[
+        'final recoveredCreation =',
+        'await _tryRecoverAcceptedMaintenanceCreation(',
+        '.applyGovernedCreationServerStateForSync(',
+        'if (_isRemoteNewer(record, remote))',
+        'recordsToPush.add(record);',
+      ]);
+      expect(recovery, contains('_maintenanceCommands.execute(command)'));
+      expect(recovery, contains('validateMaintenanceIssueCreateReceipt('));
+      expect(recovery, contains('readMaintenanceIssueCommandServerState'));
+      expect(recovery, contains('_maintenanceLifecycleReplayPlan('));
+      expect(recovery, contains('_validateGovernedCreationServerRecord('));
     });
 
     test(
@@ -870,9 +911,11 @@ void main() {
           provider,
           contains('applyMaintenanceLifecycleReplayReceiptForSync('),
         );
-        expect(provider, contains('..version = serverVersion'));
-        expect(provider, contains('..updatedAt = updatedAt'));
-        expect(provider, contains('..isSynced = true'));
+        expect(provider, contains('_overwriteLocalMaintenanceRecord('));
+        expect(provider, contains('required MaintenanceRecord remote'));
+        expect(provider, contains('const GetOptions(source: Source.server)'));
+        expect(applyStep, contains('readRemoteMaintenanceRecord('));
+        expect(applyStep, contains('serverRecord: serverRecord'));
       },
     );
 
@@ -925,6 +968,29 @@ void main() {
         contains('The issue never crossed the governed creation boundary'),
       );
     });
+
+    test(
+      'a never-created local issue always starts the server aggregate at v1',
+      () {
+        final open = _maintenanceTicket(version: 2);
+        final locallyClosed =
+            _maintenanceTicket(version: 7)
+              ..isResolved = true
+              ..status = TicketStatus.resolved;
+
+        expect(maintenanceCreateReplayVersion(open), 1);
+        expect(maintenanceCreateReplayVersion(locallyClosed), 1);
+
+        final source = _read(_syncPath);
+        expect(source, contains('maintenanceCreateReplayVersion(local)'));
+        expect(
+          source,
+          contains('any collapsed close/reopen'),
+          reason:
+              'Later local lifecycle transitions must remain separate steps.',
+        );
+      },
+    );
 
     test(
       'does not touch closure, pull, job-module, or governance contracts',

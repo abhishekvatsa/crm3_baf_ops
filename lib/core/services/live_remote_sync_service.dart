@@ -135,7 +135,11 @@ class LiveMaintenanceMirrorScope {
   static List<RoutedTo> _routedTargetsForUser(AppUser user) {
     final targets = <RoutedTo>{};
 
-    if (user.isOperations) targets.add(RoutedTo.operations);
+    if (user.isOperations) {
+      targets
+        ..add(RoutedTo.operations)
+        ..add(RoutedTo.shiftInCharge);
+    }
     if (user.isMechanical) targets.add(RoutedTo.mechanical);
     if (user.isElectrical) targets.add(RoutedTo.electrical);
     if (user.isInstrumentation) targets.add(RoutedTo.instrumentation);
@@ -500,12 +504,16 @@ class LiveRemoteSyncService {
     }
 
     for (final routedTo in scope.routedTo) {
-      specs.add(
+      specs.addAll(<_MaintenanceListenerSpec>[
         _MaintenanceListenerSpec(
-          label: 'routed_${routedTo.name}',
+          label: 'lane_${routedTo.name}',
+          query: base.where('issueAssignedLanes', arrayContains: routedTo.name),
+        ),
+        _MaintenanceListenerSpec(
+          label: 'legacy_routed_${routedTo.name}',
           query: base.where('routedTo', isEqualTo: routedTo.name),
         ),
-      );
+      ]);
     }
 
     if (scope.includeCriticalTickets) {

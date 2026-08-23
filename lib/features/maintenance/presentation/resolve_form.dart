@@ -18,7 +18,10 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../domain/burner_lockout_case.dart';
+import '../services/maintenance_issue_command_reconciler.dart';
+import '../services/maintenance_issue_resolution_command.dart';
 
 class ResolveForm extends ConsumerStatefulWidget {
   final MaintenanceRecord ticket;
@@ -63,6 +66,10 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         _burnerMicroampReadings[position] = TextEditingController();
       }
       if (_burnerLockout != null) _teamsInvolved.add('instrumentation');
+    }
+    final laneRead = widget.ticket.issueLanePlanReadResult;
+    if (laneRead.isValid) {
+      _teamsInvolved.addAll(laneRead.value!.assignedLanes);
     }
     final now = DateTime.now();
     if (widget.ticket.startDate.isAfter(now)) {
@@ -262,6 +269,17 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       );
       return;
     }
+    if (!widget.ticket.issueLanePlanReadResult.isValid) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot resolve: accountable lane evidence needs reconciliation.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (widget.ticket.workflowDeferred) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -331,11 +349,13 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       return;
     }
 
-    final dynamic id = kIsWeb ? widget.ticket.firestoreId : widget.ticket.id;
-
-    if (id == null) {
+    final ticketId = widget.ticket.firestoreId?.trim();
+    if (ticketId == null || ticketId.isEmpty) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Error: Ticket ID is missing')),
+        const SnackBar(
+          content: Text('This issue has no governed server identity.'),
+          backgroundColor: BafColors.danger,
+        ),
       );
       return;
     }
@@ -345,7 +365,13 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     try {
       final appUser = ref.read(currentAppUserProvider).value;
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
-      if (appUser == null || !appUser.canCloseMaintenanceTicket) {
+      final assignedRoutes = widget.ticket.issueLanePlan.assignedLanes.map(
+        RoutedTo.values.byName,
+      );
+      if (appUser == null ||
+          firebaseUser == null ||
+          firebaseUser.uid != appUser.uid ||
+          !appUser.canFinalizeMaintenanceIssue(assignedRoutes)) {
         throw StateError(
           'You are not authorized to close maintenance tickets.',
         );
@@ -367,50 +393,75 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         );
       }
 
-      final repository = ref.read(maintenanceRepositoryProvider);
       final refreshClosedTickets = ref.read(
         refreshClosedTicketsProvider.notifier,
       );
       final syncCoordinator = ref.read(syncCoordinatorProvider);
-
-      await repository.resolveTicket(
-        id,
-        actor: appUser,
-        closedByUid: appUser.uid,
-        closedByName:
-            appUser.name.isNotEmpty
-                ? appUser.name
-                : (firebaseUser?.displayName ?? firebaseUser?.email),
-        remarks: remarks,
-        downtimeHours: double.parse(_downtimeHours.toStringAsFixed(2)),
+      final command = buildMaintenanceIssueResolutionCommand(
+        ticket: widget.ticket,
         endDate: _endTime,
-        teamsInvolved: _teamsInvolved.toList(),
-        actions: resolvedActions.isEmpty ? null : resolvedActions,
-        burnerResolution: burnerResolution,
+        remarks: remarks,
+        teamsInvolved: _teamsInvolved,
+        actions: resolvedActions,
       );
+      final expectedLocalVersion = widget.ticket.version;
+      final expectedLocalUpdatedAt = widget.ticket.updatedAt.toUtc();
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command);
+      validateMaintenanceIssueResolutionReceipt(
+        command: command,
+        receipt: receipt,
+        assignedLanes: widget.ticket.issueLanePlan.assignedLanes,
+      );
+
+      var converged = false;
+      if (kIsWeb) {
+        final remote = await ref
+            .read(firestoreMaintenanceRepo)
+            .readMaintenanceIssueCommandServerState(ticketId);
+        final remotePlan = remote?.issueLanePlanReadResult.value;
+        converged =
+            remote != null &&
+            remote.version >= receipt.aggregateVersion &&
+            remote.isResolved &&
+            remote.status == TicketStatus.resolved &&
+            remote.closedByUid == appUser.uid &&
+            remotePlan != null &&
+            remotePlan.isFullyCompleted;
+      } else {
+        try {
+          await ref
+              .read(maintenanceIssueCommandReconcilerProvider)
+              .adoptServerMutation(
+                firestoreId: ticketId,
+                expectedLocalVersion: expectedLocalVersion,
+                expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+                minimumServerVersion: receipt.aggregateVersion,
+              );
+          converged = true;
+        } on MaintenanceIssueCommandConvergenceException {
+          converged = false;
+        }
+      }
 
       refreshClosedTickets.state++;
-
-      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
-        reason: 'ticket_resolved',
-        force: true,
-      );
+      try {
+        await syncCoordinator.runFullSync(
+          reason: 'ticket_resolved',
+          force: true,
+        );
+      } catch (_) {
+        // The server has already accepted the resolution. Exact point-read
+        // adoption above is sufficient; ordinary sync can retry later.
+      }
 
       if (!mounted) return;
-      final (message, color) = switch (syncOutcome) {
-        SyncRequestOutcome.succeeded => (
-          'Issue resolved and synchronized',
-          BafColors.sync,
-        ),
-        SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
-          'Issue resolved on this device; synchronization is queued',
-          BafColors.warning,
-        ),
-        SyncRequestOutcome.failed => (
-          'Issue resolved on this device, but cloud sync needs attention',
-          BafColors.danger,
-        ),
-      };
+      final message =
+          converged
+              ? 'Issue resolved and verified against the plant system'
+              : 'Issue resolution accepted. Exact device refresh is pending and will retry during sync.';
+      final color = converged ? BafColors.sync : BafColors.warning;
       ScaffoldMessenger.maybeOf(
         context,
       )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
@@ -667,8 +718,16 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
                         'instrumentation',
                         'refractory',
                         'emd',
+                        'operations',
+                        'shiftInCharge',
+                        'others',
                       ].map((team) {
                         final selected = _teamsInvolved.contains(team);
+                        final accountable = widget
+                            .ticket
+                            .issueLanePlan
+                            .assignedLanes
+                            .contains(team);
                         return FilterChip(
                           label: Text(team.toUpperCase()),
                           labelStyle: TextStyle(
@@ -681,6 +740,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
                           ),
                           selected: selected,
                           onSelected: (value) {
+                            if (!value && accountable) return;
                             setState(() {
                               if (value) {
                                 _teamsInvolved.add(team);
@@ -691,6 +751,13 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
                           },
                           selectedColor: BafColors.sync.withValues(alpha: 0.11),
                           checkmarkColor: BafColors.sync,
+                          avatar:
+                              accountable
+                                  ? const Icon(
+                                    Icons.assignment_ind_rounded,
+                                    size: 16,
+                                  )
+                                  : null,
                           backgroundColor: BafColors.card,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),

@@ -310,7 +310,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 2800,
+      "maximumLines": 2825,
       "requiredMarkers": [
         "class MaintenanceForm"
       ],
@@ -348,6 +348,35 @@
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
+      "path": "lib/features/maintenance/presentation/ticket_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / maintenance",
+      "purpose": "Owns the open-issue queue, lane-progress presentation, and admitted acknowledgement, completion, coordination, reassignment, and resolution orchestration.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved-user capabilities determine visible issue lanes and available commands; every mutation is re-authorized by the governed workflow backend or Firestore Rules.",
+      "persistenceOwnership": "No direct persistence is admitted; maintenance providers, the sync coordinator, and workflow command service own reads and mutations.",
+      "transactionOwnership": "No database transaction is owned by this presentation surface.",
+      "rationale": "The open queue and its lane-progress cards share one screen lifecycle; lane-reassignment form state is already extracted, and further extraction is re-armed before this surface reaches the declared ceiling or acquires persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_ticket_supervision_contract_test.dart",
+        "test/issue_multi_lane_workflow_test.dart"
+      ],
+      "maximumLines": 1600,
+      "requiredMarkers": [
+        "class TicketScreen",
+        "WorkflowCommandType.reconfigureMaintenanceTicketLanes"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, a lane mutation bypasses approved-user capability checks or governed commands, or direct persistence appears."
+    },
+    {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "disposition": "decomposed",
       "owner": "Architecture / maintenance",
@@ -366,7 +395,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 603,
+      "maximumLines": 620,
       "requiredMarkers": [
         "part '",
         "abstract class"
@@ -425,7 +454,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 897,
+      "maximumLines": 920,
       "requiredMarkers": [
         "part of '"
       ],

@@ -6,6 +6,8 @@ import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/domain/baf_knowledge_layer.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/domain/baf_knowledge_repository.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_composer_models.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/module_composer_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/template_designer_screen.dart';
@@ -219,6 +221,50 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Save to Publisher'), findsNothing);
+        expect(find.text('Start fresh draft'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'malformed initial payload can open a detached draft without rewriting it',
+      (tester) async {
+        const malformedJobPayload = '{"assetType":"base"}';
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith(
+                (ref) => Stream<AppUser?>.value(_adminActor()),
+              ),
+            ],
+            child: MaterialApp(
+              home: ModuleComposerScreen(
+                initialJobTemplateJson: malformedJobPayload,
+                initialModuleSnapshotsJson: '[]',
+                initialFieldDefinitionsJson: '[]',
+                initialChecklistJson: '[]',
+                knowledgeBundleLoader:
+                    () async => BafKnowledgeBundle(
+                      entries: BafKnowledgeLayer.entries,
+                      meta: BafKnowledgeMatrixMeta.staticFallback(),
+                      source: BafKnowledgeSource.staticFallback,
+                    ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('composer-start-fresh-after-repair')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Start a separate clean draft?'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('composer-confirm-start-fresh')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Saved composer payload needs repair'), findsNothing);
+        expect(find.text('BAF governed template'), findsWidgets);
       },
     );
 

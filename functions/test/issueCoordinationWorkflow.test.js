@@ -70,6 +70,7 @@ describe('Ordinary issue Operations coordination', () => {
       result: {
         workflowId: 'issue-coordination-1',
         ticketId: 'ticket-1',
+        ticketVersion: 4,
         complianceId: 'issue-compliance-1',
       },
     });

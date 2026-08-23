@@ -6,6 +6,7 @@ import 'package:isar/isar.dart';
 import '../tool/test_support/test_isar_core.dart';
 
 import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
+import 'package:crm3_baf_ops/core/services/sync_push_snapshot.dart';
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
@@ -404,6 +405,51 @@ void main() {
           (await isar.jobModuleInstances.get(module.id))!.isSynced,
           isTrue,
         );
+      });
+    },
+  );
+
+  test(
+    'audited module repair preserves work newer than its read boundary',
+    () async {
+      await _withIsar((isar) async {
+        final module = _dirtyRuntimeModule();
+        await isar.writeTxn(() => isar.jobModuleInstances.put(module));
+        final expected = SyncPushSnapshot(
+          id: module.id,
+          version: module.version,
+          updatedAt: module.updatedAt,
+        );
+        final remote =
+            _remoteActiveModule()
+              ..status = JobModuleStatus.accepted
+              ..version = 2
+              ..updatedAt = DateTime.utc(2026, 6, 24, 12, 30);
+
+        await isar.writeTxn(() async {
+          final current = await isar.jobModuleInstances.get(module.id);
+          current!
+            ..responsesJson = '[{"key":"reading","value":"preserve"}]'
+            ..version = 3
+            ..updatedAt = DateTime.utc(2026, 6, 24, 13)
+            ..isSynced = false;
+          await isar.jobModuleInstances.put(current);
+        });
+
+        final applied = await IsarJobModuleRepository()
+            .applyModuleServerReadbackIfUnchanged(
+              remote,
+              expectedLocal: expected,
+              expectedLocalSynced: false,
+              reason: 'test repair',
+            );
+
+        expect(applied, isFalse);
+        final preserved = await isar.jobModuleInstances.get(module.id);
+        expect(preserved!.version, 3);
+        expect(preserved.responsesJson, contains('preserve'));
+        expect(preserved.status, JobModuleStatus.notStarted);
+        expect(preserved.isSynced, isFalse);
       });
     },
   );

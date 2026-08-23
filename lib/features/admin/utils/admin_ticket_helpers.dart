@@ -1,6 +1,7 @@
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/burner_lockout_case.dart';
+import '../../maintenance/domain/furnace_stuckup_case.dart';
 
 String? cleanAdminOptionalText(String value) {
   final trimmed = value.trim();
@@ -56,6 +57,9 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
       detail: 'saved resolution history needs repair',
     );
   }
+  final sourceLanePlan =
+      source.issueLanePlanReadResult.value ??
+      source.issueLanePlanForOtherDepartmentRepair;
   final cleanDescription = description.trim();
   if (cleanDescription.length < 3) {
     throw ArgumentError('Description must contain at least 3 characters.');
@@ -86,6 +90,29 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
       'A standard issue cannot be reclassified as a burner lockout.',
     );
   }
+  if (source.classification == furnaceStuckupClassification) {
+    if (routedTo != RoutedTo.mechanical ||
+        maintenanceType != MaintenanceType.breakdown ||
+        cleanAdminOptionalText(component ?? '') !=
+            'Furnace / Inner Cover interface' ||
+        cleanAdminTagText(tag ?? '') != null ||
+        cleanAdminOptionalText(classification ?? '') !=
+            furnaceStuckupClassification) {
+      throw StateError(
+        'Furnace stuck-up identity, Mechanical routing, and breakdown type are fixed.',
+      );
+    }
+  } else if (cleanAdminOptionalText(classification ?? '') ==
+      furnaceStuckupClassification) {
+    throw StateError(
+      'A standard issue cannot be reclassified as a Furnace stuck-up.',
+    );
+  }
+  final routeChanges = routedTo != source.routedTo;
+  final effectiveLanes =
+      routeChanges
+          ? <RoutedTo>{routedTo}
+          : sourceLanePlan.assignedLanes.map(RoutedTo.values.byName).toSet();
   final proposed = <String, Object?>{
     'description': cleanDescription,
     'routedTo': routedTo.name,
@@ -96,7 +123,7 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
     'tag': cleanAdminTagText(tag ?? ''),
     'classification': cleanAdminOptionalText(classification ?? ''),
     'otherDepartment':
-        routedTo == RoutedTo.others
+        effectiveLanes.contains(RoutedTo.others)
             ? cleanAdminOptionalText(otherDepartment ?? '')
             : null,
     'remarks': cleanAdminOptionalText(remarks ?? ''),

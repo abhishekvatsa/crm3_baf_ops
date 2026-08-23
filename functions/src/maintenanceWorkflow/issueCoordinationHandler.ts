@@ -9,9 +9,10 @@ import {
   workflowPath,
 } from "./paths";
 import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
-import {JsonMap, LaneKey} from "./types";
+import {JsonMap} from "./types";
 import {cleanText, isPersistedInstant, iso, plusMinutes} from "./utils";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
+import {ticketLanePlan, ticketRouteLane} from "./ticketLanePlan";
 
 const PURPOSES = new Set(["deferment", "operationsSupport"]);
 const DEFERMENT_BASES = new Set([
@@ -33,10 +34,15 @@ const PAYLOAD_FIELDS = [
   "operationsResourceKey", "requestedLocation", "title", "description",
   "priorityKey",
 ] as const;
+const ORIGIN_ROUTE_FIELD = "originRoute" as const;
 
 const exactKeys = (value: JsonMap): void => {
   const actual = Object.keys(value).sort();
-  const expected = [...PAYLOAD_FIELDS].sort();
+  const expected = [
+    ...PAYLOAD_FIELDS,
+    ...(Object.prototype.hasOwnProperty.call(value, ORIGIN_ROUTE_FIELD) ?
+      [ORIGIN_ROUTE_FIELD] : []),
+  ].sort();
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new WorkflowError(
       "invalid-argument",
@@ -117,22 +123,6 @@ const positiveVersion = (value: unknown, field: string): number => {
     );
   }
   return value as number;
-};
-
-const routeLane = (route: unknown): LaneKey => {
-  const value = cleanText(route, "routedTo");
-  if (value === "electrical") return "elec";
-  if (value === "mechanical") return "mech";
-  if (value === "instrumentation") return "inst";
-  if (value === "refractory") return "red";
-  if (value === "emd") return "emd";
-  if (value === "others") return "shared";
-  if (value === "operations" || value === "shiftInCharge") return "oprn";
-  throw new WorkflowError(
-    "failed-precondition",
-    "Maintenance ticket routing is malformed.",
-    {reasonCode: "maintenance-ticket-route-invalid", routedTo: value},
-  );
 };
 
 export const startIssueCoordination: CommandHandler = async ({
@@ -295,6 +285,17 @@ export const startIssueCoordination: CommandHandler = async ({
       {reasonCode: "issue-coordination-ticket-not-acknowledged"},
     );
   }
+  const lanePlan = ticketLanePlan(ticket);
+  const originRoute = command.payload.originRoute == null ?
+    lanePlan.assigned[0] : cleanText(command.payload.originRoute, "originRoute");
+  if (!lanePlan.assigned.includes(originRoute) ||
+      !lanePlan.acknowledged.includes(originRoute)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected accountable lane must acknowledge before requesting Operations.",
+      {reasonCode: "issue-coordination-origin-lane-not-acknowledged"},
+    );
+  }
   const queueState = typeof ticket.workflowQueueState === "string" ?
     ticket.workflowQueueState : "independent";
   if (queueState !== "independent" && queueState !== "released") {
@@ -315,7 +316,7 @@ export const startIssueCoordination: CommandHandler = async ({
       {reasonCode: "issue-coordination-compliance-active"},
     );
   }
-  const originLane = routeLane(ticket.routedTo);
+  const originLane = ticketRouteLane(originRoute);
   if (originLane === "oprn") {
     throw new WorkflowError(
       "failed-precondition",
@@ -466,6 +467,7 @@ export const startIssueCoordination: CommandHandler = async ({
     result: {
       workflowId: command.aggregateId,
       ticketId,
+      ticketVersion: expectedTicketVersion + 1,
       complianceId,
       requestPurposeKey: purpose,
     },

@@ -25,31 +25,33 @@ void main() {
           version: record.version,
           updatedAt: record.updatedAt,
         );
+        final remote =
+            _record(updatedAt: serverTime, version: 1)
+              ..createdAt = serverTime
+              ..isSynced = true;
 
         final applied = await IsarMaintenanceRepository()
-            .applyGovernedCreationReceiptForSync(
-              firestoreId: record.firestoreId!,
+            .applyGovernedCreationServerStateForSync(
+              remote: remote,
               expectedLocal: expected,
-              serverCreateVersion: 2,
-              serverAppliedAt: serverTime,
-              hasPostCreateLifecycle: false,
             );
         final stored = await isar.maintenanceRecords.get(record.id);
 
         expect(applied, isTrue);
         expect(stored!.createdAt.isAtSameMomentAs(serverTime), isTrue);
         expect(stored.updatedAt.isAtSameMomentAs(serverTime), isTrue);
-        expect(stored.version, 2);
+        expect(stored.version, 1);
         expect(stored.isSynced, isTrue);
       });
     },
   );
 
   test(
-    'collapsed lifecycle keeps final version and floors mutation time',
+    'collapsed lifecycle adopts exact final server state and version',
     () async {
       await _withMaintenanceIsar((isar) async {
         final historicalClose = DateTime.utc(2026, 8, 17, 10);
+        final serverCreateTime = DateTime.utc(2026, 8, 17, 11, 59);
         final serverTime = DateTime.utc(2026, 8, 17, 12);
         final record = _record(updatedAt: historicalClose, version: 4);
         await isar.writeTxn(() => isar.maintenanceRecords.put(record));
@@ -58,21 +60,30 @@ void main() {
           version: record.version,
           updatedAt: record.updatedAt,
         );
+        final remote =
+            _record(updatedAt: serverTime, version: 2)
+              ..createdAt = serverCreateTime
+              ..status = TicketStatus.resolved
+              ..isResolved = true
+              ..endDate = serverTime
+              ..closedByUid = 'mechanical-1'
+              ..closedByName = 'Mechanical One'
+              ..remarks = 'Resolved after governed creation.'
+              ..isSynced = true;
 
         final applied = await IsarMaintenanceRepository()
-            .applyGovernedCreationReceiptForSync(
-              firestoreId: record.firestoreId!,
+            .applyGovernedCreationServerStateForSync(
+              remote: remote,
               expectedLocal: expected,
-              serverCreateVersion: 2,
-              serverAppliedAt: serverTime,
-              hasPostCreateLifecycle: true,
             );
         final stored = await isar.maintenanceRecords.get(record.id);
 
         expect(applied, isTrue);
-        expect(stored!.createdAt.isAtSameMomentAs(serverTime), isTrue);
+        expect(stored!.createdAt.isAtSameMomentAs(serverCreateTime), isTrue);
         expect(stored.updatedAt.isAtSameMomentAs(serverTime), isTrue);
-        expect(stored.version, 4);
+        expect(stored.version, 2);
+        expect(stored.isResolved, isTrue);
+        expect(stored.remarks, 'Resolved after governed creation.');
         expect(stored.isSynced, isTrue);
       });
     },
@@ -95,14 +106,16 @@ void main() {
           ..updatedAt = originalTime.add(const Duration(minutes: 1));
         await isar.maintenanceRecords.put(changed);
       });
+      final serverTime = DateTime.utc(2026, 8, 17, 12);
+      final remote =
+          _record(updatedAt: serverTime, version: 1)
+            ..createdAt = serverTime
+            ..isSynced = true;
 
       final applied = await IsarMaintenanceRepository()
-          .applyGovernedCreationReceiptForSync(
-            firestoreId: record.firestoreId!,
+          .applyGovernedCreationServerStateForSync(
+            remote: remote,
             expectedLocal: expected,
-            serverCreateVersion: 2,
-            serverAppliedAt: DateTime.utc(2026, 8, 17, 12),
-            hasPostCreateLifecycle: false,
           );
       final stored = await isar.maintenanceRecords.get(record.id);
 
@@ -134,13 +147,21 @@ void main() {
           version: record.version,
           updatedAt: record.updatedAt,
         );
+        final remote =
+            _record(updatedAt: serverCloseTime, version: 8)
+              ..isResolved = true
+              ..status = TicketStatus.resolved
+              ..acknowledgedByUid = 'server-lane-owner'
+              ..acknowledgedByName = 'Server Lane Owner'
+              ..acknowledgedAt = serverCloseTime
+              ..workflowQueueState = 'released'
+              ..workflowAggregateId = 'workflow-server-1'
+              ..workflowUpdatedAt = serverCloseTime;
 
         final applied = await IsarMaintenanceRepository()
             .applyMaintenanceLifecycleReplayReceiptForSync(
-              firestoreId: record.firestoreId!,
+              remote: remote,
               expectedLocal: expected,
-              serverVersion: 8,
-              serverUpdatedAt: serverCloseTime,
             );
         final stored = await isar.maintenanceRecords.get(record.id);
 
@@ -148,6 +169,9 @@ void main() {
         expect(stored!.version, 8);
         expect(stored.updatedAt.isAtSameMomentAs(serverCloseTime), isTrue);
         expect(stored.isSynced, isTrue);
+        expect(stored.acknowledgedByUid, 'server-lane-owner');
+        expect(stored.workflowQueueState, 'released');
+        expect(stored.workflowAggregateId, 'workflow-server-1');
         expect(
           stored.version + 1,
           9,
@@ -181,10 +205,11 @@ void main() {
 
         final applied = await IsarMaintenanceRepository()
             .applyMaintenanceLifecycleReplayReceiptForSync(
-              firestoreId: record.firestoreId!,
+              remote: _record(
+                updatedAt: DateTime.utc(2026, 8, 22, 10, 5),
+                version: 8,
+              ),
               expectedLocal: expected,
-              serverVersion: 8,
-              serverUpdatedAt: DateTime.utc(2026, 8, 22, 10, 5),
             );
         final stored = await isar.maintenanceRecords.get(record.id);
 

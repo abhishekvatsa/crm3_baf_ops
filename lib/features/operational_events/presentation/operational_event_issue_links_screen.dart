@@ -152,10 +152,7 @@ class _OperationalEventIssueLinksScreenState
         tickets
             .where(
               (ticket) =>
-                  actor.canViewMaintenanceTicket(
-                    loggedByUid: ticket.loggedByUid,
-                    routedTo: ticket.routedTo,
-                  ) &&
+                  userCanLinkOperationalEventIssue(actor, ticket) &&
                   !ticket.isDeleted &&
                   (ticket.firestoreId?.trim().isNotEmpty ?? false) &&
                   !currentIssueIds.contains(ticket.firestoreId) &&
@@ -279,6 +276,15 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
                   ),
     );
   }
+}
+
+bool userCanLinkOperationalEventIssue(AppUser actor, MaintenanceRecord issue) {
+  final laneRead = issue.issueLanePlanReadResult;
+  if (!laneRead.isValid) return false;
+  return actor.canViewMaintenanceIssue(
+    loggedByUid: issue.loggedByUid,
+    lanes: laneRead.value!.assignedLanes.map(RoutedTo.values.byName),
+  );
 }
 
 bool operationalEventCoversIssue(

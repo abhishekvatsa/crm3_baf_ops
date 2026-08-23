@@ -3,6 +3,7 @@ const {
   agenciesToRoles,
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
+  buildTicketLaneAddedNotification,
   buildTicketResolvedNotification,
   FCM_DEAD_TOKEN_CODES,
   getTokenLookupsForUser,
@@ -319,11 +320,36 @@ describe('buildTicketCreatedNotification', () => {
     );
   });
 
-  test('non-refractory routing uses governance roles only', () => {
+  test('single-lane routing includes governance and receiving discipline', () => {
     const plan = buildTicketCreatedNotification({
       assetType: 'baf', assetNumber: 1, description: 'X', routedTo: 'mechanical',
     });
-    expect(plan.roles).toEqual(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']);
+    expect(plan.roles).toEqual([
+      'admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorMechanical',
+    ]);
+  });
+
+  test('canonical multi-lane routing notifies every accountable discipline', () => {
+    const plan = buildTicketCreatedNotification({
+      assetType: 'furnace',
+      assetNumber: 7,
+      description: 'Joint burner attendance required',
+      routedTo: 'instrumentation',
+      issueAssignedLanes: ['instrumentation', 'electrical', 'mechanical'],
+    });
+
+    expect(plan.roles).toEqual(expect.arrayContaining([
+      'admin',
+      'si',
+      'contractSupervisor',
+      'shiftSupervisor',
+      'seniorInstrumentation',
+      'seniorElectrical',
+      'seniorMechanical',
+    ]));
+    expect(plan.body).toContain(
+      'Routed to INSTRUMENTATION + ELECTRICAL + MECHANICAL',
+    );
   });
 
   test('empty description falls back to "New breakdown"', () => {
@@ -352,6 +378,58 @@ describe('buildTicketResolvedNotification', () => {
         assetType: 'baf', assetNumber: 1, closedByName: 'X', remarks: 'Y',
       }).loggedByUid,
     ).toBe(null);
+  });
+});
+
+describe('buildTicketLaneAddedNotification', () => {
+  test('notifies only disciplines newly added to a legacy ticket', () => {
+    const plan = buildTicketLaneAddedNotification(
+      {
+        assetType: 'furnace', assetNumber: 7, description: 'Joint attendance',
+        routedTo: 'mechanical', isResolved: false,
+      },
+      {
+        assetType: 'furnace', assetNumber: 7, description: 'Joint attendance',
+        routedTo: 'mechanical', issueAssignedLanes: ['mechanical', 'electrical'],
+        isResolved: false,
+      },
+    );
+
+    expect(plan).toMatchObject({
+      title: 'Lane assigned: FURNACE 7',
+      loggedByUid: null,
+    });
+    expect(plan.body).toContain('ELECTRICAL joined');
+    expect(plan.roles).toEqual(expect.arrayContaining([
+      'admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorElectrical',
+    ]));
+    expect(plan.roles).not.toContain('seniorMechanical');
+  });
+
+  test('does not notify for reorder, removal, terminal, or malformed updates', () => {
+    const current = {
+      routedTo: 'mechanical',
+      issueAssignedLanes: ['mechanical', 'electrical'],
+      isResolved: false,
+    };
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      routedTo: 'electrical',
+      issueAssignedLanes: ['electrical', 'mechanical'],
+    })).toBeNull();
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      issueAssignedLanes: ['mechanical'],
+    })).toBeNull();
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      issueAssignedLanes: ['mechanical', 'electrical', 'operations'],
+      isResolved: true,
+    })).toBeNull();
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      issueAssignedLanes: ['mechanical', 'operations', 'operations'],
+    })).toBeNull();
   });
 });
 

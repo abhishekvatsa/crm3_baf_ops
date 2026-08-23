@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event_issue_link.dart';
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_event_issue_links_screen.dart';
@@ -213,6 +215,38 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('event linking honors every accountable issue lane', () {
+    final actor = AppUser(
+      uid: 'operations-1',
+      name: 'Operations One',
+      email: 'operations@example.invalid',
+      roles: const <AppRole>[AppRole.operations],
+      isApproved: true,
+      createdAt: DateTime.utc(2026, 8, 14),
+    );
+    final issue =
+        issueForAsset('asset-furnace-7')
+          ..loggedByUid = 'another-user'
+          ..routedTo = RoutedTo.mechanical;
+    issue.issueLanePlan = IssueLanePlan.initial(const <String>[
+      'mechanical',
+      'operations',
+    ]);
+
+    expect(userCanLinkOperationalEventIssue(actor, issue), isTrue);
+
+    issue.issueLanePlan = IssueLanePlan.initial(const <String>[
+      'mechanical',
+      'electrical',
+    ]);
+    expect(userCanLinkOperationalEventIssue(actor, issue), isFalse);
+
+    issue
+      ..routedTo = RoutedTo.electrical
+      ..issueLanePlan = IssueLanePlan.initial(const <String>['mechanical']);
+    expect(userCanLinkOperationalEventIssue(actor, issue), isFalse);
   });
 
   test('issue dossier retains and orders more than fifty event links', () {

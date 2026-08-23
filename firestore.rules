@@ -178,6 +178,25 @@ service cloud.firestore {
       return isJobExecutionAssigner();
     }
 
+    function isMaintenanceIssueSupervisor() {
+      return hasAnyRole([
+        'admin',
+        'si',
+        'contractSupervisor',
+        'shiftSupervisor'
+      ]);
+    }
+
+    function canCloseMaintenanceIssueRoute(route) {
+      return isMaintenanceIssueSupervisor()
+        || (route == 'electrical' && hasAnyRole(['seniorElectrical']))
+        || (route == 'mechanical' && hasAnyRole(['seniorMechanical']))
+        || (route == 'instrumentation'
+          && hasAnyRole(['seniorInstrumentation']))
+        || (route == 'refractory' && hasAnyRole(['seniorRefractory']))
+        || (route == 'operations' && hasAnyRole(['shiftSupervisor']));
+    }
+
     function canReopenMaintenanceTicket() {
       return hasAnyRole(['admin', 'si', 'operations']);
     }
@@ -2370,10 +2389,16 @@ service cloud.firestore {
       let qualityFields = [
         'qualityIntentSchemaVersion',
         'qualityImpactAssessment',
+        'qualityWarningReason',
+        'qualityAbnormalityTypeId'
+      ];
+      let legacyFields = [
+        'qualityIntentSchemaVersion',
+        'qualityImpactAssessment',
         'qualityWarningReason'
       ];
       let hasAny = request.resource.data.keys().hasAny(qualityFields);
-      let hasAll = request.resource.data.keys().hasAll(qualityFields);
+      let hasLegacy = request.resource.data.keys().hasAll(legacyFields);
       let assessment = request.resource.data.get(
         'qualityImpactAssessment',
         null
@@ -2383,15 +2408,28 @@ service cloud.firestore {
         null
       );
       let chargeNo = request.resource.data.get('chargeNoAtEvent', null);
+      let schemaVersion = request.resource.data.get(
+        'qualityIntentSchemaVersion',
+        -1
+      );
+      let abnormalityTypeId = request.resource.data.get(
+        'qualityAbnormalityTypeId',
+        null
+      );
       return !hasAny
-        || (hasAll
-          && request.resource.data.get('qualityIntentSchemaVersion', -1) == 1
+        || (hasLegacy
+          && (schemaVersion == 1 || schemaVersion == 2)
+          && (schemaVersion == 1
+            ? !request.resource.data.keys().hasAny(['qualityAbnormalityTypeId'])
+            : request.resource.data.keys().hasAll(['qualityAbnormalityTypeId']))
           && (assessment == 'notSuspected' || assessment == 'suspected')
           && (assessment == 'notSuspected'
-            ? warningReason == null
+            ? (warningReason == null && abnormalityTypeId == null)
             : (warningReason is string
               && warningReason.size() >= 8
               && warningReason.size() <= 1000
+              && (schemaVersion == 1
+                || validNonEmptyString(abnormalityTypeId, 512))
               && isFiveDigitChargeNumber(chargeNo))));
     }
 
@@ -2583,6 +2621,115 @@ service cloud.firestore {
         && directive.get('version', -1) == 1;
     }
 
+    function maintenanceHasAnyIssueLaneField(data) {
+      return data.keys().hasAny([
+        'issueLaneSchemaVersion',
+        'issueLaneRevision',
+        'issueAssignedLanes',
+        'issueAcknowledgedLanes',
+        'issueCompletedLanes'
+      ]);
+    }
+
+    function maintenanceHasCompleteIssueLaneFields(data) {
+      return data.keys().hasAll([
+        'issueLaneSchemaVersion',
+        'issueLaneRevision',
+        'issueAssignedLanes',
+        'issueAcknowledgedLanes',
+        'issueCompletedLanes'
+      ]);
+    }
+
+    function validMaintenanceIssueLaneList(value, allowEmpty) {
+      return value is list
+        && value.size() <= 8
+        && (allowEmpty || value.size() > 0)
+        && value.hasOnly([
+          'operations',
+          'electrical',
+          'mechanical',
+          'instrumentation',
+          'refractory',
+          'emd',
+          'shiftInCharge',
+          'others'
+        ])
+        && value.toSet().size() == value.size();
+    }
+
+    function validMaintenanceIssueProgressList(value) {
+      return value is list
+        && value.size() <= 8
+        && value.toSet().size() == value.size();
+    }
+
+    function validMaintenanceIssueLaneProjection(data) {
+      let assigned = data.get('issueAssignedLanes', []);
+      let acknowledged = data.get('issueAcknowledgedLanes', []);
+      let completed = data.get('issueCompletedLanes', []);
+      let status = data.get('status', null);
+      return maintenanceHasCompleteIssueLaneFields(data)
+          && data.get('issueLaneSchemaVersion', -1) == 1
+          && data.get('issueLaneRevision', -1) is int
+          && data.get('issueLaneRevision', -1) > 0
+          && validMaintenanceIssueLaneList(assigned, false)
+          && validMaintenanceIssueProgressList(acknowledged)
+          && validMaintenanceIssueProgressList(completed)
+          && assigned.hasAll(acknowledged)
+          && acknowledged.hasAll(completed)
+          && assigned[0] == data.get('routedTo', null)
+          && (assigned.hasAny(['others'])
+            ? (validNonEmptyString(data.get('otherDepartment', null), 80)
+              && data.get('otherDepartment', '').size() >= 2)
+            : data.get('otherDepartment', null) == null)
+          && (status == 'open'
+            ? acknowledged.size() == 0 && completed.size() == 0
+            : (status == 'acknowledged'
+              ? (acknowledged.size() == assigned.size()
+                && completed.size() == 0)
+              : (status == 'inProgress'
+                ? acknowledged.size() > 0
+                : (status == 'resolved'
+                  && completed.size() == assigned.size()
+                  && completed.hasAll(assigned)))))
+          && (acknowledged.size() == 0
+            ? (data.get('acknowledgedByUid', null) == null
+              && data.get('acknowledgedByName', null) == null
+              && data.get('acknowledgedAt', null) == null)
+            : (data.get('acknowledgedByUid', null) is string
+              && data.get('acknowledgedByName', null) is string
+              && data.get('acknowledgedAt', null) != null));
+    }
+
+    function maintenanceIssueLaneTopologyPreserved() {
+      return maintenanceHasCompleteIssueLaneFields(resource.data)
+          ? (request.resource.data.get('issueLaneRevision', -1) ==
+                resource.data.get('issueLaneRevision', -2)
+            && request.resource.data.get('issueAssignedLanes', []) ==
+                resource.data.get('issueAssignedLanes', []))
+          : (request.resource.data.get('issueLaneRevision', -1) == 1
+            && request.resource.data.get('issueAssignedLanes', []).size() == 1
+            && request.resource.data.get('issueAssignedLanes', [null])[0] ==
+                resource.data.get('routedTo', null));
+    }
+
+    function validMaintenanceIssueLaneFinalClosure() {
+      let assigned = request.resource.data.get('issueAssignedLanes', []);
+      return validMaintenanceIssueLaneProjection(request.resource.data)
+        && maintenanceIssueLaneTopologyPreserved()
+        && (isMaintenanceIssueSupervisor()
+          || (assigned.size() == 1
+            && canCloseMaintenanceIssueRoute(assigned[0])));
+    }
+
+    function validMaintenanceIssueLaneReopen() {
+      return validMaintenanceIssueLaneProjection(request.resource.data)
+        && maintenanceIssueLaneTopologyPreserved()
+        && request.resource.data.get('issueAcknowledgedLanes', []).size() == 0
+        && request.resource.data.get('issueCompletedLanes', []).size() == 0;
+    }
+
     function maintenanceCloseChangedFieldsOnly(affected) {
       return affected.hasOnly([
         'isResolved',
@@ -2603,6 +2750,14 @@ service cloud.firestore {
         'actionsJson',
         'burnerAttendedPositions',
         'burnerResolutionEvidence',
+        'acknowledgedByUid',
+        'acknowledgedByName',
+        'acknowledgedAt',
+        'issueLaneSchemaVersion',
+        'issueLaneRevision',
+        'issueAssignedLanes',
+        'issueAcknowledgedLanes',
+        'issueCompletedLanes',
         'updatedAt',
         'updatedByUid',
         'updatedByName',
@@ -2638,6 +2793,14 @@ service cloud.firestore {
         'actionsJson',
         'burnerAttendedPositions',
         'burnerResolutionEvidence',
+        'acknowledgedByUid',
+        'acknowledgedByName',
+        'acknowledgedAt',
+        'issueLaneSchemaVersion',
+        'issueLaneRevision',
+        'issueAssignedLanes',
+        'issueAcknowledgedLanes',
+        'issueCompletedLanes',
         'remarks',
         'resolutionHistoryJson',
         'updatedAt',
@@ -2753,7 +2916,10 @@ service cloud.firestore {
       return maintenanceCloseChangedFieldsOnly(affected)
         && affected.hasAll(['isResolved', 'status', 'closedByUid'])
         ? (maintenanceIsCloseTransition()
-          && canCloseMaintenanceTicket()
+          && (maintenanceHasAnyIssueLaneField(request.resource.data)
+            ? validMaintenanceIssueLaneFinalClosure()
+            : (!maintenanceHasAnyIssueLaneField(resource.data)
+              && canCloseMaintenanceTicket()))
           && resource.data.get('isDeleted', false) == false
           && request.resource.data.get('isDeleted', false) == false
           && request.resource.data.get('status', null) == 'resolved'
@@ -2765,7 +2931,9 @@ service cloud.firestore {
               'furnaceBurnerLockout'
             || request.resource.data.get('actionsJson', '[]') != '[]')
           && validMaintenanceBurnerCloseState()
-          && maintenanceWorkflowAllowsClientLifecycle()
+          // The affected-field allowlist above already freezes every workflow
+          // control field, so only the source deferral gate needs reevaluation.
+          && resource.data.get('workflowDeferred', false) == false
           && maintenanceVersionAdvances())
         : false;
     }
@@ -2776,13 +2944,16 @@ service cloud.firestore {
         && affected.hasAll(['isResolved', 'status'])
         ? (maintenanceIsReopenTransition()
           && canReopenMaintenanceTicket()
+          && (maintenanceHasAnyIssueLaneField(request.resource.data)
+            ? validMaintenanceIssueLaneReopen()
+            : !maintenanceHasAnyIssueLaneField(resource.data))
           && resource.data.get('isDeleted', false) == false
           && request.resource.data.get('isDeleted', false) == false
           && request.resource.data.get('status', null) == 'open'
           && (maintenanceMobileCloseFieldsClearedOnReopen()
             || maintenanceLegacyResolutionFieldsFrozenOnReopen(affected))
           && validMaintenanceBurnerReopenState()
-          && maintenanceWorkflowAllowsClientLifecycle()
+          && resource.data.get('workflowDeferred', false) == false
           && maintenanceVersionAdvances())
         : false;
     }
@@ -2795,7 +2966,7 @@ service cloud.firestore {
           && resource.data.get('isDeleted', false) == false
           && request.resource.data.get('isDeleted', false) == true
           && request.resource.data.get('deletedByUid', '') == request.auth.uid
-          && maintenanceWorkflowAllowsClientLifecycle()
+          && resource.data.get('workflowDeferred', false) == false
           && maintenanceVersionAdvances())
         : false;
     }
