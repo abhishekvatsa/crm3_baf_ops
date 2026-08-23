@@ -146,6 +146,10 @@ class _IssueLaneManagementDialogState
               ),
               const SizedBox(height: BafSpacing.md),
               DropdownButtonFormField<RoutedTo>(
+                key: ValueKey(
+                  'issue-lane-management-primary-${_primary.name}-'
+                  '${_selected.map((lane) => lane.name).join('-')}',
+                ),
                 initialValue: _primary,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Primary lane'),
