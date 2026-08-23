@@ -2,6 +2,11 @@ import '../../../core/serialization/persisted_data_reader.dart';
 import 'workflow_error.dart';
 import 'workflow_types.dart';
 
+const _zeroVersionTerminalReplayResultKeys = <String>{
+  'workflow-already-cancelled',
+  'workflow-already-finalized',
+};
+
 class WorkflowCommand {
   final String commandId;
   final WorkflowCommandType type;
@@ -96,23 +101,33 @@ class WorkflowCommandReceipt {
         detail: 'response field set does not match the command contract',
       );
     }
+    final resultKey = readRequiredPersistedString(
+      map['resultKey'],
+      field: 'resultKey',
+      source: source,
+    );
+    final aggregateVersion = readRequiredPersistedInt(
+      map['aggregateVersion'],
+      field: 'aggregateVersion',
+      source: source,
+      minimum: 0,
+    );
+    if (aggregateVersion == 0 &&
+        !_zeroVersionTerminalReplayResultKeys.contains(resultKey)) {
+      throw PersistedDataFormatException(
+        field: 'aggregateVersion',
+        source: source,
+        detail: 'zero is valid only for a legacy terminal replay',
+      );
+    }
     return WorkflowCommandReceipt(
       commandId: readRequiredPersistedString(
         map['commandId'],
         field: 'commandId',
         source: source,
       ),
-      resultKey: readRequiredPersistedString(
-        map['resultKey'],
-        field: 'resultKey',
-        source: source,
-      ),
-      aggregateVersion: readRequiredPersistedInt(
-        map['aggregateVersion'],
-        field: 'aggregateVersion',
-        source: source,
-        minimum: 1,
-      ),
+      resultKey: resultKey,
+      aggregateVersion: aggregateVersion,
       result: Map<String, Object?>.unmodifiable(result),
       appliedAt: appliedAt,
     );

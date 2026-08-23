@@ -215,10 +215,34 @@ void main() {
         }),
         _invalidField('response'),
       );
+      for (final terminalResultKey in <String>[
+        'workflow-already-cancelled',
+        'workflow-already-finalized',
+      ]) {
+        final receipt = WorkflowCommandReceipt.fromMap(<String, dynamic>{
+          ...valid,
+          'resultKey': terminalResultKey,
+          'aggregateVersion': 0,
+        });
+        expect(receipt.resultKey, terminalResultKey);
+        expect(receipt.aggregateVersion, 0);
+      }
+      expect(
+        () => WorkflowCommandReceipt.fromMap(<String, dynamic>{
+          ...valid,
+          'aggregateVersion': 0,
+        }),
+        _invalidField('aggregateVersion'),
+      );
 
       for (final malformed in <Map<String, dynamic>>[
         <String, dynamic>{...valid, 'commandId': ''},
         <String, dynamic>{...valid, 'resultKey': null},
+        <String, dynamic>{
+          ...valid,
+          'resultKey': 'workflow-already-finalized',
+          'aggregateVersion': -1,
+        },
         <String, dynamic>{...valid, 'aggregateVersion': 1.5},
         <String, dynamic>{...valid, 'result': <Object?>[]},
       ]) {
