@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
@@ -13,6 +14,7 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_pr
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event_issue_link.dart';
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_event_issue_links_screen.dart';
+import 'package:crm3_baf_ops/features/operational_events/presentation/operational_events_screen.dart';
 import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
@@ -155,11 +157,11 @@ void main() {
       tester,
       screen: OperationalEventIssueLinksScreen(event: _event()),
       overrides: [
-        operationalEventsProvider.overrideWith((ref) {
+        operationalEventsProvider.overrideWith((ref, actorUid) {
           reads++;
           throw StateError('events must not be read');
         }),
-        operationalEventIssueLinksProvider.overrideWith((ref, eventId) {
+        operationalEventIssueLinksProvider.overrideWith((ref, scope) {
           reads++;
           throw StateError('event links must not be read');
         }),
@@ -167,6 +169,34 @@ void main() {
     );
 
     expect(find.text('Event-link access required'), findsOneWidget);
+    expect(reads, 0);
+  });
+
+  testWidgets('operational events reject before event and asset reads', (
+    tester,
+  ) async {
+    var reads = 0;
+
+    await _pumpUnapproved(
+      tester,
+      screen: const OperationalEventsScreen(),
+      overrides: [
+        operationalEventsProvider.overrideWith((ref, actorUid) {
+          reads++;
+          throw StateError('events must not be read');
+        }),
+        assetClassesProvider.overrideWith((ref) {
+          reads++;
+          throw StateError('asset classes must not be read');
+        }),
+        allAssetInstancesProvider.overrideWith((ref) {
+          reads++;
+          throw StateError('assets must not be read');
+        }),
+      ],
+    );
+
+    expect(find.text('Operational-event access required'), findsOneWidget);
     expect(reads, 0);
   });
 
@@ -180,7 +210,7 @@ void main() {
       tester,
       screen: MaintenanceIssueEventLinksScreen(issue: issue),
       overrides: [
-        operationalIssueEventLinksProvider.overrideWith((ref, issueId) {
+        operationalIssueEventLinksProvider.overrideWith((ref, scope) {
           reads++;
           throw StateError('issue links must not be read');
         }),
@@ -197,15 +227,15 @@ void main() {
     var issueLinkDisposals = 0;
     final container = ProviderContainer(
       overrides: [
-        operationalEventsProvider.overrideWith((ref) {
+        operationalEventsProvider.overrideWith((ref, actorUid) {
           ref.onDispose(() => eventDisposals++);
           return Stream<List<OperationalEvent>>.value(const []);
         }),
-        operationalEventIssueLinksProvider.overrideWith((ref, eventId) {
+        operationalEventIssueLinksProvider.overrideWith((ref, scope) {
           ref.onDispose(() => eventLinkDisposals++);
           return Stream<List<OperationalEventIssueLink>>.value(const []);
         }),
-        operationalIssueEventLinksProvider.overrideWith((ref, issueId) {
+        operationalIssueEventLinksProvider.overrideWith((ref, scope) {
           ref.onDispose(() => issueLinkDisposals++);
           return Stream<List<OperationalEventIssueLink>>.value(const []);
         }),
@@ -213,13 +243,22 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final events = container.listen(operationalEventsProvider, (_, _) {});
+    final events = container.listen(
+      operationalEventsProvider('approved-operations'),
+      (_, _) {},
+    );
     final eventLinks = container.listen(
-      operationalEventIssueLinksProvider('event-1'),
+      operationalEventIssueLinksProvider((
+        actorUid: 'approved-operations',
+        eventId: 'event-1',
+      )),
       (_, _) {},
     );
     final issueLinks = container.listen(
-      operationalIssueEventLinksProvider('issue-1'),
+      operationalIssueEventLinksProvider((
+        actorUid: 'approved-operations',
+        issueId: 'issue-1',
+      )),
       (_, _) {},
     );
     events.close();
@@ -230,6 +269,44 @@ void main() {
     expect(eventDisposals, 1);
     expect(eventLinkDisposals, 1);
     expect(issueLinkDisposals, 1);
+  });
+
+  testWidgets('approved account switch starts actor-scoped event reads', (
+    tester,
+  ) async {
+    final actors = StreamController<AppUser?>();
+    final eventActors = <String>[];
+    final linkActors = <String>[];
+    addTearDown(actors.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          operationalEventsProvider.overrideWith((ref, actorUid) {
+            eventActors.add(actorUid);
+            return Stream<List<OperationalEvent>>.value([_event()]);
+          }),
+          operationalEventIssueLinksProvider.overrideWith((ref, scope) {
+            linkActors.add(scope.actorUid);
+            return Stream<List<OperationalEventIssueLink>>.value(const []);
+          }),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: OperationalEventIssueLinksScreen(event: _event()),
+        ),
+      ),
+    );
+
+    actors.add(_approvedActor(AppRole.operations));
+    await tester.pumpAndSettle();
+    actors.add(_approvedActor(AppRole.admin));
+    await tester.pumpAndSettle();
+
+    expect(eventActors, ['approved-operations', 'approved-admin']);
+    expect(linkActors, ['approved-operations', 'approved-admin']);
+    expect(tester.takeException(), isNull);
   });
 }
 

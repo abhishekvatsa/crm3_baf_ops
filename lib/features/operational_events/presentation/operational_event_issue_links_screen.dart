@@ -59,8 +59,13 @@ class _OperationalEventIssueLinksScreenState
         message: 'An approved account is required to view event-linked issues.',
       );
     }
-    final event = _latestEvent(ref.watch(operationalEventsProvider));
-    final links = ref.watch(operationalEventIssueLinksProvider(event.eventId));
+    final event = _latestEvent(ref.watch(operationalEventsProvider(actor.uid)));
+    final links = ref.watch(
+      operationalEventIssueLinksProvider((
+        actorUid: actor.uid,
+        eventId: event.eventId,
+      )),
+    );
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -166,7 +171,14 @@ class _OperationalEventIssueLinksScreenState
       return;
     }
     final existing =
-        ref.read(operationalEventIssueLinksProvider(event.eventId)).value ??
+        ref
+            .read(
+              operationalEventIssueLinksProvider((
+                actorUid: actor.uid,
+                eventId: event.eventId,
+              )),
+            )
+            .value ??
         const <OperationalEventIssueLink>[];
     final currentIssueIds =
         existing
@@ -215,8 +227,13 @@ class _OperationalEventIssueLinksScreenState
             relationship: input.relationship,
             reason: input.reason,
           );
-      ref.invalidate(operationalEventIssueLinksProvider(event.eventId));
-      ref.invalidate(operationalEventsProvider);
+      ref.invalidate(
+        operationalEventIssueLinksProvider((
+          actorUid: actor.uid,
+          eventId: event.eventId,
+        )),
+      );
+      ref.invalidate(operationalEventsProvider(actor.uid));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -300,7 +317,12 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
                     'This issue needs a cloud identity before event links can be read.',
               )
               : ref
-                  .watch(operationalIssueEventLinksProvider(issueId))
+                  .watch(
+                    operationalIssueEventLinksProvider((
+                      actorUid: actor.uid,
+                      issueId: issueId,
+                    )),
+                  )
                   .when(
                     loading:
                         () => const BafLoadingPanel(

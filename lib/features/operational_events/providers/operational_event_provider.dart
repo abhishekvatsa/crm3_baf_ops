@@ -22,20 +22,31 @@ final operationalEventIssueLinkServiceProvider =
       (ref) => OperationalEventIssueLinkService(),
     );
 
+typedef OperationalEventIssueLinkScope = ({String actorUid, String eventId});
+typedef OperationalIssueEventLinkScope = ({String actorUid, String issueId});
+
 final operationalEventIssueLinksProvider = StreamProvider.autoDispose
-    .family<List<OperationalEventIssueLink>, String>((ref, eventId) {
+    .family<List<OperationalEventIssueLink>, OperationalEventIssueLinkScope>((
+      ref,
+      scope,
+    ) {
+      _requireActorUid(scope.actorUid);
       return FirebaseFirestore.instance
           .collection('operational_event_issue_links')
-          .where('eventId', isEqualTo: eventId)
+          .where('eventId', isEqualTo: scope.eventId)
           .snapshots()
           .map(_decodeOperationalEventIssueLinks);
     });
 
 final operationalIssueEventLinksProvider = StreamProvider.autoDispose
-    .family<List<OperationalEventIssueLink>, String>((ref, issueId) {
+    .family<List<OperationalEventIssueLink>, OperationalIssueEventLinkScope>((
+      ref,
+      scope,
+    ) {
+      _requireActorUid(scope.actorUid);
       return FirebaseFirestore.instance
           .collection('operational_event_issue_links')
-          .where('issueId', isEqualTo: issueId)
+          .where('issueId', isEqualTo: scope.issueId)
           .snapshots()
           .map(_decodeOperationalEventIssueLinks);
     });
@@ -57,8 +68,9 @@ List<OperationalEventIssueLink> sortOperationalEventIssueLinks(
   return List<OperationalEventIssueLink>.unmodifiable(links);
 }
 
-final operationalEventsProvider =
-    StreamProvider.autoDispose<List<OperationalEvent>>((ref) {
+final operationalEventsProvider = StreamProvider.autoDispose
+    .family<List<OperationalEvent>, String>((ref, actorUid) {
+      _requireActorUid(actorUid);
       final events = FirebaseFirestore.instance.collection(
         'operational_events',
       );
@@ -73,6 +85,12 @@ final operationalEventsProvider =
           .map(_decodeOperationalEvents);
       return _combineOperationalEventWindows(open, recent);
     });
+
+void _requireActorUid(String actorUid) {
+  if (actorUid.trim().isEmpty) {
+    throw StateError('An approved actor UID is required for event reads.');
+  }
+}
 
 /// Complete event-document history for date-bound operational reports.
 ///

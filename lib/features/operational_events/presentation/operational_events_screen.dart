@@ -29,8 +29,38 @@ class _OperationalEventsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final actor = ref.watch(currentAppUserProvider).value;
-    final eventsAsync = ref.watch(operationalEventsProvider);
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Operational events',
+        appBarSubtitle: 'Verifying your approved operational scope',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        label: 'Checking operational-event access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Operational events',
+        appBarSubtitle: 'Utilities, cranes, transfer cars and delays',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        message: 'Approved access could not be verified. ${actorAsync.error}',
+        onRetry: () => ref.invalidate(currentAppUserProvider),
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Operational events',
+        appBarSubtitle: 'Utilities, cranes, transfer cars and delays',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        title: 'Operational-event access required',
+        message: 'An approved account is required to view operational events.',
+      );
+    }
+    final eventsAsync = ref.watch(operationalEventsProvider(actor.uid));
     final classes = ref.watch(assetClassesProvider).value ?? const [];
     final assets = ref.watch(allAssetInstancesProvider).value ?? const [];
 
@@ -44,13 +74,13 @@ class _OperationalEventsScreenState
           accent: BafColors.warning,
         ),
         actions: [
-          if (actor?.canRecordOperationalEvent == true)
+          if (actor.canRecordOperationalEvent)
             IconButton(
               onPressed:
                   _busy
                       ? null
                       : () => _editEvent(
-                        actor: actor!,
+                        actor: actor,
                         classes: classes,
                         assets: assets,
                       ),
@@ -68,7 +98,8 @@ class _OperationalEventsScreenState
         error:
             (error, _) => _ErrorState(
               message: error.toString(),
-              onRetry: () => ref.invalidate(operationalEventsProvider),
+              onRetry:
+                  () => ref.invalidate(operationalEventsProvider(actor.uid)),
             ),
         data: (events) {
           final open = events.where((event) => event.isOpen).toList();
@@ -82,7 +113,9 @@ class _OperationalEventsScreenState
                   )
                   .length;
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(operationalEventsProvider),
+            onRefresh:
+                () async =>
+                    ref.invalidate(operationalEventsProvider(actor.uid)),
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -142,13 +175,12 @@ class _OperationalEventsScreenState
                                     '${record.assetClassName} ${record.assetNumber}',
                             },
                             canEdit:
-                                actor?.canRecordOperationalEvent == true &&
+                                actor.canRecordOperationalEvent &&
                                 visible[index].isOpen,
-                            canResolve:
-                                actor?.canResolveOperationalEvent == true,
+                            canResolve: actor.canResolveOperationalEvent,
                             onEdit:
                                 () => _editEvent(
-                                  actor: actor!,
+                                  actor: actor,
                                   classes: classes,
                                   assets: assets,
                                   event: visible[index],
