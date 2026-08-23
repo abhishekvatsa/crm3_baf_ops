@@ -99,24 +99,44 @@ final qualityMonitoringRequestsProvider =
           .orderBy('updatedAt', descending: true)
           .limit(qualityMonitoringLiveWindowLimit)
           .snapshots()
-          .map((snapshot) {
-            final requests =
-                snapshot.docs
-                    .map(
-                      (document) => QualityMonitoringRequest.fromMap(
-                        document.data(),
-                        document.id,
-                      ),
-                    )
-                    .toList();
-            requests.sort((left, right) {
-              final status = left.status.index.compareTo(right.status.index);
-              if (status != 0) return status;
-              return right.createdAt.compareTo(left.createdAt);
-            });
-            return List<QualityMonitoringRequest>.unmodifiable(requests);
-          });
+          .map(_decodeQualityMonitoringRequests);
     });
+
+/// Complete quality-monitoring population for date- and asset-bound reports.
+///
+/// The interactive list intentionally keeps a recent window. Reports must
+/// filter only after receiving every request because an old active request or
+/// a closed request overlapping a historical period remains decision-relevant.
+final qualityMonitoringRequestsForReportsProvider =
+    StreamProvider<List<QualityMonitoringRequest>>((ref) {
+      return FirebaseFirestore.instance
+          .collection('quality_monitoring_requests')
+          .snapshots()
+          .map(_decodeQualityMonitoringRequests);
+    });
+
+List<QualityMonitoringRequest> _decodeQualityMonitoringRequests(
+  QuerySnapshot<Map<String, dynamic>> snapshot,
+) => sortQualityMonitoringRequests(
+  snapshot.docs
+      .map(
+        (document) =>
+            QualityMonitoringRequest.fromMap(document.data(), document.id),
+      )
+      .toList(growable: false),
+);
+
+List<QualityMonitoringRequest> sortQualityMonitoringRequests(
+  Iterable<QualityMonitoringRequest> source,
+) {
+  final requests = source.toList();
+  requests.sort((left, right) {
+    final status = left.status.index.compareTo(right.status.index);
+    if (status != 0) return status;
+    return right.createdAt.compareTo(left.createdAt);
+  });
+  return List<QualityMonitoringRequest>.unmodifiable(requests);
+}
 
 int _warningStatusRank(QualityWarningStatus status) => switch (status) {
   QualityWarningStatus.closureRequested => 0,

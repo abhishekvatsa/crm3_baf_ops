@@ -7,10 +7,9 @@ import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/compliance_request_record.dart';
+import '../../domain/compliance_visibility_policy.dart';
 import '../../providers/workflow_providers.dart';
 import 'compliance_detail_screen.dart';
-
-enum _ComplianceInboxView { forMyLane, raisedByMe, all }
 
 class ComplianceInboxScreen extends ConsumerStatefulWidget {
   final String? laneKey;
@@ -23,7 +22,7 @@ class ComplianceInboxScreen extends ConsumerStatefulWidget {
 }
 
 class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
-  _ComplianceInboxView _view = _ComplianceInboxView.forMyLane;
+  ComplianceRequestView _view = ComplianceRequestView.forMyLane;
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +30,8 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
     final actor = ref.watch(currentAppUserProvider).value;
     final canViewAll = actor?.isModuleLifecycleSupervisor ?? false;
     final effectiveView =
-        !canViewAll && _view == _ComplianceInboxView.all
-            ? _ComplianceInboxView.forMyLane
+        !canViewAll && _view == ComplianceRequestView.all
+            ? ComplianceRequestView.forMyLane
             : _view;
     final laneLabel = widget.laneKey?.trim().toUpperCase();
 
@@ -56,27 +55,27 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
           children: [
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: SegmentedButton<_ComplianceInboxView>(
+              child: SegmentedButton<ComplianceRequestView>(
                 showSelectedIcon: false,
                 segments: [
                   const ButtonSegment(
-                    value: _ComplianceInboxView.forMyLane,
+                    value: ComplianceRequestView.forMyLane,
                     icon: Icon(Icons.inbox_outlined),
                     label: Text('For my lane'),
                   ),
                   const ButtonSegment(
-                    value: _ComplianceInboxView.raisedByMe,
+                    value: ComplianceRequestView.raisedByUs,
                     icon: Icon(Icons.outbox_outlined),
                     label: Text('Raised by us'),
                   ),
                   if (canViewAll)
                     const ButtonSegment(
-                      value: _ComplianceInboxView.all,
+                      value: ComplianceRequestView.all,
                       icon: Icon(Icons.supervisor_account_outlined),
                       label: Text('All'),
                     ),
                 ],
-                selected: <_ComplianceInboxView>{effectiveView},
+                selected: <ComplianceRequestView>{effectiveView},
                 onSelectionChanged: (selection) {
                   if (selection.isNotEmpty) {
                     setState(() => _view = selection.first);
@@ -103,17 +102,11 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
                   final visible = rows
                     .where(_isActionable)
                     .where(
-                      (row) => _matchesView(
+                      (row) => complianceRequestMatchesView(
                         row,
                         view: effectiveView,
-                        actorUid: actor?.uid,
-                        canWorkLane:
-                            (lane) =>
-                                actor?.canAcknowledgeOrWorkMaintenanceLane(
-                                  lane,
-                                ) ??
-                                false,
-                        canViewAll: canViewAll,
+                        actor: actor,
+                        restrictedTargetLane: widget.laneKey,
                       ),
                     )
                     .toList(growable: false)..sort(_sortRows);
@@ -144,30 +137,6 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
         ),
       ),
     );
-  }
-
-  bool _matchesView(
-    ComplianceRequestRecord row, {
-    required _ComplianceInboxView view,
-    required String? actorUid,
-    required bool Function(String laneKey) canWorkLane,
-    required bool canViewAll,
-  }) {
-    final restrictedLane = widget.laneKey?.trim().toLowerCase();
-    switch (view) {
-      case _ComplianceInboxView.forMyLane:
-        if (restrictedLane != null &&
-            restrictedLane.isNotEmpty &&
-            row.targetLaneKey != restrictedLane) {
-          return false;
-        }
-        return canWorkLane(row.targetLaneKey);
-      case _ComplianceInboxView.raisedByMe:
-        return (actorUid != null && row.raisedByUid == actorUid) ||
-            (row.originLaneKey != null && canWorkLane(row.originLaneKey!));
-      case _ComplianceInboxView.all:
-        return canViewAll;
-    }
   }
 
   bool _isActionable(ComplianceRequestRecord row) =>

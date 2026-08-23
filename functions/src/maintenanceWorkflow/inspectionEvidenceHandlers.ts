@@ -10,7 +10,7 @@ import {
   setInspectionTargetDisposition as applyInspectionTargetDisposition,
 } from "./inspectionPopulation";
 import {JsonMap, RoleKey} from "./types";
-import {cleanText, iso, stableJson} from "./utils";
+import {cleanText, intValue, iso, stableJson} from "./utils";
 
 const campaignPath = (id: string): string => `inspection_campaigns/${id}`;
 const campaignAuditPath = (id: string): string => `inspection_campaign_audits/${id}`;
@@ -341,10 +341,21 @@ export const verifyInspectionFinding: CommandHandler = async ({
   command,
   context,
 }) => {
-  exactKeys(command.payload, ["findingId", "observationId", "outcome", "reason"], "payload");
+  exactKeys(command.payload, [
+    "findingId",
+    "observationId",
+    "expectedFindingVersion",
+    "outcome",
+    "reason",
+  ], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const findingId = documentId(command.payload.findingId, "findingId");
   const observationId = documentId(command.payload.observationId, "observationId");
+  const expectedFindingVersion = intValue(
+    command.payload.expectedFindingVersion,
+    "expectedFindingVersion",
+    1,
+  );
   const outcome = cleanText(command.payload.outcome, "outcome");
   if (!["improved", "unchanged", "deteriorated", "resolved", "recurred", "notComparable"]
     .includes(outcome)) {
@@ -369,6 +380,40 @@ export const verifyInspectionFinding: CommandHandler = async ({
       observation.data.campaignId !== campaignId || verification.exists) {
     throw new WorkflowError("failed-precondition", "Finding verification evidence is unavailable.");
   }
+  const currentFindingVersion = intValue(
+    finding.data.version,
+    "finding.version",
+    1,
+  );
+  const verificationCount = intValue(
+    finding.data.verificationCount,
+    "finding.verificationCount",
+  );
+  if (currentFindingVersion !== expectedFindingVersion) {
+    throw new WorkflowError("aborted", "Inspection finding is missing or changed.");
+  }
+  const lastVerificationId = finding.data.lastVerificationId;
+  const lastVerification = typeof lastVerificationId === "string" ?
+    await tx.get(`inspection_verifications/${documentId(
+      lastVerificationId,
+      "lastVerificationId",
+    )}`) : null;
+  const priorVerificationIncomplete = verificationCount > 0 &&
+    (lastVerification == null || !lastVerification.exists || lastVerification.data == null ||
+      lastVerification.data.verificationId !== lastVerificationId ||
+      lastVerification.data.findingId !== findingId ||
+      lastVerification.data.campaignId !== campaignId ||
+      typeof lastVerification.data.observationId !== "string");
+  const unexpectedPriorVerification = verificationCount === 0 &&
+    (lastVerificationId != null ||
+      finding.data.lastVerifiedObservationId != null ||
+      finding.data.lastVerificationOutcome != null);
+  if (priorVerificationIncomplete || unexpectedPriorVerification) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Prior inspection verification evidence is incomplete.",
+    );
+  }
   if (finding.data.targetKey !== observation.data.targetKey ||
       finding.data.currentObservationId !== observationId ||
       String(finding.data.latestObservedAt) !== String(observation.data.observedAt) ||
@@ -376,6 +421,13 @@ export const verifyInspectionFinding: CommandHandler = async ({
     throw new WorkflowError(
       "failed-precondition",
       "Verification must use the current latest observation of the same governed target.",
+    );
+  }
+  if (finding.data.lastVerifiedObservationId === observationId ||
+      lastVerification?.data?.observationId === observationId) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The current inspection observation already has an authoritative verification decision.",
     );
   }
   if (outcome === "resolved" && observation.data.outOfRange === true) {
@@ -396,7 +448,7 @@ export const verifyInspectionFinding: CommandHandler = async ({
   const now = iso(context.serverNow);
   const status = outcome === "resolved" ? "verifiedResolved" :
     outcome === "notComparable" ? "awaitingVerification" : "open";
-  const version = Number(finding.data.version ?? 0) + 1;
+  const version = currentFindingVersion + 1;
   tx.create(`inspection_verifications/${command.commandId}`, {
     schemaVersion: 1,
     verificationId: command.commandId,
@@ -428,8 +480,9 @@ export const verifyInspectionFinding: CommandHandler = async ({
     status,
     currentObservationId: observationId,
     latestObservedAt: observation.data.observedAt,
-    verificationCount: Number(finding.data.verificationCount ?? 0) + 1,
+    verificationCount: verificationCount + 1,
     lastVerificationId: command.commandId,
+    lastVerifiedObservationId: observationId,
     lastVerificationOutcome: outcome,
     updatedAt: now,
     updatedByUid: context.actor.uid,
@@ -438,7 +491,14 @@ export const verifyInspectionFinding: CommandHandler = async ({
   return {
     resultKey: `inspection-finding-${status}`,
     aggregateVersion: command.expectedVersion,
-    result: {campaignId, findingId, observationId, outcome, status},
+    result: {
+      campaignId,
+      findingId,
+      findingVersion: version,
+      observationId,
+      outcome,
+      status,
+    },
   };
 };
 

@@ -42,7 +42,6 @@ final operationalIssueEventLinksProvider =
       return FirebaseFirestore.instance
           .collection('operational_event_issue_links')
           .where('issueId', isEqualTo: issueId)
-          .limit(50)
           .snapshots()
           .map(_decodeOperationalEventIssueLinks);
     });
@@ -53,6 +52,13 @@ List<OperationalEventIssueLink> _decodeOperationalEventIssueLinks(
   final links = snapshot.docs
       .map((doc) => OperationalEventIssueLink.fromMap(doc.data(), doc.id))
       .toList(growable: false);
+  return sortOperationalEventIssueLinks(links);
+}
+
+List<OperationalEventIssueLink> sortOperationalEventIssueLinks(
+  Iterable<OperationalEventIssueLink> source,
+) {
+  final links = source.toList();
   links.sort((left, right) => right.linkedAt.compareTo(left.linkedAt));
   return List<OperationalEventIssueLink>.unmodifiable(links);
 }

@@ -19,6 +19,7 @@ import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../../maintenance_workflow/data/compliance_request_record.dart';
 import '../../maintenance_workflow/data/job_lane_record.dart';
+import '../../maintenance_workflow/domain/compliance_visibility_policy.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/data/operational_event.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
@@ -105,7 +106,9 @@ final operationsReportProvider = Provider.family<
   final dueStates = ref.watch(maintenanceDueStatesProvider);
   final inspectionFindings = ref.watch(allInspectionFindingsProvider);
   final qualityWarnings = ref.watch(qualityWarningsProvider);
-  final qualityMonitoring = ref.watch(qualityMonitoringRequestsProvider);
+  final qualityMonitoring = ref.watch(
+    qualityMonitoringRequestsForReportsProvider,
+  );
   final abnormalities = ref.watch(operationsReportAbnormalitiesProvider);
   final directives = ref.watch(openDirectivesProvider);
   final workflowLanes = ref.watch(workflowAllLanesProvider);
@@ -509,10 +512,8 @@ OperationsReport buildOperationsReport({
           .where(
             (request) =>
                 !request.isDeleted &&
-                workflowRecordVisible(
-                  request.targetLaneKey,
-                  raisedByUid: request.raisedByUid,
-                ) &&
+                (actor == null ||
+                    canUserSeeComplianceRequest(request, actor)) &&
                 legacyRecordMatches(request.assetTypeKey, request.assetNumber),
           )
           .toList()

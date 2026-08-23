@@ -1852,6 +1852,7 @@ Future<void> _verifyFinding(
       payload: {
         'findingId': finding.id,
         'observationId': draft.observationId,
+        'expectedFindingVersion': finding.version,
         'outcome': draft.outcome,
         'reason': draft.reason,
       },

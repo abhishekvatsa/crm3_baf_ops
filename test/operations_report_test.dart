@@ -200,6 +200,35 @@ QualityWarning qualityWarning({
       status == QualityWarningStatus.closureRequested ? 'Operations' : null,
 );
 
+QualityMonitoringRequest qualityMonitoringRequest({
+  required String id,
+  required DateTime createdAt,
+  QualityMonitoringStatus status = QualityMonitoringStatus.active,
+  DateTime? closedAt,
+}) => QualityMonitoringRequest(
+  requestId: id,
+  baseNumber: 101,
+  grade: 'CRCA',
+  cycleReference: 'Cycle $id',
+  chargeNumbers: const [41001],
+  reason: 'Monitor the cycle after a quality concern.',
+  status: status,
+  createdAt: createdAt,
+  createdByUid: 'si',
+  createdByName: 'SI',
+  closedAt: closedAt,
+  closedByUid: status == QualityMonitoringStatus.closed ? 'si' : null,
+  closedByName: status == QualityMonitoringStatus.closed ? 'SI' : null,
+  closeReason:
+      status == QualityMonitoringStatus.closed
+          ? 'Monitoring completed with acceptable results.'
+          : null,
+  updatedAt: closedAt ?? createdAt,
+  updatedByUid: 'si',
+  updatedByName: 'SI',
+  version: status == QualityMonitoringStatus.closed ? 2 : 1,
+);
+
 ChargeAbnormality chargeAbnormality({
   required String id,
   required AssetType type,
@@ -1577,6 +1606,43 @@ void main() {
     expect(report.workflowLanes.map((record) => record.firestoreId), [
       'visible-lane',
     ]);
+  });
+
+  test('quality report population remains complete beyond the live window', () {
+    final reportPeriod = DateTime.utc(2026, 1, 1);
+    final newerClosed = List<QualityMonitoringRequest>.generate(
+      260,
+      (index) => qualityMonitoringRequest(
+        id: 'newer-$index',
+        createdAt: DateTime.utc(2026, 2, 1).add(Duration(days: index)),
+        status: QualityMonitoringStatus.closed,
+        closedAt: DateTime.utc(2026, 2, 2).add(Duration(days: index)),
+      ),
+    );
+    final oldActive = qualityMonitoringRequest(
+      id: 'old-active',
+      createdAt: DateTime.utc(2025, 12, 1),
+    );
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: reportPeriod,
+        endDate: DateTime.utc(2026, 1, 31),
+      ),
+      tickets: const [],
+      executions: const [],
+      events: const [],
+      qualityMonitoringRequests: [...newerClosed, oldActive],
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+    );
+
+    expect(report.sourceQualityMonitoringCount, 261);
+    expect(report.qualityMonitoringRequests.map((row) => row.requestId), [
+      'old-active',
+    ]);
+    expect(report.activeQualityMonitoringCount, 1);
   });
 
   test('report includes current cadence and active inspection assurance', () {
