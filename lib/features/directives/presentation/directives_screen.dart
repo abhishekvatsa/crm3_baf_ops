@@ -30,8 +30,41 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return const ColoredBox(
+        color: BafColors.background,
+        child: BafLoadingPanel(
+          label: 'Checking directive access',
+          color: BafColors.directives,
+        ),
+      );
+    }
+    if (actorAsync.hasError) {
+      return const ColoredBox(
+        color: BafColors.background,
+        child: BafStatePanel(
+          icon: Icons.cloud_off_outlined,
+          color: BafColors.danger,
+          title: 'Could not verify directive access',
+          message: 'Directive access could not be verified.',
+        ),
+      );
+    }
+    final appUser = actorAsync.value;
+    if (appUser == null || !appUser.isApproved) {
+      return const ColoredBox(
+        color: BafColors.background,
+        child: BafStatePanel(
+          icon: Icons.lock_outline_rounded,
+          color: BafColors.directives,
+          title: 'Directive access required',
+          message:
+              'An approved operational role is required to view directives.',
+        ),
+      );
+    }
     final directivesAsync = ref.watch(openDirectivesProvider);
-    final appUser = ref.watch(currentAppUserProvider).value;
 
     return ColoredBox(
       color: BafColors.background,
@@ -64,7 +97,7 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
                     query: _query,
                     onQueryChanged: (value) => setState(() => _query = value),
                     onCreate:
-                        appUser?.canCreateDirective == true
+                        appUser.canCreateDirective
                             ? _openCreateDirective
                             : null,
                   ),

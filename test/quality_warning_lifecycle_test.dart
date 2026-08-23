@@ -260,7 +260,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream.value(_qualityViewer()),
+            ),
             qualityWarningsProvider.overrideWith(
               (ref) => Stream.value(<QualityWarning>[review]),
             ),
@@ -308,7 +310,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream.value(_qualityViewer()),
+            ),
             qualityWarningsProvider.overrideWith(
               (ref) => Stream.value(warnings),
             ),
@@ -466,6 +470,15 @@ Future<void> _pumpQualityWarningScreen(
   );
   await tester.pumpAndSettle();
 }
+
+AppUser _qualityViewer() => AppUser(
+  uid: 'quality-viewer',
+  name: 'Quality Viewer',
+  email: 'quality.viewer@example.com',
+  roles: const <AppRole>[AppRole.operations],
+  isApproved: true,
+  createdAt: DateTime.utc(2026, 8, 14),
+);
 
 ChargeAbnormality _linkedIssueAbnormality(ReannealingStatus status) {
   return ChargeAbnormality()
