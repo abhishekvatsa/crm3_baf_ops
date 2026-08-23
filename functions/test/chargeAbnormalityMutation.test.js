@@ -265,9 +265,12 @@ function invoke(db, data, extra = {}) {
 
 describe('charge-abnormality admin mutation', () => {
   test('update atomically canonicalizes type data and writes audit plus receipt', async () => {
+    const serverStamp = {seconds: 1785056400, nanoseconds: 0};
     const state = fakeDb({
       'users/admin-1': admin(),
-      ...standaloneCase(),
+      ...standaloneCase(abnormality({
+        _globalPullServerUpdatedAt: serverStamp,
+      })),
       'abnormality_types/TYPE_NEW': abnormalityType(),
     });
 
@@ -292,6 +295,7 @@ describe('charge-abnormality admin mutation', () => {
       updatedByName: 'Admin One',
       updatedAt: '2026-07-26T10:00:00.000Z',
       isDeleted: false,
+      _globalPullServerUpdatedAt: serverStamp,
     });
     expect(state.store.get('quality_warnings/abnormality_abn-1'))
       .toMatchObject({
@@ -544,6 +548,25 @@ describe('charge-abnormality admin mutation', () => {
       details: expect.objectContaining({
         reasonCode: 'abnormality-record-malformed',
         field: 'possibleRootReasonNotes',
+      }),
+    });
+    expect(state.writes).toHaveLength(0);
+  });
+
+  test('malformed global-pull server clock fails closed', async () => {
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(abnormality({
+        _globalPullServerUpdatedAt: 'not-a-timestamp',
+      })),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await expect(invoke(state.db, updateRequest())).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'abnormality-record-malformed',
+        field: '_globalPullServerUpdatedAt',
       }),
     });
     expect(state.writes).toHaveLength(0);

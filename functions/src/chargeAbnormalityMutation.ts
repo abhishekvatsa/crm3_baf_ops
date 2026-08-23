@@ -185,8 +185,11 @@ const ABNORMALITY_FIELDS = new Set([
   "deletedByUid",
   "deletedByName",
   "deleteReason",
+  "_globalPullServerUpdatedAt",
 ]);
-const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS];
+const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter(
+  (field) => field !== "_globalPullServerUpdatedAt",
+);
 const MAX_AFFECTED_ASSETS = 50;
 
 export class ChargeAbnormalityMutationError extends Error {
@@ -519,6 +522,20 @@ function validIsoTimestamp(value: unknown): value is string {
     !Number.isNaN(Date.parse(value));
 }
 
+function validServerTimestamp(value: unknown): boolean {
+  if (value instanceof Date) return !Number.isNaN(value.valueOf());
+  if (validIsoTimestamp(value)) return true;
+  if (value == null || typeof value !== "object") return false;
+  const timestamp = value as {
+    toDate?: unknown;
+    seconds?: unknown;
+    nanoseconds?: unknown;
+  };
+  return typeof timestamp.toDate === "function" ||
+    (Number.isSafeInteger(timestamp.seconds) &&
+      Number.isSafeInteger(timestamp.nanoseconds));
+}
+
 function malformedExisting(message: string, field?: string): never {
   throw new ChargeAbnormalityMutationError(
     "failed-precondition",
@@ -592,6 +609,13 @@ function validateExistingAbnormality(
     return malformedExisting(
       "The charge-abnormality updatedAt value is malformed.",
       "updatedAt",
+    );
+  }
+  if (data._globalPullServerUpdatedAt != null &&
+      !validServerTimestamp(data._globalPullServerUpdatedAt)) {
+    return malformedExisting(
+      "The charge-abnormality server clock value is malformed.",
+      "_globalPullServerUpdatedAt",
     );
   }
   if (typeof data.isDeleted !== "boolean") {
