@@ -77,7 +77,15 @@ extension _SyncServiceJobDiary on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _jobDiaryRepo.applyTombstoneFromRemote(remote);
+            final result = await _jobDiaryRepo.applyTombstoneFromRemote(remote);
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'job_diary_entry',
+              record: record,
+              entityLabel: 'job diary entry',
+            )) {
+              continue;
+            }
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'job_diary_entry',
               records: <JobDiaryEntry>[record],

@@ -82,7 +82,16 @@ extension _SyncServiceTemplateGovernance on SyncService {
         }
 
         if (remote != null && remote.isDeleted) {
-          await _templateGovernanceRepo.applyTombstoneFromPackageRemote(remote);
+          final result = await _templateGovernanceRepo
+              .applyTombstoneFromPackageRemote(remote);
+          if (await _retainHoldForPreservedLocalTombstone(
+            result: result,
+            entityType: 'template_package',
+            record: record,
+            entityLabel: 'template package',
+          )) {
+            continue;
+          }
           await _resolveRecheckedPermanentRejectionsForRecords(
             entityType: 'template_package',
             records: <TemplatePackage>[record],
@@ -221,7 +230,16 @@ extension _SyncServiceTemplateGovernance on SyncService {
         }
 
         if (remote != null && remote.isDeleted) {
-          await _templateGovernanceRepo.applyTombstoneFromVersionRemote(remote);
+          final result = await _templateGovernanceRepo
+              .applyTombstoneFromVersionRemote(remote);
+          if (await _retainHoldForPreservedLocalTombstone(
+            result: result,
+            entityType: 'template_version',
+            record: record,
+            entityLabel: 'template version',
+          )) {
+            continue;
+          }
           await _resolveRecheckedPermanentRejectionsForRecords(
             entityType: 'template_version',
             records: <TemplateVersion>[record],

@@ -130,7 +130,17 @@ extension _SyncServiceExecutions on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _plannedRepo.applyTombstoneFromExecutionRemote(remote);
+            final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
+              remote,
+            );
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'job_execution',
+              record: record,
+              entityLabel: 'job execution',
+            )) {
+              continue;
+            }
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'job_execution',
               records: <JobExecution>[record],
@@ -373,7 +383,17 @@ extension _SyncServiceExecutions on SyncService {
 
     if (remote.isDeleted) {
       try {
-        await _plannedRepo.applyTombstoneFromExecutionRemote(remote);
+        final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
+          remote,
+        );
+        if (await _retainHoldForPreservedLocalTombstone(
+          result: result,
+          entityType: 'job_execution',
+          record: local,
+          entityLabel: 'job execution',
+        )) {
+          return false;
+        }
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'job_execution',
           records: <JobExecution>[local],

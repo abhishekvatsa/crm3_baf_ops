@@ -174,6 +174,38 @@ void main() {
           push,
           contains('authoritative remote acceptance or exact remote readback'),
         );
+        final tombstoneHold = _functionBody(
+          push,
+          'Future<bool> _retainHoldForPreservedLocalTombstone',
+        );
+        expect(
+          tombstoneHold,
+          contains('RemoteTombstoneApplyOutcome.localDirtyPreserved'),
+        );
+        expect(
+          tombstoneHold,
+          contains("errorCode: 'remote-tombstone-local-dirty-preserved'"),
+        );
+        expect(tombstoneHold, contains('isLikelyPermanent: true'));
+        expect(tombstoneHold, contains('failClosed: true'));
+        final tombstoneCallCounts = <String, int>{
+          'lib/core/services/sync_service.directives_abnormalities.dart': 3,
+          'lib/core/services/sync_service.executions.dart': 2,
+          'lib/core/services/sync_service.job_diary.dart': 1,
+          'lib/core/services/sync_service.tickets_templates.dart': 2,
+          'lib/core/services/sync_service.template_governance.dart': 2,
+        };
+        for (final entry in tombstoneCallCounts.entries) {
+          final source = File(entry.key).readAsStringSync();
+          expect(
+            RegExp(
+              RegExp.escape('_retainHoldForPreservedLocalTombstone('),
+            ).allMatches(source),
+            hasLength(entry.value),
+            reason:
+                '${entry.key} must retain holds whenever tombstone adoption preserves dirty local evidence.',
+          );
+        }
         expect(
           _functionBody(
             knowledge,

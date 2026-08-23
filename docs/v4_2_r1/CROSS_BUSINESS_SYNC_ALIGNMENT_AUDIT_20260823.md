@@ -58,7 +58,9 @@ silently inheriting an unsuitable strategy.
   resolved per record only after an accepted remote write, an authoritative
   callable receipt, or an exact remote readback has been reconciled. A network
   failure, server rejection, conflict, or partial batch failure retains the
-  original hold.
+  original hold. A remote tombstone readback also retains a durable hold when
+  its repository reports that newer unsynchronized local evidence was
+  preserved instead of adopting the deletion.
 - Admin review remains available for diagnostic disposition, but ordinary
   recovery no longer depends on an Admin being present.
 

@@ -77,7 +77,16 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _directiveRepo.applyTombstoneFromDirectiveRemote(remote);
+            final result = await _directiveRepo
+                .applyTombstoneFromDirectiveRemote(remote);
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'directive',
+              record: record,
+              entityLabel: 'directive',
+            )) {
+              continue;
+            }
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'directive',
               records: <OperationalDirective>[record],
@@ -232,7 +241,17 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _abnormalityRepo.applyTombstoneFromTypeRemote(remote);
+            final result = await _abnormalityRepo.applyTombstoneFromTypeRemote(
+              remote,
+            );
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'abnormality_type',
+              record: record,
+              entityLabel: 'abnormality type',
+            )) {
+              continue;
+            }
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'abnormality_type',
               records: <AbnormalityType>[record],
@@ -393,7 +412,16 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
         if (remote.isDeleted) {
           try {
-            await _abnormalityRepo.applyTombstoneFromAbnormalityRemote(remote);
+            final result = await _abnormalityRepo
+                .applyTombstoneFromAbnormalityRemote(remote);
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'charge_abnormality',
+              record: record,
+              entityLabel: 'charge abnormality',
+            )) {
+              continue;
+            }
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'charge_abnormality',
               records: <ChargeAbnormality>[record],

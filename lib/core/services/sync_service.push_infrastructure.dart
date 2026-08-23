@@ -397,6 +397,38 @@ extension _SyncServicePushInfrastructure on SyncService {
     _permanentRejectionIdsUnderRecheck.removeAll(resolvedIds);
   }
 
+  Future<bool> _retainHoldForPreservedLocalTombstone({
+    required RemoteTombstoneApplyResult result,
+    required String entityType,
+    required dynamic record,
+    required String entityLabel,
+  }) async {
+    if (result.outcome != RemoteTombstoneApplyOutcome.localDirtyPreserved) {
+      return false;
+    }
+
+    final entityId = _syncEntityId(record);
+    final detail = SyncFailureDetail(
+      entityType: entityType,
+      entityId: entityId,
+      firestoreId: _syncFirestoreId(record),
+      errorCode: 'remote-tombstone-local-dirty-preserved',
+      message:
+          'The server reports this $entityLabel deleted, but newer unsynchronized local evidence was preserved.',
+      isLikelyPermanent: true,
+      occurredAt: DateTime.now(),
+    );
+    await _upsertSyncRejection(detail, failClosed: true);
+    _appendPushFailureDetail(detail);
+    lastFailureCount++;
+    lastConflictCount++;
+    lastConflictKeys.add('$entityType:$entityId');
+    debugPrint(
+      'Held $entityType/$entityId after remote tombstone readback preserved newer local evidence.',
+    );
+    return true;
+  }
+
   void _recordAutomaticRetryHeld({
     required String entityType,
     required String entityId,

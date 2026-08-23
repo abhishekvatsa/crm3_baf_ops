@@ -88,7 +88,16 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _maintenanceRepo.applyTombstoneFromMaintenanceRemote(remote);
+            final result = await _maintenanceRepo
+                .applyTombstoneFromMaintenanceRemote(remote);
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'maintenance_ticket',
+              record: record,
+              entityLabel: 'maintenance ticket',
+            )) {
+              continue;
+            }
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'maintenance_ticket',
               records: <MaintenanceRecord>[record],
@@ -721,7 +730,17 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _plannedRepo.applyTombstoneFromTemplateRemote(remote);
+            final result = await _plannedRepo.applyTombstoneFromTemplateRemote(
+              remote,
+            );
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'job_template',
+              record: record,
+              entityLabel: 'job template',
+            )) {
+              continue;
+            }
             await _resolveRecheckedPermanentRejectionsForRecords(
               entityType: 'job_template',
               records: <JobTemplate>[record],
