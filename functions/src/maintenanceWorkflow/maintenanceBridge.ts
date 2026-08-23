@@ -4,6 +4,11 @@ import {
   readComponentActionPayload,
 } from "../persistedActionPayload";
 import {DocSnapshot} from "./store";
+import {
+  hasCompleteTicketLaneFields,
+  ticketLanePlan,
+  ticketLaneProjection,
+} from "./ticketLanePlan";
 import {JsonMap} from "./types";
 import {iso} from "./utils";
 
@@ -336,6 +341,29 @@ export const maintenanceResolutionHistoryWithCurrentClosure = (
   return JSON.stringify(history);
 };
 
+const maintenanceClosureResetProjection = (maintenance: JsonMap): JsonMap => {
+  const laneProjection = hasCompleteTicketLaneFields(maintenance) ? (() => {
+    const plan = ticketLanePlan(maintenance);
+    return ticketLaneProjection({
+      ...plan,
+      acknowledged: [],
+      completed: [],
+    });
+  })() : {};
+  const burnerProjection =
+    maintenance.classification === "furnaceBurnerLockout" ? {
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+    } : {};
+  return {
+    ...laneProjection,
+    acknowledgedByUid: null,
+    acknowledgedByName: null,
+    acknowledgedAt: null,
+    ...burnerProjection,
+  };
+};
+
 export const maintenanceProjectionForCorrection = (args: {
   readonly maintenance: JsonMap;
   readonly reason: string;
@@ -351,6 +379,7 @@ export const maintenanceProjectionForCorrection = (args: {
   workflowCorrectionReason: args.reason,
   workflowUpdatedAt: iso(args.at),
   ...(args.maintenance.isResolved === true ? {
+    ...maintenanceClosureResetProjection(args.maintenance),
     isResolved: false,
     status: "open",
     endDate: null,
