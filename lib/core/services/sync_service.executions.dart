@@ -35,6 +35,7 @@ extension _SyncServiceExecutions on SyncService {
 
       final recordsToPush = <JobExecution>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final convergedRecords = <JobExecution>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -80,6 +81,7 @@ extension _SyncServiceExecutions on SyncService {
             !remote.isDeleted &&
             syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          convergedRecords.add(record);
           lastSuccessCount++;
           continue;
         }
@@ -87,6 +89,7 @@ extension _SyncServiceExecutions on SyncService {
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            convergedRecords.add(record);
             lastSuccessCount++;
             continue;
           }
@@ -106,6 +109,13 @@ extension _SyncServiceExecutions on SyncService {
                   'The local snapshot was preserved in audit before rebasing.',
             );
 
+            await _resolveRecheckedPermanentRejectionsForRecords(
+              entityType: 'job_execution',
+              records: <JobExecution>[record],
+              evidence:
+                  'The canonical remote execution was adopted after preserving the rejected local tombstone in audit.',
+            );
+
             lastSuccessCount++;
             debugPrint(
               '🛡️ Rebased local job execution tombstone from remote: '
@@ -120,7 +130,23 @@ extension _SyncServiceExecutions on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _plannedRepo.applyTombstoneFromExecutionRemote(remote);
+            final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
+              remote,
+            );
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'job_execution',
+              record: record,
+              entityLabel: 'job execution',
+            )) {
+              continue;
+            }
+            await _resolveRecheckedPermanentRejectionsForRecords(
+              entityType: 'job_execution',
+              records: <JobExecution>[record],
+              evidence:
+                  'The canonical remote job-execution tombstone was adopted locally.',
+            );
             lastSuccessCount++;
             debugPrint(
               '📥 Applied remote tombstone for execution ${record.id}',
@@ -194,6 +220,7 @@ extension _SyncServiceExecutions on SyncService {
 
               lastSuccessCount++;
               skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+              convergedRecords.add(record);
               debugPrint(
                 '✅ Execution synced after batch split: '
                 '${record.firestoreId ?? record.id.toString()} '
@@ -218,6 +245,13 @@ extension _SyncServiceExecutions on SyncService {
                   reason:
                       'Rules rejected a dirty local job-execution tombstone. '
                       'The local snapshot was preserved in audit before rebasing.',
+                );
+
+                await _resolveRecheckedPermanentRejectionsForRecords(
+                  entityType: 'job_execution',
+                  records: <JobExecution>[record],
+                  evidence:
+                      'The canonical remote execution was adopted after preserving the rejected local tombstone in audit.',
                 );
 
                 lastSuccessCount++;
@@ -249,10 +283,17 @@ extension _SyncServiceExecutions on SyncService {
 
       if (pushSuccess) {
         snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+        convergedRecords.addAll(recordsToPush);
       }
 
       if (snapshotsToMark.isNotEmpty) {
         await _plannedRepo.markExecutionsSyncedIfUnchanged(snapshotsToMark);
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'job_execution',
+          records: convergedRecords,
+          evidence:
+              'The remote job-execution write or exact readback completed and the local snapshot was reconciled.',
+        );
       }
     }
   }
@@ -342,7 +383,23 @@ extension _SyncServiceExecutions on SyncService {
 
     if (remote.isDeleted) {
       try {
-        await _plannedRepo.applyTombstoneFromExecutionRemote(remote);
+        final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
+          remote,
+        );
+        if (await _retainHoldForPreservedLocalTombstone(
+          result: result,
+          entityType: 'job_execution',
+          record: local,
+          entityLabel: 'job execution',
+        )) {
+          return false;
+        }
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'job_execution',
+          records: <JobExecution>[local],
+          evidence:
+              'The canonical remote completed-execution tombstone was adopted locally.',
+        );
         debugPrint(
           '📥 Applied remote tombstone for completed execution ${local.id}',
         );
@@ -373,6 +430,12 @@ extension _SyncServiceExecutions on SyncService {
         reason:
             'Remote job execution is already server-completed. '
             'Local dirty completion snapshot was preserved in audit before rebasing.',
+      );
+      await _resolveRecheckedPermanentRejectionsForRecords(
+        entityType: 'job_execution',
+        records: <JobExecution>[local],
+        evidence:
+            'The canonical server-completed execution was read and adopted locally after preserving conflict evidence.',
       );
       debugPrint(
         '🛡️ Rebased local completed execution from canonical server completion: '
@@ -458,6 +521,12 @@ extension _SyncServiceExecutions on SyncService {
         completed,
         reason:
             'Local completed execution was accepted by server-side closure function.',
+      );
+      await _resolveRecheckedPermanentRejectionsForRecords(
+        entityType: 'job_execution',
+        records: <JobExecution>[local],
+        evidence:
+            'The server completion callable returned an authoritative execution receipt that was adopted locally.',
       );
 
       debugPrint(

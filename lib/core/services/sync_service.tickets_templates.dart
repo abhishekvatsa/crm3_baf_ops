@@ -35,6 +35,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
       final recordsToPush = <MaintenanceRecord>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final skippedButSyncedRecords = <MaintenanceRecord>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -70,11 +71,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
             // remote record exists to tombstone. Retain the local deletion and
             // stop retrying an impossible direct create.
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            skippedButSyncedRecords.add(record);
             lastSuccessCount++;
             continue;
           }
           if (remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            skippedButSyncedRecords.add(record);
             lastSuccessCount++;
             continue;
           }
@@ -85,7 +88,22 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _maintenanceRepo.applyTombstoneFromMaintenanceRemote(remote);
+            final result = await _maintenanceRepo
+                .applyTombstoneFromMaintenanceRemote(remote);
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'maintenance_ticket',
+              record: record,
+              entityLabel: 'maintenance ticket',
+            )) {
+              continue;
+            }
+            await _resolveRecheckedPermanentRejectionsForRecords(
+              entityType: 'maintenance_ticket',
+              records: <MaintenanceRecord>[record],
+              evidence:
+                  'The canonical remote maintenance tombstone was adopted locally.',
+            );
             lastSuccessCount++;
             debugPrint('📥 Applied remote tombstone for ticket ${record.id}');
           } catch (e, stackTrace) {
@@ -116,6 +134,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
                 'local row changed during submission and remains pending.',
               );
             }
+            await _resolveRecheckedPermanentRejectionsForRecords(
+              entityType: 'maintenance_ticket',
+              records: <MaintenanceRecord>[record],
+              evidence:
+                  'The governed issue-creation command returned an authoritative server receipt.',
+            );
             lastSuccessCount++;
           } catch (error, stackTrace) {
             lastFailureCount++;
@@ -152,6 +176,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
               'remains pending.',
             );
           }
+          await _resolveRecheckedPermanentRejectionsForRecords(
+            entityType: 'maintenance_ticket',
+            records: <MaintenanceRecord>[record],
+            evidence:
+                'The governed maintenance-lifecycle replay returned an authoritative server receipt.',
+          );
           lastSuccessCount++;
           continue;
         }
@@ -176,6 +206,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
       if (skippedButSyncedSnapshots.isNotEmpty) {
         await _maintenanceRepo.markTicketsSyncedIfUnchanged(
           skippedButSyncedSnapshots,
+        );
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'maintenance_ticket',
+          records: skippedButSyncedRecords,
+          evidence:
+              'Exact remote absence or tombstone state was read and the matching local snapshot was reconciled.',
         );
       }
 
@@ -210,6 +246,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
             () => _maintenanceRepo.markTicketsSyncedIfUnchanged(
               _syncPushSnapshots(chunk),
             ),
+          );
+          await _resolveRecheckedPermanentRejectionsForRecords(
+            entityType: 'maintenance_ticket',
+            records: chunk,
+            evidence:
+                'The remote maintenance batch was accepted and matching local snapshots were reconciled.',
           );
           lastSuccessCount += chunk.length;
         } catch (e, stackTrace) {
@@ -646,6 +688,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
       final recordsToPush = <JobTemplate>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final convergedRecords = <JobTemplate>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -668,6 +711,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             !remote.isDeleted &&
             syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          convergedRecords.add(record);
           lastSuccessCount++;
           continue;
         }
@@ -675,6 +719,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            convergedRecords.add(record);
             lastSuccessCount++;
             continue;
           }
@@ -685,7 +730,23 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _plannedRepo.applyTombstoneFromTemplateRemote(remote);
+            final result = await _plannedRepo.applyTombstoneFromTemplateRemote(
+              remote,
+            );
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'job_template',
+              record: record,
+              entityLabel: 'job template',
+            )) {
+              continue;
+            }
+            await _resolveRecheckedPermanentRejectionsForRecords(
+              entityType: 'job_template',
+              records: <JobTemplate>[record],
+              evidence:
+                  'The canonical remote job-template tombstone was adopted locally.',
+            );
             lastSuccessCount++;
             debugPrint('📥 Applied remote tombstone for template ${record.id}');
           } catch (e, stackTrace) {
@@ -741,10 +802,17 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
       if (pushSuccess) {
         snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+        convergedRecords.addAll(recordsToPush);
       }
 
       if (snapshotsToMark.isNotEmpty) {
         await _plannedRepo.markTemplatesSyncedIfUnchanged(snapshotsToMark);
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'job_template',
+          records: convergedRecords,
+          evidence:
+              'The remote job-template write or exact readback completed and the local snapshot was reconciled.',
+        );
       }
     }
   }

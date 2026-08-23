@@ -35,6 +35,7 @@ extension _SyncServiceJobModules on SyncService {
 
       final recordsToPush = <JobModuleInstance>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final convergedRecords = <JobModuleInstance>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -86,6 +87,7 @@ extension _SyncServiceJobModules on SyncService {
               // Lost-response replay of the same governed tombstone. The
               // canonical remote client payload is already identical.
               skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+              convergedRecords.add(record);
               lastSuccessCount++;
               continue;
             }
@@ -116,6 +118,12 @@ extension _SyncServiceJobModules on SyncService {
                 ),
               );
             } else {
+              await _resolveRecheckedPermanentRejectionsForRecords(
+                entityType: 'job_module',
+                records: <JobModuleInstance>[record],
+                evidence:
+                    'The canonical remote job-module tombstone was adopted locally after preserving divergent evidence.',
+              );
               lastSuccessCount++;
             }
             continue;
@@ -127,11 +135,33 @@ extension _SyncServiceJobModules on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _jobModuleRepo.applyTombstoneFromRemote(remote);
-            lastSuccessCount++;
-            debugPrint(
-              '📥 Applied remote tombstone for job module ${record.id}',
+            final result = await _jobModuleRepo.applyTombstoneFromRemote(
+              remote,
             );
+            if (result.outcome ==
+                RemoteTombstoneApplyOutcome.localDirtyPreserved) {
+              lastFailureCount++;
+              await _recordJobModulePopulationFailure(
+                record: record,
+                error: const RuntimeJobModulePopulationException(
+                  code: 'failed-precondition',
+                  message:
+                      'The remote module is deleted while fresher local evidence remains unsynchronized.',
+                  reasonCode: 'remote-tombstone-local-dirty-preserved',
+                ),
+              );
+            } else {
+              await _resolveRecheckedPermanentRejectionsForRecords(
+                entityType: 'job_module',
+                records: <JobModuleInstance>[record],
+                evidence:
+                    'The canonical remote job-module tombstone was adopted locally.',
+              );
+              lastSuccessCount++;
+              debugPrint(
+                '📥 Applied remote tombstone for job module ${record.id}',
+              );
+            }
           } catch (e, stackTrace) {
             lastFailureCount++;
             debugPrint(
@@ -161,6 +191,7 @@ extension _SyncServiceJobModules on SyncService {
           if (replayed) {
             lastSuccessCount++;
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            convergedRecords.add(record);
             debugPrint(
               '🪜 Replayed collapsed job-module submit→accept lifecycle: '
               '${record.firestoreId} (${_shortText(record.moduleTitle)})',
@@ -193,6 +224,7 @@ extension _SyncServiceJobModules on SyncService {
 
           lastSuccessCount += recordsToPush.length;
           snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+          convergedRecords.addAll(recordsToPush);
         } catch (e, stackTrace) {
           debugPrint(
             '❌ Job module batch sync failed; splitting batch for diagnostics: $e',
@@ -213,6 +245,7 @@ extension _SyncServiceJobModules on SyncService {
 
               lastSuccessCount++;
               snapshotsToMark.add(_syncPushSnapshot(record));
+              convergedRecords.add(record);
               debugPrint(
                 '✅ Job module synced after batch split: '
                 '${record.firestoreId ?? record.id.toString()} '
@@ -237,6 +270,13 @@ extension _SyncServiceJobModules on SyncService {
                   reason:
                       'Rules rejected a dirty terminal-state module push. '
                       'The local snapshot was preserved in audit before rebasing.',
+                );
+
+                await _resolveRecheckedPermanentRejectionsForRecords(
+                  entityType: 'job_module',
+                  records: <JobModuleInstance>[record],
+                  evidence:
+                      'The canonical terminal job-module state was read and force-rebased locally after preserving conflict evidence.',
                 );
 
                 lastSuccessCount++;
@@ -274,6 +314,12 @@ extension _SyncServiceJobModules on SyncService {
 
       if (snapshotsToMark.isNotEmpty) {
         await _jobModuleRepo.markModulesSyncedIfUnchanged(snapshotsToMark);
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'job_module',
+          records: convergedRecords,
+          evidence:
+              'The governed job-module replay, remote write, or exact readback completed and the local snapshot was reconciled.',
+        );
       }
     }
   }

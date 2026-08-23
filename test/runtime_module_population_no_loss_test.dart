@@ -103,6 +103,12 @@ class _UnusedRepositories {
 
 class _RejectingRemoteModules implements JobModuleRepository {
   final List<JobModuleInstance> remoteModules;
+  bool rejectMutations = true;
+  Object mutationError = const RuntimeJobModulePopulationException(
+    code: 'failed-precondition',
+    message: 'Parent execution is already complete.',
+    reasonCode: 'parent-execution-completed',
+  );
   int mutationAttempts = 0;
 
   _RejectingRemoteModules({this.remoteModules = const <JobModuleInstance>[]});
@@ -117,11 +123,8 @@ class _RejectingRemoteModules implements JobModuleRepository {
   @override
   Future<void> batchUpsertModules(List<JobModuleInstance> records) async {
     mutationAttempts++;
-    throw const RuntimeJobModulePopulationException(
-      code: 'failed-precondition',
-      message: 'Parent execution is already complete.',
-      reasonCode: 'parent-execution-completed',
-    );
+    if (!rejectMutations) return;
+    throw mutationError;
   }
 
   @override
@@ -328,6 +331,79 @@ void main() {
         expect(rejections.single.firestoreId, 'runtime_dirty_1');
         expect(rejections.single.isLikelyPermanent, isTrue);
         expect(remoteModules.mutationAttempts, 2);
+      });
+    },
+  );
+
+  test(
+    'manual recheck retains the permanent hold until the remote accepts the row',
+    () async {
+      await _withIsar((isar) async {
+        final module = _dirtyRuntimeModule();
+        await isar.writeTxn(() => isar.jobModuleInstances.put(module));
+
+        final localModules = IsarJobModuleRepository();
+        final remoteModules = _RejectingRemoteModules();
+        final unused = _UnusedRepositories();
+        final sync = SyncService(
+          maintenanceRepo: unused.maintenance,
+          firestoreMaintenance: unused.maintenance,
+          plannedRepo: unused.planned,
+          firestorePlanned: unused.planned,
+          serverCompletion: unused.serverCompletion,
+          jobDiaryRepo: unused.jobDiary,
+          firestoreJobDiary: unused.jobDiary,
+          jobModuleRepo: localModules,
+          firestoreJobModule: remoteModules,
+          templateGovernanceRepo: unused.templateGovernance,
+          firestoreTemplateGovernance: unused.templateGovernance,
+          directiveRepo: unused.directive,
+          firestoreDirective: unused.directive,
+          abnormalityRepo: unused.abnormality,
+          firestoreAbnormality: unused.abnormality,
+          knowledgeRepo: unused.knowledge,
+          auditRepository: unused.audit,
+        );
+
+        await sync.syncJobModulesForTest();
+        var rejection = (await isar.syncRejections.where().findAll()).single;
+        expect(rejection.isResolved, isFalse);
+        final permanentMessage = rejection.message;
+        final permanentErrorCode = rejection.errorCode;
+
+        remoteModules.mutationError = const RuntimeJobModulePopulationException(
+          code: 'cancelled',
+          message: 'The network request was cancelled.',
+        );
+        await sync.syncJobModulesForTest(recheckPermanentRejections: true);
+        rejection = (await isar.syncRejections.where().findAll()).single;
+        expect(rejection.isResolved, isFalse);
+        expect(rejection.isLikelyPermanent, isTrue);
+        expect(rejection.message, permanentMessage);
+        expect(rejection.errorCode, permanentErrorCode);
+        expect(rejection.attemptCount, greaterThan(1));
+        expect(
+          (await isar.jobModuleInstances.get(module.id))!.isSynced,
+          isFalse,
+        );
+
+        final attemptsAfterFailedRecheck = remoteModules.mutationAttempts;
+        await sync.syncJobModulesForTest();
+        expect(remoteModules.mutationAttempts, attemptsAfterFailedRecheck);
+
+        remoteModules.rejectMutations = false;
+        await sync.syncJobModulesForTest(recheckPermanentRejections: true);
+
+        rejection = (await isar.syncRejections.where().findAll()).single;
+        expect(rejection.isResolved, isTrue);
+        expect(
+          rejection.resolutionNotes,
+          contains('authoritative remote acceptance'),
+        );
+        expect(
+          (await isar.jobModuleInstances.get(module.id))!.isSynced,
+          isTrue,
+        );
       });
     },
   );

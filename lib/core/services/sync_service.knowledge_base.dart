@@ -22,15 +22,7 @@ extension _SyncServiceKnowledgeBase on SyncService {
       if (rejection == null) return false;
 
       if (_recheckPermanentRejections) {
-        await localIsar.writeTxn(() async {
-          final current = await localIsar.syncRejections.get(rejection.id);
-          if (current == null || current.isResolved) return;
-          current.markResolved(
-            notes:
-                'Manual server recheck released the knowledge-row retry hold. No source row was marked synchronized, changed, or deleted by this action.',
-          );
-          await localIsar.syncRejections.put(current);
-        });
+        _permanentRejectionIdsUnderRecheck.add(rejection.id);
         return false;
       }
 
@@ -57,6 +49,14 @@ extension _SyncServiceKnowledgeBase on SyncService {
     try {
       final pushed = await _knowledgeRepo.syncUnsyncedToCloud();
       lastSuccessCount += pushed;
+      if (pushed > 0) {
+        await _resolveRecheckedPermanentRejections(
+          entityType: 'baf_knowledge_row',
+          entityIds: const <String>{'knowledge_base_batch'},
+          evidence:
+              'Every pending knowledge row returned a server receipt and was reconciled locally.',
+        );
+      }
     } catch (e, stackTrace) {
       lastFailureCount++;
       _recordPushFailureDetail(

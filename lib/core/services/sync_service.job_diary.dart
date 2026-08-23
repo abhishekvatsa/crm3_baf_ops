@@ -35,6 +35,7 @@ extension _SyncServiceJobDiary on SyncService {
 
       final recordsToPush = <JobDiaryEntry>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
+      final convergedRecords = <JobDiaryEntry>[];
 
       for (final record in activeBatchRecords) {
         if (record.firestoreId == null) {
@@ -57,6 +58,7 @@ extension _SyncServiceJobDiary on SyncService {
             !remote.isDeleted &&
             syncPersistedSnapshotsEquivalent(record.toMap(), remote.toMap())) {
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          convergedRecords.add(record);
           lastSuccessCount++;
           continue;
         }
@@ -64,6 +66,7 @@ extension _SyncServiceJobDiary on SyncService {
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            convergedRecords.add(record);
             lastSuccessCount++;
             continue;
           }
@@ -74,7 +77,21 @@ extension _SyncServiceJobDiary on SyncService {
 
         if (remote != null && remote.isDeleted) {
           try {
-            await _jobDiaryRepo.applyTombstoneFromRemote(remote);
+            final result = await _jobDiaryRepo.applyTombstoneFromRemote(remote);
+            if (await _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'job_diary_entry',
+              record: record,
+              entityLabel: 'job diary entry',
+            )) {
+              continue;
+            }
+            await _resolveRecheckedPermanentRejectionsForRecords(
+              entityType: 'job_diary_entry',
+              records: <JobDiaryEntry>[record],
+              evidence:
+                  'The canonical remote job-diary tombstone was adopted locally.',
+            );
             lastSuccessCount++;
             debugPrint(
               '📥 Applied remote tombstone for job diary entry ${record.id}',
@@ -132,10 +149,17 @@ extension _SyncServiceJobDiary on SyncService {
 
       if (pushSuccess) {
         snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+        convergedRecords.addAll(recordsToPush);
       }
 
       if (snapshotsToMark.isNotEmpty) {
         await _jobDiaryRepo.markEntriesSyncedIfUnchanged(snapshotsToMark);
+        await _resolveRecheckedPermanentRejectionsForRecords(
+          entityType: 'job_diary_entry',
+          records: convergedRecords,
+          evidence:
+              'The remote job-diary write or exact readback completed and the local snapshot was reconciled.',
+        );
       }
     }
   }

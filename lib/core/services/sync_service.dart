@@ -158,6 +158,7 @@ class SyncService {
 
   bool _isSyncing = false;
   bool _recheckPermanentRejections = false;
+  final Set<int> _permanentRejectionIdsUnderRecheck = <int>{};
 
   int lastSuccessCount = 0;
   int lastFailureCount = 0;
@@ -211,7 +212,18 @@ class SyncService {
        _auditRepo = auditRepository;
 
   @visibleForTesting
-  Future<void> syncJobModulesForTest() => _syncJobModules();
+  Future<void> syncJobModulesForTest({
+    bool recheckPermanentRejections = false,
+  }) async {
+    _recheckPermanentRejections = recheckPermanentRejections;
+    _permanentRejectionIdsUnderRecheck.clear();
+    try {
+      await _syncJobModules();
+    } finally {
+      _recheckPermanentRejections = false;
+      _permanentRejectionIdsUnderRecheck.clear();
+    }
+  }
 
   Future<SyncPendingCounts> countPendingLocalWrites() async {
     final results = await Future.wait<int>([
@@ -260,6 +272,7 @@ class SyncService {
 
     _isSyncing = true;
     _recheckPermanentRejections = recheckPermanentRejections;
+    _permanentRejectionIdsUnderRecheck.clear();
 
     lastSuccessCount = 0;
     lastFailureCount = 0;
@@ -335,6 +348,7 @@ class SyncService {
     } finally {
       _isSyncing = false;
       _recheckPermanentRejections = false;
+      _permanentRejectionIdsUnderRecheck.clear();
       lastSyncTime = DateTime.now();
 
       final duration = DateTime.now().difference(start).inMilliseconds;

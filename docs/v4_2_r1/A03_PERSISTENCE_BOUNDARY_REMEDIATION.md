@@ -26,11 +26,14 @@ the rebased server version is stored before the row is marked synchronized.
 A further cross-business alignment pass adds exact lost-response convergence,
 server-timestamp receipt adoption for knowledge rows, and an explicit
 ordinary-user server recheck for held records that neither changes nor deletes
-source evidence. The 23 August reporting-completeness correction classifies
-one additional read-only quality-monitoring query and binds its focused
-regression. The current manifest therefore covers 500 operations and 1,603
-sites across 49 surfaces with digest
-`88DD51A3EF29EC3D2332B2082717F8B5E649C512A0B0C3B262B531CFAAA4EE83`;
+source evidence. A late review correction now retains that hold through failed
+or uncertain rechecks and resolves it only after authoritative remote
+acceptance or exact readback for the same record. The 23 August
+reporting-completeness correction also classifies one additional read-only
+quality-monitoring query and binds its focused regression. The current
+manifest therefore covers 501 operations and 1,599 sites across 49 surfaces
+with digest
+`7DC995C3C83B733AC4B8A2EF3B3D0F51E452C197014FD9C62EF0809B7FD98EAB`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.
