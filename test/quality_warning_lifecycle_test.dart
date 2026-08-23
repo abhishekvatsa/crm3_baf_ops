@@ -1,6 +1,7 @@
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
@@ -314,10 +315,7 @@ void main() {
             qualityMonitoringRequestsProvider.overrideWith(
               (ref) => Stream.value(const <QualityMonitoringRequest>[]),
             ),
-            abnormalitiesForChargeProvider.overrideWith((
-              ref,
-              sourceChargeNo,
-            ) {
+            abnormalitiesForChargeProvider.overrideWith((ref, sourceChargeNo) {
               activeCharges.add(sourceChargeNo);
               ref.onDispose(() => activeCharges.remove(sourceChargeNo));
               return Stream.value(const <ChargeAbnormality>[]);
@@ -343,7 +341,143 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('connected warning hides RA completion until RA is required', (
+    tester,
+  ) async {
+    await _pumpQualityWarningScreen(
+      tester,
+      abnormalities: <ChargeAbnormality>[
+        _linkedIssueAbnormality(ReannealingStatus.pendingDecision),
+      ],
+    );
+
+    await tester.ensureVisible(find.text('Adjudicate'));
+    await tester.tap(find.text('Adjudicate'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byType(DropdownButtonFormField<QualityWarningClosureDisposition>),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Coil found acceptable'), findsWidgets);
+    expect(find.text('Quality adjudication'), findsOneWidget);
+    expect(find.text('Re-annealing completed'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('connected RA completion accepts exactly one target charge', (
+    tester,
+  ) async {
+    await _pumpQualityWarningScreen(
+      tester,
+      abnormalities: <ChargeAbnormality>[
+        _linkedIssueAbnormality(ReannealingStatus.required),
+      ],
+    );
+
+    await tester.ensureVisible(find.text('Adjudicate'));
+    await tester.tap(find.text('Adjudicate'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byType(DropdownButtonFormField<QualityWarningClosureDisposition>),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Re-annealing completed').last);
+    await tester.pumpAndSettle();
+
+    expect(_textFieldWithLabel('RA charge number'), findsOneWidget);
+    expect(find.text('13001'), findsOneWidget);
+    expect(find.text('RA charge numbers'), findsNothing);
+    await tester.enterText(
+      _textFieldWithLabel('RA charge number'),
+      '13001, 13002',
+    );
+    await tester.enterText(
+      _textFieldWithLabel('Decision evidence'),
+      'The approved re-annealing cycle is complete.',
+    );
+    await tester.tap(find.text('Close warning'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter one five-digit RA charge number.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('unlinked legacy warning retains multi-charge adjudication', (
+    tester,
+  ) async {
+    await _pumpQualityWarningScreen(
+      tester,
+      abnormalities: const <ChargeAbnormality>[],
+    );
+
+    await tester.ensureVisible(find.text('Adjudicate'));
+    await tester.tap(find.text('Adjudicate'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byType(DropdownButtonFormField<QualityWarningClosureDisposition>),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Re-annealing completed').last);
+    await tester.pumpAndSettle();
+
+    expect(_textFieldWithLabel('RA charge numbers'), findsOneWidget);
+    expect(find.text('13001, 13002'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
+
+Future<void> _pumpQualityWarningScreen(
+  WidgetTester tester, {
+  required List<ChargeAbnormality> abnormalities,
+}) async {
+  await tester.binding.setSurfaceSize(const Size(480, 1000));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  final warning = QualityWarning.fromMap(_warning(), 'issue_ticket-1');
+  final actor = AppUser(
+    uid: 'si-1',
+    name: 'SI One',
+    email: 'si-1@example.com',
+    roles: const <AppRole>[AppRole.si],
+    isApproved: true,
+    createdAt: DateTime.utc(2026, 8, 14),
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
+        qualityWarningsProvider.overrideWith(
+          (ref) => Stream.value(<QualityWarning>[warning]),
+        ),
+        qualityMonitoringRequestsProvider.overrideWith(
+          (ref) => Stream.value(const <QualityMonitoringRequest>[]),
+        ),
+        abnormalitiesForChargeProvider.overrideWith(
+          (ref, sourceChargeNo) => Stream.value(abnormalities),
+        ),
+      ],
+      child: MaterialApp(
+        theme: BafAppTheme.light,
+        home: const QualityHomeScreen(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+ChargeAbnormality _linkedIssueAbnormality(ReannealingStatus status) {
+  return ChargeAbnormality()
+    ..firestoreId = 'issue_quality_ticket-1'
+    ..sourceChargeNo = 12001
+    ..linkedTicketFirestoreId = 'ticket-1'
+    ..reannealingStatus = status;
+}
+
+Finder _textFieldWithLabel(String label) => find.byWidgetPredicate(
+  (widget) => widget is TextField && widget.decoration?.labelText == label,
+);
 
 Map<String, dynamic> _warning() {
   final createdAt = DateTime.utc(2026, 8, 14, 8);
