@@ -9530,7 +9530,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "4DA08280668603D0CA7A90FBEAA53DBEACE939F4F102DEC771CBE2DA18AD4155"
+        == "2B5D83294C44109FA3303B11B3F4347BC9DC84B4ED5F75B74F57237FA4704331"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []

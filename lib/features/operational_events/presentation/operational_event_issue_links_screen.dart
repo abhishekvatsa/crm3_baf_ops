@@ -30,7 +30,7 @@ class _OperationalEventIssueLinksScreenState
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Event-linked issues',
         appBarSubtitle: 'Verifying your approved event scope',
@@ -247,7 +247,7 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Linked operational events',
         appBarSubtitle: 'Verifying your approved issue scope',

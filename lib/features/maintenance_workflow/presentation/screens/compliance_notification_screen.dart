@@ -5,6 +5,7 @@ import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../domain/compliance_visibility_policy.dart';
 import '../../providers/workflow_providers.dart';
 import 'compliance_detail_screen.dart';
 import 'compliance_inbox_screen.dart';
@@ -24,7 +25,7 @@ class ComplianceNotificationScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Compliance update',
         appBarSubtitle: 'Verifying your approved compliance scope',
@@ -78,20 +79,32 @@ class ComplianceNotificationScreen extends ConsumerWidget {
                   workflowComplianceRecordProvider(complianceId),
                 ),
           ),
-      data:
-          (record) =>
-              record == null
-                  ? _ComplianceNotificationFallback(
-                    title: 'Compliance update not found',
-                    message:
-                        'The obligation is not present in the current projection. It may have been superseded or removed.',
-                    laneKey: laneKey,
-                    onRetry:
-                        () => ref.invalidate(
-                          workflowComplianceRecordProvider(complianceId),
-                        ),
-                  )
-                  : ComplianceDetailScreen(record: record),
+      data: (record) {
+        if (record == null) {
+          return _ComplianceNotificationFallback(
+            title: 'Compliance update not found',
+            message:
+                'The obligation is not present in the current projection. It may have been superseded or removed.',
+            laneKey: laneKey,
+            onRetry:
+                () => ref.invalidate(
+                  workflowComplianceRecordProvider(complianceId),
+                ),
+          );
+        }
+        if (!canUserSeeComplianceRequest(record, actor)) {
+          return BafScreenStateScaffold.access(
+            appBarTitle: 'Compliance update',
+            appBarSubtitle: 'Operational obligation and response status',
+            appBarIcon: Icons.assignment_late_outlined,
+            accent: BafColors.directives,
+            title: 'Compliance audience required',
+            message:
+                'This obligation is outside your approved lane and supervisory scope.',
+          );
+        }
+        return ComplianceDetailScreen(record: record);
+      },
     );
   }
 }

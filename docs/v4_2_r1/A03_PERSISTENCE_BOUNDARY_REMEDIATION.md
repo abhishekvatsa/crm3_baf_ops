@@ -35,9 +35,12 @@ workflow re-arm classifies its additional local reconciliation sites under the
 existing maintenance repository boundary. Strict server-readback adoption for
 planned executions, runtime modules and charge abnormalities adds two further
 compare-and-apply operations under their existing repository adapters. The
+event-link authority correction makes three read streams auto-dispose when
+their last authorized listener leaves; operation, site and surface counts do
+not change, but the constructor lifecycle is part of the exact digest. The
 current manifest therefore covers 507 operations and 1,610 sites across 49 surfaces
 with digest
-`4DA08280668603D0CA7A90FBEAA53DBEACE939F4F102DEC771CBE2DA18AD4155`;
+`2B5D83294C44109FA3303B11B3F4347BC9DC84B4ED5F75B74F57237FA4704331`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

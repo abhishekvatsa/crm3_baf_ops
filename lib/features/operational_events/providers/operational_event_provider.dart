@@ -22,11 +22,8 @@ final operationalEventIssueLinkServiceProvider =
       (ref) => OperationalEventIssueLinkService(),
     );
 
-final operationalEventIssueLinksProvider =
-    StreamProvider.family<List<OperationalEventIssueLink>, String>((
-      ref,
-      eventId,
-    ) {
+final operationalEventIssueLinksProvider = StreamProvider.autoDispose
+    .family<List<OperationalEventIssueLink>, String>((ref, eventId) {
       return FirebaseFirestore.instance
           .collection('operational_event_issue_links')
           .where('eventId', isEqualTo: eventId)
@@ -34,11 +31,8 @@ final operationalEventIssueLinksProvider =
           .map(_decodeOperationalEventIssueLinks);
     });
 
-final operationalIssueEventLinksProvider =
-    StreamProvider.family<List<OperationalEventIssueLink>, String>((
-      ref,
-      issueId,
-    ) {
+final operationalIssueEventLinksProvider = StreamProvider.autoDispose
+    .family<List<OperationalEventIssueLink>, String>((ref, issueId) {
       return FirebaseFirestore.instance
           .collection('operational_event_issue_links')
           .where('issueId', isEqualTo: issueId)
@@ -63,19 +57,22 @@ List<OperationalEventIssueLink> sortOperationalEventIssueLinks(
   return List<OperationalEventIssueLink>.unmodifiable(links);
 }
 
-final operationalEventsProvider = StreamProvider<List<OperationalEvent>>((ref) {
-  final events = FirebaseFirestore.instance.collection('operational_events');
-  final open = events
-      .where('status', isEqualTo: OperationalEventStatus.open.name)
-      .snapshots()
-      .map(_decodeOperationalEvents);
-  final recent = events
-      .orderBy('updatedAt', descending: true)
-      .limit(operationalEventLiveWindowLimit)
-      .snapshots()
-      .map(_decodeOperationalEvents);
-  return _combineOperationalEventWindows(open, recent);
-});
+final operationalEventsProvider =
+    StreamProvider.autoDispose<List<OperationalEvent>>((ref) {
+      final events = FirebaseFirestore.instance.collection(
+        'operational_events',
+      );
+      final open = events
+          .where('status', isEqualTo: OperationalEventStatus.open.name)
+          .snapshots()
+          .map(_decodeOperationalEvents);
+      final recent = events
+          .orderBy('updatedAt', descending: true)
+          .limit(operationalEventLiveWindowLimit)
+          .snapshots()
+          .map(_decodeOperationalEvents);
+      return _combineOperationalEventWindows(open, recent);
+    });
 
 /// Complete event-document history for date-bound operational reports.
 ///

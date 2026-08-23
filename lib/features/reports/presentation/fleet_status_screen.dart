@@ -65,7 +65,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Operations report',
         appBarSubtitle: 'Verifying your approved reporting scope',

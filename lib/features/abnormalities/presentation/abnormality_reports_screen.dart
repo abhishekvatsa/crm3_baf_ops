@@ -64,7 +64,7 @@ class _AbnormalityReportsScreenState
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       _clearLoadedReport();
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Abnormality reports',
