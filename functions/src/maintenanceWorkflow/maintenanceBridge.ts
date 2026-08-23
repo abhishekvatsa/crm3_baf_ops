@@ -267,6 +267,7 @@ const actionPayloadText = (
 };
 
 const readResolutionHistory = (value: unknown): JsonMap[] => {
+  if (value == null) return [];
   if (typeof value !== "string" || value.trim().length === 0) {
     return maintenanceHistoryError("resolutionHistoryJson");
   }

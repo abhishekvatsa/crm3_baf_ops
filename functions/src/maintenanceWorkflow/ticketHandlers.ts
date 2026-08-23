@@ -269,6 +269,38 @@ const requiredInstantDate = (value: unknown, field: string): Date => {
   return parsed;
 };
 
+const requiredPersistedInstantDate = (
+  value: unknown,
+  field: string,
+): Date => {
+  let parsed: Date | null = null;
+  if (value instanceof Date) {
+    parsed = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    parsed = new Date(value);
+  } else if (
+    value != null &&
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof (value as {toDate?: unknown}).toDate === "function"
+  ) {
+    try {
+      const converted = (value as {toDate: () => unknown}).toDate();
+      if (converted instanceof Date) parsed = converted;
+    } catch (_) {
+      parsed = null;
+    }
+  }
+  if (parsed == null || Number.isNaN(parsed.getTime())) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket timestamp evidence is malformed.",
+      {reasonCode: "maintenance-ticket-timestamp-invalid", field},
+    );
+  }
+  return parsed;
+};
+
 const closureActionPayload = (
   value: unknown,
 ): {readonly text: string; readonly rows: readonly JsonMap[]} => {
@@ -1989,7 +2021,10 @@ export const resolveMaintenanceTicket = async ({
   }
   const plan = ticketLanePlan(ticket);
   const endDate = requiredInstantDate(command.payload.endDate, "endDate");
-  const startDate = requiredInstantDate(ticket.startDate, "ticket.startDate");
+  const startDate = requiredPersistedInstantDate(
+    ticket.startDate,
+    "ticket.startDate",
+  );
   if (endDate.getTime() < startDate.getTime() ||
       endDate.getTime() > context.serverNow.getTime() + 5 * 60 * 1000) {
     throw new WorkflowError(
@@ -2101,7 +2136,10 @@ export const reopenMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-not-closed-for-reopen"},
     );
   }
-  const closedAt = requiredInstantDate(ticket.endDate, "ticket.endDate");
+  const closedAt = requiredPersistedInstantDate(
+    ticket.endDate,
+    "ticket.endDate",
+  );
   const elapsed = context.serverNow.getTime() - closedAt.getTime();
   if (elapsed < 0 || elapsed > 4 * 60 * 60 * 1000) {
     throw new WorkflowError(

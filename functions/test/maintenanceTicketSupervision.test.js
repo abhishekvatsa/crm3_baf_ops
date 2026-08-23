@@ -7,6 +7,10 @@ const {
 const {
   payloadFingerprint,
 } = require('../lib/maintenanceWorkflow/utils');
+const {
+  reopenMaintenanceTicket,
+  resolveMaintenanceTicket,
+} = require('../lib/maintenanceWorkflow/ticketHandlers');
 
 const at = new Date('2026-08-14T16:30:00.000Z');
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
@@ -166,6 +170,37 @@ function burnerResolutionAction({
     burnerOutcome: 'returnedToService',
     burnerMicroampReading: reading,
   };
+}
+
+const firestoreTimestamp = (value) => ({
+  toDate: () => new Date(value),
+});
+
+function directHandlerTransaction(ticketId, ticket) {
+  const docs = new Map([[`maintenance_records/${ticketId}`, ticket]]);
+  const tx = {
+    async get(path) {
+      const data = docs.get(path);
+      return {path, exists: data != null, data: data ?? null};
+    },
+    async query() {
+      return [];
+    },
+    create(path, data) {
+      if (docs.has(path)) throw new Error(`already-exists:${path}`);
+      docs.set(path, data);
+    },
+    set(path, data, merge = false) {
+      const prior = docs.get(path);
+      docs.set(path, merge && prior != null ? {...prior, ...data} : data);
+    },
+    update(path, data) {
+      const prior = docs.get(path);
+      if (prior == null) throw new Error(`not-found:${path}`);
+      docs.set(path, {...prior, ...data});
+    },
+  };
+  return {tx, read: (path) => docs.get(path)};
 }
 
 describe('governed maintenance-ticket supervision', () => {
@@ -726,6 +761,57 @@ describe('governed maintenance-ticket supervision', () => {
     }, multi.context)).rejects.toMatchObject({code: 'permission-denied'});
   });
 
+  test('resolution accepts persisted timestamps but keeps command time text-only', async () => {
+    const ticketId = 'timestamp-resolution';
+    const ticket = {
+      firestoreId: ticketId,
+      version: 3,
+      routedTo: 'electrical',
+      status: 'open',
+      isResolved: false,
+      isDeleted: false,
+      workflowDeferred: false,
+      startDate: firestoreTimestamp('2026-08-14T14:30:00.000Z'),
+    };
+    const command = {
+      commandId: 'resolve-timestamp-ticket',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: ticketId,
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Electrical repair and functional check completed.',
+        teamsInvolved: ['electrical'],
+        actionsJson: '[]',
+      },
+    };
+    const accepted = directHandlerTransaction(ticketId, ticket);
+
+    await expect(resolveMaintenanceTicket({
+      tx: accepted.tx,
+      command,
+      context: {actor: electrical, serverNow: at},
+    })).resolves.toMatchObject({aggregateVersion: 4});
+    expect(accepted.read(`maintenance_records/${ticketId}`)).toMatchObject({
+      endDate: '2026-08-14T16:00:00.000Z',
+      downtimeHours: 1.5,
+    });
+
+    const rejected = directHandlerTransaction(ticketId, ticket);
+    await expect(resolveMaintenanceTicket({
+      tx: rejected.tx,
+      command: {
+        ...command,
+        commandId: 'reject-non-text-command-time',
+        payload: {
+          ...command.payload,
+          endDate: firestoreTimestamp('2026-08-14T16:00:00.000Z'),
+        },
+      },
+      context: {actor: electrical, serverNow: at},
+    })).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
   test('burner resolution derives immutable closure evidence from work actions', async () => {
     const seeded = serviceFor(admin, {
       startDate: '2026-08-14T14:30:00.000Z',
@@ -874,6 +960,83 @@ describe('governed maintenance-ticket supervision', () => {
         teamsInvolved: ['electrical', 'mechanical'],
       }),
     ]);
+  });
+
+  test('reopen accepts a persisted timestamp and absent legacy history', async () => {
+    const ticketId = 'legacy-timestamp-reopen';
+    const ticket = {
+      firestoreId: ticketId,
+      version: 3,
+      routedTo: 'electrical',
+      status: 'resolved',
+      isResolved: true,
+      isDeleted: false,
+      workflowDeferred: false,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: ['electrical'],
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T14:00:00.000Z',
+      endDate: firestoreTimestamp('2026-08-14T15:30:00.000Z'),
+      closedByUid: electrical.uid,
+      closedByName: electrical.name,
+      remarks: 'Initial repair completed.',
+      downtimeHours: 2.5,
+      teamsInvolved: ['electrical'],
+      actionsJson: '[]',
+    };
+    const state = directHandlerTransaction(ticketId, ticket);
+
+    await expect(reopenMaintenanceTicket({
+      tx: state.tx,
+      command: {
+        commandId: 'reopen-legacy-timestamp-ticket',
+        commandType: 'reopenMaintenanceTicket',
+        aggregateId: ticketId,
+        expectedVersion: 3,
+        payload: {remarks: 'The symptom returned during operation.'},
+      },
+      context: {actor: operations, serverNow: at},
+    })).resolves.toMatchObject({aggregateVersion: 4});
+
+    const reopened = state.read(`maintenance_records/${ticketId}`);
+    expect(reopened).toMatchObject({
+      status: 'open',
+      endDate: null,
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    expect(JSON.parse(reopened.resolutionHistoryJson)).toEqual([
+      expect.objectContaining({
+        resolvedAt: '2026-08-14T15:30:00.000Z',
+        resolvedByUid: electrical.uid,
+      }),
+    ]);
+
+    const corrupt = directHandlerTransaction(ticketId, {
+      ...ticket,
+      resolutionHistoryJson: '',
+    });
+    await expect(reopenMaintenanceTicket({
+      tx: corrupt.tx,
+      command: {
+        commandId: 'reject-blank-legacy-history',
+        commandType: 'reopenMaintenanceTicket',
+        aggregateId: ticketId,
+        expectedVersion: 3,
+        payload: {remarks: 'Attempted reopen with corrupt history.'},
+      },
+      context: {actor: operations, serverNow: at},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-resolution-history-invalid',
+        field: 'resolutionHistoryJson',
+      },
+    });
   });
 
   test('new lane projections require the complete field set', async () => {
