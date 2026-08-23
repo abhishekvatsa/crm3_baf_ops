@@ -440,6 +440,40 @@ export async function sendNotification(args: {
 //
 // Pulled out as pure functions so tests assert on shape without touching FCM.
 
+interface TicketUpdateNotificationPlan {
+  title: string;
+  body: string;
+  roles: string[];
+  loggedByUid: string | null;
+}
+
+function ticketNotificationLanes(
+  ticket: Record<string, unknown>,
+): string[] | null {
+  const hasCanonicalLanes = Object.prototype.hasOwnProperty.call(
+    ticket,
+    "issueAssignedLanes",
+  );
+  if (!hasCanonicalLanes) {
+    const routedTo = typeof ticket.routedTo === "string" ? ticket.routedTo : "";
+    return routedTo.length > 0 &&
+      Object.prototype.hasOwnProperty.call(AGENCY_TO_ROLES, routedTo) ?
+      [routedTo] : [];
+  }
+
+  const raw = ticket.issueAssignedLanes;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const lanes = raw.filter((lane): lane is string =>
+    typeof lane === "string" && lane.length > 0);
+  if (lanes.length !== raw.length ||
+      new Set(lanes).size !== lanes.length ||
+      lanes.some((lane) =>
+        !Object.prototype.hasOwnProperty.call(AGENCY_TO_ROLES, lane))) {
+    return null;
+  }
+  return lanes;
+}
+
 export function buildTicketCreatedNotification(ticket: Record<string, unknown>): {
   title: string;
   body: string;
@@ -505,6 +539,42 @@ export function buildTicketResolvedNotification(
     roles: ["admin", "si"],
     loggedByUid:
       typeof after.loggedByUid === "string" ? after.loggedByUid : null,
+  };
+}
+
+export function buildTicketLaneAddedNotification(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): TicketUpdateNotificationPlan | null {
+  if (after.isDeleted === true || after.isResolved === true) return null;
+  const beforeLanes = ticketNotificationLanes(before);
+  const afterLanes = ticketNotificationLanes(after);
+  if (beforeLanes == null || afterLanes == null) return null;
+
+  const previous = new Set(beforeLanes);
+  const addedLanes = afterLanes.filter((lane) => !previous.has(lane));
+  if (addedLanes.length === 0) return null;
+
+  const assetType = typeof after.assetType === "string" ? after.assetType : "";
+  const assetNumber = after.assetNumber ?? "";
+  const description =
+    typeof after.description === "string" && after.description.length > 0 ?
+      after.description : "Maintenance issue";
+  const laneRoles = agenciesToRoles(addedLanes).roles;
+  const roles = [...new Set([
+    "admin",
+    "si",
+    "contractSupervisor",
+    "shiftSupervisor",
+    ...laneRoles,
+  ])];
+  const laneLabel = addedLanes.map((lane) => lane.toUpperCase()).join(" + ");
+
+  return {
+    title: `Lane assigned: ${assetType.toUpperCase()} ${assetNumber}`,
+    body: `${laneLabel} joined - ${description}`,
+    roles,
+    loggedByUid: null,
   };
 }
 

@@ -138,6 +138,7 @@ import type {
 import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
+  buildTicketLaneAddedNotification,
   buildTicketResolvedNotification,
   getTokenLookupsForUser,
   getTokenLookupsForRoles,
@@ -736,10 +737,12 @@ export const onTicketResolved = onDocumentUpdated(
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     if (before == null || after == null) return;
-    if (before.isResolved === after.isResolved) return;
-    if (after.isResolved !== true) return;
-
-    const plan = buildTicketResolvedNotification(after);
+    const resolvedNow = before.isResolved !== after.isResolved &&
+      after.isResolved === true;
+    const plan = resolvedNow ?
+      buildTicketResolvedNotification(after) :
+      buildTicketLaneAddedNotification(before, after);
+    if (plan == null) return;
     const db = firestoreAdapter();
     const result = await executeIdempotentNotificationEvent({
       runtime: notificationReceiptRuntime(db),

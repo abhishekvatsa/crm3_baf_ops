@@ -3,6 +3,7 @@ const {
   agenciesToRoles,
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
+  buildTicketLaneAddedNotification,
   buildTicketResolvedNotification,
   FCM_DEAD_TOKEN_CODES,
   getTokenLookupsForUser,
@@ -377,6 +378,58 @@ describe('buildTicketResolvedNotification', () => {
         assetType: 'baf', assetNumber: 1, closedByName: 'X', remarks: 'Y',
       }).loggedByUid,
     ).toBe(null);
+  });
+});
+
+describe('buildTicketLaneAddedNotification', () => {
+  test('notifies only disciplines newly added to a legacy ticket', () => {
+    const plan = buildTicketLaneAddedNotification(
+      {
+        assetType: 'furnace', assetNumber: 7, description: 'Joint attendance',
+        routedTo: 'mechanical', isResolved: false,
+      },
+      {
+        assetType: 'furnace', assetNumber: 7, description: 'Joint attendance',
+        routedTo: 'mechanical', issueAssignedLanes: ['mechanical', 'electrical'],
+        isResolved: false,
+      },
+    );
+
+    expect(plan).toMatchObject({
+      title: 'Lane assigned: FURNACE 7',
+      loggedByUid: null,
+    });
+    expect(plan.body).toContain('ELECTRICAL joined');
+    expect(plan.roles).toEqual(expect.arrayContaining([
+      'admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorElectrical',
+    ]));
+    expect(plan.roles).not.toContain('seniorMechanical');
+  });
+
+  test('does not notify for reorder, removal, terminal, or malformed updates', () => {
+    const current = {
+      routedTo: 'mechanical',
+      issueAssignedLanes: ['mechanical', 'electrical'],
+      isResolved: false,
+    };
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      routedTo: 'electrical',
+      issueAssignedLanes: ['electrical', 'mechanical'],
+    })).toBeNull();
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      issueAssignedLanes: ['mechanical'],
+    })).toBeNull();
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      issueAssignedLanes: ['mechanical', 'electrical', 'operations'],
+      isResolved: true,
+    })).toBeNull();
+    expect(buildTicketLaneAddedNotification(current, {
+      ...current,
+      issueAssignedLanes: ['mechanical', 'operations', 'operations'],
+    })).toBeNull();
   });
 });
 
