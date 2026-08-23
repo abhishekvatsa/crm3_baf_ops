@@ -1058,6 +1058,7 @@
       "owner": "Architecture / reports",
       "purpose": "Owns the fleet status screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
       "responsibilities": [
+        "authority",
         "presentation",
         "state-orchestration"
       ],
@@ -1066,9 +1067,10 @@
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
       "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
       "regressionTests": [
-        "test/operations_report_test.dart"
+        "test/operations_report_test.dart",
+        "test/report_link_screen_authority_gate_test.dart"
       ],
-      "maximumLines": 1500,
+      "maximumLines": 1525,
       "requiredMarkers": [
         "class FleetStatusScreen"
       ],

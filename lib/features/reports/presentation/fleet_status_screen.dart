@@ -13,6 +13,7 @@ import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../assets/presentation/asset_condition_board.dart';
 import '../../abnormalities/presentation/abnormalities_home_screen.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../directives/presentation/directives_screen.dart';
 import '../../directives/providers/operational_directive_provider.dart';
 import '../../inspections/data/inspection_campaign.dart';
@@ -63,6 +64,36 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Operations report',
+        appBarSubtitle: 'Verifying your approved reporting scope',
+        appBarIcon: Icons.bar_chart_rounded,
+        accent: BafColors.planned,
+        label: 'Checking report access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Operations report',
+        appBarSubtitle: 'Verifying your approved reporting scope',
+        appBarIcon: Icons.bar_chart_rounded,
+        accent: BafColors.planned,
+        message: 'Report access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Operations report',
+        appBarSubtitle: 'Asset health, work and failure performance',
+        appBarIcon: Icons.bar_chart_rounded,
+        accent: BafColors.planned,
+        title: 'Report access required',
+        message: 'An approved account is required to view management reports.',
+      );
+    }
     final classesAsync = ref.watch(assetClassesProvider);
     final assetsAsync = ref.watch(allAssetInstancesProvider);
     final classes = classesAsync.value ?? const [];

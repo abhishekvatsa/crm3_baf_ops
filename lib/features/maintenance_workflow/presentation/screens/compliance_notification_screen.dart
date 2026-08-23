@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/brand/brand_widgets.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../providers/workflow_providers.dart';
 import 'compliance_detail_screen.dart';
 import 'compliance_inbox_screen.dart';
@@ -22,6 +23,36 @@ class ComplianceNotificationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Compliance update',
+        appBarSubtitle: 'Verifying your approved compliance scope',
+        appBarIcon: Icons.assignment_late_outlined,
+        accent: BafColors.directives,
+        label: 'Checking compliance access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance update',
+        appBarSubtitle: 'Verifying your approved compliance scope',
+        appBarIcon: Icons.assignment_late_outlined,
+        accent: BafColors.directives,
+        message: 'Compliance access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Compliance update',
+        appBarSubtitle: 'Operational obligation and response status',
+        appBarIcon: Icons.assignment_late_outlined,
+        accent: BafColors.directives,
+        title: 'Compliance access required',
+        message: 'An approved account is required to open compliance updates.',
+      );
+    }
     final recordAsync = ref.watch(
       workflowComplianceRecordProvider(complianceId),
     );

@@ -9,6 +9,8 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/abnormality_model.dart';
 import '../providers/abnormality_provider.dart';
@@ -23,32 +25,78 @@ class AbnormalityReportsScreen extends ConsumerStatefulWidget {
 
 class _AbnormalityReportsScreenState
     extends ConsumerState<AbnormalityReportsScreen> {
-  late Future<List<ChargeAbnormality>> _future;
+  Future<List<ChargeAbnormality>>? _future;
+  String? _futureActorUid;
 
   String _searchQuery = '';
   AbnormalityCategory? _categoryFilter;
   ReannealingStatus? _raFilter;
   AbnormalitySeverity? _severityFilter;
 
-  @override
-  void initState() {
-    super.initState();
-    _future = _load();
-  }
-
   Future<List<ChargeAbnormality>> _load() {
     return ref.read(abnormalityRepositoryProvider).getAllAbnormalities();
   }
 
+  void _ensureLoadedFor(AppUser actor) {
+    if (_future != null && _futureActorUid == actor.uid) return;
+    _futureActorUid = actor.uid;
+    _future = _load();
+  }
+
+  void _clearLoadedReport() {
+    _futureActorUid = null;
+    _future = null;
+  }
+
   Future<void> _refresh() async {
+    final actorAsync = ref.read(currentAppUserProvider);
+    if (actorAsync.hasError) return;
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) return;
+    final next = _load();
     setState(() {
-      _future = _load();
+      _futureActorUid = actor.uid;
+      _future = next;
     });
-    await _future;
+    await next;
   }
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      _clearLoadedReport();
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Abnormality reports',
+        appBarSubtitle: 'Verifying your approved reporting scope',
+        appBarIcon: Icons.analytics_outlined,
+        accent: BafColors.charges,
+        label: 'Checking abnormality-report access',
+      );
+    }
+    if (actorAsync.hasError) {
+      _clearLoadedReport();
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Abnormality reports',
+        appBarSubtitle: 'Verifying your approved reporting scope',
+        appBarIcon: Icons.analytics_outlined,
+        accent: BafColors.charges,
+        message: 'Abnormality-report access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      _clearLoadedReport();
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Abnormality reports',
+        appBarSubtitle: 'Charge patterns, quality exposure and closure',
+        appBarIcon: Icons.analytics_outlined,
+        accent: BafColors.charges,
+        title: 'Abnormality-report access required',
+        message: 'An approved account is required to view abnormality reports.',
+      );
+    }
+    _ensureLoadedFor(actor);
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -68,7 +116,7 @@ class _AbnormalityReportsScreenState
         ],
       ),
       body: FutureBuilder<List<ChargeAbnormality>>(
-        future: _future,
+        future: _future!,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const BafLoadingPanel(
@@ -97,28 +145,31 @@ class _AbnormalityReportsScreenState
                 _HeaderCard(
                   total: records.length,
                   filtered: filtered.length,
-                  raPending: records
-                      .where(
-                        (record) =>
-                    record.reannealingStatus ==
-                        ReannealingStatus.pendingDecision ||
-                        record.reannealingStatus ==
-                            ReannealingStatus.required,
-                  )
-                      .length,
-                  raCompleted: records
-                      .where(
-                        (record) =>
-                    record.reannealingStatus ==
-                        ReannealingStatus.completed,
-                  )
-                      .length,
-                  critical: records
-                      .where(
-                        (record) =>
-                    record.severity == AbnormalitySeverity.critical,
-                  )
-                      .length,
+                  raPending:
+                      records
+                          .where(
+                            (record) =>
+                                record.reannealingStatus ==
+                                    ReannealingStatus.pendingDecision ||
+                                record.reannealingStatus ==
+                                    ReannealingStatus.required,
+                          )
+                          .length,
+                  raCompleted:
+                      records
+                          .where(
+                            (record) =>
+                                record.reannealingStatus ==
+                                ReannealingStatus.completed,
+                          )
+                          .length,
+                  critical:
+                      records
+                          .where(
+                            (record) =>
+                                record.severity == AbnormalitySeverity.critical,
+                          )
+                          .length,
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 _FiltersCard(
@@ -155,11 +206,11 @@ class _AbnormalityReportsScreenState
                     icon: Icons.manage_search_rounded,
                     title: 'No matching abnormalities',
                     message:
-                    'Change filters or pull to refresh. The report only shows locally available, non-deleted records.',
+                        'Change filters or pull to refresh. The report only shows locally available, non-deleted records.',
                   )
                 else
                   ...filtered.map(
-                        (record) => _ReportRecordCard(record: record),
+                    (record) => _ReportRecordCard(record: record),
                   ),
               ],
             ),
@@ -172,36 +223,38 @@ class _AbnormalityReportsScreenState
   List<ChargeAbnormality> _applyFilters(List<ChargeAbnormality> records) {
     final query = _searchQuery.trim().toLowerCase();
 
-    final filtered = records.where((record) {
-      if (_categoryFilter != null && record.category != _categoryFilter) {
-        return false;
-      }
+    final filtered =
+        records.where((record) {
+          if (_categoryFilter != null && record.category != _categoryFilter) {
+            return false;
+          }
 
-      if (_severityFilter != null && record.severity != _severityFilter) {
-        return false;
-      }
+          if (_severityFilter != null && record.severity != _severityFilter) {
+            return false;
+          }
 
-      if (_raFilter != null && record.reannealingStatus != _raFilter) {
-        return false;
-      }
+          if (_raFilter != null && record.reannealingStatus != _raFilter) {
+            return false;
+          }
 
-      if (query.isEmpty) return true;
+          if (query.isEmpty) return true;
 
-      final text = [
-        record.sourceChargeNo.toString(),
-        record.reannealedToChargeNo?.toString() ?? '',
-        record.abnormalityTypeCode,
-        record.abnormalityTypeTitle,
-        record.observedReason,
-        record.description ?? '',
-        record.component ?? '',
-        record.affectedAssetsLabel,
-        record.possibleRootReasonNotes ?? '',
-        record.loggedByName ?? '',
-      ].join(' ').toLowerCase();
+          final text =
+              [
+                record.sourceChargeNo.toString(),
+                record.reannealedToChargeNo?.toString() ?? '',
+                record.abnormalityTypeCode,
+                record.abnormalityTypeTitle,
+                record.observedReason,
+                record.description ?? '',
+                record.component ?? '',
+                record.affectedAssetsLabel,
+                record.possibleRootReasonNotes ?? '',
+                record.loggedByName ?? '',
+              ].join(' ').toLowerCase();
 
-      return text.contains(query);
-    }).toList();
+          return text.contains(query);
+        }).toList();
 
     filtered.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
     return filtered;
@@ -244,10 +297,7 @@ class _HeaderCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
-                child: const Icon(
-                  Icons.analytics_rounded,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.analytics_rounded, color: Colors.white),
               ),
               const SizedBox(width: BafSpacing.md),
               const Expanded(
@@ -298,10 +348,7 @@ class _MetricPill extends StatelessWidget {
   final String label;
   final int value;
 
-  const _MetricPill({
-    required this.label,
-    required this.value,
-  });
+  const _MetricPill({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -314,9 +361,7 @@ class _MetricPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,10 +377,7 @@ class _MetricPill extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
       ),
@@ -376,7 +418,7 @@ class _FiltersCard extends StatelessWidget {
             icon: Icons.filter_alt_rounded,
             title: 'Filters',
             subtitle:
-            'Search by charge, abnormality type, reason, asset, component or user.',
+                'Search by charge, abnormality type, reason, asset, component or user.',
             color: BafColors.sync,
           ),
           const SizedBox(height: BafSpacing.md),
@@ -454,15 +496,10 @@ class _FilterDropdown<T> extends StatelessWidget {
         initialValue: value,
         decoration: _inputDecoration(label: label),
         items: [
-          DropdownMenuItem<T?>(
-            value: null,
-            child: const Text('All'),
-          ),
+          DropdownMenuItem<T?>(value: null, child: const Text('All')),
           ...values.map(
-                (item) => DropdownMenuItem<T?>(
-              value: item,
-              child: Text(itemLabel(item)),
-            ),
+            (item) =>
+                DropdownMenuItem<T?>(value: item, child: Text(itemLabel(item))),
           ),
         ],
         onChanged: onChanged,
@@ -474,20 +511,18 @@ class _FilterDropdown<T> extends StatelessWidget {
 class _InsightGrid extends StatelessWidget {
   final List<ChargeAbnormality> records;
 
-  const _InsightGrid({
-    required this.records,
-  });
+  const _InsightGrid({required this.records});
 
   @override
   Widget build(BuildContext context) {
     final byCategory = _countBy<AbnormalityCategory>(
       records,
-          (record) => record.category,
+      (record) => record.category,
     );
 
     final byRoot = _countBy<RootReasonCategory>(
       records,
-          (record) => record.possibleRootReasonCategory,
+      (record) => record.possibleRootReasonCategory,
     );
 
     final byAsset = <AssetType, int>{};
@@ -555,9 +590,9 @@ class _InsightGrid extends StatelessWidget {
   }
 
   static Map<T, int> _countBy<T>(
-      List<ChargeAbnormality> records,
-      T Function(ChargeAbnormality record) selector,
-      ) {
+    List<ChargeAbnormality> records,
+    T Function(ChargeAbnormality record) selector,
+  ) {
     final result = <T, int>{};
 
     for (final record in records) {
@@ -586,8 +621,8 @@ class _BreakdownCard<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = values.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final entries =
+        values.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
     return DashboardCard(
       child: Column(
@@ -596,19 +631,17 @@ class _BreakdownCard<T> extends StatelessWidget {
           _SectionHeader(
             icon: icon,
             title: title,
-            subtitle: entries.isEmpty
-                ? 'No records in current filter.'
-                : 'Top contributors in current filter.',
+            subtitle:
+                entries.isEmpty
+                    ? 'No records in current filter.'
+                    : 'Top contributors in current filter.',
             color: color,
           ),
           const SizedBox(height: BafSpacing.md),
           if (entries.isEmpty)
             const Text(
               'No data',
-              style: TextStyle(
-                color: BafColors.textSecondary,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
             )
           else
             ...entries.take(6).map((entry) {
@@ -643,9 +676,7 @@ class _BreakdownCard<T> extends StatelessWidget {
 class _ReportRecordCard extends StatelessWidget {
   final ChargeAbnormality record;
 
-  const _ReportRecordCard({
-    required this.record,
-  });
+  const _ReportRecordCard({required this.record});
 
   @override
   Widget build(BuildContext context) {
@@ -730,7 +761,7 @@ class _ReportRecordCard extends StatelessWidget {
                             _SoftChip(
                               icon: Icons.repeat_rounded,
                               label:
-                              'New charge ${record.reannealedToChargeNo}',
+                                  'New charge ${record.reannealedToChargeNo}',
                             ),
                           _SoftChip(
                             icon: Icons.precision_manufacturing_rounded,
@@ -747,7 +778,7 @@ class _ReportRecordCard extends StatelessWidget {
                       const SizedBox(height: BafSpacing.md),
                       Text(
                         'Logged ${DateFormat('dd MMM yyyy, HH:mm').format(record.loggedAt)}'
-                            '${record.loggedByName == null ? '' : ' by ${record.loggedByName}'}',
+                        '${record.loggedByName == null ? '' : ' by ${record.loggedByName}'}',
                         style: const TextStyle(
                           color: BafColors.textSecondary,
                           fontSize: 11,
@@ -769,20 +800,13 @@ class _SoftChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _SoftChip({
-    required this.icon,
-    required this.label,
-  });
+  const _SoftChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Chip(
       visualDensity: VisualDensity.compact,
-      avatar: Icon(
-        icon,
-        size: 16,
-        color: BafColors.assets,
-      ),
+      avatar: Icon(icon, size: 16, color: BafColors.assets),
       label: Text(label),
       labelStyle: const TextStyle(
         color: BafColors.textPrimary,
@@ -790,9 +814,7 @@ class _SoftChip extends StatelessWidget {
         fontWeight: FontWeight.w600,
       ),
       backgroundColor: BafColors.assets.withValues(alpha: 0.08),
-      side: BorderSide(
-        color: BafColors.assets.withValues(alpha: 0.16),
-      ),
+      side: BorderSide(color: BafColors.assets.withValues(alpha: 0.16)),
     );
   }
 }
@@ -909,10 +931,7 @@ class _StateCard extends StatelessWidget {
 // HELPERS
 // ─────────────────────────────────────────────────────────────
 
-InputDecoration _inputDecoration({
-  required String label,
-  String? hint,
-}) {
+InputDecoration _inputDecoration({required String label, String? hint}) {
   return InputDecoration(
     labelText: label,
     hintText: hint,
@@ -928,10 +947,7 @@ InputDecoration _inputDecoration({
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(BafRadius.medium),
-      borderSide: const BorderSide(
-        color: BafColors.navySoft,
-        width: 1.4,
-      ),
+      borderSide: const BorderSide(color: BafColors.navySoft, width: 1.4),
     ),
   );
 }

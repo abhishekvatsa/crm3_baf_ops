@@ -29,7 +29,36 @@ class _OperationalEventIssueLinksScreenState
 
   @override
   Widget build(BuildContext context) {
-    final actor = ref.watch(currentAppUserProvider).value;
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Event-linked issues',
+        appBarSubtitle: 'Verifying your approved event scope',
+        appBarIcon: Icons.link_outlined,
+        accent: BafColors.warning,
+        label: 'Checking event-link access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Event-linked issues',
+        appBarSubtitle: 'Verifying your approved event scope',
+        appBarIcon: Icons.link_outlined,
+        accent: BafColors.warning,
+        message: 'Event-link access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Event-linked issues',
+        appBarSubtitle: 'Maintenance consequences of this operational event',
+        appBarIcon: Icons.link_outlined,
+        accent: BafColors.warning,
+        title: 'Event-link access required',
+        message: 'An approved account is required to view event-linked issues.',
+      );
+    }
     final event = _latestEvent(ref.watch(operationalEventsProvider));
     final links = ref.watch(operationalEventIssueLinksProvider(event.eventId));
     return Scaffold(
@@ -43,9 +72,9 @@ class _OperationalEventIssueLinksScreenState
         ),
       ),
       floatingActionButton:
-          actor?.canRecordOperationalEvent == true
+          actor.canRecordOperationalEvent
               ? FloatingActionButton.extended(
-                onPressed: _busy ? null : () => _linkIssue(actor!, event),
+                onPressed: _busy ? null : () => _linkIssue(actor, event),
                 backgroundColor: BafColors.navySoft,
                 foregroundColor: Colors.white,
                 icon: const Icon(Icons.add_link_rounded),
@@ -217,6 +246,39 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Linked operational events',
+        appBarSubtitle: 'Verifying your approved issue scope',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        label: 'Checking issue-link access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Linked operational events',
+        appBarSubtitle: 'Verifying your approved issue scope',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        message: 'Issue-link access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null ||
+        !actor.isApproved ||
+        !userCanLinkOperationalEventIssue(actor, issue)) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Linked operational events',
+        appBarSubtitle: 'Utility, crane and plant events related to this issue',
+        appBarIcon: Icons.crisis_alert_outlined,
+        accent: BafColors.warning,
+        title: 'Issue-link access required',
+        message:
+            'Your approved role cannot view this issue and its event links.',
+      );
+    }
     final issueId = issue.firestoreId?.trim();
     return Scaffold(
       backgroundColor: BafColors.background,
