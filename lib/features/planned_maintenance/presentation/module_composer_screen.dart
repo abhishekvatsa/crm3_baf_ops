@@ -28,6 +28,7 @@ import '../domain/module_composer_validator.dart';
 import '../domain/module_workshop_actions.dart';
 import '../domain/module_workshop_merge.dart';
 import '../domain/module_workshop_published_sources.dart';
+import '../domain/template_version_snapshot_contract.dart';
 import '../providers/module_registry_provider.dart';
 import '../providers/template_governance_provider.dart';
 import 'module_editor_screen.dart';
@@ -134,10 +135,22 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   }
 
   bool _hasCanonicalFreshAuthoringSeed() {
-    return widget.initialJobTemplateJson.trim() == '{}' &&
-        widget.initialModuleSnapshotsJson.trim() == '[]' &&
-        widget.initialFieldDefinitionsJson.trim() == '[]' &&
-        widget.initialChecklistJson.trim() == '[]';
+    try {
+      final bundle = TemplateVersionSnapshotBundle.fromRawJson(
+        jobTemplateSnapshotJson: widget.initialJobTemplateJson,
+        moduleSnapshotsJson: widget.initialModuleSnapshotsJson,
+        fieldDefinitionsJson: widget.initialFieldDefinitionsJson,
+        checklistJson: widget.initialChecklistJson,
+        allowEmptyModules: true,
+        allowEmptyFieldDefinitions: true,
+      );
+      return bundle.jobSnapshot.isEmpty &&
+          bundle.moduleSnapshots.isEmpty &&
+          bundle.fieldDefinitions.isEmpty &&
+          bundle.checklistItems.isEmpty;
+    } on TemplateVersionSnapshotException {
+      return false;
+    }
   }
 
   void _scheduleAuthorizedInitialization(String actorUid) {

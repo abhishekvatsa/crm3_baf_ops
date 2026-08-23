@@ -1982,9 +1982,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/module_composer_screen.dart",
       "canonicalSha256": "377798F2D16B3747F1CB0B0931883BA57DF1FC8D83231BCC4FBA658E4C40EC62",
-      "candidateSha256": "2FA3246C824D913DA369FBEC696370F4B53BF7E8B736DD52A56109C40592FA4A",
+      "candidateSha256": "7A23E0ED09AA472C3EB7FC807B8AAB49E2D855E79AD67D6FA87BEB250B9E9BE0",
       "canonicalBytes": 7390,
-      "candidateBytes": 12418,
+      "candidateBytes": 12893,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
