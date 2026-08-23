@@ -63,6 +63,13 @@ class AuditTimelineScreen extends ConsumerWidget {
         showProgress: true,
       );
     }
+    if (actorAsync.hasError) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Timeline',
+        title: 'Audit access could not be verified',
+        message: 'Try again after your approved account can be verified.',
+      );
+    }
     final actor = actorAsync.value;
     if (actor == null || !actor.canViewAuditLogs) {
       return const _AuditAccessState(
@@ -138,6 +145,13 @@ class RecentAuditLogScreen extends ConsumerWidget {
         showProgress: true,
       );
     }
+    if (actorAsync.hasError) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Log',
+        title: 'Audit access could not be verified',
+        message: 'Try again after your approved account can be verified.',
+      );
+    }
     final actor = actorAsync.value;
     if (actor == null || !actor.canViewAuditLogs) {
       return const _AuditAccessState(
@@ -211,6 +225,13 @@ class SyncConflictReviewScreen extends ConsumerWidget {
         title: 'Checking conflict-review access',
         message: 'Please wait while your permissions are verified.',
         showProgress: true,
+      );
+    }
+    if (actorAsync.hasError) {
+      return const _AuditAccessState(
+        appBarTitle: 'Sync Conflict Review',
+        title: 'Conflict-review access could not be verified',
+        message: 'Try again after your approved account can be verified.',
       );
     }
     final actor = actorAsync.value;

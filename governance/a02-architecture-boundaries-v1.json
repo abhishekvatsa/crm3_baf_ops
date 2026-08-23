@@ -224,7 +224,8 @@
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
       "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
       "regressionTests": [
-        "test/ui_business_alignment_test.dart"
+        "test/ui_business_alignment_test.dart",
+        "test/workflow_entry_authority_gate_test.dart"
       ],
       "maximumLines": 650,
       "requiredMarkers": [

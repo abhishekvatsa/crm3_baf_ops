@@ -13,6 +13,7 @@ import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -108,7 +109,9 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
       return;
     }
 
-    final appUser = ref.read(currentAppUserProvider).value;
+    final actorAsync = ref.read(currentAppUserProvider);
+    final appUser =
+        actorAsync.isLoading || actorAsync.hasError ? null : actorAsync.value;
     if (appUser == null || !appUser.canAssignJobExecution) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -195,6 +198,36 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Assign planned job',
+        appBarSubtitle: 'Verifying your approved assignment scope',
+        appBarIcon: Icons.assignment_turned_in_outlined,
+        accent: BafColors.planned,
+        label: 'Checking assignment access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Assign planned job',
+        appBarSubtitle: 'Verifying your approved assignment scope',
+        appBarIcon: Icons.assignment_turned_in_outlined,
+        accent: BafColors.planned,
+        message: 'Assignment access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canAssignJobExecution) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Assign planned job',
+        appBarSubtitle: 'Select the governed asset and release work',
+        appBarIcon: Icons.assignment_turned_in_outlined,
+        accent: BafColors.planned,
+        title: 'Assignment access required',
+        message: 'Your approved role cannot assign planned jobs.',
+      );
+    }
     final assetClassesAsync = ref.watch(assetClassesProvider);
     final assetClasses = assetClassesAsync.asData?.value;
     final assetRoute =
