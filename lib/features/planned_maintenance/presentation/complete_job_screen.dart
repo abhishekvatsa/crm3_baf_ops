@@ -111,7 +111,12 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
 
   Future<void> _submit() async {
     if (widget.execution.isTerminal) {
-      final status = widget.execution.isCancelled ? 'cancelled' : 'completed';
+      final status =
+          widget.execution.isDeleted
+              ? 'deleted'
+              : widget.execution.isCancelled
+              ? 'cancelled'
+              : 'completed';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -666,6 +671,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     }
 
     if (widget.execution.isTerminal) {
+      final deleted = widget.execution.isDeleted;
       final cancelled = widget.execution.isCancelled;
       return BafScreenStateScaffold(
         appBarTitle: 'Complete Job',
@@ -673,10 +679,22 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
         appBarIcon: Icons.task_alt_outlined,
         accent: BafColors.planned,
         state: BafStatePanel(
-          icon: cancelled ? Icons.cancel_outlined : Icons.task_alt_rounded,
-          color: cancelled ? BafColors.warning : BafColors.sync,
+          icon:
+              deleted
+                  ? Icons.delete_outline_rounded
+                  : cancelled
+                  ? Icons.cancel_outlined
+                  : Icons.task_alt_rounded,
+          color:
+              deleted
+                  ? BafColors.textSecondary
+                  : cancelled
+                  ? BafColors.warning
+                  : BafColors.sync,
           title:
-              cancelled
+              deleted
+                  ? 'This planned job was deleted'
+                  : cancelled
                   ? 'This planned job was cancelled'
                   : 'This planned job is already complete',
           message:

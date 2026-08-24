@@ -134,7 +134,12 @@ class _PlannedJobDetailScreenState
 
   bool _ensureExecutionOpen() {
     if (!widget.execution.isTerminal) return true;
-    final status = widget.execution.isCancelled ? 'cancelled' : 'completed';
+    final status =
+        widget.execution.isDeleted
+            ? 'deleted'
+            : widget.execution.isCancelled
+            ? 'cancelled'
+            : 'completed';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('This planned job is $status. Its dossier is read-only.'),
@@ -148,7 +153,7 @@ class _PlannedJobDetailScreenState
     List<MaintenanceClassDefinition> definitions,
   ) async {
     final execution = widget.execution;
-    if (execution.isCancelled) {
+    if (execution.isDeleted || execution.isCancelled) {
       _ensureExecutionOpen();
       return;
     }
@@ -655,7 +660,18 @@ class _PlannedJobDetailScreenState
   Widget build(BuildContext context) {
     final execution = widget.execution;
     final isTerminal = execution.isTerminal;
-    final terminalSectionLabel = execution.isCancelled ? 'Cancelled' : 'Closed';
+    final terminalSectionLabel =
+        execution.isDeleted
+            ? 'Deleted'
+            : execution.isCancelled
+            ? 'Cancelled'
+            : 'Closed';
+    final terminalEventLabel =
+        execution.isDeleted
+            ? 'deletion'
+            : execution.isCancelled
+            ? 'cancellation'
+            : 'closure';
     final actionRead = execution.actionsReadResult;
     final responseRead = execution.responsesReadResult;
     final innerCoverPositionRead =
@@ -668,6 +684,7 @@ class _PlannedJobDetailScreenState
       execution.metadataJson,
     );
     final canClassify =
+        !execution.isDeleted &&
         !execution.isCancelled &&
         _hasText(execution.firestoreId) &&
         (execution.isCompleted
@@ -684,7 +701,9 @@ class _PlannedJobDetailScreenState
     final showBottomActions =
         !isTerminal && (canAddDiaryEntry || canCompleteJob);
     final statusColor =
-        execution.isCompleted
+        execution.isDeleted
+            ? BafColors.textSecondary
+            : execution.isCompleted
             ? BafColors.sync
             : execution.isCancelled
             ? BafColors.warning
@@ -869,7 +888,9 @@ class _PlannedJobDetailScreenState
               _InfoRow(
                 label: 'Status',
                 value:
-                    execution.isCompleted
+                    execution.isDeleted
+                        ? 'Deleted'
+                        : execution.isCompleted
                         ? 'Completed'
                         : execution.isCancelled
                         ? 'Cancelled'
@@ -915,6 +936,21 @@ class _PlannedJobDetailScreenState
                   label: 'Cancellation reason',
                   value: execution.cancellationReason!.trim(),
                 ),
+              if (execution.isDeleted && execution.deletedAt != null)
+                _InfoRow(
+                  label: 'Deleted on',
+                  value: _formatDateTime(execution.deletedAt!),
+                ),
+              if (execution.isDeleted && _hasText(execution.deletedByName))
+                _InfoRow(
+                  label: 'Deleted by',
+                  value: execution.deletedByName!.trim(),
+                ),
+              if (execution.isDeleted && _hasText(execution.deleteReason))
+                _InfoRow(
+                  label: 'Deletion reason',
+                  value: execution.deleteReason!.trim(),
+                ),
               _ChipInfoRow(
                 label: 'Teams involved',
                 values: execution.teamsInvolved,
@@ -955,11 +991,12 @@ class _PlannedJobDetailScreenState
                     : 'Process modules',
             subtitle:
                 isTerminal
-                    ? 'Read-only module evidence, lifecycle decisions and structured responses captured before ${execution.isCancelled ? 'cancellation' : 'closure'}.'
+                    ? 'Read-only module evidence, lifecycle decisions and structured responses captured before $terminalEventLabel.'
                     : 'Published governed runtime-add catalogue first, with Emergency/manual seed catalogue fallback.',
             icon: Icons.account_tree_rounded,
             children: [
               _ProcessModuleDossier(
+                execution: execution,
                 modulesAsync: modulesAsync,
                 isOpenJob: !isTerminal,
                 onAddModule: canAddModule ? _openAddJobModuleSheet : null,
@@ -1022,7 +1059,7 @@ class _PlannedJobDetailScreenState
                     : 'Actions / observations',
             subtitle:
                 isTerminal
-                    ? 'Cross-module observations and work notes retained before ${execution.isCancelled ? 'cancellation' : 'closure'}.'
+                    ? 'Cross-module observations and work notes retained before $terminalEventLabel.'
                     : 'Cross-module observations and work to record at completion.',
             icon: Icons.build_circle_rounded,
             children: [

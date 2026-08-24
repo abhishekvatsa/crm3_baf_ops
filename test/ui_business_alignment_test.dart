@@ -74,6 +74,18 @@ JobExecution _cancelledExecution() {
     ..updatedAt = DateTime.utc(2026, 7, 31, 19);
 }
 
+JobExecution _deletedExecution() {
+  final execution = _governedExecution();
+  return execution
+    ..isDeleted = true
+    ..deletedAt = DateTime.utc(2026, 7, 31, 19)
+    ..deletedByUid = 'admin-1'
+    ..deletedByName = 'System Administrator'
+    ..deleteReason = 'Duplicate historical execution.'
+    ..version = 2
+    ..updatedAt = DateTime.utc(2026, 7, 31, 19);
+}
+
 JobModuleInstance _openModule() {
   final timestamp = DateTime.utc(2026, 7, 31, 18, 15);
   return JobModuleInstance()
@@ -370,7 +382,19 @@ void main() {
               ..deletedByName = 'Shift Supervisor'
               ..deleteReason =
                   'Workflow cancelled: Asset returned to Operations before work started.';
-        final moduleRepository = _StaticJobModuleRepository([cancelledModule]);
+        final earlierTombstone =
+            _openModule()
+              ..id = 42
+              ..firestoreId = 'module-removed-before-cancellation'
+              ..isDeleted = true
+              ..deletedAt = DateTime.utc(2026, 7, 31, 18, 30)
+              ..deletedByUid = 'supervisor-2'
+              ..deletedByName = 'Maintenance Supervisor'
+              ..deleteReason = 'Removed as duplicate module.';
+        final moduleRepository = _StaticJobModuleRepository([
+          cancelledModule,
+          earlierTombstone,
+        ]);
         await _pumpDetail(
           tester,
           actor: _actor(AppRole.admin),
@@ -396,6 +420,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Cancelled module evidence'), findsOneWidget);
         expect(find.text('Cancelled with job'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('Earlier removed module evidence'),
+          400,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Earlier removed module evidence'), findsOneWidget);
+        expect(find.text('Removed before cancellation'), findsOneWidget);
         expect(find.textContaining('Workflow cancelled:'), findsWidgets);
         expect(find.text('Add Note'), findsNothing);
         expect(find.text('Complete Job'), findsNothing);
@@ -403,6 +434,31 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets('deleted execution opens only as an immutable audit dossier', (
+      tester,
+    ) async {
+      final moduleRepository = _StaticJobModuleRepository([_openModule()]);
+      await _pumpDetail(
+        tester,
+        actor: _actor(AppRole.admin),
+        size: const Size(320, 800),
+        execution: _deletedExecution(),
+        moduleRepository: moduleRepository,
+      );
+
+      expect(moduleRepository.lastIncludeDeleted, isFalse);
+      expect(find.text('Deleted job dossier'), findsOneWidget);
+      expect(find.text('Deleted-job dossier is read-only'), findsOneWidget);
+      expect(
+        find.text('Reason: Duplicate historical execution.'),
+        findsOneWidget,
+      );
+      expect(find.text('Add Note'), findsNothing);
+      expect(find.text('Complete Job'), findsNothing);
+      expect(find.text('Classify'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('cancelled job cannot reopen completion controls', (
       tester,

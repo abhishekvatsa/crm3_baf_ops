@@ -13,7 +13,8 @@ class _DossierHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cancelled = execution.isCancelled;
+    final deleted = execution.isDeleted;
+    final cancelled = !deleted && execution.isCancelled;
     final terminal = execution.isTerminal;
     final templateName = _cleanDisplay(
       execution.templateName ?? template?.jobName,
@@ -39,7 +40,9 @@ class _DossierHeaderCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: Icon(
-              cancelled
+              deleted
+                  ? Icons.delete_outline_rounded
+                  : cancelled
                   ? Icons.cancel_outlined
                   : execution.isCompleted
                   ? Icons.task_alt_rounded
@@ -54,7 +57,9 @@ class _DossierHeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  execution.isCancelled
+                  deleted
+                      ? 'Deleted job dossier'
+                      : cancelled
                       ? 'Cancelled job dossier'
                       : terminal
                       ? 'Closed job dossier'
@@ -89,14 +94,18 @@ class _DossierHeaderCard extends StatelessWidget {
                     ),
                     StatusBadge(
                       label:
-                          cancelled
+                          deleted
+                              ? 'Deleted'
+                              : cancelled
                               ? 'Cancelled'
                               : execution.isCompleted
                               ? 'Completed'
                               : 'Open',
                       color: statusColor,
                       icon:
-                          cancelled
+                          deleted
+                              ? Icons.delete_outline_rounded
+                              : cancelled
                               ? Icons.cancel_outlined
                               : execution.isCompleted
                               ? Icons.check_circle_rounded
@@ -131,27 +140,48 @@ class _ClosedDossierStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cancelled = execution.isCancelled;
-    final accent = cancelled ? BafColors.warning : BafColors.sync;
-    final closedAt = cancelled ? execution.cancelledAt : execution.completedAt;
+    final deleted = execution.isDeleted;
+    final cancelled = !deleted && execution.isCancelled;
+    final accent =
+        deleted
+            ? BafColors.textSecondary
+            : cancelled
+            ? BafColors.warning
+            : BafColors.sync;
+    final verb =
+        deleted
+            ? 'Deleted'
+            : cancelled
+            ? 'Cancelled'
+            : 'Completed';
+    final closedAt =
+        deleted
+            ? execution.deletedAt
+            : cancelled
+            ? execution.cancelledAt
+            : execution.completedAt;
     final completionText =
         closedAt == null
-            ? cancelled
-                ? 'Cancelled job'
-                : 'Completed job'
-            : '${cancelled ? 'Cancelled' : 'Completed'} on ${_formatDateTime(closedAt)}';
+            ? '$verb job'
+            : '$verb on ${_formatDateTime(closedAt)}';
+    final actorName =
+        deleted
+            ? execution.deletedByName
+            : cancelled
+            ? execution.cancelledByName
+            : execution.completedByName;
+    final actorUid =
+        deleted
+            ? execution.deletedByUid
+            : cancelled
+            ? execution.cancelledByUid
+            : execution.completedByUid;
     final actorText =
-        _hasText(
-              cancelled ? execution.cancelledByName : execution.completedByName,
-            )
-            ? (cancelled
-                    ? execution.cancelledByName
-                    : execution.completedByName)!
-                .trim()
-            : _cleanDisplay(
-              cancelled ? execution.cancelledByUid : execution.completedByUid,
-              fallback: 'Unknown actor',
-            );
+        _hasText(actorName)
+            ? actorName!.trim()
+            : _cleanDisplay(actorUid, fallback: 'Unknown actor');
+    final reason =
+        deleted ? execution.deleteReason : execution.cancellationReason;
 
     return Container(
       width: double.infinity,
@@ -176,7 +206,9 @@ class _ClosedDossierStatusCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: Icon(
-                  cancelled
+                  deleted
+                      ? Icons.delete_outline_rounded
+                      : cancelled
                       ? Icons.cancel_outlined
                       : Icons.verified_user_rounded,
                   color: accent,
@@ -189,7 +221,9 @@ class _ClosedDossierStatusCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      cancelled
+                      deleted
+                          ? 'Deleted-job dossier is read-only'
+                          : cancelled
                           ? 'Cancelled-job dossier is read-only'
                           : 'Closed-job dossier is read-only',
                       style: const TextStyle(
@@ -200,7 +234,9 @@ class _ClosedDossierStatusCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      cancelled
+                      deleted
+                          ? 'This historical tombstone preserves the retained job context and audit evidence. All runtime controls are locked.'
+                          : cancelled
                           ? 'This view preserves the job context and evidence recorded before cancellation. Runtime edits are locked; only governed lifecycle evidence may change the canonical record.'
                           : 'This view preserves the final job context, checklist, actions, diary and process-module evidence. Runtime edits are locked; reopen or correction workflows should happen through governed lifecycle actions only.',
                       style: const TextStyle(
@@ -223,10 +259,14 @@ class _ClosedDossierStatusCard extends StatelessWidget {
                 label: completionText,
                 color: accent,
                 icon:
-                    cancelled ? Icons.cancel_outlined : Icons.task_alt_rounded,
+                    deleted
+                        ? Icons.delete_outline_rounded
+                        : cancelled
+                        ? Icons.cancel_outlined
+                        : Icons.task_alt_rounded,
               ),
               StatusBadge(
-                label: '${cancelled ? 'Cancelled' : 'Closed'} by $actorText',
+                label: '$verb by $actorText',
                 color: BafColors.admin,
                 icon: Icons.person_rounded,
               ),
@@ -246,7 +286,7 @@ class _ClosedDossierStatusCard extends StatelessWidget {
               ),
             ],
           ),
-          if (cancelled && _hasText(execution.cancellationReason)) ...[
+          if ((deleted || cancelled) && _hasText(reason)) ...[
             const SizedBox(height: BafSpacing.md),
             Container(
               width: double.infinity,
@@ -257,7 +297,7 @@ class _ClosedDossierStatusCard extends StatelessWidget {
                 border: Border.all(color: accent.withValues(alpha: 0.20)),
               ),
               child: Text(
-                'Reason: ${execution.cancellationReason!.trim()}',
+                'Reason: ${reason!.trim()}',
                 style: const TextStyle(
                   color: BafColors.textPrimary,
                   fontSize: 13,
@@ -348,7 +388,9 @@ class _LegacyModuleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor =
-        execution.isCompleted
+        execution.isDeleted
+            ? BafColors.textSecondary
+            : execution.isCompleted
             ? BafColors.sync
             : execution.isCancelled
             ? BafColors.warning
@@ -411,7 +453,9 @@ class _LegacyModuleCard extends StatelessWidget {
             children: [
               StatusBadge(
                 label:
-                    execution.isCancelled
+                    execution.isDeleted
+                        ? 'Deleted'
+                        : execution.isCancelled
                         ? 'Cancelled'
                         : execution.isCompleted
                         ? 'Submitted'

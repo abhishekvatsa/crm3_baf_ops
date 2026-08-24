@@ -587,7 +587,11 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             _ModuleSectionCard(
               title: 'Read-only module evidence',
               subtitle:
-                  'The parent planned job is ${widget.execution.isCancelled ? 'cancelled' : 'completed'}.',
+                  'The parent planned job is ${widget.execution.isDeleted
+                      ? 'deleted'
+                      : widget.execution.isCancelled
+                      ? 'cancelled'
+                      : 'completed'}.',
               icon: Icons.lock_rounded,
               children: const [
                 Text(

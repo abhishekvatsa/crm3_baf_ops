@@ -18,7 +18,9 @@ bool templateMatchesAdminSearch(JobTemplate template, String query) {
 bool executionMatchesAdminSearch(JobExecution execution, String query) {
   if (query.isEmpty) return true;
   final completionLabel =
-      execution.isCancelled
+      execution.isDeleted
+          ? 'deleted'
+          : execution.isCancelled
           ? 'cancelled'
           : execution.isCompleted
           ? 'completed'
