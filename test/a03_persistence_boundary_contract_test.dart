@@ -127,7 +127,7 @@ void main() {
         ).readAsStringSync();
     expect(userManagement, contains('Could not verify admin access'));
     expect(userManagement, contains('Could not load users'));
-    expect(closedHistory, contains('Could not verify resolved-history access'));
+    expect(closedHistory, contains('Could not verify closure-history access'));
     expect(closedHistory, contains('Error loading closed tickets'));
     expect(corrections, contains('Harvest failed'));
     expect(diagnostics, contains('Local diagnostics unavailable on web'));

@@ -614,8 +614,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
     if (_maintenancePinnedFieldDiff(local, remote) != 'none') return const [];
 
-    if (remote.isResolved) {
-      if (!local.isResolved &&
+    if (remote.isClosed) {
+      if (remote.wasTechnicallyResolved &&
+          !local.isClosed &&
           _hasMaintenanceReopenEvidence(local) &&
           local.version > remote.version) {
         return const [_MaintenanceReplayStep.reopen];
@@ -623,7 +624,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       return const [];
     }
 
-    if (local.isResolved) {
+    if (local.wasTechnicallyResolved) {
       if (!maintenanceResolvedReplayCanRebase(
         local: local,
         remote: remote,
@@ -662,7 +663,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
   }
 
   bool _hasMaintenanceReopenEvidence(MaintenanceRecord local) {
-    if (local.isResolved) return false;
+    if (local.isClosed) return false;
     return local.resolutionHistory.isNotEmpty;
   }
 
@@ -683,7 +684,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             ? serverMutationFloor
             : eventTimestamp;
     final version = maintenanceCloseReplayVersion(
-      localIsResolved: local.isResolved,
+      localIsResolved: local.wasTechnicallyResolved,
       localVersion: local.version,
       priorVersion: priorVersion,
       remoteVersion: remote?.version,
@@ -777,7 +778,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
   _MaintenanceCloseEvidence? _maintenanceCloseEvidence(
     MaintenanceRecord local,
   ) {
-    if (local.isResolved) {
+    if (local.wasTechnicallyResolved) {
       final closedByUid = _cleanMaintenanceText(local.closedByUid);
       if (closedByUid == null) return null;
       return (
@@ -990,9 +991,9 @@ bool maintenanceResolvedReplayCanRebase({
 }) {
   final actorUid = currentUid.trim();
   final closedByUid = local.closedByUid?.trim();
-  return local.isResolved &&
+  return local.wasTechnicallyResolved &&
       !local.isDeleted &&
-      !remote.isResolved &&
+      !remote.isClosed &&
       !remote.isDeleted &&
       !remote.workflowDeferred &&
       actorUid.isNotEmpty &&

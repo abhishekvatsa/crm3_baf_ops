@@ -9,6 +9,7 @@ import '../../quality/domain/issue_quality_intent.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/frequent_issue_selection.dart';
+import '../domain/issue_administrative_closure.dart';
 import '../domain/issue_lane_plan.dart';
 import 'remote_maintenance_timestamps.dart';
 
@@ -101,11 +102,35 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     field: 'isResolved',
     source: source,
   );
-  if ((status == TicketStatus.resolved) != isResolved) {
+  if (status.isTerminal != isResolved) {
     throw PersistedDataFormatException(
       field: 'isResolved',
       source: source,
       detail: 'must agree with status ${status.name}',
+    );
+  }
+  final administrativeClosure =
+      IssueAdministrativeClosure.readOptionalSynchronizedFields(
+        map,
+        source: source,
+      );
+  if ((status == TicketStatus.closedWithoutResolution) !=
+      (administrativeClosure != null)) {
+    throw PersistedDataFormatException(
+      field: 'issueClosureDisposition',
+      source: source,
+      detail:
+          'closed-without-resolution status and disposition must be present together',
+    );
+  }
+  if (status == TicketStatus.closedWithoutResolution &&
+      (timestamps.endDate == null ||
+          _optionalString(map, 'closedByUid', source) == null ||
+          _optionalString(map, 'closedByName', source) == null)) {
+    throw PersistedDataFormatException(
+      field: 'closedByUid',
+      source: source,
+      detail: 'administrative closure requires complete authority and time',
     );
   }
   final routedTo = readRequiredPersistedEnum(
@@ -239,7 +264,8 @@ MaintenanceRecord readRemoteMaintenanceRecord(
   );
   final actions = ComponentAction.decode(actionsJson, source: source);
   if (burnerLockout != null &&
-      (burnerLockout.isResolutionComplete != isResolved ||
+      (burnerLockout.isResolutionComplete !=
+              (status == TicketStatus.resolved) ||
           (burnerLockout.hasRedHotObservation && map['isCritical'] != true))) {
     throw PersistedDataFormatException(
       field: 'burnerResolutionEvidence',
@@ -248,7 +274,7 @@ MaintenanceRecord readRemoteMaintenanceRecord(
           'burner closure evidence and red-hot criticality must match ticket state',
     );
   }
-  if (burnerLockout != null && isResolved) {
+  if (burnerLockout != null && status == TicketStatus.resolved) {
     try {
       validatePersistedBurnerResolutionEvidence(
         lockout: burnerLockout,
@@ -315,11 +341,16 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       detail: 'metadata lane evidence requires the synchronized lane field set',
     );
   }
+  final metadataWithClosure =
+      mergeIssueAdministrativeClosureIntoMaintenanceMetadata(
+        mergedMetadata,
+        administrativeClosure,
+      );
   final localMetadata =
       synchronizedLanePlan == null
-          ? mergedMetadata
+          ? metadataWithClosure
           : mergeIssueLanePlanIntoMaintenanceMetadata(
-            mergedMetadata,
+            metadataWithClosure,
             synchronizedLanePlan,
           );
 

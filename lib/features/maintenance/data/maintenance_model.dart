@@ -7,6 +7,7 @@ import '../../quality/domain/issue_quality_intent.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/frequent_issue_selection.dart';
+import '../domain/issue_administrative_closure.dart';
 import '../domain/issue_lane_plan.dart';
 
 part 'maintenance_model.g.dart';
@@ -17,7 +18,13 @@ enum AssetType { base, furnace, forceCooler, innerCover, governedCustom }
 
 enum MaintenanceType { scheduled, breakdown, performance, inspection, overhaul }
 
-enum TicketStatus { open, acknowledged, inProgress, resolved }
+enum TicketStatus {
+  open,
+  acknowledged,
+  inProgress,
+  resolved,
+  closedWithoutResolution,
+}
 
 enum RoutedTo {
   operations,
@@ -321,7 +328,7 @@ class MaintenanceRecord {
     final statusHasWork =
         status == TicketStatus.acknowledged ||
         status == TicketStatus.inProgress;
-    if ((status == TicketStatus.resolved) != isResolved ||
+    if (status.isTerminal != isResolved ||
         (statusIsOpen &&
             (plan.acknowledgedLanes.isNotEmpty ||
                 plan.completedLanes.isNotEmpty)) ||
@@ -334,6 +341,27 @@ class MaintenanceRecord {
         field: 'issueAcknowledgedLanes',
         source: source,
         detail: 'lane lifecycle must agree with ticket status',
+      );
+    }
+
+    final closure = administrativeClosure;
+    if ((status == TicketStatus.closedWithoutResolution) != (closure != null)) {
+      throw PersistedDataFormatException(
+        field: 'administrativeClosure',
+        source: source,
+        detail:
+            'closed-without-resolution status and disposition must be present together',
+      );
+    }
+    if (status == TicketStatus.closedWithoutResolution &&
+        (endDate == null ||
+            closedByUid?.trim().isNotEmpty != true ||
+            closedByName?.trim().isNotEmpty != true)) {
+      throw PersistedDataFormatException(
+        field: 'closedByUid',
+        source: source,
+        detail:
+            'administrative closure requires complete closure authority and time',
       );
     }
 
@@ -448,6 +476,22 @@ class MaintenanceRecord {
   late DateTime updatedAt;
 
   String? metadataJson;
+
+  @ignore
+  IssueAdministrativeClosure? get administrativeClosure =>
+      IssueAdministrativeClosure.tryDecodeLocal(metadataJson);
+
+  set administrativeClosure(IssueAdministrativeClosure? value) {
+    metadataJson = mergeIssueAdministrativeClosureIntoMaintenanceMetadata(
+      metadataJson,
+      value,
+    );
+  }
+
+  @ignore
+  Map<String, dynamic> get administrativeClosureSynchronizedFields =>
+      administrativeClosure?.toSynchronizedFields() ??
+      const <String, dynamic>{};
 
   @ignore
   IssueQualityIntent? get qualityIntent =>
@@ -611,9 +655,16 @@ class MaintenanceRecord {
   // 🧠 HELPER METHODS
   // ─────────────────────────────────────────────────────────────────────────
 
-  bool get isOpen => !isResolved;
+  bool get isOpen => !status.isTerminal;
 
-  bool get isClosed => isResolved;
+  bool get isClosed => status.isTerminal;
+
+  @ignore
+  bool get wasTechnicallyResolved => status == TicketStatus.resolved;
+
+  @ignore
+  bool get wasClosedWithoutResolution =>
+      status == TicketStatus.closedWithoutResolution;
 
   @ignore
   bool get isWorkflowLinked =>
@@ -673,5 +724,13 @@ class MaintenanceRecord {
     'component': component,
     'tag': tag,
     'frequentIssueDefinitionId': frequentIssueSelection?.definitionId,
+    'issueClosureDisposition': administrativeClosure?.disposition.name,
+    'issueClosureReason': administrativeClosure?.reason,
   };
+}
+
+extension TicketStatusLifecycle on TicketStatus {
+  bool get isTerminal =>
+      this == TicketStatus.resolved ||
+      this == TicketStatus.closedWithoutResolution;
 }

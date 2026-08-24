@@ -225,6 +225,23 @@
       "riskFingerprint": "a95bb5434a9d95b45b0f2cd3883e59a274987e231d50cf37e6a7eb05c32dfb49"
     },
     {
+      "id": "maintenance-issue-administrative-closure",
+      "file": "lib/features/maintenance/domain/issue_administrative_closure.dart",
+      "markers": [
+        "factory IssueAdministrativeClosure.fromSynchronizedFields(",
+        "static IssueAdministrativeClosure? tryDecodeLocal(",
+        "String mergeIssueAdministrativeClosureIntoMaintenanceMetadata("
+      ],
+      "classification": "NESTED_OPERATIONAL_STATE",
+      "owner": "maintenance",
+      "authorityBoundary": "persisted Admin issue-closure disposition and rationale",
+      "malformedDisposition": "fail closed on partial or malformed synchronized closure state and reject a terminal local row without decodable closure evidence",
+      "compatibility": "a wholly absent closure field set on records not closed administratively; unrelated malformed legacy metadata is preserved as opaque legacyMetadata during governed merge",
+      "regression": "test/issue_administrative_closure_dialog_test.dart; test/maintenance_issue_resolution_command_test.dart; test/a05_remote_maintenance_record_integrity_test.dart",
+      "reArmCondition": "new closure fields, permissive enum or reason fallback, suppressed canonical decode error, or terminal status without closure evidence",
+      "riskFingerprint": "a95bb5434a9d95b45b0f2cd3883e59a274987e231d50cf37e6a7eb05c32dfb49"
+    },
+    {
       "id": "maintenance-record",
       "file": "lib/features/maintenance/data/remote_maintenance_reader.dart",
       "markers": [

@@ -207,7 +207,19 @@ class OperationsReport {
   int get openIssueCount =>
       tickets.where((ticket) => !ticket.isResolved).length;
   int get resolvedIssueCount =>
-      tickets.where((ticket) => ticket.isResolved).length;
+      tickets.where((ticket) => ticket.wasTechnicallyResolved).length;
+  int get administrativelyClosedIssueCount =>
+      tickets.where((ticket) => ticket.wasClosedWithoutResolution).length;
+  int get retainedUnresolvedClosureCount =>
+      tickets
+          .where(
+            (ticket) =>
+                ticket.administrativeClosure?.disposition.name ==
+                'stillRelevant',
+          )
+          .length;
+  int get terminalIssueCount =>
+      resolvedIssueCount + administrativelyClosedIssueCount;
   int get criticalIssueCount =>
       tickets.where((ticket) => ticket.isCritical).length;
   int get openCriticalIssueCount =>
@@ -346,7 +358,7 @@ class OperationsReport {
       assetCount == 0 ? null : availableAssetCount / assetCount;
 
   double? get issueClosureRate =>
-      issueCount == 0 ? null : resolvedIssueCount / issueCount;
+      issueCount == 0 ? null : terminalIssueCount / issueCount;
 
   double? get plannedCompletionRate =>
       plannedJobCount == 0 ? null : completedPlannedJobCount / plannedJobCount;

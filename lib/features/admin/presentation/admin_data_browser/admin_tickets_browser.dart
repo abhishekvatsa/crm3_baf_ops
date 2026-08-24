@@ -34,6 +34,8 @@ Color _adminTicketStatusColor(TicketStatus status) {
       return BafColors.planned;
     case TicketStatus.resolved:
       return BafColors.success;
+    case TicketStatus.closedWithoutResolution:
+      return BafColors.warning;
   }
 }
 

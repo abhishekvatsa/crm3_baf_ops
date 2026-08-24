@@ -116,10 +116,12 @@ class OperationsManagementReadout extends StatelessWidget {
         color: BafColors.success,
       ),
       _ManagementMetricData(
-        label: 'Issues closed',
+        label: 'Issue outcomes',
         value: _rateLabel(report.issueClosureRate),
         detail:
-            '${report.resolvedIssueCount} of ${report.issueCount} in period',
+            '${report.resolvedIssueCount} resolved · '
+            '${report.administrativelyClosedIssueCount} admin-closed'
+            '${report.retainedUnresolvedClosureCount == 0 ? '' : ' · ${report.retainedUnresolvedClosureCount} still relevant'}',
         color: BafColors.cobalt,
       ),
       _ManagementMetricData(

@@ -1677,6 +1677,88 @@ describe("maintenance_records", () => {
     );
   });
 
+  test("administrative issue closure is callable-only and cannot be reopened directly", async () => {
+    const createdAt = new Date(Date.now() - 120000).toISOString();
+    const closedAt = new Date(Date.now() - 60000).toISOString();
+    const db = dbAs("admin1");
+
+    await seedDoc("maintenance_records/ticketAdministrativeClose", {
+      firestoreId: "ticketAdministrativeClose",
+      version: 1,
+      assetType: "furnace",
+      assetNumber: 8,
+      maintenanceType: "breakdown",
+      description: "Issue remained open after the annealing context ended.",
+      routedTo: "mechanical",
+      status: "open",
+      isResolved: false,
+      isCritical: false,
+      loggedByUid: "ops1",
+      createdAt,
+      updatedAt: createdAt,
+      isDeleted: false,
+    });
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketAdministrativeClose"), {
+        isResolved: true,
+        status: "closedWithoutResolution",
+        endDate: closedAt,
+        closedByUid: "admin1",
+        closedByName: "Admin One",
+        issueClosureSchemaVersion: 1,
+        issueClosureDisposition: "relevanceEnded",
+        issueClosureReason:
+          "The charge completed and the observation no longer requires work.",
+        updatedAt: closedAt,
+        updatedByUid: "admin1",
+        updatedByName: "Admin One",
+        version: 2,
+      })
+    );
+
+    await seedDoc("maintenance_records/ticketAdministrativeClosed", {
+      firestoreId: "ticketAdministrativeClosed",
+      version: 2,
+      assetType: "furnace",
+      assetNumber: 8,
+      maintenanceType: "breakdown",
+      description: "Issue remained open after the annealing context ended.",
+      routedTo: "mechanical",
+      status: "closedWithoutResolution",
+      isResolved: true,
+      isCritical: false,
+      loggedByUid: "ops1",
+      createdAt,
+      updatedAt: closedAt,
+      endDate: closedAt,
+      closedByUid: "admin1",
+      closedByName: "Admin One",
+      issueClosureSchemaVersion: 1,
+      issueClosureDisposition: "relevanceEnded",
+      issueClosureReason:
+        "The charge completed and the observation no longer requires work.",
+      isDeleted: false,
+    });
+
+    await assertFails(
+      updateDoc(
+        doc(dbAs("ops1"), "maintenance_records/ticketAdministrativeClosed"),
+        {
+          isResolved: false,
+          status: "open",
+          endDate: null,
+          closedByUid: null,
+          closedByName: null,
+          updatedAt: new Date().toISOString(),
+          updatedByUid: "ops1",
+          updatedByName: "Operations User",
+          version: 3,
+        }
+      )
+    );
+  });
+
   test("maintenance corrections are server-only, including for Admin", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const updatedAt = createdAt;

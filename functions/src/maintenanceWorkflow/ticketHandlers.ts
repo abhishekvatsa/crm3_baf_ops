@@ -1,6 +1,6 @@
 import {WorkflowError} from "./errors";
 import {HandlerArgs, HandlerResult} from "./handlerTypes";
-import {maintenancePath} from "./paths";
+import {compliancePath, maintenancePath, workflowPath} from "./paths";
 import {
   Actor,
   JsonMap,
@@ -9,6 +9,7 @@ import {
 } from "./types";
 import {cleanText, iso, stableJson} from "./utils";
 import {WorkflowTransaction} from "./store";
+import {eventPlan} from "./events";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {
   PersistedActionPayloadError,
@@ -33,7 +34,45 @@ const ROUTES = new Set([
 const MAINTENANCE_TYPES = new Set([
   "scheduled", "breakdown", "performance", "inspection", "overhaul",
 ]);
-const STATUSES = new Set(["open", "acknowledged", "inProgress", "resolved"]);
+const STATUSES = new Set([
+  "open", "acknowledged", "inProgress", "resolved",
+  "closedWithoutResolution",
+]);
+const TERMINAL_TICKET_STATUSES = new Set([
+  "resolved", "closedWithoutResolution",
+]);
+const ADMINISTRATIVE_CLOSURE_DISPOSITIONS = new Set([
+  "stillRelevant", "relevanceEnded",
+]);
+const TERMINAL_COMPLIANCE_STATUSES = new Set([
+  "confirmedClosed", "cancelled", "superseded",
+]);
+const TERMINAL_WORKFLOW_STATUSES = new Set(["completed", "cancelled"]);
+const ACTIVE_COMPLIANCE_STATUSES = new Set([
+  "raised", "acknowledged", "complied",
+]);
+const ACTIVE_WORKFLOW_STATUSES = new Set([
+  "pendingLaneClassification", "assigned", "partiallyAcknowledged",
+  "fullyAcknowledged", "inProgress", "awaitingCompliance",
+  "readyForClosure",
+]);
+const WORKFLOW_QUEUE_STATES = new Set([
+  "independent", "deferred", "actionable", "awaitingConfirmation",
+  "correctionRequired", "released",
+]);
+const WORKFLOW_PROJECTION_CORE_FIELDS = [
+  "workflowDeferred", "workflowQueueState", "workflowAggregateId",
+  "workflowComplianceId", "workflowOriginLaneKey", "workflowTargetLaneKey",
+  "workflowConditionTypeKey", "workflowUpdatedAt",
+] as const;
+const WORKFLOW_PROJECTION_FIELDS = [
+  ...WORKFLOW_PROJECTION_CORE_FIELDS,
+  "workflowConditionRef", "workflowDeferredAt", "workflowDeferredByUid",
+  "workflowDeferredByName", "workflowReactivatedAt",
+  "workflowReactivatedByUid", "workflowReactivatedByName",
+  "workflowReleasedAt", "workflowReleasedByUid", "workflowReleasedByName",
+  "workflowCorrectionReason",
+] as const;
 const ASSET_TYPES = new Set([
   "base", "furnace", "forceCooler", "innerCover", "governedCustom",
 ]);
@@ -1243,12 +1282,19 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   burnerAttendedPositions: ticket.burnerAttendedPositions ?? null,
   burnerResolutionEvidence: ticket.burnerResolutionEvidence ?? null,
   workflowDeferred: ticket.workflowDeferred ?? false,
+  workflowQueueState: ticket.workflowQueueState ?? null,
+  workflowAggregateId: ticket.workflowAggregateId ?? null,
+  workflowComplianceId: ticket.workflowComplianceId ?? null,
+  issueClosureSchemaVersion: ticket.issueClosureSchemaVersion ?? null,
+  issueClosureDisposition: ticket.issueClosureDisposition ?? null,
+  issueClosureReason: ticket.issueClosureReason ?? null,
   isDeleted: ticket.isDeleted ?? null,
 });
 
 const requireTicket = async (
   tx: WorkflowTransaction,
   command: WorkflowCommand,
+  options: {readonly allowDeferred?: boolean} = {},
 ): Promise<{ticket: JsonMap; version: number}> => {
   const snapshot = await tx.get(maintenancePath(command.aggregateId));
   if (!snapshot.exists || snapshot.data == null) {
@@ -1267,7 +1313,8 @@ const requireTicket = async (
       (ticket.workflowDeferred != null &&
         typeof ticket.workflowDeferred !== "boolean") ||
       typeof ticket.status !== "string" || !STATUSES.has(ticket.status) ||
-      ((ticket.status === "resolved") !== ticket.isResolved)) {
+      (TERMINAL_TICKET_STATUSES.has(ticket.status as string) !==
+        ticket.isResolved)) {
     throw new WorkflowError(
       "failed-precondition",
       "Maintenance ticket lifecycle evidence is malformed.",
@@ -1281,7 +1328,7 @@ const requireTicket = async (
       {reasonCode: "maintenance-ticket-deleted"},
     );
   }
-  if (ticket.workflowDeferred === true) {
+  if (ticket.workflowDeferred === true && options.allowDeferred !== true) {
     throw new WorkflowError(
       "failed-precondition",
       "Use the linked compliance request before changing this deferred ticket.",
@@ -1300,6 +1347,103 @@ const requireTicket = async (
     );
   }
   return {ticket, version: version as number};
+};
+
+interface AdministrativeClosureWorkflowProjection {
+  readonly projected: boolean;
+  readonly queueState: string;
+  readonly workflowId: string | null;
+  readonly complianceId: string | null;
+}
+
+const workflowProjectionError = (field: string): never => {
+  throw new WorkflowError(
+    "failed-precondition",
+    "The issue coordination projection is incomplete or malformed.",
+    {
+      reasonCode: "maintenance-ticket-coordination-projection-invalid",
+      field,
+    },
+  );
+};
+
+const persistedWorkflowText = (
+  value: unknown,
+  field: string,
+  maximumLength: number,
+): string => {
+  if (typeof value !== "string") return workflowProjectionError(field);
+  const cleaned = value.trim();
+  if (cleaned.length === 0 || cleaned.length > maximumLength) {
+    return workflowProjectionError(field);
+  }
+  return cleaned;
+};
+
+const administrativeClosureWorkflowProjection = (
+  ticket: JsonMap,
+): AdministrativeClosureWorkflowProjection => {
+  const owns = (field: string): boolean =>
+    Object.prototype.hasOwnProperty.call(ticket, field);
+  const presentFields = WORKFLOW_PROJECTION_FIELDS.filter(owns);
+  if (presentFields.length === 0) {
+    return {
+      projected: false,
+      queueState: "independent",
+      workflowId: null,
+      complianceId: null,
+    };
+  }
+  if (presentFields.length === 1 &&
+      presentFields[0] === "workflowDeferred" &&
+      ticket.workflowDeferred === false) {
+    return {
+      projected: false,
+      queueState: "independent",
+      workflowId: null,
+      complianceId: null,
+    };
+  }
+  const missingCoreField = WORKFLOW_PROJECTION_CORE_FIELDS.find(
+    (field) => !owns(field),
+  );
+  if (missingCoreField != null) return workflowProjectionError(missingCoreField);
+  if (typeof ticket.workflowDeferred !== "boolean") {
+    return workflowProjectionError("workflowDeferred");
+  }
+  const queueState = persistedWorkflowText(
+    ticket.workflowQueueState,
+    "workflowQueueState",
+    80,
+  );
+  const mustBeDeferred = queueState === "deferred" ||
+    queueState === "correctionRequired";
+  if (!WORKFLOW_QUEUE_STATES.has(queueState) ||
+      ticket.workflowDeferred !== mustBeDeferred) {
+    return workflowProjectionError("workflowQueueState");
+  }
+  const workflowId = persistedWorkflowText(
+    ticket.workflowAggregateId,
+    "workflowAggregateId",
+    200,
+  );
+  const complianceId = persistedWorkflowText(
+    ticket.workflowComplianceId,
+    "workflowComplianceId",
+    200,
+  );
+  persistedWorkflowText(ticket.workflowOriginLaneKey, "workflowOriginLaneKey", 80);
+  persistedWorkflowText(ticket.workflowTargetLaneKey, "workflowTargetLaneKey", 80);
+  persistedWorkflowText(
+    ticket.workflowConditionTypeKey,
+    "workflowConditionTypeKey",
+    80,
+  );
+  requiredPersistedInstantDate(ticket.workflowUpdatedAt, "workflowUpdatedAt");
+  if (ticket.workflowConditionRef != null) {
+    persistedWorkflowText(ticket.workflowConditionRef, "workflowConditionRef", 300);
+  }
+  return {projected: true, queueState, workflowId, complianceId};
 };
 
 const requireVacantAudit = async (
@@ -2080,7 +2224,8 @@ export const acknowledgeMaintenanceTicket = async ({
   const plan = ticketLanePlan(ticket);
   const lane = payloadKeys.length === 0 ? plan.assigned[0] :
     cleanText(command.payload.lane, "lane");
-  if (ticket.status === "resolved" || !plan.assigned.includes(lane) ||
+  if (TERMINAL_TICKET_STATUSES.has(String(ticket.status)) ||
+      !plan.assigned.includes(lane) ||
       plan.acknowledged.includes(lane)) {
     throw new WorkflowError(
       "failed-precondition",
@@ -2138,7 +2283,8 @@ export const completeMaintenanceTicketLane = async ({
   await requireVacantAudit(tx, command.commandId);
   const plan = ticketLanePlan(ticket);
   const lane = cleanText(command.payload.lane, "lane");
-  if (ticket.status === "resolved" || !plan.assigned.includes(lane) ||
+  if (TERMINAL_TICKET_STATUSES.has(String(ticket.status)) ||
+      !plan.assigned.includes(lane) ||
       !plan.acknowledged.includes(lane) || plan.completed.includes(lane)) {
     throw new WorkflowError(
       "failed-precondition",
@@ -2299,6 +2445,258 @@ export const resolveMaintenanceTicket = async ({
   };
 };
 
+export const closeMaintenanceTicketWithoutResolution = async ({
+  tx,
+  command,
+  context,
+}: HandlerArgs): Promise<HandlerResult> => {
+  exactKeys(command.payload, ["disposition", "reason"], "payload");
+  const disposition = cleanText(command.payload.disposition, "disposition");
+  if (!ADMINISTRATIVE_CLOSURE_DISPOSITIONS.has(disposition)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Administrative closure disposition is unsupported.",
+      {reasonCode: "maintenance-ticket-administrative-closure-disposition-invalid"},
+    );
+  }
+  const reason = boundedText(command.payload.reason, "reason", 12, 2000);
+  const {ticket, version} = await requireTicket(tx, command, {
+    allowDeferred: true,
+  });
+  await requireVacantAudit(tx, command.commandId);
+  if (ticket.isResolved === true ||
+      TERMINAL_TICKET_STATUSES.has(String(ticket.status))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only an active maintenance issue can be closed without resolution.",
+      {reasonCode: "maintenance-ticket-not-open-for-administrative-closure"},
+    );
+  }
+  const startDate = requiredPersistedInstantDate(
+    ticket.startDate,
+    "ticket.startDate",
+  );
+  if (context.serverNow.getTime() < startDate.getTime()) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The issue start time is later than the server closure time.",
+      {reasonCode: "maintenance-ticket-administrative-closure-time-invalid"},
+    );
+  }
+
+  const projection = administrativeClosureWorkflowProjection(ticket);
+  const {queueState, workflowId, complianceId} = projection;
+  const [complianceRows, workflowRows, workflowSnapshot,
+    projectedComplianceSnapshot] = await Promise.all([
+    tx.query("compliance_requests", [
+      {
+        field: "linkedMaintenanceFirestoreId",
+        op: "==",
+        value: command.aggregateId,
+      },
+    ]),
+    tx.query("maintenance_workflows", [
+      {
+        field: "linkedMaintenanceFirestoreId",
+        op: "==",
+        value: command.aggregateId,
+      },
+    ]),
+    workflowId == null ? Promise.resolve(null) : tx.get(workflowPath(workflowId)),
+    complianceId == null ?
+      Promise.resolve(null) : tx.get(compliancePath(complianceId)),
+  ]);
+  if (complianceRows.length > 50 || workflowRows.length > 50) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Issue coordination history exceeds the governed closure boundary.",
+      {
+        reasonCode: "maintenance-ticket-coordination-history-oversized",
+        complianceCount: complianceRows.length,
+        workflowCount: workflowRows.length,
+      },
+    );
+  }
+  const activeComplianceRows = complianceRows.filter((row) =>
+    !TERMINAL_COMPLIANCE_STATUSES.has(String(row.data?.status)));
+  const activeWorkflowRows = workflowRows.filter((row) =>
+    !TERMINAL_WORKFLOW_STATUSES.has(String(row.data?.status)));
+  const hasActiveQueue = queueState !== "independent" && queueState !== "released";
+  let cancelledWorkflowVersion: number | null = null;
+  let cancelledComplianceVersion: number | null = null;
+  if (hasActiveQueue) {
+    if (workflowId == null || complianceId == null ||
+        workflowSnapshot?.exists !== true || workflowSnapshot.data == null ||
+        projectedComplianceSnapshot?.exists !== true ||
+        projectedComplianceSnapshot.data == null ||
+        activeComplianceRows.length !== 1 ||
+        activeComplianceRows[0].path !== compliancePath(complianceId) ||
+        activeWorkflowRows.length !== 1 ||
+        activeWorkflowRows[0].path !== workflowPath(workflowId) ||
+        projectedComplianceSnapshot.data.linkedWorkflowId !== workflowId ||
+        projectedComplianceSnapshot.data.linkedMaintenanceFirestoreId !==
+          command.aggregateId ||
+        !ACTIVE_COMPLIANCE_STATUSES.has(
+          String(projectedComplianceSnapshot.data.status),
+        ) ||
+        workflowSnapshot.data.workflowKind !== "issueCoordination" ||
+        workflowSnapshot.data.linkedMaintenanceFirestoreId !==
+          command.aggregateId ||
+        workflowSnapshot.data.cancelled !== false ||
+        !ACTIVE_WORKFLOW_STATUSES.has(String(workflowSnapshot.data.status)) ||
+        !Number.isSafeInteger(workflowSnapshot.data.version) ||
+        (workflowSnapshot.data.version as number) < 1 ||
+        !Number.isSafeInteger(projectedComplianceSnapshot.data.version) ||
+        (projectedComplianceSnapshot.data.version as number) < 1) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Active Operations coordination is incomplete or contradictory.",
+        {reasonCode: "maintenance-ticket-coordination-evidence-invalid"},
+      );
+    }
+    cancelledWorkflowVersion = workflowSnapshot.data.version as number;
+    cancelledComplianceVersion =
+      projectedComplianceSnapshot.data.version as number;
+  } else {
+    if (activeComplianceRows.length !== 0 || activeWorkflowRows.length !== 0) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "An unprojected Operations obligation still exists for this issue.",
+        {reasonCode: "maintenance-ticket-coordination-projection-diverged"},
+      );
+    }
+    if (projection.projected &&
+        (workflowId == null || complianceId == null ||
+          workflowSnapshot?.exists !== true || workflowSnapshot.data == null ||
+          projectedComplianceSnapshot?.exists !== true ||
+          projectedComplianceSnapshot.data == null ||
+          workflowSnapshot.data.workflowKind !== "issueCoordination" ||
+          workflowSnapshot.data.linkedMaintenanceFirestoreId !==
+            command.aggregateId ||
+          projectedComplianceSnapshot.data.linkedWorkflowId !== workflowId ||
+          projectedComplianceSnapshot.data.linkedMaintenanceFirestoreId !==
+            command.aggregateId ||
+          !TERMINAL_WORKFLOW_STATUSES.has(
+            String(workflowSnapshot.data.status),
+          ) ||
+          !TERMINAL_COMPLIANCE_STATUSES.has(
+            String(projectedComplianceSnapshot.data.status),
+          ))) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Released Operations coordination evidence is incomplete or contradictory.",
+        {reasonCode: "maintenance-ticket-coordination-release-invalid"},
+      );
+    }
+  }
+
+  const nextVersion = version + 1;
+  const updatedAt = iso(context.serverNow);
+  const cancelledCoordination = hasActiveQueue;
+  const update: JsonMap = {
+    isResolved: true,
+    status: "closedWithoutResolution",
+    endDate: updatedAt,
+    closedByUid: context.actor.uid,
+    closedByName: context.actor.name,
+    downtimeHours:
+      (context.serverNow.getTime() - startDate.getTime()) / (60 * 60 * 1000),
+    issueClosureSchemaVersion: 1,
+    issueClosureDisposition: disposition,
+    issueClosureReason: reason,
+    workflowDeferred: false,
+    workflowQueueState: workflowId == null ? "independent" : "released",
+    ...(workflowId == null ? {} : {
+      workflowReleasedAt: updatedAt,
+      workflowReleasedByUid: context.actor.uid,
+      workflowReleasedByName: context.actor.name,
+      workflowCorrectionReason: null,
+      workflowUpdatedAt: updatedAt,
+    }),
+    updatedAt,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+    version: nextVersion,
+  };
+  const before = ticketSnapshot(ticket);
+  const after = ticketSnapshot({...ticket, ...update});
+  const id = writeAudit({
+    tx,
+    command,
+    actor: context.actor,
+    at: context.serverNow,
+    reason,
+    summary: disposition === "stillRelevant" ?
+      "Maintenance issue closed without resolution; relevance retained" :
+      "Maintenance issue closed without resolution; relevance ended",
+    severity: "medium",
+    before,
+    after,
+    resultVersion: nextVersion,
+  });
+  if (cancelledCoordination) {
+    if (workflowId == null || complianceId == null ||
+        workflowSnapshot?.data == null ||
+        projectedComplianceSnapshot?.data == null ||
+        cancelledWorkflowVersion == null ||
+        cancelledComplianceVersion == null) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Active Operations coordination cannot be cancelled safely.",
+        {reasonCode: "maintenance-ticket-coordination-evidence-invalid"},
+      );
+    }
+    tx.update(compliancePath(complianceId), {
+      status: "cancelled",
+      nextEscalationAt: null,
+      cancelledByUid: context.actor.uid,
+      cancelledByName: context.actor.name,
+      cancelledAt: updatedAt,
+      cancellationReason: `Issue closed without resolution: ${reason}`,
+      version: cancelledComplianceVersion + 1,
+      updatedAt,
+    });
+    tx.update(workflowPath(workflowId), {
+      status: "cancelled",
+      cancelled: true,
+      cancelledByUid: context.actor.uid,
+      cancelledByName: context.actor.name,
+      cancelledAt: updatedAt,
+      cancellationReason: `Issue closed without resolution: ${reason}`,
+      version: cancelledWorkflowVersion + 1,
+      updatedAt,
+    });
+    const event = eventPlan({
+      aggregateId: workflowId,
+      eventId: command.commandId,
+      eventType: "issue.closedWithoutResolution",
+      actor: context.actor,
+      at: context.serverNow,
+      commandId: command.commandId,
+      payload: {
+        ticketId: command.aggregateId,
+        complianceId,
+        disposition,
+        reason,
+      },
+    });
+    tx.create(event.path, event.data);
+  }
+  tx.update(maintenancePath(command.aggregateId), update);
+  return {
+    resultKey: "maintenance-ticket-closed-without-resolution",
+    aggregateVersion: nextVersion,
+    result: {
+      ticketId: command.aggregateId,
+      auditId: id,
+      disposition,
+      cancelledCoordination,
+      cancelledWorkflowId: cancelledCoordination ? workflowId : null,
+      cancelledComplianceId: cancelledCoordination ? complianceId : null,
+    },
+  };
+};
+
 export const reopenMaintenanceTicket = async ({
   tx,
   command,
@@ -2414,10 +2812,10 @@ export const reconfigureMaintenanceTicketLanes = async ({
   }
   const {ticket, version} = await requireTicket(tx, command);
   await requireVacantAudit(tx, command.commandId);
-  if (ticket.status === "resolved") {
+  if (TERMINAL_TICKET_STATUSES.has(String(ticket.status))) {
     throw new WorkflowError(
       "failed-precondition",
-      "A resolved issue cannot have its accountable lanes changed.",
+      "A closed issue cannot have its accountable lanes changed.",
       {reasonCode: "maintenance-ticket-lanes-closed"},
     );
   }
@@ -2775,6 +3173,7 @@ export const verifyMaintenanceTicketAudit = async (args: {
       args.command.commandType !== "completeMaintenanceTicketLane" &&
       args.command.commandType !== "reconfigureMaintenanceTicketLanes" &&
       args.command.commandType !== "resolveMaintenanceTicket" &&
+      args.command.commandType !== "closeMaintenanceTicketWithoutResolution" &&
       args.command.commandType !== "reopenMaintenanceTicket" &&
       args.command.commandType !== "correctMaintenanceTicket") return;
   const id = auditId(args.command.commandId);
@@ -2859,6 +3258,57 @@ export const verifyMaintenanceTicketAudit = async (args: {
         "Maintenance ticket resolution receipt no longer matches its immutable audit.",
         {reasonCode: "maintenance-ticket-replay-resolution-invalid"},
       );
+    }
+  }
+  if (args.command.commandType ===
+      "closeMaintenanceTicketWithoutResolution") {
+    const disposition = args.command.payload.disposition;
+    const cancelledCoordination = args.receipt.result.cancelledCoordination;
+    const workflowId = args.receipt.result.cancelledWorkflowId;
+    const complianceId = args.receipt.result.cancelledComplianceId;
+    if (args.receipt.result.ticketId !== args.command.aggregateId ||
+        !ADMINISTRATIVE_CLOSURE_DISPOSITIONS.has(String(disposition)) ||
+        after.status !== "closedWithoutResolution" ||
+        after.isResolved !== true ||
+        after.closedByUid !== args.actor.uid ||
+        after.issueClosureSchemaVersion !== 1 ||
+        after.issueClosureDisposition !== disposition ||
+        after.issueClosureReason !== args.command.payload.reason ||
+        after.version !== args.receipt.aggregateVersion ||
+        typeof cancelledCoordination !== "boolean" ||
+        (cancelledCoordination &&
+          (typeof workflowId !== "string" ||
+            typeof complianceId !== "string")) ||
+        (!cancelledCoordination &&
+          (workflowId != null || complianceId != null))) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Administrative issue-closure receipt no longer matches its immutable audit.",
+        {reasonCode: "maintenance-ticket-replay-administrative-closure-invalid"},
+      );
+    }
+    if (cancelledCoordination && typeof workflowId === "string" &&
+        typeof complianceId === "string") {
+      const [workflow, compliance] = await Promise.all([
+        args.tx.get(workflowPath(workflowId)),
+        args.tx.get(compliancePath(complianceId)),
+      ]);
+      if (!workflow.exists || workflow.data == null ||
+          workflow.data.status !== "cancelled" ||
+          workflow.data.cancelledByUid !== args.actor.uid ||
+          workflow.data.linkedMaintenanceFirestoreId !==
+            args.command.aggregateId ||
+          !compliance.exists || compliance.data == null ||
+          compliance.data.status !== "cancelled" ||
+          compliance.data.cancelledByUid !== args.actor.uid ||
+          compliance.data.linkedMaintenanceFirestoreId !==
+            args.command.aggregateId) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "Administrative closure no longer has its coordination cancellation evidence.",
+          {reasonCode: "maintenance-ticket-replay-coordination-cancellation-invalid"},
+        );
+      }
     }
   }
   if (args.command.commandType === "reopenMaintenanceTicket") {

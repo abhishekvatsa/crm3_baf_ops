@@ -155,6 +155,28 @@ void main() {
       );
     });
 
+    test('administrative closure cannot enter technical-resolution replay', () {
+      final remote = _maintenanceTicket(version: 6);
+      final local =
+          _maintenanceTicket(version: 7)
+            ..isResolved = true
+            ..status = TicketStatus.closedWithoutResolution
+            ..closedByUid = 'admin-1'
+            ..closedByName = 'Admin One';
+
+      expect(
+        maintenanceResolvedReplayCanRebase(
+          local: local,
+          remote: remote,
+          currentUid: 'admin-1',
+        ),
+        isFalse,
+        reason:
+            'A terminal administrative decision must never be rewritten as a '
+            'technical resolution by the offline replay path.',
+      );
+    });
+
     test(
       'resolve UI accepts only governed server closure before local convergence',
       () {
@@ -239,9 +261,10 @@ void main() {
         contains('readMaintenanceIssueCommandServerState'),
         reason: 'Creation must adopt an exact server record before sync.',
       );
-      expect(plan, contains('local.isResolved'));
+      expect(plan, contains('local.wasTechnicallyResolved'));
       expect(plan, contains('_hasMaintenanceReopenEvidence(local)'));
-      expect(plan, contains('remote.isResolved'));
+      expect(plan, contains('remote.wasTechnicallyResolved'));
+      expect(plan, contains('remote.isClosed'));
       expect(plan, contains('local.version > remote.version + 1'));
       expect(plan, contains('_maintenancePinnedFieldDiff(local, remote)'));
       expect(plan, contains('_MaintenanceReplayStep.close'));

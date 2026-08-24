@@ -102,6 +102,7 @@ enum WorkflowCommandType {
   completeMaintenanceTicketLane,
   reconfigureMaintenanceTicketLanes,
   resolveMaintenanceTicket,
+  closeMaintenanceTicketWithoutResolution,
   reopenMaintenanceTicket,
   correctMaintenanceTicket,
   releaseFurnaceStuckup,

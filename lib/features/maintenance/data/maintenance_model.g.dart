@@ -1113,12 +1113,14 @@ const _MaintenanceRecordstatusEnumValueMap = {
   r'acknowledged': r'acknowledged',
   r'inProgress': r'inProgress',
   r'resolved': r'resolved',
+  r'closedWithoutResolution': r'closedWithoutResolution',
 };
 const _MaintenanceRecordstatusValueEnumMap = {
   r'open': TicketStatus.open,
   r'acknowledged': TicketStatus.acknowledged,
   r'inProgress': TicketStatus.inProgress,
   r'resolved': TicketStatus.resolved,
+  r'closedWithoutResolution': TicketStatus.closedWithoutResolution,
 };
 
 Id _maintenanceRecordGetId(MaintenanceRecord object) {
