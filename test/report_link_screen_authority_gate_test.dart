@@ -213,6 +213,53 @@ void main() {
     expect(pointReads, 3);
   });
 
+  test(
+    'compliance lookup retains a tombstone only as trusted absence',
+    () async {
+      final tombstone =
+          ComplianceRequestRecord()
+            ..firestoreId = 'request-deleted'
+            ..isDeleted = true;
+      var pointReads = 0;
+      final container = ProviderContainer(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(
+              _approvedActor(AppRole.seniorMechanical),
+            ),
+          ),
+          workflowCompliancePointReaderProvider.overrideWith((ref) {
+            return (complianceId) async {
+              pointReads++;
+              if (pointReads == 1) return tombstone;
+              throw FirebaseException(
+                plugin: 'cloud_firestore',
+                code: 'unavailable',
+              );
+            };
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(currentAppUserProvider.future);
+      const scope = (
+        actorUid: 'approved-seniorMechanical',
+        complianceId: 'request-deleted',
+      );
+
+      expect(
+        await container.read(workflowComplianceRecordProvider(scope).future),
+        isNull,
+      );
+      container.invalidate(workflowComplianceRecordProvider(scope));
+      expect(
+        await container.read(workflowComplianceRecordProvider(scope).future),
+        isNull,
+      );
+      expect(pointReads, 2);
+    },
+  );
+
   test('compliance session cache retains only the continuous actor', () {
     final request = ComplianceRequestRecord()..firestoreId = 'request-1';
     final cache = ActorSessionComplianceCache()..observeActor('actor-a');

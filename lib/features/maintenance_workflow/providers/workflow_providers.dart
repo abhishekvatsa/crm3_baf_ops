@@ -210,7 +210,8 @@ final workflowComplianceRecordProvider = FutureProvider.autoDispose.family<
   _requireApprovedComplianceActor(ref.watch(currentAppUserProvider), actorUid);
   final cache = ref.watch(workflowComplianceSessionCacheProvider);
   try {
-    final record = await ref.watch(workflowCompliancePointReaderProvider)(id);
+    final remote = await ref.watch(workflowCompliancePointReaderProvider)(id);
+    final record = remote?.isDeleted == true ? null : remote;
     if (!cache.remember(actorUid: actorUid, complianceId: id, record: record)) {
       throw StateError(
         'Compliance authority changed before the record was verified.',

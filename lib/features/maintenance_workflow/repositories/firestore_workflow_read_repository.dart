@@ -835,7 +835,8 @@ class FirestoreWorkflowReadRepository implements WorkflowRemoteReadRepository {
         .doc(id)
         .get(const GetOptions(source: Source.server));
     if (!document.exists) return null;
-    return _compliance(document);
+    final record = _compliance(document);
+    return record.isDeleted ? null : record;
   }
 
   @override
