@@ -3598,6 +3598,12 @@ service cloud.firestore {
         );
     }
 
+    function canReadMaintenanceTicketCorrectionAudit() {
+      return isApprovedUser()
+        && resource.data.get('entityType', null) == 'maintenance'
+        && resource.data.get('operation', null) == 'correctMaintenanceTicket';
+    }
+
     // ─────────────────────────────────────────────
     // 👤 USERS
     // ─────────────────────────────────────────────
@@ -4242,7 +4248,7 @@ service cloud.firestore {
     // ─────────────────────────────────────────────
 
     match /audit_logs/{docId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || canReadMaintenanceTicketCorrectionAudit();
       // Deterministic server-population audit identities are reserved for the
       // Admin-SDK transaction and cannot be pre-created by a client.
       allow create: if !docId.matches('^server_module_population_.*')

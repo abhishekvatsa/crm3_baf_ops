@@ -254,6 +254,39 @@ class AuditRepository {
     return snap.docs.map(_mapEvent).toList();
   }
 
+  Future<List<AuditEvent>> getMaintenanceTicketCorrectionEvents(
+    String ticketId,
+  ) async {
+    final cleanTicketId = ticketId.trim();
+    if (cleanTicketId.isEmpty || cleanTicketId.length > 200) {
+      throw ArgumentError.value(
+        ticketId,
+        'ticketId',
+        'A valid maintenance ticket ID is required.',
+      );
+    }
+
+    final events = <AuditEvent>[];
+    DocumentSnapshot<Map<String, dynamic>>? startAfter;
+    while (true) {
+      var query = _collection
+          .where('entityType', isEqualTo: 'maintenance')
+          .where('entityId', isEqualTo: cleanTicketId)
+          .where('operation', isEqualTo: 'correctMaintenanceTicket')
+          .orderBy('timestamp', descending: true)
+          .limit(_remoteEntityPageSize);
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+
+      final snapshot = await query.get();
+      events.addAll(snapshot.docs.map(_mapEvent));
+      if (snapshot.docs.length < _remoteEntityPageSize) break;
+      startAfter = snapshot.docs.last;
+    }
+    return List<AuditEvent>.unmodifiable(events);
+  }
+
   Future<List<AuditEvent>> getRecentRemoteEvents({int limit = 100}) async {
     final snap =
         await _collection

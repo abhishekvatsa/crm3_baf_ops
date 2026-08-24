@@ -6,6 +6,7 @@ import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../data/maintenance_model.dart';
+import 'maintenance_ticket_correction_history.dart';
 
 class MaintenanceTicketDetailScreen extends StatelessWidget {
   const MaintenanceTicketDetailScreen({
@@ -262,6 +263,9 @@ class MaintenanceTicketDetailScreen extends StatelessWidget {
                   ),
               ],
             ),
+          MaintenanceTicketCorrectionHistorySection(
+            ticketId: ticket.firestoreId,
+          ),
           _DetailSection(
             title: 'Record assurance',
             icon: Icons.verified_user_outlined,

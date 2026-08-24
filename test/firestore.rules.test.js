@@ -14,6 +14,7 @@ const {
   collection,
   query,
   where,
+  orderBy,
   Timestamp,
   serverTimestamp,
   deleteField,
@@ -3654,6 +3655,79 @@ describe("audit_logs", () => {
     await assertFails(getDocs(collection(unauthenticatedDb, "audit_logs")));
   });
 
+  test("approved users can read only governed maintenance correction audits", async () => {
+    await seedUser("unapprovedOps", ["operations"], false);
+    const correctionId = "server_maintenance_ticket_correct-ticket1";
+    await seedDoc(`audit_logs/${correctionId}`, {
+      schemaVersion: 1,
+      auditId: correctionId,
+      entityType: "maintenance",
+      entityId: "ticket1",
+      action: "update",
+      operation: "correctMaintenanceTicket",
+      performedByUid: "admin1",
+      performedByName: "Admin One",
+      timestamp: "2026-08-24T06:30:00.000Z",
+      reason: "manualOverride",
+      reasonNotes: "Corrected after checking the field record.",
+      summary: "Maintenance ticket corrected: description",
+      severity: "medium",
+      beforeJson: JSON.stringify({description: "Old description"}),
+      afterJson: JSON.stringify({description: "Corrected description"}),
+      requestId: "correct-ticket1",
+      resultVersion: 4,
+    });
+    await seedDoc("audit_logs/server_maintenance_ticket_ack-ticket1", {
+      schemaVersion: 1,
+      auditId: "server_maintenance_ticket_ack-ticket1",
+      entityType: "maintenance",
+      entityId: "ticket1",
+      action: "update",
+      operation: "acknowledgeMaintenanceTicket",
+      performedByUid: "ops1",
+      performedByName: "Operations User",
+      timestamp: "2026-08-24T06:00:00.000Z",
+      reason: "other",
+      reasonNotes: "Issue acknowledged.",
+      summary: "Maintenance ticket acknowledged",
+      severity: "low",
+      beforeJson: "{}",
+      afterJson: "{}",
+      requestId: "ack-ticket1",
+      resultVersion: 2,
+    });
+    const db = dbAs("ops1");
+
+    await assertSucceeds(getDoc(doc(db, `audit_logs/${correctionId}`)));
+    const correctionQuery = await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, "audit_logs"),
+          where("entityType", "==", "maintenance"),
+          where("entityId", "==", "ticket1"),
+          where("operation", "==", "correctMaintenanceTicket"),
+          orderBy("timestamp", "desc")
+        )
+      )
+    );
+    expect(correctionQuery.size).toBe(1);
+    await assertFails(
+      getDoc(doc(db, "audit_logs/server_maintenance_ticket_ack-ticket1"))
+    );
+    await assertFails(getDocs(collection(db, "audit_logs")));
+    await assertFails(
+      getDoc(doc(dbAs("unapprovedOps"), `audit_logs/${correctionId}`))
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          testEnv.unauthenticatedContext().firestore(),
+          `audit_logs/${correctionId}`
+        )
+      )
+    );
+  });
+
   test("revocation denies the next audit read on the existing session", async () => {
     await seedUser("revokedAdmin", ["admin"]);
     await seedDoc("audit_logs/sharedAudit", auditEventPayload());
@@ -3705,6 +3779,13 @@ describe("audit_logs", () => {
         performedByUid: "ops1",
         timestamp: "not-a-timestamp",
         severity: "extreme",
+      })
+    );
+
+    await assertFails(
+      setDoc(doc(db, "audit_logs/auditForgedCorrection"), {
+        ...auditEventPayload(),
+        operation: "correctMaintenanceTicket",
       })
     );
   });

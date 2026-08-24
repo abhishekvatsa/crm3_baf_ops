@@ -1,4 +1,6 @@
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
+import 'package:crm3_baf_ops/features/audit/providers/audit_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
@@ -6,6 +8,7 @@ import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticke
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticket_detail_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 
@@ -119,11 +122,40 @@ void main() {
           .replacement,
       ReplacementType.newPart,
     );
+    final correction =
+        AuditEvent(
+            entityType: 'maintenance',
+            entityId: 'ticket-closed-1',
+            action: AuditAction.update,
+            performedByUid: 'admin-1',
+            performedByName: 'Admin One',
+            reason: AuditReason.manualOverride,
+            reasonNotes:
+                'Corrected the issue description after checking the shift log.',
+            summary: 'Maintenance ticket corrected: description',
+            severity: AuditSeverity.medium,
+            before: const <String, dynamic>{
+              'description': 'Burner pressure was reported as normal.',
+            },
+            after: const <String, dynamic>{
+              'description': 'Burner pressure instability was investigated.',
+            },
+          )
+          ..timestamp = closedAt.subtract(const Duration(minutes: 20))
+          ..isSynced = true;
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: BafAppTheme.light,
-        home: MaintenanceTicketDetailScreen(ticket: ticket, onCorrect: () {}),
+      ProviderScope(
+        overrides: [
+          maintenanceTicketCorrectionAuditProvider.overrideWith((ref, id) {
+            expect(id, 'ticket-closed-1');
+            return Future<List<AuditEvent>>.value(<AuditEvent>[correction]);
+          }),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: MaintenanceTicketDetailScreen(ticket: ticket, onCorrect: () {}),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -249,6 +281,46 @@ void main() {
     );
     expect(
       find.textContaining('Reopened after the lockout recurred.'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Audited corrections'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Audited corrections'), findsOneWidget);
+    final correctionCard = find.byKey(const ValueKey('ticket-correction-1'));
+    await tester.scrollUntilVisible(
+      correctionCard,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(correctionCard, findsOneWidget);
+    expect(
+      find.descendant(of: correctionCard, matching: find.text('Admin One')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: correctionCard,
+        matching: find.text(
+          'Corrected the issue description after checking the shift log.',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: correctionCard,
+        matching: find.text('Burner pressure was reported as normal.'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: correctionCard,
+        matching: find.text('Burner pressure instability was investigated.'),
+      ),
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('ticket-detail-correct')), findsOneWidget);
