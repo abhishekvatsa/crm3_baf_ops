@@ -332,9 +332,9 @@
       "readerFile": "lib/features/maintenance/data/remote_maintenance_timestamps.dart",
       "readerMarker": "RemoteMaintenanceTimestamps readRemoteMaintenanceTimestamps(",
       "requiredFields": ["startDate", "createdAt", "updatedAt"],
-      "optionalFields": ["workflowDeferredAt", "workflowReactivatedAt", "workflowReleasedAt", "workflowUpdatedAt", "acknowledgedAt", "endDate", "deletedAt"],
+      "optionalFields": ["workflowDeferredAt", "workflowReactivatedAt", "workflowReleasedAt", "workflowUpdatedAt", "acknowledgedAt", "reopenedAt", "endDate", "deletedAt"],
       "owner": "maintenance",
-      "purpose": "restore ticket chronology, workflow transitions, and tombstone authority",
+      "purpose": "restore ticket chronology, including reopening, workflow transitions, and tombstone authority",
       "authorityBoundary": "remote-operational-record",
       "regression": "test/a05_maintenance_timestamp_integrity_test.dart",
       "reArmCondition": "any maintenance-ticket timestamp schema change"

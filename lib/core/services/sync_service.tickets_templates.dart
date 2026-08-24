@@ -664,7 +664,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
   bool _hasMaintenanceReopenEvidence(MaintenanceRecord local) {
     if (local.isClosed) return false;
-    return local.resolutionHistory.isNotEmpty;
+    return local.resolutionHistory.isNotEmpty &&
+        _cleanMaintenanceText(local.reopenedByUid) != null &&
+        _cleanMaintenanceText(local.reopenedByName) != null &&
+        local.reopenedAt != null;
   }
 
   Map<String, dynamic> _maintenanceCloseReplayStepData(
@@ -739,6 +742,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord local, [
     DateTime? serverMutationFloor,
   ]) {
+    final reopenedByUid = _cleanMaintenanceText(local.reopenedByUid);
+    final reopenedByName = _cleanMaintenanceText(local.reopenedByName);
+    final reopenedAt = local.reopenedAt;
+    if (reopenedByUid == null || reopenedByName == null || reopenedAt == null) {
+      throw StateError(
+        'Maintenance reopen replay requires complete actor and time evidence.',
+      );
+    }
     final burnerLockout = local.burnerLockoutCase;
     final reopenedLanePlan = local.issueLanePlan.reopen();
     final mutationTimestamp =
@@ -760,17 +771,21 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'endDate': null,
       'closedByUid': null,
       'closedByName': null,
+      'reopenedByUid': reopenedByUid,
+      'reopenedByName': reopenedByName,
+      'reopenedAt': reopenedAt.toUtc().toIso8601String(),
+      'reopenReason': local.reopenReason,
       'downtimeHours': null,
       'teamsInvolved': local.teamsInvolved,
       'actionsJson': local.actionsJson,
       if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
       if (burnerLockout != null)
         'burnerResolutionEvidence': <String, dynamic>{},
-      'remarks': local.remarks,
+      'remarks': local.reopenReason,
       'resolutionHistoryJson': local.resolutionHistoryJson,
       'updatedAt': mutationTimestamp.toUtc().toIso8601String(),
-      'updatedByUid': FirebaseAuth.instance.currentUser?.uid,
-      'updatedByName': null,
+      'updatedByUid': reopenedByUid,
+      'updatedByName': reopenedByName,
       'version': local.version,
     };
   }

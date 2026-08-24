@@ -50,7 +50,7 @@
     }
   },
   "localStore": {
-    "schemaVersion": 6,
+    "schemaVersion": 7,
     "verifier": "tools/isar/verify_v4_isar_schema.py --release"
   },
   "appCheck": {

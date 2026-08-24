@@ -2979,10 +2979,11 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 6" in isar_migration
+    and "currentSchemaVersion = 7" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
     and "v5SchemaFingerprint" in isar_migration
     and "6: _addOperationalEventIssueLinkProjection" in isar_migration
+    and "7: _addMaintenanceReopenEvidenceFields" in isar_migration
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
@@ -3047,8 +3048,10 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v6" in isar_fixture_test
-    and "populated v3 compliance request migrates through v6"
+    and "repository-proven populated v1 migrates to v7" in isar_fixture_test
+    and "populated v3 compliance request migrates through v7"
+        in isar_fixture_test
+    and "populated v6 maintenance ticket migrates to v7"
         in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
@@ -9889,9 +9892,9 @@ check(
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
     and a05_timestamp_inventory_report.get("readerCount") == 69
-    and a05_timestamp_inventory_report.get("directCallCount") == 163
+    and a05_timestamp_inventory_report.get("directCallCount") == 164
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 97
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 64
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 65
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
@@ -10494,7 +10497,7 @@ check(
     and "does not inspect or mutate production documents" in a05_decision_7
     and "class RemoteMaintenanceTimestamps" in a05_maintenance_timestamps
     and a05_maintenance_timestamps.count("readRequiredPersistedDateTime(") == 3
-    and a05_maintenance_timestamps.count("readOptionalPersistedDateTime(") == 7
+    and a05_maintenance_timestamps.count("readOptionalPersistedDateTime(") == 8
     and "readRemoteMaintenanceRecord(" in a05_maintenance_provider
     and "readRemoteMaintenanceRecord(" in a05_live_sync
     and "readRemoteMaintenanceTimestamps(" in a05_remote_maintenance_reader

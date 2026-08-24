@@ -10,6 +10,7 @@ class RemoteMaintenanceTimestamps {
     this.workflowReleasedAt,
     this.workflowUpdatedAt,
     this.acknowledgedAt,
+    this.reopenedAt,
     this.endDate,
     this.deletedAt,
   });
@@ -22,6 +23,7 @@ class RemoteMaintenanceTimestamps {
   final DateTime? workflowReleasedAt;
   final DateTime? workflowUpdatedAt;
   final DateTime? acknowledgedAt;
+  final DateTime? reopenedAt;
   final DateTime? endDate;
   final DateTime? deletedAt;
 }
@@ -69,6 +71,11 @@ RemoteMaintenanceTimestamps readRemoteMaintenanceTimestamps(
     acknowledgedAt: readOptionalPersistedDateTime(
       data['acknowledgedAt'],
       field: 'acknowledgedAt',
+      source: source,
+    ),
+    reopenedAt: readOptionalPersistedDateTime(
+      data['reopenedAt'],
+      field: 'reopenedAt',
       source: source,
     ),
     endDate: readOptionalPersistedDateTime(

@@ -136,6 +136,17 @@ class MaintenanceTicketDetailScreen extends StatelessWidget {
                 value:
                     '${_dateTime(ticket.startDate)} · ${_firstText(ticket.loggedByName, ticket.reportedBy, 'Unknown')}',
               ),
+              if (ticket.reopenedAt != null)
+                _DetailValue(
+                  label: 'Reopened',
+                  value:
+                      '${_dateTime(ticket.reopenedAt!)} · ${_firstText(ticket.reopenedByName, ticket.reopenedByUid, 'Unknown')}',
+                ),
+              if (_hasText(ticket.reopenReason))
+                _DetailValue(
+                  label: 'Reopen reason',
+                  value: ticket.reopenReason!,
+                ),
               if (closedAt != null)
                 _DetailValue(
                   label: 'Closed',
@@ -635,6 +646,10 @@ class _ComponentActionView extends StatelessWidget {
             runSpacing: 6,
             children: [
               _SmallEvidenceChip(label: _enumLabel(action.actionType.name)),
+              if (action.replacement != null)
+                _SmallEvidenceChip(
+                  label: 'Replacement: ${_enumLabel(action.replacement!.name)}',
+                ),
               _SmallEvidenceChip(
                 label: 'Action time ${_evidenceDateTime(action.createdAt)}',
               ),
@@ -743,6 +758,8 @@ class _ResolutionHistoryView extends StatelessWidget {
   static String _actionSummary(ComponentAction action) => <String>[
     action.component,
     _enumLabel(action.actionType.name),
+    if (action.replacement != null)
+      'Replacement: ${_enumLabel(action.replacement!.name)}',
     'Action time ${_evidenceDateTime(action.createdAt)}',
     if (action.updatedAt != null &&
         !_sameInstant(action.createdAt, action.updatedAt!))

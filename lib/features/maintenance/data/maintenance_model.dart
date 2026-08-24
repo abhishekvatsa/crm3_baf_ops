@@ -387,6 +387,28 @@ class MaintenanceRecord {
         detail: 'acknowledgement evidence must match issue lane progress',
       );
     }
+
+    final hasAnyReopenEvidence =
+        reopenedByUid != null ||
+        reopenedByName != null ||
+        reopenedAt != null ||
+        reopenReason != null;
+    final cleanReopenedByUid = reopenedByUid?.trim();
+    final cleanReopenedByName = reopenedByName?.trim();
+    final hasCompleteReopenAuthority =
+        cleanReopenedByUid != null &&
+        cleanReopenedByUid.isNotEmpty &&
+        cleanReopenedByName != null &&
+        cleanReopenedByName.isNotEmpty &&
+        reopenedAt != null;
+    if (hasAnyReopenEvidence && !hasCompleteReopenAuthority) {
+      throw PersistedDataFormatException(
+        field: 'reopenedByUid',
+        source: source,
+        detail:
+            'reopening actor and time evidence must be complete when present',
+      );
+    }
   }
 
   // ── Operational Criticality ───────────────────────────────────────────────
@@ -453,6 +475,11 @@ class MaintenanceRecord {
 
   String? closedByUid;
   String? closedByName;
+
+  String? reopenedByUid;
+  String? reopenedByName;
+  DateTime? reopenedAt;
+  String? reopenReason;
 
   List<String> teamsInvolved = [];
 

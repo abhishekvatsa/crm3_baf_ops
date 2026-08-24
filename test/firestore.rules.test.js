@@ -1884,11 +1884,30 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketReopenMobile"), {
+        isResolved: false,
+        status: "open",
+        reopenedByUid: "ops1",
+        reopenedAt,
+        reopenReason: "Issue recurred during operation.",
+        updatedAt: reopenedAt,
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
 
     await assertSucceeds(
       updateDoc(doc(db, "maintenance_records/ticketReopenMobile"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Issue recurred during operation.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -1907,7 +1926,7 @@ describe("maintenance_records", () => {
             teamsInvolved: ["mechanical"],
           },
         ]),
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -1945,11 +1964,16 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
 
     await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketReopenInvariant"), {
         isResolved: false,
         status: "resolved",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Status mismatch should fail.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -1958,7 +1982,7 @@ describe("maintenance_records", () => {
         actionsJson: "[]",
         remarks: "Status mismatch should fail.",
         resolutionHistoryJson: "[]",
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -1969,6 +1993,10 @@ describe("maintenance_records", () => {
       updateDoc(doc(db, "maintenance_records/ticketReopenInvariant"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Uncleared close fields should fail.",
         endDate: closedAt,
         closedByUid: "seniorMech",
         closedByName: "Senior Mechanical",
@@ -1977,7 +2005,7 @@ describe("maintenance_records", () => {
         actionsJson: "[]",
         remarks: "Uncleared close fields should fail.",
         resolutionHistoryJson: "[]",
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -2014,11 +2042,16 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
 
     await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketReopenPayloadInvariant"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Teams must be cleared on reopen.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -2037,7 +2070,7 @@ describe("maintenance_records", () => {
             teamsInvolved: ["mechanical"],
           },
         ]),
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -2048,6 +2081,10 @@ describe("maintenance_records", () => {
       updateDoc(doc(db, "maintenance_records/ticketReopenPayloadInvariant"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Actions must be cleared on reopen.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -2066,7 +2103,7 @@ describe("maintenance_records", () => {
             teamsInvolved: ["mechanical"],
           },
         ]),
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -2104,6 +2141,7 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
 
     await assertSucceeds(
       updateDoc(doc(db, "maintenance_records/ticketReopen"), {
@@ -2111,9 +2149,9 @@ describe("maintenance_records", () => {
         status: "open",
         reopenedByUid: "ops1",
         reopenedByName: "Operations User",
-        reopenedAt: new Date().toISOString(),
+        reopenedAt,
         reopenReason: "Issue recurred during operation.",
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,

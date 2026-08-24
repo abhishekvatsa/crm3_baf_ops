@@ -24,6 +24,52 @@ void main() {
       expect(record.resolutionHistoryJson, '[]');
     });
 
+    test('reopening actor, time, and optional reason decode together', () {
+      final record = readRemoteMaintenanceRecord(
+        _validRecord()
+          ..['reopenedByUid'] = 'operations-2'
+          ..['reopenedByName'] = 'Operations Two'
+          ..['reopenedAt'] = '2026-08-12T10:05:00Z'
+          ..['reopenReason'] = 'The condition recurred during operation.',
+        documentId: 'ticket-1',
+      );
+
+      expect(record.reopenedByUid, 'operations-2');
+      expect(record.reopenedByName, 'Operations Two');
+      expect(record.reopenedAt, DateTime.utc(2026, 8, 12, 10, 5));
+      expect(record.reopenReason, 'The condition recurred during operation.');
+    });
+
+    test('partial or impossible reopening evidence fails closed', () {
+      final complete =
+          _validRecord()
+            ..['reopenedByUid'] = 'operations-2'
+            ..['reopenedByName'] = 'Operations Two'
+            ..['reopenedAt'] = '2026-08-12T10:05:00Z';
+
+      for (final field in <String>[
+        'reopenedByUid',
+        'reopenedByName',
+        'reopenedAt',
+      ]) {
+        final partial = Map<String, dynamic>.from(complete)..remove(field);
+        expect(
+          () => readRemoteMaintenanceRecord(partial, documentId: 'ticket-1'),
+          throwsA(isA<PersistedDataFormatException>()),
+          reason: field,
+        );
+      }
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          Map<String, dynamic>.from(complete)
+            ..['reopenedAt'] = '2026-08-12T10:11:00Z',
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
+
     test('required business fields never receive defaults', () {
       final mutations = <String, Object?>{
         'version': null,

@@ -16,11 +16,12 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final closedAt = DateTime.utc(2026, 8, 23, 12);
+    final reopenedAt = closedAt.subtract(const Duration(days: 1));
     final earlierAction = buildBurnerComponentAction(
       ticketId: 'ticket-closed-1',
       furnaceNumber: 7,
       burnerPosition: 3,
-      code: BurnerActionCode.uvDetectorCleaning,
+      code: BurnerActionCode.uvDetectorReplacement,
       outcome: BurnerResolutionOutcome.returnedToService,
       microampReading: 2.875,
       performedBy: 'I&A Two',
@@ -30,7 +31,8 @@ void main() {
     final currentAction = ComponentAction(
       asset: 'Furnace 7',
       component: 'Burner control relay',
-      actionType: ActionType.repair,
+      actionType: ActionType.replacement,
+      replacement: ReplacementType.newPart,
       resolution: 'Relay contacts restored and tested.',
       performedBy: 'Electrical One',
       createdAt: closedAt.subtract(const Duration(hours: 2)),
@@ -58,9 +60,13 @@ void main() {
           ..acknowledgedAt = closedAt.subtract(const Duration(hours: 3))
           ..closedByUid = 'si-1'
           ..closedByName = 'SI One'
-          ..startDate = closedAt.subtract(const Duration(hours: 4))
+          ..reopenedByUid = 'operations-2'
+          ..reopenedByName = 'Operations Two'
+          ..reopenedAt = reopenedAt
+          ..reopenReason = 'Lockout recurred during the next firing cycle.'
+          ..startDate = closedAt.subtract(const Duration(days: 3))
           ..endDate = closedAt
-          ..createdAt = closedAt.subtract(const Duration(hours: 4))
+          ..createdAt = closedAt.subtract(const Duration(days: 3))
           ..updatedAt = closedAt
           ..remarks = 'Flame signal stabilized after attendance.'
           ..actionsJson = ComponentAction.encode([currentAction])
@@ -80,6 +86,10 @@ void main() {
               ])
               .acknowledge(RoutedTo.instrumentation.name)
               .complete(RoutedTo.instrumentation.name);
+    expect(
+      ticket.actionsReadResult.entries.single.replacement,
+      ReplacementType.newPart,
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -93,11 +103,43 @@ void main() {
     expect(find.text('Accountability'), findsOneWidget);
     expect(find.text('Timeline and people'), findsOneWidget);
     await tester.scrollUntilVisible(
+      find.text('Lockout recurred during the next firing cycle.'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Reopened'), findsOneWidget);
+    expect(
+      find.text(
+        '${DateFormat('dd MMM yyyy, HH:mm').format(reopenedAt.toLocal())} · Operations Two',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Lockout recurred during the next firing cycle.'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
       find.text('Work recorded'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Work recorded'), findsOneWidget);
+    final replacementChip = find.text(
+      'Replacement: New Part',
+      skipOffstage: false,
+    );
+    for (
+      var attempt = 0;
+      attempt < 6 && replacementChip.evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -100));
+      await tester.pump();
+    }
+    expect(replacementChip, findsOneWidget);
+    await tester.ensureVisible(replacementChip);
+    await tester.pumpAndSettle();
+    expect(find.text('Replacement: New Part'), findsOneWidget);
     expect(
       find.text(
         'Action time ${DateFormat('dd MMM yyyy, HH:mm').format(currentAction.createdAt.toLocal())}',
@@ -126,6 +168,13 @@ void main() {
     expect(find.text('I&A, Electrical'), findsOneWidget);
     expect(find.textContaining('Burner 3'), findsOneWidget);
     expect(find.textContaining('2.875 µA'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('earlier-closure-1')),
+        matching: find.textContaining('Replacement: New Part'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.textContaining(
         'Action time ${DateFormat('dd MMM yyyy, HH:mm').format(earlierAction.createdAt.toLocal())}',

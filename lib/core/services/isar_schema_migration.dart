@@ -573,7 +573,7 @@ class IsarSchemaOpenPreparation {
 }
 
 class IsarSchemaMigrator {
-  static const int currentSchemaVersion = 6;
+  static const int currentSchemaVersion = 7;
 
   static const String v1SchemaFingerprint =
       'v1:Charge,MaintenanceRecord,JobTemplate,JobExecution,JobDiaryEntry,'
@@ -615,7 +615,7 @@ class IsarSchemaMigrator {
       'EquipmentPromptRecord,WorkflowEventRecord,WorkflowCommandRecord,'
       'WorkflowCommandReceiptRecord';
 
-  static const String currentSchemaFingerprint =
+  static const String v6SchemaFingerprint =
       'v6:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks,'
       'JobTemplate,JobExecution+WorkflowTerminalState,JobDiaryEntry+EMD+RED,'
       'JobModuleInstance+EMD+RED,TemplatePackage,TemplateVersion,'
@@ -627,6 +627,18 @@ class IsarSchemaMigrator {
       'EquipmentPromptRecord,WorkflowEventRecord,WorkflowCommandRecord,'
       'WorkflowCommandReceiptRecord';
 
+  static const String currentSchemaFingerprint =
+      'v7:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'
+      'ReopenEvidence,JobTemplate,JobExecution+WorkflowTerminalState,'
+      'JobDiaryEntry+EMD+RED,JobModuleInstance+EMD+RED,TemplatePackage,'
+      'TemplateVersion,TemplatePublishAudit,BafKnowledgeRow,'
+      'BafKnowledgeMatrixMetaStore,OperationalDirective,AuditEvent,'
+      'SyncRejection,AbnormalityType,ChargeAbnormality,'
+      'WorkflowAggregateRecord+GovernedAssetIdentity,JobLaneRecord,'
+      'ComplianceRequestRecord+OperationalAssurance,ComplianceAttemptRecord,'
+      'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
+      'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
+
   static const IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan(
     currentVersion: currentSchemaVersion,
     schemaFingerprint: currentSchemaFingerprint,
@@ -637,7 +649,8 @@ class IsarSchemaMigrator {
       3: <String>{v3SchemaFingerprint},
       4: <String>{v4SchemaFingerprint},
       5: <String>{v5SchemaFingerprint},
-      6: <String>{currentSchemaFingerprint},
+      6: <String>{v6SchemaFingerprint},
+      7: <String>{currentSchemaFingerprint},
     },
     stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
       2: _registerMaintenanceWorkflowCollections,
@@ -645,6 +658,7 @@ class IsarSchemaMigrator {
       4: _addOperationalAssuranceRequestFields,
       5: _addGovernedAssetIdentityFields,
       6: _addOperationalEventIssueLinkProjection,
+      7: _addMaintenanceReopenEvidenceFields,
     },
   );
 
@@ -729,6 +743,23 @@ class IsarSchemaMigrator {
       );
     }
     // Isar adds the list during open; legacy rows decode it as an empty list.
+  }
+
+  static Future<void> _addMaintenanceReopenEvidenceFields(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 6 || context.toVersion != 7) {
+      throw IsarSchemaMigrationException(
+        'Unexpected maintenance reopen-evidence schema transition.',
+        reasonCode: 'unexpected-v6-v7-transition',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+        hasExistingLocalStore: context.hasExistingLocalStore,
+        markerDisposition: 'migration-prepared',
+      );
+    }
+    // Isar adds the nullable evidence fields during open. Legacy tickets have
+    // no reopening evidence; future reopen mutations populate the full set.
   }
 
   const IsarSchemaMigrator._();

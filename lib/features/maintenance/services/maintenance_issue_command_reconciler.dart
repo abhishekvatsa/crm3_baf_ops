@@ -258,6 +258,10 @@ bool _sameCommandState(MaintenanceRecord local, MaintenanceRecord remote) {
       _sameInstant(local.endDate, remote.endDate) &&
       local.closedByUid == remote.closedByUid &&
       local.closedByName == remote.closedByName &&
+      local.reopenedByUid == remote.reopenedByUid &&
+      local.reopenedByName == remote.reopenedByName &&
+      _sameInstant(local.reopenedAt, remote.reopenedAt) &&
+      local.reopenReason == remote.reopenReason &&
       local.remarks == remote.remarks &&
       local.downtimeHours == remote.downtimeHours &&
       _sameStrings(local.teamsInvolved, remote.teamsInvolved) &&

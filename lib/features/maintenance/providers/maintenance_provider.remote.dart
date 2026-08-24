@@ -474,7 +474,12 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     required String reopenedByName,
     String? reopenRemarks,
   }) async {
-    _requireCanReopenMaintenanceTicket(actor);
+    final reopen = _validatedMaintenanceReopenEvidence(
+      actor: actor,
+      reopenedByUid: reopenedByUid,
+      reopenedByName: reopenedByName,
+      reopenRemarks: reopenRemarks,
+    );
     final docId = id as String;
     final doc = await _collection.doc(docId).get();
     if (!doc.exists || doc.data() == null) throw Exception('Ticket not found');
@@ -514,6 +519,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     final newHistoryJson = jsonEncode(historyPayload.rows);
     final burnerLockout = current.burnerLockoutCase;
     final reopenedLanePlan = current.issueLanePlan.reopen();
+    final reopenedAt = DateTime.now().toUtc();
 
     await _collection.doc(docId).update({
       'isResolved': false,
@@ -530,10 +536,16 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
       if (burnerLockout != null)
         'burnerResolutionEvidence': <String, dynamic>{},
-      'remarks': reopenRemarks,
+      'reopenedByUid': reopen.uid,
+      'reopenedByName': reopen.name,
+      'reopenedAt': reopenedAt.toIso8601String(),
+      'reopenReason': reopen.reason,
+      'remarks': reopen.reason,
       'teamsInvolved': [],
       'resolutionHistoryJson': newHistoryJson,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'updatedAt': reopenedAt.toIso8601String(),
+      'updatedByUid': reopen.uid,
+      'updatedByName': reopen.name,
       'version': FieldValue.increment(1),
     });
   }
@@ -872,6 +884,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     'acknowledgedAt': t.acknowledgedAt?.toIso8601String(),
     'closedByUid': t.closedByUid,
     'closedByName': t.closedByName,
+    'reopenedByUid': t.reopenedByUid,
+    'reopenedByName': t.reopenedByName,
+    'reopenedAt': t.reopenedAt?.toIso8601String(),
+    'reopenReason': t.reopenReason,
     'teamsInvolved': t.teamsInvolved,
     'performedBy': t.performedBy,
     'remarks': t.remarks,

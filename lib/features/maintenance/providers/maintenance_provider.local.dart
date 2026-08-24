@@ -448,7 +448,12 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     required String reopenedByName,
     String? reopenRemarks,
   }) async {
-    _requireCanReopenMaintenanceTicket(actor);
+    final reopen = _validatedMaintenanceReopenEvidence(
+      actor: actor,
+      reopenedByUid: reopenedByUid,
+      reopenedByName: reopenedByName,
+      reopenRemarks: reopenRemarks,
+    );
     final ticketId = id as int;
 
     await isar.writeTxn(() async {
@@ -491,10 +496,15 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         t.actionsJson = '[]';
         final lockout = t.burnerLockoutCase;
         if (lockout != null) t.burnerLockoutCase = lockout.clearResolution();
-        t.remarks = reopenRemarks;
+        final reopenedAt = DateTime.now().toUtc();
+        t.reopenedByUid = reopen.uid;
+        t.reopenedByName = reopen.name;
+        t.reopenedAt = reopenedAt;
+        t.reopenReason = reopen.reason;
+        t.remarks = reopen.reason;
         t.teamsInvolved = [];
 
-        t.updatedAt = DateTime.now();
+        t.updatedAt = reopenedAt;
         t.version += 1;
         t.isSynced = false;
 

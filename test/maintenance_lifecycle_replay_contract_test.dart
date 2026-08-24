@@ -435,12 +435,7 @@ void main() {
           'function maintenanceReopenChangedFieldsOnly',
         );
 
-        final ruleKeys = _quotedStrings(rulesBlock).difference({
-          'reopenedByUid',
-          'reopenedByName',
-          'reopenedAt',
-          'reopenReason',
-        });
+        final ruleKeys = _quotedStrings(rulesBlock);
         for (final field in ruleKeys) {
           expect(
             payload,

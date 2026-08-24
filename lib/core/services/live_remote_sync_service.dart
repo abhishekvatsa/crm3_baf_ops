@@ -746,6 +746,10 @@ class LiveRemoteSyncService {
       ..acknowledgedAt = remote.acknowledgedAt
       ..closedByUid = remote.closedByUid
       ..closedByName = remote.closedByName
+      ..reopenedByUid = remote.reopenedByUid
+      ..reopenedByName = remote.reopenedByName
+      ..reopenedAt = remote.reopenedAt
+      ..reopenReason = remote.reopenReason
       ..teamsInvolved = List<String>.from(remote.teamsInvolved)
       ..performedBy = remote.performedBy
       ..remarks = remote.remarks
