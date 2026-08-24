@@ -509,6 +509,7 @@ void main() {
             actorUid: 'actor-a',
             queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
       final reopenedOffline =
           await admitActorSessionSnapshots(
@@ -517,6 +518,7 @@ void main() {
             actorUid: 'actor-a',
             queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
 
       trust.observeActor('actor-b');
@@ -527,6 +529,7 @@ void main() {
             actorUid: 'actor-b',
             queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
       final secondOnline =
           await admitActorSessionSnapshots(
@@ -538,6 +541,7 @@ void main() {
             actorUid: 'actor-b',
             queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
 
       expect(firstOnline.map((snapshot) => snapshot.value), ['actor-a-server']);
@@ -556,9 +560,51 @@ void main() {
           actorUid: 'actor-b',
           queryKey: queryKey,
           isFromCache: true,
+          hasPendingWrites: false,
         ),
         isFalse,
       );
+    },
+  );
+
+  test(
+    'pending writes neither render nor establish actor-session trust',
+    () async {
+      final trust = ActorSessionCacheTrust()..observeActor('actor-b');
+      const queryKey = 'events:reports';
+
+      final admitted =
+          await admitActorSessionSnapshots(
+            Stream.fromIterable(const [
+              (
+                fromCache: false,
+                pendingWrites: true,
+                value: 'actor-a-pending-overlay',
+              ),
+              (fromCache: true, pendingWrites: false, value: 'unproved-cache'),
+              (
+                fromCache: false,
+                pendingWrites: false,
+                value: 'actor-b-committed-server',
+              ),
+              (
+                fromCache: true,
+                pendingWrites: true,
+                value: 'same-session-pending-overlay',
+              ),
+              (fromCache: true, pendingWrites: false, value: 'proved-cache'),
+            ]),
+            trust: trust,
+            actorUid: 'actor-b',
+            queryKey: queryKey,
+            isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (snapshot) => snapshot.pendingWrites,
+          ).toList();
+
+      expect(admitted.map((snapshot) => snapshot.value), [
+        'actor-b-committed-server',
+        'proved-cache',
+      ]);
     },
   );
 

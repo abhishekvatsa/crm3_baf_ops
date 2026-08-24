@@ -53,6 +53,7 @@ void main() {
             actorUid: 'operations-1',
             queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
       expect(firstSession.map((snapshot) => snapshot.value), [
         'server',
@@ -67,6 +68,7 @@ void main() {
             actorUid: 'operations-2',
             queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
       expect(switchedOffline, isEmpty);
 
@@ -80,6 +82,7 @@ void main() {
             actorUid: 'operations-2',
             queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
       expect(secondSession.map((snapshot) => snapshot.value), [
         'actor-b-server',
@@ -96,6 +99,7 @@ void main() {
             actorUid: 'operations-2',
             queryKey: burnerConditionRoundQueryKey(allRoundsQuery),
             isFromCache: (snapshot) => snapshot.fromCache,
+            hasPendingWrites: (_) => false,
           ).toList();
       expect(differentQueryCache, isEmpty);
     },

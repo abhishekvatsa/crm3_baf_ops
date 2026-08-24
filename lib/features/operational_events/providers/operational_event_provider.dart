@@ -64,6 +64,7 @@ final operationalEventIssueLinksProvider = StreamProvider.autoDispose
         actorUid: scope.actorUid,
         queryKey: 'event-links:event:${scope.eventId}',
         isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
       ).map(_decodeOperationalEventIssueLinks);
     });
 
@@ -82,6 +83,7 @@ final operationalIssueEventLinksProvider = StreamProvider.autoDispose
         actorUid: scope.actorUid,
         queryKey: 'event-links:issue:${scope.issueId}',
         isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
       ).map(_decodeOperationalEventIssueLinks);
     });
 
@@ -117,6 +119,7 @@ final operationalEventsProvider = StreamProvider.autoDispose
         actorUid: actorUid,
         queryKey: 'events:open',
         isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
       ).map(_decodeOperationalEvents);
       final recent = admitActorSessionSnapshots(
         events
@@ -127,6 +130,7 @@ final operationalEventsProvider = StreamProvider.autoDispose
         actorUid: actorUid,
         queryKey: 'events:recent',
         isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
       ).map(_decodeOperationalEvents);
       return _combineOperationalEventWindows(open, recent);
     });
@@ -154,6 +158,7 @@ final operationalEventsForReportsProvider = StreamProvider.autoDispose
         actorUid: actorUid,
         queryKey: 'events:reports',
         isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
       ).map(_decodeOperationalEvents);
     });
 

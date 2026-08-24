@@ -222,6 +222,7 @@ void main() {
         expect(providers, contains('_isOfflineCompliancePointRead'));
         expect(remote, contains('fetchComplianceById'));
         expect(remote, contains('GetOptions(source: Source.server)'));
+        expect(remote, contains('if (document.metadata.hasPendingWrites)'));
         expect(remote, contains('return record.isDeleted ? null : record;'));
       },
     );

@@ -17,6 +17,7 @@ final class ActorSessionCacheTrust {
     required String actorUid,
     required String queryKey,
     required bool isFromCache,
+    required bool hasPendingWrites,
   }) {
     final normalizedActor = actorUid.trim();
     final normalizedQuery = queryKey.trim();
@@ -25,6 +26,7 @@ final class ActorSessionCacheTrust {
         normalizedActor != _actorUid) {
       return false;
     }
+    if (hasPendingWrites) return false;
     if (!isFromCache) {
       _serverConfirmedQueries.add(normalizedQuery);
       return true;
@@ -39,12 +41,14 @@ Stream<T> admitActorSessionSnapshots<T>(
   required String actorUid,
   required String queryKey,
   required bool Function(T snapshot) isFromCache,
+  required bool Function(T snapshot) hasPendingWrites,
 }) {
   return snapshots.where(
     (snapshot) => trust.acceptSnapshot(
       actorUid: actorUid,
       queryKey: queryKey,
       isFromCache: isFromCache(snapshot),
+      hasPendingWrites: hasPendingWrites(snapshot),
     ),
   );
 }

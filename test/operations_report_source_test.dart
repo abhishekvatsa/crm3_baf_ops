@@ -159,6 +159,7 @@ void main() {
     expect(burnerSource, contains('admitActorSessionSnapshots('));
     expect(burnerSource, contains('includeMetadataChanges: true'));
     expect(burnerSource, contains('snapshot.metadata.isFromCache'));
+    expect(burnerSource, contains('snapshot.metadata.hasPendingWrites'));
     expect(burnerScreenSource, contains('actorUid: widget.actor.uid'));
     expect(burnerScreenSource, contains('key: ValueKey(actor.uid)'));
     for (final provider in [
