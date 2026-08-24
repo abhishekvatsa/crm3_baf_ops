@@ -635,6 +635,14 @@ class _ComponentActionView extends StatelessWidget {
             runSpacing: 6,
             children: [
               _SmallEvidenceChip(label: _enumLabel(action.actionType.name)),
+              _SmallEvidenceChip(
+                label: 'Action time ${_evidenceDateTime(action.createdAt)}',
+              ),
+              if (action.updatedAt != null &&
+                  !_sameInstant(action.createdAt, action.updatedAt!))
+                _SmallEvidenceChip(
+                  label: 'Updated ${_evidenceDateTime(action.updatedAt!)}',
+                ),
               if (_text(action.performedBy) != null)
                 _SmallEvidenceChip(label: action.performedBy!),
               if (action.burnerPosition != null)
@@ -735,6 +743,10 @@ class _ResolutionHistoryView extends StatelessWidget {
   static String _actionSummary(ComponentAction action) => <String>[
     action.component,
     _enumLabel(action.actionType.name),
+    'Action time ${_evidenceDateTime(action.createdAt)}',
+    if (action.updatedAt != null &&
+        !_sameInstant(action.createdAt, action.updatedAt!))
+      'Updated ${_evidenceDateTime(action.updatedAt!)}',
     if (_text(action.system) != null) action.system!.trim(),
     if (_text(action.subsystem) != null) action.subsystem!.trim(),
     if (_text(action.subComponent) != null) action.subComponent!.trim(),
@@ -854,3 +866,9 @@ String _enumLabel(String value) {
   );
   return words[0].toUpperCase() + words.substring(1);
 }
+
+String _evidenceDateTime(DateTime value) =>
+    DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal());
+
+bool _sameInstant(DateTime first, DateTime second) =>
+    first.toUtc() == second.toUtc();

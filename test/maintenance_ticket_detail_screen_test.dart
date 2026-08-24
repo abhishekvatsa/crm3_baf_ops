@@ -7,6 +7,7 @@ import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticke
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   testWidgets('resolved issue dossier is readable on a narrow screen', (
@@ -25,6 +26,15 @@ void main() {
       performedBy: 'I&A Two',
       performedAt: closedAt.subtract(const Duration(days: 2)),
       remarks: 'UV lens cleaned and flame signal checked.',
+    );
+    final currentAction = ComponentAction(
+      asset: 'Furnace 7',
+      component: 'Burner control relay',
+      actionType: ActionType.repair,
+      resolution: 'Relay contacts restored and tested.',
+      performedBy: 'Electrical One',
+      createdAt: closedAt.subtract(const Duration(hours: 2)),
+      updatedAt: closedAt.subtract(const Duration(minutes: 90)),
     );
     final ticket =
         MaintenanceRecord()
@@ -53,7 +63,7 @@ void main() {
           ..createdAt = closedAt.subtract(const Duration(hours: 4))
           ..updatedAt = closedAt
           ..remarks = 'Flame signal stabilized after attendance.'
-          ..actionsJson = '[]'
+          ..actionsJson = ComponentAction.encode([currentAction])
           ..resolutionHistory = [
             ResolutionHistory(
               resolvedByUid: 'si-previous',
@@ -88,6 +98,18 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Work recorded'), findsOneWidget);
+    expect(
+      find.text(
+        'Action time ${DateFormat('dd MMM yyyy, HH:mm').format(currentAction.createdAt.toLocal())}',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Updated ${DateFormat('dd MMM yyyy, HH:mm').format(currentAction.updatedAt!.toLocal())}',
+      ),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('Closure evidence'),
       300,
@@ -104,6 +126,12 @@ void main() {
     expect(find.text('I&A, Electrical'), findsOneWidget);
     expect(find.textContaining('Burner 3'), findsOneWidget);
     expect(find.textContaining('2.875 µA'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Action time ${DateFormat('dd MMM yyyy, HH:mm').format(earlierAction.createdAt.toLocal())}',
+      ),
+      findsOneWidget,
+    );
     expect(
       find.textContaining('Reopened after the lockout recurred.'),
       findsOneWidget,
