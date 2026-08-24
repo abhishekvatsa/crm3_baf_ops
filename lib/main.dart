@@ -547,7 +547,8 @@ class CrmBafApp extends ConsumerStatefulWidget {
   ConsumerState<CrmBafApp> createState() => _CrmBafAppState();
 }
 
-class _CrmBafAppState extends ConsumerState<CrmBafApp> {
+class _CrmBafAppState extends ConsumerState<CrmBafApp>
+    with WidgetsBindingObserver {
   StartupFailure? _startupFailure;
   bool _isRetryingLocalDatabaseOpen = false;
   bool _isBackingUpLocalDatabase = false;
@@ -557,7 +558,25 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startupFailure = widget.startupFailure;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Future<bool> didPopRoute() {
+    final view = View.maybeOf(context);
+    if (view == null || view.viewInsets.bottom <= 0) {
+      return Future<bool>.value(false);
+    }
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    return Future<bool>.value(true);
   }
 
   @override
