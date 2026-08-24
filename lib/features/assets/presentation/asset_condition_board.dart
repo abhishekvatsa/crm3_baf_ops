@@ -22,7 +22,7 @@ class AssetConditionBoard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Plant condition',
         appBarSubtitle: 'Verifying your approved asset scope',

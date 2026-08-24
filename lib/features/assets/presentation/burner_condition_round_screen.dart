@@ -52,7 +52,7 @@ class _BurnerConditionRoundScreenState
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return _shell(const Center(child: CircularProgressIndicator()));
     }
     if (actorAsync.hasError) {

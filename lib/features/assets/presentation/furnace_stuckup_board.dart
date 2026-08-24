@@ -31,7 +31,7 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Furnace stuck-up',
         appBarSubtitle: 'Verifying your approved asset scope',

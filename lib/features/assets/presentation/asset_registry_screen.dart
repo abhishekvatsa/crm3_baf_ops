@@ -445,7 +445,7 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Asset details',
         appBarSubtitle: 'Identity, condition and installed components',
