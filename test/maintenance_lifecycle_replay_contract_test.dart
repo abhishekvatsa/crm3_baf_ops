@@ -303,7 +303,7 @@ void main() {
     });
 
     test(
-      'same-user guards protect create and close replay under request.auth',
+      'same-user guards protect create, close and reopen replay under request.auth',
       () {
         final source = _read(_syncPath);
         final create = _blockStartingAt(
@@ -317,7 +317,16 @@ void main() {
 
         expect(create, contains('FirebaseAuth.instance.currentUser?.uid'));
         expect(create, contains('_canReplayMaintenanceCreateForCurrentUser'));
+        expect(create, contains('maintenanceReopenReplayHasCurrentActor'));
         expect(plan, contains('_canReplayMaintenanceCloseForCurrentUser'));
+        expect(plan, contains('maintenanceReopenReplayHasCurrentActor'));
+
+        _expectOrder(create, const <String>[
+          'final hasReopenEvidence = _hasMaintenanceReopenEvidence(local);',
+          'maintenanceReopenReplayHasCurrentActor(',
+          'final createVersion = maintenanceCreateReplayVersion(local);',
+          'buildMaintenanceIssueCreateCommand(',
+        ]);
 
         final createGuard = _blockStartingAt(
           source,
@@ -332,8 +341,38 @@ void main() {
         );
         expect(closeGuard, contains('closeEvidence.closedByUid'));
         expect(closeGuard, contains('currentUid'));
+
+        expect(
+          source,
+          contains('final reopenedByUid = local.reopenedByUid?.trim();'),
+        );
+        expect(source, contains('reopenedByUid == actorUid'));
       },
     );
+
+    test('reopen replay is available only to the recorded reopener', () {
+      final local = _maintenanceTicket(version: 8)
+        ..reopenedByUid = 'operations-1';
+
+      expect(
+        maintenanceReopenReplayHasCurrentActor(
+          local: local,
+          currentUid: 'operations-1',
+        ),
+        isTrue,
+      );
+      expect(
+        maintenanceReopenReplayHasCurrentActor(
+          local: local,
+          currentUid: 'operations-2',
+        ),
+        isFalse,
+      );
+      expect(
+        maintenanceReopenReplayHasCurrentActor(local: local, currentUid: '   '),
+        isFalse,
+      );
+    });
 
     test(
       'governed create command carries business input without authority fields',

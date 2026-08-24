@@ -319,6 +319,16 @@ extension _SyncServiceTicketsTemplates on SyncService {
         'Only the original signed-in reporter may synchronize this issue.',
       );
     }
+    final hasReopenEvidence = _hasMaintenanceReopenEvidence(local);
+    if (hasReopenEvidence &&
+        !maintenanceReopenReplayHasCurrentActor(
+          local: local,
+          currentUid: currentUid,
+        )) {
+      throw StateError(
+        'Only the signed-in actor who reopened this issue may synchronize its reopening.',
+      );
+    }
     final createVersion = maintenanceCreateReplayVersion(local);
     final command = buildMaintenanceIssueCreateCommand(
       local,
@@ -358,7 +368,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         ),
       );
     }
-    if (_hasMaintenanceReopenEvidence(local)) {
+    if (hasReopenEvidence) {
       final close = _maintenanceCloseReplayStepData(
         local,
         null,
@@ -618,6 +628,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
       if (remote.wasTechnicallyResolved &&
           !local.isClosed &&
           _hasMaintenanceReopenEvidence(local) &&
+          maintenanceReopenReplayHasCurrentActor(
+            local: local,
+            currentUid: currentUid,
+          ) &&
           local.version > remote.version) {
         return const [_MaintenanceReplayStep.reopen];
       }
@@ -636,6 +650,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
     }
 
     if (_hasMaintenanceReopenEvidence(local) &&
+        maintenanceReopenReplayHasCurrentActor(
+          local: local,
+          currentUid: currentUid,
+        ) &&
         local.version > remote.version + 1 &&
         _canReplayMaintenanceCloseForCurrentUser(closeEvidence, currentUid)) {
       return const [
@@ -1019,6 +1037,19 @@ bool maintenanceResolvedReplayCanRebase({
         remote.resolutionHistoryJson,
       ) &&
       maintenanceLifecycleReplayPinnedFieldDiff(local, remote) == 'none';
+}
+
+@visibleForTesting
+bool maintenanceReopenReplayHasCurrentActor({
+  required MaintenanceRecord local,
+  required String currentUid,
+}) {
+  final actorUid = currentUid.trim();
+  final reopenedByUid = local.reopenedByUid?.trim();
+  return actorUid.isNotEmpty &&
+      reopenedByUid != null &&
+      reopenedByUid.isNotEmpty &&
+      reopenedByUid == actorUid;
 }
 
 @visibleForTesting
