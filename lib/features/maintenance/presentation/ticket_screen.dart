@@ -19,13 +19,15 @@ import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../../maintenance_workflow/presentation/screens/compliance_detail_screen.dart';
 import '../../operational_events/presentation/operational_event_issue_links_screen.dart';
 import '../data/maintenance_model.dart';
+import '../domain/maintenance_ticket_correction.dart';
 import '../providers/maintenance_provider.dart';
 import '../services/maintenance_issue_administrative_closure_command.dart';
 import '../services/maintenance_issue_command_reconciler.dart';
 import 'issue_administrative_closure_dialog.dart';
+import 'issue_coordination_dialog.dart';
 import 'issue_lane_management_dialog.dart';
 import 'maintenance_form.dart';
-import 'issue_coordination_dialog.dart';
+import 'maintenance_ticket_correction_dialog.dart';
 import 'maintenance_ticket_detail_screen.dart';
 import 'resolve_form.dart';
 
@@ -285,7 +287,13 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _TicketCard(
                   ticket: ticket,
-                  onViewDetails: () => _openTicketDetails(ticket),
+                  onViewDetails:
+                      () => _openTicketDetails(
+                        ticket,
+                        canCorrect:
+                            appUser.canCorrectMaintenanceTicket &&
+                            hasGovernedServerState,
+                      ),
                   canResolve: canResolveThis && !ticket.workflowDeferred,
                   onResolve: () => _openResolve(ticket),
                   canCloseWithoutResolution:
@@ -376,15 +384,6 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ResolveForm(ticket: ticket)),
-    );
-  }
-
-  Future<void> _openTicketDetails(MaintenanceRecord ticket) async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => MaintenanceTicketDetailScreen(ticket: ticket),
-      ),
     );
   }
 

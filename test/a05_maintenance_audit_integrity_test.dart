@@ -441,6 +441,55 @@ void main() {
     });
 
     test(
+      'primary-route correction preserves secondary lanes and Other team',
+      () {
+        final now = DateTime.utc(2026, 8, 25, 5, 30);
+        final source =
+            MaintenanceRecord()
+              ..firestoreId = 'ticket-route-with-secondary-other'
+              ..assetType = AssetType.base
+              ..assetNumber = 117
+              ..maintenanceType = MaintenanceType.breakdown
+              ..description = 'Electrical and contractor attendance required'
+              ..routedTo = RoutedTo.electrical
+              ..otherDepartment = 'Hydraulics contractor'
+              ..status = TicketStatus.open
+              ..isResolved = false
+              ..startDate = now.subtract(const Duration(hours: 1))
+              ..createdAt = now.subtract(const Duration(hours: 1))
+              ..updatedAt = now;
+        source.issueLanePlan = IssueLanePlan.initial(const <String>[
+          'electrical',
+          'others',
+        ]);
+
+        expect(
+          adminTicketCorrectionLanes(
+            source: source,
+            primaryRoute: RoutedTo.mechanical,
+          ),
+          <RoutedTo>[RoutedTo.mechanical, RoutedTo.others],
+        );
+        final draft = buildAdminTicketCorrection(
+          source: source,
+          description: source.description,
+          routedTo: RoutedTo.mechanical,
+          maintenanceType: source.maintenanceType,
+          isCritical: source.isCritical,
+          component: source.component,
+          subsystem: source.subsystem,
+          tag: source.tag,
+          classification: source.classification,
+          otherDepartment: source.otherDepartment,
+          remarks: source.remarks,
+          reason: 'Primary accountability corrected after field verification.',
+        );
+
+        expect(draft.corrections, <String, Object?>{'routedTo': 'mechanical'});
+      },
+    );
+
+    test(
       'admin correction can repair only malformed Other-department evidence',
       () {
         final now = DateTime.utc(2026, 8, 23, 5, 45);

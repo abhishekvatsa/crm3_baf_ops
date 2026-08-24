@@ -76,11 +76,10 @@ extension _ClosedTicketCorrections on _ClosedTicketsScreenState {
       final receipt = await ref
           .read(workflowCommandControllerProvider.notifier)
           .execute(command);
-      if (receipt.resultKey != 'maintenance-ticket-corrected' ||
-          receipt.aggregateVersion <= expectedLocalVersion ||
-          receipt.result['ticketId'] != ticketId) {
-        throw StateError('The correction receipt did not match this issue.');
-      }
+      validateMaintenanceTicketCorrectionReceipt(
+        command: command,
+        receipt: receipt,
+      );
       var converged = false;
       if (kIsWeb) {
         final remote = await ref

@@ -22,6 +22,38 @@ class MaintenanceTicketCorrectionDraft {
   final String reason;
 }
 
+List<RoutedTo> maintenanceTicketCorrectionLanes({
+  required MaintenanceRecord source,
+  required RoutedTo primaryRoute,
+}) {
+  final sourceLanePlan =
+      source.issueLanePlanReadResult.value ??
+      source.issueLanePlanForOtherDepartmentRepair;
+  final sourceLanes =
+      sourceLanePlan.assignedLanes.map(RoutedTo.values.byName).toList();
+  if (primaryRoute == source.routedTo) {
+    return List<RoutedTo>.unmodifiable(sourceLanes);
+  }
+  return List<RoutedTo>.unmodifiable(<RoutedTo>[
+    primaryRoute,
+    ...sourceLanes.skip(1).where((lane) => lane != primaryRoute),
+  ]);
+}
+
+List<RoutedTo>? tryMaintenanceTicketCorrectionLanes({
+  required MaintenanceRecord source,
+  required RoutedTo primaryRoute,
+}) {
+  try {
+    return maintenanceTicketCorrectionLanes(
+      source: source,
+      primaryRoute: primaryRoute,
+    );
+  } on FormatException {
+    return null;
+  }
+}
+
 MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
   required MaintenanceRecord source,
   required String description,
@@ -54,9 +86,6 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
       detail: 'saved resolution history needs repair',
     );
   }
-  final sourceLanePlan =
-      source.issueLanePlanReadResult.value ??
-      source.issueLanePlanForOtherDepartmentRepair;
   final cleanDescription = description.trim();
   if (cleanDescription.length < 5) {
     throw ArgumentError('Description must contain at least 5 characters.');
@@ -105,11 +134,10 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
       'A standard issue cannot be reclassified as a Furnace stuck-up.',
     );
   }
-  final routeChanges = routedTo != source.routedTo;
-  final effectiveLanes =
-      routeChanges
-          ? <RoutedTo>{routedTo}
-          : sourceLanePlan.assignedLanes.map(RoutedTo.values.byName).toSet();
+  final effectiveLanes = maintenanceTicketCorrectionLanes(
+    source: source,
+    primaryRoute: routedTo,
+  );
   final cleanOtherDepartment = cleanMaintenanceOptionalText(
     otherDepartment ?? '',
   );

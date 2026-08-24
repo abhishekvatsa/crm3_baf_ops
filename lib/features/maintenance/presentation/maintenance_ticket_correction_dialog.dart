@@ -50,12 +50,12 @@ class _MaintenanceTicketCorrectionDialogState
       widget.ticket.acknowledgedByName == null &&
       widget.ticket.acknowledgedAt == null;
 
-  bool get _usesOtherDepartment {
-    if (_route != widget.ticket.routedTo) return _route == RoutedTo.others;
-    final lanePlan = widget.ticket.issueLanePlanReadResult.value;
-    return lanePlan?.assignedLanes.contains(RoutedTo.others.name) ??
-        _route == RoutedTo.others;
-  }
+  bool get _usesOtherDepartment =>
+      tryMaintenanceTicketCorrectionLanes(
+        source: widget.ticket,
+        primaryRoute: _route,
+      )?.contains(RoutedTo.others) ??
+      _route == RoutedTo.others;
 
   @override
   void initState() {
@@ -218,7 +218,7 @@ class _MaintenanceTicketCorrectionDialogState
                             if (value == null) return;
                             setState(() {
                               _route = value;
-                              if (value != RoutedTo.others) {
+                              if (!_usesOtherDepartment) {
                                 _otherDepartment.clear();
                               }
                             });

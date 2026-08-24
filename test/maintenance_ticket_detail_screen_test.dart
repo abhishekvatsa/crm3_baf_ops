@@ -459,4 +459,53 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('primary-route correction retains a secondary Other team', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 8, 25, 6);
+    final ticket =
+        MaintenanceRecord()
+          ..firestoreId = 'ticket-secondary-other-correction'
+          ..version = 3
+          ..isSynced = true
+          ..assetType = AssetType.base
+          ..assetNumber = 117
+          ..maintenanceType = MaintenanceType.breakdown
+          ..description = 'Electrical and contractor attendance required.'
+          ..routedTo = RoutedTo.electrical
+          ..otherDepartment = 'Hydraulics contractor'
+          ..status = TicketStatus.open
+          ..isResolved = false
+          ..startDate = now.subtract(const Duration(hours: 2))
+          ..createdAt = now.subtract(const Duration(hours: 2))
+          ..updatedAt = now
+          ..actionsJson = '[]'
+          ..resolutionHistoryJson = '[]'
+          ..issueLanePlan = IssueLanePlan.initial(const <String>[
+            'electrical',
+            'others',
+          ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: BafAppTheme.light,
+        home: Scaffold(body: MaintenanceTicketCorrectionDialog(ticket: ticket)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hydraulics contractor'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('ticket-correction-route')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mechanical').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('ticket-correction-other-department')),
+      findsOneWidget,
+    );
+    expect(find.text('Hydraulics contractor'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

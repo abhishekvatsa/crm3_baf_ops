@@ -199,6 +199,41 @@ void validateMaintenanceIssueLaneCommandReceipt({
   }
 }
 
+void validateMaintenanceTicketCorrectionReceipt({
+  required WorkflowCommand command,
+  required WorkflowCommandReceipt receipt,
+}) {
+  final corrections = command.payload['corrections'];
+  if (command.type != WorkflowCommandType.correctMaintenanceTicket ||
+      corrections is! Map ||
+      receipt.commandId != command.commandId ||
+      receipt.resultKey != 'maintenance-ticket-corrected' ||
+      receipt.aggregateVersion != command.expectedVersion + 1 ||
+      receipt.result['ticketId'] != command.aggregateId ||
+      receipt.result['auditId'] !=
+          'server_maintenance_ticket_${command.commandId}') {
+    throw StateError(
+      'The governed issue-correction receipt is inconsistent with the request.',
+    );
+  }
+
+  final correctedFields = <String>[];
+  for (final key in corrections.keys) {
+    if (key is! String) {
+      throw StateError(
+        'The governed issue-correction request contains an invalid field.',
+      );
+    }
+    correctedFields.add(key);
+  }
+  correctedFields.sort();
+  if (!_sameReceiptList(receipt.result['correctedFields'], correctedFields)) {
+    throw StateError(
+      'The governed issue-correction receipt has inconsistent field evidence.',
+    );
+  }
+}
+
 int validateMaintenanceIssueCoordinationReceipt({
   required WorkflowCommand command,
   required WorkflowCommandReceipt receipt,

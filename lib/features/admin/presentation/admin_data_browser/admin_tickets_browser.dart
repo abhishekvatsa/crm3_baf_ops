@@ -82,14 +82,12 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
       widget.ticket.acknowledgedByName == null &&
       widget.ticket.acknowledgedAt == null;
 
-  bool get _usesOtherDepartment {
-    if (_selectedRouted != widget.ticket.routedTo) {
-      return _selectedRouted == RoutedTo.others;
-    }
-    final lanePlan = widget.ticket.issueLanePlanReadResult.value;
-    return lanePlan?.assignedLanes.contains(RoutedTo.others.name) ??
-        _selectedRouted == RoutedTo.others;
-  }
+  bool get _usesOtherDepartment =>
+      tryAdminTicketCorrectionLanes(
+        source: widget.ticket,
+        primaryRoute: _selectedRouted,
+      )?.contains(RoutedTo.others) ??
+      _selectedRouted == RoutedTo.others;
 
   @override
   void initState() {
@@ -206,7 +204,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                             if (value == null) return;
                             setState(() {
                               _selectedRouted = value;
-                              if (value != RoutedTo.others) {
+                              if (!_usesOtherDepartment) {
                                 _otherDepartmentController.clear();
                               }
                             });

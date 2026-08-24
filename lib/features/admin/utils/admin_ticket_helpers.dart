@@ -8,6 +8,22 @@ String? cleanAdminTagText(String value) => cleanMaintenanceTagText(value);
 
 typedef AdminTicketCorrectionDraft = MaintenanceTicketCorrectionDraft;
 
+List<RoutedTo> adminTicketCorrectionLanes({
+  required MaintenanceRecord source,
+  required RoutedTo primaryRoute,
+}) => maintenanceTicketCorrectionLanes(
+  source: source,
+  primaryRoute: primaryRoute,
+);
+
+List<RoutedTo>? tryAdminTicketCorrectionLanes({
+  required MaintenanceRecord source,
+  required RoutedTo primaryRoute,
+}) => tryMaintenanceTicketCorrectionLanes(
+  source: source,
+  primaryRoute: primaryRoute,
+);
+
 AdminTicketCorrectionDraft buildAdminTicketCorrection({
   required MaintenanceRecord source,
   required String description,

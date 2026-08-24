@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/audit/presentation/audit_timeline_screen.dart';
+import 'package:crm3_baf_ops/features/audit/providers/audit_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -133,6 +134,40 @@ void main() {
     expect(find.text('Issue context'), findsOneWidget);
     expect(find.text('Accountability'), findsOneWidget);
     expect(find.text('Work recorded'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ticket-detail-correct')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SI can reach audited correction from an active issue', (
+    tester,
+  ) async {
+    final ticket = _maintenanceTicket(
+      loggedByUid: 'another-operator',
+      routedTo: RoutedTo.electrical,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_actor(AppRole.si)),
+          ),
+          openTicketsProvider.overrideWith(
+            (ref) => Stream<List<MaintenanceRecord>>.value([ticket]),
+          ),
+          maintenanceTicketCorrectionAuditProvider.overrideWith((ref, id) {
+            expect(id, 'route-ticket-1');
+            return Future.value(const []);
+          }),
+        ],
+        child: const MaterialApp(home: Scaffold(body: TicketScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Operations-routed burner issue'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('ticket-detail-correct')), findsOneWidget);
+    expect(find.text('Issue record'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
