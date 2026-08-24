@@ -33,6 +33,12 @@ void main() {
     final currentAction = ComponentAction(
       asset: 'Furnace 7',
       component: 'Burner control relay',
+      hierarchyPath: const ['Electrical supply', 'Burner relay circuit'],
+      system: 'Electrical supply',
+      subsystem: 'Burner relay circuit',
+      subComponent: 'Relay K5',
+      tag: 'FR-07-BE5-RLY',
+      instance: 'Installed relay 5',
       actionType: ActionType.replacement,
       replacement: ReplacementType.newPart,
       resolution: 'Relay contacts restored and tested.',
@@ -179,6 +185,16 @@ void main() {
     await tester.ensureVisible(replacementChip);
     await tester.pumpAndSettle();
     expect(find.text('Replacement: New Part'), findsOneWidget);
+    expect(find.text('Asset: Furnace 7'), findsAtLeastNWidgets(1));
+    expect(
+      find.text('Hierarchy: Electrical supply / Burner relay circuit'),
+      findsOneWidget,
+    );
+    expect(find.text('System: Electrical supply'), findsOneWidget);
+    expect(find.text('Subsystem: Burner relay circuit'), findsOneWidget);
+    expect(find.text('Subcomponent: Relay K5'), findsOneWidget);
+    expect(find.text('Tag: FR-07-BE5-RLY'), findsOneWidget);
+    expect(find.text('Instance: Installed relay 5'), findsOneWidget);
     expect(
       find.text(
         'Action time ${DateFormat('dd MMM yyyy, HH:mm').format(currentAction.createdAt.toLocal())}',

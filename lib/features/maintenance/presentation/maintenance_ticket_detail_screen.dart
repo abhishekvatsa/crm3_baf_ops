@@ -649,6 +649,8 @@ class _ComponentActionView extends StatelessWidget {
             spacing: 8,
             runSpacing: 6,
             children: [
+              for (final locator in _actionLocatorLabels(action))
+                _SmallEvidenceChip(label: locator),
               _SmallEvidenceChip(label: _enumLabel(action.actionType.name)),
               if (action.replacement != null)
                 _SmallEvidenceChip(
@@ -796,10 +798,7 @@ class _ResolutionHistoryView extends StatelessWidget {
     if (action.updatedAt != null &&
         !_sameInstant(action.createdAt, action.updatedAt!))
       'Updated ${_evidenceDateTime(action.updatedAt!)}',
-    if (_text(action.system) != null) action.system!.trim(),
-    if (_text(action.subsystem) != null) action.subsystem!.trim(),
-    if (_text(action.subComponent) != null) action.subComponent!.trim(),
-    if (_text(action.tag) != null) action.tag!.trim(),
+    ..._actionLocatorLabels(action),
     if (_text(action.performedBy) != null) action.performedBy!.trim(),
     if (action.burnerPosition != null) 'Burner ${action.burnerPosition}',
     if (_text(action.burnerActionCode) != null)
@@ -921,3 +920,25 @@ String _evidenceDateTime(DateTime value) =>
 
 bool _sameInstant(DateTime first, DateTime second) =>
     first.toUtc() == second.toUtc();
+
+List<String> _actionLocatorLabels(ComponentAction action) {
+  final hierarchy = (action.assetHierarchyRef?.hierarchyPath ??
+          action.hierarchyPath ??
+          const <String>[])
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toList(growable: false);
+  return <String>[
+    'Asset: ${action.asset.trim()}',
+    if (hierarchy.isNotEmpty) 'Hierarchy: ${hierarchy.join(' / ')}',
+    if (action.system?.trim().isNotEmpty == true)
+      'System: ${action.system!.trim()}',
+    if (action.subsystem?.trim().isNotEmpty == true)
+      'Subsystem: ${action.subsystem!.trim()}',
+    if (action.subComponent?.trim().isNotEmpty == true)
+      'Subcomponent: ${action.subComponent!.trim()}',
+    if (action.tag?.trim().isNotEmpty == true) 'Tag: ${action.tag!.trim()}',
+    if (action.instance?.trim().isNotEmpty == true)
+      'Instance: ${action.instance!.trim()}',
+  ];
+}
