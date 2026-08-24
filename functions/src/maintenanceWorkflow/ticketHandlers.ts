@@ -2732,7 +2732,13 @@ export const reopenMaintenanceTicket = async ({
   };
   const remarks = optionalText(command.payload.remarks, "remarks", 4000);
   const resolutionHistoryJson =
-    maintenanceResolutionHistoryWithCurrentClosure(ticket, false);
+    maintenanceResolutionHistoryWithCurrentClosure(ticket, {
+      actorUid: context.actor.uid,
+      actorName: context.actor.name,
+      at: context.serverNow,
+      reason: remarks,
+      byWorkflow: false,
+    });
   const nextVersion = version + 1;
   const updatedAt = iso(context.serverNow);
   const update: JsonMap = {

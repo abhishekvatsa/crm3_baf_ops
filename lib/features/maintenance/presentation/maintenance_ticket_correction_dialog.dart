@@ -228,13 +228,18 @@ class _MaintenanceTicketCorrectionDialogState
                 if (_usesOtherDepartment) ...[
                   const SizedBox(height: BafSpacing.sm),
                   TextFormField(
+                    key: const ValueKey('ticket-correction-other-department'),
                     controller: _otherDepartment,
                     decoration: const InputDecoration(
                       labelText: 'Other accountable team',
                     ),
-                    validator:
-                        (value) =>
-                            _optionalLength(value, minimum: 2, maximum: 80),
+                    validator: (value) {
+                      if (_usesOtherDepartment &&
+                          (value?.trim().isEmpty ?? true)) {
+                        return 'Enter the accountable department';
+                      }
+                      return _optionalLength(value, minimum: 2, maximum: 80);
+                    },
                   ),
                 ],
                 const SizedBox(height: BafSpacing.sm),
@@ -331,6 +336,7 @@ class _MaintenanceTicketCorrectionDialogState
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
+                  key: const ValueKey('ticket-correction-reason'),
                   controller: _reason,
                   minLines: 2,
                   maxLines: 4,

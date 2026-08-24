@@ -465,6 +465,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         if (hoursSinceClosure > 4) {
           throw Exception('Cannot reopen: closed more than 4 hours ago');
         }
+        final reopenedAt = DateTime.now().toUtc();
 
         final historyEntry = ResolutionHistory(
           resolvedByUid: t.closedByUid,
@@ -474,6 +475,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
           remarks: t.remarks,
           downtimeHours: t.downtimeHours,
           teamsInvolved: t.teamsInvolved,
+          reopenedByUid: reopen.uid,
+          reopenedByName: reopen.name,
+          reopenedAt: reopenedAt,
+          reopenReason: reopen.reason,
         );
 
         final historyPayload = readValidatedResolutionHistoryPayload(
@@ -496,7 +501,6 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         t.actionsJson = '[]';
         final lockout = t.burnerLockoutCase;
         if (lockout != null) t.burnerLockoutCase = lockout.clearResolution();
-        final reopenedAt = DateTime.now().toUtc();
         t.reopenedByUid = reopen.uid;
         t.reopenedByName = reopen.name;
         t.reopenedAt = reopenedAt;

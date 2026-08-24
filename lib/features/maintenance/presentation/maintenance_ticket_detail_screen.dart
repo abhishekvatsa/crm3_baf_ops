@@ -739,6 +739,30 @@ class _ResolutionHistoryView extends StatelessWidget {
                 label: 'Closure remarks',
                 value: entry.remarks!.trim(),
               ),
+            if (entry.reopenedAt != null)
+              _DetailValue(
+                label:
+                    entry.reopenedByWorkflow
+                        ? 'Reopened for correction'
+                        : 'Reopened',
+                value: [
+                  DateFormat(
+                    'dd MMM yyyy, HH:mm',
+                  ).format(entry.reopenedAt!.toLocal()),
+                  if (_text(entry.reopenedByName) != null)
+                    entry.reopenedByName!.trim(),
+                ].join(' · '),
+              ),
+            if (_text(entry.reopenReason) != null)
+              _DetailValue(
+                label: 'Reopen reason',
+                value: entry.reopenReason!.trim(),
+              ),
+            if (entry.reopenedByWorkflow && entry.reopenedAt == null)
+              const _DetailValue(
+                label: 'Reopened for correction',
+                value: 'Governed workflow (legacy event)',
+              ),
             if (actions.isEmpty)
               const _EmptyEvidence(
                 text:

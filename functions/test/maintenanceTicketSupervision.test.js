@@ -1298,8 +1298,93 @@ describe('governed maintenance-ticket supervision', () => {
         remarks: 'Initial repair completed.',
         downtimeHours: 2.5,
         teamsInvolved: ['electrical', 'mechanical'],
+        reopenedByUid: operations.uid,
+        reopenedByName: operations.name,
+        reopenedAt: at.toISOString(),
+        reopenReason: 'The same symptom returned during operation.',
       }),
     ]);
+  });
+
+  test('successive reopens preserve each lifecycle reopening event', async () => {
+    const seeded = serviceFor(operations, {
+      startDate: '2026-08-14T13:00:00.000Z',
+      status: 'resolved',
+      isResolved: true,
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T14:00:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: ['electrical'],
+      endDate: '2026-08-14T15:30:00.000Z',
+      closedByUid: electrical.uid,
+      closedByName: electrical.name,
+      remarks: 'First repair completed.',
+      downtimeHours: 1,
+      teamsInvolved: ['electrical'],
+      actionsJson: '[]',
+      resolutionHistoryJson: '[]',
+    });
+    await seeded.service.execute({
+      commandId: 'first-reopen-cycle',
+      commandType: 'reopenMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {remarks: 'First recurrence after returning to service.'},
+    }, seeded.context);
+
+    const afterFirstReopen = seeded.store.read('maintenance_records/ticket-1');
+    seeded.store.seed('maintenance_records/ticket-1', {
+      ...afterFirstReopen,
+      version: 5,
+      status: 'resolved',
+      isResolved: true,
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: ['electrical'],
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T16:45:00.000Z',
+      endDate: '2026-08-14T17:00:00.000Z',
+      closedByUid: contractSupervisor.uid,
+      closedByName: contractSupervisor.name,
+      remarks: 'Second repair completed.',
+      downtimeHours: 0.5,
+      teamsInvolved: ['electrical'],
+      actionsJson: '[]',
+    });
+    const secondAt = new Date('2026-08-14T17:30:00.000Z');
+    await seeded.service.execute({
+      commandId: 'second-reopen-cycle',
+      commandType: 'reopenMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 5,
+      payload: {remarks: 'Second recurrence after the follow-up repair.'},
+    }, {actor: admin, serverNow: secondAt});
+
+    const reopened = seeded.store.read('maintenance_records/ticket-1');
+    const history = JSON.parse(reopened.resolutionHistoryJson);
+    expect(history).toHaveLength(2);
+    expect(history[0]).toMatchObject({
+      resolvedAt: '2026-08-14T15:30:00.000Z',
+      reopenedByUid: operations.uid,
+      reopenedAt: at.toISOString(),
+      reopenReason: 'First recurrence after returning to service.',
+    });
+    expect(history[1]).toMatchObject({
+      resolvedAt: '2026-08-14T17:00:00.000Z',
+      reopenedByUid: admin.uid,
+      reopenedAt: secondAt.toISOString(),
+      reopenReason: 'Second recurrence after the follow-up repair.',
+    });
+    expect(reopened).toMatchObject({
+      reopenedByUid: admin.uid,
+      reopenedAt: secondAt.toISOString(),
+      reopenReason: 'Second recurrence after the follow-up repair.',
+      version: 6,
+    });
   });
 
   test('reopen accepts a persisted timestamp and absent legacy history', async () => {
@@ -1353,6 +1438,8 @@ describe('governed maintenance-ticket supervision', () => {
       expect.objectContaining({
         resolvedAt: '2026-08-14T15:30:00.000Z',
         resolvedByUid: electrical.uid,
+        reopenedByUid: operations.uid,
+        reopenedAt: at.toISOString(),
       }),
     ]);
 

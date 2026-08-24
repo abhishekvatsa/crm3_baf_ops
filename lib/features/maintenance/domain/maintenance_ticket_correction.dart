@@ -110,6 +110,13 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
       routeChanges
           ? <RoutedTo>{routedTo}
           : sourceLanePlan.assignedLanes.map(RoutedTo.values.byName).toSet();
+  final cleanOtherDepartment = cleanMaintenanceOptionalText(
+    otherDepartment ?? '',
+  );
+  if (effectiveLanes.contains(RoutedTo.others) &&
+      (cleanOtherDepartment == null || cleanOtherDepartment.length < 2)) {
+    throw ArgumentError('Other department must contain at least 2 characters.');
+  }
   final proposed = <String, Object?>{
     'description': cleanDescription,
     'routedTo': routedTo.name,
@@ -120,9 +127,7 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
     'tag': cleanMaintenanceTagText(tag ?? ''),
     'classification': cleanMaintenanceOptionalText(classification ?? ''),
     'otherDepartment':
-        effectiveLanes.contains(RoutedTo.others)
-            ? cleanMaintenanceOptionalText(otherDepartment ?? '')
-            : null,
+        effectiveLanes.contains(RoutedTo.others) ? cleanOtherDepartment : null,
     'remarks': cleanMaintenanceOptionalText(remarks ?? ''),
   };
   final current = <String, Object?>{

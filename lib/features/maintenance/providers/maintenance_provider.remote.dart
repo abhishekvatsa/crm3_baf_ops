@@ -494,6 +494,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     if (DateTime.now().difference(closedAt).inHours > 4) {
       throw Exception('Cannot reopen: closed more than 4 hours ago');
     }
+    final reopenedAt = DateTime.now().toUtc();
 
     final currentHistory = data['resolutionHistoryJson'];
     if (currentHistory is! String || currentHistory.trim().isEmpty) {
@@ -514,12 +515,15 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         'remarks': data['remarks'],
         'downtimeHours': data['downtimeHours'],
         'teamsInvolved': data['teamsInvolved'] ?? const <String>[],
+        'reopenedByUid': reopen.uid,
+        'reopenedByName': reopen.name,
+        'reopenedAt': reopenedAt,
+        'reopenReason': reopen.reason,
       }, source: 'maintenance/$docId current closure').toMap(),
     );
     final newHistoryJson = jsonEncode(historyPayload.rows);
     final burnerLockout = current.burnerLockoutCase;
     final reopenedLanePlan = current.issueLanePlan.reopen();
-    final reopenedAt = DateTime.now().toUtc();
 
     await _collection.doc(docId).update({
       'isResolved': false,

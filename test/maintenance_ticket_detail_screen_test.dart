@@ -81,6 +81,12 @@ void main() {
               remarks: 'Reopened after the lockout recurred.',
               downtimeHours: 1.5,
               teamsInvolved: const ['I&A', 'Electrical'],
+              reopenedByUid: 'operations-1',
+              reopenedByName: 'Operations One',
+              reopenedAt: closedAt.subtract(
+                const Duration(days: 2, minutes: -20),
+              ),
+              reopenReason: 'The first lockout recurred after restart.',
             ),
           ]
           ..issueLanePlan = IssueLanePlan.initial([
@@ -189,6 +195,13 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('earlier-closure-1')),
+        matching: find.text('The first lockout recurred after restart.'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('earlier-closure-1')),
         matching: find.textContaining('Replacement: New Part'),
       ),
       findsOneWidget,
@@ -255,4 +268,65 @@ void main() {
     expect(route.onChanged, isNull);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'correction retains the form when Others has no department name',
+    (tester) async {
+      final now = DateTime.utc(2026, 8, 24, 6);
+      final ticket =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-open-other-correction'
+            ..version = 3
+            ..isSynced = true
+            ..assetType = AssetType.base
+            ..assetNumber = 201
+            ..maintenanceType = MaintenanceType.breakdown
+            ..description = 'Cold leak test failed after the operating cycle.'
+            ..routedTo = RoutedTo.mechanical
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now.subtract(const Duration(hours: 2))
+            ..createdAt = now.subtract(const Duration(hours: 2))
+            ..updatedAt = now
+            ..actionsJson = '[]'
+            ..resolutionHistoryJson = '[]'
+            ..issueLanePlan = IssueLanePlan.initial([RoutedTo.mechanical.name]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: MaintenanceTicketCorrectionDialog(ticket: ticket),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('ticket-correction-route')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Other department').last);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('ticket-correction-other-department')),
+        findsOneWidget,
+      );
+
+      final reason = find.byKey(const ValueKey('ticket-correction-reason'));
+      await tester.ensureVisible(reason);
+      await tester.enterText(
+        reason,
+        'Verified routing correction for accountable ownership.',
+      );
+      await tester.tap(find.text('Record correction'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enter the accountable department'), findsOneWidget);
+      expect(
+        find.text('Verified routing correction for accountable ownership.'),
+        findsOneWidget,
+      );
+      expect(find.text('Correct issue record'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
