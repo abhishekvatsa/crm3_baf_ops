@@ -78,7 +78,11 @@ OperationsReportAssetInventory buildOperationsReportAssetInventory({
 }) {
   final innerCoverClassIds =
       assetClasses
-          .where((assetClass) => assetClass.legacyAssetTypeKey == 'innerCover')
+          .where(
+            (assetClass) =>
+                assetClass.isActive &&
+                assetClass.legacyAssetTypeKey == 'innerCover',
+          )
           .map((assetClass) => assetClass.id)
           .toSet();
   final innerCovers = innerCoverProfiles

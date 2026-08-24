@@ -468,11 +468,17 @@ void main() {
     ]);
   });
 
-  test('counts serial-numbered Inner Covers from their governed registry', () {
+  test('counts active serial-numbered Inner Covers from their registry', () {
     final innerCover = assetClass(
       'inner-cover-class',
       'Inner Cover',
       'innerCover',
+    );
+    final retiredInnerCover = assetClass(
+      'retired-inner-cover-class',
+      'Retired Inner Cover',
+      'innerCover',
+      status: AssetHierarchyStatus.retired,
     );
     final profiles = [
       innerCoverProfile('gr4', innerCover, InnerCoverLifecycleState.installed),
@@ -492,18 +498,22 @@ void main() {
         innerCover,
         InnerCoverLifecycleState.fullyConsumedAsDonor,
       ),
+      innerCoverProfile(
+        'retired-class-profile',
+        retiredInnerCover,
+        InnerCoverLifecycleState.available,
+      ),
     ];
 
     final report = buildOperationsReport(
       filter: OperationsReportFilter(
         startDate: DateTime.utc(2026, 8, 1),
         endDate: DateTime.utc(2026, 8, 31),
-        assetClassId: innerCover.id,
       ),
       tickets: const [],
       executions: const [],
       events: const [],
-      assetClasses: [innerCover],
+      assetClasses: [innerCover, retiredInnerCover],
       assetInstances: const [],
       innerCoverProfiles: profiles,
       overview: const PlantAssetOverview(classes: [], assets: []),
