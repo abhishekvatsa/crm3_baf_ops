@@ -34,6 +34,10 @@ import '../models/operations_report.dart';
 const operationsReportClockInterval = Duration(minutes: 1);
 typedef OperationsReportPeriod =
     ({DateTime startInclusive, DateTime endExclusive});
+typedef OperationsReportPeriodScope =
+    ({String actorUid, DateTime startInclusive, DateTime endExclusive});
+typedef OperationsReportScope =
+    ({String actorUid, OperationsReportFilter filter});
 typedef _ReportDimension = ({String disambiguator, String key, String label});
 
 Stream<DateTime> operationsReportClock({
@@ -45,71 +49,106 @@ Stream<DateTime> operationsReportClock({
   yield* Stream<DateTime>.periodic(interval, (_) => readNow());
 }
 
-final operationsReportClockProvider = StreamProvider<DateTime>(
+final operationsReportClockProvider = StreamProvider.autoDispose<DateTime>(
   (ref) => operationsReportClock(),
 );
 
-final operationsReportTicketsProvider =
-    StreamProvider.family<List<MaintenanceRecord>, OperationsReportPeriod>((
-      ref,
-      period,
-    ) {
+final operationsReportTicketsProvider = StreamProvider.autoDispose
+    .family<List<MaintenanceRecord>, OperationsReportPeriodScope>((ref, scope) {
+      _requireReportActorUid(scope.actorUid);
       return ref
           .watch(maintenanceRepositoryProvider)
           .watchTicketsOverlappingPeriod(
-            period.startInclusive,
-            period.endExclusive,
+            scope.startInclusive,
+            scope.endExclusive,
           );
     });
 
-final operationsReportExecutionsProvider =
-    StreamProvider.family<List<JobExecution>, OperationsReportPeriod>((
-      ref,
-      period,
-    ) {
+final operationsReportExecutionsProvider = StreamProvider.autoDispose
+    .family<List<JobExecution>, OperationsReportPeriodScope>((ref, scope) {
+      _requireReportActorUid(scope.actorUid);
       return ref
           .watch(plannedRepositoryProvider)
           .watchExecutionsOverlappingPeriod(
-            period.startInclusive,
-            period.endExclusive,
+            scope.startInclusive,
+            scope.endExclusive,
           );
     });
 
-final operationsReportAbnormalitiesProvider =
-    FutureProvider<List<ChargeAbnormality>>((ref) {
+final operationsReportAbnormalitiesProvider = FutureProvider.autoDispose
+    .family<List<ChargeAbnormality>, String>((ref, actorUid) {
+      _requireReportActorUid(actorUid);
       return ref.watch(abnormalityRepositoryProvider).getAllAbnormalities();
     });
 
-final operationsReportProvider = Provider.family<
+final _operationsReportAuthorityLifecycleProvider = Provider.autoDispose<void>((
+  ref,
+) {
+  ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (previous, next) {
+    final previousActor = previous?.asData?.value;
+    if (previousActor == null) return;
+    final nextActor = next.asData?.value;
+    if (nextActor?.uid == previousActor.uid &&
+        nextActor?.canViewReports == true) {
+      return;
+    }
+    ref.invalidate(operationsReportTicketsProvider);
+    ref.invalidate(operationsReportExecutionsProvider);
+    ref.invalidate(operationalEventsForReportsProvider);
+    ref.invalidate(maintenanceDueStatesProvider);
+    ref.invalidate(allInspectionFindingsProvider);
+    ref.invalidate(qualityWarningsProvider);
+    ref.invalidate(qualityMonitoringRequestsForReportsProvider);
+    ref.invalidate(operationsReportAbnormalitiesProvider);
+    ref.invalidate(openDirectivesProvider);
+    ref.invalidate(workflowAllLanesProvider);
+    ref.invalidate(workflowAllComplianceProvider);
+    ref.invalidate(assetClassesProvider);
+    ref.invalidate(allAssetInstancesProvider);
+    ref.invalidate(assetOperationalConditionsProvider);
+    ref.invalidate(equipmentStatusProvider(null));
+    ref.invalidate(plantAssetOverviewProvider);
+    ref.invalidate(operationsReportClockProvider);
+  });
+});
+
+final operationsReportProvider = Provider.autoDispose.family<
   AsyncValue<OperationsReport>,
-  OperationsReportFilter
->((ref, filter) {
+  OperationsReportScope
+>((ref, scope) {
+  ref.watch(_operationsReportAuthorityLifecycleProvider);
   final actor = ref.watch(currentAppUserProvider);
   if (actor.isLoading) return const AsyncLoading();
   if (actor.hasError) {
     return AsyncError(actor.error!, actor.stackTrace ?? StackTrace.current);
   }
   final authorizedActor = actor.value;
-  if (authorizedActor == null || !authorizedActor.canViewReports) {
+  if (authorizedActor == null ||
+      !authorizedActor.canViewReports ||
+      authorizedActor.uid != scope.actorUid) {
     return AsyncError(
       StateError('Approved report access is required.'),
       StackTrace.current,
     );
   }
-  final period = (
+  final filter = scope.filter;
+  final periodScope = (
+    actorUid: scope.actorUid,
     startInclusive: filter.startInclusive,
     endExclusive: filter.endExclusive,
   );
-  final tickets = ref.watch(operationsReportTicketsProvider(period));
-  final executions = ref.watch(operationsReportExecutionsProvider(period));
-  final events = ref.watch(operationalEventsForReportsProvider);
+  final tickets = ref.watch(operationsReportTicketsProvider(periodScope));
+  final executions = ref.watch(operationsReportExecutionsProvider(periodScope));
+  final events = ref.watch(operationalEventsForReportsProvider(scope.actorUid));
   final dueStates = ref.watch(maintenanceDueStatesProvider);
   final inspectionFindings = ref.watch(allInspectionFindingsProvider);
   final qualityWarnings = ref.watch(qualityWarningsProvider);
   final qualityMonitoring = ref.watch(
     qualityMonitoringRequestsForReportsProvider,
   );
-  final abnormalities = ref.watch(operationsReportAbnormalitiesProvider);
+  final abnormalities = ref.watch(
+    operationsReportAbnormalitiesProvider(scope.actorUid),
+  );
   final directives = ref.watch(openDirectivesProvider);
   final workflowLanes = ref.watch(workflowAllLanesProvider);
   final complianceRequests = ref.watch(workflowAllComplianceProvider);
@@ -175,6 +214,12 @@ final operationsReportProvider = Provider.family<
     return AsyncError(error, stackTrace);
   }
 });
+
+void _requireReportActorUid(String actorUid) {
+  if (actorUid.trim().isEmpty) {
+    throw StateError('An approved actor UID is required for report reads.');
+  }
+}
 
 OperationsReport buildOperationsReport({
   required OperationsReportFilter filter,

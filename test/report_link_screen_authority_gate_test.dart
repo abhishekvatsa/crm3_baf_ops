@@ -56,7 +56,7 @@ void main() {
           reads++;
           throw StateError('assets must not be read');
         }),
-        operationsReportProvider.overrideWith((ref, filter) {
+        operationsReportProvider.overrideWith((ref, scope) {
           reads++;
           throw StateError('report must not be built');
         }),
@@ -269,6 +269,71 @@ void main() {
     expect(eventDisposals, 1);
     expect(eventLinkDisposals, 1);
     expect(issueLinkDisposals, 1);
+  });
+
+  test(
+    'cache-origin snapshots are withheld until server confirmation',
+    () async {
+      final accepted =
+          await withholdCacheOriginSnapshots(
+            Stream.fromIterable(const [
+              (fromCache: true, value: 'actor-a-cache'),
+              (fromCache: false, value: 'actor-b-server'),
+              (fromCache: true, value: 'actor-b-cache-refresh'),
+            ]),
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+
+      expect(accepted.map((snapshot) => snapshot.value), ['actor-b-server']);
+    },
+  );
+
+  testWidgets('report graph switches actor scope and disposes on revocation', (
+    tester,
+  ) async {
+    final actors = StreamController<AppUser?>();
+    final reportActors = <String>[];
+    final disposedActors = <String>[];
+    addTearDown(actors.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationsReportProvider.overrideWith((ref, scope) {
+            reportActors.add(scope.actorUid);
+            ref.onDispose(() => disposedActors.add(scope.actorUid));
+            return const AsyncLoading();
+          }),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const FleetStatusScreen(),
+        ),
+      ),
+    );
+
+    actors.add(_approvedActor(AppRole.operations));
+    await tester.pump();
+    await tester.pump();
+    actors.add(_approvedActor(AppRole.admin));
+    await tester.pump();
+    await tester.pump();
+    actors.add(_unapprovedActor());
+    await tester.pump();
+    await tester.pump();
+
+    expect(reportActors, ['approved-operations', 'approved-admin']);
+    expect(
+      disposedActors,
+      containsAll(['approved-operations', 'approved-admin']),
+    );
+    expect(find.text('Report access required'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('approved account switch starts actor-scoped event reads', (

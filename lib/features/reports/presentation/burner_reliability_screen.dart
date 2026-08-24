@@ -171,6 +171,7 @@ class _BurnerReliabilityBodyState
       });
     }
     final period = (
+      actorUid: widget.actor.uid,
       startInclusive: _startDate,
       endExclusive: _endDate.add(const Duration(days: 1)),
     );

@@ -97,7 +97,7 @@ void main() {
       'maintenanceDueStatesProvider',
       'allInspectionFindingsProvider',
       'qualityWarningsProvider',
-      'qualityMonitoringRequestsProvider',
+      'qualityMonitoringRequestsForReportsProvider',
       'operationsReportAbnormalitiesProvider',
       'openDirectivesProvider',
       'workflowAllLanesProvider',

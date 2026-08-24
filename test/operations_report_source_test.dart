@@ -101,7 +101,7 @@ void main() {
       actorRead,
     );
     final firstBusinessRead = source.indexOf(
-      'ref.watch(operationsReportTicketsProvider(period))',
+      'ref.watch(operationsReportTicketsProvider(periodScope))',
       authorityRejection,
     );
 
@@ -109,6 +109,36 @@ void main() {
     expect(actorRead, greaterThan(providerStart));
     expect(authorityRejection, greaterThan(actorRead));
     expect(firstBusinessRead, greaterThan(authorityRejection));
+  });
+
+  test('report graph is actor-scoped and auto-disposed', () {
+    final source =
+        File(
+          'lib/features/reports/providers/operations_report_provider.dart',
+        ).readAsStringSync();
+
+    expect(
+      source,
+      contains('final operationsReportProvider = Provider.autoDispose.family'),
+    );
+    expect(source, contains('authorizedActor.uid != scope.actorUid'));
+    expect(
+      source,
+      contains('operationalEventsForReportsProvider(scope.actorUid)'),
+    );
+    expect(
+      source.indexOf('ref.watch(_operationsReportAuthorityLifecycleProvider)'),
+      lessThan(source.indexOf('ref.watch(currentAppUserProvider)')),
+    );
+    for (final provider in [
+      'operationalEventsForReportsProvider',
+      'qualityWarningsProvider',
+      'workflowAllComplianceProvider',
+      'assetClassesProvider',
+      'operationsReportClockProvider',
+    ]) {
+      expect(source, contains('ref.invalidate($provider)'));
+    }
   });
 }
 

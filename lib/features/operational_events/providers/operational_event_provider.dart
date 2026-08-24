@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/operational_event.dart';
@@ -31,11 +32,13 @@ final operationalEventIssueLinksProvider = StreamProvider.autoDispose
       scope,
     ) {
       _requireActorUid(scope.actorUid);
-      return FirebaseFirestore.instance
-          .collection('operational_event_issue_links')
-          .where('eventId', isEqualTo: scope.eventId)
-          .snapshots()
-          .map(_decodeOperationalEventIssueLinks);
+      return withholdCacheOriginSnapshots(
+        FirebaseFirestore.instance
+            .collection('operational_event_issue_links')
+            .where('eventId', isEqualTo: scope.eventId)
+            .snapshots(includeMetadataChanges: true),
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEventIssueLinks);
     });
 
 final operationalIssueEventLinksProvider = StreamProvider.autoDispose
@@ -44,11 +47,13 @@ final operationalIssueEventLinksProvider = StreamProvider.autoDispose
       scope,
     ) {
       _requireActorUid(scope.actorUid);
-      return FirebaseFirestore.instance
-          .collection('operational_event_issue_links')
-          .where('issueId', isEqualTo: scope.issueId)
-          .snapshots()
-          .map(_decodeOperationalEventIssueLinks);
+      return withholdCacheOriginSnapshots(
+        FirebaseFirestore.instance
+            .collection('operational_event_issue_links')
+            .where('issueId', isEqualTo: scope.issueId)
+            .snapshots(includeMetadataChanges: true),
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEventIssueLinks);
     });
 
 List<OperationalEventIssueLink> _decodeOperationalEventIssueLinks(
@@ -74,15 +79,19 @@ final operationalEventsProvider = StreamProvider.autoDispose
       final events = FirebaseFirestore.instance.collection(
         'operational_events',
       );
-      final open = events
-          .where('status', isEqualTo: OperationalEventStatus.open.name)
-          .snapshots()
-          .map(_decodeOperationalEvents);
-      final recent = events
-          .orderBy('updatedAt', descending: true)
-          .limit(operationalEventLiveWindowLimit)
-          .snapshots()
-          .map(_decodeOperationalEvents);
+      final open = withholdCacheOriginSnapshots(
+        events
+            .where('status', isEqualTo: OperationalEventStatus.open.name)
+            .snapshots(includeMetadataChanges: true),
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEvents);
+      final recent = withholdCacheOriginSnapshots(
+        events
+            .orderBy('updatedAt', descending: true)
+            .limit(operationalEventLiveWindowLimit)
+            .snapshots(includeMetadataChanges: true),
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEvents);
       return _combineOperationalEventWindows(open, recent);
     });
 
@@ -98,13 +107,24 @@ void _requireActorUid(String actorUid) {
 /// server-side date predicate cannot prove complete historical coverage until
 /// occurrence projections are introduced. The interactive event list keeps
 /// its bounded window; reports deliberately read every event document.
-final operationalEventsForReportsProvider =
-    StreamProvider<List<OperationalEvent>>((ref) {
-      return FirebaseFirestore.instance
-          .collection('operational_events')
-          .snapshots()
-          .map(_decodeOperationalEvents);
+final operationalEventsForReportsProvider = StreamProvider.autoDispose
+    .family<List<OperationalEvent>, String>((ref, actorUid) {
+      _requireActorUid(actorUid);
+      return withholdCacheOriginSnapshots(
+        FirebaseFirestore.instance
+            .collection('operational_events')
+            .snapshots(includeMetadataChanges: true),
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEvents);
     });
+
+@visibleForTesting
+Stream<T> withholdCacheOriginSnapshots<T>(
+  Stream<T> snapshots, {
+  required bool Function(T snapshot) isFromCache,
+}) {
+  return snapshots.where((snapshot) => !isFromCache(snapshot));
+}
 
 List<OperationalEvent> _decodeOperationalEvents(
   QuerySnapshot<Map<String, dynamic>> snapshot,

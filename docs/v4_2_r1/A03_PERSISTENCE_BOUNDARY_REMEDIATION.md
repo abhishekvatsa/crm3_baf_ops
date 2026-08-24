@@ -37,12 +37,13 @@ planned executions, runtime modules and charge abnormalities adds two further
 compare-and-apply operations under their existing repository adapters. The
 event-link authority correction makes three read streams auto-dispose when
 their last authorized listener leaves and keys every live cache to the approved
-actor UID, including direct approved-account switches; operation, site and
-surface counts do not change, but constructor lifecycle and session scope are
-part of the exact digest. The
-current manifest therefore covers 507 operations and 1,610 sites across 49 surfaces
+actor UID, including direct approved-account switches; operation and surface
+counts do not change, while explicit metadata-aware subscriptions add
+three scanned sites and constructor lifecycle plus session scope remain part of
+the exact digest. The
+current manifest therefore covers 507 operations and 1,613 sites across 49 surfaces
 with digest
-`9B094F3FBABE346810575CED7F0301F1FD37B1D37DCE1512CECD5A4EC45D6C37`;
+`6262F1D34F8C2C0A5BDCFABB81B9F1085F9E35225DD0F49E996F470E208CC95C`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

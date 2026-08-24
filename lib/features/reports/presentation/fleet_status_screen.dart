@@ -53,7 +53,6 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
   OperationsReportView _view = OperationsReportView.overview;
   late DateTime _startDate;
   late DateTime _endDate;
-
   @override
   void initState() {
     super.initState();
@@ -132,7 +131,8 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       assetClassId: selection.assetClassId,
       assetInstanceId: selection.assetInstanceId,
     );
-    final reportAsync = ref.watch(operationsReportProvider(filter));
+    final reportScope = (actorUid: actor.uid, filter: filter);
+    final reportAsync = ref.watch(operationsReportProvider(reportScope));
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -165,12 +165,12 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
         error:
             (error, _) => _ErrorState(
               message: error.toString(),
-              onRetry: () => _invalidateReportSources(ref, filter),
+              onRetry: () => _invalidateReportSources(ref, reportScope),
             ),
         data:
             (report) => RefreshIndicator(
               onRefresh: () async {
-                _invalidateReportSources(ref, filter);
+                _invalidateReportSources(ref, reportScope);
               },
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),

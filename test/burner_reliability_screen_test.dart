@@ -17,6 +17,7 @@ void main() {
   final startDate = DateTime(2026, 8, 1);
   final endDate = DateTime(2026, 8, 31);
   final period = (
+    actorUid: 'operations-1',
     startInclusive: startDate,
     endExclusive: DateTime(2026, 9, 1),
   );
