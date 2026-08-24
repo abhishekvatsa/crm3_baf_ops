@@ -5,6 +5,7 @@ import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
+import '../../../auth/data/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/workflow_command_record.dart';
 import '../../providers/workflow_providers.dart';
@@ -21,6 +22,7 @@ class WorkflowDiagnosticsScreen extends ConsumerStatefulWidget {
 class _WorkflowDiagnosticsScreenState
     extends ConsumerState<WorkflowDiagnosticsScreen> {
   Future<_WorkflowDiagnosticsSnapshot>? _future;
+  String? _futureActorUid;
 
   Future<_WorkflowDiagnosticsSnapshot> _load() async {
     final quarantine = await WorkflowPullService.readQuarantine();
@@ -32,13 +34,44 @@ class _WorkflowDiagnosticsScreenState
     );
   }
 
+  void _ensureLoadedFor(AppUser actor) {
+    if (_future != null && _futureActorUid == actor.uid) return;
+    _futureActorUid = actor.uid;
+    _future = _load();
+  }
+
+  void _clearLoadedDiagnostics() {
+    _futureActorUid = null;
+    _future = null;
+  }
+
   void _refresh() {
+    final actorAsync = ref.read(currentAppUserProvider);
+    final actor =
+        actorAsync.isLoading || actorAsync.hasError ? null : actorAsync.value;
+    if (actor == null || !actor.canViewMaintenanceWorkflowDiagnostics) {
+      setState(_clearLoadedDiagnostics);
+      return;
+    }
     setState(() {
+      _futureActorUid = actor.uid;
       _future = _load();
     });
   }
 
   Future<void> _clearQuarantine() async {
+    final actorAsync = ref.read(currentAppUserProvider);
+    final actor =
+        actorAsync.isLoading || actorAsync.hasError ? null : actorAsync.value;
+    if (actor == null || !actor.canViewMaintenanceWorkflowDiagnostics) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Diagnostics authority is no longer valid.'),
+        ),
+      );
+      return;
+    }
     try {
       await WorkflowPullService.clearQuarantine();
     } catch (_) {
@@ -61,20 +94,29 @@ class _WorkflowDiagnosticsScreenState
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
+      _clearLoadedDiagnostics();
       return const _DiagnosticsAccessState(
         title: 'Checking diagnostics access',
         message: 'Please wait while your permissions are verified.',
         showProgress: true,
       );
     }
+    if (actorAsync.hasError) {
+      _clearLoadedDiagnostics();
+      return const _DiagnosticsAccessState(
+        title: 'Diagnostics access could not be verified',
+        message: 'Try again after your approved account can be verified.',
+      );
+    }
     final actor = actorAsync.value;
     if (actor == null || !actor.canViewMaintenanceWorkflowDiagnostics) {
+      _clearLoadedDiagnostics();
       return const _DiagnosticsAccessState(
         title: 'Admin/SI access required',
         message: 'Only approved Admin/SI users can open workflow diagnostics.',
       );
     }
-    _future ??= _load();
+    _ensureLoadedFor(actor);
 
     return Scaffold(
       backgroundColor: BafColors.background,

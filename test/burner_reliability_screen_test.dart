@@ -42,35 +42,42 @@ void main() {
     () async {
       final trust = ActorSessionCacheTrust()..observeActor('operations-1');
       final queryKey = burnerConditionRoundQueryKey(furnaceRoundsQuery);
-      final firstSession =
-          await admitActorSessionSnapshots(
-            Stream.fromIterable(const [
-              (fromCache: true, value: 'unproved-cache'),
-              (fromCache: false, value: 'server'),
-              (fromCache: true, value: 'proved-cache'),
-            ]),
-            trust: trust,
-            actorUid: 'operations-1',
-            queryKey: queryKey,
-            isFromCache: (snapshot) => snapshot.fromCache,
-            hasPendingWrites: (_) => false,
-          ).toList();
-      expect(firstSession.map((snapshot) => snapshot.value), [
-        'server',
-        'proved-cache',
-      ]);
+      await expectLater(
+        admitActorSessionSnapshots(
+          Stream.fromIterable(const [
+            (fromCache: true, value: 'unproved-cache'),
+            (fromCache: false, value: 'server'),
+            (fromCache: true, value: 'proved-cache'),
+          ]),
+          trust: trust,
+          actorUid: 'operations-1',
+          queryKey: queryKey,
+          isFromCache: (snapshot) => snapshot.fromCache,
+          hasPendingWrites: (_) => false,
+        ),
+        emitsInOrder([
+          emitsError(isA<ActorSessionSnapshotTrustException>()),
+          const (fromCache: false, value: 'server'),
+          const (fromCache: true, value: 'proved-cache'),
+          emitsDone,
+        ]),
+      );
 
       trust.observeActor('operations-2');
-      final switchedOffline =
-          await admitActorSessionSnapshots(
-            Stream.value(const (fromCache: true, value: 'actor-a-cache')),
-            trust: trust,
-            actorUid: 'operations-2',
-            queryKey: queryKey,
-            isFromCache: (snapshot) => snapshot.fromCache,
-            hasPendingWrites: (_) => false,
-          ).toList();
-      expect(switchedOffline, isEmpty);
+      await expectLater(
+        admitActorSessionSnapshots(
+          Stream.value(const (fromCache: true, value: 'actor-a-cache')),
+          trust: trust,
+          actorUid: 'operations-2',
+          queryKey: queryKey,
+          isFromCache: (snapshot) => snapshot.fromCache,
+          hasPendingWrites: (_) => false,
+        ),
+        emitsInOrder([
+          emitsError(isA<ActorSessionSnapshotTrustException>()),
+          emitsDone,
+        ]),
+      );
 
       final secondSession =
           await admitActorSessionSnapshots(
@@ -89,19 +96,20 @@ void main() {
         'actor-b-cache',
       ]);
 
-      final differentQueryCache =
-          await admitActorSessionSnapshots(
-            Stream.value(const (
-              fromCache: true,
-              value: 'different-query-cache',
-            )),
-            trust: trust,
-            actorUid: 'operations-2',
-            queryKey: burnerConditionRoundQueryKey(allRoundsQuery),
-            isFromCache: (snapshot) => snapshot.fromCache,
-            hasPendingWrites: (_) => false,
-          ).toList();
-      expect(differentQueryCache, isEmpty);
+      await expectLater(
+        admitActorSessionSnapshots(
+          Stream.value(const (fromCache: true, value: 'different-query-cache')),
+          trust: trust,
+          actorUid: 'operations-2',
+          queryKey: burnerConditionRoundQueryKey(allRoundsQuery),
+          isFromCache: (snapshot) => snapshot.fromCache,
+          hasPendingWrites: (_) => false,
+        ),
+        emitsInOrder([
+          emitsError(isA<ActorSessionSnapshotTrustException>()),
+          emitsDone,
+        ]),
+      );
     },
   );
 

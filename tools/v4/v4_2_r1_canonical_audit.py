@@ -7830,10 +7830,14 @@ ui_diagnostics_source = text(
     "workflow_diagnostics_screen.dart"
 )
 ui_alignment_test = text("test/ui_business_alignment_test.dart")
+workflow_entry_authority_test = text(
+    "test/workflow_entry_authority_gate_test.dart"
+)
 diagnostics_guard = ui_diagnostics_source.find(
     "!actor.canViewMaintenanceWorkflowDiagnostics"
 )
-diagnostics_read = ui_diagnostics_source.find("_future ??= _load()")
+diagnostics_error = ui_diagnostics_source.find("if (actorAsync.hasError)")
+diagnostics_read = ui_diagnostics_source.find("_ensureLoadedFor(actor)")
 check(
     "Cross-app UI authority and workflow semantics remain policy-aligned",
     "Status: SOURCE_IMPLEMENTED" in ui_alignment_decision
@@ -7877,9 +7881,12 @@ check(
     and "canManageTypes: canManageTypes" in ui_abnormality_source
     and "!actor.canReviewSyncConflicts" in ui_audit_source
     and diagnostics_guard >= 0
+    and diagnostics_error >= 0
     and diagnostics_read > diagnostics_guard
     and "diagnostics rejects before reading privileged local data"
         in ui_alignment_test
+    and "diagnostics reload for a new actor and hide on authority error"
+        in workflow_entry_authority_test
     and "authorized governed dossier is stable" in ui_alignment_test
     and "does not prove the F4 physical-device matrix" in ui_alignment_decision,
 )

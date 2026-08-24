@@ -5,6 +5,7 @@ import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../domain/maintenance_lane.dart';
 import '../../domain/workflow_types.dart';
 import '../../providers/workflow_providers.dart';
@@ -32,6 +33,37 @@ class _LaneClassificationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Classify maintenance lanes',
+        appBarSubtitle: 'Verifying your approved workflow scope',
+        appBarIcon: Icons.account_tree_outlined,
+        accent: BafColors.maintenance,
+        label: 'Checking lane-classification access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Classify maintenance lanes',
+        appBarSubtitle: 'Verifying your approved workflow scope',
+        appBarIcon: Icons.account_tree_outlined,
+        accent: BafColors.maintenance,
+        message: 'Lane-classification access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canFinalizeMaintenanceLaneSet) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Classify maintenance lanes',
+        appBarSubtitle: 'Set independent ownership before work begins',
+        appBarIcon: Icons.account_tree_outlined,
+        accent: BafColors.maintenance,
+        title: 'Lane-classification access required',
+        message:
+            'Your approved role cannot finalise planned-job lane ownership.',
+      );
+    }
     final commandState = ref.watch(workflowCommandControllerProvider);
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -148,6 +180,18 @@ class _LaneClassificationScreenState
   }
 
   Future<void> _submit() async {
+    final actorAsync = ref.read(currentAppUserProvider);
+    final actor =
+        actorAsync.isLoading || actorAsync.hasError ? null : actorAsync.value;
+    if (actor == null || !actor.canFinalizeMaintenanceLaneSet) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lane-classification authority is no longer valid.'),
+        ),
+      );
+      return;
+    }
     final command = WorkflowCommandFactory.create(
       type: WorkflowCommandType.finalizeLaneSet,
       aggregateId: widget.workflowId,

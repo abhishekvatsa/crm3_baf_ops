@@ -1382,9 +1382,9 @@
     {
       "path": "lib/features/audit/presentation/audit_timeline_screen.dart",
       "canonicalSha256": "695B66713D3646D7E7068FC51EC60FBCF1D473BB315F3AE2531209245A2C144F",
-      "candidateSha256": "E8583846D283F2764409316B002537059000B07855A613A113FFB68DA5C7EC08",
+      "candidateSha256": "2E81B0EE62A3B8209C7FD72718C9DAAD0401363CC9F462E0212C14668E2901DF",
       "canonicalBytes": 13409,
-      "candidateBytes": 18922,
+      "candidateBytes": 20142,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1886,9 +1886,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/assign_job_screen.dart",
       "canonicalSha256": "E7581FFB860B1A1E8810B3C5BD81A929BB54F935396D065A752DD55D1C151451",
-      "candidateSha256": "F9F9AA283DE103D8AFF9757283F2DA92B194A2F7365C97C2AD0A20BEB4D59FB2",
+      "candidateSha256": "819F218972EB862896AC4C4E152B72B28064BF6A73D07F6E6BAA9575FD9B35BF",
       "canonicalBytes": 15556,
-      "candidateBytes": 20362,
+      "candidateBytes": 21722,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

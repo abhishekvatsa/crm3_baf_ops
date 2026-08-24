@@ -35,6 +35,14 @@ final class ActorSessionCacheTrust {
   }
 }
 
+final class ActorSessionSnapshotTrustException implements Exception {
+  const ActorSessionSnapshotTrustException();
+
+  @override
+  String toString() =>
+      'Data is not yet server-confirmed for this approved session. Reconnect and retry.';
+}
+
 Stream<T> admitActorSessionSnapshots<T>(
   Stream<T> snapshots, {
   required ActorSessionCacheTrust trust,
@@ -43,12 +51,24 @@ Stream<T> admitActorSessionSnapshots<T>(
   required bool Function(T snapshot) isFromCache,
   required bool Function(T snapshot) hasPendingWrites,
 }) {
-  return snapshots.where(
-    (snapshot) => trust.acceptSnapshot(
-      actorUid: actorUid,
-      queryKey: queryKey,
-      isFromCache: isFromCache(snapshot),
-      hasPendingWrites: hasPendingWrites(snapshot),
-    ),
-  );
+  var hasAdmittedSnapshot = false;
+  var initialRejectionSurfaced = false;
+  return snapshots
+      .map((snapshot) {
+        final accepted = trust.acceptSnapshot(
+          actorUid: actorUid,
+          queryKey: queryKey,
+          isFromCache: isFromCache(snapshot),
+          hasPendingWrites: hasPendingWrites(snapshot),
+        );
+        if (accepted) {
+          hasAdmittedSnapshot = true;
+        } else if (!hasAdmittedSnapshot && !initialRejectionSurfaced) {
+          initialRejectionSurfaced = true;
+          throw const ActorSessionSnapshotTrustException();
+        }
+        return (accepted: accepted, snapshot: snapshot);
+      })
+      .where((entry) => entry.accepted)
+      .map((entry) => entry.snapshot);
 }

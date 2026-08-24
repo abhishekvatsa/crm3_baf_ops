@@ -522,15 +522,20 @@ void main() {
           ).toList();
 
       trust.observeActor('actor-b');
-      final switchedOffline =
-          await admitActorSessionSnapshots(
-            Stream.value(const (fromCache: true, value: 'shared-disk-cache')),
-            trust: trust,
-            actorUid: 'actor-b',
-            queryKey: queryKey,
-            isFromCache: (snapshot) => snapshot.fromCache,
-            hasPendingWrites: (_) => false,
-          ).toList();
+      await expectLater(
+        admitActorSessionSnapshots(
+          Stream.value(const (fromCache: true, value: 'shared-disk-cache')),
+          trust: trust,
+          actorUid: 'actor-b',
+          queryKey: queryKey,
+          isFromCache: (snapshot) => snapshot.fromCache,
+          hasPendingWrites: (_) => false,
+        ),
+        emitsInOrder([
+          emitsError(isA<ActorSessionSnapshotTrustException>()),
+          emitsDone,
+        ]),
+      );
       final secondOnline =
           await admitActorSessionSnapshots(
             Stream.fromIterable(const [
@@ -548,7 +553,6 @@ void main() {
       expect(reopenedOffline.map((snapshot) => snapshot.value), [
         'actor-a-cache',
       ]);
-      expect(switchedOffline, isEmpty);
       expect(secondOnline.map((snapshot) => snapshot.value), [
         'actor-b-server',
         'actor-b-cache-refresh',
@@ -573,38 +577,45 @@ void main() {
       final trust = ActorSessionCacheTrust()..observeActor('actor-b');
       const queryKey = 'events:reports';
 
-      final admitted =
-          await admitActorSessionSnapshots(
-            Stream.fromIterable(const [
-              (
-                fromCache: false,
-                pendingWrites: true,
-                value: 'actor-a-pending-overlay',
-              ),
-              (fromCache: true, pendingWrites: false, value: 'unproved-cache'),
-              (
-                fromCache: false,
-                pendingWrites: false,
-                value: 'actor-b-committed-server',
-              ),
-              (
-                fromCache: true,
-                pendingWrites: true,
-                value: 'same-session-pending-overlay',
-              ),
-              (fromCache: true, pendingWrites: false, value: 'proved-cache'),
-            ]),
-            trust: trust,
-            actorUid: 'actor-b',
-            queryKey: queryKey,
-            isFromCache: (snapshot) => snapshot.fromCache,
-            hasPendingWrites: (snapshot) => snapshot.pendingWrites,
-          ).toList();
+      final admitted = <String>[];
+      final errors = <Object>[];
+      final done = Completer<void>();
 
-      expect(admitted.map((snapshot) => snapshot.value), [
-        'actor-b-committed-server',
-        'proved-cache',
-      ]);
+      admitActorSessionSnapshots(
+        Stream.fromIterable(const [
+          (
+            fromCache: false,
+            pendingWrites: true,
+            value: 'actor-a-pending-overlay',
+          ),
+          (fromCache: true, pendingWrites: false, value: 'unproved-cache'),
+          (
+            fromCache: false,
+            pendingWrites: false,
+            value: 'actor-b-committed-server',
+          ),
+          (
+            fromCache: true,
+            pendingWrites: true,
+            value: 'same-session-pending-overlay',
+          ),
+          (fromCache: true, pendingWrites: false, value: 'proved-cache'),
+        ]),
+        trust: trust,
+        actorUid: 'actor-b',
+        queryKey: queryKey,
+        isFromCache: (snapshot) => snapshot.fromCache,
+        hasPendingWrites: (snapshot) => snapshot.pendingWrites,
+      ).listen(
+        (snapshot) => admitted.add(snapshot.value),
+        onError: (Object error) => errors.add(error),
+        onDone: done.complete,
+      );
+      await done.future;
+
+      expect(errors, hasLength(1));
+      expect(errors.single, isA<ActorSessionSnapshotTrustException>());
+      expect(admitted, ['actor-b-committed-server', 'proved-cache']);
     },
   );
 

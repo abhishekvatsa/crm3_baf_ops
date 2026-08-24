@@ -22,10 +22,12 @@ boundary, persistence ownership, transaction ownership, regression evidence,
 growth ceiling, required markers, forbidden markers and a re-arm condition.
 
 The 24 August 2026 authority-lifecycle re-arm re-ran this inventory. It now
-classifies 46 hotspots, including the inspection, frequent-issue,
+classifies 45 hotspots, including the inspection, frequent-issue,
 maintenance-intelligence and actor-scoped operational-event workspaces, with
 digest
-`38160F4EA61B1CE7C7A1F28216ABC9D6B51F3C13719BCA8BFED0AA19B620A3F0`.
+`F545672AD396BC4483769CD64B9D265A2A78D1BB0A152CECD74253BFBBE3C2B0`.
+The actor-scoped audit screen now remains below every hotspot threshold, so its
+temporary bounded-exception declaration was removed.
 No presentation surface acquired direct database ownership.
 
 ## Decomposition
