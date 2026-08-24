@@ -38,6 +38,7 @@ import 'features/maintenance_workflow/data/workflow_event_record.dart';
 
 // ── AUTH ─────────────────────────────────────────────────────
 import 'features/auth/data/user_model.dart';
+import 'features/auth/domain/navigation_authority_scope.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/pending_approval_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -788,6 +789,39 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp> {
     );
   }
 
+  NavigationAuthorityScope _navigationAuthorityScope() {
+    if (_startupFailure != null) {
+      return NavigationAuthorityScope.startupFailure();
+    }
+
+    final authAsync = ref.watch(authStateProvider);
+    if (authAsync.hasError) {
+      return NavigationAuthorityScope.authError();
+    }
+    if (authAsync.isLoading) {
+      return NavigationAuthorityScope.authLoading();
+    }
+    final firebaseUser = authAsync.value;
+    if (firebaseUser == null) {
+      return NavigationAuthorityScope.signedOut();
+    }
+
+    final profileAsync = ref.watch(currentAppUserProvider);
+    if (profileAsync.hasError) {
+      return NavigationAuthorityScope.profileError(firebaseUser.uid);
+    }
+    if (profileAsync.isLoading) {
+      return NavigationAuthorityScope.profileLoading(firebaseUser.uid);
+    }
+    final profile = profileAsync.value;
+    return NavigationAuthorityScope.fromProfile(
+      authenticatedUid: firebaseUser.uid,
+      profileUid: profile?.uid,
+      isApproved: profile?.isApproved ?? false,
+      roles: profile?.roles.map((role) => role.name) ?? const <String>[],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_startupFailure == null) {
@@ -795,8 +829,10 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp> {
       ref.watch(crashlyticsIdentitySyncProvider);
       ref.watch(notificationInstallationSyncProvider);
     }
+    final navigationAuthority = _navigationAuthorityScope();
 
     return MaterialApp(
+      key: ValueKey<String>(navigationAuthority.navigatorKey),
       title: BafBrand.productName,
       debugShowCheckedModeBanner: false,
       theme: BafAppTheme.light,

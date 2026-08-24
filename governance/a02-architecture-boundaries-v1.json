@@ -196,9 +196,10 @@
       "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
       "regressionTests": [
         "test/asset_hierarchy_business_reference_test.dart",
-        "test/inner_cover_lifecycle_screen_test.dart"
+        "test/inner_cover_lifecycle_screen_test.dart",
+        "test/operational_asset_screen_authority_gate_test.dart"
       ],
-      "maximumLines": 1918,
+      "maximumLines": 1948,
       "requiredMarkers": [
         "class InnerCoverLifecycleScreen"
       ],

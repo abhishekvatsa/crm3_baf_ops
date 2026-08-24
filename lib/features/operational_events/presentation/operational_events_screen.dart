@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/providers/operations_report_clock_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -11,8 +12,11 @@ import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/operational_event.dart';
+import '../data/operational_event_impact.dart';
 import '../providers/operational_event_provider.dart';
 import 'operational_event_issue_links_screen.dart';
+
+part 'operational_events_screen.summary.dart';
 
 class OperationalEventsScreen extends ConsumerStatefulWidget {
   const OperationalEventsScreen({super.key});
@@ -26,6 +30,8 @@ class _OperationalEventsScreenState
     extends ConsumerState<OperationalEventsScreen> {
   var _showOpen = true;
   var _busy = false;
+  var _selectedMonth = _monthStart(DateTime.now());
+  OperationalEventType? _selectedTopic;
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +67,13 @@ class _OperationalEventsScreenState
       );
     }
     final eventsAsync = ref.watch(operationalEventsProvider(actor.uid));
+    final reportEventsAsync = ref.watch(
+      operationalEventsForReportsProvider(actor.uid),
+    );
     final classes = ref.watch(assetClassesProvider).value ?? const [];
     final assets = ref.watch(allAssetInstancesProvider).value ?? const [];
+    final asOf =
+        ref.watch(operationsReportClockProvider).value ?? DateTime.now();
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -73,137 +84,195 @@ class _OperationalEventsScreenState
           icon: Icons.crisis_alert_outlined,
           accent: BafColors.warning,
         ),
-        actions: [
-          if (actor.canRecordOperationalEvent)
-            IconButton(
-              onPressed:
-                  _busy
-                      ? null
-                      : () => _editEvent(
-                        actor: actor,
-                        classes: classes,
-                        assets: assets,
-                      ),
-              tooltip: 'Record event',
-              icon: const Icon(Icons.add_alert_rounded),
-            ),
-        ],
       ),
-      body: eventsAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading operational events',
-              color: BafColors.warning,
-            ),
-        error:
-            (error, _) => _ErrorState(
-              message: error.toString(),
-              onRetry:
-                  () => ref.invalidate(operationalEventsProvider(actor.uid)),
-            ),
-        data: (events) {
-          final open = events.where((event) => event.isOpen).toList();
-          final resolved = events.where((event) => !event.isOpen).toList();
-          final visible = _showOpen ? open : resolved;
-          final critical =
-              open
-                  .where(
-                    (event) =>
-                        event.severity == OperationalEventSeverity.critical,
-                  )
-                  .length;
-          return RefreshIndicator(
-            onRefresh:
-                () async =>
-                    ref.invalidate(operationalEventsProvider(actor.uid)),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _EventSummary(
-                    openCount: open.length,
-                    criticalCount: critical,
-                    resolvedCount: resolved.length,
+      body: Column(
+        children: [
+          if (actor.canRecordOperationalEvent)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  key: const ValueKey('operational-events-add'),
+                  onPressed:
+                      _busy
+                          ? null
+                          : () => _editEvent(
+                            actor: actor,
+                            classes: classes,
+                            assets: assets,
+                          ),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Add event'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: BafColors.warning,
+                    foregroundColor: BafColors.graphite,
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(
-                          value: true,
-                          icon: Icon(Icons.warning_amber_rounded),
-                          label: Text('Open'),
-                        ),
-                        ButtonSegment(
-                          value: false,
-                          icon: Icon(Icons.task_alt_rounded),
-                          label: Text('Recent resolved'),
-                        ),
-                      ],
-                      selected: {_showOpen},
-                      onSelectionChanged:
-                          (selection) =>
-                              setState(() => _showOpen = selection.first),
-                    ),
+              ),
+            ),
+          Expanded(
+            child: eventsAsync.when(
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Loading operational events',
+                    color: BafColors.warning,
                   ),
-                ),
-                if (!_showOpen)
-                  const SliverToBoxAdapter(child: _HistoryWindowNotice()),
-                if (visible.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyState(showingOpen: _showOpen),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                    sliver: SliverList.separated(
-                      itemCount: visible.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder:
-                          (context, index) => _EventCard(
-                            event: visible[index],
-                            classNames: {
-                              for (final record in classes)
-                                record.id: record.name,
-                            },
-                            assetNames: {
-                              for (final record in assets)
-                                record.id:
-                                    '${record.assetClassName} ${record.assetNumber}',
-                            },
-                            canEdit:
-                                actor.canRecordOperationalEvent &&
-                                visible[index].isOpen,
-                            canResolve: actor.canResolveOperationalEvent,
-                            onEdit:
-                                () => _editEvent(
-                                  actor: actor,
-                                  classes: classes,
-                                  assets: assets,
-                                  event: visible[index],
-                                ),
-                            onResolve: () => _resolveEvent(visible[index]),
-                            onReopen: () => _reopenEvent(visible[index]),
-                            onIssues:
-                                () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder:
-                                        (_) => OperationalEventIssueLinksScreen(
-                                          event: visible[index],
+              error:
+                  (error, _) => _ErrorState(
+                    message: error.toString(),
+                    onRetry:
+                        () => ref.invalidate(
+                          operationalEventsProvider(actor.uid),
+                        ),
+                  ),
+              data: (events) {
+                final open = events.where((event) => event.isOpen).toList();
+                final resolved =
+                    events.where((event) => !event.isOpen).toList();
+                final visible = _showOpen ? open : resolved;
+                final critical =
+                    open
+                        .where(
+                          (event) =>
+                              event.severity ==
+                              OperationalEventSeverity.critical,
+                        )
+                        .length;
+                return RefreshIndicator(
+                  onRefresh:
+                      () async =>
+                          ref.invalidate(operationalEventsProvider(actor.uid)),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _EventSummary(
+                          openCount: open.length,
+                          criticalCount: critical,
+                          resolvedCount: resolved.length,
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: _EventImpactPanel(
+                          eventsAsync: reportEventsAsync,
+                          selectedMonth: _selectedMonth,
+                          selectedTopic: _selectedTopic,
+                          asOf: asOf,
+                          onPreviousMonth:
+                              _selectedMonth.isAfter(DateTime(2020))
+                                  ? () => setState(
+                                    () =>
+                                        _selectedMonth = DateTime(
+                                          _selectedMonth.year,
+                                          _selectedMonth.month - 1,
                                         ),
-                                  ),
+                                  )
+                                  : null,
+                          onNextMonth:
+                              _selectedMonth.isBefore(_monthStart(asOf))
+                                  ? () => setState(
+                                    () =>
+                                        _selectedMonth = DateTime(
+                                          _selectedMonth.year,
+                                          _selectedMonth.month + 1,
+                                        ),
+                                  )
+                                  : null,
+                          onPickMonth: _pickImpactMonth,
+                          onTopicChanged:
+                              (value) => setState(() => _selectedTopic = value),
+                          onRetry:
+                              () => ref.invalidate(
+                                operationalEventsForReportsProvider(actor.uid),
+                              ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(
+                                value: true,
+                                icon: Icon(Icons.warning_amber_rounded),
+                                label: Text('Open'),
+                              ),
+                              ButtonSegment(
+                                value: false,
+                                icon: Icon(Icons.task_alt_rounded),
+                                label: Text('Recent resolved'),
+                              ),
+                            ],
+                            selected: {_showOpen},
+                            onSelectionChanged:
+                                (selection) =>
+                                    setState(() => _showOpen = selection.first),
+                          ),
+                        ),
+                      ),
+                      if (!_showOpen)
+                        const SliverToBoxAdapter(child: _HistoryWindowNotice()),
+                      if (visible.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptyState(showingOpen: _showOpen),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                          sliver: SliverList.separated(
+                            itemCount: visible.length,
+                            separatorBuilder:
+                                (_, _) => const SizedBox(height: 10),
+                            itemBuilder:
+                                (context, index) => _EventCard(
+                                  event: visible[index],
+                                  asOf: asOf,
+                                  classNames: {
+                                    for (final record in classes)
+                                      record.id: record.name,
+                                  },
+                                  assetNames: {
+                                    for (final record in assets)
+                                      record.id:
+                                          '${record.assetClassName} ${record.assetNumber}',
+                                  },
+                                  canEdit:
+                                      actor.canRecordOperationalEvent &&
+                                      visible[index].isOpen,
+                                  canResolve: actor.canResolveOperationalEvent,
+                                  onEdit:
+                                      () => _editEvent(
+                                        actor: actor,
+                                        classes: classes,
+                                        assets: assets,
+                                        event: visible[index],
+                                      ),
+                                  onResolve:
+                                      () => _resolveEvent(visible[index]),
+                                  onReopen: () => _reopenEvent(visible[index]),
+                                  onIssues:
+                                      () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder:
+                                              (_) =>
+                                                  OperationalEventIssueLinksScreen(
+                                                    event: visible[index],
+                                                  ),
+                                        ),
+                                      ),
                                 ),
                           ),
-                    ),
+                        ),
+                    ],
                   ),
-              ],
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -232,6 +301,20 @@ class _OperationalEventsScreenState
         );
       }
     }, event == null ? 'Operational event recorded.' : 'Event updated.');
+  }
+
+  Future<void> _pickImpactMonth() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _selectedMonth,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      helpText: 'Select any day in the reporting month',
+    );
+    if (selected != null && mounted) {
+      setState(() => _selectedMonth = _monthStart(selected));
+    }
   }
 
   Future<void> _resolveEvent(OperationalEvent event) async {
@@ -297,132 +380,10 @@ class _OperationalEventsScreenState
   }
 }
 
-class _EventSummary extends StatelessWidget {
-  const _EventSummary({
-    required this.openCount,
-    required this.criticalCount,
-    required this.resolvedCount,
-  });
-
-  final int openCount;
-  final int criticalCount;
-  final int resolvedCount;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(16),
-    child: Row(
-      children: [
-        Expanded(
-          child: _Metric(
-            label: 'Open',
-            value: openCount,
-            color: BafColors.warning,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _Metric(
-            label: 'Critical',
-            value: criticalCount,
-            color: BafColors.danger,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _Metric(
-            label: 'Recent resolved',
-            value: resolvedCount,
-            color: BafColors.success,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _HistoryWindowNotice extends StatelessWidget {
-  const _HistoryWindowNotice();
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: BafColors.planned.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: BafColors.planned.withValues(alpha: 0.22)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded, color: BafColors.planned, size: 20),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              operationalEventResolvedHistoryDisclosure,
-              style: TextStyle(
-                color: BafColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final int value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-    decoration: BoxDecoration(
-      color: BafColors.card,
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-      border: Border.all(color: color.withValues(alpha: 0.24)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$value',
-          style: TextStyle(
-            color: color,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class _EventCard extends StatelessWidget {
   const _EventCard({
     required this.event,
+    required this.asOf,
     required this.classNames,
     required this.assetNames,
     required this.canEdit,
@@ -434,6 +395,7 @@ class _EventCard extends StatelessWidget {
   });
 
   final OperationalEvent event;
+  final DateTime asOf;
   final Map<String, String> classNames;
   final Map<String, String> assetNames;
   final bool canEdit;
@@ -530,6 +492,15 @@ class _EventCard extends StatelessWidget {
             icon: Icons.schedule_rounded,
             text:
                 'Started ${DateFormat('dd MMM yyyy, HH:mm').format(event.startedAt.toLocal())}',
+          ),
+          const SizedBox(height: 6),
+          _DetailLine(
+            icon: Icons.timer_outlined,
+            text:
+                'Total impact ${_formatImpactDuration(event.durationUntil(asOf))} '
+                'across ${event.completedIntervals.length + 1} '
+                '${event.completedIntervals.isEmpty ? 'occurrence' : 'occurrences'}'
+                '${event.isOpen ? ' · ongoing' : ''}',
           ),
           if (event.resolutionNote != null) ...[
             const SizedBox(height: 6),
@@ -1212,3 +1183,22 @@ IconData _eventIcon(OperationalEventType type) => switch (type) {
   OperationalEventType.transferCar => Icons.local_shipping_outlined,
   OperationalEventType.other => Icons.warning_amber_rounded,
 };
+
+DateTime _monthStart(DateTime value) => DateTime(value.year, value.month);
+
+String _formatImpactDuration(Duration value) {
+  if (value <= Duration.zero) return '0 min';
+  final days = value.inDays;
+  final hours = value.inHours.remainder(24);
+  final minutes = value.inMinutes.remainder(60);
+  if (days > 0) {
+    final parts = <String>['${days}d'];
+    if (hours > 0) parts.add('${hours}h');
+    if (minutes > 0) parts.add('${minutes}m');
+    return parts.join(' ');
+  }
+  if (value.inHours > 0) {
+    return minutes > 0 ? '${value.inHours}h ${minutes}m' : '${value.inHours}h';
+  }
+  return value.inMinutes > 0 ? '${value.inMinutes} min' : '<1 min';
+}
