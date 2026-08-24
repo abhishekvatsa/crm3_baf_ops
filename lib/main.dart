@@ -935,65 +935,65 @@ class AuthGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
+    if (authState.isLoading) {
+      return const _FullScreenStatus(
+        icon: Icons.lock_open_rounded,
+        title: 'Checking sign-in',
+        message: 'Verifying your Google session…',
+        showProgress: true,
+      );
+    }
+    if (authState.hasError) {
+      return _AuthErrorScreen(
+        title: 'Auth error',
+        message: '${authState.error}',
+      );
+    }
+    final firebaseUser = authState.value;
+    if (firebaseUser == null) {
+      return const LoginScreen();
+    }
 
-    return authState.when(
-      loading:
-          () => const _FullScreenStatus(
-            icon: Icons.lock_open_rounded,
-            title: 'Checking sign-in',
-            message: 'Verifying your Google session…',
-            showProgress: true,
-          ),
-      error: (e, _) => _AuthErrorScreen(title: 'Auth error', message: '$e'),
-      data: (firebaseUser) {
-        if (firebaseUser == null) {
-          return const LoginScreen();
-        }
-
-        final appUser = ref.watch(currentAppUserProvider);
-
-        return appUser.when(
-          loading:
-              () => const _FullScreenStatus(
-                icon: Icons.verified_user_rounded,
-                title: 'Checking access',
-                message: 'Loading your BAF profile and approval status…',
-                showProgress: true,
-              ),
-          error: (e, _) {
-            if (e is PersistedDataFormatException) {
-              return const _AuthErrorScreen(
-                title: 'Profile needs repair',
-                message:
-                    'Your access profile has incomplete or malformed identity history. No app access was granted. Ask an administrator to repair the profile, then reopen the app.',
-              );
-            }
-            return _AuthErrorScreen(title: 'User profile error', message: '$e');
-          },
-          data: (user) {
-            if (user == null) {
-              return _ProfileBootstrapScreen(firebaseUser: firebaseUser);
-            }
-
-            if (user.uid != firebaseUser.uid) {
-              return const _FullScreenStatus(
-                icon: Icons.switch_account_rounded,
-                title: 'Switching account',
-                message:
-                    'Waiting for the signed-in account and approved profile to match...',
-                showProgress: true,
-              );
-            }
-
-            if (!user.isApproved) {
-              return const PendingApprovalScreen();
-            }
-
-            return _StartupSyncGate(appUser: user);
-          },
+    final appUser = ref.watch(currentAppUserProvider);
+    if (appUser.isLoading) {
+      return const _FullScreenStatus(
+        icon: Icons.verified_user_rounded,
+        title: 'Checking access',
+        message: 'Loading your BAF profile and approval status…',
+        showProgress: true,
+      );
+    }
+    if (appUser.hasError) {
+      final error = appUser.error;
+      if (error is PersistedDataFormatException) {
+        return const _AuthErrorScreen(
+          title: 'Profile needs repair',
+          message:
+              'Your access profile has incomplete or malformed identity history. No app access was granted. Ask an administrator to repair the profile, then reopen the app.',
         );
-      },
-    );
+      }
+      return _AuthErrorScreen(title: 'User profile error', message: '$error');
+    }
+    final user = appUser.value;
+    if (user == null) {
+      return _ProfileBootstrapScreen(firebaseUser: firebaseUser);
+    }
+
+    if (user.uid != firebaseUser.uid) {
+      return const _FullScreenStatus(
+        icon: Icons.switch_account_rounded,
+        title: 'Switching account',
+        message:
+            'Waiting for the signed-in account and approved profile to match...',
+        showProgress: true,
+      );
+    }
+
+    if (!user.isApproved) {
+      return const PendingApprovalScreen();
+    }
+
+    return _StartupSyncGate(appUser: user);
   }
 }
 
