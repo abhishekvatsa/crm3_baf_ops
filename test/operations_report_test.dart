@@ -8,6 +8,7 @@ import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/job_lane_record.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
@@ -444,6 +445,75 @@ void main() {
       OperationsManagementSignalType.openIssues,
       OperationsManagementSignalType.openPlannedWork,
     ]);
+  });
+
+  test('administrative closures remain distinct from technical repairs', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final closedAt = DateTime.utc(2026, 8, 12, 11);
+    final resolved = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 12, 7),
+      resolved: true,
+    );
+    final retained = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 12, 8),
+    );
+    retained
+      ..status = TicketStatus.closedWithoutResolution
+      ..isResolved = true
+      ..endDate = closedAt
+      ..closedByUid = 'admin-1'
+      ..closedByName = 'Admin One'
+      ..administrativeClosure = const IssueAdministrativeClosure(
+        disposition: IssueAdministrativeClosureDisposition.stillRelevant,
+        reason:
+            'The operating cycle ended, but engineering review remains due.',
+      );
+    final expired = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 12, 9),
+    );
+    expired
+      ..status = TicketStatus.closedWithoutResolution
+      ..isResolved = true
+      ..endDate = closedAt
+      ..closedByUid = 'admin-1'
+      ..closedByName = 'Admin One'
+      ..administrativeClosure = const IssueAdministrativeClosure(
+        disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+        reason:
+            'The charge ended and no maintenance action remains applicable.',
+      );
+    final overview = PlantAssetOverview.build(
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+    );
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [resolved, retained, expired],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: overview,
+    );
+
+    expect(report.resolvedIssueCount, 1);
+    expect(report.administrativelyClosedIssueCount, 2);
+    expect(report.retainedUnresolvedClosureCount, 1);
+    expect(report.terminalIssueCount, 3);
+    expect(report.issueClosureRate, 1);
   });
 
   test('management signals rank operational severity before raw count', () {

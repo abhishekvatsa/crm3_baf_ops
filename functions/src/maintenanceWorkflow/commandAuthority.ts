@@ -52,6 +52,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   deployEquipment: "equipment.deploy",
   reconcileEquipment: "equipment.reconcile",
   reconfigureMaintenanceTicketLanes: "ticket.lanes.manage",
+  closeMaintenanceTicketWithoutResolution: "ticket.closeWithoutResolution",
   reopenMaintenanceTicket: "ticket.reopen",
   correctMaintenanceTicket: "ticket.correct",
   upsertFrequentIssueDefinition: "issueDefinition.manage",
@@ -100,6 +101,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "equipment.reconcile",
   "compliance.unscoped.manage",
   "ticket.correct",
+  "ticket.closeWithoutResolution",
   "ticket.lanes.manage",
   "ticket.reopen",
   "issueDefinition.manage",
@@ -233,6 +235,9 @@ export const assertWorkflowAuthorityScope = (
         !actor.roles.has("operations")) denied();
     return;
   case "ticket.correct":
+    if (!actor.roles.has("admin")) denied();
+    return;
+  case "ticket.closeWithoutResolution":
     if (!actor.roles.has("admin")) denied();
     return;
   case "issueDefinition.manage":

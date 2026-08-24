@@ -36,30 +36,30 @@ class ClosedTicketsScreen extends ConsumerWidget {
     return actorAsync.when(
       loading:
           () => BafScreenStateScaffold.loading(
-            appBarTitle: 'Resolved issue history',
-            appBarSubtitle: 'Closed maintenance records and outcomes',
+            appBarTitle: 'Closed issue history',
+            appBarSubtitle: 'Resolved work and administrative closures',
             appBarIcon: Icons.inventory_2_outlined,
             accent: BafColors.maintenance,
-            label: 'Checking resolved-history access',
+            label: 'Checking closure-history access',
           ),
       error:
           (_, _) => BafScreenStateScaffold.error(
-            appBarTitle: 'Resolved issue history',
-            appBarSubtitle: 'Closed maintenance records and outcomes',
+            appBarTitle: 'Closed issue history',
+            appBarSubtitle: 'Resolved work and administrative closures',
             appBarIcon: Icons.inventory_2_outlined,
             accent: BafColors.maintenance,
-            message: 'Could not verify resolved-history access.',
+            message: 'Could not verify closure-history access.',
           ),
       data: (actor) {
         if (actor == null || !actor.canViewClosedMaintenanceTickets) {
           return BafScreenStateScaffold.access(
-            appBarTitle: 'Resolved issue history',
-            appBarSubtitle: 'Closed maintenance records and outcomes',
+            appBarTitle: 'Closed issue history',
+            appBarSubtitle: 'Resolved work and administrative closures',
             appBarIcon: Icons.inventory_2_outlined,
             accent: BafColors.maintenance,
             title: 'History access required',
             message:
-                'An approved maintenance role is required to view resolved records.',
+                'An approved maintenance role is required to view closed records.',
           );
         }
         return _ClosedTicketsBody(actor: actor);
@@ -415,8 +415,8 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
       backgroundColor: BafColors.background,
       appBar: AppBar(
         title: const BafAppBarTitle(
-          title: 'Resolved issues',
-          subtitle: 'Closure evidence, classification and reopen history',
+          title: 'Closed issues',
+          subtitle: 'Resolution evidence and administrative dispositions',
           icon: Icons.history_rounded,
           accent: BafColors.maintenance,
         ),
@@ -483,6 +483,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                         maintenanceClass: _ticketMaintenanceClass(ticket),
                         canClassify:
                             appUser?.canClassifyCompletedMaintenance == true &&
+                            ticket.wasTechnicallyResolved &&
                             reopenWindowElapsed &&
                             ticket.assetType != AssetType.innerCover &&
                             ticket.firestoreId?.trim().isNotEmpty == true &&
@@ -800,7 +801,7 @@ class _ClosedTicketsHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 const Text(
-                  'Review resolved work and reopen recent closures when needed.',
+                  'Review technical resolutions and issues closed without resolution.',
                   style: TextStyle(
                     color: BafColors.textSecondary,
                     fontSize: 13,
@@ -868,10 +869,12 @@ class _ClosedTicketCard extends StatelessWidget {
     final hoursSince = DateTime.now().difference(closedAt).inHours;
     final canReopen =
         canReopenTicket &&
+        ticket.wasTechnicallyResolved &&
         ticket.isSynced &&
         hoursSince <= 4 &&
         !ticket.workflowDeferred;
     final agencyColor = _agencyColor(ticket.routedTo);
+    final administrativeClosure = ticket.administrativeClosure;
     final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
     final burnerReadings =
         ticket.burnerLockoutReadResult.value?.resolutionMicroampReadings.entries
@@ -956,10 +959,22 @@ class _ClosedTicketCard extends StatelessWidget {
                             color: agencyColor,
                             icon: Icons.engineering_rounded,
                           ),
-                          const StatusBadge(
-                            label: 'Closed',
-                            color: BafColors.sync,
-                            icon: Icons.check_circle_rounded,
+                          StatusBadge(
+                            label:
+                                administrativeClosure == null
+                                    ? 'Resolved'
+                                    : administrativeClosure.disposition.name ==
+                                        'stillRelevant'
+                                    ? 'Closed unresolved - retained'
+                                    : 'Closed - relevance ended',
+                            color:
+                                administrativeClosure == null
+                                    ? BafColors.sync
+                                    : BafColors.warning,
+                            icon:
+                                administrativeClosure == null
+                                    ? Icons.check_circle_rounded
+                                    : Icons.inventory_2_outlined,
                           ),
                           StatusBadge(
                             label:
@@ -1012,6 +1027,13 @@ class _ClosedTicketCard extends StatelessWidget {
                         icon: Icons.person_outline_rounded,
                         text: 'By ${ticket.closedByName ?? 'Unknown'}',
                       ),
+                      if (administrativeClosure != null) ...[
+                        const SizedBox(height: 5),
+                        _MetaLine(
+                          icon: Icons.notes_rounded,
+                          text: administrativeClosure.reason,
+                        ),
+                      ],
                       if (innerCover != null) ...[
                         const SizedBox(height: 5),
                         _MetaLine(
@@ -1082,18 +1104,20 @@ class _ClosedTicketCard extends StatelessWidget {
                             ),
                             border: Border.all(color: BafColors.border),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.lock_clock_rounded,
                                 size: 16,
                                 color: BafColors.textSecondary,
                               ),
-                              SizedBox(width: 7),
+                              const SizedBox(width: 7),
                               Expanded(
                                 child: Text(
-                                  'Reopen unavailable after 4 hours',
-                                  style: TextStyle(
+                                  administrativeClosure == null
+                                      ? 'Reopen unavailable after 4 hours'
+                                      : 'Administrative closure is preserved as final evidence',
+                                  style: const TextStyle(
                                     color: BafColors.textSecondary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -1308,7 +1332,7 @@ class _ClosedTicketsEmptyState extends StatelessWidget {
               ),
               const SizedBox(height: BafSpacing.sm),
               const Text(
-                'Resolved issue records will appear here for review and controlled reopening.',
+                'Resolved work and administrative closures will appear here for review.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: BafColors.textSecondary,

@@ -4,6 +4,7 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/frequent_issue_selection.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/furnace_stuckup_case.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -96,6 +97,75 @@ void main() {
         throwsA(isA<PersistedDataFormatException>()),
       );
     });
+
+    test(
+      'administrative closure remains terminal without manufacturing lane completion',
+      () {
+        final record = readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['status'] = 'closedWithoutResolution'
+            ..['isResolved'] = true
+            ..['endDate'] = '2026-08-12T11:00:00Z'
+            ..['closedByUid'] = 'admin-1'
+            ..['closedByName'] = 'Admin One'
+            ..['issueClosureSchemaVersion'] = 1
+            ..['issueClosureDisposition'] = 'stillRelevant'
+            ..['issueClosureReason'] =
+                'The charge ended, but the unresolved condition remains relevant.'
+            ..['acknowledgedByUid'] = 'mechanical-1'
+            ..['acknowledgedByName'] = 'Mechanical One'
+            ..['acknowledgedAt'] = '2026-08-12T10:20:00Z'
+            ..addAll(<String, dynamic>{
+              'issueLaneSchemaVersion': 1,
+              'issueLaneRevision': 2,
+              'issueAssignedLanes': <String>['mechanical', 'electrical'],
+              'issueAcknowledgedLanes': <String>['mechanical'],
+              'issueCompletedLanes': <String>[],
+            }),
+          documentId: 'ticket-1',
+        );
+
+        expect(record.status, TicketStatus.closedWithoutResolution);
+        expect(record.isClosed, isTrue);
+        expect(record.wasTechnicallyResolved, isFalse);
+        expect(
+          record.administrativeClosure?.disposition,
+          IssueAdministrativeClosureDisposition.stillRelevant,
+        );
+        expect(record.issueLanePlan.completedLanes, isEmpty);
+
+        expect(
+          () => readRemoteMaintenanceRecord(
+            _validRecord()
+              ..['status'] = 'closedWithoutResolution'
+              ..['isResolved'] = true
+              ..['endDate'] = '2026-08-12T11:00:00Z'
+              ..['closedByUid'] = 'admin-1'
+              ..['closedByName'] = 'Admin One'
+              ..['issueClosureSchemaVersion'] = 1
+              ..['issueClosureDisposition'] = 'stillRelevant',
+            documentId: 'ticket-1',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+
+        expect(
+          () => readRemoteMaintenanceRecord(
+            _validRecord()
+              ..['status'] = 'closedWithoutResolution'
+              ..['isResolved'] = true
+              ..['endDate'] = '2026-08-12T11:00:00Z'
+              ..['closedByUid'] = 'admin-1'
+              ..['issueClosureSchemaVersion'] = 1
+              ..['issueClosureDisposition'] = 'stillRelevant'
+              ..['issueClosureReason'] =
+                  'The charge ended, but engineering relevance remains.',
+            documentId: 'ticket-1',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      },
+    );
 
     test('partial or contradictory workflow projection fails closed', () {
       expect(

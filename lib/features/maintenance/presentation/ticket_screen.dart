@@ -20,11 +20,15 @@ import '../../maintenance_workflow/presentation/screens/compliance_detail_screen
 import '../../operational_events/presentation/operational_event_issue_links_screen.dart';
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
+import '../services/maintenance_issue_administrative_closure_command.dart';
 import '../services/maintenance_issue_command_reconciler.dart';
+import 'issue_administrative_closure_dialog.dart';
 import 'issue_lane_management_dialog.dart';
 import 'maintenance_form.dart';
 import 'issue_coordination_dialog.dart';
 import 'resolve_form.dart';
+
+part 'ticket_screen.governed_actions.dart';
 
 class TicketScreen extends ConsumerStatefulWidget {
   const TicketScreen({super.key});
@@ -37,6 +41,8 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   Timer? _timer;
   String _query = '';
   String? _busyTicketId;
+
+  void _setBusyTicketId(String? value) => setState(() => _busyTicketId = value);
 
   @override
   void initState() {
@@ -279,6 +285,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   ticket: ticket,
                   canResolve: canResolveThis && !ticket.workflowDeferred,
                   onResolve: () => _openResolve(ticket),
+                  canCloseWithoutResolution:
+                      appUser.canCloseMaintenanceIssueWithoutResolution &&
+                      laneRead.isValid &&
+                      hasGovernedServerState,
+                  onCloseWithoutResolution:
+                      () => _closeWithoutResolution(ticket),
                   canAcknowledge: canAcknowledge,
                   isBusy: _busyTicketId == ticketId,
                   onAcknowledge: () => _acknowledgeTicket(ticket),
@@ -787,49 +799,6 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     }
   }
 
-  Future<void> _openIssueCoordination(MaintenanceRecord ticket) async {
-    final complianceId = ticket.workflowComplianceId?.trim();
-    if (complianceId == null || complianceId.isEmpty) return;
-    try {
-      final actorAsync = ref.read(currentAppUserProvider);
-      final actor = actorAsync.asData?.value;
-      if (actorAsync.isLoading ||
-          actorAsync.hasError ||
-          actor == null ||
-          !actor.isApproved) {
-        throw StateError('Approved compliance access is required.');
-      }
-      final record = await ref.read(
-        workflowComplianceRecordProvider((
-          actorUid: actor.uid,
-          complianceId: complianceId,
-        )).future,
-      );
-      if (!mounted) return;
-      if (record == null) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(
-            content: Text('Coordination record is not available yet.'),
-          ),
-        );
-        return;
-      }
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ComplianceDetailScreen(record: record),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text('Could not open coordination: $error'),
-          backgroundColor: BafColors.danger,
-        ),
-      );
-    }
-  }
-
   Widget _buildEmptyState(AppUser appUser, SyncStatus syncStatus) {
     return _BoundedIssuesContent(
       child: ListView(
@@ -1027,6 +996,8 @@ class _TicketCard extends StatelessWidget {
   final MaintenanceRecord ticket;
   final bool canResolve;
   final VoidCallback onResolve;
+  final bool canCloseWithoutResolution;
+  final VoidCallback onCloseWithoutResolution;
   final bool canAcknowledge;
   final bool isBusy;
   final VoidCallback onAcknowledge;
@@ -1047,6 +1018,8 @@ class _TicketCard extends StatelessWidget {
     required this.ticket,
     required this.canResolve,
     required this.onResolve,
+    required this.canCloseWithoutResolution,
+    required this.onCloseWithoutResolution,
     required this.canAcknowledge,
     required this.isBusy,
     required this.onAcknowledge,
@@ -1426,6 +1399,23 @@ class _TicketCard extends StatelessWidget {
                           ? 'Starting coordination...'
                           : 'Defer / request Operations',
                     ),
+                  ),
+                ),
+              ],
+              if (canCloseWithoutResolution) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onCloseWithoutResolution,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: BafColors.warning,
+                      side: BorderSide(
+                        color: BafColors.warning.withValues(alpha: 0.65),
+                      ),
+                    ),
+                    icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                    label: const Text('Close without resolution'),
                   ),
                 ),
               ],

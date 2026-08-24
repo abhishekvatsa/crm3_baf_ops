@@ -846,6 +846,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     ...t.qualityIntentSynchronizedFields,
     ...t.burnerLockoutSynchronizedFields,
     ...t.issueLaneSynchronizedFields,
+    ...t.administrativeClosureSynchronizedFields,
     'firestoreId': t.firestoreId,
     'version': t.version,
     'assetType': t.assetType.name,

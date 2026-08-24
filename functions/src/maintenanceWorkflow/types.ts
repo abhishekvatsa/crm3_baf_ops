@@ -55,6 +55,7 @@ export type WorkflowAuthorityCapability =
   | "compliance.raise"
   | "ticket.create" | "ticket.acknowledge" | "ticket.complete"
   | "ticket.lanes.manage" | "ticket.reopen" | "ticket.correct"
+  | "ticket.closeWithoutResolution"
   | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
   | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
   | "job.finalize" | "equipment.deploy" | "equipment.reconcile"
@@ -96,6 +97,7 @@ export type WorkflowCommandType =
   | "deployEquipment" | "reconcileEquipment"
   | "acknowledgeMaintenanceTicket" | "completeMaintenanceTicketLane"
   | "reconfigureMaintenanceTicketLanes" | "resolveMaintenanceTicket"
+  | "closeMaintenanceTicketWithoutResolution"
   | "reopenMaintenanceTicket"
   | "correctMaintenanceTicket"
   | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup";

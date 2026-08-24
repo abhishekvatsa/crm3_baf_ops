@@ -2690,9 +2690,11 @@ service cloud.firestore {
                 && completed.size() == 0)
               : (status == 'inProgress'
                 ? acknowledged.size() > 0
-                : (status == 'resolved'
-                  && completed.size() == assigned.size()
-                  && completed.hasAll(assigned)))))
+                : (status == 'closedWithoutResolution'
+                  ? true
+                  : (status == 'resolved'
+                    && completed.size() == assigned.size()
+                    && completed.hasAll(assigned))))))
           && (acknowledged.size() == 0
             ? (data.get('acknowledgedByUid', null) == null
               && data.get('acknowledgedByName', null) == null
@@ -2944,6 +2946,8 @@ service cloud.firestore {
         && affected.hasAll(['isResolved', 'status'])
         ? (maintenanceIsReopenTransition()
           && canReopenMaintenanceTicket()
+          && (resource.data.get('status', null) == 'resolved'
+            || resource.data.get('status', null) == 'closed')
           && (maintenanceHasAnyIssueLaneField(request.resource.data)
             ? validMaintenanceIssueLaneReopen()
             : !maintenanceHasAnyIssueLaneField(resource.data))

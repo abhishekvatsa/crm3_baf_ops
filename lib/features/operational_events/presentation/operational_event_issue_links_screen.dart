@@ -436,7 +436,7 @@ class _IssueLinkDialogState extends State<_IssueLinkDialog> {
                   DropdownMenuItem(
                     value: issue,
                     child: Text(
-                      '${issue.isResolved ? 'RESOLVED' : 'OPEN'} · '
+                      '${issue.lifecycleSummaryLabel.toUpperCase()} · '
                       '${issue.assetType.name.toUpperCase()} ${issue.assetNumber} · '
                       '${issue.description}',
                       maxLines: 2,

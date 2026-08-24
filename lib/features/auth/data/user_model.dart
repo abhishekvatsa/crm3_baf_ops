@@ -185,6 +185,8 @@ class AppUser {
   /// Historical correction and deletion are Admin-only audit actions.
   bool get canCorrectMaintenanceTicket => isApproved && isAdmin;
 
+  bool get canCloseMaintenanceIssueWithoutResolution => isApproved && isAdmin;
+
   bool get canSoftDeleteMaintenanceTicket => isApproved && isAdmin;
 
   bool get canLogRedRequest => roles.any(

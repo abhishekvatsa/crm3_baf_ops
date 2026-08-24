@@ -888,6 +888,218 @@ describe('governed maintenance-ticket supervision', () => {
     }, multi.context)).rejects.toMatchObject({code: 'permission-denied'});
   });
 
+  test('admin closes an active issue without manufacturing resolution evidence', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    const command = {
+      commandId: 'admin-close-unresolved-ticket',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: '  stillRelevant  ',
+        reason: '  The charge has ended, but the unresolved condition remains relevant for engineering review.  ',
+      },
+    };
+
+    const receipt = await seeded.service.execute(command, seeded.context);
+    await expect(seeded.service.execute(command, seeded.context))
+      .resolves.toEqual(receipt);
+
+    expect(receipt).toMatchObject({
+      resultKey: 'maintenance-ticket-closed-without-resolution',
+      aggregateVersion: 4,
+      result: {
+        ticketId: 'ticket-1',
+        disposition: 'stillRelevant',
+        cancelledCoordination: false,
+        cancelledWorkflowId: null,
+        cancelledComplianceId: null,
+      },
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'closedWithoutResolution',
+      isResolved: true,
+      closedByUid: admin.uid,
+      endDate: at.toISOString(),
+      issueClosureSchemaVersion: 1,
+      issueClosureDisposition: 'stillRelevant',
+      issueClosureReason:
+        'The charge has ended, but the unresolved condition remains relevant for engineering review.',
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+      workflowDeferred: false,
+      workflowQueueState: 'independent',
+      version: 4,
+    });
+  });
+
+  test.each(['deferred', 'correctionRequired'])(
+    'admin closure atomically cancels %s Operations coordination',
+    async (workflowQueueState) => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      status: 'acknowledged',
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T15:00:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ['electrical'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: [],
+      workflowDeferred: true,
+      workflowQueueState,
+      workflowAggregateId: 'issue-workflow-1',
+      workflowComplianceId: 'issue-compliance-1',
+      workflowOriginLaneKey: 'elec',
+      workflowTargetLaneKey: 'oprn',
+      workflowConditionTypeKey: 'manual',
+      workflowUpdatedAt: '2026-08-14T15:00:00.000Z',
+    });
+    seeded.store.seed('maintenance_workflows/issue-workflow-1', {
+      workflowSchemaVersion: 1,
+      workflowKind: 'issueCoordination',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'awaitingCompliance',
+      cancelled: false,
+      version: 2,
+    });
+    seeded.store.seed('compliance_requests/issue-compliance-1', {
+      linkedWorkflowId: 'issue-workflow-1',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'raised',
+      version: 3,
+    });
+
+    const receipt = await seeded.service.execute({
+      commandId: 'admin-close-deferred-ticket',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'relevanceEnded',
+        reason: 'The operating cycle ended and the reported condition no longer requires maintenance action.',
+      },
+    }, seeded.context);
+
+    expect(receipt.result).toMatchObject({
+      cancelledCoordination: true,
+      cancelledWorkflowId: 'issue-workflow-1',
+      cancelledComplianceId: 'issue-compliance-1',
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'closedWithoutResolution',
+      issueClosureDisposition: 'relevanceEnded',
+      workflowDeferred: false,
+      workflowQueueState: 'released',
+      workflowReleasedByUid: admin.uid,
+    });
+    expect(seeded.store.read('maintenance_workflows/issue-workflow-1'))
+      .toMatchObject({
+        status: 'cancelled',
+        cancelled: true,
+        cancelledByUid: admin.uid,
+        version: 3,
+      });
+    expect(seeded.store.read('compliance_requests/issue-compliance-1'))
+      .toMatchObject({
+        status: 'cancelled',
+        cancelledByUid: admin.uid,
+        version: 4,
+      });
+    },
+  );
+
+  test('admin closure fails closed on a partial coordination projection', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      workflowDeferred: true,
+      workflowQueueState: 'deferred',
+      workflowAggregateId: 'partial-workflow',
+      workflowComplianceId: 'partial-compliance',
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'deny-partial-projection-closure',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'stillRelevant',
+        reason: 'The unresolved issue remains relevant after the current charge ended.',
+      },
+    }, seeded.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-coordination-projection-invalid',
+      },
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'open',
+      isResolved: false,
+      version: 3,
+    });
+  });
+
+  test('admin closure rejects an active workflow missing from the ticket projection', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+    });
+    seeded.store.seed('maintenance_workflows/orphan-active-workflow', {
+      workflowSchemaVersion: 1,
+      workflowKind: 'issueCoordination',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'awaitingCompliance',
+      cancelled: false,
+      version: 1,
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'deny-orphan-workflow-closure',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'relevanceEnded',
+        reason: 'The operating context ended, but orphan workflow evidence remains.',
+      },
+    }, seeded.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-coordination-projection-diverged',
+      },
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'open',
+      isResolved: false,
+      version: 3,
+    });
+  });
+
+  test('non-admin cannot close an issue without resolution', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      startDate: '2026-08-14T14:30:00.000Z',
+    });
+    await expect(seeded.service.execute({
+      commandId: 'deny-unresolved-closure',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'stillRelevant',
+        reason: 'This attempt must not cross the Admin-only closure boundary.',
+      },
+    }, seeded.context)).rejects.toMatchObject({code: 'permission-denied'});
+  });
+
   test('resolution accepts persisted timestamps but keeps command time text-only', async () => {
     const ticketId = 'timestamp-resolution';
     const ticket = {

@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
+import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_administrative_closure_command.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_resolution_command.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
@@ -147,6 +149,103 @@ void main() {
       () => buildMaintenanceIssueReopenCommand(ticket: closed),
       throwsStateError,
     );
+  });
+
+  test(
+    'administrative closure accepts deferred work and validates its receipt',
+    () {
+      final ticket =
+          _ticket()
+            ..workflowDeferred = true
+            ..workflowQueueState = 'deferred'
+            ..workflowAggregateId = 'coordination-1'
+            ..workflowComplianceId = 'compliance-1';
+      final command = buildMaintenanceIssueAdministrativeClosureCommand(
+        ticket: ticket,
+        disposition: IssueAdministrativeClosureDisposition.stillRelevant,
+        reason:
+            'The active charge has ended, but the unresolved condition remains relevant.',
+        commandTime: DateTime.utc(2026, 8, 23, 8, 30),
+      );
+      final receipt = WorkflowCommandReceipt(
+        commandId: command.commandId,
+        resultKey: 'maintenance-ticket-closed-without-resolution',
+        aggregateVersion: 8,
+        result: <String, Object?>{
+          'ticketId': 'issue-1',
+          'auditId': 'server_maintenance_ticket_${command.commandId}',
+          'disposition': 'stillRelevant',
+          'cancelledCoordination': true,
+          'cancelledWorkflowId': 'coordination-1',
+          'cancelledComplianceId': 'compliance-1',
+        },
+        appliedAt: DateTime.utc(2026, 8, 23, 8, 30),
+      );
+
+      expect(
+        command.type,
+        WorkflowCommandType.closeMaintenanceTicketWithoutResolution,
+      );
+      expect(command.payload, <String, Object?>{
+        'disposition': 'stillRelevant',
+        'reason':
+            'The active charge has ended, but the unresolved condition remains relevant.',
+      });
+      expect(
+        () => validateMaintenanceIssueAdministrativeClosureReceipt(
+          command: command,
+          receipt: receipt,
+          disposition: IssueAdministrativeClosureDisposition.stillRelevant,
+        ),
+        returnsNormally,
+      );
+    },
+  );
+
+  test('administrative closure rejects a weak reason and terminal record', () {
+    expect(
+      () => buildMaintenanceIssueAdministrativeClosureCommand(
+        ticket: _ticket(),
+        disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+        reason: 'Too short',
+      ),
+      throwsStateError,
+    );
+
+    final closed =
+        _ticket()
+          ..status = TicketStatus.closedWithoutResolution
+          ..isResolved = true;
+    closed.administrativeClosure = const IssueAdministrativeClosure(
+      disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+      reason: 'The operating context ended and no further action is required.',
+    );
+    expect(
+      () => buildMaintenanceIssueAdministrativeClosureCommand(
+        ticket: closed,
+        disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+        reason:
+            'The operating context ended and no further action is required.',
+      ),
+      throwsStateError,
+    );
+  });
+
+  test('administrative closure has a truthful terminal lifecycle label', () {
+    final ticket =
+        _ticket()
+          ..status = TicketStatus.closedWithoutResolution
+          ..isResolved = true;
+
+    expect(ticket.lifecycleSummaryLabel, 'Closed unresolved');
+
+    ticket.status = TicketStatus.resolved;
+    expect(ticket.lifecycleSummaryLabel, 'Resolved');
+
+    ticket
+      ..status = TicketStatus.acknowledged
+      ..isResolved = false;
+    expect(ticket.lifecycleSummaryLabel, 'Open');
   });
 }
 
