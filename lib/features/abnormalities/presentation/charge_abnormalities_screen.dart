@@ -43,6 +43,37 @@ class _ChargeAbnormalitiesScreenState
     extends ConsumerState<ChargeAbnormalitiesScreen> {
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Charge abnormalities',
+        appBarSubtitle: 'Verifying your approved abnormality scope',
+        appBarIcon: Icons.warning_amber_outlined,
+        accent: BafColors.charges,
+        label: 'Checking charge-abnormality access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Charge abnormalities',
+        appBarSubtitle: 'Verifying your approved abnormality scope',
+        appBarIcon: Icons.warning_amber_outlined,
+        accent: BafColors.charges,
+        message: 'Charge-abnormality access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Charge abnormalities',
+        appBarSubtitle: 'Approved abnormality access only',
+        appBarIcon: Icons.warning_amber_outlined,
+        accent: BafColors.charges,
+        title: 'Charge-abnormality access required',
+        message:
+            'An approved operational role is required to view charge abnormalities.',
+      );
+    }
     final abnormalitiesAsync = ref.watch(
       abnormalitiesForChargeProvider(widget.sourceChargeNo),
     );

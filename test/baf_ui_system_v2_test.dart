@@ -421,7 +421,9 @@ void main() {
             'operational_events_screen.dart',
           ).readAsStringSync();
 
-      expect(source, contains("tooltip: 'Record event'"));
+      expect(source, contains("ValueKey('operational-events-add')"));
+      expect(source, contains("label: const Text('Add event')"));
+      expect(source, isNot(contains("tooltip: 'Record event'")));
       expect(source, isNot(contains('FloatingActionButton')));
     });
 

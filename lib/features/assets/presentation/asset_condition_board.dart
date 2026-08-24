@@ -21,7 +21,36 @@ class AssetConditionBoard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentAppUserProvider).value;
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Plant condition',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        label: 'Checking plant-condition access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Plant condition',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        message: 'Plant-condition access could not be verified.',
+      );
+    }
+    final user = actorAsync.value;
+    if (user == null || !user.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Plant condition',
+        appBarSubtitle: 'Live availability and maintenance state',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        title: 'Plant-condition access required',
+        message: 'An approved account is required to view plant condition.',
+      );
+    }
     final overview = ref.watch(plantAssetOverviewProvider);
     final openTickets = ref.watch(openTicketsProvider);
     return Scaffold(

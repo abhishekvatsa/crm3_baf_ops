@@ -26,15 +26,47 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final laneLabel = widget.laneKey?.trim().toUpperCase();
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle:
+            laneLabel == null || laneLabel.isEmpty
+                ? 'Compliance inbox'
+                : '$laneLabel compliance inbox',
+        appBarSubtitle: 'Verifying your approved compliance scope',
+        appBarIcon: Icons.inbox_outlined,
+        accent: BafColors.directives,
+        label: 'Checking compliance access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance inbox',
+        appBarSubtitle: 'Verifying your approved compliance scope',
+        appBarIcon: Icons.inbox_outlined,
+        accent: BafColors.directives,
+        message: 'Compliance access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Compliance inbox',
+        appBarSubtitle: 'Approved compliance access only',
+        appBarIcon: Icons.inbox_outlined,
+        accent: BafColors.directives,
+        title: 'Compliance access required',
+        message:
+            'An approved operational role is required to view compliance obligations.',
+      );
+    }
     final asyncRows = ref.watch(workflowAllComplianceProvider);
-    final actor = ref.watch(currentAppUserProvider).value;
-    final canViewAll = actor?.isModuleLifecycleSupervisor ?? false;
+    final canViewAll = actor.isModuleLifecycleSupervisor;
     final effectiveView =
         !canViewAll && _view == ComplianceRequestView.all
             ? ComplianceRequestView.forMyLane
             : _view;
-    final laneLabel = widget.laneKey?.trim().toUpperCase();
-
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(

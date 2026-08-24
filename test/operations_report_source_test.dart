@@ -101,7 +101,7 @@ void main() {
       actorRead,
     );
     final firstBusinessRead = source.indexOf(
-      'ref.watch(operationsReportTicketsProvider(period))',
+      'ref.watch(operationsReportTicketsProvider(periodScope))',
       authorityRejection,
     );
 
@@ -109,6 +109,69 @@ void main() {
     expect(actorRead, greaterThan(providerStart));
     expect(authorityRejection, greaterThan(actorRead));
     expect(firstBusinessRead, greaterThan(authorityRejection));
+  });
+
+  test('report graph is actor-scoped with an app-root cache lifecycle', () {
+    final source =
+        File(
+          'lib/features/reports/providers/operations_report_provider.dart',
+        ).readAsStringSync();
+    final mainSource = File('lib/main.dart').readAsStringSync();
+    final burnerSource =
+        File(
+          'lib/features/assets/providers/burner_condition_round_provider.dart',
+        ).readAsStringSync();
+    final burnerScreenSource =
+        File(
+          'lib/features/reports/presentation/burner_reliability_screen.dart',
+        ).readAsStringSync();
+
+    expect(
+      source,
+      contains('final operationsReportProvider = Provider.autoDispose.family'),
+    );
+    expect(source, contains('authorizedActor.uid != scope.actorUid'));
+    expect(
+      source,
+      contains('operationalEventsForReportsProvider(scope.actorUid)'),
+    );
+    expect(
+      source.indexOf('ref.watch(operationsReportAuthorityLifecycleProvider)'),
+      lessThan(source.indexOf('ref.watch(currentAppUserProvider)')),
+    );
+    expect(
+      source,
+      contains(
+        'final operationsReportAuthorityLifecycleProvider = Provider<void>',
+      ),
+    );
+    expect(
+      mainSource,
+      contains('ref.watch(operationsReportAuthorityLifecycleProvider);'),
+    );
+    expect(
+      burnerSource,
+      contains(
+        'final burnerConditionRoundsProvider = StreamProvider.autoDispose.family',
+      ),
+    );
+    expect(burnerSource, contains('String actorUid'));
+    expect(burnerSource, contains('admitActorSessionSnapshots('));
+    expect(burnerSource, contains('includeMetadataChanges: true'));
+    expect(burnerSource, contains('snapshot.metadata.isFromCache'));
+    expect(burnerScreenSource, contains('actorUid: widget.actor.uid'));
+    expect(burnerScreenSource, contains('key: ValueKey(actor.uid)'));
+    for (final provider in [
+      'operationalEventsForReportsProvider',
+      'qualityWarningsProvider',
+      'workflowAllComplianceProvider',
+      'assetClassesProvider',
+      'burnerConditionRoundsProvider',
+      'burnerConditionRoundCacheTrustProvider',
+      'operationsReportClockProvider',
+    ]) {
+      expect(source, contains('ref.invalidate($provider)'));
+    }
   });
 }
 

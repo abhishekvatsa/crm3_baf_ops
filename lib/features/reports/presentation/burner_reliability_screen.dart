@@ -35,49 +35,49 @@ class BurnerReliabilityScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref
-        .watch(currentAppUserProvider)
-        .when(
-          loading:
-              () => BafScreenStateScaffold.loading(
-                appBarTitle: 'Report access',
-                appBarSubtitle: 'Verifying your approved reporting scope',
-                appBarIcon: Icons.verified_user_outlined,
-                accent: BafColors.maintenance,
-                label: 'Checking report access',
-              ),
-          error:
-              (_, _) => BafScreenStateScaffold.error(
-                appBarTitle: 'Report access',
-                appBarSubtitle: 'Verifying your approved reporting scope',
-                appBarIcon: Icons.verified_user_outlined,
-                accent: BafColors.maintenance,
-                message: 'Report access could not be verified.',
-              ),
-          data: (actor) {
-            if (actor == null || !actor.canViewReports) {
-              return BafScreenStateScaffold.access(
-                appBarTitle: 'Report access',
-                appBarSubtitle: 'Approved operational reporting only',
-                appBarIcon: Icons.verified_user_outlined,
-                accent: BafColors.maintenance,
-                title: 'Report access required',
-                message: 'Approved report access is required.',
-              );
-            }
-            return _BurnerReliabilityBody(
-              actor: actor,
-              initialStartDate: initialStartDate,
-              initialEndDate: initialEndDate,
-              initialAssetInstanceId: initialAssetInstanceId,
-            );
-          },
-        );
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Report access',
+        appBarSubtitle: 'Verifying your approved reporting scope',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.maintenance,
+        label: 'Checking report access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Report access',
+        appBarSubtitle: 'Verifying your approved reporting scope',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.maintenance,
+        message: 'Report access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewReports) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Report access',
+        appBarSubtitle: 'Approved operational reporting only',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.maintenance,
+        title: 'Report access required',
+        message: 'Approved report access is required.',
+      );
+    }
+    return _BurnerReliabilityBody(
+      key: ValueKey(actor.uid),
+      actor: actor,
+      initialStartDate: initialStartDate,
+      initialEndDate: initialEndDate,
+      initialAssetInstanceId: initialAssetInstanceId,
+    );
   }
 }
 
 class _BurnerReliabilityBody extends ConsumerStatefulWidget {
   const _BurnerReliabilityBody({
+    super.key,
     required this.actor,
     required this.initialStartDate,
     required this.initialEndDate,
@@ -171,10 +171,12 @@ class _BurnerReliabilityBodyState
       });
     }
     final period = (
+      actorUid: widget.actor.uid,
       startInclusive: _startDate,
       endExclusive: _endDate.add(const Duration(days: 1)),
     );
     final roundsQuery = (
+      actorUid: widget.actor.uid,
       startInclusive: period.startInclusive,
       endExclusive: period.endExclusive,
       assetInstanceId: selectedAsset?.id,

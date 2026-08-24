@@ -55,7 +55,7 @@ class _BurnerConditionRoundScreenState
     if (actorAsync.isLoading && !actorAsync.hasValue) {
       return _shell(const Center(child: CircularProgressIndicator()));
     }
-    if (actorAsync.hasError && !actorAsync.hasValue) {
+    if (actorAsync.hasError) {
       return _shell(
         const Center(child: Text('Could not verify burner-round access.')),
       );

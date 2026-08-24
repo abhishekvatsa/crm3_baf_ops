@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/security/actor_session_cache_trust.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../data/operational_event.dart';
 import '../data/operational_event_issue_link.dart';
 import '../services/operational_event_issue_link_service.dart';
@@ -22,28 +25,64 @@ final operationalEventIssueLinkServiceProvider =
       (ref) => OperationalEventIssueLinkService(),
     );
 
-final operationalEventIssueLinksProvider =
-    StreamProvider.family<List<OperationalEventIssueLink>, String>((
+typedef OperationalEventIssueLinkScope = ({String actorUid, String eventId});
+typedef OperationalIssueEventLinkScope = ({String actorUid, String issueId});
+
+final operationalEventCacheTrustProvider = Provider<ActorSessionCacheTrust>((
+  ref,
+) {
+  final trust = ActorSessionCacheTrust();
+
+  void observeAuthority(AsyncValue<AppUser?> authority) {
+    if (authority.isLoading || authority.hasError) {
+      trust.observeActor(null);
+      return;
+    }
+    final actor = authority.value;
+    trust.observeActor(actor != null && actor.isApproved ? actor.uid : null);
+  }
+
+  observeAuthority(ref.read(currentAppUserProvider));
+  ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (_, next) {
+    observeAuthority(next);
+  });
+  return trust;
+});
+
+final operationalEventIssueLinksProvider = StreamProvider.autoDispose
+    .family<List<OperationalEventIssueLink>, OperationalEventIssueLinkScope>((
       ref,
-      eventId,
+      scope,
     ) {
-      return FirebaseFirestore.instance
-          .collection('operational_event_issue_links')
-          .where('eventId', isEqualTo: eventId)
-          .snapshots()
-          .map(_decodeOperationalEventIssueLinks);
+      _requireActorUid(scope.actorUid);
+      return admitActorSessionSnapshots(
+        FirebaseFirestore.instance
+            .collection('operational_event_issue_links')
+            .where('eventId', isEqualTo: scope.eventId)
+            .snapshots(includeMetadataChanges: true),
+        trust: ref.watch(operationalEventCacheTrustProvider),
+        actorUid: scope.actorUid,
+        queryKey: 'event-links:event:${scope.eventId}',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEventIssueLinks);
     });
 
-final operationalIssueEventLinksProvider =
-    StreamProvider.family<List<OperationalEventIssueLink>, String>((
+final operationalIssueEventLinksProvider = StreamProvider.autoDispose
+    .family<List<OperationalEventIssueLink>, OperationalIssueEventLinkScope>((
       ref,
-      issueId,
+      scope,
     ) {
-      return FirebaseFirestore.instance
-          .collection('operational_event_issue_links')
-          .where('issueId', isEqualTo: issueId)
-          .snapshots()
-          .map(_decodeOperationalEventIssueLinks);
+      _requireActorUid(scope.actorUid);
+      return admitActorSessionSnapshots(
+        FirebaseFirestore.instance
+            .collection('operational_event_issue_links')
+            .where('issueId', isEqualTo: scope.issueId)
+            .snapshots(includeMetadataChanges: true),
+        trust: ref.watch(operationalEventCacheTrustProvider),
+        actorUid: scope.actorUid,
+        queryKey: 'event-links:issue:${scope.issueId}',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEventIssueLinks);
     });
 
 List<OperationalEventIssueLink> _decodeOperationalEventIssueLinks(
@@ -63,19 +102,40 @@ List<OperationalEventIssueLink> sortOperationalEventIssueLinks(
   return List<OperationalEventIssueLink>.unmodifiable(links);
 }
 
-final operationalEventsProvider = StreamProvider<List<OperationalEvent>>((ref) {
-  final events = FirebaseFirestore.instance.collection('operational_events');
-  final open = events
-      .where('status', isEqualTo: OperationalEventStatus.open.name)
-      .snapshots()
-      .map(_decodeOperationalEvents);
-  final recent = events
-      .orderBy('updatedAt', descending: true)
-      .limit(operationalEventLiveWindowLimit)
-      .snapshots()
-      .map(_decodeOperationalEvents);
-  return _combineOperationalEventWindows(open, recent);
-});
+final operationalEventsProvider = StreamProvider.autoDispose
+    .family<List<OperationalEvent>, String>((ref, actorUid) {
+      _requireActorUid(actorUid);
+      final cacheTrust = ref.watch(operationalEventCacheTrustProvider);
+      final events = FirebaseFirestore.instance.collection(
+        'operational_events',
+      );
+      final open = admitActorSessionSnapshots(
+        events
+            .where('status', isEqualTo: OperationalEventStatus.open.name)
+            .snapshots(includeMetadataChanges: true),
+        trust: cacheTrust,
+        actorUid: actorUid,
+        queryKey: 'events:open',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEvents);
+      final recent = admitActorSessionSnapshots(
+        events
+            .orderBy('updatedAt', descending: true)
+            .limit(operationalEventLiveWindowLimit)
+            .snapshots(includeMetadataChanges: true),
+        trust: cacheTrust,
+        actorUid: actorUid,
+        queryKey: 'events:recent',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEvents);
+      return _combineOperationalEventWindows(open, recent);
+    });
+
+void _requireActorUid(String actorUid) {
+  if (actorUid.trim().isEmpty) {
+    throw StateError('An approved actor UID is required for event reads.');
+  }
+}
 
 /// Complete event-document history for date-bound operational reports.
 ///
@@ -83,12 +143,18 @@ final operationalEventsProvider = StreamProvider<List<OperationalEvent>>((ref) {
 /// server-side date predicate cannot prove complete historical coverage until
 /// occurrence projections are introduced. The interactive event list keeps
 /// its bounded window; reports deliberately read every event document.
-final operationalEventsForReportsProvider =
-    StreamProvider<List<OperationalEvent>>((ref) {
-      return FirebaseFirestore.instance
-          .collection('operational_events')
-          .snapshots()
-          .map(_decodeOperationalEvents);
+final operationalEventsForReportsProvider = StreamProvider.autoDispose
+    .family<List<OperationalEvent>, String>((ref, actorUid) {
+      _requireActorUid(actorUid);
+      return admitActorSessionSnapshots(
+        FirebaseFirestore.instance
+            .collection('operational_events')
+            .snapshots(includeMetadataChanges: true),
+        trust: ref.watch(operationalEventCacheTrustProvider),
+        actorUid: actorUid,
+        queryKey: 'events:reports',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+      ).map(_decodeOperationalEvents);
     });
 
 List<OperationalEvent> _decodeOperationalEvents(

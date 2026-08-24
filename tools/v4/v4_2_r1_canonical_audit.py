@@ -7790,6 +7790,7 @@ check(
 ui_alignment_decision = text(
     "docs/v4_2_r1/UI_BUSINESS_LOGIC_ALIGNMENT.md"
 )
+ui_main_source = text("lib/main.dart")
 ui_home_source = text("lib/home_screen.dart")
 ui_user_source = text("lib/features/auth/data/user_model.dart")
 ui_equipment_source = text(
@@ -7798,6 +7799,19 @@ ui_equipment_source = text(
 )
 ui_workflow_provider_source = text(
     "lib/features/maintenance_workflow/providers/workflow_providers.dart"
+)
+ui_workflow_read_repository_source = text(
+    "lib/features/maintenance_workflow/repositories/"
+    "firestore_workflow_read_repository.dart"
+)
+ui_burner_report_source = text(
+    "lib/features/reports/presentation/burner_reliability_screen.dart"
+)
+ui_burner_round_provider_source = text(
+    "lib/features/assets/providers/burner_condition_round_provider.dart"
+)
+ui_operations_report_provider_source = text(
+    "lib/features/reports/providers/operations_report_provider.dart"
 )
 ui_planned_detail_source = text(
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart"
@@ -7833,10 +7847,33 @@ check(
     and "module: BafModules.charges" not in ui_home_source
     and "canDeployMaintenanceEquipment" in ui_user_source
     and "row.stateKey == 'available' && canDeploy" in ui_equipment_source
-    and "final local = await repository.getComplianceById(id)"
-        in ui_workflow_provider_source
-    and "await ref.read(workflowPullServiceProvider).pull()"
-        in ui_workflow_provider_source
+    and "typedef WorkflowComplianceRecordScope" in ui_workflow_provider_source
+    and "workflowCompliancePointReaderProvider" in ui_workflow_provider_source
+    and "ActorSessionComplianceCache" in ui_workflow_provider_source
+    and "_isOfflineCompliancePointRead" in ui_workflow_provider_source
+    and "fetchComplianceById" in ui_workflow_read_repository_source
+    and "GetOptions(source: Source.server)"
+        in ui_workflow_read_repository_source
+    and "ref.watch(operationsReportAuthorityLifecycleProvider);"
+        in ui_main_source
+    and "final operationsReportAuthorityLifecycleProvider = Provider<void>"
+        in ui_operations_report_provider_source
+    and "ref.invalidate(burnerConditionRoundsProvider)"
+        in ui_operations_report_provider_source
+    and "StreamProvider.autoDispose.family"
+        in ui_burner_round_provider_source
+    and "String actorUid" in ui_burner_round_provider_source
+    and "admitActorSessionSnapshots("
+        in ui_burner_round_provider_source
+    and "includeMetadataChanges: true"
+        in ui_burner_round_provider_source
+    and "snapshot.metadata.isFromCache"
+        in ui_burner_round_provider_source
+    and "if (actorAsync.isLoading)" in ui_burner_report_source
+    and "if (actorAsync.hasError)" in ui_burner_report_source
+    and "key: ValueKey(actor.uid)" in ui_burner_report_source
+    and "actorUid: widget.actor.uid" in ui_burner_report_source
+    and "return _BurnerReliabilityBody(" in ui_burner_report_source
     and "final showBottomActions =" in ui_planned_detail_source
     and "if (!execution.isGovernedTemplateAssignment)" in ui_planned_detail_source
     and "if (!widget.execution.isGovernedTemplateAssignment"
@@ -9537,7 +9574,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "4DA08280668603D0CA7A90FBEAA53DBEACE939F4F102DEC771CBE2DA18AD4155"
+        == "F476035296F5FC83CABDDB169C4E25AEE804407AAAF5418115E8924BF1AEE274"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9561,7 +9598,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "507 operations" in a03_remediation
+    and "509 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(

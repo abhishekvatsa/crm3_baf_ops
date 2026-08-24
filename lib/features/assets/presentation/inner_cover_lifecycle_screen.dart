@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
@@ -18,7 +19,36 @@ class InnerCoverLifecycleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentAppUserProvider).value;
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading && !actorAsync.hasValue) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Inner Covers',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.layers_outlined,
+        accent: BafColors.maintenance,
+        label: 'Checking Inner Cover access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Inner Covers',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.layers_outlined,
+        accent: BafColors.maintenance,
+        message: 'Inner Cover access could not be verified.',
+      );
+    }
+    final user = actorAsync.value;
+    if (user == null || !user.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Inner Covers',
+        appBarSubtitle: 'Base pairing, spare pool and fabrication',
+        appBarIcon: Icons.layers_outlined,
+        accent: BafColors.maintenance,
+        title: 'Inner Cover access required',
+        message: 'An approved account is required to view Inner Cover records.',
+      );
+    }
     final profiles = ref.watch(innerCoverProfilesProvider);
     final assignments = ref.watch(innerCoverAssignmentsProvider);
     final classes = ref.watch(assetClassesProvider);
@@ -50,11 +80,11 @@ class InnerCoverLifecycleScreen extends ConsumerWidget {
             ],
           ),
           actions: [
-            if (user?.canManageAssetHierarchy == true)
+            if (user.canManageAssetHierarchy)
               IconButton(
                 tooltip: 'Register Inner Cover',
                 icon: const Icon(Icons.add_rounded),
-                onPressed: () => _registerCover(context, ref, user!),
+                onPressed: () => _registerCover(context, ref, user),
               ),
           ],
         ),

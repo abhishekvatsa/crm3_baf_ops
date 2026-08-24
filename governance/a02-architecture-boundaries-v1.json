@@ -196,9 +196,10 @@
       "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
       "regressionTests": [
         "test/asset_hierarchy_business_reference_test.dart",
-        "test/inner_cover_lifecycle_screen_test.dart"
+        "test/inner_cover_lifecycle_screen_test.dart",
+        "test/operational_asset_screen_authority_gate_test.dart"
       ],
-      "maximumLines": 1918,
+      "maximumLines": 1948,
       "requiredMarkers": [
         "class InnerCoverLifecycleScreen"
       ],
@@ -463,6 +464,34 @@
         "Isar.getInstance()"
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/operational_events/presentation/operational_events_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / operational_events",
+      "purpose": "Owns the operational-event list, filtering, creation, update, resolution, recurrence and asset-scope workflow as one cohesive screen.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Live approved-user authority is resolved before event or asset providers activate, and event caches are keyed to the admitted actor UID.",
+      "persistenceOwnership": "No direct persistence is admitted; the operational-event service and actor-scoped read providers own remote access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "Event occurrence state, asset scope, command dialogs and open/recent presentation share one lifecycle; further extraction would split the interaction invariant without reducing persistence ownership.",
+      "regressionTests": [
+        "test/report_link_screen_authority_gate_test.dart"
+      ],
+      "maximumLines": 1325,
+      "requiredMarkers": [
+        "class OperationalEventsScreen",
+        "operationalEventsProvider(actor.uid)"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, actor-scoped admission disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
       "path": "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
@@ -1030,6 +1059,7 @@
       "owner": "Architecture / reports",
       "purpose": "Owns the fleet status screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
       "responsibilities": [
+        "authority",
         "presentation",
         "state-orchestration"
       ],
@@ -1038,9 +1068,10 @@
       "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
       "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
       "regressionTests": [
-        "test/operations_report_test.dart"
+        "test/operations_report_test.dart",
+        "test/report_link_screen_authority_gate_test.dart"
       ],
-      "maximumLines": 1500,
+      "maximumLines": 1525,
       "requiredMarkers": [
         "class FleetStatusScreen"
       ],
