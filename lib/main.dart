@@ -571,11 +571,17 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
   @override
   Future<bool> didPopRoute() {
     final view = View.maybeOf(context);
-    if (view == null || view.viewInsets.bottom <= 0) {
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    final focusedEditor =
+        primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>();
+    if (view == null ||
+        view.viewInsets.bottom <= 0 ||
+        primaryFocus == null ||
+        focusedEditor == null) {
       return Future<bool>.value(false);
     }
 
-    FocusManager.instance.primaryFocus?.unfocus();
+    primaryFocus.unfocus();
     return Future<bool>.value(true);
   }
 
