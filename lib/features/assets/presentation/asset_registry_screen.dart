@@ -16,39 +16,37 @@ class AssetRegistryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref
-        .watch(currentAppUserProvider)
-        .when(
-          loading:
-              () => BafScreenStateScaffold.loading(
-                appBarTitle: 'Operational access',
-                appBarSubtitle: 'Verifying your approved asset scope',
-                appBarIcon: Icons.verified_user_outlined,
-                accent: BafColors.assets,
-                label: 'Checking asset access',
-              ),
-          error:
-              (_, _) => BafScreenStateScaffold.error(
-                appBarTitle: 'Operational access',
-                appBarSubtitle: 'Verifying your approved asset scope',
-                appBarIcon: Icons.verified_user_outlined,
-                accent: BafColors.assets,
-                message: 'Asset access could not be verified.',
-              ),
-          data: (actor) {
-            if (actor == null || !actor.canViewOperationalAssets) {
-              return BafScreenStateScaffold.access(
-                appBarTitle: 'Operational access',
-                appBarSubtitle: 'Approved plant records only',
-                appBarIcon: Icons.verified_user_outlined,
-                accent: BafColors.assets,
-                title: 'Asset access required',
-                message: 'Approved access is required.',
-              );
-            }
-            return const _AssetRegistryBody();
-          },
-        );
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Operational access',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.assets,
+        label: 'Checking asset access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Operational access',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.assets,
+        message: 'Asset access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewOperationalAssets) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Operational access',
+        appBarSubtitle: 'Approved plant records only',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.assets,
+        title: 'Asset access required',
+        message: 'Approved access is required.',
+      );
+    }
+    return const _AssetRegistryBody();
   }
 }
 
@@ -454,6 +452,15 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
         label: 'Checking asset access',
       );
     }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Asset details',
+        appBarSubtitle: 'Identity, condition and installed components',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        message: 'Asset access could not be verified.',
+      );
+    }
     final actor = actorAsync.value;
     if (actor == null || !actor.canViewOperationalAssets) {
       return BafScreenStateScaffold.access(
@@ -462,7 +469,8 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
         appBarIcon: Icons.precision_manufacturing_outlined,
         accent: BafColors.assets,
         title: 'Asset access required',
-        message: 'An approved operational role is required to inspect this asset.',
+        message:
+            'An approved operational role is required to inspect this asset.',
       );
     }
     final assetsAsync = ref.watch(allAssetInstancesProvider);
