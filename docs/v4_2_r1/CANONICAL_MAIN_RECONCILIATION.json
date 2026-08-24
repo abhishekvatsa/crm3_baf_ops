@@ -1342,9 +1342,9 @@
     {
       "path": "lib/features/assets/models/timeline_entry.dart",
       "canonicalSha256": "37C28670CDA62398C234C2A80F68091682769588935973A6FAFD3D75E1A5D55E",
-      "candidateSha256": "3AB67153807185ACCE4741544CA32BE9CD49620866885BF32A0C4FE090A5522A",
+      "candidateSha256": "A6DF081B4D67891095590B504E5921E957DDC139D73EF73EA7595CF7ADB409F5",
       "canonicalBytes": 1948,
-      "candidateBytes": 3328,
+      "candidateBytes": 3317,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1502,9 +1502,9 @@
     {
       "path": "lib/features/maintenance/data/maintenance_model.dart",
       "canonicalSha256": "61C343EC35262FCDDB54F0E5014427C7625E10445A7405125311457C0809750A",
-      "candidateSha256": "B48E09096EA3E7D6C7CAB0C42C94E7FFBE0224F995077C412F2B476ADC5FC7E7",
+      "candidateSha256": "086D95EB19EB7D594FE4E7A4F84B5363F58FB611FD61E071B9443541EFE47F14",
       "canonicalBytes": 8820,
-      "candidateBytes": 23945,
+      "candidateBytes": 24131,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

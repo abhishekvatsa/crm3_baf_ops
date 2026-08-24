@@ -278,9 +278,9 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "51a88fea10261eada9c2f6c89ca8f02437cf9960"
+        == "2bc9574f7d12fbc2202a2e6108821feb2ffc9be0"
     and post_codegen_refresh.get("sourceTree")
-        == "555e3cf98b846810d2368688b7dc8da52c20abb9"
+        == "762ed412825c893b552634fb66a64d0fd5bd971b"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
         "lib/features/maintenance/data/maintenance_model.g.dart",
