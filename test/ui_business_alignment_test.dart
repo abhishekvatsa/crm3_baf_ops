@@ -493,8 +493,8 @@ void main() {
       );
 
       expect(diaryRepository.lastLimit, isNull);
-      expect(moduleRepository.lastIncludeDeleted, isFalse);
-      expect(moduleRepository.lastLimit, 100);
+      expect(moduleRepository.lastIncludeDeleted, isTrue);
+      expect(moduleRepository.lastLimit, isNull);
       expect(find.text('Deleted job dossier'), findsOneWidget);
       expect(find.text('Deleted-job dossier is read-only'), findsOneWidget);
       expect(

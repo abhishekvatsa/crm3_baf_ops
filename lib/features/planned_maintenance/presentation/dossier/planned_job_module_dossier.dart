@@ -165,6 +165,18 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
     final payloadsValid =
         fieldRead.isValid && responseRead.isValid && actionRead.isValid;
     final cancelledWithJob = _moduleWasCancelledWithJob(module, execution);
+    final priorRemovalLabel =
+        execution.isCancelled
+            ? 'Removed before cancellation'
+            : execution.isDeleted
+            ? 'Removed before job deletion'
+            : 'Removed before closure';
+    final priorRemovalMessage =
+        execution.isCancelled
+            ? 'This module was removed before the job cancellation. Its original removal evidence is preserved separately.'
+            : execution.isDeleted
+            ? 'This module was removed before the parent job was deleted. Its original removal evidence is preserved separately.'
+            : 'This module was removed before the job closed. Its original removal evidence is preserved separately.';
     final closureSatisfied =
         payloadsValid &&
         !module.isDeleted &&
@@ -234,7 +246,7 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
                       cancelledWithJob
                           ? 'Work captured before cancellation remains preserved and read-only.'
                           : module.isDeleted
-                          ? 'This module was removed before the job cancellation. Its original removal evidence is preserved separately.'
+                          ? priorRemovalMessage
                           : closureSatisfied
                           ? 'Lifecycle evidence and structured responses preserved for this module.'
                           : 'This closed job contains a module that is not accepted or N/A. It remains visible for historical review.',
@@ -259,7 +271,7 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
                     cancelledWithJob
                         ? 'Cancelled with job'
                         : module.isDeleted
-                        ? 'Removed before cancellation'
+                        ? priorRemovalLabel
                         : _moduleStatusLabel(module.status),
                 color:
                     cancelledWithJob
