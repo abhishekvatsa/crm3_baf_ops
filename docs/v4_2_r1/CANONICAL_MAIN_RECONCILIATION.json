@@ -1158,9 +1158,9 @@
     {
       "path": "lib/features/abnormalities/presentation/abnormalities_home_screen.dart",
       "canonicalSha256": "F09B48C9DE031B22434237192383AC730158C7ED8EA9CD46013B85CCD26E6D90",
-      "candidateSha256": "B6766633544C49A60CEBE1AC3B3AE7C436FA5C85DA82856664DA18401C22B7E6",
+      "candidateSha256": "2263E7F1C440445F9EF99B46EFEDD50BB34B5E0AF8AC2270A8E71B08D26ACEEC",
       "canonicalBytes": 20128,
-      "candidateBytes": 22094,
+      "candidateBytes": 22070,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1182,9 +1182,9 @@
     {
       "path": "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
       "canonicalSha256": "90B745A8A2C0A6B3C8C62FDCA0996067310198FAC13E3C1EDAA9BD3C137BA42F",
-      "candidateSha256": "BCBFDB8E2BDAF530353A27FB7719234CAB98E0D121D7DBA5EA822B1D5D6F067C",
+      "candidateSha256": "9A37229EBF65057EECA01EE15FF24B9F5A0F36CD96EF5815E5583B7732893F86",
       "canonicalBytes": 54363,
-      "candidateBytes": 58930,
+      "candidateBytes": 58906,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1486,9 +1486,9 @@
     {
       "path": "lib/features/directives/presentation/directives_screen.dart",
       "canonicalSha256": "1DE00DE31466A4C5AA1E4BE033B2E321CB08D8668D208D9F8CA9F26CFCF778E2",
-      "candidateSha256": "33F3B04443DE67F97ECBB7910C270F1849FAD9E58E37C7A121542DA00A7570A5",
+      "candidateSha256": "97C90EC81CD5204ECFFB7B1E71828978A9131F4A47A17CDAC015F69BE7E7D2D8",
       "canonicalBytes": 28531,
-      "candidateBytes": 30769,
+      "candidateBytes": 30745,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
