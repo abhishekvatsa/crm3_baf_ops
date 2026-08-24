@@ -132,9 +132,13 @@ class MaintenanceTicketDetailScreen extends StatelessWidget {
             icon: Icons.history_rounded,
             children: [
               _DetailValue(
+                label: 'Issue started',
+                value: _dateTime(ticket.startDate),
+              ),
+              _DetailValue(
                 label: 'Raised',
                 value:
-                    '${_dateTime(ticket.startDate)} · ${_firstText(ticket.loggedByName, ticket.reportedBy, 'Unknown')}',
+                    '${_dateTime(ticket.createdAt)} · ${_firstText(ticket.loggedByName, ticket.reportedBy, 'Unknown')}',
               ),
               if (ticket.reopenedAt != null)
                 _DetailValue(

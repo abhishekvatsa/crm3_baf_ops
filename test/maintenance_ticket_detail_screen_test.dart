@@ -17,6 +17,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final closedAt = DateTime.utc(2026, 8, 23, 12);
     final reopenedAt = closedAt.subtract(const Duration(days: 1));
+    final startedAt = closedAt.subtract(const Duration(days: 3));
+    final raisedAt = startedAt.add(const Duration(hours: 6));
     final earlierAction = buildBurnerComponentAction(
       ticketId: 'ticket-closed-1',
       furnaceNumber: 7,
@@ -64,9 +66,9 @@ void main() {
           ..reopenedByName = 'Operations Two'
           ..reopenedAt = reopenedAt
           ..reopenReason = 'Lockout recurred during the next firing cycle.'
-          ..startDate = closedAt.subtract(const Duration(days: 3))
+          ..startDate = startedAt
           ..endDate = closedAt
-          ..createdAt = closedAt.subtract(const Duration(days: 3))
+          ..createdAt = raisedAt
           ..updatedAt = closedAt
           ..remarks = 'Flame signal stabilized after attendance.'
           ..actionsJson = ComponentAction.encode([currentAction])
@@ -102,6 +104,22 @@ void main() {
     expect(find.text('Issue context'), findsOneWidget);
     expect(find.text('Accountability'), findsOneWidget);
     expect(find.text('Timeline and people'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Issue started'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Issue started'), findsOneWidget);
+    expect(
+      find.text(DateFormat('dd MMM yyyy, HH:mm').format(startedAt.toLocal())),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '${DateFormat('dd MMM yyyy, HH:mm').format(raisedAt.toLocal())} · Operator One',
+      ),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('Lockout recurred during the next firing cycle.'),
       300,
