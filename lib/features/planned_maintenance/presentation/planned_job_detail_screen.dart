@@ -722,7 +722,7 @@ class _PlannedJobDetailScreenState
         JobModuleQueryKey(
           jobExecutionFirestoreId: _cleanOptionalString(execution.firestoreId),
           jobExecutionLocalId: kIsWeb ? null : execution.id,
-          limit: 100,
+          limit: execution.isCancelled ? null : 100,
           includeDeleted: execution.isCancelled,
         ),
       ),

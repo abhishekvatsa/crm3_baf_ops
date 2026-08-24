@@ -112,6 +112,7 @@ class _StaticJobModuleRepository implements JobModuleRepository {
 
   final List<JobModuleInstance> modules;
   bool? lastIncludeDeleted;
+  int? lastLimit;
 
   @override
   Stream<List<JobModuleInstance>> watchModulesForJob({
@@ -122,6 +123,7 @@ class _StaticJobModuleRepository implements JobModuleRepository {
     bool includeDeleted = false,
   }) {
     lastIncludeDeleted = includeDeleted;
+    lastLimit = limit;
     return Stream<List<JobModuleInstance>>.value(
       includeDeleted
           ? modules
@@ -404,6 +406,7 @@ void main() {
         );
 
         expect(moduleRepository.lastIncludeDeleted, isTrue);
+        expect(moduleRepository.lastLimit, isNull);
         expect(find.text('Cancelled'), findsWidgets);
         expect(find.text('Cancelled job dossier'), findsOneWidget);
         expect(find.text('Cancelled-job dossier is read-only'), findsOneWidget);
@@ -448,6 +451,7 @@ void main() {
       );
 
       expect(moduleRepository.lastIncludeDeleted, isFalse);
+      expect(moduleRepository.lastLimit, 100);
       expect(find.text('Deleted job dossier'), findsOneWidget);
       expect(find.text('Deleted-job dossier is read-only'), findsOneWidget);
       expect(
