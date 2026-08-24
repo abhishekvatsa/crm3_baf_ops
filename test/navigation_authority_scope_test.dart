@@ -41,6 +41,28 @@ void main() {
     },
   );
 
+  test('AuthGate rejects retained auth and profile data while refreshing', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final authGate = source.indexOf('class AuthGate extends ConsumerWidget');
+    final authLoading = source.indexOf('if (authState.isLoading)', authGate);
+    final authError = source.indexOf('if (authState.hasError)', authGate);
+    final authValue = source.indexOf(
+      'final firebaseUser = authState.value',
+      authGate,
+    );
+    final profileLoading = source.indexOf('if (appUser.isLoading)', authGate);
+    final profileError = source.indexOf('if (appUser.hasError)', authGate);
+    final profileValue = source.indexOf('final user = appUser.value', authGate);
+
+    expect(authGate, greaterThanOrEqualTo(0));
+    expect(authLoading, greaterThan(authGate));
+    expect(authError, greaterThan(authLoading));
+    expect(authValue, greaterThan(authError));
+    expect(profileLoading, greaterThan(authValue));
+    expect(profileError, greaterThan(profileLoading));
+    expect(profileValue, greaterThan(profileError));
+  });
+
   test('approved scope is role-order stable and identity bound', () {
     final first = NavigationAuthorityScope.fromProfile(
       authenticatedUid: 'operator-1',

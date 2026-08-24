@@ -6,6 +6,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/asset_condition_board.dart';
+import 'package:crm3_baf_ops/features/assets/presentation/asset_registry_screen.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/burner_condition_round_screen.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/furnace_stuckup_board.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/inner_cover_lifecycle_screen.dart';
@@ -255,6 +256,88 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('asset registry hides retained authority during refresh', (
+    tester,
+  ) async {
+    var authorityGeneration = 0;
+    final pendingAuthority = StreamController<AppUser?>();
+    addTearDown(pendingAuthority.close);
+    final asset = _testAsset();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) {
+            authorityGeneration++;
+            if (authorityGeneration == 1) {
+              return Stream<AppUser?>.value(_approvedActor());
+            }
+            return pendingAuthority.stream;
+          }),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(<AssetInstanceRecord>[asset]),
+          ),
+          assetOperationalConditionsProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+        ],
+        child: const MaterialApp(home: AssetRegistryScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(asset.name), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AssetRegistryScreen)),
+    );
+    container.invalidate(currentAppUserProvider);
+    await tester.pump();
+    await tester.pump();
+
+    expect(container.read(currentAppUserProvider).isLoading, isTrue);
+    expect(find.text('Checking asset access'), findsOneWidget);
+    expect(find.text(asset.name), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('asset detail hides approved data after authority failure', (
+    tester,
+  ) async {
+    final actors = StreamController<AppUser?>();
+    addTearDown(actors.close);
+    final asset = _testAsset();
+    actors.add(_approvedActor());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(<AssetInstanceRecord>[asset]),
+          ),
+          assetOperationalConditionsProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          installedComponentsProvider(
+            asset.id,
+          ).overrideWith((ref) => Stream.value(const [])),
+        ],
+        child: const MaterialApp(home: AssetRegistryScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(asset.name));
+    await tester.pumpAndSettle();
+    expect(find.text('Installed components'), findsOneWidget);
+
+    actors.addError(StateError('authority stream failed'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Asset access could not be verified.'), findsOneWidget);
+    expect(find.text('Installed components'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpUnapproved(
@@ -294,3 +377,23 @@ AppUser _approvedActor() => AppUser(
   isApproved: true,
   createdAt: DateTime.utc(2026, 8, 24),
 );
+
+AssetInstanceRecord _testAsset() {
+  final now = DateTime.utc(2026, 8, 24);
+  return AssetInstanceRecord(
+    id: 'furnace-7',
+    assetClassId: 'furnace-class',
+    assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace',
+    assetNumber: 7,
+    name: 'Furnace 7',
+    serviceState: AssetServiceState.inService,
+    ownershipStatus: AssetOwnershipStatus.confirmed,
+    status: AssetHierarchyStatus.active,
+    activeComponentCount: 0,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    lastMutationId: 'asset-create-7',
+  );
+}

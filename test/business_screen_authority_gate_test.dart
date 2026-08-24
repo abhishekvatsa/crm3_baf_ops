@@ -215,6 +215,45 @@ void main() {
     expect(find.text('Move Furnace 7'), findsNothing);
     expect(aggregateReads, 0);
   });
+
+  testWidgets('compliance detail rejects an approved unrelated audience', (
+    tester,
+  ) async {
+    var aggregateReads = 0;
+    final record =
+        ComplianceRequestRecord()
+          ..firestoreId = 'compliance-private'
+          ..title = 'Electrical isolation support'
+          ..description = 'Isolate the burner control supply.'
+          ..originLaneKey = 'mechanical'
+          ..targetLaneKey = 'inst'
+          ..raisedByUid = 'mechanical-1'
+          ..linkedWorkflowId = 'workflow-private';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_approvedActor()),
+          ),
+          workflowAggregateProvider.overrideWith((ref, workflowId) {
+            aggregateReads++;
+            return Future.value(null);
+          }),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: ComplianceDetailScreen(record: record),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Compliance access required'), findsOneWidget);
+    expect(find.text('Electrical isolation support'), findsNothing);
+    expect(aggregateReads, 0);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpUnapproved(

@@ -8,6 +8,7 @@ import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/compliance_request_record.dart';
+import '../../domain/compliance_visibility_policy.dart';
 import '../../domain/workflow_types.dart';
 import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
@@ -40,7 +41,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
       );
     }
     final actor = actorAsync.value;
-    if (actor == null || !actor.isApproved) {
+    if (actor == null || !canUserSeeComplianceRequest(record, actor)) {
       return BafScreenStateScaffold.access(
         appBarTitle: 'Compliance detail',
         appBarSubtitle: 'Approved compliance access only',
@@ -48,7 +49,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
         accent: BafColors.directives,
         title: 'Compliance access required',
         message:
-            'An approved operational role is required to view compliance evidence.',
+            'This compliance request is outside your approved operational scope.',
       );
     }
     final workflowId =
