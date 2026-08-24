@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/validation/charge_number.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -36,10 +37,40 @@ class _AbnormalitiesHomeScreenState
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Abnormalities',
+        appBarSubtitle: 'Verifying your approved abnormality scope',
+        appBarIcon: Icons.memory_outlined,
+        accent: BafColors.instrument,
+        label: 'Checking abnormality access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Abnormalities',
+        appBarSubtitle: 'Verifying your approved abnormality scope',
+        appBarIcon: Icons.memory_outlined,
+        accent: BafColors.instrument,
+        message: 'Abnormality access could not be verified.',
+      );
+    }
+    final appUser = actorAsync.value;
+    if (appUser == null || !appUser.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Abnormalities',
+        appBarSubtitle: 'Approved abnormality access only',
+        appBarIcon: Icons.memory_outlined,
+        accent: BafColors.instrument,
+        title: 'Abnormality access required',
+        message:
+            'An approved operational role is required to view charge abnormalities.',
+      );
+    }
     final activeTypesAsync = ref.watch(activeAbnormalityTypesProvider);
     final allTypesAsync = ref.watch(allAbnormalityTypesProvider);
-    final appUser = ref.watch(currentAppUserProvider).value;
-    final canManageTypes = appUser?.canManageAbnormalityTypes == true;
+    final canManageTypes = appUser.canManageAbnormalityTypes;
 
     final activeCount = activeTypesAsync.maybeWhen(
       data: (types) => types.length,

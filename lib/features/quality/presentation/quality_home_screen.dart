@@ -30,7 +30,37 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final actor = ref.watch(currentAppUserProvider).value;
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Quality',
+        appBarSubtitle: 'Verifying your approved quality scope',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.charges,
+        label: 'Checking quality access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Quality',
+        appBarSubtitle: 'Verifying your approved quality scope',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.charges,
+        message: 'Quality access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewQuality) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Quality',
+        appBarSubtitle: 'Approved quality access only',
+        appBarIcon: Icons.verified_user_outlined,
+        accent: BafColors.charges,
+        title: 'Quality access required',
+        message:
+            'An approved operational role is required to view quality records.',
+      );
+    }
     final warnings = ref.watch(qualityWarningsProvider);
     final monitoring = ref.watch(qualityMonitoringRequestsProvider);
     final warningCount = warnings.whenOrNull(

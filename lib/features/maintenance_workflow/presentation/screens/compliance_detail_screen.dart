@@ -20,6 +20,37 @@ class ComplianceDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Verifying your approved compliance scope',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        label: 'Checking compliance access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Verifying your approved compliance scope',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'Compliance access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Approved compliance access only',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        title: 'Compliance access required',
+        message:
+            'An approved operational role is required to view compliance evidence.',
+      );
+    }
     final workflowId =
         record.linkedWorkflowId ?? record.linkedExecutionFirestoreId ?? '';
     final aggregate =
@@ -27,7 +58,6 @@ class ComplianceDetailScreen extends ConsumerWidget {
             ? const AsyncValue.data(null)
             : ref.watch(workflowAggregateProvider(workflowId));
     final commandState = ref.watch(workflowCommandControllerProvider);
-    final actor = ref.watch(currentAppUserProvider).value;
 
     return Scaffold(
       backgroundColor: BafColors.background,
