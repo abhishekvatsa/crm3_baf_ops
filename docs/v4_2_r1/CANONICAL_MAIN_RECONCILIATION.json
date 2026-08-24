@@ -1158,9 +1158,9 @@
     {
       "path": "lib/features/abnormalities/presentation/abnormalities_home_screen.dart",
       "canonicalSha256": "F09B48C9DE031B22434237192383AC730158C7ED8EA9CD46013B85CCD26E6D90",
-      "candidateSha256": "9510A915DA156C510BD71D0ED24C0F8B0E30AD1CB145504F54840D745B641398",
+      "candidateSha256": "B6766633544C49A60CEBE1AC3B3AE7C436FA5C85DA82856664DA18401C22B7E6",
       "canonicalBytes": 20128,
-      "candidateBytes": 20898,
+      "candidateBytes": 22094,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1182,9 +1182,9 @@
     {
       "path": "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
       "canonicalSha256": "90B745A8A2C0A6B3C8C62FDCA0996067310198FAC13E3C1EDAA9BD3C137BA42F",
-      "candidateSha256": "BC49A680F24F79B660DAAA3A6E468FE3A732AC2FD2BE9CC74E0EF27C99DF58F1",
+      "candidateSha256": "BCBFDB8E2BDAF530353A27FB7719234CAB98E0D121D7DBA5EA822B1D5D6F067C",
       "canonicalBytes": 54363,
-      "candidateBytes": 57660,
+      "candidateBytes": 58930,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1486,9 +1486,9 @@
     {
       "path": "lib/features/directives/presentation/directives_screen.dart",
       "canonicalSha256": "1DE00DE31466A4C5AA1E4BE033B2E321CB08D8668D208D9F8CA9F26CFCF778E2",
-      "candidateSha256": "01C4E0BE24A5A5C91EC47879E67612E8C5F6D4EC226D78288A6B62D427B51865",
+      "candidateSha256": "33F3B04443DE67F97ECBB7910C270F1849FAD9E58E37C7A121542DA00A7570A5",
       "canonicalBytes": 28531,
-      "candidateBytes": 29728,
+      "candidateBytes": 30769,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2370,9 +2370,9 @@
     {
       "path": "lib/main.dart",
       "canonicalSha256": "6DE20D01D9D00FAA761B6231101DD873CDB9A442194FAB2691E7B34809B87A97",
-      "candidateSha256": "7904383E8F20E379D9AA99FA37A89E9E6F1433F0A2F5C81B8522925F7B408551",
+      "candidateSha256": "B0D4BC067C1C9F228054672A84E8CE4B8527A1197C2BC1B54B4D92738C9D3A5D",
       "canonicalBytes": 41433,
-      "candidateBytes": 49289,
+      "candidateBytes": 50570,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
