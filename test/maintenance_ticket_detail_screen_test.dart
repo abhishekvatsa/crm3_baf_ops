@@ -40,6 +40,16 @@ void main() {
       createdAt: closedAt.subtract(const Duration(hours: 2)),
       updatedAt: closedAt.subtract(const Duration(minutes: 90)),
     );
+    final currentBurnerAction = buildBurnerComponentAction(
+      ticketId: 'ticket-closed-1',
+      furnaceNumber: 7,
+      burnerPosition: 5,
+      code: BurnerActionCode.feedbackReset,
+      outcome: BurnerResolutionOutcome.returnedToService,
+      microampReading: 3.125,
+      performedBy: 'I&A One',
+      performedAt: closedAt.subtract(const Duration(hours: 1)),
+    );
     final ticket =
         MaintenanceRecord()
           ..firestoreId = 'ticket-closed-1'
@@ -71,7 +81,10 @@ void main() {
           ..createdAt = raisedAt
           ..updatedAt = closedAt
           ..remarks = 'Flame signal stabilized after attendance.'
-          ..actionsJson = ComponentAction.encode([currentAction])
+          ..actionsJson = ComponentAction.encode([
+            currentAction,
+            currentBurnerAction,
+          ])
           ..resolutionHistory = [
             ResolutionHistory(
               resolvedByUid: 'si-previous',
@@ -95,7 +108,9 @@ void main() {
               .acknowledge(RoutedTo.instrumentation.name)
               .complete(RoutedTo.instrumentation.name);
     expect(
-      ticket.actionsReadResult.entries.single.replacement,
+      ticket.actionsReadResult.entries
+          .singleWhere((action) => action.component == 'Burner control relay')
+          .replacement,
       ReplacementType.newPart,
     );
 
@@ -176,6 +191,10 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.text('Burner 5'), findsOneWidget);
+    expect(find.text('Feedback Reset'), findsOneWidget);
+    expect(find.text('Returned To Service'), findsOneWidget);
+    expect(find.text('3.125 µA'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Closure evidence'),
       300,

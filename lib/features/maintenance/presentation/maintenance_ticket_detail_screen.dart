@@ -666,6 +666,10 @@ class _ComponentActionView extends StatelessWidget {
                 _SmallEvidenceChip(label: action.performedBy!),
               if (action.burnerPosition != null)
                 _SmallEvidenceChip(label: 'Burner ${action.burnerPosition}'),
+              if (_text(action.burnerActionCode) != null)
+                _SmallEvidenceChip(label: _enumLabel(action.burnerActionCode!)),
+              if (_text(action.burnerOutcome) != null)
+                _SmallEvidenceChip(label: _enumLabel(action.burnerOutcome!)),
               if (action.burnerMicroampReading != null)
                 _SmallEvidenceChip(
                   label:
