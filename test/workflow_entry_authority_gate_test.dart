@@ -121,17 +121,16 @@ void main() {
   testWidgets('audit history hides when live authority enters error', (
     tester,
   ) async {
-    const entity = (type: 'execution', id: 'execution-1');
     final actors = StreamController<AppUser?>();
-    var auditReads = 0;
+    final auditActors = <String>[];
     addTearDown(actors.close);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           currentAppUserProvider.overrideWith((ref) => actors.stream),
-          auditTimelineProvider(entity).overrideWith((ref) {
-            auditReads++;
+          auditTimelineProvider.overrideWith((ref, scope) {
+            auditActors.add(scope.actorUid);
             return Future.value(const []);
           }),
         ],
@@ -145,15 +144,79 @@ void main() {
       ),
     );
 
-    actors.add(_actor(AppRole.admin));
+    actors.add(_actor(AppRole.admin, uid: 'admin-one'));
     await tester.pumpAndSettle();
     expect(find.text('No recorded history'), findsOneWidget);
-    expect(auditReads, 1);
+
+    actors.add(_actor(AppRole.admin, uid: 'admin-two'));
+    await tester.pumpAndSettle();
+    expect(find.text('No recorded history'), findsOneWidget);
+    expect(auditActors, ['admin-one', 'admin-two']);
 
     actors.addError(StateError('authority unavailable'));
     await tester.pumpAndSettle();
     expect(find.text('Audit access could not be verified'), findsOneWidget);
     expect(find.text('No recorded history'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('recent audit log reloads for a directly switched Admin', (
+    tester,
+  ) async {
+    final actors = StreamController<AppUser?>();
+    final auditActors = <String>[];
+    addTearDown(actors.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          recentAuditEventsProvider.overrideWith((ref, actorUid) {
+            auditActors.add(actorUid);
+            return Future.value(const []);
+          }),
+        ],
+        child: const MaterialApp(home: RecentAuditLogScreen()),
+      ),
+    );
+
+    actors.add(_actor(AppRole.admin, uid: 'admin-one'));
+    await tester.pumpAndSettle();
+    actors.add(_actor(AppRole.admin, uid: 'admin-two'));
+    await tester.pumpAndSettle();
+
+    expect(auditActors, ['admin-one', 'admin-two']);
+    expect(find.text('No audit activity available'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sync-conflict review reloads for a directly switched Admin', (
+    tester,
+  ) async {
+    final actors = StreamController<AppUser?>();
+    final auditActors = <String>[];
+    addTearDown(actors.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          syncConflictAuditProvider.overrideWith((ref, actorUid) {
+            auditActors.add(actorUid);
+            return Future.value(const []);
+          }),
+        ],
+        child: const MaterialApp(home: SyncConflictReviewScreen()),
+      ),
+    );
+
+    actors.add(_actor(AppRole.admin, uid: 'admin-one'));
+    await tester.pumpAndSettle();
+    actors.add(_actor(AppRole.admin, uid: 'admin-two'));
+    await tester.pumpAndSettle();
+
+    expect(auditActors, ['admin-one', 'admin-two']);
+    expect(find.text('No sync conflicts found'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

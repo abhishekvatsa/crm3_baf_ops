@@ -15,8 +15,11 @@ import '../../auth/providers/auth_provider.dart';
 // PROVIDERS
 // ─────────────────────────────────────────────────────────────
 
+typedef AuditTimelineScope = ({String actorUid, String type, String id});
+
 final auditTimelineProvider = FutureProvider.family
-    .autoDispose<List<AuditEvent>, ({String type, String id})>((ref, args) {
+    .autoDispose<List<AuditEvent>, AuditTimelineScope>((ref, args) {
+      _requireAuditActorUid(args.actorUid);
       final repo = ref.read(auditRepositoryProvider);
 
       if (kIsWeb) {
@@ -26,17 +29,23 @@ final auditTimelineProvider = FutureProvider.family
       return repo.getLocalEventsForEntity(args.type, args.id);
     });
 
-final syncConflictAuditProvider = FutureProvider.autoDispose<List<AuditEvent>>((
-  ref,
-) {
-  return ref.read(auditRepositoryProvider).getRecentSyncConflictEvents();
-});
+final syncConflictAuditProvider = FutureProvider.family
+    .autoDispose<List<AuditEvent>, String>((ref, actorUid) {
+      _requireAuditActorUid(actorUid);
+      return ref.read(auditRepositoryProvider).getRecentSyncConflictEvents();
+    });
 
-final recentAuditEventsProvider = FutureProvider.autoDispose<List<AuditEvent>>((
-  ref,
-) {
-  return ref.read(auditRepositoryProvider).getRecentLocalEvents();
-});
+final recentAuditEventsProvider = FutureProvider.family
+    .autoDispose<List<AuditEvent>, String>((ref, actorUid) {
+      _requireAuditActorUid(actorUid);
+      return ref.read(auditRepositoryProvider).getRecentLocalEvents();
+    });
+
+void _requireAuditActorUid(String actorUid) {
+  if (actorUid.trim().isEmpty) {
+    throw StateError('An approved audit actor UID is required.');
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 // SCREEN
@@ -79,9 +88,8 @@ class AuditTimelineScreen extends ConsumerWidget {
       );
     }
 
-    final auditAsync = ref.watch(
-      auditTimelineProvider((type: entityType, id: entityId)),
-    );
+    final scope = (actorUid: actor.uid, type: entityType, id: entityId);
+    final auditAsync = ref.watch(auditTimelineProvider(scope));
 
     return Scaffold(
       appBar: AppBar(
@@ -98,10 +106,7 @@ class AuditTimelineScreen extends ConsumerWidget {
             (e, _) => BafStatePanel.error(
               title: 'Audit evidence unavailable',
               message: 'The entity history could not be loaded. $e',
-              onPrimary:
-                  () => ref.invalidate(
-                    auditTimelineProvider((type: entityType, id: entityId)),
-                  ),
+              onPrimary: () => ref.invalidate(auditTimelineProvider(scope)),
             ),
         data: (events) {
           if (events.isEmpty) {
@@ -115,9 +120,7 @@ class AuditTimelineScreen extends ConsumerWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(
-                auditTimelineProvider((type: entityType, id: entityId)),
-              );
+              ref.invalidate(auditTimelineProvider(scope));
             },
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -161,7 +164,7 @@ class RecentAuditLogScreen extends ConsumerWidget {
       );
     }
 
-    final eventsAsync = ref.watch(recentAuditEventsProvider);
+    final eventsAsync = ref.watch(recentAuditEventsProvider(actor.uid));
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -175,7 +178,8 @@ class RecentAuditLogScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Refresh audit log',
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(recentAuditEventsProvider),
+            onPressed:
+                () => ref.invalidate(recentAuditEventsProvider(actor.uid)),
           ),
         ],
       ),
@@ -185,7 +189,8 @@ class RecentAuditLogScreen extends ConsumerWidget {
             (error, _) => BafStatePanel.error(
               title: 'Audit activity unavailable',
               message: 'Recent governed changes could not be loaded. $error',
-              onPrimary: () => ref.invalidate(recentAuditEventsProvider),
+              onPrimary:
+                  () => ref.invalidate(recentAuditEventsProvider(actor.uid)),
             ),
         data: (events) {
           if (events.isEmpty) {
@@ -198,8 +203,8 @@ class RecentAuditLogScreen extends ConsumerWidget {
           }
           return RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(recentAuditEventsProvider);
-              await ref.read(recentAuditEventsProvider.future);
+              ref.invalidate(recentAuditEventsProvider(actor.uid));
+              await ref.read(recentAuditEventsProvider(actor.uid).future);
             },
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
@@ -243,7 +248,7 @@ class SyncConflictReviewScreen extends ConsumerWidget {
       );
     }
 
-    final conflictsAsync = ref.watch(syncConflictAuditProvider);
+    final conflictsAsync = ref.watch(syncConflictAuditProvider(actor.uid));
 
     return BafScreenScaffold(
       title: 'Sync conflict review',
@@ -254,7 +259,7 @@ class SyncConflictReviewScreen extends ConsumerWidget {
         IconButton(
           tooltip: 'Refresh conflicts',
           icon: const Icon(Icons.refresh_rounded),
-          onPressed: () => ref.invalidate(syncConflictAuditProvider),
+          onPressed: () => ref.invalidate(syncConflictAuditProvider(actor.uid)),
         ),
       ],
       body: conflictsAsync.when(
@@ -263,7 +268,8 @@ class SyncConflictReviewScreen extends ConsumerWidget {
             (e, _) => BafStatePanel.error(
               title: 'Conflict evidence unavailable',
               message: 'Sync conflicts could not be loaded. $e',
-              onPrimary: () => ref.invalidate(syncConflictAuditProvider),
+              onPrimary:
+                  () => ref.invalidate(syncConflictAuditProvider(actor.uid)),
             ),
         data: (events) {
           if (events.isEmpty) {
@@ -272,8 +278,8 @@ class SyncConflictReviewScreen extends ConsumerWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(syncConflictAuditProvider);
-              await ref.read(syncConflictAuditProvider.future);
+              ref.invalidate(syncConflictAuditProvider(actor.uid));
+              await ref.read(syncConflictAuditProvider(actor.uid).future);
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(

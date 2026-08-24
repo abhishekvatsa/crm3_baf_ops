@@ -1382,9 +1382,9 @@
     {
       "path": "lib/features/audit/presentation/audit_timeline_screen.dart",
       "canonicalSha256": "695B66713D3646D7E7068FC51EC60FBCF1D473BB315F3AE2531209245A2C144F",
-      "candidateSha256": "41998E97DE315512D9131CF86F60A6661F102E6FC125AD66A0C2CDB91E632BED",
+      "candidateSha256": "2E81B0EE62A3B8209C7FD72718C9DAAD0401363CC9F462E0212C14668E2901DF",
       "canonicalBytes": 13409,
-      "candidateBytes": 19686,
+      "candidateBytes": 20142,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

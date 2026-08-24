@@ -235,14 +235,13 @@ void main() {
     tester,
   ) async {
     var auditReads = 0;
-    const entity = (type: 'execution', id: 'execution-1');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           currentAppUserProvider.overrideWith(
             (ref) => Stream<AppUser?>.value(_actor(AppRole.operations)),
           ),
-          auditTimelineProvider(entity).overrideWith((ref) {
+          auditTimelineProvider.overrideWith((ref, scope) {
             auditReads++;
             return Future.value(const []);
           }),
@@ -269,7 +268,7 @@ void main() {
           currentAppUserProvider.overrideWith(
             (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
           ),
-          recentAuditEventsProvider.overrideWith((ref) {
+          recentAuditEventsProvider.overrideWith((ref, actorUid) {
             auditReads++;
             return Future.value(const []);
           }),
