@@ -66,6 +66,7 @@ class BurnerReliabilityScreen extends ConsumerWidget {
       );
     }
     return _BurnerReliabilityBody(
+      key: ValueKey(actor.uid),
       actor: actor,
       initialStartDate: initialStartDate,
       initialEndDate: initialEndDate,
@@ -76,6 +77,7 @@ class BurnerReliabilityScreen extends ConsumerWidget {
 
 class _BurnerReliabilityBody extends ConsumerStatefulWidget {
   const _BurnerReliabilityBody({
+    super.key,
     required this.actor,
     required this.initialStartDate,
     required this.initialEndDate,
@@ -174,6 +176,7 @@ class _BurnerReliabilityBodyState
       endExclusive: _endDate.add(const Duration(days: 1)),
     );
     final roundsQuery = (
+      actorUid: widget.actor.uid,
       startInclusive: period.startInclusive,
       endExclusive: period.endExclusive,
       assetInstanceId: selectedAsset?.id,

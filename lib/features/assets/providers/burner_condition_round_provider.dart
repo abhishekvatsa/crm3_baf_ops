@@ -4,13 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/burner_condition_round.dart';
 import '../services/burner_condition_round_idempotency_store.dart';
 import '../services/burner_condition_round_service.dart';
+import '../../auth/providers/auth_provider.dart';
 
 const burnerConditionRoundReportLimit = 1000;
 const burnerConditionRoundHistoryDisclosure =
     'Showing up to $burnerConditionRoundReportLimit rounds in the selected period.';
 
 typedef BurnerConditionRoundQuery =
-    ({DateTime startInclusive, DateTime endExclusive, String? assetInstanceId});
+    ({
+      String actorUid,
+      DateTime startInclusive,
+      DateTime endExclusive,
+      String? assetInstanceId,
+    });
 
 final burnerConditionRoundServiceProvider =
     Provider<BurnerConditionRoundService>((ref) {
@@ -21,10 +27,24 @@ final burnerConditionRoundServiceProvider =
       );
     });
 
-final burnerConditionRoundsProvider = StreamProvider.family<
+final burnerConditionRoundsProvider = StreamProvider.autoDispose.family<
   List<BurnerConditionRound>,
   BurnerConditionRoundQuery
 >((ref, query) {
+  final actorAsync = ref.watch(currentAppUserProvider);
+  if (actorAsync.isLoading) {
+    throw StateError('Burner-report access is still being verified.');
+  }
+  if (actorAsync.hasError) {
+    throw StateError('Burner-report access could not be verified.');
+  }
+  final actor = actorAsync.value;
+  if (actor == null ||
+      !actor.canViewReports ||
+      actor.uid != query.actorUid ||
+      query.actorUid.trim().isEmpty) {
+    throw StateError('Approved burner-report access is required.');
+  }
   Query<Map<String, dynamic>> rounds = FirebaseFirestore.instance.collection(
     'burner_condition_rounds',
   );

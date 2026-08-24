@@ -8,6 +8,7 @@ import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/domain/plant_asset_overview.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/providers/burner_condition_round_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -81,9 +82,12 @@ final operationsReportAbnormalitiesProvider = FutureProvider.autoDispose
       return ref.watch(abnormalityRepositoryProvider).getAllAbnormalities();
     });
 
-final _operationsReportAuthorityLifecycleProvider = Provider.autoDispose<void>((
-  ref,
-) {
+/// Clears retained report inputs whenever the approved actor session changes.
+///
+/// The app root watches this provider continuously. Keeping it non-auto-dispose
+/// ensures that a sign-out, revocation, or direct account switch is observed
+/// even when no report screen is mounted.
+final operationsReportAuthorityLifecycleProvider = Provider<void>((ref) {
   ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (previous, next) {
     final previousActor = previous?.asData?.value;
     if (previousActor == null) return;
@@ -108,6 +112,7 @@ final _operationsReportAuthorityLifecycleProvider = Provider.autoDispose<void>((
     ref.invalidate(assetOperationalConditionsProvider);
     ref.invalidate(equipmentStatusProvider(null));
     ref.invalidate(plantAssetOverviewProvider);
+    ref.invalidate(burnerConditionRoundsProvider);
     ref.invalidate(operationsReportClockProvider);
   });
 });
@@ -116,7 +121,7 @@ final operationsReportProvider = Provider.autoDispose.family<
   AsyncValue<OperationsReport>,
   OperationsReportScope
 >((ref, scope) {
-  ref.watch(_operationsReportAuthorityLifecycleProvider);
+  ref.watch(operationsReportAuthorityLifecycleProvider);
   final actor = ref.watch(currentAppUserProvider);
   if (actor.isLoading) return const AsyncLoading();
   if (actor.hasError) {

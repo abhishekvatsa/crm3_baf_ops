@@ -61,6 +61,7 @@ import 'core/services/planned_job_local_link_repair.dart';
 import 'core/services/sync_coordinator.dart';
 import 'core/theme/baf_design_system.dart';
 import 'core/widgets/brand/brand_widgets.dart';
+import 'features/reports/providers/operations_report_provider.dart';
 
 // ── UI ───────────────────────────────────────────────────────
 import 'home_screen.dart';
@@ -790,6 +791,7 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp> {
   @override
   Widget build(BuildContext context) {
     if (_startupFailure == null) {
+      ref.watch(operationsReportAuthorityLifecycleProvider);
       ref.watch(crashlyticsIdentitySyncProvider);
       ref.watch(notificationInstallationSyncProvider);
     }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
@@ -22,11 +24,13 @@ void main() {
     endExclusive: DateTime(2026, 9, 1),
   );
   final allRoundsQuery = (
+    actorUid: 'operations-1',
     startInclusive: startDate,
     endExclusive: DateTime(2026, 9, 1),
     assetInstanceId: null as String?,
   );
   final furnaceRoundsQuery = (
+    actorUid: 'operations-1',
     startInclusive: startDate,
     endExclusive: DateTime(2026, 9, 1),
     assetInstanceId: 'furnace-2' as String?,
@@ -82,6 +86,65 @@ void main() {
       expect(find.text('1 red hot'), findsOneWidget);
       expect(find.text('UV detector cleaning: 1'), findsOneWidget);
       expect(find.text('1 rounds'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'approved account switch replaces and disposes burner-round evidence',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final actors = StreamController<AppUser?>();
+      final queryActors = <String>[];
+      final disposedActors = <String>[];
+      addTearDown(actors.close);
+      final now = DateTime.utc(2026, 8, 16, 8);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((ref) => actors.stream),
+            assetClassesProvider.overrideWith(
+              (ref) => Stream.value([_furnaceClass(now: now)]),
+            ),
+            allAssetInstancesProvider.overrideWith(
+              (ref) => Stream.value([_furnace(now: now)]),
+            ),
+            operationsReportTicketsProvider.overrideWith(
+              (ref, scope) => Stream.value(const <MaintenanceRecord>[]),
+            ),
+            burnerConditionRoundsProvider.overrideWith((ref, query) {
+              queryActors.add(query.actorUid);
+              ref.onDispose(() => disposedActors.add(query.actorUid));
+              return Stream.value(
+                query.actorUid == 'operations-1'
+                    ? <BurnerConditionRound>[_round(now: now)]
+                    : const <BurnerConditionRound>[],
+              );
+            }),
+          ],
+          child: MaterialApp(
+            home: BurnerReliabilityScreen(
+              initialStartDate: startDate,
+              initialEndDate: endDate,
+              initialAssetInstanceId: 'furnace-2',
+            ),
+          ),
+        ),
+      );
+
+      actors.add(_user(now: now));
+      await tester.pumpAndSettle();
+      expect(find.text('3.6 microamp on 16 Aug 2026'), findsOneWidget);
+
+      actors.add(_user(now: now, uid: 'operations-2'));
+      await tester.pumpAndSettle();
+
+      expect(queryActors, containsAllInOrder(['operations-1', 'operations-2']));
+      expect(disposedActors, contains('operations-1'));
+      expect(find.text('3.6 microamp on 16 Aug 2026'), findsNothing);
+      expect(find.text('No burner evidence in this period'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -220,8 +283,12 @@ BurnerConditionRound _round({required DateTime now}) => BurnerConditionRound(
   fingerprint: 'burnerround1-sha256:${'a' * 64}',
 );
 
-AppUser _user({required DateTime now, bool approved = true}) => AppUser(
-  uid: 'operations-1',
+AppUser _user({
+  required DateTime now,
+  bool approved = true,
+  String uid = 'operations-1',
+}) => AppUser(
+  uid: uid,
   name: 'Operations One',
   email: 'operations@example.com',
   roles: const [AppRole.operations],

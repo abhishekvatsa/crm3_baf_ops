@@ -78,6 +78,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test(
+    'root authority lifecycle invalidates dormant report inputs on account switch',
+    () async {
+      final actors = StreamController<AppUser?>();
+      var assetClassBuilds = 0;
+      var reportBuilds = 0;
+      addTearDown(actors.close);
+      final container = ProviderContainer(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          assetClassesProvider.overrideWith((ref) {
+            assetClassBuilds++;
+            return Stream.value(const <AssetClassRecord>[]);
+          }),
+          operationsReportProvider.overrideWith((ref, scope) {
+            reportBuilds++;
+            return const AsyncLoading();
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final lifecycle = container.listen(
+        operationsReportAuthorityLifecycleProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(lifecycle.close);
+
+      final firstActor = container.read(currentAppUserProvider.future);
+      actors.add(_approvedActor(AppRole.operations));
+      await firstActor;
+      await container.read(assetClassesProvider.future);
+      expect(assetClassBuilds, 1);
+      expect(reportBuilds, 0);
+
+      actors.add(_approvedActor(AppRole.admin));
+      await _waitForActor(container, 'approved-admin');
+      await Future<void>.delayed(Duration.zero);
+      await container.read(assetClassesProvider.future);
+
+      expect(assetClassBuilds, 2);
+      expect(reportBuilds, 0);
+    },
+  );
+
   testWidgets('management reports reject before report-source reads', (
     tester,
   ) async {

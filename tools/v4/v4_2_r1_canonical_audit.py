@@ -7790,6 +7790,7 @@ check(
 ui_alignment_decision = text(
     "docs/v4_2_r1/UI_BUSINESS_LOGIC_ALIGNMENT.md"
 )
+ui_main_source = text("lib/main.dart")
 ui_home_source = text("lib/home_screen.dart")
 ui_user_source = text("lib/features/auth/data/user_model.dart")
 ui_equipment_source = text(
@@ -7805,6 +7806,12 @@ ui_workflow_read_repository_source = text(
 )
 ui_burner_report_source = text(
     "lib/features/reports/presentation/burner_reliability_screen.dart"
+)
+ui_burner_round_provider_source = text(
+    "lib/features/assets/providers/burner_condition_round_provider.dart"
+)
+ui_operations_report_provider_source = text(
+    "lib/features/reports/providers/operations_report_provider.dart"
 )
 ui_planned_detail_source = text(
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart"
@@ -7843,8 +7850,19 @@ check(
     and "fetchComplianceById" in ui_workflow_read_repository_source
     and "GetOptions(source: Source.server)"
         in ui_workflow_read_repository_source
+    and "ref.watch(operationsReportAuthorityLifecycleProvider);"
+        in ui_main_source
+    and "final operationsReportAuthorityLifecycleProvider = Provider<void>"
+        in ui_operations_report_provider_source
+    and "ref.invalidate(burnerConditionRoundsProvider)"
+        in ui_operations_report_provider_source
+    and "StreamProvider.autoDispose.family"
+        in ui_burner_round_provider_source
+    and "String actorUid" in ui_burner_round_provider_source
     and "if (actorAsync.isLoading)" in ui_burner_report_source
     and "if (actorAsync.hasError)" in ui_burner_report_source
+    and "key: ValueKey(actor.uid)" in ui_burner_report_source
+    and "actorUid: widget.actor.uid" in ui_burner_report_source
     and "return _BurnerReliabilityBody(" in ui_burner_report_source
     and "final showBottomActions =" in ui_planned_detail_source
     and "if (!execution.isGovernedTemplateAssignment)" in ui_planned_detail_source

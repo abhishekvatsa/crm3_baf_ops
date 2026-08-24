@@ -111,10 +111,19 @@ void main() {
     expect(firstBusinessRead, greaterThan(authorityRejection));
   });
 
-  test('report graph is actor-scoped and auto-disposed', () {
+  test('report graph is actor-scoped with an app-root cache lifecycle', () {
     final source =
         File(
           'lib/features/reports/providers/operations_report_provider.dart',
+        ).readAsStringSync();
+    final mainSource = File('lib/main.dart').readAsStringSync();
+    final burnerSource =
+        File(
+          'lib/features/assets/providers/burner_condition_round_provider.dart',
+        ).readAsStringSync();
+    final burnerScreenSource =
+        File(
+          'lib/features/reports/presentation/burner_reliability_screen.dart',
         ).readAsStringSync();
 
     expect(
@@ -127,14 +136,34 @@ void main() {
       contains('operationalEventsForReportsProvider(scope.actorUid)'),
     );
     expect(
-      source.indexOf('ref.watch(_operationsReportAuthorityLifecycleProvider)'),
+      source.indexOf('ref.watch(operationsReportAuthorityLifecycleProvider)'),
       lessThan(source.indexOf('ref.watch(currentAppUserProvider)')),
     );
+    expect(
+      source,
+      contains(
+        'final operationsReportAuthorityLifecycleProvider = Provider<void>',
+      ),
+    );
+    expect(
+      mainSource,
+      contains('ref.watch(operationsReportAuthorityLifecycleProvider);'),
+    );
+    expect(
+      burnerSource,
+      contains(
+        'final burnerConditionRoundsProvider = StreamProvider.autoDispose.family',
+      ),
+    );
+    expect(burnerSource, contains('String actorUid'));
+    expect(burnerScreenSource, contains('actorUid: widget.actor.uid'));
+    expect(burnerScreenSource, contains('key: ValueKey(actor.uid)'));
     for (final provider in [
       'operationalEventsForReportsProvider',
       'qualityWarningsProvider',
       'workflowAllComplianceProvider',
       'assetClassesProvider',
+      'burnerConditionRoundsProvider',
       'operationsReportClockProvider',
     ]) {
       expect(source, contains('ref.invalidate($provider)'));
