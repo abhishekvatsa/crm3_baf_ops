@@ -40,10 +40,13 @@ their last authorized listener leaves and keys every live cache to the approved
 actor UID, including direct approved-account switches; operation and surface
 counts do not change, while explicit metadata-aware subscriptions add
 three scanned sites and constructor lifecycle plus session scope remain part of
-the exact digest. The
-current manifest therefore covers 507 operations and 1,613 sites across 49 surfaces
+the exact digest. Cache-origin snapshots are admitted only after the same
+continuous approved actor and exact query have received server confirmation;
+loading, error, revocation, sign-out, or UID change clears that in-memory
+trust, while a confirmed same-actor query remains usable offline. The current
+manifest therefore covers 507 operations and 1,613 sites across 49 surfaces
 with digest
-`6262F1D34F8C2C0A5BDCFABB81B9F1085F9E35225DD0F49E996F470E208CC95C`;
+`58AD53029F7DC46021D7392BB36E310A0AFBAE0FF341C5D1D564E61C5D4B5E2E`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

@@ -272,19 +272,68 @@ void main() {
   });
 
   test(
-    'cache-origin snapshots are withheld until server confirmation',
+    'same-session cache survives offline reopen but not actor switch',
     () async {
-      final accepted =
-          await withholdCacheOriginSnapshots(
-            Stream.fromIterable(const [
-              (fromCache: true, value: 'actor-a-cache'),
-              (fromCache: false, value: 'actor-b-server'),
-              (fromCache: true, value: 'actor-b-cache-refresh'),
-            ]),
+      final trust = ActorSessionCacheTrust()..observeActor('actor-a');
+      const queryKey = 'events:reports';
+
+      final firstOnline =
+          await admitActorSessionSnapshots(
+            Stream.value(const (fromCache: false, value: 'actor-a-server')),
+            trust: trust,
+            actorUid: 'actor-a',
+            queryKey: queryKey,
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+      final reopenedOffline =
+          await admitActorSessionSnapshots(
+            Stream.value(const (fromCache: true, value: 'actor-a-cache')),
+            trust: trust,
+            actorUid: 'actor-a',
+            queryKey: queryKey,
             isFromCache: (snapshot) => snapshot.fromCache,
           ).toList();
 
-      expect(accepted.map((snapshot) => snapshot.value), ['actor-b-server']);
+      trust.observeActor('actor-b');
+      final switchedOffline =
+          await admitActorSessionSnapshots(
+            Stream.value(const (fromCache: true, value: 'shared-disk-cache')),
+            trust: trust,
+            actorUid: 'actor-b',
+            queryKey: queryKey,
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+      final secondOnline =
+          await admitActorSessionSnapshots(
+            Stream.fromIterable(const [
+              (fromCache: false, value: 'actor-b-server'),
+              (fromCache: true, value: 'actor-b-cache-refresh'),
+            ]),
+            trust: trust,
+            actorUid: 'actor-b',
+            queryKey: queryKey,
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+
+      expect(firstOnline.map((snapshot) => snapshot.value), ['actor-a-server']);
+      expect(reopenedOffline.map((snapshot) => snapshot.value), [
+        'actor-a-cache',
+      ]);
+      expect(switchedOffline, isEmpty);
+      expect(secondOnline.map((snapshot) => snapshot.value), [
+        'actor-b-server',
+        'actor-b-cache-refresh',
+      ]);
+
+      trust.observeActor(null);
+      expect(
+        trust.acceptSnapshot(
+          actorUid: 'actor-b',
+          queryKey: queryKey,
+          isFromCache: true,
+        ),
+        isFalse,
+      );
     },
   );
 
