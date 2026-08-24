@@ -474,7 +474,12 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     required String reopenedByName,
     String? reopenRemarks,
   }) async {
-    _requireCanReopenMaintenanceTicket(actor);
+    final reopen = _validatedMaintenanceReopenEvidence(
+      actor: actor,
+      reopenedByUid: reopenedByUid,
+      reopenedByName: reopenedByName,
+      reopenRemarks: reopenRemarks,
+    );
     final docId = id as String;
     final doc = await _collection.doc(docId).get();
     if (!doc.exists || doc.data() == null) throw Exception('Ticket not found');
@@ -489,6 +494,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     if (DateTime.now().difference(closedAt).inHours > 4) {
       throw Exception('Cannot reopen: closed more than 4 hours ago');
     }
+    final reopenedAt = DateTime.now().toUtc();
 
     final currentHistory = data['resolutionHistoryJson'];
     if (currentHistory is! String || currentHistory.trim().isEmpty) {
@@ -509,6 +515,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         'remarks': data['remarks'],
         'downtimeHours': data['downtimeHours'],
         'teamsInvolved': data['teamsInvolved'] ?? const <String>[],
+        'reopenedByUid': reopen.uid,
+        'reopenedByName': reopen.name,
+        'reopenedAt': reopenedAt,
+        'reopenReason': reopen.reason,
       }, source: 'maintenance/$docId current closure').toMap(),
     );
     final newHistoryJson = jsonEncode(historyPayload.rows);
@@ -530,10 +540,16 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
       if (burnerLockout != null)
         'burnerResolutionEvidence': <String, dynamic>{},
-      'remarks': reopenRemarks,
+      'reopenedByUid': reopen.uid,
+      'reopenedByName': reopen.name,
+      'reopenedAt': reopenedAt.toIso8601String(),
+      'reopenReason': reopen.reason,
+      'remarks': reopen.reason,
       'teamsInvolved': [],
       'resolutionHistoryJson': newHistoryJson,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'updatedAt': reopenedAt.toIso8601String(),
+      'updatedByUid': reopen.uid,
+      'updatedByName': reopen.name,
       'version': FieldValue.increment(1),
     });
   }
@@ -872,6 +888,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     'acknowledgedAt': t.acknowledgedAt?.toIso8601String(),
     'closedByUid': t.closedByUid,
     'closedByName': t.closedByName,
+    'reopenedByUid': t.reopenedByUid,
+    'reopenedByName': t.reopenedByName,
+    'reopenedAt': t.reopenedAt?.toIso8601String(),
+    'reopenReason': t.reopenReason,
     'teamsInvolved': t.teamsInvolved,
     'performedBy': t.performedBy,
     'remarks': t.remarks,

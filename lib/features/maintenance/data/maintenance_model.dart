@@ -63,6 +63,16 @@ class ResolutionHistory {
   String? remarks;
   double? downtimeHours;
   List<String> teamsInvolved;
+  @ignore
+  String? reopenedByUid;
+  @ignore
+  String? reopenedByName;
+  @ignore
+  DateTime? reopenedAt;
+  @ignore
+  String? reopenReason;
+  @ignore
+  bool reopenedByWorkflow;
 
   ResolutionHistory({
     this.resolvedByUid,
@@ -72,6 +82,11 @@ class ResolutionHistory {
     this.remarks,
     this.downtimeHours,
     this.teamsInvolved = const [],
+    this.reopenedByUid,
+    this.reopenedByName,
+    this.reopenedAt,
+    this.reopenReason,
+    this.reopenedByWorkflow = false,
   }) : actionsJson = actionsJson ?? '[]';
 
   Map<String, dynamic> toMap() => {
@@ -82,6 +97,11 @@ class ResolutionHistory {
     'remarks': remarks,
     'downtimeHours': downtimeHours,
     'teamsInvolved': teamsInvolved,
+    if (reopenedByUid != null) 'reopenedByUid': reopenedByUid,
+    if (reopenedByName != null) 'reopenedByName': reopenedByName,
+    if (reopenedAt != null) 'reopenedAt': reopenedAt!.toIso8601String(),
+    if (reopenReason != null) 'reopenReason': reopenReason,
+    if (reopenedByWorkflow) 'reopenedByWorkflow': true,
   };
 
   factory ResolutionHistory.fromMap(
@@ -95,6 +115,60 @@ class ResolutionHistory {
       allowMissing: !map.containsKey('actionsJson'),
     );
     ComponentAction.decode(actionsJson, source: source);
+    final resolvedAt = readRequiredPersistedDateTime(
+      map['resolvedAt'],
+      field: 'resolvedAt',
+      source: source,
+    );
+    final reopenedByUid = readOptionalPersistedString(
+      map['reopenedByUid'],
+      field: 'reopenedByUid',
+      source: source,
+    );
+    final reopenedByName = readOptionalPersistedString(
+      map['reopenedByName'],
+      field: 'reopenedByName',
+      source: source,
+    );
+    final reopenedAt = readOptionalPersistedDateTime(
+      map['reopenedAt'],
+      field: 'reopenedAt',
+      source: source,
+    );
+    final reopenReason = readOptionalPersistedString(
+      map['reopenReason'],
+      field: 'reopenReason',
+      source: source,
+    );
+    final reopenedByWorkflow =
+        readOptionalPersistedBool(
+          map['reopenedByWorkflow'],
+          field: 'reopenedByWorkflow',
+          source: source,
+        ) ??
+        false;
+    final hasReopeningEvidence =
+        reopenedByUid != null ||
+        reopenedByName != null ||
+        reopenedAt != null ||
+        reopenReason != null;
+    if (hasReopeningEvidence &&
+        (reopenedByUid == null ||
+            reopenedByName == null ||
+            reopenedAt == null)) {
+      throw PersistedDataFormatException(
+        field: 'reopenedAt',
+        source: source,
+        detail: 'reopening actor and time must be recorded together',
+      );
+    }
+    if (reopenedAt != null && reopenedAt.isBefore(resolvedAt)) {
+      throw PersistedDataFormatException(
+        field: 'reopenedAt',
+        source: source,
+        detail: 'reopening cannot precede the closure it follows',
+      );
+    }
 
     return ResolutionHistory(
       resolvedByUid: readOptionalPersistedString(
@@ -107,11 +181,7 @@ class ResolutionHistory {
         field: 'resolvedByName',
         source: source,
       ),
-      resolvedAt: readRequiredPersistedDateTime(
-        map['resolvedAt'],
-        field: 'resolvedAt',
-        source: source,
-      ),
+      resolvedAt: resolvedAt,
       actionsJson: actionsJson,
       remarks: readOptionalPersistedString(
         map['remarks'],
@@ -129,6 +199,11 @@ class ResolutionHistory {
         field: 'teamsInvolved',
         source: source,
       ),
+      reopenedByUid: reopenedByUid,
+      reopenedByName: reopenedByName,
+      reopenedAt: reopenedAt,
+      reopenReason: reopenReason,
+      reopenedByWorkflow: reopenedByWorkflow,
     );
   }
 }
@@ -387,6 +462,28 @@ class MaintenanceRecord {
         detail: 'acknowledgement evidence must match issue lane progress',
       );
     }
+
+    final hasAnyReopenEvidence =
+        reopenedByUid != null ||
+        reopenedByName != null ||
+        reopenedAt != null ||
+        reopenReason != null;
+    final cleanReopenedByUid = reopenedByUid?.trim();
+    final cleanReopenedByName = reopenedByName?.trim();
+    final hasCompleteReopenAuthority =
+        cleanReopenedByUid != null &&
+        cleanReopenedByUid.isNotEmpty &&
+        cleanReopenedByName != null &&
+        cleanReopenedByName.isNotEmpty &&
+        reopenedAt != null;
+    if (hasAnyReopenEvidence && !hasCompleteReopenAuthority) {
+      throw PersistedDataFormatException(
+        field: 'reopenedByUid',
+        source: source,
+        detail:
+            'reopening actor and time evidence must be complete when present',
+      );
+    }
   }
 
   // ── Operational Criticality ───────────────────────────────────────────────
@@ -453,6 +550,11 @@ class MaintenanceRecord {
 
   String? closedByUid;
   String? closedByName;
+
+  String? reopenedByUid;
+  String? reopenedByName;
+  DateTime? reopenedAt;
+  String? reopenReason;
 
   List<String> teamsInvolved = [];
 

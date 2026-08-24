@@ -2943,7 +2943,7 @@ service cloud.firestore {
     function validMaintenanceReopenUpdate() {
       let affected = request.resource.data.diff(resource.data).affectedKeys();
       return maintenanceReopenChangedFieldsOnly(affected)
-        && affected.hasAll(['isResolved', 'status'])
+        && affected.hasAll(['isResolved', 'status', 'reopenedAt'])
         ? (maintenanceIsReopenTransition()
           && canReopenMaintenanceTicket()
           && (resource.data.get('status', null) == 'resolved'
@@ -2954,6 +2954,20 @@ service cloud.firestore {
           && resource.data.get('isDeleted', false) == false
           && request.resource.data.get('isDeleted', false) == false
           && request.resource.data.get('status', null) == 'open'
+          && request.resource.data.get('reopenedByUid', null) == request.auth.uid
+          && validNonEmptyString(
+            request.resource.data.get('reopenedByName', null),
+            500
+          )
+          && validNonEmptyString(
+            request.resource.data.get('reopenedAt', null),
+            64
+          )
+          && validOptionalString(
+            request.resource.data.get('reopenReason', null),
+            4000
+          )
+          && request.resource.data.get('updatedByUid', null) == request.auth.uid
           && (maintenanceMobileCloseFieldsClearedOnReopen()
             || maintenanceLegacyResolutionFieldsFrozenOnReopen(affected))
           && validMaintenanceBurnerReopenState()
@@ -3582,6 +3596,12 @@ service cloud.firestore {
           validStandardAuditCreate()
           || validKnowledgeSeedAuditCreate()
         );
+    }
+
+    function canReadMaintenanceTicketCorrectionAudit() {
+      return isApprovedUser()
+        && resource.data.get('entityType', null) == 'maintenance'
+        && resource.data.get('operation', null) == 'correctMaintenanceTicket';
     }
 
     // ─────────────────────────────────────────────
@@ -4228,7 +4248,7 @@ service cloud.firestore {
     // ─────────────────────────────────────────────
 
     match /audit_logs/{docId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || canReadMaintenanceTicketCorrectionAudit();
       // Deterministic server-population audit identities are reserved for the
       // Admin-SDK transaction and cannot be pre-created by a client.
       allow create: if !docId.matches('^server_module_population_.*')

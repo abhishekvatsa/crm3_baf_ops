@@ -182,6 +182,13 @@ describe('maintenance workflow Firestore persistence adapter', () => {
     expect(rows[0].futureHistoryField).toEqual({retained: true});
     expect(rows[1].resolvedAt).toBe('2026-07-21T05:00:00.000Z');
     expect(JSON.parse(rows[1].actionsJson)[0]).toEqual(action);
+    expect(rows[1]).toMatchObject({
+      reopenedByUid: 'elec-1',
+      reopenedByName: 'Electrical',
+      reopenedAt: '2026-07-21T05:15:00.000Z',
+      reopenReason: 'Further correction required',
+      reopenedByWorkflow: true,
+    });
     expect(projection).toMatchObject({
       status: 'open',
       isResolved: false,

@@ -40,9 +40,10 @@ application time. Invalid evidence is reported as an uncertain remote outcome
 and never manufactures local success. The current inventories again report no
 unclassified file, timestamp call, catch site, direct parser or stale policy.
 
-The 24 August 2026 administrative issue-closure re-arm brings the current
-inventory to 71 decoder surfaces, 45 decoder catch sites, 69 timestamp readers
-and 372 risk candidates. The versioned unresolved-closure disposition and
+The 24 August 2026 administrative issue-closure and audited terminal-ticket
+correction re-arms bring the current inventory to 71 decoder surfaces, 45
+decoder catch sites, 69 timestamp readers and 373 risk candidates. The
+versioned unresolved-closure disposition and
 rationale fail closed when partial or malformed, while unrelated legacy
 metadata is retained as opaque evidence during a governed merge. The current
 inventories report no unclassified file, catch site, timestamp call, direct

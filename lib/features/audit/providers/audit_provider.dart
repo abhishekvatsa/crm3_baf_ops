@@ -13,3 +13,10 @@ import '../repositories/audit_repository.dart';
 final auditRepositoryProvider = Provider<AuditRepository>((ref) {
   return AuditRepository();
 });
+
+final maintenanceTicketCorrectionAuditProvider = FutureProvider.autoDispose
+    .family((ref, String ticketId) {
+      return ref
+          .read(auditRepositoryProvider)
+          .getMaintenanceTicketCorrectionEvents(ticketId);
+    });

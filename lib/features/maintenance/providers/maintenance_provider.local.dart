@@ -448,7 +448,12 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     required String reopenedByName,
     String? reopenRemarks,
   }) async {
-    _requireCanReopenMaintenanceTicket(actor);
+    final reopen = _validatedMaintenanceReopenEvidence(
+      actor: actor,
+      reopenedByUid: reopenedByUid,
+      reopenedByName: reopenedByName,
+      reopenRemarks: reopenRemarks,
+    );
     final ticketId = id as int;
 
     await isar.writeTxn(() async {
@@ -460,6 +465,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         if (hoursSinceClosure > 4) {
           throw Exception('Cannot reopen: closed more than 4 hours ago');
         }
+        final reopenedAt = DateTime.now().toUtc();
 
         final historyEntry = ResolutionHistory(
           resolvedByUid: t.closedByUid,
@@ -469,6 +475,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
           remarks: t.remarks,
           downtimeHours: t.downtimeHours,
           teamsInvolved: t.teamsInvolved,
+          reopenedByUid: reopen.uid,
+          reopenedByName: reopen.name,
+          reopenedAt: reopenedAt,
+          reopenReason: reopen.reason,
         );
 
         final historyPayload = readValidatedResolutionHistoryPayload(
@@ -491,10 +501,14 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         t.actionsJson = '[]';
         final lockout = t.burnerLockoutCase;
         if (lockout != null) t.burnerLockoutCase = lockout.clearResolution();
-        t.remarks = reopenRemarks;
+        t.reopenedByUid = reopen.uid;
+        t.reopenedByName = reopen.name;
+        t.reopenedAt = reopenedAt;
+        t.reopenReason = reopen.reason;
+        t.remarks = reopen.reason;
         t.teamsInvolved = [];
 
-        t.updatedAt = DateTime.now();
+        t.updatedAt = reopenedAt;
         t.version += 1;
         t.isSynced = false;
 

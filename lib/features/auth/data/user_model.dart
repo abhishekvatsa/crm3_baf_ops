@@ -182,8 +182,9 @@ class AppUser {
   bool get canReopenMaintenanceTicket =>
       isApproved && (isAdmin || isSI || isOperations);
 
-  /// Historical correction and deletion are Admin-only audit actions.
-  bool get canCorrectMaintenanceTicket => isApproved && isAdmin;
+  /// Admin and SI may correct descriptive maintenance evidence. The governed
+  /// command preserves identity, lifecycle, closure, work, and history fields.
+  bool get canCorrectMaintenanceTicket => isApproved && (isAdmin || isSI);
 
   bool get canCloseMaintenanceIssueWithoutResolution => isApproved && isAdmin;
 
@@ -229,7 +230,7 @@ class AppUser {
   bool get canViewOperationalAssets => isApproved;
 
   /// Closed-ticket history is operational reference data. Mutation controls
-  /// such as reopen and admin correction remain separately role-gated.
+  /// such as reopen and audited correction remain separately role-gated.
   bool get canViewClosedMaintenanceTickets => isApproved;
 
   bool get canManageUsers => isApproved && isAdmin;

@@ -125,6 +125,7 @@ void main() {
 
     test('resolution history preserves valid serialized entries', () {
       final resolvedAt = DateTime.utc(2026, 8, 5, 5, 45);
+      final reopenedAt = resolvedAt.add(const Duration(minutes: 20));
       final encoded = jsonEncode([
         {
           'resolvedByUid': 'approved-user',
@@ -134,6 +135,10 @@ void main() {
           'remarks': 'Checked and restored',
           'downtimeHours': 1.25,
           'teamsInvolved': ['operations'],
+          'reopenedByUid': 'operations-user',
+          'reopenedByName': 'Operations User',
+          'reopenedAt': reopenedAt.toIso8601String(),
+          'reopenReason': 'The issue recurred during the next cycle.',
           'legacyExtension': {'retained': true},
         },
       ]);
@@ -147,6 +152,12 @@ void main() {
       expect(decoded.single.resolvedAt, resolvedAt);
       expect(decoded.single.remarks, 'Checked and restored');
       expect(decoded.single.teamsInvolved, ['operations']);
+      expect(decoded.single.reopenedByUid, 'operations-user');
+      expect(decoded.single.reopenedAt, reopenedAt);
+      expect(
+        decoded.single.reopenReason,
+        'The issue recurred during the next cycle.',
+      );
       expect(payload.rows.single['legacyExtension'], {'retained': true});
 
       payload.rows.add(ResolutionHistory(resolvedAt: resolvedAt).toMap());
@@ -181,6 +192,8 @@ void main() {
         '[{"resolvedAt":"not-a-date"}]',
         '[{"resolvedAt":"2026-08-05T05:45:00Z","downtimeHours":"one"}]',
         '[{"resolvedAt":"2026-08-05T05:45:00Z","teamsInvolved":[3]}]',
+        '[{"resolvedAt":"2026-08-05T05:45:00Z","reopenedByUid":"user-1"}]',
+        '[{"resolvedAt":"2026-08-05T05:45:00Z","reopenedByUid":"user-1","reopenedByName":"User One","reopenedAt":"2026-08-05T05:44:00Z"}]',
       ]) {
         expect(
           () =>
@@ -428,6 +441,55 @@ void main() {
     });
 
     test(
+      'primary-route correction preserves secondary lanes and Other team',
+      () {
+        final now = DateTime.utc(2026, 8, 25, 5, 30);
+        final source =
+            MaintenanceRecord()
+              ..firestoreId = 'ticket-route-with-secondary-other'
+              ..assetType = AssetType.base
+              ..assetNumber = 117
+              ..maintenanceType = MaintenanceType.breakdown
+              ..description = 'Electrical and contractor attendance required'
+              ..routedTo = RoutedTo.electrical
+              ..otherDepartment = 'Hydraulics contractor'
+              ..status = TicketStatus.open
+              ..isResolved = false
+              ..startDate = now.subtract(const Duration(hours: 1))
+              ..createdAt = now.subtract(const Duration(hours: 1))
+              ..updatedAt = now;
+        source.issueLanePlan = IssueLanePlan.initial(const <String>[
+          'electrical',
+          'others',
+        ]);
+
+        expect(
+          adminTicketCorrectionLanes(
+            source: source,
+            primaryRoute: RoutedTo.mechanical,
+          ),
+          <RoutedTo>[RoutedTo.mechanical, RoutedTo.others],
+        );
+        final draft = buildAdminTicketCorrection(
+          source: source,
+          description: source.description,
+          routedTo: RoutedTo.mechanical,
+          maintenanceType: source.maintenanceType,
+          isCritical: source.isCritical,
+          component: source.component,
+          subsystem: source.subsystem,
+          tag: source.tag,
+          classification: source.classification,
+          otherDepartment: source.otherDepartment,
+          remarks: source.remarks,
+          reason: 'Primary accountability corrected after field verification.',
+        );
+
+        expect(draft.corrections, <String, Object?>{'routedTo': 'mechanical'});
+      },
+    );
+
+    test(
       'admin correction can repair only malformed Other-department evidence',
       () {
         final now = DateTime.utc(2026, 8, 23, 5, 45);
@@ -654,6 +716,10 @@ void main() {
           File(
             'lib/features/admin/utils/admin_ticket_helpers.dart',
           ).readAsStringSync();
+      final maintenanceCorrection =
+          File(
+            'lib/features/maintenance/domain/maintenance_ticket_correction.dart',
+          ).readAsStringSync();
       final adminBrowser =
           File(
             'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
@@ -701,13 +767,17 @@ void main() {
           contains('_requireValidMaintenanceEvidence(ticket);'),
         ),
       );
-      expect(adminHelpers, contains('if (!source.actionsReadResult.isValid)'));
       expect(
-        adminHelpers,
+        maintenanceCorrection,
+        contains('if (!source.actionsReadResult.isValid)'),
+      );
+      expect(
+        maintenanceCorrection,
         contains('if (!source.resolutionHistoryReadResult.isValid)'),
       );
-      expect(adminHelpers, isNot(contains("'status':")));
-      expect(adminHelpers, isNot(contains("'assetNumber':")));
+      expect(maintenanceCorrection, isNot(contains("'status':")));
+      expect(maintenanceCorrection, isNot(contains("'assetNumber':")));
+      expect(adminHelpers, contains('buildMaintenanceTicketCorrection('));
       expect(
         adminBrowser,
         contains('Saved evidence needs repair before correction'),

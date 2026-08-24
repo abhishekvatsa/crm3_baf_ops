@@ -142,6 +142,30 @@ MaintenanceRecord readRemoteMaintenanceRecord(
   final otherDepartment = _optionalString(map, 'otherDepartment', source);
   final acknowledgedByUid = _optionalString(map, 'acknowledgedByUid', source);
   final acknowledgedByName = _optionalString(map, 'acknowledgedByName', source);
+  final reopenedByUid = _optionalString(map, 'reopenedByUid', source);
+  final reopenedByName = _optionalString(map, 'reopenedByName', source);
+  final reopenReason = _optionalString(
+    map,
+    'reopenReason',
+    source,
+    emptyAsNull: false,
+  );
+  final hasAnyReopenEvidence =
+      reopenedByUid != null ||
+      reopenedByName != null ||
+      timestamps.reopenedAt != null ||
+      reopenReason != null;
+  final hasCompleteReopenAuthority =
+      reopenedByUid != null &&
+      reopenedByName != null &&
+      timestamps.reopenedAt != null;
+  if (hasAnyReopenEvidence && !hasCompleteReopenAuthority) {
+    throw PersistedDataFormatException(
+      field: 'reopenedByUid',
+      source: source,
+      detail: 'reopening actor and time evidence must be complete when present',
+    );
+  }
   final synchronizedLanePlan = IssueLanePlan.readOptionalSynchronizedFields(
     map,
     source: source,
@@ -457,6 +481,10 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     ..acknowledgedAt = timestamps.acknowledgedAt
     ..closedByUid = _optionalString(map, 'closedByUid', source)
     ..closedByName = _optionalString(map, 'closedByName', source)
+    ..reopenedByUid = reopenedByUid
+    ..reopenedByName = reopenedByName
+    ..reopenedAt = timestamps.reopenedAt
+    ..reopenReason = reopenReason
     ..teamsInvolved = readOptionalPersistedStringList(
       map['teamsInvolved'],
       field: 'teamsInvolved',
@@ -647,6 +675,16 @@ void _requireTimeline({
       field: 'updatedAt',
       source: source,
       detail: 'cannot precede createdAt',
+    );
+  }
+  final reopenedAt = timestamps.reopenedAt;
+  if (reopenedAt != null &&
+      (reopenedAt.isBefore(timestamps.createdAt) ||
+          reopenedAt.isAfter(timestamps.updatedAt))) {
+    throw PersistedDataFormatException(
+      field: 'reopenedAt',
+      source: source,
+      detail: 'must fall between createdAt and updatedAt',
     );
   }
   final endDate = timestamps.endDate;

@@ -22,6 +22,7 @@ void main() {
         'createdAt': created,
         'updatedAt': updated.toIso8601String(),
         'workflowDeferredAt': deferred.toIso8601String(),
+        'reopenedAt': deferred.toIso8601String(),
       }, source: 'maintenance/ticket-1');
 
       expect(timestamps.startDate.isAtSameMomentAs(start), isTrue);
@@ -32,6 +33,7 @@ void main() {
       expect(timestamps.workflowReleasedAt, isNull);
       expect(timestamps.workflowUpdatedAt, isNull);
       expect(timestamps.acknowledgedAt, isNull);
+      expect(timestamps.reopenedAt, deferred);
       expect(timestamps.endDate, isNull);
       expect(timestamps.deletedAt, isNull);
     });
@@ -89,6 +91,7 @@ void main() {
         'workflowReleasedAt',
         'workflowUpdatedAt',
         'acknowledgedAt',
+        'reopenedAt',
         'endDate',
         'deletedAt',
       ];

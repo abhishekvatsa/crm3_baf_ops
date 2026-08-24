@@ -137,6 +137,7 @@ void main() {
       await _withMaintenanceIsar((isar) async {
         final localCloseTime = DateTime.utc(2026, 8, 22, 10, 3);
         final serverCloseTime = DateTime.utc(2026, 8, 22, 10, 4);
+        final priorReopenTime = DateTime.utc(2026, 8, 22, 9, 30);
         final record =
             _record(updatedAt: localCloseTime, version: 6)
               ..isResolved = true
@@ -154,6 +155,10 @@ void main() {
               ..acknowledgedByUid = 'server-lane-owner'
               ..acknowledgedByName = 'Server Lane Owner'
               ..acknowledgedAt = serverCloseTime
+              ..reopenedByUid = 'operations-2'
+              ..reopenedByName = 'Operations Two'
+              ..reopenedAt = priorReopenTime
+              ..reopenReason = 'The condition recurred during operation.'
               ..workflowQueueState = 'released'
               ..workflowAggregateId = 'workflow-server-1'
               ..workflowUpdatedAt = serverCloseTime;
@@ -170,6 +175,10 @@ void main() {
         expect(stored.updatedAt.isAtSameMomentAs(serverCloseTime), isTrue);
         expect(stored.isSynced, isTrue);
         expect(stored.acknowledgedByUid, 'server-lane-owner');
+        expect(stored.reopenedByUid, 'operations-2');
+        expect(stored.reopenedByName, 'Operations Two');
+        expect(stored.reopenedAt!.isAtSameMomentAs(priorReopenTime), isTrue);
+        expect(stored.reopenReason, 'The condition recurred during operation.');
         expect(stored.workflowQueueState, 'released');
         expect(stored.workflowAggregateId, 'workflow-server-1');
         expect(

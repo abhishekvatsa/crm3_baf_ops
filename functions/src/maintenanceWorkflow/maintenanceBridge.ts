@@ -266,6 +266,14 @@ const actionPayloadText = (
   }
 };
 
+type ResolutionHistoryReopenEvidence = {
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly at: Date;
+  readonly reason: string | null;
+  readonly byWorkflow: boolean;
+};
+
 const readResolutionHistory = (value: unknown): JsonMap[] => {
   if (value == null) return [];
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -287,10 +295,37 @@ const readResolutionHistory = (value: unknown): JsonMap[] => {
       return maintenanceHistoryError(field);
     }
     const row = value as JsonMap;
-    persistedInstant(row.resolvedAt, `${field}.resolvedAt`);
+    const resolvedAt = persistedInstant(row.resolvedAt, `${field}.resolvedAt`);
     optionalHistoryText(row.resolvedByUid, `${field}.resolvedByUid`);
     optionalHistoryText(row.resolvedByName, `${field}.resolvedByName`);
     optionalHistoryText(row.remarks, `${field}.remarks`);
+    optionalHistoryText(row.reopenedByUid, `${field}.reopenedByUid`);
+    optionalHistoryText(row.reopenedByName, `${field}.reopenedByName`);
+    optionalHistoryText(row.reopenReason, `${field}.reopenReason`);
+    if (row.reopenedByWorkflow != null &&
+        typeof row.reopenedByWorkflow !== "boolean") {
+      return maintenanceHistoryError(`${field}.reopenedByWorkflow`);
+    }
+    const hasReopeningEvidence = row.reopenedByUid != null ||
+      row.reopenedByName != null || row.reopenedAt != null ||
+      row.reopenReason != null;
+    if (hasReopeningEvidence &&
+        (typeof row.reopenedByUid !== "string" ||
+          row.reopenedByUid.trim().length === 0 ||
+          typeof row.reopenedByName !== "string" ||
+          row.reopenedByName.trim().length === 0 ||
+          row.reopenedAt == null)) {
+      return maintenanceHistoryError(`${field}.reopenedAt`);
+    }
+    if (row.reopenedAt != null) {
+      const reopenedAt = persistedInstant(
+        row.reopenedAt,
+        `${field}.reopenedAt`,
+      );
+      if (new Date(reopenedAt).getTime() < new Date(resolvedAt).getTime()) {
+        return maintenanceHistoryError(`${field}.reopenedAt`);
+      }
+    }
     if (
       row.downtimeHours != null &&
       (typeof row.downtimeHours !== "number" ||
@@ -310,7 +345,7 @@ const readResolutionHistory = (value: unknown): JsonMap[] => {
 
 export const maintenanceResolutionHistoryWithCurrentClosure = (
   maintenance: JsonMap,
-  reopenedByWorkflow = true,
+  reopening?: ResolutionHistoryReopenEvidence,
 ): string => {
   const history = readResolutionHistory(maintenance.resolutionHistoryJson);
   if (maintenance.isResolved === true) {
@@ -336,7 +371,13 @@ export const maintenanceResolutionHistoryWithCurrentClosure = (
       remarks: maintenance.remarks ?? null,
       downtimeHours: maintenance.downtimeHours ?? null,
       teamsInvolved: historyTeams(maintenance.teamsInvolved, "teamsInvolved"),
-      ...(reopenedByWorkflow ? {reopenedByWorkflow: true} : {}),
+      ...(reopening == null ? {} : {
+        reopenedByUid: reopening.actorUid,
+        reopenedByName: reopening.actorName,
+        reopenedAt: iso(reopening.at),
+        reopenReason: reopening.reason,
+        ...(reopening.byWorkflow ? {reopenedByWorkflow: true} : {}),
+      }),
     });
   }
   return JSON.stringify(history);
@@ -391,7 +432,13 @@ export const maintenanceProjectionForCorrection = (args: {
     actionsJson: "[]",
     remarks: args.reason,
     resolutionHistoryJson:
-      maintenanceResolutionHistoryWithCurrentClosure(args.maintenance),
+      maintenanceResolutionHistoryWithCurrentClosure(args.maintenance, {
+        actorUid: args.actorUid,
+        actorName: args.actorName,
+        at: args.at,
+        reason: args.reason,
+        byWorkflow: true,
+      }),
   } : {}),
   updatedAt: iso(args.at),
   version: maintenanceVersion(args.maintenance) + 1,

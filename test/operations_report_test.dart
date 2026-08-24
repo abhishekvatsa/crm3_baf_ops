@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
@@ -62,6 +63,26 @@ AssetInstanceRecord asset(
   createdAt: DateTime.utc(2026),
   updatedAt: DateTime.utc(2026),
   lastMutationId: 'mutation',
+);
+
+InnerCoverProfile innerCoverProfile(
+  String id,
+  AssetClassRecord assetClass,
+  InnerCoverLifecycleState state,
+) => InnerCoverProfile(
+  id: id,
+  assetClassId: assetClass.id,
+  assetClassCode: assetClass.code,
+  assetClassName: assetClass.name,
+  serialNumber: id.toUpperCase(),
+  normalizedSerialNumber: id.toUpperCase(),
+  sourceType: InnerCoverSourceType.legacyExisting,
+  lifecycleState: state,
+  traceabilityGrade: InnerCoverTraceabilityGrade.t0,
+  version: 1,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+  lastMutationId: 'mutation-$id',
 );
 
 MaintenanceRecord issue({
@@ -445,6 +466,67 @@ void main() {
       OperationsManagementSignalType.openIssues,
       OperationsManagementSignalType.openPlannedWork,
     ]);
+  });
+
+  test('counts active serial-numbered Inner Covers from their registry', () {
+    final innerCover = assetClass(
+      'inner-cover-class',
+      'Inner Cover',
+      'innerCover',
+    );
+    final retiredInnerCover = assetClass(
+      'retired-inner-cover-class',
+      'Retired Inner Cover',
+      'innerCover',
+      status: AssetHierarchyStatus.retired,
+    );
+    final profiles = [
+      innerCoverProfile('gr4', innerCover, InnerCoverLifecycleState.installed),
+      innerCoverProfile('n16', innerCover, InnerCoverLifecycleState.available),
+      innerCoverProfile(
+        'gr19',
+        innerCover,
+        InnerCoverLifecycleState.underRepair,
+      ),
+      innerCoverProfile(
+        'g97',
+        innerCover,
+        InnerCoverLifecycleState.retiredForSalvage,
+      ),
+      innerCoverProfile(
+        'donor',
+        innerCover,
+        InnerCoverLifecycleState.fullyConsumedAsDonor,
+      ),
+      innerCoverProfile(
+        'retired-class-profile',
+        retiredInnerCover,
+        InnerCoverLifecycleState.available,
+      ),
+    ];
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: const [],
+      executions: const [],
+      events: const [],
+      assetClasses: [innerCover, retiredInnerCover],
+      assetInstances: const [],
+      innerCoverProfiles: profiles,
+      overview: const PlantAssetOverview(classes: [], assets: []),
+    );
+
+    expect(report.assetCount, 4);
+    expect(report.availableAssetCount, 2);
+    expect(report.underMaintenanceAssetCount, 1);
+    expect(report.unfitAssetCount, 1);
+    expect(report.classSummaries.single.assetCount, 4);
+    expect(report.classSummaries.single.availableCount, 2);
+    expect(report.classSummaries.single.underMaintenanceCount, 1);
+    expect(report.classSummaries.single.unfitCount, 1);
   });
 
   test('administrative closures remain distinct from technical repairs', () {

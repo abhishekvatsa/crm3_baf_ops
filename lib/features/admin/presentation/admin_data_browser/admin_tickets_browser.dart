@@ -82,14 +82,12 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
       widget.ticket.acknowledgedByName == null &&
       widget.ticket.acknowledgedAt == null;
 
-  bool get _usesOtherDepartment {
-    if (_selectedRouted != widget.ticket.routedTo) {
-      return _selectedRouted == RoutedTo.others;
-    }
-    final lanePlan = widget.ticket.issueLanePlanReadResult.value;
-    return lanePlan?.assignedLanes.contains(RoutedTo.others.name) ??
-        _selectedRouted == RoutedTo.others;
-  }
+  bool get _usesOtherDepartment =>
+      tryAdminTicketCorrectionLanes(
+        source: widget.ticket,
+        primaryRoute: _selectedRouted,
+      )?.contains(RoutedTo.others) ??
+      _selectedRouted == RoutedTo.others;
 
   @override
   void initState() {
@@ -137,6 +135,26 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.warning.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
+                    border: Border.all(
+                      color: BafColors.warning.withValues(alpha: 0.40),
+                    ),
+                  ),
+                  child: const Text(
+                    'Audited correction: preserve the facts. Do not invent or erase evidence. Before-and-after values, your identity, time, and reason are retained permanently.',
+                    style: TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.sm),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.lock_outline_rounded),
@@ -186,7 +204,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                             if (value == null) return;
                             setState(() {
                               _selectedRouted = value;
-                              if (value != RoutedTo.others) {
+                              if (!_usesOtherDepartment) {
                                 _otherDepartmentController.clear();
                               }
                             });

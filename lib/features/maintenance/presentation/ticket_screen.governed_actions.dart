@@ -1,6 +1,106 @@
 part of 'ticket_screen.dart';
 
 extension _TicketGovernedActions on _TicketScreenState {
+  Future<void> _openTicketDetails(
+    MaintenanceRecord ticket, {
+    required bool canCorrect,
+  }) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder:
+            (detailContext) => MaintenanceTicketDetailScreen(
+              ticket: ticket,
+              onCorrect:
+                  canCorrect
+                      ? () {
+                        Navigator.pop(detailContext);
+                        Future<void>.microtask(() => _correctTicket(ticket));
+                      }
+                      : null,
+            ),
+      ),
+    );
+  }
+
+  Future<void> _correctTicket(MaintenanceRecord ticket) async {
+    if (!ticket.isSynced || _busyTicketId != null) return;
+    final actor = ref.read(currentAppUserProvider).value;
+    final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
+    if (actor == null ||
+        firebaseUser == null ||
+        firebaseUser.uid != actor.uid ||
+        !actor.canCorrectMaintenanceTicket) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Admin or SI authority is required for audited correction.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+    final ticketId = ticket.firestoreId?.trim();
+    if (ticketId == null || ticketId.isEmpty) return;
+    final draft = await showDialog<MaintenanceTicketCorrectionDraft>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => MaintenanceTicketCorrectionDialog(ticket: ticket),
+    );
+    if (!mounted || draft == null || _busyTicketId != null) return;
+
+    final expectedLocalVersion = ticket.version;
+    final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+    _setBusyTicketId(ticketId);
+    try {
+      final command = WorkflowCommandFactory.create(
+        type: WorkflowCommandType.correctMaintenanceTicket,
+        aggregateId: ticketId,
+        expectedVersion: expectedLocalVersion,
+        payload: <String, Object?>{
+          'reason': draft.reason,
+          'corrections': draft.corrections,
+        },
+      );
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command);
+      validateMaintenanceTicketCorrectionReceipt(
+        command: command,
+        receipt: receipt,
+      );
+      final converged = await _adoptAcceptedIssueCommand(
+        ticketId: ticketId,
+        expectedLocalVersion: expectedLocalVersion,
+        expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+        minimumServerVersion: receipt.aggregateVersion,
+        syncReason: 'maintenance_ticket_corrected',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            converged
+                ? 'Audited correction recorded and refreshed.'
+                : 'Audited correction accepted. Exact device refresh is pending and will retry during sync.',
+          ),
+          backgroundColor: converged ? BafColors.success : BafColors.warning,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Could not record correction: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) _setBusyTicketId(null);
+    }
+  }
+
   Future<void> _closeWithoutResolution(MaintenanceRecord ticket) async {
     final ticketId = ticket.firestoreId?.trim();
     if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;

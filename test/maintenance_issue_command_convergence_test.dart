@@ -276,6 +276,40 @@ void main() {
     },
   );
 
+  test(
+    'reconciler requires exact reopening evidence before reporting convergence',
+    () async {
+      final reopenedAt = DateTime.utc(2026, 8, 23, 4, 1);
+      final local = _FakeMaintenanceRepository(
+        _record(version: 4, updatedAt: reopenedAt, isSynced: true),
+        applyReadbackResult: false,
+      );
+      final remote = _FakeMaintenanceRepository(
+        _record(version: 4, updatedAt: reopenedAt, isSynced: false)
+          ..reopenedByUid = 'operations-1'
+          ..reopenedByName = 'Operations One'
+          ..reopenedAt = reopenedAt
+          ..reopenReason = 'The issue recurred during operation.',
+      );
+
+      await expectLater(
+        MaintenanceIssueCommandReconciler(
+          localRepository: local,
+          remoteRepository: remote,
+        ).adoptServerMutation(
+          firestoreId: 'ticket-command-1',
+          expectedLocalVersion: 3,
+          expectedLocalUpdatedAt: reopenedAt.subtract(
+            const Duration(minutes: 1),
+          ),
+          minimumServerVersion: 4,
+        ),
+        throwsA(isA<MaintenanceIssueCommandConvergenceException>()),
+      );
+      expect(local.applyCalls, 1);
+    },
+  );
+
   test('lane mutation receipts must match exact request evidence', () {
     final command = WorkflowCommand(
       commandId: 'lane-command-1',
@@ -317,6 +351,57 @@ void main() {
           result: <String, Object?>{
             ...valid.result,
             'lanes': const <String>['mechanical'],
+          },
+          appliedAt: valid.appliedAt,
+        ),
+      ),
+      throwsStateError,
+    );
+  });
+
+  test('correction receipt binds exact fields, version and audit identity', () {
+    final command = WorkflowCommand(
+      commandId: 'correction-command-1',
+      type: WorkflowCommandType.correctMaintenanceTicket,
+      aggregateId: 'ticket-command-1',
+      expectedVersion: 3,
+      payload: const <String, Object?>{
+        'reason': 'Corrected after checking the shift record.',
+        'corrections': <String, Object?>{
+          'routedTo': 'mechanical',
+          'description': 'Corrected issue description',
+        },
+      },
+    );
+    final valid = WorkflowCommandReceipt(
+      commandId: command.commandId,
+      resultKey: 'maintenance-ticket-corrected',
+      aggregateVersion: 4,
+      result: <String, Object?>{
+        'ticketId': command.aggregateId,
+        'auditId': 'server_maintenance_ticket_${command.commandId}',
+        'correctedFields': const <String>['description', 'routedTo'],
+      },
+      appliedAt: DateTime.utc(2026, 8, 25, 6),
+    );
+
+    expect(
+      () => validateMaintenanceTicketCorrectionReceipt(
+        command: command,
+        receipt: valid,
+      ),
+      returnsNormally,
+    );
+    expect(
+      () => validateMaintenanceTicketCorrectionReceipt(
+        command: command,
+        receipt: WorkflowCommandReceipt(
+          commandId: command.commandId,
+          resultKey: valid.resultKey,
+          aggregateVersion: valid.aggregateVersion,
+          result: <String, Object?>{
+            ...valid.result,
+            'correctedFields': const <String>['description'],
           },
           appliedAt: valid.appliedAt,
         ),

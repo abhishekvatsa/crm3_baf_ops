@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:crm3_baf_ops/core/services/isar_schema_migration.dart';
 import 'package:crm3_baf_ops/core/services/operational_assurance_local_repair.dart';
 import 'package:crm3_baf_ops/core/services/planned_job_local_link_repair.dart';
+import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/charges/data/charge_model.dart';
@@ -34,6 +35,7 @@ import '../tool/test_support/test_isar_core.dart';
 const _fixtureName = 'crm3_70k_populated_fixture';
 const _v2FixtureName = 'crm3_70k_governed_v2_fixture';
 const _v3FixtureName = 'crm3_70k_operational_assurance_v3_fixture';
+const _v6FixtureName = 'crm3_70k_maintenance_reopen_v6_fixture';
 const _generationId = '123e4567-e89b-42d3-a456-426614174000';
 const _rotatedGenerationId = '223e4567-e89b-42d3-a456-426614174000';
 const _governedV2FixtureFingerprint =
@@ -385,6 +387,56 @@ List<CollectionSchema<dynamic>> _loadRepositoryProvenV3Schemas() =>
           schema,
     ];
 
+CollectionSchema<MaintenanceRecord> _v6MaintenanceRecordSchema() {
+  const v7Fields = <String>{
+    'reopenReason',
+    'reopenedAt',
+    'reopenedByName',
+    'reopenedByUid',
+  };
+  final retained = MaintenanceRecordSchema.properties.entries
+      .where((entry) => !v7Fields.contains(entry.key))
+      .toList(growable: false);
+  final properties = <String, PropertySchema>{};
+  for (var index = 0; index < retained.length; index++) {
+    final entry = retained[index];
+    final property = entry.value;
+    properties[entry.key] = PropertySchema(
+      id: index,
+      name: entry.key,
+      type: property.type,
+      enumMap: property.enumMap,
+      target: property.target,
+    );
+  }
+  return CollectionSchema<MaintenanceRecord>(
+    id: MaintenanceRecordSchema.id,
+    name: MaintenanceRecordSchema.name,
+    properties: properties,
+    estimateSize: MaintenanceRecordSchema.estimateSize,
+    serialize: MaintenanceRecordSchema.serialize,
+    deserialize: MaintenanceRecordSchema.deserialize,
+    deserializeProp: MaintenanceRecordSchema.deserializeProp,
+    idName: MaintenanceRecordSchema.idName,
+    indexes: MaintenanceRecordSchema.indexes,
+    links: MaintenanceRecordSchema.links,
+    embeddedSchemas: MaintenanceRecordSchema.embeddedSchemas,
+    getId: MaintenanceRecordSchema.getId,
+    getLinks: MaintenanceRecordSchema.getLinks,
+    attach: MaintenanceRecordSchema.attach,
+    version: MaintenanceRecordSchema.version,
+  );
+}
+
+List<CollectionSchema<dynamic>> _loadRepositoryProvenV6Schemas() =>
+    <CollectionSchema<dynamic>>[
+      for (final schema in _currentSchemas)
+        if (schema.name == MaintenanceRecordSchema.name)
+          _v6MaintenanceRecordSchema()
+        else
+          schema,
+    ];
+
 Future<void> _populateRepresentativeRows(Isar isar) async {
   final now = DateTime.utc(2026, 8, 11, 12);
   final template =
@@ -501,7 +553,7 @@ void main() {
   });
 
   test(
-    'repository-proven populated v1 migrates to v6 with rows and relationships intact',
+    'repository-proven populated v1 migrates to v7 with rows and relationships intact',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_populated_v1_',
@@ -616,7 +668,7 @@ void main() {
   );
 
   test(
-    'populated v3 compliance request migrates through v6 without evidence loss',
+    'populated v3 compliance request migrates through v7 without evidence loss',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_operational_assurance_v3_',
@@ -693,7 +745,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 6);
+        expect(preparation.result.toVersion, 7);
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.databaseGenerationId, _generationId);
 
@@ -744,7 +796,149 @@ void main() {
         expect(migrated.raisedUnderCoordination, isFalse);
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 6);
+        expect(committed.schemaVersion, 7);
+        expect(committed.state, IsarSchemaMarkerState.committed);
+        expect(committed.databaseGenerationId, _generationId);
+      } finally {
+        if (isar?.isOpen ?? false) {
+          await isar!.close(deleteFromDisk: true);
+        }
+        if (await directory.exists()) {
+          await directory.delete(recursive: true);
+        }
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
+    'populated v6 maintenance ticket migrates to v7 and pending reopen remains replayable',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'crm3_70k_maintenance_reopen_v6_',
+      );
+      Isar? isar;
+      try {
+        final now = DateTime.utc(2026, 8, 24, 3, 30);
+        isar = await Isar.open(
+          _currentSchemas,
+          directory: directory.path,
+          name: _v6FixtureName,
+        );
+        final legacyTicket =
+            MaintenanceRecord()
+              ..firestoreId = 'legacy-maintenance-v6'
+              ..version = 9
+              ..isSynced = true
+              ..assetType = AssetType.furnace
+              ..assetNumber = 7
+              ..maintenanceType = MaintenanceType.breakdown
+              ..description = 'Legacy v6 burner inspection'
+              ..routedTo = RoutedTo.instrumentation
+              ..startDate = now
+              ..createdAt = now
+              ..updatedAt = now;
+        final legacyPendingReopen =
+            MaintenanceRecord()
+              ..firestoreId = 'legacy-pending-reopen-v6'
+              ..version = 11
+              ..isSynced = false
+              ..assetType = AssetType.furnace
+              ..assetNumber = 8
+              ..maintenanceType = MaintenanceType.breakdown
+              ..description = 'Legacy v6 reopened burner inspection'
+              ..routedTo = RoutedTo.instrumentation
+              ..startDate = now
+              ..createdAt = now
+              ..updatedAt = now.add(const Duration(minutes: 45))
+              ..remarks = 'Returned for detector correction'
+              ..resolutionHistory = <ResolutionHistory>[
+                ResolutionHistory(
+                  resolvedByUid: 'si-supervisor-1',
+                  resolvedByName: 'Senior Instrumentation',
+                  resolvedAt: now.add(const Duration(minutes: 30)),
+                ),
+              ];
+        await isar.writeTxn(() async {
+          await isar!.maintenanceRecords.put(legacyTicket);
+          await isar.maintenanceRecords.put(legacyPendingReopen);
+        });
+        await isar.close();
+        isar = null;
+
+        final v6Schemas = _loadRepositoryProvenV6Schemas();
+        final v6Maintenance = v6Schemas.singleWhere(
+          (schema) => schema.name == MaintenanceRecordSchema.name,
+        );
+        expect(v6Maintenance.properties, hasLength(67));
+        expect(v6Maintenance.properties, isNot(contains('reopenedAt')));
+        isar = await Isar.open(
+          v6Schemas,
+          directory: directory.path,
+          name: _v6FixtureName,
+        );
+        await isar.close();
+        isar = null;
+
+        final markerStore = InMemoryIsarSchemaProvenanceStore(
+          canonicalMarkerJson:
+              const IsarSchemaProvenanceMarker(
+                state: IsarSchemaMarkerState.committed,
+                schemaVersion: 6,
+                schemaFingerprint: IsarSchemaMigrator.v6SchemaFingerprint,
+                databaseGenerationId: _generationId,
+                origin: IsarSchemaMarkerOrigin.freshInstall,
+                sourceSchemaVersion: null,
+                sourceSchemaFingerprint: null,
+              ).encode(),
+        );
+        final preparation = await IsarSchemaMigrator.prepareBeforeOpen(
+          store: markerStore,
+          databaseDirectoryPath: directory.path,
+          hasExistingLocalStore: true,
+        );
+        expect(preparation.result.fromVersion, 6);
+        expect(preparation.result.toVersion, 7);
+
+        isar = await Isar.open(
+          _currentSchemas,
+          directory: directory.path,
+          name: _v6FixtureName,
+        );
+        final migrated =
+            await isar.maintenanceRecords
+                .filter()
+                .firestoreIdEqualTo('legacy-maintenance-v6')
+                .findFirst();
+        expect(migrated, isNotNull);
+        expect(migrated!.description, legacyTicket.description);
+        expect(migrated.version, 9);
+        expect(migrated.isSynced, isTrue);
+        expect(migrated.reopenedByUid, isNull);
+        expect(migrated.reopenedByName, isNull);
+        expect(migrated.reopenedAt, isNull);
+        expect(migrated.reopenReason, isNull);
+
+        final migratedPendingReopen =
+            await isar.maintenanceRecords
+                .filter()
+                .firestoreIdEqualTo('legacy-pending-reopen-v6')
+                .findFirst();
+        expect(migratedPendingReopen, isNotNull);
+        expect(migratedPendingReopen!.version, 11);
+        expect(migratedPendingReopen.isSynced, isFalse);
+        expect(migratedPendingReopen.resolutionHistory, hasLength(1));
+        expect(migratedPendingReopen.reopenedByUid, isNull);
+        expect(migratedPendingReopen.reopenedByName, isNull);
+        expect(migratedPendingReopen.reopenedAt, isNull);
+        expect(migratedPendingReopen.reopenReason, isNull);
+        expect(
+          maintenanceHasLegacyPendingReopenEvidence(migratedPendingReopen),
+          isTrue,
+        );
+
+        final committed = await preparation.commitAfterSuccessfulOpen();
+        expect(committed.schemaVersion, 7);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -815,7 +1009,8 @@ void main() {
             3: <String>{IsarSchemaMigrator.v3SchemaFingerprint},
             4: <String>{IsarSchemaMigrator.v4SchemaFingerprint},
             5: <String>{IsarSchemaMigrator.v5SchemaFingerprint},
-            6: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
+            6: <String>{IsarSchemaMigrator.v6SchemaFingerprint},
+            7: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
           },
           stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
             3: (context) async {
@@ -835,6 +1030,10 @@ void main() {
             6: (context) async {
               expect(context.fromVersion, 5);
               expect(context.toVersion, 6);
+            },
+            7: (context) async {
+              expect(context.fromVersion, 6);
+              expect(context.toVersion, 7);
             },
           },
         );

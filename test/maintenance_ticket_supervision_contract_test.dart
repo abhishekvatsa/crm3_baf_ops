@@ -11,10 +11,9 @@ void main() {
         File(
           'lib/features/maintenance_workflow/domain/workflow_types.dart',
         ).readAsStringSync();
-    final ticketScreen =
-        File(
-          'lib/features/maintenance/presentation/ticket_screen.dart',
-        ).readAsStringSync();
+    final ticketScreen = readDartLibrarySource(
+      'lib/features/maintenance/presentation/ticket_screen.dart',
+    );
     final maintenanceForm =
         File(
           'lib/features/maintenance/presentation/maintenance_form.dart',
@@ -96,6 +95,9 @@ void main() {
     expect(backend, contains('maintenance-ticket-replay-audit-invalid'));
     expect(backend, contains('maintenance-ticket-route-locked'));
     expect(backend, contains('maintenance-ticket-route-department-invalid'));
+    expect(backend, contains('currentLanePlan.assigned'));
+    expect(backend, contains('.slice(1)'));
+    expect(backend, contains('.filter((lane) => lane !== effectiveRoute)'));
     expect(backend, contains('maintenance-ticket-lane-completed'));
     expect(backend, contains('maintenance-ticket-lanes-reconfigured'));
     expect(backend, contains('maintenance-ticket-resolved'));
@@ -103,6 +105,89 @@ void main() {
     expect(rules, contains("!docId.matches('^server_maintenance_ticket_.*')"));
     expect(rules, contains('validMaintenanceIssueLaneProjection'));
     expect(rules, contains('isMaintenanceIssueSupervisor'));
+  });
+
+  test('complete issue records expose only governed ticket-correction evidence', () {
+    final detailScreen = readDartLibrarySource(
+      'lib/features/maintenance/presentation/maintenance_ticket_detail_screen.dart',
+    );
+    final correctionHistory =
+        File(
+          'lib/features/maintenance/presentation/maintenance_ticket_correction_history.dart',
+        ).readAsStringSync();
+    final auditRepository =
+        File(
+          'lib/features/audit/repositories/audit_repository.dart',
+        ).readAsStringSync();
+    final rules = File('firestore.rules').readAsStringSync();
+    final indexDocument = Map<String, dynamic>.from(
+      jsonDecode(File('firestore.indexes.json').readAsStringSync()) as Map,
+    );
+    final indexes = List<Map<String, dynamic>>.from(
+      (indexDocument['indexes'] as List).map(
+        (entry) => Map<String, dynamic>.from(entry as Map),
+      ),
+    );
+
+    expect(
+      detailScreen,
+      contains('MaintenanceTicketCorrectionHistorySection('),
+    );
+    expect(
+      correctionHistory,
+      contains('maintenanceTicketCorrectionAuditProvider(cleanTicketId)'),
+    );
+    expect(correctionHistory, contains('event.performedByName'));
+    expect(correctionHistory, contains('event.reasonNotes'));
+    expect(correctionHistory, contains('final before = event.before'));
+    expect(correctionHistory, contains('final after = event.after'));
+    expect(correctionHistory, contains("'issueAssignedLanes'"));
+    expect(correctionHistory, contains("'Accountable lanes'"));
+    expect(
+      auditRepository,
+      contains(".where('entityType', isEqualTo: 'maintenance')"),
+    );
+    expect(
+      auditRepository,
+      contains(".where('entityId', isEqualTo: cleanTicketId)"),
+    );
+    expect(
+      auditRepository,
+      contains(".where('operation', isEqualTo: 'correctMaintenanceTicket')"),
+    );
+    expect(rules, contains('canReadMaintenanceTicketCorrectionAudit()'));
+    expect(
+      rules,
+      contains(
+        "resource.data.get('operation', null) == 'correctMaintenanceTicket'",
+      ),
+    );
+    expect(
+      rules,
+      contains(
+        'allow read: if isAdmin() || canReadMaintenanceTicketCorrectionAudit();',
+      ),
+    );
+    expect(
+      indexes.any((index) {
+        if (index['collectionGroup'] != 'audit_logs' ||
+            index['queryScope'] != 'COLLECTION') {
+          return false;
+        }
+        final fields = List<Map<String, dynamic>>.from(
+          (index['fields'] as List).map(
+            (entry) => Map<String, dynamic>.from(entry as Map),
+          ),
+        );
+        return fields.length == 4 &&
+            fields[0]['fieldPath'] == 'entityType' &&
+            fields[1]['fieldPath'] == 'entityId' &&
+            fields[2]['fieldPath'] == 'operation' &&
+            fields[3]['fieldPath'] == 'timestamp' &&
+            fields[3]['order'] == 'DESCENDING';
+      }),
+      isTrue,
+    );
   });
 
   test(

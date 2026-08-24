@@ -35,10 +35,10 @@ support, condition reactivation, counterconditions, and closure continue to use
 the governed compliance-request lifecycle. A workflow-deferred ticket must be
 handled through its linked compliance request.
 
-## Admin Correction
+## Audited Correction
 
-`correctMaintenanceTicket` is Admin-only and requires a clear correction
-reason. It may correct only:
+`correctMaintenanceTicket` is limited to approved Admin and SI actors and
+requires a clear correction reason. It may correct only:
 
 - description;
 - receiving route;
@@ -57,10 +57,11 @@ correction. Once acknowledgement evidence exists or work has started, the
 receiving route is locked so that one discipline's acceptance cannot be
 misattributed to another.
 
-The Admin screen reflects this boundary: asset identity and status are shown as
-locked context, while the supported fields and mandatory reason are submitted
-through the maintenance callable. The former direct client update path has been
-removed, and Firestore Rules no longer authorize generic Admin ticket edits.
+The Administration browser and closed-issue detail screen reflect this
+boundary: asset identity and status are shown as locked context, while the
+supported fields and mandatory reason are submitted through the maintenance
+callable. The former direct client update path has been removed, and Firestore
+Rules do not authorize generic ticket edits.
 
 ## Integrity Contract
 

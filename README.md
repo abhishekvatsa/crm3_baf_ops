@@ -113,11 +113,12 @@ See `docs/FIREBASE_CONFIGURATION_CUSTODY.md`.
 
 ## Isar persistence authority
 
-The current local-store contract is Isar schema v6. Authentic checked-in
+The current local-store contract is Isar schema v7. Authentic checked-in
 generated bindings contain zero `PROVISIONAL_V4_ISAR_CODEGEN` markers. Schema
 v5 added governed asset identity to workflow and equipment projections; v6
-adds operational-event issue-link projections while retaining explicit v1,
-v3, v4 and v5 fingerprints and ordered migration steps.
+added operational-event issue-link projections; v7 adds durable maintenance
+ticket reopening evidence while retaining explicit v1, v3, v4, v5 and v6
+fingerprints and ordered migration steps.
 
 Before any release claim, run:
 
@@ -127,7 +128,7 @@ dart run build_runner build --delete-conflicting-outputs
 python tools/isar/verify_v4_isar_schema.py --release
 ```
 
-The release verifier must report schema v6, zero provisional bindings and
+The release verifier must report schema v7, zero provisional bindings and
 `release_authority=YES`. Existing-store adoption, migration, quarantine and
 recovery evidence remain governed separately from successful code generation.
 

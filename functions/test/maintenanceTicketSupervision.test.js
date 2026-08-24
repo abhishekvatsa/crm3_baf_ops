@@ -15,6 +15,7 @@ const {
 const at = new Date('2026-08-14T16:30:00.000Z');
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
 const admin = actor('admin-1', ['admin']);
+const si = actor('si-1', ['si']);
 const electrical = actor('electrical-1', ['seniorElectrical']);
 const mechanical = actor('mechanical-1', ['seniorMechanical']);
 const contractSupervisor = actor('contract-1', ['contractSupervisor']);
@@ -23,7 +24,7 @@ const operations = actor('operations-1', ['operations']);
 function serviceFor(currentActor, ticket = {}) {
   const store = new MemoryWorkflowStore();
   for (const current of [
-    admin, electrical, mechanical, contractSupervisor, operations,
+    admin, si, electrical, mechanical, contractSupervisor, operations,
   ]) {
     store.seed(`users/${current.uid}`, {
       isApproved: true,
@@ -64,7 +65,7 @@ const acknowledgeCommand = (commandId = 'ack-ticket-1') => ({
 function createServiceFor(currentActor = admin) {
   const store = new MemoryWorkflowStore();
   for (const current of [
-    admin, electrical, mechanical, contractSupervisor, operations,
+    admin, si, electrical, mechanical, contractSupervisor, operations,
   ]) {
     store.seed(`users/${current.uid}`, {
       isApproved: true,
@@ -1297,8 +1298,93 @@ describe('governed maintenance-ticket supervision', () => {
         remarks: 'Initial repair completed.',
         downtimeHours: 2.5,
         teamsInvolved: ['electrical', 'mechanical'],
+        reopenedByUid: operations.uid,
+        reopenedByName: operations.name,
+        reopenedAt: at.toISOString(),
+        reopenReason: 'The same symptom returned during operation.',
       }),
     ]);
+  });
+
+  test('successive reopens preserve each lifecycle reopening event', async () => {
+    const seeded = serviceFor(operations, {
+      startDate: '2026-08-14T13:00:00.000Z',
+      status: 'resolved',
+      isResolved: true,
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T14:00:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical'],
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: ['electrical'],
+      endDate: '2026-08-14T15:30:00.000Z',
+      closedByUid: electrical.uid,
+      closedByName: electrical.name,
+      remarks: 'First repair completed.',
+      downtimeHours: 1,
+      teamsInvolved: ['electrical'],
+      actionsJson: '[]',
+      resolutionHistoryJson: '[]',
+    });
+    await seeded.service.execute({
+      commandId: 'first-reopen-cycle',
+      commandType: 'reopenMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {remarks: 'First recurrence after returning to service.'},
+    }, seeded.context);
+
+    const afterFirstReopen = seeded.store.read('maintenance_records/ticket-1');
+    seeded.store.seed('maintenance_records/ticket-1', {
+      ...afterFirstReopen,
+      version: 5,
+      status: 'resolved',
+      isResolved: true,
+      issueAcknowledgedLanes: ['electrical'],
+      issueCompletedLanes: ['electrical'],
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T16:45:00.000Z',
+      endDate: '2026-08-14T17:00:00.000Z',
+      closedByUid: contractSupervisor.uid,
+      closedByName: contractSupervisor.name,
+      remarks: 'Second repair completed.',
+      downtimeHours: 0.5,
+      teamsInvolved: ['electrical'],
+      actionsJson: '[]',
+    });
+    const secondAt = new Date('2026-08-14T17:30:00.000Z');
+    await seeded.service.execute({
+      commandId: 'second-reopen-cycle',
+      commandType: 'reopenMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 5,
+      payload: {remarks: 'Second recurrence after the follow-up repair.'},
+    }, {actor: admin, serverNow: secondAt});
+
+    const reopened = seeded.store.read('maintenance_records/ticket-1');
+    const history = JSON.parse(reopened.resolutionHistoryJson);
+    expect(history).toHaveLength(2);
+    expect(history[0]).toMatchObject({
+      resolvedAt: '2026-08-14T15:30:00.000Z',
+      reopenedByUid: operations.uid,
+      reopenedAt: at.toISOString(),
+      reopenReason: 'First recurrence after returning to service.',
+    });
+    expect(history[1]).toMatchObject({
+      resolvedAt: '2026-08-14T17:00:00.000Z',
+      reopenedByUid: admin.uid,
+      reopenedAt: secondAt.toISOString(),
+      reopenReason: 'Second recurrence after the follow-up repair.',
+    });
+    expect(reopened).toMatchObject({
+      reopenedByUid: admin.uid,
+      reopenedAt: secondAt.toISOString(),
+      reopenReason: 'Second recurrence after the follow-up repair.',
+      version: 6,
+    });
   });
 
   test('reopen accepts a persisted timestamp and absent legacy history', async () => {
@@ -1352,6 +1438,8 @@ describe('governed maintenance-ticket supervision', () => {
       expect.objectContaining({
         resolvedAt: '2026-08-14T15:30:00.000Z',
         resolvedByUid: electrical.uid,
+        reopenedByUid: operations.uid,
+        reopenedAt: at.toISOString(),
       }),
     ]);
 
@@ -1466,6 +1554,47 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('primary-route correction preserves and deduplicates secondary lanes', async () => {
+    const {store, service, context} = serviceFor(admin, {
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 4,
+      issueAssignedLanes: ['electrical', 'mechanical', 'instrumentation'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    await expect(service.execute({
+      commandId: 'correct-multi-lane-primary',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Primary accountability changed after the supervisor review.',
+        corrections: {routedTo: 'instrumentation'},
+      },
+    }, context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-corrected',
+      aggregateVersion: 4,
+    });
+
+    expect(store.read('maintenance_records/ticket-1')).toMatchObject({
+      routedTo: 'instrumentation',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 5,
+      issueAssignedLanes: ['instrumentation', 'mechanical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    const audit = store.read(
+      'audit_logs/server_maintenance_ticket_correct-multi-lane-primary',
+    );
+    expect(JSON.parse(audit.beforeJson).issueAssignedLanes).toEqual([
+      'electrical', 'mechanical', 'instrumentation',
+    ]);
+    expect(JSON.parse(audit.afterJson).issueAssignedLanes).toEqual([
+      'instrumentation', 'mechanical',
+    ]);
+  });
+
   test('admin correction preserves burner specialization and red-hot criticality', async () => {
     const burnerTicket = {
       classification: 'furnaceBurnerLockout',
@@ -1574,7 +1703,7 @@ describe('governed maintenance-ticket supervision', () => {
     }
   });
 
-  test('correction rejects non-admin, forbidden fields, and no-op changes', async () => {
+  test('correction permits SI but rejects non-supervisors and invalid changes', async () => {
     const command = {
       commandId: 'correct-ticket-1',
       commandType: 'correctMaintenanceTicket',
@@ -1588,6 +1717,15 @@ describe('governed maintenance-ticket supervision', () => {
     const denied = serviceFor(contractSupervisor);
     await expect(denied.service.execute(command, denied.context))
       .rejects.toMatchObject({code: 'permission-denied'});
+
+    const siCorrection = serviceFor(si, {status: 'resolved', isResolved: true});
+    await expect(siCorrection.service.execute({
+      ...command,
+      commandId: 'si-correct-terminal-ticket',
+    }, siCorrection.context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-corrected',
+      aggregateVersion: 4,
+    });
 
     const forbidden = serviceFor(admin);
     await expect(forbidden.service.execute({

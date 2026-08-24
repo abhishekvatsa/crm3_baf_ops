@@ -278,9 +278,9 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "2bc9574f7d12fbc2202a2e6108821feb2ffc9be0"
+        == "acf8fea58c3689a730d1ef56c61694ff3e618175"
     and post_codegen_refresh.get("sourceTree")
-        == "762ed412825c893b552634fb66a64d0fd5bd971b"
+        == "311ac9be55ddc253bc9cf2f220d2c809c292929d"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
         "lib/features/maintenance/data/maintenance_model.g.dart",
@@ -376,8 +376,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 177
-    and counts.get("SUCCESSOR_MODIFIED") == 233
+    and counts.get("BYTE_IDENTICAL") == 176
+    and counts.get("SUCCESSOR_MODIFIED") == 234
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -2979,10 +2979,11 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 6" in isar_migration
+    and "currentSchemaVersion = 7" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
     and "v5SchemaFingerprint" in isar_migration
     and "6: _addOperationalEventIssueLinkProjection" in isar_migration
+    and "7: _addMaintenanceReopenEvidenceFields" in isar_migration
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
@@ -3047,8 +3048,10 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v6" in isar_fixture_test
-    and "populated v3 compliance request migrates through v6"
+    and "repository-proven populated v1 migrates to v7" in isar_fixture_test
+    and "populated v3 compliance request migrates through v7"
+        in isar_fixture_test
+    and "populated v6 maintenance ticket migrates to v7"
         in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
@@ -9574,7 +9577,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "F476035296F5FC83CABDDB169C4E25AEE804407AAAF5418115E8924BF1AEE274"
+        == "D5A941E4A44262006E2DEDA47604CFDB33A9B265477D3A263C324022C09CF57E"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9613,7 +9616,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 71
     and a04_inventory_report.get("inventoryDigest")
-    == "CD62AB77CD76500801FB05867E1606A1F64E2FAE59220B95257F715D09A65A5D"
+    == "6A29B8F556294169B2FE8A123993FD15BF5A7B6D5A9EBC249F5274CE5D498F33"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -9889,9 +9892,9 @@ check(
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
     and a05_timestamp_inventory_report.get("readerCount") == 69
-    and a05_timestamp_inventory_report.get("directCallCount") == 163
+    and a05_timestamp_inventory_report.get("directCallCount") == 165
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 97
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 64
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 66
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
@@ -9934,7 +9937,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 45
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 48
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 35
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 372
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 373
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
@@ -10494,7 +10497,7 @@ check(
     and "does not inspect or mutate production documents" in a05_decision_7
     and "class RemoteMaintenanceTimestamps" in a05_maintenance_timestamps
     and a05_maintenance_timestamps.count("readRequiredPersistedDateTime(") == 3
-    and a05_maintenance_timestamps.count("readOptionalPersistedDateTime(") == 7
+    and a05_maintenance_timestamps.count("readOptionalPersistedDateTime(") == 8
     and "readRemoteMaintenanceRecord(" in a05_maintenance_provider
     and "readRemoteMaintenanceRecord(" in a05_live_sync
     and "readRemoteMaintenanceTimestamps(" in a05_remote_maintenance_reader
@@ -10526,8 +10529,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 177
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 233
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 176
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 234
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

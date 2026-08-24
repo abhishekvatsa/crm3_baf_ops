@@ -14,6 +14,7 @@ const {
   collection,
   query,
   where,
+  orderBy,
   Timestamp,
   serverTimestamp,
   deleteField,
@@ -1884,11 +1885,30 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketReopenMobile"), {
+        isResolved: false,
+        status: "open",
+        reopenedByUid: "ops1",
+        reopenedAt,
+        reopenReason: "Issue recurred during operation.",
+        updatedAt: reopenedAt,
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
 
     await assertSucceeds(
       updateDoc(doc(db, "maintenance_records/ticketReopenMobile"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Issue recurred during operation.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -1907,7 +1927,7 @@ describe("maintenance_records", () => {
             teamsInvolved: ["mechanical"],
           },
         ]),
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -1945,11 +1965,16 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
 
     await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketReopenInvariant"), {
         isResolved: false,
         status: "resolved",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Status mismatch should fail.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -1958,7 +1983,7 @@ describe("maintenance_records", () => {
         actionsJson: "[]",
         remarks: "Status mismatch should fail.",
         resolutionHistoryJson: "[]",
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -1969,6 +1994,10 @@ describe("maintenance_records", () => {
       updateDoc(doc(db, "maintenance_records/ticketReopenInvariant"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Uncleared close fields should fail.",
         endDate: closedAt,
         closedByUid: "seniorMech",
         closedByName: "Senior Mechanical",
@@ -1977,7 +2006,7 @@ describe("maintenance_records", () => {
         actionsJson: "[]",
         remarks: "Uncleared close fields should fail.",
         resolutionHistoryJson: "[]",
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -2014,11 +2043,16 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
 
     await assertFails(
       updateDoc(doc(db, "maintenance_records/ticketReopenPayloadInvariant"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Teams must be cleared on reopen.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -2037,7 +2071,7 @@ describe("maintenance_records", () => {
             teamsInvolved: ["mechanical"],
           },
         ]),
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -2048,6 +2082,10 @@ describe("maintenance_records", () => {
       updateDoc(doc(db, "maintenance_records/ticketReopenPayloadInvariant"), {
         isResolved: false,
         status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt,
+        reopenReason: "Actions must be cleared on reopen.",
         endDate: null,
         closedByUid: null,
         closedByName: null,
@@ -2066,7 +2104,7 @@ describe("maintenance_records", () => {
             teamsInvolved: ["mechanical"],
           },
         ]),
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -2104,6 +2142,7 @@ describe("maintenance_records", () => {
     });
 
     const db = dbAs("ops1");
+    const reopenedAt = new Date().toISOString();
 
     await assertSucceeds(
       updateDoc(doc(db, "maintenance_records/ticketReopen"), {
@@ -2111,9 +2150,9 @@ describe("maintenance_records", () => {
         status: "open",
         reopenedByUid: "ops1",
         reopenedByName: "Operations User",
-        reopenedAt: new Date().toISOString(),
+        reopenedAt,
         reopenReason: "Issue recurred during operation.",
-        updatedAt: new Date().toISOString(),
+        updatedAt: reopenedAt,
         updatedByUid: "ops1",
         updatedByName: "Operations User",
         version: 3,
@@ -3616,6 +3655,79 @@ describe("audit_logs", () => {
     await assertFails(getDocs(collection(unauthenticatedDb, "audit_logs")));
   });
 
+  test("approved users can read only governed maintenance correction audits", async () => {
+    await seedUser("unapprovedOps", ["operations"], false);
+    const correctionId = "server_maintenance_ticket_correct-ticket1";
+    await seedDoc(`audit_logs/${correctionId}`, {
+      schemaVersion: 1,
+      auditId: correctionId,
+      entityType: "maintenance",
+      entityId: "ticket1",
+      action: "update",
+      operation: "correctMaintenanceTicket",
+      performedByUid: "admin1",
+      performedByName: "Admin One",
+      timestamp: "2026-08-24T06:30:00.000Z",
+      reason: "manualOverride",
+      reasonNotes: "Corrected after checking the field record.",
+      summary: "Maintenance ticket corrected: description",
+      severity: "medium",
+      beforeJson: JSON.stringify({description: "Old description"}),
+      afterJson: JSON.stringify({description: "Corrected description"}),
+      requestId: "correct-ticket1",
+      resultVersion: 4,
+    });
+    await seedDoc("audit_logs/server_maintenance_ticket_ack-ticket1", {
+      schemaVersion: 1,
+      auditId: "server_maintenance_ticket_ack-ticket1",
+      entityType: "maintenance",
+      entityId: "ticket1",
+      action: "update",
+      operation: "acknowledgeMaintenanceTicket",
+      performedByUid: "ops1",
+      performedByName: "Operations User",
+      timestamp: "2026-08-24T06:00:00.000Z",
+      reason: "other",
+      reasonNotes: "Issue acknowledged.",
+      summary: "Maintenance ticket acknowledged",
+      severity: "low",
+      beforeJson: "{}",
+      afterJson: "{}",
+      requestId: "ack-ticket1",
+      resultVersion: 2,
+    });
+    const db = dbAs("ops1");
+
+    await assertSucceeds(getDoc(doc(db, `audit_logs/${correctionId}`)));
+    const correctionQuery = await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, "audit_logs"),
+          where("entityType", "==", "maintenance"),
+          where("entityId", "==", "ticket1"),
+          where("operation", "==", "correctMaintenanceTicket"),
+          orderBy("timestamp", "desc")
+        )
+      )
+    );
+    expect(correctionQuery.size).toBe(1);
+    await assertFails(
+      getDoc(doc(db, "audit_logs/server_maintenance_ticket_ack-ticket1"))
+    );
+    await assertFails(getDocs(collection(db, "audit_logs")));
+    await assertFails(
+      getDoc(doc(dbAs("unapprovedOps"), `audit_logs/${correctionId}`))
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          testEnv.unauthenticatedContext().firestore(),
+          `audit_logs/${correctionId}`
+        )
+      )
+    );
+  });
+
   test("revocation denies the next audit read on the existing session", async () => {
     await seedUser("revokedAdmin", ["admin"]);
     await seedDoc("audit_logs/sharedAudit", auditEventPayload());
@@ -3667,6 +3779,13 @@ describe("audit_logs", () => {
         performedByUid: "ops1",
         timestamp: "not-a-timestamp",
         severity: "extreme",
+      })
+    );
+
+    await assertFails(
+      setDoc(doc(db, "audit_logs/auditForgedCorrection"), {
+        ...auditEventPayload(),
+        operation: "correctMaintenanceTicket",
       })
     );
   });

@@ -26,6 +26,7 @@ import '../domain/burner_lockout_case.dart';
 
 part 'maintenance_provider.local.dart';
 part 'maintenance_provider.copy.dart';
+part 'maintenance_provider.reopen.dart';
 part 'maintenance_provider.remote.dart';
 
 const maintenancePairedBatchMaximum = 166;
