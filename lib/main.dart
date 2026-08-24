@@ -547,13 +547,33 @@ class CrmBafApp extends ConsumerStatefulWidget {
   ConsumerState<CrmBafApp> createState() => _CrmBafAppState();
 }
 
+class _KeyboardBackNavigatorObserver extends NavigatorObserver {
+  ModalRoute<dynamic>? topRoute;
+
+  @override
+  void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
+    this.topRoute = topRoute is ModalRoute<dynamic> ? topRoute : null;
+  }
+}
+
+class _KeyboardPredictiveBackEntry extends PopEntry<Object?> {
+  @override
+  final ValueNotifier<bool> canPopNotifier = ValueNotifier<bool>(false);
+
+  void dispose() => canPopNotifier.dispose();
+}
+
 class _CrmBafAppState extends ConsumerState<CrmBafApp>
     with WidgetsBindingObserver {
+  final _navigatorObserver = _KeyboardBackNavigatorObserver();
   StartupFailure? _startupFailure;
   bool _isRetryingLocalDatabaseOpen = false;
   bool _isBackingUpLocalDatabase = false;
   bool _isRebuildingLocalDatabase = false;
   String? _startupRecoveryMessage;
+  ModalRoute<dynamic>? _predictiveBackRoute;
+  _KeyboardPredictiveBackEntry? _predictiveBackEntry;
+  FocusNode? _predictiveBackFocus;
 
   @override
   void initState() {
@@ -564,12 +584,12 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
 
   @override
   void dispose() {
+    _clearPredictiveKeyboardBack();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  @override
-  Future<bool> didPopRoute() {
+  FocusNode? _focusedEditorForVisibleKeyboard() {
     final view = View.maybeOf(context);
     final primaryFocus = FocusManager.instance.primaryFocus;
     final focusedEditor =
@@ -578,11 +598,65 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
         view.viewInsets.bottom <= 0 ||
         primaryFocus == null ||
         focusedEditor == null) {
+      return null;
+    }
+
+    return primaryFocus;
+  }
+
+  void _clearPredictiveKeyboardBack() {
+    final route = _predictiveBackRoute;
+    final entry = _predictiveBackEntry;
+    _predictiveBackRoute = null;
+    _predictiveBackEntry = null;
+    _predictiveBackFocus = null;
+
+    if (route != null && entry != null) {
+      route.unregisterPopEntry(entry);
+    }
+    entry?.dispose();
+  }
+
+  @override
+  Future<bool> didPopRoute() {
+    final focusedEditor = _focusedEditorForVisibleKeyboard();
+    if (focusedEditor == null) {
       return Future<bool>.value(false);
     }
 
-    primaryFocus.unfocus();
+    focusedEditor.unfocus();
     return Future<bool>.value(true);
+  }
+
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    _clearPredictiveKeyboardBack();
+    final focusedEditor = _focusedEditorForVisibleKeyboard();
+    final route = _navigatorObserver.topRoute;
+    if (focusedEditor == null || route == null || !route.isCurrent) {
+      return false;
+    }
+
+    final entry = _KeyboardPredictiveBackEntry();
+    route.registerPopEntry(entry);
+    _predictiveBackRoute = route;
+    _predictiveBackEntry = entry;
+    _predictiveBackFocus = focusedEditor;
+    return true;
+  }
+
+  @override
+  void handleCommitBackGesture() {
+    final focusedEditor = _predictiveBackFocus;
+    _clearPredictiveKeyboardBack();
+    if (focusedEditor?.hasFocus ?? false) {
+      focusedEditor!.unfocus();
+    }
+  }
+
+  @override
+  void handleCancelBackGesture() {
+    _clearPredictiveKeyboardBack();
   }
 
   @override
@@ -861,6 +935,7 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
       title: BafBrand.productName,
       debugShowCheckedModeBanner: false,
       theme: BafAppTheme.light,
+      navigatorObservers: <NavigatorObserver>[_navigatorObserver],
       home: _buildStartupHome(),
     );
   }
