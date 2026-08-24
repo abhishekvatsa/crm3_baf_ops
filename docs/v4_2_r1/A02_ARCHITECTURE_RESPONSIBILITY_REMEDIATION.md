@@ -25,7 +25,7 @@ The 24 August 2026 authority-lifecycle re-arm re-ran this inventory. It now
 classifies 46 hotspots, including the inspection, frequent-issue,
 maintenance-intelligence and actor-scoped operational-event workspaces, with
 digest
-`EC34D051D12481DE2105A4A9CD85F61145A4AD35DC92C8FE2DA76A0F2A8CCBCA`.
+`38160F4EA61B1CE7C7A1F28216ABC9D6B51F3C13719BCA8BFED0AA19B620A3F0`.
 No presentation surface acquired direct database ownership.
 
 ## Decomposition

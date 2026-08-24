@@ -18,6 +18,7 @@ import 'package:crm3_baf_ops/features/operational_events/presentation/operationa
 import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,7 +97,7 @@ void main() {
       tester,
       screen: const ComplianceNotificationScreen(complianceId: 'request-1'),
       overrides: [
-        workflowComplianceRecordProvider.overrideWith((ref, complianceId) {
+        workflowComplianceRecordProvider.overrideWith((ref, scope) {
           reads++;
           throw StateError('compliance record must not be read');
         }),
@@ -130,7 +131,7 @@ void main() {
               _approvedActor(AppRole.seniorMechanical),
             ),
           ),
-          workflowComplianceRecordProvider.overrideWith((ref, complianceId) {
+          workflowComplianceRecordProvider.overrideWith((ref, scope) {
             reads++;
             return Future.value(request);
           }),
@@ -146,6 +147,99 @@ void main() {
     expect(find.text(request.description), findsNothing);
     expect(reads, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  test('compliance lookup does not reuse an earlier actor offline', () async {
+    final actors = StreamController<AppUser?>();
+    var pointReads = 0;
+    final request =
+        ComplianceRequestRecord()
+          ..firestoreId = 'request-1'
+          ..linkedWorkflowId = 'workflow-1'
+          ..title = 'Operations support'
+          ..description = 'Actor A server-proved description.'
+          ..targetLaneKey = 'mech'
+          ..originLaneKey = 'elec'
+          ..raisedByUid = 'operations-raiser'
+          ..statusKey = 'raised';
+    addTearDown(actors.close);
+
+    final container = ProviderContainer(
+      overrides: [
+        currentAppUserProvider.overrideWith((ref) => actors.stream),
+        workflowCompliancePointReaderProvider.overrideWith((ref) {
+          return (complianceId) async {
+            pointReads++;
+            if (pointReads == 1) return request;
+            throw FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'unavailable',
+            );
+          };
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final firstActor = container.read(currentAppUserProvider.future);
+    actors.add(_approvedActor(AppRole.seniorMechanical));
+    await firstActor;
+    const actorAScope = (
+      actorUid: 'approved-seniorMechanical',
+      complianceId: 'request-1',
+    );
+    final first = await container.read(
+      workflowComplianceRecordProvider(actorAScope).future,
+    );
+    expect(first?.description, request.description);
+
+    container.invalidate(workflowComplianceRecordProvider(actorAScope));
+    final sameActorOffline = await container.read(
+      workflowComplianceRecordProvider(actorAScope).future,
+    );
+    expect(sameActorOffline?.description, request.description);
+
+    actors.add(_approvedActor(AppRole.admin));
+    await _waitForActor(container, 'approved-admin');
+    await expectLater(
+      container.read(
+        workflowComplianceRecordProvider((
+          actorUid: 'approved-admin',
+          complianceId: 'request-1',
+        )).future,
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(pointReads, 3);
+  });
+
+  test('compliance session cache retains only the continuous actor', () {
+    final request = ComplianceRequestRecord()..firestoreId = 'request-1';
+    final cache = ActorSessionComplianceCache()..observeActor('actor-a');
+
+    expect(
+      cache.remember(
+        actorUid: 'actor-a',
+        complianceId: 'request-1',
+        record: request,
+      ),
+      isTrue,
+    );
+    expect(cache.lookup(actorUid: 'actor-a', complianceId: 'request-1'), (
+      isTrusted: true,
+      record: request,
+    ));
+
+    cache.observeActor('actor-b');
+    expect(
+      cache.lookup(actorUid: 'actor-b', complianceId: 'request-1').isTrusted,
+      isFalse,
+    );
+    cache.observeActor(null);
+    expect(
+      cache.lookup(actorUid: 'actor-a', complianceId: 'request-1').isTrusted,
+      isFalse,
+    );
   });
 
   testWidgets('event issue links reject before event and link reads', (
@@ -488,4 +582,12 @@ OperationalEvent _event() {
     updatedByName: 'Operations One',
     lastMutationId: 'event-create-1',
   );
+}
+
+Future<void> _waitForActor(ProviderContainer container, String uid) async {
+  for (var attempt = 0; attempt < 50; attempt++) {
+    if (container.read(currentAppUserProvider).value?.uid == uid) return;
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+  }
+  fail('Timed out waiting for actor $uid.');
 }

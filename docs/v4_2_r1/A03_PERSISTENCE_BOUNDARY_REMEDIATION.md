@@ -44,9 +44,12 @@ the exact digest. Cache-origin snapshots are admitted only after the same
 continuous approved actor and exact query have received server confirmation;
 loading, error, revocation, sign-out, or UID change clears that in-memory
 trust, while a confirmed same-actor query remains usable offline. The current
-manifest therefore covers 507 operations and 1,613 sites across 49 surfaces
+actor-scoped compliance lookup now obtains each record through a server-only
+point read and permits offline fallback only from an exact record proved during
+the same continuous approved-actor session. The current manifest therefore
+covers 508 operations and 1,615 sites across 49 surfaces
 with digest
-`58AD53029F7DC46021D7392BB36E310A0AFBAE0FF341C5D1D564E61C5D4B5E2E`;
+`DAEEE0300982926C13C1D6F671E110AD3D6ACB95CD39154D72E6BF13C017E044`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

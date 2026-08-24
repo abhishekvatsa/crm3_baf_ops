@@ -7799,6 +7799,10 @@ ui_equipment_source = text(
 ui_workflow_provider_source = text(
     "lib/features/maintenance_workflow/providers/workflow_providers.dart"
 )
+ui_workflow_read_repository_source = text(
+    "lib/features/maintenance_workflow/repositories/"
+    "firestore_workflow_read_repository.dart"
+)
 ui_planned_detail_source = text(
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart"
 )
@@ -7829,10 +7833,13 @@ check(
     and "module: BafModules.charges" not in ui_home_source
     and "canDeployMaintenanceEquipment" in ui_user_source
     and "row.stateKey == 'available' && canDeploy" in ui_equipment_source
-    and "final local = await repository.getComplianceById(id)"
-        in ui_workflow_provider_source
-    and "await ref.read(workflowPullServiceProvider).pull()"
-        in ui_workflow_provider_source
+    and "typedef WorkflowComplianceRecordScope" in ui_workflow_provider_source
+    and "workflowCompliancePointReaderProvider" in ui_workflow_provider_source
+    and "ActorSessionComplianceCache" in ui_workflow_provider_source
+    and "_isOfflineCompliancePointRead" in ui_workflow_provider_source
+    and "fetchComplianceById" in ui_workflow_read_repository_source
+    and "GetOptions(source: Source.server)"
+        in ui_workflow_read_repository_source
     and "final showBottomActions =" in ui_planned_detail_source
     and "if (!execution.isGovernedTemplateAssignment)" in ui_planned_detail_source
     and "if (!widget.execution.isGovernedTemplateAssignment"
@@ -9530,7 +9537,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "58AD53029F7DC46021D7392BB36E310A0AFBAE0FF341C5D1D564E61C5D4B5E2E"
+        == "DAEEE0300982926C13C1D6F671E110AD3D6ACB95CD39154D72E6BF13C017E044"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9554,7 +9561,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "507 operations" in a03_remediation
+    and "508 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(

@@ -10,8 +10,8 @@ import '../../providers/workflow_providers.dart';
 import 'compliance_detail_screen.dart';
 import 'compliance_inbox_screen.dart';
 
-/// Resolves a notification's exact compliance record from the local
-/// projection, refreshing once from the governed pull path when necessary.
+/// Resolves a notification's exact compliance record under the current
+/// approved actor session.
 class ComplianceNotificationScreen extends ConsumerWidget {
   final String complianceId;
   final String? laneKey;
@@ -54,8 +54,9 @@ class ComplianceNotificationScreen extends ConsumerWidget {
         message: 'An approved account is required to open compliance updates.',
       );
     }
+    final recordScope = (actorUid: actor.uid, complianceId: complianceId);
     final recordAsync = ref.watch(
-      workflowComplianceRecordProvider(complianceId),
+      workflowComplianceRecordProvider(recordScope),
     );
 
     return recordAsync.when(
@@ -76,7 +77,7 @@ class ComplianceNotificationScreen extends ConsumerWidget {
             laneKey: laneKey,
             onRetry:
                 () => ref.invalidate(
-                  workflowComplianceRecordProvider(complianceId),
+                  workflowComplianceRecordProvider(recordScope),
                 ),
           ),
       data: (record) {
@@ -88,7 +89,7 @@ class ComplianceNotificationScreen extends ConsumerWidget {
             laneKey: laneKey,
             onRetry:
                 () => ref.invalidate(
-                  workflowComplianceRecordProvider(complianceId),
+                  workflowComplianceRecordProvider(recordScope),
                 ),
           );
         }
