@@ -775,6 +775,7 @@ export const createLegacyWorkflowJob: CommandHandler = async ({tx, command, cont
     assetClassId,
     assetInstanceId,
     isCompleted: false,
+    isCancelled: false,
     assignedByUid: context.actor.uid,
     assignedByName: context.actor.name,
     assignedAgencies,

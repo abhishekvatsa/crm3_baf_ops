@@ -1,22 +1,17 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
-import '../../../audit/models/audit_event_model.dart';
-import '../../../auth/providers/auth_provider.dart';
 import '../../../planned_maintenance/data/job_template_model.dart';
-import '../../../planned_maintenance/providers/planned_maintenance_provider.dart';
+import '../../../planned_maintenance/presentation/planned_job_detail_screen.dart';
 import '../../providers/admin_stream_providers.dart';
 import '../../utils/admin_search_sort_helpers.dart';
 import 'admin_data_browser_shared.dart';
-import 'admin_delete_reason_dialog.dart';
 
 // ============================================================================
-// EXECUTIONS BROWSER (delete only – no edit)
+// EXECUTIONS BROWSER (read-only audit and dossier access)
 // ============================================================================
 
 class ExecutionsBrowser extends ConsumerStatefulWidget {
@@ -126,12 +121,16 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
     final statusColor =
         execution.isDeleted
             ? BafColors.textSecondary
+            : execution.isCancelled
+            ? BafColors.warning
             : execution.isCompleted
             ? BafColors.success
-            : BafColors.warning;
+            : BafColors.planned;
     final statusLabel =
         execution.isDeleted
             ? 'DELETED'
+            : execution.isCancelled
+            ? 'CANCELLED'
             : execution.isCompleted
             ? 'COMPLETED'
             : 'OPEN';
@@ -148,6 +147,12 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
         side: const BorderSide(color: BafColors.border),
       ),
       child: ListTile(
+        onTap:
+            () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PlannedJobDetailScreen(execution: execution),
+              ),
+            ),
         leading: Container(
           width: 10,
           height: 46,
@@ -194,8 +199,26 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
                           'Done ${DateFormat('dd MMM yyyy').format(execution.completedAt!)}',
                       color: BafColors.success,
                     ),
+                  if (execution.cancelledAt != null)
+                    AdminChip(
+                      label:
+                          'Cancelled ${DateFormat('dd MMM yyyy').format(execution.cancelledAt!)}',
+                      color: BafColors.warning,
+                    ),
                 ],
               ),
+              if (execution.isCancelled &&
+                  execution.cancellationReason != null &&
+                  execution.cancellationReason!.trim().isNotEmpty) ...[
+                const SizedBox(height: BafSpacing.xs),
+                Text(
+                  execution.cancellationReason!.trim(),
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
               if (execution.assignedByName != null &&
                   execution.assignedByName!.trim().isNotEmpty) ...[
                 const SizedBox(height: BafSpacing.xs),
@@ -210,90 +233,11 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
             ],
           ),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!execution.isDeleted)
-              IconButton(
-                tooltip: 'Mark deleted',
-                icon: const Icon(Icons.delete, color: BafColors.danger),
-                onPressed: () => _confirmDelete(execution),
-              )
-            else
-              const AdminChip(label: 'DELETED', color: BafColors.textSecondary),
-          ],
+        trailing: const Tooltip(
+          message: 'View complete planned-job dossier',
+          child: Icon(Icons.chevron_right_rounded),
         ),
       ),
     );
-  }
-
-  Future<void> _confirmDelete(JobExecution execution) async {
-    final appUser = ref.read(currentAppUserProvider).value;
-    if (appUser == null) {
-      showAdminDataSnack(
-        context,
-        'Admin identity is still loading. Try again.',
-        color: BafColors.warning,
-      );
-      return;
-    }
-
-    final decision = await showDialog<AdminDeleteDecision>(
-      context: context,
-      builder:
-          (_) => const AdminDeleteReasonDialog(
-            title: 'Mark Execution as Deleted',
-            message:
-                'Mark this as deleted? It will be hidden from active records but retained for audit and recovery.',
-          ),
-    );
-    if (!mounted || decision == null) return;
-
-    final id = kIsWeb ? execution.firestoreId : execution.id;
-    if (id == null) {
-      showAdminDataSnack(
-        context,
-        'Execution does not have a valid local/remote id.',
-        color: BafColors.warning,
-      );
-      return;
-    }
-
-    try {
-      if (!appUser.canDeleteJobExecution) {
-        throw StateError(
-          'Admin authority required to delete planned job executions.',
-        );
-      }
-      final repository = ref.read(plannedRepositoryProvider);
-      final syncCoordinator = ref.read(syncCoordinatorProvider);
-
-      await repository.deleteExecution(
-        id,
-        actor: appUser,
-        auditContext: AuditContext(
-          performedByUid: appUser.uid,
-          performedByName: appUser.name,
-          reason: decision.reason,
-          reasonNotes: decision.notes,
-          before: execution.toAuditMap(),
-        ),
-      );
-
-      final syncOutcome = await syncCoordinator.runFullSyncWithResult(
-        reason: 'admin_execution_deleted',
-        force: true,
-      );
-
-      if (!mounted) return;
-      showAdminMutationSyncOutcome(
-        context,
-        action: 'Execution deletion',
-        outcome: syncOutcome,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);
-    }
   }
 }

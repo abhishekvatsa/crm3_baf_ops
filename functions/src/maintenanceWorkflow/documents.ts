@@ -1,6 +1,6 @@
 import {WorkflowTransaction} from "./store";
 import {ComplianceDoc, LaneDoc, WorkflowDoc} from "./types";
-import {compliancePath} from "./paths";
+import {compliancePath, executionPath} from "./paths";
 import {WorkflowError} from "./errors";
 import {workflowPath} from "./paths";
 
@@ -50,6 +50,41 @@ export const requireMutableWorkflow = async (
 ): Promise<WorkflowDoc> => {
   const workflow = await requireWorkflow(tx, id);
   assertWorkflowMutable(workflow);
+  if (workflow.workflowKind !== "issueCoordination") {
+    const executionId = typeof workflow.jobExecutionId === "string" &&
+        workflow.jobExecutionId.trim().length > 0 ?
+      workflow.jobExecutionId.trim() :
+      id;
+    const execution = await tx.get(executionPath(executionId));
+    if (!execution.exists || execution.data == null) {
+      throw new WorkflowError(
+        "not-found",
+        "The workflow parent job execution was not found.",
+        {reasonCode: "parent-execution-missing", executionId},
+      );
+    }
+    if (execution.data.isDeleted === true) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Deleted parent job execution cannot accept workflow mutations.",
+        {reasonCode: "parent-execution-deleted", executionId},
+      );
+    }
+    if (execution.data.isCompleted === true) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Completed parent execution conflicts with a mutable workflow.",
+        {reasonCode: "parent-execution-completed-workflow-open", executionId},
+      );
+    }
+    if (execution.data.isCancelled === true) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Cancelled parent execution conflicts with a mutable workflow.",
+        {reasonCode: "parent-execution-cancelled-workflow-open", executionId},
+      );
+    }
+  }
   return workflow;
 };
 

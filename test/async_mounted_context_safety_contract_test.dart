@@ -255,14 +255,6 @@ void main() {
             awaitMarker: 'await repository.deleteTemplate(',
             syncReason: 'admin_template_deleted',
           ),
-          const _AdminMutationExpectation(
-            sectionMarker:
-                'class ExecutionsBrowser extends ConsumerStatefulWidget',
-            methodMarker: 'Future<void> _confirmDelete',
-            repositoryProvider: 'plannedRepositoryProvider',
-            awaitMarker: 'await repository.deleteExecution(',
-            syncReason: 'admin_execution_deleted',
-          ),
         ]) {
           final sectionStart = source.indexOf(expectation.sectionMarker);
           expect(
@@ -293,6 +285,15 @@ void main() {
           expect(body, contains('syncCoordinator.runFullSync'));
           expect(body, contains(expectation.syncReason));
         }
+
+        final executionSection = source.substring(
+          source.indexOf(
+            'class ExecutionsBrowser extends ConsumerStatefulWidget',
+          ),
+        );
+        expect(executionSection, contains('PlannedJobDetailScreen('));
+        expect(executionSection, isNot(contains('deleteExecution(')));
+        expect(executionSection, isNot(contains('admin_execution_deleted')));
 
         final ticketSection = source.indexOf(
           'class TicketsBrowser extends ConsumerStatefulWidget',

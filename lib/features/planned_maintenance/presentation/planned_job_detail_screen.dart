@@ -123,6 +123,7 @@ class _PlannedJobDetailScreenState
   }
 
   Future<void> _openCompletionScreen() async {
+    if (!_ensureExecutionOpen()) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -131,10 +132,26 @@ class _PlannedJobDetailScreenState
     );
   }
 
+  bool _ensureExecutionOpen() {
+    if (!widget.execution.isTerminal) return true;
+    final status = widget.execution.isCancelled ? 'cancelled' : 'completed';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('This planned job is $status. Its dossier is read-only.'),
+        backgroundColor: BafColors.warning,
+      ),
+    );
+    return false;
+  }
+
   Future<void> _classifyMaintenance(
     List<MaintenanceClassDefinition> definitions,
   ) async {
     final execution = widget.execution;
+    if (execution.isCancelled) {
+      _ensureExecutionOpen();
+      return;
+    }
     final applicable = definitions
         .where(
           (definition) => definition.appliesTo(
@@ -267,6 +284,7 @@ class _PlannedJobDetailScreenState
   }
 
   Future<void> _openAddDiaryEntrySheet() async {
+    if (!_ensureExecutionOpen()) return;
     AppUser? actor;
     try {
       actor = await ref.read(currentAppUserProvider.future);
@@ -463,6 +481,7 @@ class _PlannedJobDetailScreenState
   Future<void> _openAddJobModuleSheet(
     List<JobModuleInstance> currentModules,
   ) async {
+    if (!_ensureExecutionOpen()) return;
     AppUser? actor;
     try {
       actor = await ref.read(currentAppUserProvider.future);
@@ -635,6 +654,8 @@ class _PlannedJobDetailScreenState
   @override
   Widget build(BuildContext context) {
     final execution = widget.execution;
+    final isTerminal = execution.isTerminal;
+    final terminalSectionLabel = execution.isCancelled ? 'Cancelled' : 'Closed';
     final actionRead = execution.actionsReadResult;
     final responseRead = execution.responsesReadResult;
     final innerCoverPositionRead =
@@ -647,6 +668,7 @@ class _PlannedJobDetailScreenState
       execution.metadataJson,
     );
     final canClassify =
+        !execution.isCancelled &&
         _hasText(execution.firestoreId) &&
         (execution.isCompleted
             ? actor?.canClassifyCompletedMaintenance ?? false
@@ -654,14 +676,19 @@ class _PlannedJobDetailScreenState
     final canAddDiaryEntry = actor?.canCreateJobDiaryEntry ?? false;
     final canAddModule = actor?.canAddJobModuleDuringExecution ?? false;
     final canCompleteJob =
+        !isTerminal &&
         (actor?.canCompleteJobExecution ?? false) &&
         actionRead.isValid &&
         responseRead.isValid &&
         innerCoverPositionRead.isValid;
     final showBottomActions =
-        !execution.isCompleted && (canAddDiaryEntry || canCompleteJob);
+        !isTerminal && (canAddDiaryEntry || canCompleteJob);
     final statusColor =
-        execution.isCompleted ? BafColors.sync : BafColors.warning;
+        execution.isCompleted
+            ? BafColors.sync
+            : execution.isCancelled
+            ? BafColors.warning
+            : BafColors.planned;
     final diaryAsync = ref.watch(
       jobDiaryEntriesProvider(
         JobDiaryQueryKey(
@@ -677,6 +704,7 @@ class _PlannedJobDetailScreenState
           jobExecutionFirestoreId: _cleanOptionalString(execution.firestoreId),
           jobExecutionLocalId: kIsWeb ? null : execution.id,
           limit: 100,
+          includeDeleted: execution.isCancelled,
         ),
       ),
     );
@@ -733,7 +761,7 @@ class _PlannedJobDetailScreenState
             const SizedBox(height: BafSpacing.lg),
             PlannedJobWorkflowPanel(
               workflowId: execution.firestoreId!.trim(),
-              jobCompleted: execution.isCompleted,
+              jobTerminal: isTerminal,
             ),
           ],
           const SizedBox(height: BafSpacing.lg),
@@ -754,7 +782,9 @@ class _PlannedJobDetailScreenState
               ] else ...[
                 _WarningBox(
                   text:
-                      execution.isCompleted
+                      execution.isCancelled
+                          ? 'This cancelled job has no frozen maintenance class. Classification is locked because no maintenance completion occurred.'
+                          : execution.isCompleted
                           ? 'Classification pending. This completion has not reset a preventive-maintenance counter.'
                           : 'No maintenance class is frozen yet. Completion will remain classification pending.',
                 ),
@@ -776,7 +806,7 @@ class _PlannedJobDetailScreenState
               ],
             ],
           ),
-          if (execution.isCompleted) ...[
+          if (isTerminal) ...[
             const SizedBox(height: BafSpacing.lg),
             _ClosedDossierStatusCard(execution: execution),
           ],
@@ -838,7 +868,12 @@ class _PlannedJobDetailScreenState
               ],
               _InfoRow(
                 label: 'Status',
-                value: execution.isCompleted ? 'Completed' : 'Open / Pending',
+                value:
+                    execution.isCompleted
+                        ? 'Completed'
+                        : execution.isCancelled
+                        ? 'Cancelled'
+                        : 'Open / Pending',
               ),
               _InfoRow(
                 label: 'Assigned on',
@@ -859,19 +894,33 @@ class _PlannedJobDetailScreenState
                   label: 'Completed on',
                   value: _formatDateTime(execution.completedAt!),
                 ),
-              if (_hasText(execution.completedByName))
+              if (execution.isCompleted && _hasText(execution.completedByName))
                 _InfoRow(
                   label: 'Completed by',
                   value: execution.completedByName!.trim(),
+                ),
+              if (execution.isCancelled && execution.cancelledAt != null)
+                _InfoRow(
+                  label: 'Cancelled on',
+                  value: _formatDateTime(execution.cancelledAt!),
+                ),
+              if (execution.isCancelled && _hasText(execution.cancelledByName))
+                _InfoRow(
+                  label: 'Cancelled by',
+                  value: execution.cancelledByName!.trim(),
+                ),
+              if (execution.isCancelled &&
+                  _hasText(execution.cancellationReason))
+                _InfoRow(
+                  label: 'Cancellation reason',
+                  value: execution.cancellationReason!.trim(),
                 ),
               _ChipInfoRow(
                 label: 'Teams involved',
                 values: execution.teamsInvolved,
                 colorFor: _agencyColor,
                 emptyText:
-                    execution.isCompleted
-                        ? 'No teams recorded'
-                        : 'Not submitted yet',
+                    isTerminal ? 'No teams recorded' : 'Not submitted yet',
               ),
               _InfoRow(
                 label: 'Last updated',
@@ -901,18 +950,18 @@ class _PlannedJobDetailScreenState
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
             title:
-                execution.isCompleted
-                    ? 'Closed process modules'
+                isTerminal
+                    ? '$terminalSectionLabel process modules'
                     : 'Process modules',
             subtitle:
-                execution.isCompleted
-                    ? 'Read-only module evidence, lifecycle decisions and structured responses captured before closure.'
+                isTerminal
+                    ? 'Read-only module evidence, lifecycle decisions and structured responses captured before ${execution.isCancelled ? 'cancellation' : 'closure'}.'
                     : 'Published governed runtime-add catalogue first, with Emergency/manual seed catalogue fallback.',
             icon: Icons.account_tree_rounded,
             children: [
               _ProcessModuleDossier(
                 modulesAsync: modulesAsync,
-                isOpenJob: !execution.isCompleted,
+                isOpenJob: !isTerminal,
                 onAddModule: canAddModule ? _openAddJobModuleSheet : null,
                 onOpenModule: _openModuleWorkspace,
               ),
@@ -921,18 +970,18 @@ class _PlannedJobDetailScreenState
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
             title:
-                execution.isCompleted
-                    ? 'Closed diary / handover'
+                isTerminal
+                    ? '$terminalSectionLabel diary / handover'
                     : 'Live diary / handover',
             subtitle:
-                execution.isCompleted
-                    ? 'Read-only running notes, blockers and handovers preserved with the closed dossier.'
+                isTerminal
+                    ? 'Read-only running notes, blockers and handovers preserved with the terminal dossier.'
                     : 'Running notes, blockers and shift handovers attached to this planned job.',
             icon: Icons.forum_rounded,
             children: [
               _DiaryDossier(
                 entriesAsync: diaryAsync,
-                isOpenJob: !execution.isCompleted,
+                isOpenJob: !isTerminal,
                 onAddEntry: canAddDiaryEntry ? _openAddDiaryEntrySheet : null,
               ),
             ],
@@ -941,12 +990,12 @@ class _PlannedJobDetailScreenState
             const SizedBox(height: BafSpacing.lg),
             _SectionCard(
               title:
-                  execution.isCompleted
-                      ? 'Closed checklist responses'
+                  isTerminal
+                      ? '$terminalSectionLabel checklist responses'
                       : 'Checklist responses',
               subtitle:
-                  execution.isCompleted
-                      ? 'Final legacy checklist responses preserved as the submitted job evidence.'
+                  isTerminal
+                      ? 'Legacy checklist responses preserved as read-only terminal evidence.'
                       : 'Template fields and submitted responses for this job.',
               icon: Icons.fact_check_rounded,
               children: [
@@ -968,12 +1017,12 @@ class _PlannedJobDetailScreenState
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
             title:
-                execution.isCompleted
-                    ? 'Closed actions / observations'
+                isTerminal
+                    ? '$terminalSectionLabel actions / observations'
                     : 'Actions / observations',
             subtitle:
-                execution.isCompleted
-                    ? 'Final cross-module observations and work notes captured at closure.'
+                isTerminal
+                    ? 'Cross-module observations and work notes retained before ${execution.isCancelled ? 'cancellation' : 'closure'}.'
                     : 'Cross-module observations and work to record at completion.',
             icon: Icons.build_circle_rounded,
             children: [
@@ -996,12 +1045,12 @@ class _PlannedJobDetailScreenState
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
             title:
-                execution.isCompleted
-                    ? 'Final remarks and raw dossier notes'
+                isTerminal
+                    ? '$terminalSectionLabel remarks and raw dossier notes'
                     : 'Remarks and raw dossier notes',
             subtitle:
-                execution.isCompleted
-                    ? 'Final completion remarks and raw metadata preserved with the closed job dossier.'
+                isTerminal
+                    ? 'Remarks and raw metadata preserved with the terminal job dossier.'
                     : execution.isGovernedTemplateAssignment
                     ? 'Assignment context, final remarks and governed lineage metadata.'
                     : 'Legacy remarks are preserved here alongside diary and final closure notes.',

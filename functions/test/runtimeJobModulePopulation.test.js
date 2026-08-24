@@ -70,6 +70,7 @@ function execution(overrides = {}) {
     assetNumber: 101,
     chargeNoAtEvent: 12345,
     isCompleted: false,
+    isCancelled: false,
     isDeleted: false,
     version: 4,
     modulePopulationVersion: 0,
@@ -317,6 +318,7 @@ describe('runtime planned-job module population mutation', () => {
     ['missing', {}, 'not-found', 'parent-execution-missing'],
     ['deleted', {isDeleted: true}, 'failed-precondition', 'parent-execution-deleted'],
     ['completed', {isCompleted: true}, 'failed-precondition', 'parent-execution-completed'],
+    ['cancelled', {isCancelled: true}, 'failed-precondition', 'parent-execution-cancelled'],
   ])('rejects create for %s parent with whole-state no mutation', async (_label, parentOverrides, code, reasonCode) => {
     const seed = {
       'users/supervisor1': user(),
@@ -754,6 +756,25 @@ describe('runtime planned-job module population mutation', () => {
     })).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {reasonCode: 'parent-execution-completed'},
+    });
+    expect(state(store)).toEqual(before);
+    expect(writes).toEqual([]);
+  });
+
+  test('soft delete after cancellation is rejected without mutation', async () => {
+    const existing = modulePayload({version: 3});
+    const {db, store, writes} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution({isCancelled: true}),
+      'job_modules/module1': existing,
+    });
+    const before = state(store);
+    await expect(invoke(db, {
+      operation: 'softDelete',
+      module: tombstone(existing),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'parent-execution-cancelled'},
     });
     expect(state(store)).toEqual(before);
     expect(writes).toEqual([]);

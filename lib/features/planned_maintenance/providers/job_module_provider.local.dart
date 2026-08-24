@@ -77,11 +77,13 @@ class IsarJobModuleRepository implements JobModuleRepository {
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
+    bool includeDeleted = false,
   }) async {
     final resolution = await _loadResolvedModulesForJob(
       jobExecutionFirestoreId: jobExecutionFirestoreId,
       jobExecutionLocalId: jobExecutionLocalId,
       discipline: discipline,
+      includeDeleted: includeDeleted,
     );
 
     _reportForeignParentCollisions(
@@ -103,6 +105,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
+    bool includeDeleted = false,
   }) {
     final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
 
@@ -110,12 +113,14 @@ class IsarJobModuleRepository implements JobModuleRepository {
       return _localJobQuery(
         jobExecutionLocalId: jobExecutionLocalId,
         discipline: discipline,
+        includeDeleted: includeDeleted,
       ).watch(fireImmediately: true).map((localModules) {
         final resolution = PlannedJobModuleSetResolver.resolve(
           executionFirestoreId: null,
           executionLocalId: jobExecutionLocalId ?? -1,
           firestoreLinkedModules: const <JobModuleInstance>[],
           localLinkedModules: localModules,
+          includeDeleted: includeDeleted,
         );
         _reportForeignParentCollisions(
           resolution.ignoredForeignParentCollisions,
@@ -133,10 +138,12 @@ class IsarJobModuleRepository implements JobModuleRepository {
     final remoteStream = _remoteJobQuery(
       jobExecutionFirestoreId: cleanedFirestoreId,
       discipline: discipline,
+      includeDeleted: includeDeleted,
     ).watch(fireImmediately: true);
     final localStream = _localJobQuery(
       jobExecutionLocalId: jobExecutionLocalId,
       discipline: discipline,
+      includeDeleted: includeDeleted,
     ).watch(fireImmediately: true);
 
     return _combineResolvedModuleStreams(
@@ -145,6 +152,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
       jobExecutionFirestoreId: cleanedFirestoreId,
       jobExecutionLocalId: jobExecutionLocalId,
       limit: limit,
+      includeDeleted: includeDeleted,
     );
   }
 
@@ -152,6 +160,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
+    bool includeDeleted = false,
   }) async {
     final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
     final localId = jobExecutionLocalId ?? -1;
@@ -163,12 +172,14 @@ class IsarJobModuleRepository implements JobModuleRepository {
               : await _localJobQuery(
                 jobExecutionLocalId: jobExecutionLocalId,
                 discipline: discipline,
+                includeDeleted: includeDeleted,
               ).findAll();
       return PlannedJobModuleSetResolver.resolve(
         executionFirestoreId: null,
         executionLocalId: localId,
         firestoreLinkedModules: const <JobModuleInstance>[],
         localLinkedModules: localModules,
+        includeDeleted: includeDeleted,
       );
     }
 
@@ -176,6 +187,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
         await _remoteJobQuery(
           jobExecutionFirestoreId: cleanedFirestoreId,
           discipline: discipline,
+          includeDeleted: includeDeleted,
         ).findAll();
     final localModules =
         jobExecutionLocalId == null
@@ -183,6 +195,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
             : await _localJobQuery(
               jobExecutionLocalId: jobExecutionLocalId,
               discipline: discipline,
+              includeDeleted: includeDeleted,
             ).findAll();
 
     return PlannedJobModuleSetResolver.resolve(
@@ -190,6 +203,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
       executionLocalId: localId,
       firestoreLinkedModules: remoteModules,
       localLinkedModules: localModules,
+      includeDeleted: includeDeleted,
     );
   }
 
@@ -199,6 +213,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
     required String jobExecutionFirestoreId,
     required int? jobExecutionLocalId,
     int? limit,
+    bool includeDeleted = false,
   }) {
     late StreamController<List<JobModuleInstance>> controller;
     StreamSubscription<List<JobModuleInstance>>? remoteSubscription;
@@ -216,6 +231,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
         executionLocalId: jobExecutionLocalId ?? -1,
         firestoreLinkedModules: remote,
         localLinkedModules: local,
+        includeDeleted: includeDeleted,
       );
       _reportForeignParentCollisions(
         resolution.ignoredForeignParentCollisions,
@@ -260,12 +276,14 @@ class IsarJobModuleRepository implements JobModuleRepository {
   _remoteJobQuery({
     required String jobExecutionFirestoreId,
     JobModuleDiscipline? discipline,
+    bool includeDeleted = false,
   }) {
-    var query = isar.jobModuleInstances
-        .filter()
-        .jobExecutionFirestoreIdEqualTo(jobExecutionFirestoreId)
-        .and()
-        .isDeletedEqualTo(false);
+    var query = isar.jobModuleInstances.filter().jobExecutionFirestoreIdEqualTo(
+      jobExecutionFirestoreId,
+    );
+    if (!includeDeleted) {
+      query = query.and().isDeletedEqualTo(false);
+    }
     if (discipline != null) {
       query = query.and().disciplineEqualTo(discipline);
     }
@@ -276,19 +294,19 @@ class IsarJobModuleRepository implements JobModuleRepository {
   _localJobQuery({
     required int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
+    bool includeDeleted = false,
   }) {
     var query =
         jobExecutionLocalId == null
-            ? isar.jobModuleInstances
-                .filter()
-                .firestoreIdEqualTo('__no_matching_job_module__')
-                .and()
-                .isDeletedEqualTo(false)
-            : isar.jobModuleInstances
-                .filter()
-                .jobExecutionLocalIdEqualTo(jobExecutionLocalId)
-                .and()
-                .isDeletedEqualTo(false);
+            ? isar.jobModuleInstances.filter().firestoreIdEqualTo(
+              '__no_matching_job_module__',
+            )
+            : isar.jobModuleInstances.filter().jobExecutionLocalIdEqualTo(
+              jobExecutionLocalId,
+            );
+    if (!includeDeleted) {
+      query = query.and().isDeletedEqualTo(false);
+    }
     if (discipline != null) {
       query = query.and().disciplineEqualTo(discipline);
     }

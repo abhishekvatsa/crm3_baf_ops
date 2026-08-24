@@ -525,6 +525,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final module = _module;
+    final parentJobTerminal = widget.execution.isTerminal;
     final snapshotRead = module.moduleSnapshotReadResult;
     final standardItems = _standardItemsFromSnapshot(snapshotRead.value);
     final fieldRead = module.fieldDefinitionsReadResult;
@@ -540,7 +541,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
         responseRead.isValid &&
         actionRead.isValid;
     final canSaveWork =
-        !widget.execution.isCompleted &&
+        !parentJobTerminal &&
         module.isOpenForWork &&
         workPayloadsValid &&
         (actor?.canSaveJobModuleWorkFor(module.discipline.name) ?? false);
@@ -550,12 +551,12 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final canMarkNotApplicable =
         canSaveWork && (actor?.canMarkJobModuleNotApplicable ?? false);
     final canAcceptModule =
-        !widget.execution.isCompleted &&
+        !parentJobTerminal &&
         module.status == JobModuleStatus.submitted &&
         workPayloadsValid &&
         (actor?.canAcceptJobModule ?? false);
     final canReopenModule =
-        !widget.execution.isCompleted &&
+        !parentJobTerminal &&
         (module.status == JobModuleStatus.submitted ||
             module.status == JobModuleStatus.accepted ||
             module.status == JobModuleStatus.notApplicable) &&
@@ -581,6 +582,26 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
         ),
         children: [
           _ModuleHeaderCard(module: module),
+          if (parentJobTerminal) ...[
+            const SizedBox(height: BafSpacing.lg),
+            _ModuleSectionCard(
+              title: 'Read-only module evidence',
+              subtitle:
+                  'The parent planned job is ${widget.execution.isCancelled ? 'cancelled' : 'completed'}.',
+              icon: Icons.lock_rounded,
+              children: const [
+                Text(
+                  'Saved responses, actions and lifecycle evidence remain available for review. No module mutation is permitted after the parent job becomes terminal.',
+                  style: TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (!fieldRead.isValid) ...[
             const SizedBox(height: BafSpacing.lg),
             const PersistedDataIntegrityNotice(
@@ -769,35 +790,37 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: BafSpacing.lg),
-          _ModuleSectionCard(
-            title: 'Structured module responses',
-            subtitle:
-                module.status == JobModuleStatus.notStarted
-                    ? 'Saving these fields will create a draft module response.'
-                    : 'Dynamic fields rendered from the module snapshot and saved into responsesJson.',
-            icon: Icons.dynamic_form_rounded,
-            children: [
-              if (!fieldRead.isValid || !responseRead.isValid)
-                const PersistedDataIntegrityNotice(
-                  title: 'Structured response editing blocked',
-                  message:
-                      'Repair the saved field definitions and responses before editing this module.',
-                )
-              else
-                JobModuleResponseForm(
-                  fieldDefinitions: fields,
-                  initialResponses: responses,
-                  isEditable: canSaveWork,
-                  isBusy: _isBusy,
-                  saveButtonLabel:
-                      module.status == JobModuleStatus.notStarted
-                          ? 'Save Responses as Draft'
-                          : 'Save Structured Responses',
-                  onSave: _saveStructuredResponses,
-                ),
-            ],
-          ),
+          if (!parentJobTerminal) ...[
+            const SizedBox(height: BafSpacing.lg),
+            _ModuleSectionCard(
+              title: 'Structured module responses',
+              subtitle:
+                  module.status == JobModuleStatus.notStarted
+                      ? 'Saving these fields will create a draft module response.'
+                      : 'Dynamic fields rendered from the module snapshot and saved into responsesJson.',
+              icon: Icons.dynamic_form_rounded,
+              children: [
+                if (!fieldRead.isValid || !responseRead.isValid)
+                  const PersistedDataIntegrityNotice(
+                    title: 'Structured response editing blocked',
+                    message:
+                        'Repair the saved field definitions and responses before editing this module.',
+                  )
+                else
+                  JobModuleResponseForm(
+                    fieldDefinitions: fields,
+                    initialResponses: responses,
+                    isEditable: canSaveWork,
+                    isBusy: _isBusy,
+                    saveButtonLabel:
+                        module.status == JobModuleStatus.notStarted
+                            ? 'Save Responses as Draft'
+                            : 'Save Structured Responses',
+                    onSave: _saveStructuredResponses,
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: BafSpacing.lg),
           _ModuleSectionCard(
             title: 'Progress and lifecycle notes',
@@ -859,7 +882,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           const SizedBox(height: BafSpacing.lg),
           _ModuleLifecycleCard(
             module: module,
-            parentJobCompleted: widget.execution.isCompleted,
+            parentJobTerminal: parentJobTerminal,
             isBusy: _isBusy,
             canSaveProgress: canSaveWork,
             canSubmit: canSubmitModule,
@@ -1054,7 +1077,7 @@ class _ModuleSectionCard extends StatelessWidget {
 
 class _ModuleLifecycleCard extends StatelessWidget {
   final JobModuleInstance module;
-  final bool parentJobCompleted;
+  final bool parentJobTerminal;
   final bool isBusy;
   final bool canSaveProgress;
   final bool canSubmit;
@@ -1069,7 +1092,7 @@ class _ModuleLifecycleCard extends StatelessWidget {
 
   const _ModuleLifecycleCard({
     required this.module,
-    required this.parentJobCompleted,
+    required this.parentJobTerminal,
     required this.isBusy,
     required this.canSaveProgress,
     required this.canSubmit,
@@ -1085,11 +1108,11 @@ class _ModuleLifecycleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOpen = module.isOpenForWork && !parentJobCompleted;
+    final isOpen = module.isOpenForWork && !parentJobTerminal;
     final isSubmitted =
-        !parentJobCompleted && module.status == JobModuleStatus.submitted;
+        !parentJobTerminal && module.status == JobModuleStatus.submitted;
     final isReopenable =
-        !parentJobCompleted &&
+        !parentJobTerminal &&
         (module.status == JobModuleStatus.submitted ||
             module.status == JobModuleStatus.accepted ||
             module.status == JobModuleStatus.notApplicable);
@@ -1097,12 +1120,12 @@ class _ModuleLifecycleCard extends StatelessWidget {
     return _ModuleSectionCard(
       title: 'Lifecycle actions',
       subtitle:
-          parentJobCompleted
+          parentJobTerminal
               ? 'Parent job is closed. Module lifecycle actions are locked.'
               : 'Save progress, submit, accept, bypass with reason, or reopen when permitted.',
       icon: Icons.published_with_changes_rounded,
       children: [
-        if (parentJobCompleted)
+        if (parentJobTerminal)
           const _EmptyBox(
             icon: Icons.lock_rounded,
             text:

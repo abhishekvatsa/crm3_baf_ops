@@ -151,6 +151,31 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
   if (!parentExecution.exists || parentExecution.data == null) {
     throw new WorkflowError("not-found", "Parent job execution was not found.");
   }
+  const currentExecution = parentExecution.data;
+  if (currentExecution.isDeleted === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Deleted parent job execution cannot be finalised.",
+      {reasonCode: "parent-execution-deleted", executionId: parentExecutionId},
+    );
+  }
+  if (currentExecution.isCancelled === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Cancelled parent job execution cannot be finalised.",
+      {reasonCode: "parent-execution-cancelled", executionId: parentExecutionId},
+    );
+  }
+  if (currentExecution.isCompleted === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Completed parent execution conflicts with a mutable workflow.",
+      {
+        reasonCode: "parent-execution-completed-workflow-open",
+        executionId: parentExecutionId,
+      },
+    );
+  }
 
   const assetTypeKey = cleanText(workflow.assetTypeKey, "assetTypeKey");
   const assetNumber = typeof workflow.assetNumber === "number" ? workflow.assetNumber : 0;
@@ -185,7 +210,6 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
   );
   const now = iso(context.serverNow);
   const nextVersion = version + 1;
-  const currentExecution = parentExecution.data;
   const currentExecutionVersion = typeof currentExecution.version === "number"
     ? currentExecution.version
     : 1;
@@ -348,6 +372,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       assetType: assetTypeKey,
       assetNumber,
       isCompleted: false,
+      isCancelled: false,
       assignedByUid: context.actor.uid,
       assignedByName: context.actor.name,
       assignedAgencies: ["refractory"],

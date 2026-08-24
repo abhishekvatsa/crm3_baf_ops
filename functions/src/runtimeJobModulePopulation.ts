@@ -663,6 +663,13 @@ function validateOpenParent(
       {reasonCode: "parent-execution-completed", executionId},
     );
   }
+  if (parent.isCancelled === true) {
+    throw new RuntimePopulationValidationError(
+      "failed-precondition",
+      "A cancelled planned-job execution cannot accept module-population changes.",
+      {reasonCode: "parent-execution-cancelled", executionId},
+    );
+  }
   return parent;
 }
 

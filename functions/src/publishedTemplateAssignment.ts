@@ -2545,6 +2545,7 @@ function buildCanonicalAssignment(args: {
       assetInstanceId: equipmentIdentity.assetInstanceId,
     } : {}),
     isCompleted: false,
+    isCancelled: false,
     assignedByUid: actorUid,
     assignedByName: actorName,
     assignedAgencies: agencies,

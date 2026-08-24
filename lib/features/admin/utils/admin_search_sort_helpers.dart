@@ -17,7 +17,12 @@ bool templateMatchesAdminSearch(JobTemplate template, String query) {
 
 bool executionMatchesAdminSearch(JobExecution execution, String query) {
   if (query.isEmpty) return true;
-  final completionLabel = execution.isCompleted ? 'completed' : 'open';
+  final completionLabel =
+      execution.isCancelled
+          ? 'cancelled'
+          : execution.isCompleted
+          ? 'completed'
+          : 'open';
   return (execution.templateName?.toLowerCase().contains(query) ?? false) ||
       execution.assetType.name.toLowerCase().contains(query) ||
       execution.assetNumber.toString().contains(query) ||
@@ -26,6 +31,8 @@ bool executionMatchesAdminSearch(JobExecution execution, String query) {
       ) ||
       (execution.assignedByName?.toLowerCase().contains(query) ?? false) ||
       (execution.completedByName?.toLowerCase().contains(query) ?? false) ||
+      (execution.cancelledByName?.toLowerCase().contains(query) ?? false) ||
+      (execution.cancellationReason?.toLowerCase().contains(query) ?? false) ||
       (execution.remarks?.toLowerCase().contains(query) ?? false) ||
       completionLabel.contains(query);
 }

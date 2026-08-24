@@ -852,8 +852,25 @@ service cloud.firestore {
     // 📝 JOB DIARY HELPERS
     // ─────────────────────────────────────────────
 
+    function jobDiaryParentExistsAndIsOpen(data) {
+      let executionId = data.get('jobExecutionFirestoreId', '');
+      return executionId is string
+        && executionId.size() > 0
+        && exists(/databases/$(database)/documents/job_executions/$(executionId))
+        && get(
+          /databases/$(database)/documents/job_executions/$(executionId)
+        ).data.get('isDeleted', false) == false
+        && get(
+          /databases/$(database)/documents/job_executions/$(executionId)
+        ).data.get('isCompleted', false) == false
+        && get(
+          /databases/$(database)/documents/job_executions/$(executionId)
+        ).data.get('isCancelled', false) == false;
+    }
+
     function validJobDiaryCreate(docId) {
       return canCreateJobDiaryEntry()
+        && jobDiaryParentExistsAndIsOpen(request.resource.data)
         && request.resource.data.keys().hasAll([
           'firestoreId',
           'note',
@@ -877,6 +894,7 @@ service cloud.firestore {
       // Diary notes remain editable by their creator and by Admin/SI.
       // Version must strictly advance and hard/soft delete is not allowed here.
       return isApprovedUser()
+        && jobDiaryParentExistsAndIsOpen(resource.data)
         && resource.data.get('firestoreId', null) == docId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'note',

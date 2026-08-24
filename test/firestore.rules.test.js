@@ -3257,12 +3257,23 @@ describe("job_diary_entries", () => {
   beforeEach(async () => {
     await seedUser("seniorMech", ["seniorMechanical"]);
     await seedUser("ops1", ["operations"]);
+    await seedDoc("job_executions/jobDiaryOpen", {
+      isDeleted: false,
+      isCompleted: false,
+      isCancelled: false,
+    });
+    await seedDoc("job_executions/executionA", {
+      isDeleted: false,
+      isCompleted: false,
+      isCancelled: false,
+    });
   });
 
   test("creator can update diary only with version advance", async () => {
     await seedDoc("job_diary_entries/diary1", {
       firestoreId: "diary1",
       note: "Initial note",
+      jobExecutionFirestoreId: "jobDiaryOpen",
       createdByUid: "seniorMech",
       updatedByUid: "seniorMech",
       createdAt: Timestamp.fromMillis(1000),
@@ -3289,6 +3300,63 @@ describe("job_diary_entries", () => {
         updatedAt: Timestamp.now(),
         version: 2,
       })
+    );
+  });
+
+  test("diary creation and editing require an open parent execution", async () => {
+    await seedDoc("job_executions/jobDiaryCompleted", {
+      isDeleted: false,
+      isCompleted: true,
+      isCancelled: false,
+    });
+    await seedDoc("job_executions/jobDiaryCancelled", {
+      isDeleted: false,
+      isCompleted: false,
+      isCancelled: true,
+    });
+
+    const db = dbAs("seniorMech");
+    const entry = (id, executionId) => ({
+      firestoreId: id,
+      jobExecutionFirestoreId: executionId,
+      note: "Shift handover note",
+      createdByUid: "seniorMech",
+      updatedByUid: "seniorMech",
+      createdAt: Timestamp.fromMillis(1000),
+      updatedAt: Timestamp.fromMillis(1000),
+      version: 1,
+      isDeleted: false,
+    });
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "job_diary_entries/diaryOpen"),
+        entry("diaryOpen", "jobDiaryOpen"),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "job_diary_entries/diaryCompleted"),
+        entry("diaryCompleted", "jobDiaryCompleted"),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "job_diary_entries/diaryCancelled"),
+        entry("diaryCancelled", "jobDiaryCancelled"),
+      ),
+    );
+
+    await seedDoc("job_diary_entries/terminalDiary", {
+      ...entry("terminalDiary", "jobDiaryCancelled"),
+    });
+    await assertFails(
+      updateDoc(doc(db, "job_diary_entries/terminalDiary"), {
+        note: "Late edit after cancellation",
+        updatedByUid: "seniorMech",
+        updatedAt: Timestamp.now(),
+        version: 2,
+      }),
     );
   });
 

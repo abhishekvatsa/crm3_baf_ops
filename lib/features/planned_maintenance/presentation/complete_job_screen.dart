@@ -83,7 +83,8 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   );
 
   Future<void> _loadTemplate() async {
-    if (widget.execution.isGovernedTemplateAssignment) {
+    if (widget.execution.isTerminal ||
+        widget.execution.isGovernedTemplateAssignment) {
       if (mounted) setState(() => _loadingTemplate = false);
       return;
     }
@@ -109,6 +110,18 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   }
 
   Future<void> _submit() async {
+    if (widget.execution.isTerminal) {
+      final status = widget.execution.isCancelled ? 'cancelled' : 'completed';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'This planned job is already $status and cannot be completed again.',
+          ),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return;
+    }
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null || !appUser.canCompleteJobExecution) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -649,6 +662,26 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
         appBarIcon: Icons.task_alt_outlined,
         accent: BafColors.planned,
         label: 'Loading job completion evidence',
+      );
+    }
+
+    if (widget.execution.isTerminal) {
+      final cancelled = widget.execution.isCancelled;
+      return BafScreenStateScaffold(
+        appBarTitle: 'Complete Job',
+        appBarSubtitle: 'Validate evidence, outcomes and return to service',
+        appBarIcon: Icons.task_alt_outlined,
+        accent: BafColors.planned,
+        state: BafStatePanel(
+          icon: cancelled ? Icons.cancel_outlined : Icons.task_alt_rounded,
+          color: cancelled ? BafColors.warning : BafColors.sync,
+          title:
+              cancelled
+                  ? 'This planned job was cancelled'
+                  : 'This planned job is already complete',
+          message:
+              'Completion controls are locked for terminal jobs. Return to the planned-job dossier to review the retained evidence.',
+        ),
       );
     }
 

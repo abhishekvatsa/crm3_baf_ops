@@ -45,6 +45,7 @@ class PlannedJobModuleSetResolver {
     required int executionLocalId,
     required Iterable<JobModuleInstance> firestoreLinkedModules,
     required Iterable<JobModuleInstance> localLinkedModules,
+    bool includeDeleted = false,
   }) {
     final canonicalExecutionId = _clean(executionFirestoreId);
     final byKey = <String, JobModuleInstance>{};
@@ -53,7 +54,7 @@ class PlannedJobModuleSetResolver {
     final duplicateRows = <int, JobModuleInstance>{};
 
     void addCanonical(JobModuleInstance module) {
-      if (module.isDeleted) return;
+      if (module.isDeleted && !includeDeleted) return;
       final key = _moduleKey(module);
       final existing = byKey[key];
       if (existing == null) {
@@ -76,7 +77,7 @@ class PlannedJobModuleSetResolver {
 
     if (canonicalExecutionId == null) {
       for (final module in localLinkedModules) {
-        if (module.isDeleted ||
+        if ((!includeDeleted && module.isDeleted) ||
             module.jobExecutionLocalId != executionLocalId) {
           continue;
         }
@@ -109,7 +110,8 @@ class PlannedJobModuleSetResolver {
     }
 
     for (final module in localLinkedModules) {
-      if (module.isDeleted || module.jobExecutionLocalId != executionLocalId) {
+      if ((!includeDeleted && module.isDeleted) ||
+          module.jobExecutionLocalId != executionLocalId) {
         continue;
       }
 

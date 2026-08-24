@@ -73,7 +73,9 @@ void main() {
       expect(ticketSrc, contains('showDialog<AdminDeleteDecision>'));
       expect(directiveSrc, contains('showDialog<AdminDeleteDecision>'));
       expect(templateSrc, contains('showDialog<AdminDeleteDecision>'));
-      expect(executionSrc, contains('showDialog<AdminDeleteDecision>'));
+      expect(executionSrc, contains('PlannedJobDetailScreen('));
+      expect(executionSrc, isNot(contains('showDialog<AdminDeleteDecision>')));
+      expect(executionSrc, isNot(contains('deleteExecution(')));
     });
 
     test('uses dialog-owned controllers for governed ticket correction', () {

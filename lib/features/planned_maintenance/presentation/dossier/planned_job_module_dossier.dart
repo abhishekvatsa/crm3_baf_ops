@@ -20,7 +20,7 @@ class _ProcessModuleDossier extends StatelessWidget {
       error: (error, _) => _WarningBox(text: 'Could not load modules: $error'),
       data: (modules) {
         final visibleModules =
-            modules.where((module) => !module.isDeleted).toList()..sort((a, b) {
+            modules.toList()..sort((a, b) {
               final orderCompare = a.displayOrder.compareTo(b.displayOrder);
               if (orderCompare != 0) return orderCompare;
               return a.createdAt.compareTo(b.createdAt);
@@ -157,6 +157,7 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
         fieldRead.isValid && responseRead.isValid && actionRead.isValid;
     final closureSatisfied =
         payloadsValid &&
+        !module.isDeleted &&
         (!module.requiredForClosure ||
             module.status == JobModuleStatus.accepted ||
             module.status == JobModuleStatus.notApplicable);
@@ -203,9 +204,11 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Closed module evidence',
-                      style: TextStyle(
+                    Text(
+                      module.isDeleted
+                          ? 'Cancelled module evidence'
+                          : 'Closed module evidence',
+                      style: const TextStyle(
                         color: BafColors.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
@@ -213,7 +216,9 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      closureSatisfied
+                      module.isDeleted
+                          ? 'Work captured before cancellation remains preserved and read-only.'
+                          : closureSatisfied
                           ? 'Lifecycle evidence and structured responses preserved for this module.'
                           : 'This closed job contains a module that is not accepted or N/A. It remains visible for historical review.',
                       style: const TextStyle(
@@ -233,8 +238,14 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
             runSpacing: 6,
             children: [
               StatusBadge(
-                label: _moduleStatusLabel(module.status),
-                color: _moduleStatusColor(module.status),
+                label:
+                    module.isDeleted
+                        ? 'Cancelled with job'
+                        : _moduleStatusLabel(module.status),
+                color:
+                    module.isDeleted
+                        ? BafColors.warning
+                        : _moduleStatusColor(module.status),
               ),
               StatusBadge(
                 label: _jobModuleDisciplineLabel(module.discipline),
@@ -866,6 +877,13 @@ List<_InfoPair> _moduleLifecycleRows(JobModuleInstance module) {
         module.notApplicableAt,
       ),
     ),
+    if (module.isDeleted)
+      _InfoPair(
+        'Cancelled by',
+        _actorLine(module.deletedByName, module.deletedByUid, module.deletedAt),
+      ),
+    if (module.isDeleted && _moduleText(module.deleteReason) != null)
+      _InfoPair('Cancellation reason', module.deleteReason!),
   ];
 
   return rows.where((row) => _moduleText(row.value) != null).toList();

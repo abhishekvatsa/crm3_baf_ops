@@ -11,6 +11,7 @@ JobModuleInstance _module({
   required int? parentLocalId,
   JobModuleStatus status = JobModuleStatus.accepted,
   bool requiredForClosure = true,
+  bool isDeleted = false,
 }) {
   final now = DateTime.utc(2026, 6, 20);
   return JobModuleInstance()
@@ -33,7 +34,7 @@ JobModuleInstance _module({
     ..createdAt = now
     ..updatedAt = now
     ..isSynced = true
-    ..isDeleted = false;
+    ..isDeleted = isDeleted;
 }
 
 void main() {
@@ -202,5 +203,36 @@ void main() {
       });
       expect(result.hasUnresolvedIdentity, isTrue);
     });
+
+    test(
+      'includes cancelled module evidence only for an explicit terminal query',
+      () {
+        final cancelled = _module(
+          localId: 12,
+          firestoreId: 'cancelled-module',
+          parentFirestoreId: 'exec-current',
+          parentLocalId: 7,
+          status: JobModuleStatus.inProgress,
+          isDeleted: true,
+        );
+
+        final activeResult = PlannedJobModuleSetResolver.resolve(
+          executionFirestoreId: 'exec-current',
+          executionLocalId: 7,
+          firestoreLinkedModules: [cancelled],
+          localLinkedModules: [cancelled],
+        );
+        final terminalResult = PlannedJobModuleSetResolver.resolve(
+          executionFirestoreId: 'exec-current',
+          executionLocalId: 7,
+          firestoreLinkedModules: [cancelled],
+          localLinkedModules: [cancelled],
+          includeDeleted: true,
+        );
+
+        expect(activeResult.modules, isEmpty);
+        expect(terminalResult.modules, [same(cancelled)]);
+      },
+    );
   });
 }

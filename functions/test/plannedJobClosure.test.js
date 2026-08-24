@@ -591,6 +591,34 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
     expect(writes.sets).toHaveLength(0);
   });
 
+  test('cancelled execution rejects before module query or writes', async () => {
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Supervisor',
+      },
+      executionData: baseExecution({
+        isCancelled: true,
+        cancelledAt: '2026-05-15T08:30:00.000Z',
+      }),
+      modules: [baseModule()],
+    });
+
+    await expect(completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId: 'job_1', expectedCompletionVersion: 7},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'closure-execution-cancelled'},
+    });
+
+    expect(writes.moduleQueryReads).toBe(0);
+    expect(writes.updates).toHaveLength(0);
+    expect(writes.sets).toHaveLength(0);
+  });
+
   test('malformed existing execution actions reject without module query or writes', async () => {
     const {db, writes} = fakeCompletionDb({
       userData: {

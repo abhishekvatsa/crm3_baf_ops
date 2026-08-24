@@ -448,12 +448,14 @@ class JobModuleQueryKey {
   final int? jobExecutionLocalId;
   final JobModuleDiscipline? discipline;
   final int? limit;
+  final bool includeDeleted;
 
   const JobModuleQueryKey({
     this.jobExecutionFirestoreId,
     this.jobExecutionLocalId,
     this.discipline,
     this.limit,
+    this.includeDeleted = false,
   });
 
   @override
@@ -462,7 +464,8 @@ class JobModuleQueryKey {
         other.jobExecutionFirestoreId == jobExecutionFirestoreId &&
         other.jobExecutionLocalId == jobExecutionLocalId &&
         other.discipline == discipline &&
-        other.limit == limit;
+        other.limit == limit &&
+        other.includeDeleted == includeDeleted;
   }
 
   @override
@@ -471,6 +474,7 @@ class JobModuleQueryKey {
     jobExecutionLocalId,
     discipline,
     limit,
+    includeDeleted,
   );
 }
 
@@ -490,6 +494,7 @@ abstract class JobModuleRepository {
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
+    bool includeDeleted = false,
   });
 
   Stream<List<JobModuleInstance>> watchModulesForJob({
@@ -497,6 +502,7 @@ abstract class JobModuleRepository {
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
+    bool includeDeleted = false,
   });
 
   Future<void> softDeleteModule(
@@ -619,5 +625,6 @@ final jobModulesProvider =
             jobExecutionLocalId: key.jobExecutionLocalId,
             discipline: key.discipline,
             limit: key.limit,
+            includeDeleted: key.includeDeleted,
           );
     });

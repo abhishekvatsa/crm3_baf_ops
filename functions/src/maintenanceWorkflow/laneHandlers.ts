@@ -757,6 +757,27 @@ export const cancelWorkflow: CommandHandler = async ({tx, command, context}) => 
   if (!execution.exists || execution.data == null) {
     throw new WorkflowError("not-found", "The workflow job execution was not found.");
   }
+  if (execution.data.isDeleted === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Deleted job execution cannot be cancelled through an active workflow.",
+      {reasonCode: "parent-execution-deleted", executionId},
+    );
+  }
+  if (execution.data.isCompleted === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Completed job execution cannot be cancelled.",
+      {reasonCode: "parent-execution-completed", executionId},
+    );
+  }
+  if (execution.data.isCancelled === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Cancelled parent execution conflicts with an active workflow.",
+      {reasonCode: "parent-execution-cancelled-workflow-open", executionId},
+    );
+  }
   const lanes = await tx.query("job_lanes", [
     {field: "workflowId", op: "==", value: command.aggregateId},
   ]);
