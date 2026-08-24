@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/persistence/app_database.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../data/compliance_request_record.dart';
 import '../data/equipment_status_record.dart';
 import '../data/job_lane_record.dart';
@@ -110,18 +113,140 @@ final workflowAllComplianceProvider =
       return ref.watch(workflowRepositoryProvider).watchAllCompliance();
     });
 
-final workflowComplianceRecordProvider = FutureProvider.autoDispose
-    .family<ComplianceRequestRecord?, String>((ref, complianceId) async {
-      final id = complianceId.trim();
-      if (id.isEmpty) return null;
+typedef WorkflowComplianceRecordScope =
+    ({String actorUid, String complianceId});
+typedef WorkflowCompliancePointReader =
+    Future<ComplianceRequestRecord?> Function(String complianceId);
+typedef ActorSessionComplianceLookup =
+    ({bool isTrusted, ComplianceRequestRecord? record});
 
-      final repository = ref.watch(workflowRepositoryProvider);
-      final local = await repository.getComplianceById(id);
-      if (local != null) return local;
-
-      await ref.read(workflowPullServiceProvider).pull();
-      return repository.getComplianceById(id);
+final workflowCompliancePointReaderProvider =
+    Provider<WorkflowCompliancePointReader>((ref) {
+      return ref
+          .watch(firestoreWorkflowReadRepositoryProvider)
+          .fetchComplianceById;
     });
+
+final workflowComplianceSessionCacheProvider =
+    Provider<ActorSessionComplianceCache>((ref) {
+      final cache = ActorSessionComplianceCache();
+
+      void observeAuthority(AsyncValue<AppUser?> authority) {
+        if (authority.isLoading || authority.hasError) {
+          cache.observeActor(null);
+          return;
+        }
+        final actor = authority.value;
+        cache.observeActor(
+          actor != null && actor.isApproved ? actor.uid : null,
+        );
+      }
+
+      observeAuthority(ref.read(currentAppUserProvider));
+      ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (_, next) {
+        observeAuthority(next);
+      });
+      return cache;
+    });
+
+@visibleForTesting
+final class ActorSessionComplianceCache {
+  String? _actorUid;
+  final Set<String> _confirmedIds = <String>{};
+  final Map<String, ComplianceRequestRecord?> _records =
+      <String, ComplianceRequestRecord?>{};
+
+  void observeActor(String? actorUid) {
+    final normalized = actorUid?.trim();
+    final nextActor =
+        normalized == null || normalized.isEmpty ? null : normalized;
+    if (nextActor == _actorUid) return;
+    _actorUid = nextActor;
+    _confirmedIds.clear();
+    _records.clear();
+  }
+
+  bool remember({
+    required String actorUid,
+    required String complianceId,
+    required ComplianceRequestRecord? record,
+  }) {
+    final normalizedActor = actorUid.trim();
+    final normalizedId = complianceId.trim();
+    if (normalizedActor.isEmpty ||
+        normalizedId.isEmpty ||
+        normalizedActor != _actorUid) {
+      return false;
+    }
+    _confirmedIds.add(normalizedId);
+    _records[normalizedId] = record;
+    return true;
+  }
+
+  ActorSessionComplianceLookup lookup({
+    required String actorUid,
+    required String complianceId,
+  }) {
+    final normalizedActor = actorUid.trim();
+    final normalizedId = complianceId.trim();
+    final isTrusted =
+        normalizedActor.isNotEmpty &&
+        normalizedActor == _actorUid &&
+        _confirmedIds.contains(normalizedId);
+    return (
+      isTrusted: isTrusted,
+      record: isTrusted ? _records[normalizedId] : null,
+    );
+  }
+}
+
+final workflowComplianceRecordProvider = FutureProvider.autoDispose.family<
+  ComplianceRequestRecord?,
+  WorkflowComplianceRecordScope
+>((ref, scope) async {
+  final actorUid = scope.actorUid.trim();
+  final id = scope.complianceId.trim();
+  if (id.isEmpty) return null;
+  _requireApprovedComplianceActor(ref.watch(currentAppUserProvider), actorUid);
+  final cache = ref.watch(workflowComplianceSessionCacheProvider);
+  try {
+    final remote = await ref.watch(workflowCompliancePointReaderProvider)(id);
+    final record = remote?.isDeleted == true ? null : remote;
+    if (!cache.remember(actorUid: actorUid, complianceId: id, record: record)) {
+      throw StateError(
+        'Compliance authority changed before the record was verified.',
+      );
+    }
+    return record;
+  } on FirebaseException catch (error) {
+    if (!_isOfflineCompliancePointRead(error)) rethrow;
+    final cached = cache.lookup(actorUid: actorUid, complianceId: id);
+    if (!cached.isTrusted) {
+      throw StateError(
+        'This compliance record has not been server-verified for the current approved session.',
+      );
+    }
+    return cached.record;
+  }
+});
+
+void _requireApprovedComplianceActor(
+  AsyncValue<AppUser?> authority,
+  String actorUid,
+) {
+  final actor = authority.asData?.value;
+  if (authority.isLoading ||
+      authority.hasError ||
+      actor == null ||
+      !actor.isApproved ||
+      actor.uid != actorUid ||
+      actorUid.isEmpty) {
+    throw StateError('Approved compliance access is required.');
+  }
+}
+
+bool _isOfflineCompliancePointRead(FirebaseException error) =>
+    error.code == 'unavailable' || error.code == 'deadline-exceeded';
 
 final equipmentStatusProvider = StreamProvider.family<
   List<EquipmentStatusRecord>,

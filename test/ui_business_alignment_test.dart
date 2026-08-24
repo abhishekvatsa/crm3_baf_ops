@@ -189,6 +189,11 @@ void main() {
             File(
               'lib/features/maintenance_workflow/providers/workflow_providers.dart',
             ).readAsStringSync();
+        final remote =
+            File(
+              'lib/features/maintenance_workflow/repositories/'
+              'firestore_workflow_read_repository.dart',
+            ).readAsStringSync();
         final audit =
             File(
               'lib/features/audit/presentation/audit_timeline_screen.dart',
@@ -204,25 +209,21 @@ void main() {
         expect(home, isNot(contains('module: BafModules.charges')));
         expect(resolver, contains('ComplianceDetailScreen(record: record)'));
         expect(resolver, contains('ComplianceInboxScreen('));
+        expect(resolver, contains('actorUid: actor.uid'));
         expect(audit, contains('actor.canReviewSyncConflicts'));
         expect(
           diagnostics,
           contains('actor.canViewMaintenanceWorkflowDiagnostics'),
         );
 
-        final resolverStart = providers.indexOf(
-          'final workflowComplianceRecordProvider',
-        );
-        final resolverSource = providers.substring(resolverStart);
-        final localRead = resolverSource.indexOf('getComplianceById(id)');
-        final governedPull = resolverSource.indexOf(
-          'workflowPullServiceProvider',
-        );
-        final reread = resolverSource.lastIndexOf('getComplianceById(id)');
-        expect(resolverStart, greaterThanOrEqualTo(0));
-        expect(localRead, greaterThanOrEqualTo(0));
-        expect(governedPull, greaterThan(localRead));
-        expect(reread, greaterThan(governedPull));
+        expect(providers, contains('typedef WorkflowComplianceRecordScope'));
+        expect(providers, contains('workflowCompliancePointReaderProvider'));
+        expect(providers, contains('ActorSessionComplianceCache'));
+        expect(providers, contains('_isOfflineCompliancePointRead'));
+        expect(remote, contains('fetchComplianceById'));
+        expect(remote, contains('GetOptions(source: Source.server)'));
+        expect(remote, contains('if (document.metadata.hasPendingWrites)'));
+        expect(remote, contains('return record.isDeleted ? null : record;'));
       },
     );
 

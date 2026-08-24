@@ -71,7 +71,10 @@ void main() {
     expect(home, contains("? 'Unavailable'"));
     expect(home, contains("'Live attention data unavailable'"));
     expect(home, contains("'Incomplete'"));
-    expect(home, contains('ref.invalidate(operationalEventsProvider)'));
+    expect(
+      home,
+      contains('ref.invalidate(operationalEventsProvider(appUser.uid))'),
+    );
     expect(home, contains('ref.invalidate(qualityWarningsProvider)'));
     expect(home, contains('maintenanceDueStatesProvider'));
     expect(home, contains('allInspectionFindingsProvider'));
@@ -94,7 +97,7 @@ void main() {
       'maintenanceDueStatesProvider',
       'allInspectionFindingsProvider',
       'qualityWarningsProvider',
-      'qualityMonitoringRequestsProvider',
+      'qualityMonitoringRequestsForReportsProvider',
       'operationsReportAbnormalitiesProvider',
       'openDirectivesProvider',
       'workflowAllLanesProvider',

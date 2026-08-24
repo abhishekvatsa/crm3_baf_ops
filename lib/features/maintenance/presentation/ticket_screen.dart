@@ -791,8 +791,19 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     final complianceId = ticket.workflowComplianceId?.trim();
     if (complianceId == null || complianceId.isEmpty) return;
     try {
+      final actorAsync = ref.read(currentAppUserProvider);
+      final actor = actorAsync.asData?.value;
+      if (actorAsync.isLoading ||
+          actorAsync.hasError ||
+          actor == null ||
+          !actor.isApproved) {
+        throw StateError('Approved compliance access is required.');
+      }
       final record = await ref.read(
-        workflowComplianceRecordProvider(complianceId).future,
+        workflowComplianceRecordProvider((
+          actorUid: actor.uid,
+          complianceId: complianceId,
+        )).future,
       );
       if (!mounted) return;
       if (record == null) {

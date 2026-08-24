@@ -569,18 +569,17 @@ OperationsReportSelection reconcileOperationsReportSelection({
   );
 }
 
-void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
-  final period = (
-    startInclusive: filter.startInclusive,
-    endExclusive: filter.endExclusive,
-  );
-  ref.invalidate(operationsReportTicketsProvider(period));
-  ref.invalidate(operationsReportExecutionsProvider(period));
+void _invalidateReportSources(
+  WidgetRef ref, [
+  OperationsReportScope? reportScope,
+]) {
+  ref.invalidate(operationsReportTicketsProvider);
+  ref.invalidate(operationsReportExecutionsProvider);
   ref.invalidate(operationalEventsForReportsProvider);
   ref.invalidate(maintenanceDueStatesProvider);
   ref.invalidate(allInspectionFindingsProvider);
   ref.invalidate(qualityWarningsProvider);
-  ref.invalidate(qualityMonitoringRequestsProvider);
+  ref.invalidate(qualityMonitoringRequestsForReportsProvider);
   ref.invalidate(operationsReportAbnormalitiesProvider);
   ref.invalidate(openDirectivesProvider);
   ref.invalidate(workflowAllLanesProvider);
@@ -591,5 +590,7 @@ void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
   ref.invalidate(equipmentStatusProvider(null));
   ref.invalidate(plantAssetOverviewProvider);
   ref.invalidate(operationsReportClockProvider);
-  ref.invalidate(operationsReportProvider(filter));
+  if (reportScope != null) {
+    ref.invalidate(operationsReportProvider(reportScope));
+  }
 }

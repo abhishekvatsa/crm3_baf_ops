@@ -21,10 +21,11 @@ admitted file carries an owner, purpose, observed responsibilities, authority
 boundary, persistence ownership, transaction ownership, regression evidence,
 growth ceiling, required markers, forbidden markers and a re-arm condition.
 
-The 21 August 2026 business-function tranche re-ran this inventory. It now
-classifies 42 hotspots, including the new inspection, frequent-issue and
-maintenance-intelligence workspaces, with digest
-`1DFE7CFC9720E78ED3D08E3FE0345F9D3D17CD7180AFD305F099964CB3230BBD`.
+The 24 August 2026 authority-lifecycle re-arm re-ran this inventory. It now
+classifies 46 hotspots, including the inspection, frequent-issue,
+maintenance-intelligence and actor-scoped operational-event workspaces, with
+digest
+`38160F4EA61B1CE7C7A1F28216ABC9D6B51F3C13719BCA8BFED0AA19B620A3F0`.
 No presentation surface acquired direct database ownership.
 
 ## Decomposition

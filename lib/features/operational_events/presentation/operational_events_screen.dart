@@ -36,7 +36,7 @@ class _OperationalEventsScreenState
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Operational events',
         appBarSubtitle: 'Verifying your approved operational scope',
@@ -48,26 +48,28 @@ class _OperationalEventsScreenState
     if (actorAsync.hasError) {
       return BafScreenStateScaffold.error(
         appBarTitle: 'Operational events',
-        appBarSubtitle: 'Verifying your approved operational scope',
+        appBarSubtitle: 'Utilities, cranes, transfer cars and delays',
         appBarIcon: Icons.crisis_alert_outlined,
         accent: BafColors.warning,
-        message: 'Operational-event access could not be verified.',
+        message: 'Approved access could not be verified. ${actorAsync.error}',
+        onRetry: () => ref.invalidate(currentAppUserProvider),
       );
     }
     final actor = actorAsync.value;
     if (actor == null || !actor.isApproved) {
       return BafScreenStateScaffold.access(
         appBarTitle: 'Operational events',
-        appBarSubtitle: 'Approved operational access only',
+        appBarSubtitle: 'Utilities, cranes, transfer cars and delays',
         appBarIcon: Icons.crisis_alert_outlined,
         accent: BafColors.warning,
         title: 'Operational-event access required',
-        message:
-            'An approved operational role is required to view plant events.',
+        message: 'An approved account is required to view operational events.',
       );
     }
-    final eventsAsync = ref.watch(operationalEventsProvider);
-    final reportEventsAsync = ref.watch(operationalEventsForReportsProvider);
+    final eventsAsync = ref.watch(operationalEventsProvider(actor.uid));
+    final reportEventsAsync = ref.watch(
+      operationalEventsForReportsProvider(actor.uid),
+    );
     final classes = ref.watch(assetClassesProvider).value ?? const [];
     final assets = ref.watch(allAssetInstancesProvider).value ?? const [];
     final asOf =
@@ -119,7 +121,10 @@ class _OperationalEventsScreenState
               error:
                   (error, _) => _ErrorState(
                     message: error.toString(),
-                    onRetry: () => ref.invalidate(operationalEventsProvider),
+                    onRetry:
+                        () => ref.invalidate(
+                          operationalEventsProvider(actor.uid),
+                        ),
                   ),
               data: (events) {
                 final open = events.where((event) => event.isOpen).toList();
@@ -136,7 +141,8 @@ class _OperationalEventsScreenState
                         .length;
                 return RefreshIndicator(
                   onRefresh:
-                      () async => ref.invalidate(operationalEventsProvider),
+                      () async =>
+                          ref.invalidate(operationalEventsProvider(actor.uid)),
                   child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
@@ -178,7 +184,7 @@ class _OperationalEventsScreenState
                               (value) => setState(() => _selectedTopic = value),
                           onRetry:
                               () => ref.invalidate(
-                                operationalEventsForReportsProvider,
+                                operationalEventsForReportsProvider(actor.uid),
                               ),
                         ),
                       ),

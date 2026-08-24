@@ -35,9 +35,23 @@ workflow re-arm classifies its additional local reconciliation sites under the
 existing maintenance repository boundary. Strict server-readback adoption for
 planned executions, runtime modules and charge abnormalities adds two further
 compare-and-apply operations under their existing repository adapters. The
-current manifest therefore covers 507 operations and 1,610 sites across 49 surfaces
+event-link authority correction makes three read streams auto-dispose when
+their last authorized listener leaves and keys every live cache to the approved
+actor UID, including direct approved-account switches; operation and surface
+counts do not change, while explicit metadata-aware subscriptions add
+three scanned sites and constructor lifecycle plus session scope remain part of
+the exact digest. The burner-round report adds one metadata-aware read operation
+under its already classified provider surface. Cache-origin snapshots are
+admitted only after the same
+continuous approved actor and exact query have received server confirmation;
+loading, error, revocation, sign-out, or UID change clears that in-memory
+trust, while a confirmed same-actor query remains usable offline. The current
+actor-scoped compliance lookup now obtains each record through a server-only
+point read and permits offline fallback only from an exact record proved during
+the same continuous approved-actor session. The current manifest therefore
+covers 509 operations and 1,615 sites across 49 surfaces
 with digest
-`4DA08280668603D0CA7A90FBEAA53DBEACE939F4F102DEC771CBE2DA18AD4155`;
+`F476035296F5FC83CABDDB169C4E25AEE804407AAAF5418115E8924BF1AEE274`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

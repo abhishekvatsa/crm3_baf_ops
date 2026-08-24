@@ -35,10 +35,10 @@ void main() {
             (ref) => Stream.value(const []),
           ),
           operationalEventsProvider.overrideWith(
-            (ref) => Stream.value([event]),
+            (ref, actorUid) => Stream.value([event]),
           ),
           operationalEventsForReportsProvider.overrideWith(
-            (ref) => Stream.value([event]),
+            (ref, actorUid) => Stream.value([event]),
           ),
           operationsReportClockProvider.overrideWith((ref) => clock.stream),
         ],
@@ -101,10 +101,10 @@ void main() {
             (ref) => Stream.value(const []),
           ),
           operationalEventsProvider.overrideWith(
-            (ref) => Stream.value([event]),
+            (ref, actorUid) => Stream.value([event]),
           ),
           operationalEventsForReportsProvider.overrideWith(
-            (ref) => Stream.value([event]),
+            (ref, actorUid) => Stream.value([event]),
           ),
           operationsReportClockProvider.overrideWith(
             (ref) => Stream.value(now),
@@ -137,10 +137,12 @@ void main() {
             (ref) => Stream.error(StateError('assets must not be read')),
           ),
           operationalEventsProvider.overrideWith(
-            (ref) => Stream.error(StateError('events must not be read')),
+            (ref, actorUid) =>
+                Stream.error(StateError('events must not be read')),
           ),
           operationalEventsForReportsProvider.overrideWith(
-            (ref) => Stream.error(StateError('history must not be read')),
+            (ref, actorUid) =>
+                Stream.error(StateError('history must not be read')),
           ),
           operationsReportClockProvider.overrideWith(
             (ref) => Stream.error(StateError('clock must not be read')),
@@ -173,10 +175,10 @@ void main() {
             (ref) => Stream.value(const []),
           ),
           operationalEventsProvider.overrideWith(
-            (ref) => Stream.value([_openCraneEvent(now)]),
+            (ref, actorUid) => Stream.value([_openCraneEvent(now)]),
           ),
           operationalEventsForReportsProvider.overrideWith(
-            (ref) => Stream.value(const []),
+            (ref, actorUid) => Stream.value(const []),
           ),
         ],
         child: const MaterialApp(home: OperationalEventsScreen()),
@@ -189,7 +191,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Operational-event access could not be verified.'),
+      find.textContaining('Approved access could not be verified.'),
       findsOneWidget,
     );
     expect(find.widgetWithText(FilledButton, 'Add event'), findsNothing);
@@ -214,9 +216,11 @@ void main() {
           allAssetInstancesProvider.overrideWith(
             (ref) => Stream.value(const []),
           ),
-          operationalEventsProvider.overrideWith((ref) => events.stream),
+          operationalEventsProvider.overrideWith(
+            (ref, actorUid) => events.stream,
+          ),
           operationalEventsForReportsProvider.overrideWith(
-            (ref) => Stream.value(const []),
+            (ref, actorUid) => Stream.value(const []),
           ),
         ],
         child: const MaterialApp(home: OperationalEventsScreen()),
@@ -245,10 +249,11 @@ void main() {
             (ref) => Stream.value(const []),
           ),
           operationalEventsProvider.overrideWith(
-            (ref) => Stream.error(StateError('event feed unavailable')),
+            (ref, actorUid) =>
+                Stream.error(StateError('event feed unavailable')),
           ),
           operationalEventsForReportsProvider.overrideWith(
-            (ref) => Stream.value(const []),
+            (ref, actorUid) => Stream.value(const []),
           ),
         ],
         child: const MaterialApp(home: OperationalEventsScreen()),

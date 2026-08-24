@@ -176,7 +176,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ? ref.watch(workflowAllComplianceProvider)
                 : null;
         final plantOverviewAsync = ref.watch(plantAssetOverviewProvider);
-        final operationalEventsAsync = ref.watch(operationalEventsProvider);
+        final operationalEventsAsync = ref.watch(
+          operationalEventsProvider(appUser.uid),
+        );
         final qualityWarningsAsync = ref.watch(qualityWarningsProvider);
         final qualityMonitoringAsync = ref.watch(
           qualityMonitoringRequestsProvider,
@@ -654,7 +656,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.invalidate(workflowAllLanesProvider);
       ref.invalidate(workflowAllComplianceProvider);
     }
-    ref.invalidate(operationalEventsProvider);
+    ref.invalidate(operationalEventsProvider(appUser.uid));
     ref.invalidate(qualityWarningsProvider);
     ref.invalidate(maintenanceDueStatesProvider);
     ref.invalidate(allInspectionFindingsProvider);
