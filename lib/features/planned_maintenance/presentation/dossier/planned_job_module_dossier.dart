@@ -569,6 +569,7 @@ class _ModuleDossierOverview extends StatelessWidget {
         modules
             .where(
               (module) =>
+                  !module.isDeleted &&
                   module.requiredForClosure &&
                   module.responsesReadResult.isValid &&
                   module.responsesReadResult.entries.isEmpty,
@@ -578,6 +579,7 @@ class _ModuleDossierOverview extends StatelessWidget {
         modules
             .where(
               (module) =>
+                  !module.isDeleted &&
                   module.requiredForClosure &&
                   !module.isFinalisedForNormalUsers,
             )
@@ -586,8 +588,9 @@ class _ModuleDossierOverview extends StatelessWidget {
         modules
             .where(
               (module) =>
-                  module.requiresFollowUp ||
-                  _moduleText(module.pendingIssue) != null,
+                  !module.isDeleted &&
+                  (module.requiresFollowUp ||
+                      _moduleText(module.pendingIssue) != null),
             )
             .length;
 

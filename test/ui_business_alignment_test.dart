@@ -412,6 +412,9 @@ void main() {
       (tester) async {
         final cancelledModule =
             _openModule()
+              ..requiredForClosure = true
+              ..requiresFollowUp = true
+              ..pendingIssue = 'Awaiting replacement part.'
               ..isDeleted = true
               ..deletedAt = DateTime.utc(2026, 7, 31, 19)
               ..deletedByUid = 'supervisor-1'
@@ -460,6 +463,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Cancelled module evidence'), findsOneWidget);
         expect(find.text('Cancelled with job'), findsOneWidget);
+        expect(
+          find.text('1 required module still has no structured responses.'),
+          findsNothing,
+        );
+        expect(
+          find.text('1 required module still is open for work.'),
+          findsNothing,
+        );
+        expect(
+          find.text('1 module has pending issue or follow-up marked.'),
+          findsNothing,
+        );
         await tester.scrollUntilVisible(
           find.text('Earlier removed module evidence'),
           400,

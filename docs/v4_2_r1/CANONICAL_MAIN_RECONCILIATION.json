@@ -1926,9 +1926,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/dossier/planned_job_module_dossier.dart",
       "canonicalSha256": "711DEB44042CE5D3C51C4B37C844654D6B0E9DAA08CA77627A9E15D8A09DF22F",
-      "candidateSha256": "29E6CE62A590396CF1E906C2647DD540CCF1658B6886E8A7A091B090DB122519",
+      "candidateSha256": "AAF1BFFF572A78391F1E82E0C011B3CE61F451239EED2DDD252BAF2F4750E969",
       "canonicalBytes": 65370,
-      "candidateBytes": 70723,
+      "candidateBytes": 70846,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
