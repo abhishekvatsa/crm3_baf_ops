@@ -60,7 +60,7 @@ class TimelineEntry {
         final t = ticket!;
         final routed = t.routedTo.name.toUpperCase();
         final by = t.loggedByName ?? t.reportedBy ?? 'Unknown';
-        final status = t.isResolved ? 'Resolved' : 'Open';
+        final status = t.lifecycleSummaryLabel;
         return '$routed — $status — By $by';
       case TimelineEventType.plannedJob:
         final e = execution!;
@@ -89,5 +89,4 @@ class TimelineEntry {
             equipmentStatus?.stateKey == 'inService';
     }
   }
-
 }

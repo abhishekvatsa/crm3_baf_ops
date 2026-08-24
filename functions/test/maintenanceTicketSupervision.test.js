@@ -903,8 +903,8 @@ describe('governed maintenance-ticket supervision', () => {
       aggregateId: 'ticket-1',
       expectedVersion: 3,
       payload: {
-        disposition: 'stillRelevant',
-        reason: 'The charge has ended, but the unresolved condition remains relevant for engineering review.',
+        disposition: '  stillRelevant  ',
+        reason: '  The charge has ended, but the unresolved condition remains relevant for engineering review.  ',
       },
     };
 

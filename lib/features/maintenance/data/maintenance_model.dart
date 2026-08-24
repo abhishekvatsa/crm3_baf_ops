@@ -667,6 +667,13 @@ class MaintenanceRecord {
       status == TicketStatus.closedWithoutResolution;
 
   @ignore
+  String get lifecycleSummaryLabel {
+    if (wasClosedWithoutResolution) return 'Closed unresolved';
+    if (wasTechnicallyResolved) return 'Resolved';
+    return 'Open';
+  }
+
+  @ignore
   bool get isWorkflowLinked =>
       workflowAggregateId != null && workflowAggregateId!.trim().isNotEmpty;
 

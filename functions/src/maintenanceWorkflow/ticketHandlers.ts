@@ -3262,18 +3262,27 @@ export const verifyMaintenanceTicketAudit = async (args: {
   }
   if (args.command.commandType ===
       "closeMaintenanceTicketWithoutResolution") {
-    const disposition = args.command.payload.disposition;
+    const disposition = cleanText(
+      args.command.payload.disposition,
+      "disposition",
+    );
+    const reason = boundedText(
+      args.command.payload.reason,
+      "reason",
+      12,
+      2000,
+    );
     const cancelledCoordination = args.receipt.result.cancelledCoordination;
     const workflowId = args.receipt.result.cancelledWorkflowId;
     const complianceId = args.receipt.result.cancelledComplianceId;
     if (args.receipt.result.ticketId !== args.command.aggregateId ||
-        !ADMINISTRATIVE_CLOSURE_DISPOSITIONS.has(String(disposition)) ||
+        !ADMINISTRATIVE_CLOSURE_DISPOSITIONS.has(disposition) ||
         after.status !== "closedWithoutResolution" ||
         after.isResolved !== true ||
         after.closedByUid !== args.actor.uid ||
         after.issueClosureSchemaVersion !== 1 ||
         after.issueClosureDisposition !== disposition ||
-        after.issueClosureReason !== args.command.payload.reason ||
+        after.issueClosureReason !== reason ||
         after.version !== args.receipt.aggregateVersion ||
         typeof cancelledCoordination !== "boolean" ||
         (cancelledCoordination &&

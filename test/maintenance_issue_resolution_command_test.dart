@@ -230,6 +230,23 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('administrative closure has a truthful terminal lifecycle label', () {
+    final ticket =
+        _ticket()
+          ..status = TicketStatus.closedWithoutResolution
+          ..isResolved = true;
+
+    expect(ticket.lifecycleSummaryLabel, 'Closed unresolved');
+
+    ticket.status = TicketStatus.resolved;
+    expect(ticket.lifecycleSummaryLabel, 'Resolved');
+
+    ticket
+      ..status = TicketStatus.acknowledged
+      ..isResolved = false;
+    expect(ticket.lifecycleSummaryLabel, 'Open');
+  });
 }
 
 MaintenanceRecord _ticket() {
