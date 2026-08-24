@@ -347,6 +347,8 @@ void main() {
           contains('final reopenedByUid = local.reopenedByUid?.trim();'),
         );
         expect(source, contains('reopenedByUid == actorUid'));
+        expect(source, contains('maintenanceHasLegacyPendingReopenEvidence'));
+        expect(source, contains('Legacy reopen synchronized by '));
       },
     );
 
@@ -371,6 +373,74 @@ void main() {
       expect(
         maintenanceReopenReplayHasCurrentActor(local: local, currentUid: '   '),
         isFalse,
+      );
+    });
+
+    test('pending v6 reopen is retained through explicit legacy attribution', () {
+      final reopenedAt = DateTime.utc(2026, 8, 23, 18, 45);
+      final local =
+          _maintenanceTicket(version: 8)
+            ..isSynced = false
+            ..updatedAt = reopenedAt
+            ..remarks = 'Returned for burner correction'
+            ..resolutionHistory = <ResolutionHistory>[
+              ResolutionHistory(
+                resolvedByUid: 'supervisor-1',
+                resolvedByName: 'Shift Supervisor',
+                resolvedAt: DateTime.utc(2026, 8, 23, 18),
+              ),
+            ];
+
+      expect(maintenanceHasLegacyPendingReopenEvidence(local), isTrue);
+      expect(
+        maintenanceReopenReplayHasCurrentActor(
+          local: local,
+          currentUid: 'si-1',
+        ),
+        isTrue,
+        reason:
+            'v6 did not persist the reopener, so its authenticated synchronizer '
+            'must remain the explicit replay authority.',
+      );
+
+      final evidence = maintenanceReopenReplayEvidenceForActor(
+        local: local,
+        currentUid: 'si-1',
+        currentActorName: 'Senior Instrumentation',
+      );
+      expect(evidence.reopenedByUid, 'si-1');
+      expect(
+        evidence.reopenedByName,
+        'Legacy reopen synchronized by Senior Instrumentation',
+      );
+      expect(evidence.reopenedAt, reopenedAt);
+      expect(evidence.reopenReason, 'Returned for burner correction');
+      expect(evidence.isLegacyAttribution, isTrue);
+
+      local.isSynced = true;
+      expect(maintenanceHasLegacyPendingReopenEvidence(local), isFalse);
+    });
+
+    test('partial v7 reopen evidence is never treated as legacy', () {
+      final local =
+          _maintenanceTicket(version: 8)
+            ..isSynced = false
+            ..reopenedByUid = 'operations-1'
+            ..resolutionHistory = <ResolutionHistory>[
+              ResolutionHistory(
+                resolvedByUid: 'supervisor-1',
+                resolvedAt: DateTime.utc(2026, 8, 23, 18),
+              ),
+            ];
+
+      expect(maintenanceHasLegacyPendingReopenEvidence(local), isFalse);
+      expect(
+        () => maintenanceReopenReplayEvidenceForActor(
+          local: local,
+          currentUid: 'operations-1',
+          currentActorName: 'Operations User',
+        ),
+        throwsStateError,
       );
     });
 

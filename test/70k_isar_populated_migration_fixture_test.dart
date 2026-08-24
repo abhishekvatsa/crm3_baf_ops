@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:crm3_baf_ops/core/services/isar_schema_migration.dart';
 import 'package:crm3_baf_ops/core/services/operational_assurance_local_repair.dart';
 import 'package:crm3_baf_ops/core/services/planned_job_local_link_repair.dart';
+import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/charges/data/charge_model.dart';
@@ -811,7 +812,7 @@ void main() {
   );
 
   test(
-    'populated v6 maintenance ticket migrates to v7 with nullable reopen evidence',
+    'populated v6 maintenance ticket migrates to v7 and pending reopen remains replayable',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_maintenance_reopen_v6_',
@@ -837,8 +838,30 @@ void main() {
               ..startDate = now
               ..createdAt = now
               ..updatedAt = now;
+        final legacyPendingReopen =
+            MaintenanceRecord()
+              ..firestoreId = 'legacy-pending-reopen-v6'
+              ..version = 11
+              ..isSynced = false
+              ..assetType = AssetType.furnace
+              ..assetNumber = 8
+              ..maintenanceType = MaintenanceType.breakdown
+              ..description = 'Legacy v6 reopened burner inspection'
+              ..routedTo = RoutedTo.instrumentation
+              ..startDate = now
+              ..createdAt = now
+              ..updatedAt = now.add(const Duration(minutes: 45))
+              ..remarks = 'Returned for detector correction'
+              ..resolutionHistory = <ResolutionHistory>[
+                ResolutionHistory(
+                  resolvedByUid: 'si-supervisor-1',
+                  resolvedByName: 'Senior Instrumentation',
+                  resolvedAt: now.add(const Duration(minutes: 30)),
+                ),
+              ];
         await isar.writeTxn(() async {
           await isar!.maintenanceRecords.put(legacyTicket);
+          await isar.maintenanceRecords.put(legacyPendingReopen);
         });
         await isar.close();
         isar = null;
@@ -895,6 +918,24 @@ void main() {
         expect(migrated.reopenedByName, isNull);
         expect(migrated.reopenedAt, isNull);
         expect(migrated.reopenReason, isNull);
+
+        final migratedPendingReopen =
+            await isar.maintenanceRecords
+                .filter()
+                .firestoreIdEqualTo('legacy-pending-reopen-v6')
+                .findFirst();
+        expect(migratedPendingReopen, isNotNull);
+        expect(migratedPendingReopen!.version, 11);
+        expect(migratedPendingReopen.isSynced, isFalse);
+        expect(migratedPendingReopen.resolutionHistory, hasLength(1));
+        expect(migratedPendingReopen.reopenedByUid, isNull);
+        expect(migratedPendingReopen.reopenedByName, isNull);
+        expect(migratedPendingReopen.reopenedAt, isNull);
+        expect(migratedPendingReopen.reopenReason, isNull);
+        expect(
+          maintenanceHasLegacyPendingReopenEvidence(migratedPendingReopen),
+          isTrue,
+        );
 
         final committed = await preparation.commitAfterSuccessfulOpen();
         expect(committed.schemaVersion, 7);

@@ -682,10 +682,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
   bool _hasMaintenanceReopenEvidence(MaintenanceRecord local) {
     if (local.isClosed) return false;
-    return local.resolutionHistory.isNotEmpty &&
+    if (local.resolutionHistory.isEmpty) return false;
+    final hasCompleteEvidence =
         _cleanMaintenanceText(local.reopenedByUid) != null &&
         _cleanMaintenanceText(local.reopenedByName) != null &&
         local.reopenedAt != null;
+    return hasCompleteEvidence ||
+        maintenanceHasLegacyPendingReopenEvidence(local);
   }
 
   Map<String, dynamic> _maintenanceCloseReplayStepData(
@@ -760,14 +763,22 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord local, [
     DateTime? serverMutationFloor,
   ]) {
-    final reopenedByUid = _cleanMaintenanceText(local.reopenedByUid);
-    final reopenedByName = _cleanMaintenanceText(local.reopenedByName);
-    final reopenedAt = local.reopenedAt;
-    if (reopenedByUid == null || reopenedByName == null || reopenedAt == null) {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final currentUid = _cleanMaintenanceText(firebaseUser?.uid);
+    if (currentUid == null) {
       throw StateError(
-        'Maintenance reopen replay requires complete actor and time evidence.',
+        'Maintenance reopen replay requires an authenticated actor.',
       );
     }
+    final currentActorName =
+        _cleanMaintenanceText(firebaseUser?.displayName) ??
+        _cleanMaintenanceText(firebaseUser?.email) ??
+        currentUid;
+    final reopenEvidence = maintenanceReopenReplayEvidenceForActor(
+      local: local,
+      currentUid: currentUid,
+      currentActorName: currentActorName,
+    );
     final burnerLockout = local.burnerLockoutCase;
     final reopenedLanePlan = local.issueLanePlan.reopen();
     final mutationTimestamp =
@@ -789,21 +800,21 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'endDate': null,
       'closedByUid': null,
       'closedByName': null,
-      'reopenedByUid': reopenedByUid,
-      'reopenedByName': reopenedByName,
-      'reopenedAt': reopenedAt.toUtc().toIso8601String(),
-      'reopenReason': local.reopenReason,
+      'reopenedByUid': reopenEvidence.reopenedByUid,
+      'reopenedByName': reopenEvidence.reopenedByName,
+      'reopenedAt': reopenEvidence.reopenedAt.toUtc().toIso8601String(),
+      'reopenReason': reopenEvidence.reopenReason,
       'downtimeHours': null,
       'teamsInvolved': local.teamsInvolved,
       'actionsJson': local.actionsJson,
       if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
       if (burnerLockout != null)
         'burnerResolutionEvidence': <String, dynamic>{},
-      'remarks': local.reopenReason,
+      'remarks': reopenEvidence.reopenReason,
       'resolutionHistoryJson': local.resolutionHistoryJson,
       'updatedAt': mutationTimestamp.toUtc().toIso8601String(),
-      'updatedByUid': reopenedByUid,
-      'updatedByName': reopenedByName,
+      'updatedByUid': reopenEvidence.reopenedByUid,
+      'updatedByName': reopenEvidence.reopenedByName,
       'version': local.version,
     };
   }
@@ -1045,11 +1056,93 @@ bool maintenanceReopenReplayHasCurrentActor({
   required String currentUid,
 }) {
   final actorUid = currentUid.trim();
+  if (actorUid.isEmpty) return false;
+  if (maintenanceHasLegacyPendingReopenEvidence(local)) return true;
   final reopenedByUid = local.reopenedByUid?.trim();
-  return actorUid.isNotEmpty &&
-      reopenedByUid != null &&
+  return reopenedByUid != null &&
       reopenedByUid.isNotEmpty &&
       reopenedByUid == actorUid;
+}
+
+typedef MaintenanceReopenReplayEvidence =
+    ({
+      String reopenedByUid,
+      String reopenedByName,
+      DateTime reopenedAt,
+      String? reopenReason,
+      bool isLegacyAttribution,
+    });
+
+@visibleForTesting
+bool maintenanceHasLegacyPendingReopenEvidence(MaintenanceRecord local) {
+  if (local.isClosed || local.isSynced || local.resolutionHistory.isEmpty) {
+    return false;
+  }
+  return local.reopenedByUid == null &&
+      local.reopenedByName == null &&
+      local.reopenedAt == null &&
+      local.reopenReason == null;
+}
+
+@visibleForTesting
+MaintenanceReopenReplayEvidence maintenanceReopenReplayEvidenceForActor({
+  required MaintenanceRecord local,
+  required String currentUid,
+  required String currentActorName,
+}) {
+  final actorUid = currentUid.trim();
+  final actorName = currentActorName.trim();
+  if (actorUid.isEmpty || actorName.isEmpty) {
+    throw StateError(
+      'Maintenance reopen replay requires a complete authenticated actor.',
+    );
+  }
+  if (local.isClosed || local.resolutionHistory.isEmpty) {
+    throw StateError('Maintenance reopen replay requires closure history.');
+  }
+
+  final reopenedByUid = local.reopenedByUid?.trim();
+  final reopenedByName = local.reopenedByName?.trim();
+  final reopenedAt = local.reopenedAt;
+  if (reopenedByUid != null &&
+      reopenedByUid.isNotEmpty &&
+      reopenedByName != null &&
+      reopenedByName.isNotEmpty &&
+      reopenedAt != null) {
+    if (reopenedByUid != actorUid) {
+      throw StateError(
+        'Only the actor who reopened this issue may synchronize its reopening.',
+      );
+    }
+    return (
+      reopenedByUid: reopenedByUid,
+      reopenedByName: reopenedByName,
+      reopenedAt: reopenedAt,
+      reopenReason: local.reopenReason,
+      isLegacyAttribution: false,
+    );
+  }
+
+  if (!maintenanceHasLegacyPendingReopenEvidence(local)) {
+    throw StateError(
+      'Maintenance reopen replay requires complete actor and time evidence.',
+    );
+  }
+  const legacyPrefix = 'Legacy reopen synchronized by ';
+  const maximumActorLength = 500 - legacyPrefix.length;
+  final boundedActorName =
+      actorName.length <= maximumActorLength
+          ? actorName
+          : actorName.substring(0, maximumActorLength);
+  final legacyReason = local.remarks?.trim();
+  return (
+    reopenedByUid: actorUid,
+    reopenedByName: '$legacyPrefix$boundedActorName',
+    reopenedAt: local.updatedAt,
+    reopenReason:
+        legacyReason == null || legacyReason.isEmpty ? null : legacyReason,
+    isLegacyAttribution: true,
+  );
 }
 
 @visibleForTesting
