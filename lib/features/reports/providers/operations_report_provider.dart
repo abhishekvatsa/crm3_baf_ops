@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/operations_report_clock_provider.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../abnormalities/providers/abnormality_provider.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
@@ -31,23 +32,11 @@ import '../../quality/data/quality_warning.dart';
 import '../../quality/providers/quality_provider.dart';
 import '../models/operations_report.dart';
 
-const operationsReportClockInterval = Duration(minutes: 1);
+export '../../../core/providers/operations_report_clock_provider.dart';
+
 typedef OperationsReportPeriod =
     ({DateTime startInclusive, DateTime endExclusive});
 typedef _ReportDimension = ({String disambiguator, String key, String label});
-
-Stream<DateTime> operationsReportClock({
-  Duration interval = operationsReportClockInterval,
-  DateTime Function()? now,
-}) async* {
-  final readNow = now ?? DateTime.now;
-  yield readNow();
-  yield* Stream<DateTime>.periodic(interval, (_) => readNow());
-}
-
-final operationsReportClockProvider = StreamProvider<DateTime>(
-  (ref) => operationsReportClock(),
-);
 
 final operationsReportTicketsProvider =
     StreamProvider.family<List<MaintenanceRecord>, OperationsReportPeriod>((
