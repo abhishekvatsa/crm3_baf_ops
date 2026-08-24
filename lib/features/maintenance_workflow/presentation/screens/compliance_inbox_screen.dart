@@ -28,7 +28,7 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
   Widget build(BuildContext context) {
     final laneLabel = widget.laneKey?.trim().toUpperCase();
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle:
             laneLabel == null || laneLabel.isEmpty

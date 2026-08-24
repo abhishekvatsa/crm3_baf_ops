@@ -31,7 +31,7 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return const ColoredBox(
         color: BafColors.background,
         child: BafLoadingPanel(

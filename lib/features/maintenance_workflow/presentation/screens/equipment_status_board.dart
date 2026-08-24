@@ -18,7 +18,7 @@ class EquipmentStatusBoard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Equipment availability',
         appBarSubtitle: 'Verifying your approved workflow scope',
