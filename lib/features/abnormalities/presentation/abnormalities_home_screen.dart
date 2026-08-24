@@ -38,7 +38,7 @@ class _AbnormalitiesHomeScreenState
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Abnormalities',
         appBarSubtitle: 'Verifying your approved abnormality scope',

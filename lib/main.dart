@@ -975,6 +975,16 @@ class AuthGate extends ConsumerWidget {
               return _ProfileBootstrapScreen(firebaseUser: firebaseUser);
             }
 
+            if (user.uid != firebaseUser.uid) {
+              return const _FullScreenStatus(
+                icon: Icons.switch_account_rounded,
+                title: 'Switching account',
+                message:
+                    'Waiting for the signed-in account and approved profile to match...',
+                showProgress: true,
+              );
+            }
+
             if (!user.isApproved) {
               return const PendingApprovalScreen();
             }

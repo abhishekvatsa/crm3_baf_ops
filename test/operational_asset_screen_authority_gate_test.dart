@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
@@ -22,6 +23,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('asset screens fail closed throughout authority refresh', () {
+    const paths = <String>[
+      'lib/features/assets/presentation/asset_condition_board.dart',
+      'lib/features/assets/presentation/asset_registry_screen.dart',
+      'lib/features/assets/presentation/burner_condition_round_screen.dart',
+      'lib/features/assets/presentation/furnace_stuckup_board.dart',
+      'lib/features/assets/presentation/inner_cover_lifecycle_screen.dart',
+      'lib/features/maintenance_workflow/presentation/screens/equipment_status_board.dart',
+    ];
+
+    for (final path in paths) {
+      final source = File(path).readAsStringSync();
+      expect(source, contains('if (actorAsync.isLoading) {'), reason: path);
+      expect(
+        source,
+        isNot(contains('actorAsync.isLoading && !actorAsync.hasValue')),
+        reason: path,
+      );
+    }
+  });
+
   testWidgets('Inner Covers rejects before hierarchy and lifecycle reads', (
     tester,
   ) async {
