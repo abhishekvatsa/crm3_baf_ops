@@ -1,12 +1,14 @@
 part of '../planned_job_detail_screen.dart';
 
 class _ProcessModuleDossier extends StatelessWidget {
+  final JobExecution execution;
   final AsyncValue<List<JobModuleInstance>> modulesAsync;
   final bool isOpenJob;
   final ValueChanged<List<JobModuleInstance>>? onAddModule;
   final ValueChanged<JobModuleInstance> onOpenModule;
 
   const _ProcessModuleDossier({
+    required this.execution,
     required this.modulesAsync,
     required this.isOpenJob,
     required this.onAddModule,
@@ -20,7 +22,7 @@ class _ProcessModuleDossier extends StatelessWidget {
       error: (error, _) => _WarningBox(text: 'Could not load modules: $error'),
       data: (modules) {
         final visibleModules =
-            modules.where((module) => !module.isDeleted).toList()..sort((a, b) {
+            modules.toList()..sort((a, b) {
               final orderCompare = a.displayOrder.compareTo(b.displayOrder);
               if (orderCompare != 0) return orderCompare;
               return a.createdAt.compareTo(b.createdAt);
@@ -68,6 +70,7 @@ class _ProcessModuleDossier extends StatelessWidget {
               const SizedBox(height: BafSpacing.md),
               ...visibleModules.map(
                 (module) => _ModuleDossierTile(
+                  execution: execution,
                   module: module,
                   isClosedJob: !isOpenJob,
                   onOpenModule: () => onOpenModule(module),
@@ -117,11 +120,13 @@ class _ClosedModulesReadOnlyBanner extends StatelessWidget {
 }
 
 class _ModuleDossierTile extends StatelessWidget {
+  final JobExecution execution;
   final JobModuleInstance module;
   final bool isClosedJob;
   final VoidCallback onOpenModule;
 
   const _ModuleDossierTile({
+    required this.execution,
     required this.module,
     required this.isClosedJob,
     required this.onOpenModule,
@@ -135,7 +140,7 @@ class _ModuleDossierTile extends StatelessWidget {
         JobModuleCard(module: module, onTap: onOpenModule),
         _ModuleSourceNotice(module: module),
         if (isClosedJob) ...[
-          _ClosedModuleEvidenceCard(module: module),
+          _ClosedModuleEvidenceCard(execution: execution, module: module),
           const SizedBox(height: BafSpacing.md),
         ],
       ],
@@ -144,9 +149,13 @@ class _ModuleDossierTile extends StatelessWidget {
 }
 
 class _ClosedModuleEvidenceCard extends StatelessWidget {
+  final JobExecution execution;
   final JobModuleInstance module;
 
-  const _ClosedModuleEvidenceCard({required this.module});
+  const _ClosedModuleEvidenceCard({
+    required this.execution,
+    required this.module,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -155,12 +164,29 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
     final responseRead = module.responsesReadResult;
     final payloadsValid =
         fieldRead.isValid && responseRead.isValid && actionRead.isValid;
+    final cancelledWithJob = _moduleWasCancelledWithJob(module, execution);
+    final priorRemovalLabel =
+        execution.isCancelled
+            ? 'Removed before cancellation'
+            : execution.isDeleted
+            ? 'Removed before job deletion'
+            : 'Removed before closure';
+    final priorRemovalMessage =
+        execution.isCancelled
+            ? 'This module was removed before the job cancellation. Its original removal evidence is preserved separately.'
+            : execution.isDeleted
+            ? 'This module was removed before the parent job was deleted. Its original removal evidence is preserved separately.'
+            : 'This module was removed before the job closed. Its original removal evidence is preserved separately.';
     final closureSatisfied =
         payloadsValid &&
+        !module.isDeleted &&
         (!module.requiredForClosure ||
             module.status == JobModuleStatus.accepted ||
             module.status == JobModuleStatus.notApplicable);
-    final lifecycleRows = _moduleLifecycleRows(module);
+    final lifecycleRows = _moduleLifecycleRows(
+      module,
+      cancelledWithJob: cancelledWithJob,
+    );
     final hasTechnicalContext =
         _hasTextList(module.procedureRefs) ||
         _hasTextList(module.targetRefs) ||
@@ -203,9 +229,13 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Closed module evidence',
-                      style: TextStyle(
+                    Text(
+                      cancelledWithJob
+                          ? 'Cancelled module evidence'
+                          : module.isDeleted
+                          ? 'Earlier removed module evidence'
+                          : 'Closed module evidence',
+                      style: const TextStyle(
                         color: BafColors.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
@@ -213,7 +243,11 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      closureSatisfied
+                      cancelledWithJob
+                          ? 'Work captured before cancellation remains preserved and read-only.'
+                          : module.isDeleted
+                          ? priorRemovalMessage
+                          : closureSatisfied
                           ? 'Lifecycle evidence and structured responses preserved for this module.'
                           : 'This closed job contains a module that is not accepted or N/A. It remains visible for historical review.',
                       style: const TextStyle(
@@ -233,8 +267,18 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
             runSpacing: 6,
             children: [
               StatusBadge(
-                label: _moduleStatusLabel(module.status),
-                color: _moduleStatusColor(module.status),
+                label:
+                    cancelledWithJob
+                        ? 'Cancelled with job'
+                        : module.isDeleted
+                        ? priorRemovalLabel
+                        : _moduleStatusLabel(module.status),
+                color:
+                    cancelledWithJob
+                        ? BafColors.warning
+                        : module.isDeleted
+                        ? BafColors.textSecondary
+                        : _moduleStatusColor(module.status),
               ),
               StatusBadge(
                 label: _jobModuleDisciplineLabel(module.discipline),
@@ -525,6 +569,7 @@ class _ModuleDossierOverview extends StatelessWidget {
         modules
             .where(
               (module) =>
+                  !module.isDeleted &&
                   module.requiredForClosure &&
                   module.responsesReadResult.isValid &&
                   module.responsesReadResult.entries.isEmpty,
@@ -534,6 +579,7 @@ class _ModuleDossierOverview extends StatelessWidget {
         modules
             .where(
               (module) =>
+                  !module.isDeleted &&
                   module.requiredForClosure &&
                   !module.isFinalisedForNormalUsers,
             )
@@ -542,8 +588,9 @@ class _ModuleDossierOverview extends StatelessWidget {
         modules
             .where(
               (module) =>
-                  module.requiresFollowUp ||
-                  _moduleText(module.pendingIssue) != null,
+                  !module.isDeleted &&
+                  (module.requiresFollowUp ||
+                      _moduleText(module.pendingIssue) != null),
             )
             .length;
 
@@ -815,7 +862,33 @@ Color _moduleStatusColor(JobModuleStatus status) {
   }
 }
 
-List<_InfoPair> _moduleLifecycleRows(JobModuleInstance module) {
+bool _moduleWasCancelledWithJob(
+  JobModuleInstance module,
+  JobExecution execution,
+) {
+  if (!module.isDeleted || !execution.isCancelled) return false;
+  final deletedAt = module.deletedAt;
+  final cancelledAt = execution.cancelledAt;
+  final deletedByUid = _moduleText(module.deletedByUid);
+  final cancelledByUid = _moduleText(execution.cancelledByUid);
+  final cancellationReason = _moduleText(execution.cancellationReason);
+  if (deletedAt == null ||
+      cancelledAt == null ||
+      deletedByUid == null ||
+      cancelledByUid == null ||
+      cancellationReason == null) {
+    return false;
+  }
+  return deletedAt.isAtSameMomentAs(cancelledAt) &&
+      deletedByUid == cancelledByUid &&
+      _moduleText(module.deleteReason) ==
+          'Workflow cancelled: $cancellationReason';
+}
+
+List<_InfoPair> _moduleLifecycleRows(
+  JobModuleInstance module, {
+  required bool cancelledWithJob,
+}) {
   final sourceInfo = _moduleSourceInfo(module);
   final rows = <_InfoPair>[
     _InfoPair('Status', _moduleStatusLabel(module.status)),
@@ -866,6 +939,16 @@ List<_InfoPair> _moduleLifecycleRows(JobModuleInstance module) {
         module.notApplicableAt,
       ),
     ),
+    if (module.isDeleted)
+      _InfoPair(
+        cancelledWithJob ? 'Cancelled by' : 'Removed by',
+        _actorLine(module.deletedByName, module.deletedByUid, module.deletedAt),
+      ),
+    if (module.isDeleted && _moduleText(module.deleteReason) != null)
+      _InfoPair(
+        cancelledWithJob ? 'Cancellation reason' : 'Removal reason',
+        module.deleteReason!,
+      ),
   ];
 
   return rows.where((row) => _moduleText(row.value) != null).toList();

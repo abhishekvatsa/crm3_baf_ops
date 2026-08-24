@@ -959,6 +959,13 @@ export async function completePlannedJobWithDb(params: {
         "Deleted planned job execution cannot be completed.",
       );
     }
+    if (beforeData.isCancelled === true) {
+      throw new ClosureValidationError(
+        "failed-precondition",
+        "Cancelled planned job execution cannot be completed.",
+        {reasonCode: "closure-execution-cancelled"},
+      );
+    }
 
     if (beforeData.workflowSchemaVersion === 1) {
       throw new ClosureValidationError(

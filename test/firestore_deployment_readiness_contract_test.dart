@@ -154,6 +154,29 @@ void main() {
           isTrue,
         );
         expect(
+          _hasIndex(indexes, 'job_modules', const [
+            'jobExecutionFirestoreId:ASCENDING',
+            'displayOrder:ASCENDING',
+            'moduleTitle:ASCENDING',
+          ]),
+          isTrue,
+          reason:
+              'Cancelled-job dossiers intentionally include tombstoned modules '
+              'and therefore cannot use the active-only isDeleted index.',
+        );
+        expect(
+          _hasIndex(indexes, 'job_modules', const [
+            'jobExecutionFirestoreId:ASCENDING',
+            'discipline:ASCENDING',
+            'displayOrder:ASCENDING',
+            'moduleTitle:ASCENDING',
+          ]),
+          isTrue,
+          reason:
+              'Discipline-scoped historical module reads need the matching '
+              'tombstone-inclusive index shape.',
+        );
+        expect(
           _hasIndex(indexes, 'job_executions', const [
             'isDeleted:ASCENDING',
             'createdAt:DESCENDING',

@@ -14,6 +14,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.d
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/complete_job_screen.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/presentation/job_module_detail_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/planned_job_detail_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
@@ -61,26 +62,116 @@ JobExecution _governedExecution() {
     ..updatedAt = timestamp;
 }
 
-class _EmptyJobModuleRepository implements JobModuleRepository {
+JobExecution _cancelledExecution() {
+  final execution = _governedExecution();
+  return execution
+    ..isCancelled = true
+    ..cancelledAt = DateTime.utc(2026, 7, 31, 19)
+    ..cancelledByUid = 'supervisor-1'
+    ..cancelledByName = 'Shift Supervisor'
+    ..cancellationReason = 'Asset returned to Operations before work started.'
+    ..version = 2
+    ..updatedAt = DateTime.utc(2026, 7, 31, 19);
+}
+
+JobExecution _deletedExecution() {
+  final execution = _governedExecution();
+  return execution
+    ..isDeleted = true
+    ..deletedAt = DateTime.utc(2026, 7, 31, 19)
+    ..deletedByUid = 'admin-1'
+    ..deletedByName = 'System Administrator'
+    ..deleteReason = 'Duplicate historical execution.'
+    ..version = 2
+    ..updatedAt = DateTime.utc(2026, 7, 31, 19);
+}
+
+JobModuleInstance _openModule() {
+  final timestamp = DateTime.utc(2026, 7, 31, 18, 15);
+  return JobModuleInstance()
+    ..id = 41
+    ..firestoreId = 'module-ui-alignment'
+    ..jobExecutionFirestoreId = 'execution-ui-alignment'
+    ..moduleCode = 'F-01'
+    ..moduleTitle = 'Burner and combustion inspection'
+    ..moduleSnapshotJson = '{}'
+    ..fieldDefinitionsJson = '[]'
+    ..responsesJson = '[]'
+    ..actionsJson = '[]'
+    ..assetType = AssetType.base
+    ..assetNumber = 31
+    ..status = JobModuleStatus.inProgress
+    ..discipline = JobModuleDiscipline.mechanical
+    ..createdAt = timestamp
+    ..updatedAt = timestamp
+    ..isSynced = true;
+}
+
+List<JobDiaryEntry> _diaryEntries(int count) {
+  return List<JobDiaryEntry>.generate(count, (index) {
+    final timestamp = DateTime.utc(2026, 7, 31, 18, index);
+    return JobDiaryEntry()
+      ..id = index + 1
+      ..firestoreId = 'diary-${index + 1}'
+      ..jobExecutionFirestoreId = 'execution-ui-alignment'
+      ..assetType = AssetType.base
+      ..assetNumber = 31
+      ..kind = JobDiaryKind.note
+      ..discipline = JobDiaryDiscipline.shared
+      ..severity = JobDiarySeverity.medium
+      ..title = 'Diary entry ${index + 1}'
+      ..note = 'Preserved diary evidence ${index + 1}'
+      ..createdByUid = 'operator-1'
+      ..createdByName = 'Operations User'
+      ..createdAt = timestamp
+      ..updatedAt = timestamp
+      ..isSynced = true;
+  });
+}
+
+class _StaticJobModuleRepository implements JobModuleRepository {
+  _StaticJobModuleRepository([this.modules = const <JobModuleInstance>[]]);
+
+  final List<JobModuleInstance> modules;
+  bool? lastIncludeDeleted;
+  int? lastLimit;
+
   @override
   Stream<List<JobModuleInstance>> watchModulesForJob({
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
-  }) => Stream<List<JobModuleInstance>>.value(const []);
+    bool includeDeleted = false,
+  }) {
+    lastIncludeDeleted = includeDeleted;
+    lastLimit = limit;
+    return Stream<List<JobModuleInstance>>.value(
+      includeDeleted
+          ? modules
+          : modules.where((module) => !module.isDeleted).toList(),
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _EmptyJobDiaryRepository implements JobDiaryRepository {
+class _StaticJobDiaryRepository implements JobDiaryRepository {
+  _StaticJobDiaryRepository([this.entries = const <JobDiaryEntry>[]]);
+
+  final List<JobDiaryEntry> entries;
+  int? lastLimit;
+
   @override
   Stream<List<JobDiaryEntry>> watchEntriesForJob({
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     int? limit,
-  }) => Stream<List<JobDiaryEntry>>.value(const []);
+  }) {
+    lastLimit = limit;
+    return Stream<List<JobDiaryEntry>>.value(entries);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -103,6 +194,9 @@ Future<void> _pumpDetail(
   WidgetTester tester, {
   required AppUser actor,
   required Size size,
+  JobExecution? execution,
+  JobModuleRepository? moduleRepository,
+  JobDiaryRepository? diaryRepository,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -113,10 +207,10 @@ Future<void> _pumpDetail(
           (ref) => Stream<AppUser?>.value(actor),
         ),
         jobModuleRepositoryProvider.overrideWithValue(
-          _EmptyJobModuleRepository(),
+          moduleRepository ?? _StaticJobModuleRepository(),
         ),
         jobDiaryRepositoryProvider.overrideWithValue(
-          _EmptyJobDiaryRepository(),
+          diaryRepository ?? _StaticJobDiaryRepository(),
         ),
         maintenanceClassDefinitionsProvider.overrideWith(
           (ref) => const Stream.empty(),
@@ -127,7 +221,9 @@ Future<void> _pumpDetail(
         maintenancePlansProvider.overrideWith((ref) => const Stream.empty()),
       ],
       child: MaterialApp(
-        home: PlannedJobDetailScreen(execution: _governedExecution()),
+        home: PlannedJobDetailScreen(
+          execution: execution ?? _governedExecution(),
+        ),
       ),
     ),
   );
@@ -295,16 +391,187 @@ void main() {
     testWidgets('read-only governed dossier exposes no mutation bar', (
       tester,
     ) async {
+      final diaryRepository = _StaticJobDiaryRepository();
       await _pumpDetail(
         tester,
         actor: _actor(AppRole.operations),
         size: const Size(320, 700),
+        diaryRepository: diaryRepository,
       );
 
+      expect(diaryRepository.lastLimit, 50);
       expect(find.text('Add Note'), findsNothing);
       expect(find.text('Complete Job'), findsNothing);
       expect(find.text('Legacy execution summary'), findsNothing);
       expect(find.text('Checklist responses'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'cancelled planned job is a read-only dossier with cancellation evidence',
+      (tester) async {
+        final cancelledModule =
+            _openModule()
+              ..requiredForClosure = true
+              ..requiresFollowUp = true
+              ..pendingIssue = 'Awaiting replacement part.'
+              ..isDeleted = true
+              ..deletedAt = DateTime.utc(2026, 7, 31, 19)
+              ..deletedByUid = 'supervisor-1'
+              ..deletedByName = 'Shift Supervisor'
+              ..deleteReason =
+                  'Workflow cancelled: Asset returned to Operations before work started.';
+        final earlierTombstone =
+            _openModule()
+              ..id = 42
+              ..firestoreId = 'module-removed-before-cancellation'
+              ..isDeleted = true
+              ..deletedAt = DateTime.utc(2026, 7, 31, 18, 30)
+              ..deletedByUid = 'supervisor-2'
+              ..deletedByName = 'Maintenance Supervisor'
+              ..deleteReason = 'Removed as duplicate module.';
+        final moduleRepository = _StaticJobModuleRepository([
+          cancelledModule,
+          earlierTombstone,
+        ]);
+        final diaryRepository = _StaticJobDiaryRepository(_diaryEntries(9));
+        await _pumpDetail(
+          tester,
+          actor: _actor(AppRole.admin),
+          size: const Size(320, 800),
+          execution: _cancelledExecution(),
+          moduleRepository: moduleRepository,
+          diaryRepository: diaryRepository,
+        );
+
+        expect(diaryRepository.lastLimit, isNull);
+        expect(moduleRepository.lastIncludeDeleted, isTrue);
+        expect(moduleRepository.lastLimit, isNull);
+        expect(find.text('Cancelled'), findsWidgets);
+        expect(find.text('Cancelled job dossier'), findsOneWidget);
+        expect(find.text('Cancelled-job dossier is read-only'), findsOneWidget);
+        expect(
+          find.text(
+            'Reason: Asset returned to Operations before work started.',
+          ),
+          findsOneWidget,
+        );
+        await tester.scrollUntilVisible(
+          find.text('Cancelled module evidence'),
+          400,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Cancelled module evidence'), findsOneWidget);
+        expect(find.text('Cancelled with job'), findsOneWidget);
+        expect(
+          find.text('1 required module still has no structured responses.'),
+          findsNothing,
+        );
+        expect(
+          find.text('1 required module still is open for work.'),
+          findsNothing,
+        );
+        expect(
+          find.text('1 module has pending issue or follow-up marked.'),
+          findsNothing,
+        );
+        await tester.scrollUntilVisible(
+          find.text('Earlier removed module evidence'),
+          400,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Earlier removed module evidence'), findsOneWidget);
+        expect(find.text('Removed before cancellation'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('Diary entry 9'), 400);
+        expect(find.text('Diary entry 9'), findsOneWidget);
+        expect(find.textContaining('Showing latest 8'), findsNothing);
+        expect(find.textContaining('Workflow cancelled:'), findsWidgets);
+        expect(find.text('Add Note'), findsNothing);
+        expect(find.text('Complete Job'), findsNothing);
+        expect(find.text('Classify'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('deleted execution opens only as an immutable audit dossier', (
+      tester,
+    ) async {
+      final moduleRepository = _StaticJobModuleRepository([_openModule()]);
+      final diaryRepository = _StaticJobDiaryRepository();
+      await _pumpDetail(
+        tester,
+        actor: _actor(AppRole.admin),
+        size: const Size(320, 800),
+        execution: _deletedExecution(),
+        moduleRepository: moduleRepository,
+        diaryRepository: diaryRepository,
+      );
+
+      expect(diaryRepository.lastLimit, isNull);
+      expect(moduleRepository.lastIncludeDeleted, isTrue);
+      expect(moduleRepository.lastLimit, isNull);
+      expect(find.text('Deleted job dossier'), findsOneWidget);
+      expect(find.text('Deleted-job dossier is read-only'), findsOneWidget);
+      expect(
+        find.text('Reason: Duplicate historical execution.'),
+        findsOneWidget,
+      );
+      expect(find.text('Add Note'), findsNothing);
+      expect(find.text('Complete Job'), findsNothing);
+      expect(find.text('Classify'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cancelled job cannot reopen completion controls', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
+            ),
+          ],
+          child: MaterialApp(
+            home: CompleteJobScreen(execution: _cancelledExecution()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('This planned job was cancelled'), findsOneWidget);
+      expect(find.text('Mark Job Completed'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cancelled parent locks the entire module workspace', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
+            ),
+          ],
+          child: MaterialApp(
+            home: JobModuleDetailScreen(
+              execution: _cancelledExecution(),
+              module: _openModule(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Read-only module evidence'), findsOneWidget);
+      expect(find.text('Save Progress'), findsNothing);
+      expect(find.text('Submit'), findsNothing);
+      expect(find.text('Save Responses as Draft'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -423,7 +690,7 @@ void main() {
                 (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
               ),
               jobModuleRepositoryProvider.overrideWithValue(
-                _EmptyJobModuleRepository(),
+                _StaticJobModuleRepository(),
               ),
             ],
             child: MaterialApp(

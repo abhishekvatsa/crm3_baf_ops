@@ -179,6 +179,7 @@ describe('maintenance workflow command integration', () => {
       assetInstanceId: 'base-101',
       assignedAgencies: ['mechanical'],
       isCompleted: false,
+      isCancelled: false,
     });
     expect(JSON.parse(
       store.read('job_executions/legacy-exec-1').metadataJson,
@@ -702,7 +703,12 @@ describe('maintenance workflow command integration', () => {
     const successorWorkflowId = receipt.result.successorWorkflowId;
     const successorExecutionId = receipt.result.successorExecutionId;
     expect(store.read(`maintenance_workflows/${successorWorkflowId}`)).toMatchObject({status: 'awaitingCompliance', activeRedWork: false, awaitingPreparation: true});
-    expect(store.read(`job_executions/${successorExecutionId}`)).toMatchObject({templatePackageCode: 'RED-FURNACE-V1', assignedAgencies: ['refractory']});
+    expect(store.read(`job_executions/${successorExecutionId}`)).toMatchObject({
+      templatePackageCode: 'RED-FURNACE-V1',
+      assignedAgencies: ['refractory'],
+      isCompleted: false,
+      isCancelled: false,
+    });
     expect(store.entries().filter(([path]) => path.startsWith('job_modules/red_module_'))).toHaveLength(1);
     expect(store.read('job_executions/wf1-exec')).toMatchObject({
       isCompleted: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'],
@@ -802,6 +808,9 @@ describe('maintenance workflow command integration', () => {
   test('preselected furnace RED cannot acknowledge until preparation is confirmed', async () => {
     const store = new MemoryWorkflowStore();
     store.seed('maintenance_workflows/wf-pre', {jobExecutionId: 'exec-pre', status: 'inProgress', version: 3, assetTypeKey: 'furnace', assetNumber: 8, assetClassId: 'furnace-class', assetInstanceId: 'furnace-8', laneSetFinalizedAt: '2026-07-20T00:00:00Z', activeRedWork: false, awaitingPreparation: false});
+    store.seed('job_executions/exec-pre', {
+      isCompleted: false, isCancelled: false, isDeleted: false, version: 1,
+    });
     store.seed('job_lanes/wf-pre_mech_1', {workflowId: 'wf-pre', jobExecutionId: 'exec-pre', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
     store.seed('job_lanes/wf-pre_red_1', {workflowId: 'wf-pre', jobExecutionId: 'exec-pre', laneKey: 'red', status: 'pending', activationGeneration: 1, version: 1});
     store.seed('equipment_status/furnace_8', {
@@ -1165,6 +1174,9 @@ describe('maintenance workflow command integration', () => {
       jobExecutionId: 'wf-bridge', assetTypeKey: 'furnace', assetNumber: 7,
       status: 'inProgress', version: 4,
     });
+    store.seed('job_executions/wf-bridge', {
+      isCompleted: false, isCancelled: false, isDeleted: false, version: 1,
+    });
     store.seed('job_lanes/wf-bridge_elec_1', {
       workflowId: 'wf-bridge', laneKey: 'elec', status: 'acknowledged',
       activationGeneration: 1, version: 1,
@@ -1307,6 +1319,9 @@ describe('maintenance workflow command integration', () => {
       jobExecutionId: 'wf-wrong-asset', assetTypeKey: 'furnace', assetNumber: 7,
       status: 'inProgress', version: 1,
     });
+    store.seed('job_executions/wf-wrong-asset', {
+      isCompleted: false, isCancelled: false, isDeleted: false, version: 1,
+    });
     store.seed('job_lanes/wf-wrong-asset_elec_1', {
       workflowId: 'wf-wrong-asset', laneKey: 'elec', status: 'acknowledged',
       activationGeneration: 1, version: 1,
@@ -1369,6 +1384,71 @@ describe('maintenance workflow command integration', () => {
     }, {actor: electrical, serverNow: at('2026-07-20T17:11:00Z')}))
       .rejects.toMatchObject({code: 'failed-precondition'});
     expect(store.read('compliance_requests/c-terminal').status).toBe('raised');
+  });
+
+  test.each([
+    ['deleted', {isDeleted: true}, 'parent-execution-deleted'],
+    ['completed', {isCompleted: true}, 'parent-execution-completed-workflow-open'],
+    ['cancelled', {isCancelled: true}, 'parent-execution-cancelled-workflow-open'],
+  ])('mutable workflow commands reject a %s parent execution', async (
+    _label,
+    executionState,
+    reasonCode,
+  ) => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-terminal-parent-command', 'inProgress', 2);
+    store.seed('job_executions/wf-terminal-parent-command-exec', {
+      isDeleted: false, isCompleted: false, isCancelled: false, version: 1,
+      ...executionState,
+    });
+    store.seed('job_lanes/wf-terminal-parent-command_elec_1', {
+      workflowId: 'wf-terminal-parent-command', laneKey: 'elec',
+      status: 'pending', activationGeneration: 1, version: 1,
+    });
+    store.seed('job_lanes/wf-terminal-parent-command_oprn_1', {
+      workflowId: 'wf-terminal-parent-command', laneKey: 'oprn',
+      status: 'pending', activationGeneration: 1, version: 1,
+    });
+    const service = serviceFor(store);
+
+    await expect(service.execute({
+      commandId: `reject-terminal-lane-${_label}`,
+      commandType: 'acknowledgeLane',
+      aggregateId: 'wf-terminal-parent-command',
+      expectedVersion: 2,
+      payload: {laneKey: 'elec'},
+    }, {actor: electrical, serverNow: at('2026-07-20T17:11:30Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: expect.objectContaining({reasonCode}),
+      });
+    expect(store.read('job_lanes/wf-terminal-parent-command_elec_1').status)
+      .toBe('pending');
+
+    store.seed('job_lanes/wf-terminal-parent-command_elec_1', {
+      workflowId: 'wf-terminal-parent-command', laneKey: 'elec',
+      status: 'acknowledged', activationGeneration: 1, version: 1,
+    });
+    await expect(service.execute({
+      commandId: `reject-terminal-compliance-${_label}`,
+      commandType: 'raiseCompliance',
+      aggregateId: 'wf-terminal-parent-command',
+      expectedVersion: 2,
+      payload: {
+        complianceId: `terminal-compliance-${_label}`,
+        originLaneKey: 'elec',
+        targetLaneKey: 'oprn',
+        title: 'Operations support',
+        description: 'This request must not mutate a terminal execution.',
+        conditionTypeKey: 'manual',
+      },
+    }, {actor: electrical, serverNow: at('2026-07-20T17:11:31Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: expect.objectContaining({reasonCode}),
+      });
+    expect(store.read(`compliance_requests/terminal-compliance-${_label}`))
+      .toBeNull();
   });
 
   test('condition-based compliance cannot be created without maintenance binding and condition reference', async () => {
@@ -1537,6 +1617,47 @@ describe('maintenance workflow command integration', () => {
       .toBe(receipt.result.closureAttestationHash);
     expect(store.read('audit_logs/server_closure_wf-canonical-close-exec_3'))
       .toMatchObject({workflowAggregateId: 'wf-canonical-close'});
+  });
+
+  test.each([
+    ['deleted', {isDeleted: true}, 'parent-execution-deleted'],
+    ['cancelled', {isCancelled: true}, 'parent-execution-cancelled'],
+    ['completed', {isCompleted: true}, 'parent-execution-completed-workflow-open'],
+  ])('workflow finalization rejects a %s parent execution without mutation', async (
+    _label,
+    executionState,
+    reasonCode,
+  ) => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-terminal-parent', 'readyForClosure', 4, 'forceCooler', 7);
+    store.seed('maintenance_workflows/wf-terminal-parent', {
+      jobExecutionId: 'wf-terminal-parent-exec', status: 'readyForClosure', version: 4,
+      assetTypeKey: 'forceCooler', assetNumber: 7,
+      laneSetFinalizedAt: '2026-07-20T00:00:00.000Z', cancelled: false,
+    });
+    store.seed('job_executions/wf-terminal-parent-exec', {
+      version: 2, workflowSchemaVersion: 1, isCompleted: false,
+      isCancelled: false, isDeleted: false, metadataJson: '{}',
+      teamsInvolved: [], responsesJson: '[]', actionsJson: '[]',
+      ...executionState,
+    });
+    store.seed('job_lanes/wf-terminal-parent_mech_1', {
+      workflowId: 'wf-terminal-parent', jobExecutionId: 'wf-terminal-parent-exec',
+      laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2,
+    });
+    const service = serviceFor(store);
+    const before = store.entries();
+
+    await expect(service.execute({
+      commandId: `reject-${_label}-parent-finalize`, commandType: 'finalizeJob',
+      aggregateId: 'wf-terminal-parent', expectedVersion: 4, payload: {},
+    }, {actor: admin, serverNow: at('2026-07-20T18:11:00Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode},
+      });
+
+    expect(store.entries()).toEqual(before);
   });
 
   test('workflow finalization rejects malformed saved execution responses', async () => {
@@ -1898,6 +2019,41 @@ describe('maintenance workflow command integration', () => {
     expect(store.read('maintenance_records/maintenance-cancelled')).toMatchObject({workflowQueueState: 'released', workflowDeferred: false});
     expect(store.read('equipment_status/furnace_24').state).toBe('available');
     expect(store.read('audit_logs/workflow_cancel_wf-cancel-all_8')).toMatchObject({workflowAggregateId: 'wf-cancel-all'});
+  });
+
+  test.each([
+    ['deleted', {isDeleted: true}, 'parent-execution-deleted'],
+    ['completed', {isCompleted: true}, 'parent-execution-completed'],
+    ['cancelled', {isCancelled: true}, 'parent-execution-cancelled-workflow-open'],
+  ])('workflow cancellation rejects a %s parent execution without mutation', async (
+    _label,
+    executionState,
+    reasonCode,
+  ) => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-cancel-terminal-parent', 'inProgress', 3, 'base', 22);
+    store.seed('maintenance_workflows/wf-cancel-terminal-parent', {
+      jobExecutionId: 'wf-cancel-terminal-parent-exec', status: 'inProgress', version: 3,
+      assetTypeKey: 'base', assetNumber: 22, cancelled: false,
+    });
+    store.seed('job_executions/wf-cancel-terminal-parent-exec', {
+      version: 2, isCompleted: false, isCancelled: false, isDeleted: false,
+      ...executionState,
+    });
+    const service = serviceFor(store);
+    const before = store.entries();
+
+    await expect(service.execute({
+      commandId: `reject-${_label}-parent-cancel`, commandType: 'cancelWorkflow',
+      aggregateId: 'wf-cancel-terminal-parent', expectedVersion: 3,
+      payload: {reason: 'Lifecycle consistency check'},
+    }, {actor: admin, serverNow: at('2026-07-20T19:31:00Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode},
+      });
+
+    expect(store.entries()).toEqual(before);
   });
 
 });

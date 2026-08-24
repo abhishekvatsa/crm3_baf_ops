@@ -522,6 +522,20 @@ export const classifyMaintenanceExecution: CommandHandler = async ({
       "Maintenance-classification audit evidence already exists without this receipt.",
     );
   }
+  if (execution.data.isDeleted === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Deleted planned maintenance cannot be classified.",
+      {reasonCode: "maintenance-execution-deleted"},
+    );
+  }
+  if (execution.data.isCancelled === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Cancelled maintenance cannot be classified as completed or active work.",
+      {reasonCode: "maintenance-execution-cancelled"},
+    );
+  }
   const completed = execution.data.isCompleted === true;
   if (completed && !context.actor.roles.has("admin") && !context.actor.roles.has("si")) {
     throw new WorkflowError(

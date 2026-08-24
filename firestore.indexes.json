@@ -621,7 +621,47 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "discipline",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "displayOrder",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "moduleTitle",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "job_modules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "jobExecutionFirestoreId",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "displayOrder",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "moduleTitle",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "job_modules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "jobExecutionFirestoreId",
           "order": "ASCENDING"
         },
         {

@@ -401,7 +401,8 @@ void main() {
         _expectContains(adminTickets, 'showDialog<AdminDeleteDecision>');
         _expectContains(adminDirectives, 'showDialog<AdminDeleteDecision>');
         _expectContains(adminTemplates, 'showDialog<AdminDeleteDecision>');
-        _expectContains(adminExecutions, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminExecutions, 'PlannedJobDetailScreen(');
+        _expectNotContains(adminExecutions, 'deleteExecution(');
         _expectContains(
           adminTickets,
           'class _AdminCorrectTicketDialog extends StatefulWidget',

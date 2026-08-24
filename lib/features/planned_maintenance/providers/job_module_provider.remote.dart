@@ -92,15 +92,19 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
+    bool includeDeleted = false,
   }) async {
     final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
     if (cleanedFirestoreId == null) return [];
 
-    Query<Map<String, dynamic>> query = _modules
-        .where('jobExecutionFirestoreId', isEqualTo: cleanedFirestoreId)
-        .where('isDeleted', isEqualTo: false)
-        .orderBy('displayOrder')
-        .orderBy('moduleTitle');
+    Query<Map<String, dynamic>> query = _modules.where(
+      'jobExecutionFirestoreId',
+      isEqualTo: cleanedFirestoreId,
+    );
+    if (!includeDeleted) {
+      query = query.where('isDeleted', isEqualTo: false);
+    }
+    query = query.orderBy('displayOrder').orderBy('moduleTitle');
 
     if (discipline != null) {
       query = query.where('discipline', isEqualTo: discipline.name);
@@ -120,17 +124,21 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
+    bool includeDeleted = false,
   }) {
     final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
     if (cleanedFirestoreId == null) {
       return Stream<List<JobModuleInstance>>.value(const []);
     }
 
-    Query<Map<String, dynamic>> query = _modules
-        .where('jobExecutionFirestoreId', isEqualTo: cleanedFirestoreId)
-        .where('isDeleted', isEqualTo: false)
-        .orderBy('displayOrder')
-        .orderBy('moduleTitle');
+    Query<Map<String, dynamic>> query = _modules.where(
+      'jobExecutionFirestoreId',
+      isEqualTo: cleanedFirestoreId,
+    );
+    if (!includeDeleted) {
+      query = query.where('isDeleted', isEqualTo: false);
+    }
+    query = query.orderBy('displayOrder').orderBy('moduleTitle');
 
     if (discipline != null) {
       query = query.where('discipline', isEqualTo: discipline.name);

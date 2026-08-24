@@ -342,6 +342,62 @@ describe('classified maintenance completion and planning', () => {
     })).rejects.toMatchObject({code: 'permission-denied'});
   });
 
+  test.each([
+    [
+      'cancelled',
+      {
+        isCancelled: true,
+        cancelledAt: '2026-08-21T07:30:00.000Z',
+      },
+      'maintenance-execution-cancelled',
+    ],
+    [
+      'deleted',
+      {
+        isDeleted: true,
+        deletedAt: '2026-08-21T07:30:00.000Z',
+      },
+      'maintenance-execution-deleted',
+    ],
+  ])('%s maintenance cannot be classified or reset due counters', async (
+    _label,
+    terminalState,
+    reasonCode,
+  ) => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceClass(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+    store.seed('job_executions/execution-7', {
+      firestoreId: 'execution-7',
+      assetType: 'furnace',
+      assetNumber: 7,
+      workflowSchemaVersion: 1,
+      isCompleted: false,
+      isCancelled: false,
+      isDeleted: false,
+      metadataJson: '{}',
+      version: 2,
+      ...terminalState,
+    });
+    const before = store.read('job_executions/execution-7');
+
+    await expect(service.execute(classify(2, 1), {
+      actor: admin,
+      serverNow: now,
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode},
+    });
+
+    expect(store.read('job_executions/execution-7')).toEqual(before);
+    expect(store.entries().filter(([path]) =>
+      path.startsWith('maintenance_completion_events/'))).toHaveLength(0);
+    expect(store.entries().filter(([path]) =>
+      path.startsWith('maintenance_classification_audits/'))).toHaveLength(0);
+  });
+
   test('a proposed plan does not mutate equipment availability', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceClass(store);

@@ -122,6 +122,7 @@ class _StaticJobModuleRepository implements JobModuleRepository {
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
     int? limit,
+    bool includeDeleted = false,
   }) {
     return Stream<List<JobModuleInstance>>.value(modules);
   }

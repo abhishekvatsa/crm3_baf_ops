@@ -64,7 +64,8 @@ class JobHistoryScreen extends ConsumerWidget {
           }
 
           final completed = executions.where((e) => e.isCompleted).length;
-          final pending = executions.length - completed;
+          final cancelled = executions.where((e) => e.isCancelled).length;
+          final pending = executions.length - completed - cancelled;
 
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(
@@ -82,6 +83,7 @@ class JobHistoryScreen extends ConsumerWidget {
                   template: template,
                   total: executions.length,
                   completed: completed,
+                  cancelled: cancelled,
                   pending: pending,
                 );
               }
@@ -100,12 +102,14 @@ class _HistoryHeader extends StatelessWidget {
   final JobTemplate template;
   final int total;
   final int completed;
+  final int cancelled;
   final int pending;
 
   const _HistoryHeader({
     required this.template,
     required this.total,
     required this.completed,
+    required this.cancelled,
     required this.pending,
   });
 
@@ -173,6 +177,12 @@ class _HistoryHeader extends StatelessWidget {
                       color: BafColors.sync,
                       icon: Icons.check_circle_rounded,
                     ),
+                    if (cancelled > 0)
+                      StatusBadge(
+                        label: '$cancelled cancelled',
+                        color: BafColors.warning,
+                        icon: Icons.cancel_outlined,
+                      ),
                     StatusBadge(
                       label: '$pending pending',
                       color: pending > 0 ? BafColors.warning : BafColors.admin,
@@ -225,7 +235,12 @@ class _ExecutionCard extends StatelessWidget {
             )
             .toList();
 
-    final statusColor = ex.isCompleted ? BafColors.sync : BafColors.warning;
+    final statusColor =
+        ex.isCompleted
+            ? BafColors.sync
+            : ex.isCancelled
+            ? BafColors.warning
+            : BafColors.planned;
 
     return Container(
       decoration: BoxDecoration(
@@ -259,7 +274,9 @@ class _ExecutionCard extends StatelessWidget {
                               ),
                             ),
                             child: Icon(
-                              ex.isCompleted
+                              ex.isCancelled
+                                  ? Icons.cancel_outlined
+                                  : ex.isCompleted
                                   ? Icons.check_circle_rounded
                                   : Icons.pending_actions_rounded,
                               color: statusColor,
@@ -287,7 +304,9 @@ class _ExecutionCard extends StatelessWidget {
                                   children: [
                                     StatusBadge(
                                       label:
-                                          ex.isCompleted
+                                          ex.isCancelled
+                                              ? 'Cancelled'
+                                              : ex.isCompleted
                                               ? 'Completed'
                                               : 'Pending',
                                       color: statusColor,
@@ -321,12 +340,39 @@ class _ExecutionCard extends StatelessWidget {
                               'Completed ${DateFormat('dd MMM yyyy, HH:mm').format(ex.completedAt!)}',
                         ),
                       ],
-                      if (ex.completedByName != null &&
+                      if (ex.isCancelled && ex.cancelledAt != null) ...[
+                        const SizedBox(height: 6),
+                        _MetaLine(
+                          icon: Icons.cancel_outlined,
+                          text:
+                              'Cancelled ${DateFormat('dd MMM yyyy, HH:mm').format(ex.cancelledAt!)}',
+                        ),
+                      ],
+                      if (ex.isCompleted &&
+                          ex.completedByName != null &&
                           ex.completedByName!.trim().isNotEmpty) ...[
                         const SizedBox(height: 6),
                         _MetaLine(
                           icon: Icons.person_outline_rounded,
                           text: 'By ${ex.completedByName}',
+                        ),
+                      ],
+                      if (ex.isCancelled &&
+                          ex.cancelledByName != null &&
+                          ex.cancelledByName!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        _MetaLine(
+                          icon: Icons.person_outline_rounded,
+                          text: 'By ${ex.cancelledByName}',
+                        ),
+                      ],
+                      if (ex.isCancelled &&
+                          ex.cancellationReason != null &&
+                          ex.cancellationReason!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        _MetaLine(
+                          icon: Icons.notes_rounded,
+                          text: ex.cancellationReason!.trim(),
                         ),
                       ],
 
@@ -362,7 +408,7 @@ class _ExecutionCard extends StatelessWidget {
                         ),
                       ],
 
-                      if (ex.isCompleted && visibleResponses.isNotEmpty) ...[
+                      if (ex.isTerminal && visibleResponses.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Container(
                           width: double.infinity,
@@ -410,7 +456,7 @@ class _ExecutionCard extends StatelessWidget {
                       ],
 
                       const SizedBox(height: 12),
-                      if (!ex.isCompleted)
+                      if (!ex.isTerminal)
                         Row(
                           children: [
                             Expanded(

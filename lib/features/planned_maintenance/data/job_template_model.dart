@@ -1473,6 +1473,10 @@ class JobExecution {
   String? cancelledByName;
   String? cancellationReason;
 
+  /// Completed, cancelled, and deleted executions are immutable dossiers.
+  @ignore
+  bool get isTerminal => isDeleted || isCompleted || isCancelled;
+
   String? assignedByUid;
   String? assignedByName;
 

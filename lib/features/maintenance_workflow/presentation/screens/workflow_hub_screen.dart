@@ -63,7 +63,7 @@ class WorkflowHubScreen extends ConsumerWidget {
                   initialWorkflowId!.trim().isNotEmpty) ...[
                 PlannedJobWorkflowPanel(
                   workflowId: initialWorkflowId!.trim(),
-                  jobCompleted: false,
+                  jobTerminal: false,
                 ),
                 const SizedBox(height: 12),
               ],

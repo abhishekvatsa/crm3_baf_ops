@@ -481,6 +481,8 @@ describe("published TemplateVersion server assignment", () => {
       versionFixture().contentHash,
     );
     expect(result.execution.assignedByUid).toBe("supervisor1");
+    expect(result.execution.isCompleted).toBe(false);
+    expect(result.execution.isCancelled).toBe(false);
     expect(result.execution.modulePopulationVersion).toBe(1);
     expect(result.execution.modulePopulationSchemaVersion).toBe(1);
     expect(result.execution.modulePopulationLastModuleId).toBe(

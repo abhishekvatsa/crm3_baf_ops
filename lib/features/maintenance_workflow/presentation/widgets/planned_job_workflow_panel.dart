@@ -30,12 +30,12 @@ import 'workflow_timeline.dart';
 /// version, progress, compliance or RED-precondition validation.
 class PlannedJobWorkflowPanel extends ConsumerWidget {
   final String workflowId;
-  final bool jobCompleted;
+  final bool jobTerminal;
 
   const PlannedJobWorkflowPanel({
     super.key,
     required this.workflowId,
-    required this.jobCompleted,
+    required this.jobTerminal,
   });
 
   @override
@@ -144,7 +144,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                 .toList(growable: false);
             final canManage = actor.canFinalizeMaintenanceLaneSet;
             final workflowTerminal =
-                jobCompleted ||
+                jobTerminal ||
                 workflow.statusKey == 'completed' ||
                 workflow.statusKey == 'cancelled';
             return Column(
