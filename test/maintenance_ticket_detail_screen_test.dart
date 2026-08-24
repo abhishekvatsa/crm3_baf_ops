@@ -1,8 +1,10 @@
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticket_correction_dialog.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_ticket_detail_screen.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,6 +15,17 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final closedAt = DateTime.utc(2026, 8, 23, 12);
+    final earlierAction = buildBurnerComponentAction(
+      ticketId: 'ticket-closed-1',
+      furnaceNumber: 7,
+      burnerPosition: 3,
+      code: BurnerActionCode.uvDetectorCleaning,
+      outcome: BurnerResolutionOutcome.returnedToService,
+      microampReading: 2.875,
+      performedBy: 'I&A Two',
+      performedAt: closedAt.subtract(const Duration(days: 2)),
+      remarks: 'UV lens cleaned and flame signal checked.',
+    );
     final ticket =
         MaintenanceRecord()
           ..firestoreId = 'ticket-closed-1'
@@ -41,7 +54,17 @@ void main() {
           ..updatedAt = closedAt
           ..remarks = 'Flame signal stabilized after attendance.'
           ..actionsJson = '[]'
-          ..resolutionHistoryJson = '[]'
+          ..resolutionHistory = [
+            ResolutionHistory(
+              resolvedByUid: 'si-previous',
+              resolvedByName: 'SI Previous',
+              resolvedAt: closedAt.subtract(const Duration(days: 2)),
+              actionsJson: ComponentAction.encode([earlierAction]),
+              remarks: 'Reopened after the lockout recurred.',
+              downtimeHours: 1.5,
+              teamsInvolved: const ['I&A', 'Electrical'],
+            ),
+          ]
           ..issueLanePlan = IssueLanePlan.initial([
                 RoutedTo.instrumentation.name,
               ])
@@ -71,6 +94,20 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Closure evidence'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('earlier-closure-1')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Earlier closure 1'), findsOneWidget);
+    expect(find.text('1.50 hours'), findsOneWidget);
+    expect(find.text('I&A, Electrical'), findsOneWidget);
+    expect(find.textContaining('Burner 3'), findsOneWidget);
+    expect(find.textContaining('2.875 µA'), findsOneWidget);
+    expect(
+      find.textContaining('Reopened after the lockout recurred.'),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('ticket-detail-correct')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

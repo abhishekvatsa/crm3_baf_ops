@@ -181,25 +181,31 @@ class MaintenanceTicketDetailScreen extends StatelessWidget {
                 _DetailValue(label: 'Final remarks', value: ticket.remarks!),
             ],
           ),
-          if (ticket.isClosed)
+          if (ticket.isClosed ||
+              !historyRead.isValid ||
+              historyRead.entries.isNotEmpty)
             _DetailSection(
-              title: 'Closure evidence',
+              title:
+                  ticket.isClosed
+                      ? 'Closure evidence'
+                      : 'Previous closure evidence',
               icon:
                   administrativeClosure == null
                       ? Icons.task_alt_rounded
                       : Icons.inventory_2_outlined,
               children: [
-                _DetailValue(
-                  label: 'Outcome',
-                  value:
-                      administrativeClosure == null
-                          ? 'Technically resolved'
-                          : administrativeClosure.disposition.name ==
-                              'stillRelevant'
-                          ? 'Closed without resolution; still relevant'
-                          : 'Closed without resolution; relevance ended',
-                ),
-                if (administrativeClosure != null)
+                if (ticket.isClosed)
+                  _DetailValue(
+                    label: 'Outcome',
+                    value:
+                        administrativeClosure == null
+                            ? 'Technically resolved'
+                            : administrativeClosure.disposition.name ==
+                                'stillRelevant'
+                            ? 'Closed without resolution; still relevant'
+                            : 'Closed without resolution; relevance ended',
+                  ),
+                if (ticket.isClosed && administrativeClosure != null)
                   _DetailValue(
                     label: 'Administrative reason',
                     value: administrativeClosure.reason,
@@ -657,17 +663,93 @@ class _ResolutionHistoryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _DetailValue(
-      label: 'Earlier closure $sequence',
-      value: [
-        if (entry.resolvedAt != null)
-          DateFormat('dd MMM yyyy, HH:mm').format(entry.resolvedAt!.toLocal()),
-        if (entry.resolvedByName?.trim().isNotEmpty == true)
-          entry.resolvedByName!.trim(),
-        if (entry.remarks?.trim().isNotEmpty == true) entry.remarks!.trim(),
-      ].join(' · '),
+    final actions = ComponentAction.decode(
+      entry.actionsJson,
+      source: 'earlier closure $sequence',
+    );
+    return Container(
+      key: ValueKey('earlier-closure-$sequence'),
+      padding: const EdgeInsets.only(top: BafSpacing.md),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: BafColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Earlier closure $sequence',
+            style: const TextStyle(
+              color: BafColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          ..._DetailSection._spaced([
+            _DetailValue(
+              label: 'Closed',
+              value: [
+                if (entry.resolvedAt != null)
+                  DateFormat(
+                    'dd MMM yyyy, HH:mm',
+                  ).format(entry.resolvedAt!.toLocal()),
+                if (_text(entry.resolvedByName) != null)
+                  entry.resolvedByName!.trim(),
+              ].join(' · '),
+            ),
+            if (entry.downtimeHours != null)
+              _DetailValue(
+                label: 'Downtime',
+                value: '${entry.downtimeHours!.toStringAsFixed(2)} hours',
+              ),
+            if (entry.teamsInvolved.isNotEmpty)
+              _DetailValue(
+                label: 'Teams involved',
+                value: entry.teamsInvolved.join(', '),
+              ),
+            if (_text(entry.remarks) != null)
+              _DetailValue(
+                label: 'Closure remarks',
+                value: entry.remarks!.trim(),
+              ),
+            if (actions.isEmpty)
+              const _EmptyEvidence(
+                text:
+                    'No structured work actions were recorded in this closure.',
+              )
+            else
+              for (var index = 0; index < actions.length; index++)
+                _DetailValue(
+                  label: 'Work action ${index + 1}',
+                  value: _actionSummary(actions[index]),
+                ),
+          ]),
+        ],
+      ),
     );
   }
+
+  static String? _text(String? value) =>
+      value?.trim().isNotEmpty == true ? value : null;
+
+  static String _actionSummary(ComponentAction action) => <String>[
+    action.component,
+    _enumLabel(action.actionType.name),
+    if (_text(action.system) != null) action.system!.trim(),
+    if (_text(action.subsystem) != null) action.subsystem!.trim(),
+    if (_text(action.subComponent) != null) action.subComponent!.trim(),
+    if (_text(action.tag) != null) action.tag!.trim(),
+    if (_text(action.performedBy) != null) action.performedBy!.trim(),
+    if (action.burnerPosition != null) 'Burner ${action.burnerPosition}',
+    if (_text(action.burnerActionCode) != null)
+      _enumLabel(action.burnerActionCode!),
+    if (_text(action.burnerOutcome) != null) _enumLabel(action.burnerOutcome!),
+    if (action.burnerMicroampReading != null)
+      '${action.burnerMicroampReading!.toStringAsFixed(3)} µA',
+    if (_text(action.issue) != null) action.issue!.trim(),
+    if (_text(action.resolution) != null) action.resolution!.trim(),
+    if (_text(action.remarks) != null) action.remarks!.trim(),
+  ].join(' · ');
 }
 
 class _SmallEvidenceChip extends StatelessWidget {
