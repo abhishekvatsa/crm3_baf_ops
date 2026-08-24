@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/abnormalities/presentation/abnormality_reports_screen.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -16,6 +18,7 @@ import 'package:crm3_baf_ops/features/operational_events/data/operational_event_
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_event_issue_links_screen.dart';
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_events_screen.dart';
 import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
+import 'package:crm3_baf_ops/features/reports/presentation/burner_reliability_screen.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -29,6 +32,7 @@ void main() {
       'lib/features/abnormalities/presentation/abnormality_reports_screen.dart',
       'lib/features/maintenance_workflow/presentation/screens/compliance_notification_screen.dart',
       'lib/features/operational_events/presentation/operational_event_issue_links_screen.dart',
+      'lib/features/reports/presentation/burner_reliability_screen.dart',
       'lib/features/reports/presentation/fleet_status_screen.dart',
     ]) {
       final source = File(path).readAsStringSync();
@@ -38,6 +42,40 @@ void main() {
         reason: path,
       );
     }
+  });
+
+  testWidgets('burner report rejects retained actor data during refresh', (
+    tester,
+  ) async {
+    final actors = StreamController<AppUser?>.broadcast();
+    addTearDown(actors.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value(const <AssetClassRecord>[]),
+          ),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const <AssetInstanceRecord>[]),
+          ),
+        ],
+        child: const MaterialApp(home: BurnerReliabilityScreen()),
+      ),
+    );
+    actors.add(_approvedActor(AppRole.admin));
+    await tester.pumpAndSettle();
+    expect(find.text('Furnace authority needs reconciliation'), findsOneWidget);
+
+    final context = tester.element(find.byType(BurnerReliabilityScreen));
+    ProviderScope.containerOf(context).invalidate(currentAppUserProvider);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Checking report access'), findsOneWidget);
+    expect(find.text('Furnace authority needs reconciliation'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('management reports reject before report-source reads', (

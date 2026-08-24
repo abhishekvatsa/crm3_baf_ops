@@ -7803,6 +7803,9 @@ ui_workflow_read_repository_source = text(
     "lib/features/maintenance_workflow/repositories/"
     "firestore_workflow_read_repository.dart"
 )
+ui_burner_report_source = text(
+    "lib/features/reports/presentation/burner_reliability_screen.dart"
+)
 ui_planned_detail_source = text(
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart"
 )
@@ -7840,6 +7843,9 @@ check(
     and "fetchComplianceById" in ui_workflow_read_repository_source
     and "GetOptions(source: Source.server)"
         in ui_workflow_read_repository_source
+    and "if (actorAsync.isLoading)" in ui_burner_report_source
+    and "if (actorAsync.hasError)" in ui_burner_report_source
+    and "return _BurnerReliabilityBody(" in ui_burner_report_source
     and "final showBottomActions =" in ui_planned_detail_source
     and "if (!execution.isGovernedTemplateAssignment)" in ui_planned_detail_source
     and "if (!widget.execution.isGovernedTemplateAssignment"
