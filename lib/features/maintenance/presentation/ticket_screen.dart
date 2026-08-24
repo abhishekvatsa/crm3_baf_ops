@@ -26,9 +26,11 @@ import 'issue_administrative_closure_dialog.dart';
 import 'issue_lane_management_dialog.dart';
 import 'maintenance_form.dart';
 import 'issue_coordination_dialog.dart';
+import 'maintenance_ticket_detail_screen.dart';
 import 'resolve_form.dart';
 
 part 'ticket_screen.governed_actions.dart';
+part 'ticket_screen.card_actions.dart';
 
 class TicketScreen extends ConsumerStatefulWidget {
   const TicketScreen({super.key});
@@ -283,6 +285,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _TicketCard(
                   ticket: ticket,
+                  onViewDetails: () => _openTicketDetails(ticket),
                   canResolve: canResolveThis && !ticket.workflowDeferred,
                   onResolve: () => _openResolve(ticket),
                   canCloseWithoutResolution:
@@ -373,6 +376,15 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ResolveForm(ticket: ticket)),
+    );
+  }
+
+  Future<void> _openTicketDetails(MaintenanceRecord ticket) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => MaintenanceTicketDetailScreen(ticket: ticket),
+      ),
     );
   }
 
@@ -994,6 +1006,7 @@ class _NoMatchingIssuesState extends StatelessWidget {
 
 class _TicketCard extends StatelessWidget {
   final MaintenanceRecord ticket;
+  final VoidCallback onViewDetails;
   final bool canResolve;
   final VoidCallback onResolve;
   final bool canCloseWithoutResolution;
@@ -1016,6 +1029,7 @@ class _TicketCard extends StatelessWidget {
 
   const _TicketCard({
     required this.ticket,
+    required this.onViewDetails,
     required this.canResolve,
     required this.onResolve,
     required this.canCloseWithoutResolution,
@@ -1058,13 +1072,23 @@ class _TicketCard extends StatelessWidget {
     burnerReadings.sort((left, right) => left.key.compareTo(right.key));
     final laneRead = ticket.issueLanePlanReadResult;
     final lanePlan = laneRead.value;
+    final secondaryActions = _ticketCardSecondaryActions(
+      onViewDetails: onViewDetails,
+      canRefreshServer: canRefreshServer,
+      onRefreshServer: onRefreshServer,
+      onViewEventLinks: onViewEventLinks,
+      onOpenCoordination: onOpenCoordination,
+      canManageLanes: canManageLanes,
+      onManageLanes: onManageLanes,
+      canRepairLaneData: canRepairLaneData,
+      onRepairLaneData: onRepairLaneData,
+    );
 
     return Material(
       color: BafColors.card,
       borderRadius: BorderRadius.circular(BafRadius.large),
       child: InkWell(
-        onTap: canResolve ? onResolve : null,
-        onLongPress: canResolve ? onResolve : null,
+        onTap: onViewDetails,
         borderRadius: BorderRadius.circular(BafRadius.large),
         child: Container(
           padding: const EdgeInsets.all(15),
@@ -1208,12 +1232,36 @@ class _TicketCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (canRefreshServer)
-                    IconButton(
-                      tooltip: 'Refresh this issue from server',
-                      onPressed: isBusy ? null : onRefreshServer,
-                      icon: const Icon(Icons.cloud_sync_rounded),
-                    ),
+                  PopupMenuButton<int>(
+                    tooltip: 'Issue record and actions',
+                    enabled: !isBusy,
+                    icon: const Icon(Icons.more_vert_rounded),
+                    onSelected: (index) => secondaryActions[index].onSelected(),
+                    itemBuilder:
+                        (_) => [
+                          for (
+                            var index = 0;
+                            index < secondaryActions.length;
+                            index++
+                          )
+                            PopupMenuItem<int>(
+                              value: index,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    secondaryActions[index].icon,
+                                    size: 20,
+                                    color: BafColors.maintenance,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(secondaryActions[index].label),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                  ),
                 ],
               ),
               const SizedBox(height: BafSpacing.md),
@@ -1306,50 +1354,6 @@ class _TicketCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       height: 1.35,
                     ),
-                  ),
-                ),
-              ],
-              if (onViewEventLinks != null) ...[
-                const SizedBox(height: BafSpacing.lg),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onViewEventLinks,
-                    icon: const Icon(Icons.link_rounded),
-                    label: const Text('View linked operational events'),
-                  ),
-                ),
-              ],
-              if (onOpenCoordination != null) ...[
-                const SizedBox(height: BafSpacing.lg),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: isBusy ? null : onOpenCoordination,
-                    icon: const Icon(Icons.handshake_outlined),
-                    label: const Text('Open Operations coordination'),
-                  ),
-                ),
-              ],
-              if (canManageLanes) ...[
-                const SizedBox(height: BafSpacing.lg),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: isBusy ? null : onManageLanes,
-                    icon: const Icon(Icons.account_tree_rounded),
-                    label: const Text('Manage accountable lanes'),
-                  ),
-                ),
-              ],
-              if (canRepairLaneData) ...[
-                const SizedBox(height: BafSpacing.lg),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: isBusy ? null : onRepairLaneData,
-                    icon: const Icon(Icons.cloud_sync_rounded),
-                    label: const Text('Repair issue from server'),
                   ),
                 ),
               ],

@@ -11,10 +11,9 @@ void main() {
         File(
           'lib/features/maintenance_workflow/domain/workflow_types.dart',
         ).readAsStringSync();
-    final ticketScreen =
-        File(
-          'lib/features/maintenance/presentation/ticket_screen.dart',
-        ).readAsStringSync();
+    final ticketScreen = readDartLibrarySource(
+      'lib/features/maintenance/presentation/ticket_screen.dart',
+    );
     final maintenanceForm =
         File(
           'lib/features/maintenance/presentation/maintenance_form.dart',

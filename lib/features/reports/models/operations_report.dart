@@ -156,6 +156,11 @@ class OperationsReport {
     required this.disruptionCount,
     required this.openDisruptionCount,
     required this.disruptionDuration,
+    this.inventoryAssetCount,
+    this.inventoryAvailableAssetCount,
+    this.inventoryUnderMaintenanceAssetCount,
+    this.inventoryDownAssetCount,
+    this.inventoryUnfitAssetCount,
     this.qualityWarnings = const [],
     this.qualityMonitoringRequests = const [],
     this.abnormalities = const [],
@@ -190,6 +195,11 @@ class OperationsReport {
   final int disruptionCount;
   final int openDisruptionCount;
   final Duration disruptionDuration;
+  final int? inventoryAssetCount;
+  final int? inventoryAvailableAssetCount;
+  final int? inventoryUnderMaintenanceAssetCount;
+  final int? inventoryDownAssetCount;
+  final int? inventoryUnfitAssetCount;
   final List<QualityWarning> qualityWarnings;
   final List<QualityMonitoringRequest> qualityMonitoringRequests;
   final List<ChargeAbnormality> abnormalities;
@@ -346,13 +356,19 @@ class OperationsReport {
   int get workflowObligationCount =>
       pendingLaneAcknowledgementCount + dueComplianceRequestCount;
 
-  int get assetCount => assetStates.length;
+  int get assetCount => inventoryAssetCount ?? assetStates.length;
   int get availableAssetCount =>
+      inventoryAvailableAssetCount ??
       assetStates.where((state) => state.isAvailable).length;
   int get underMaintenanceAssetCount =>
+      inventoryUnderMaintenanceAssetCount ??
       assetStates.where((state) => state.isUnderMaintenance).length;
-  int get downAssetCount => assetStates.where((state) => state.isDown).length;
-  int get unfitAssetCount => assetStates.where((state) => state.isUnfit).length;
+  int get downAssetCount =>
+      inventoryDownAssetCount ??
+      assetStates.where((state) => state.isDown).length;
+  int get unfitAssetCount =>
+      inventoryUnfitAssetCount ??
+      assetStates.where((state) => state.isUnfit).length;
 
   double? get assetAvailabilityRate =>
       assetCount == 0 ? null : availableAssetCount / assetCount;
@@ -364,8 +380,7 @@ class OperationsReport {
       plannedJobCount == 0 ? null : completedPlannedJobCount / plannedJobCount;
 
   int get unavailableAssetCount => assetCount - availableAssetCount;
-  int get highRiskUnavailableAssetCount =>
-      assetStates.where((state) => state.isDown || state.isUnfit).length;
+  int get highRiskUnavailableAssetCount => downAssetCount + unfitAssetCount;
 
   int get actionBacklogCount =>
       openIssueCount +

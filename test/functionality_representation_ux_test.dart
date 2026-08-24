@@ -30,6 +30,16 @@ void main() {
     },
   );
 
+  test('resolved issue correction is limited to Admin and SI', () {
+    expect(_actor(AppRole.admin).canCorrectMaintenanceTicket, isTrue);
+    expect(_actor(AppRole.si).canCorrectMaintenanceTicket, isTrue);
+    expect(
+      _actor(AppRole.contractSupervisor).canCorrectMaintenanceTicket,
+      isFalse,
+    );
+    expect(_actor(AppRole.operations).canCorrectMaintenanceTicket, isFalse);
+  });
+
   test('field roles can work and submit only their own module disciplines', () {
     final operations = _actor(AppRole.operations);
     final refractory = _actor(AppRole.refractory);
@@ -118,6 +128,11 @@ void main() {
       find.text('Issues raised by you or routed to your team.'),
       findsOneWidget,
     );
+    await tester.tap(find.text('Operations-routed burner issue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Issue context'), findsOneWidget);
+    expect(find.text('Accountability'), findsOneWidget);
+    expect(find.text('Work recorded'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

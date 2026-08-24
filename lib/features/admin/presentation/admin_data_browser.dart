@@ -48,6 +48,15 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
     super.dispose();
   }
 
+  void _openSupportTool(_AdminSupportTool tool) {
+    final Widget screen = switch (tool) {
+      _AdminSupportTool.syncConflicts => const SyncConflictReviewScreen(),
+      _AdminSupportTool.localDiagnostics => const LocalDiagnosticsScreen(),
+      _AdminSupportTool.templatePublisher => const TemplatePublisherScreen(),
+    };
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  }
+
   @override
   Widget build(BuildContext context) {
     final appUserAsync = ref.watch(currentAppUserProvider);
@@ -79,6 +88,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
           );
         }
 
+        final compactHeader = MediaQuery.sizeOf(context).width < 720;
         return Scaffold(
           appBar: AppBar(
             title: const BafAppBarTitle(
@@ -87,46 +97,72 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
               icon: Icons.admin_panel_settings_outlined,
               accent: BafColors.admin,
             ),
-            actions: [
-              IconButton(
-                tooltip: 'Review sync conflicts',
-                icon: const Icon(Icons.warning_amber_rounded),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const SyncConflictReviewScreen(),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                tooltip: 'Local diagnostics inventory',
-                icon: const Icon(Icons.fact_check_rounded),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const LocalDiagnosticsScreen(),
-                    ),
-                  );
-                },
-              ),
-              if (appUser.canManageTemplateGovernance)
-                IconButton(
-                  tooltip: 'Template Publisher',
-                  icon: const Icon(Icons.verified_rounded),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const TemplatePublisherScreen(),
+            actions:
+                compactHeader
+                    ? [
+                      PopupMenuButton<_AdminSupportTool>(
+                        key: const ValueKey('admin-support-menu'),
+                        tooltip: 'Administration support tools',
+                        icon: const Icon(Icons.more_vert_rounded),
+                        onSelected: _openSupportTool,
+                        itemBuilder:
+                            (_) => [
+                              const PopupMenuItem(
+                                value: _AdminSupportTool.syncConflicts,
+                                child: _AdminSupportMenuItem(
+                                  icon: Icons.warning_amber_rounded,
+                                  label: 'Sync conflicts',
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: _AdminSupportTool.localDiagnostics,
+                                child: _AdminSupportMenuItem(
+                                  icon: Icons.fact_check_rounded,
+                                  label: 'Local diagnostics',
+                                ),
+                              ),
+                              if (appUser.canManageTemplateGovernance)
+                                const PopupMenuItem(
+                                  value: _AdminSupportTool.templatePublisher,
+                                  child: _AdminSupportMenuItem(
+                                    icon: Icons.verified_rounded,
+                                    label: 'Template publisher',
+                                  ),
+                                ),
+                            ],
                       ),
-                    );
-                  },
-                ),
-              const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: SyncStatusIndicator(),
-              ),
-            ],
+                    ]
+                    : [
+                      IconButton(
+                        tooltip: 'Review sync conflicts',
+                        icon: const Icon(Icons.warning_amber_rounded),
+                        onPressed:
+                            () => _openSupportTool(
+                              _AdminSupportTool.syncConflicts,
+                            ),
+                      ),
+                      IconButton(
+                        tooltip: 'Local diagnostics inventory',
+                        icon: const Icon(Icons.fact_check_rounded),
+                        onPressed:
+                            () => _openSupportTool(
+                              _AdminSupportTool.localDiagnostics,
+                            ),
+                      ),
+                      if (appUser.canManageTemplateGovernance)
+                        IconButton(
+                          tooltip: 'Template Publisher',
+                          icon: const Icon(Icons.verified_rounded),
+                          onPressed:
+                              () => _openSupportTool(
+                                _AdminSupportTool.templatePublisher,
+                              ),
+                        ),
+                      const Padding(
+                        padding: EdgeInsets.only(right: 12),
+                        child: SyncStatusIndicator(),
+                      ),
+                    ],
             bottom: TabBar(
               controller: _tabController,
               isScrollable: true,
@@ -141,20 +177,54 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
               ],
             ),
           ),
-          body: IndexedStack(
-            index: _selectedTab,
+          body: Column(
             children: [
-              const TicketsBrowser(),
-              const DirectivesBrowser(),
-              const TemplatesBrowser(),
-              const ExecutionsBrowser(),
-              const AbnormalitiesAdminTab(),
-              AssetHierarchyAdminTab(actor: appUser),
-              const UsersTab(),
+              if (compactHeader)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: SyncStatusIndicator(),
+                  ),
+                ),
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedTab,
+                  children: [
+                    const TicketsBrowser(),
+                    const DirectivesBrowser(),
+                    const TemplatesBrowser(),
+                    const ExecutionsBrowser(),
+                    const AbnormalitiesAdminTab(),
+                    AssetHierarchyAdminTab(actor: appUser),
+                    const UsersTab(),
+                  ],
+                ),
+              ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+enum _AdminSupportTool { syncConflicts, localDiagnostics, templatePublisher }
+
+class _AdminSupportMenuItem extends StatelessWidget {
+  const _AdminSupportMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: BafColors.admin),
+        const SizedBox(width: 10),
+        Text(label),
+      ],
     );
   }
 }

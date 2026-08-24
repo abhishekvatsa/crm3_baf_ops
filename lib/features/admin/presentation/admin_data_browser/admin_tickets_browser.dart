@@ -137,6 +137,26 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.warning.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
+                    border: Border.all(
+                      color: BafColors.warning.withValues(alpha: 0.40),
+                    ),
+                  ),
+                  child: const Text(
+                    'Audited correction: preserve the facts. Do not invent or erase evidence. Before-and-after values, your identity, time, and reason are retained permanently.',
+                    style: TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.sm),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.lock_outline_rounded),

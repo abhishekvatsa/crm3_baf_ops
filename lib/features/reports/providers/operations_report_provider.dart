@@ -6,6 +6,7 @@ import '../../../core/providers/operations_report_clock_provider.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../abnormalities/providers/abnormality_provider.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/domain/plant_asset_overview.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
@@ -31,6 +32,7 @@ import '../../planned_maintenance/providers/maintenance_intelligence_provider.da
 import '../../planned_maintenance/providers/planned_maintenance_provider.dart';
 import '../../quality/data/quality_warning.dart';
 import '../../quality/providers/quality_provider.dart';
+import '../domain/operations_report_asset_inventory.dart';
 import '../models/operations_report.dart';
 
 export '../../../core/providers/operations_report_clock_provider.dart';
@@ -98,6 +100,7 @@ final operationsReportAuthorityLifecycleProvider = Provider<void>((ref) {
     ref.invalidate(workflowAllComplianceProvider);
     ref.invalidate(assetClassesProvider);
     ref.invalidate(allAssetInstancesProvider);
+    ref.invalidate(innerCoverProfilesProvider);
     ref.invalidate(assetOperationalConditionsProvider);
     ref.invalidate(equipmentStatusProvider(null));
     ref.invalidate(plantAssetOverviewProvider);
@@ -149,6 +152,7 @@ final operationsReportProvider = Provider.autoDispose.family<
   final complianceRequests = ref.watch(workflowAllComplianceProvider);
   final classes = ref.watch(assetClassesProvider);
   final assets = ref.watch(allAssetInstancesProvider);
+  final innerCovers = ref.watch(innerCoverProfilesProvider);
   final overview = ref.watch(plantAssetOverviewProvider);
   final asOf = ref.watch(operationsReportClockProvider).value ?? DateTime.now();
   final error =
@@ -165,6 +169,7 @@ final operationsReportProvider = Provider.autoDispose.family<
       complianceRequests.asError ??
       classes.asError ??
       assets.asError ??
+      innerCovers.asError ??
       overview.asError;
   if (error != null) return AsyncError(error.error, error.stackTrace);
   if (tickets.isLoading ||
@@ -180,6 +185,7 @@ final operationsReportProvider = Provider.autoDispose.family<
       complianceRequests.isLoading ||
       classes.isLoading ||
       assets.isLoading ||
+      innerCovers.isLoading ||
       overview.isLoading) {
     return const AsyncLoading();
   }
@@ -201,6 +207,7 @@ final operationsReportProvider = Provider.autoDispose.family<
         actor: authorizedActor,
         assetClasses: classes.requireValue,
         assetInstances: assets.requireValue,
+        innerCoverProfiles: innerCovers.requireValue,
         overview: overview.requireValue,
         asOf: asOf,
       ),
@@ -232,6 +239,7 @@ OperationsReport buildOperationsReport({
   AppUser? actor,
   required List<AssetClassRecord> assetClasses,
   required List<AssetInstanceRecord> assetInstances,
+  List<InnerCoverProfile> innerCoverProfiles = const [],
   required PlantAssetOverview overview,
   DateTime? asOf,
 }) {
@@ -625,6 +633,13 @@ OperationsReport buildOperationsReport({
                 matchesIdentity(state.asset.assetClassId, state.asset.id),
           )
           .toList();
+  final inventory = buildOperationsReportAssetInventory(
+    assetClasses: assetClasses,
+    assetStates: filteredStates,
+    innerCoverProfiles: innerCoverProfiles,
+    selectedAssetClassId: effectiveClassId,
+    selectedAssetInstanceId: filter.assetInstanceId,
+  );
 
   List<CountedReportLabel> rank(
     _ReportDimension? Function(MaintenanceRecord) value,
@@ -777,15 +792,18 @@ OperationsReport buildOperationsReport({
               filteredInspectionFindings
                   .where((finding) => finding.assetClassId == assetClass.id)
                   .toList();
+          final classInventory = inventory.forAssetClass(
+            assetClass: assetClass,
+            assetStates: states,
+          );
           return AssetClassReportSummary(
             assetClassId: assetClass.id,
             assetClassName: assetClass.name,
-            assetCount: states.length,
-            availableCount: states.where((state) => state.isAvailable).length,
-            underMaintenanceCount:
-                states.where((state) => state.isUnderMaintenance).length,
-            downCount: states.where((state) => state.isDown).length,
-            unfitCount: states.where((state) => state.isUnfit).length,
+            assetCount: classInventory.total,
+            availableCount: classInventory.available,
+            underMaintenanceCount: classInventory.underMaintenance,
+            downCount: classInventory.down,
+            unfitCount: classInventory.unfit,
             issueCount: classTickets.length,
             openIssueCount:
                 classTickets.where((ticket) => !ticket.isResolved).length,
@@ -850,6 +868,11 @@ OperationsReport buildOperationsReport({
             filter.endExclusive,
           ),
     ),
+    inventoryAssetCount: inventory.total,
+    inventoryAvailableAssetCount: inventory.available,
+    inventoryUnderMaintenanceAssetCount: inventory.underMaintenance,
+    inventoryDownAssetCount: inventory.down,
+    inventoryUnfitAssetCount: inventory.unfit,
     qualityWarnings: List<QualityWarning>.unmodifiable(filteredQualityWarnings),
     qualityMonitoringRequests: List<QualityMonitoringRequest>.unmodifiable(
       filteredQualityMonitoring,

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../data/maintenance_model.dart';
+import '../domain/maintenance_ticket_correction.dart';
 import '../providers/maintenance_provider.dart';
 import '../services/closed_ticket_history_service.dart';
 import '../services/maintenance_issue_command_reconciler.dart';
@@ -26,6 +27,11 @@ import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
+import 'maintenance_ticket_correction_dialog.dart';
+import 'maintenance_ticket_detail_screen.dart';
+
+part 'closed_tickets_screen.corrections.dart';
+part 'closed_tickets_screen.record_actions.dart';
 
 class ClosedTicketsScreen extends ConsumerWidget {
   const ClosedTicketsScreen({super.key});
@@ -59,7 +65,7 @@ class ClosedTicketsScreen extends ConsumerWidget {
             accent: BafColors.maintenance,
             title: 'History access required',
             message:
-                'An approved maintenance role is required to view closed records.',
+                'An approved app account is required to view closed records.',
           );
         }
         return _ClosedTicketsBody(actor: actor);
@@ -88,6 +94,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   ClosedTicketPageCursor? _lastDocument;
   final Set<String> _reopeningTicketKeys = <String>{};
   final Set<String> _classifyingTicketKeys = <String>{};
+  final Set<String> _correctingTicketKeys = <String>{};
   late final ProviderSubscription<int> _refreshSubscription;
 
   @override
@@ -403,10 +410,21 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
+  void _setCorrectionBusy(String ticketKey, bool busy) {
+    if (!mounted) return;
+    setState(
+      () =>
+          busy
+              ? _correctingTicketKeys.add(ticketKey)
+              : _correctingTicketKeys.remove(ticketKey),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appUser = ref.watch(currentAppUserProvider).value;
     final canReopenTickets = appUser?.canReopenMaintenanceTicket == true;
+    final canCorrectTickets = appUser?.canCorrectMaintenanceTicket == true;
     final maintenanceClasses =
         ref.watch(maintenanceClassDefinitionsProvider).value ??
         const <MaintenanceClassDefinition>[];
@@ -477,6 +495,14 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                       padding: const EdgeInsets.only(bottom: BafSpacing.md),
                       child: _ClosedTicketCard(
                         ticket: ticket,
+                        onViewDetails:
+                            () => _openTicketDetails(
+                              ticket,
+                              canCorrect: canCorrectTickets && ticket.isSynced,
+                            ),
+                        canCorrect: canCorrectTickets && ticket.isSynced,
+                        isCorrecting: _correctingTicketKeys.contains(ticketKey),
+                        onCorrect: () => _correctTicket(ticket),
                         canReopenTicket: canReopenTickets,
                         isReopening: _reopeningTicketKeys.contains(ticketKey),
                         onReopen: () => _reopenTicket(ticket),
@@ -844,6 +870,10 @@ class _ClosedTicketsHeader extends StatelessWidget {
 
 class _ClosedTicketCard extends StatelessWidget {
   final MaintenanceRecord ticket;
+  final VoidCallback onViewDetails;
+  final bool canCorrect;
+  final bool isCorrecting;
+  final VoidCallback onCorrect;
   final bool canReopenTicket;
   final bool isReopening;
   final VoidCallback onReopen;
@@ -854,6 +884,10 @@ class _ClosedTicketCard extends StatelessWidget {
 
   const _ClosedTicketCard({
     required this.ticket,
+    required this.onViewDetails,
+    required this.canCorrect,
+    required this.isCorrecting,
+    required this.onCorrect,
     required this.canReopenTicket,
     required this.isReopening,
     required this.onReopen,
@@ -946,6 +980,11 @@ class _ClosedTicketCard extends StatelessWidget {
                                 ),
                               ],
                             ),
+                          ),
+                          IconButton(
+                            tooltip: 'View full issue record',
+                            onPressed: onViewDetails,
+                            icon: const Icon(Icons.chevron_right_rounded),
                           ),
                         ],
                       ),
@@ -1052,7 +1091,13 @@ class _ClosedTicketCard extends StatelessWidget {
                               'Flame signal: ${burnerReadings.map((entry) => 'B${entry.key} ${NumberFormat('0.###').format(entry.value)} µA').join(' · ')}',
                         ),
                       ],
-                      const SizedBox(height: BafSpacing.md),
+                      _ClosedTicketRecordActions(
+                        onViewDetails: onViewDetails,
+                        canCorrect: canCorrect,
+                        isCorrecting: isCorrecting,
+                        onCorrect: onCorrect,
+                      ),
+                      const SizedBox(height: BafSpacing.sm),
                       if (canReopen)
                         SizedBox(
                           width: double.infinity,
@@ -1341,33 +1386,6 @@ class _ClosedTicketsEmptyState extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetaLine extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _MetaLine({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: BafColors.textSecondary),
-        const SizedBox(width: BafSpacing.sm),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: BafColors.textSecondary,
-              fontSize: 12,
-              height: 1.25,
-            ),
           ),
         ),
       ],

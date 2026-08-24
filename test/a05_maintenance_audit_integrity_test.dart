@@ -654,6 +654,10 @@ void main() {
           File(
             'lib/features/admin/utils/admin_ticket_helpers.dart',
           ).readAsStringSync();
+      final maintenanceCorrection =
+          File(
+            'lib/features/maintenance/domain/maintenance_ticket_correction.dart',
+          ).readAsStringSync();
       final adminBrowser =
           File(
             'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
@@ -701,13 +705,20 @@ void main() {
           contains('_requireValidMaintenanceEvidence(ticket);'),
         ),
       );
-      expect(adminHelpers, contains('if (!source.actionsReadResult.isValid)'));
       expect(
-        adminHelpers,
+        maintenanceCorrection,
+        contains('if (!source.actionsReadResult.isValid)'),
+      );
+      expect(
+        maintenanceCorrection,
         contains('if (!source.resolutionHistoryReadResult.isValid)'),
       );
-      expect(adminHelpers, isNot(contains("'status':")));
-      expect(adminHelpers, isNot(contains("'assetNumber':")));
+      expect(maintenanceCorrection, isNot(contains("'status':")));
+      expect(maintenanceCorrection, isNot(contains("'assetNumber':")));
+      expect(
+        adminHelpers,
+        contains('buildMaintenanceTicketCorrection('),
+      );
       expect(
         adminBrowser,
         contains('Saved evidence needs repair before correction'),

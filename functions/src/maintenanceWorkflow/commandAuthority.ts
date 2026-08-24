@@ -235,7 +235,7 @@ export const assertWorkflowAuthorityScope = (
         !actor.roles.has("operations")) denied();
     return;
   case "ticket.correct":
-    if (!actor.roles.has("admin")) denied();
+    if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
     return;
   case "ticket.closeWithoutResolution":
     if (!actor.roles.has("admin")) denied();

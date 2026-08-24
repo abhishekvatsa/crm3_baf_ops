@@ -15,6 +15,7 @@ const {
 const at = new Date('2026-08-14T16:30:00.000Z');
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
 const admin = actor('admin-1', ['admin']);
+const si = actor('si-1', ['si']);
 const electrical = actor('electrical-1', ['seniorElectrical']);
 const mechanical = actor('mechanical-1', ['seniorMechanical']);
 const contractSupervisor = actor('contract-1', ['contractSupervisor']);
@@ -23,7 +24,7 @@ const operations = actor('operations-1', ['operations']);
 function serviceFor(currentActor, ticket = {}) {
   const store = new MemoryWorkflowStore();
   for (const current of [
-    admin, electrical, mechanical, contractSupervisor, operations,
+    admin, si, electrical, mechanical, contractSupervisor, operations,
   ]) {
     store.seed(`users/${current.uid}`, {
       isApproved: true,
@@ -64,7 +65,7 @@ const acknowledgeCommand = (commandId = 'ack-ticket-1') => ({
 function createServiceFor(currentActor = admin) {
   const store = new MemoryWorkflowStore();
   for (const current of [
-    admin, electrical, mechanical, contractSupervisor, operations,
+    admin, si, electrical, mechanical, contractSupervisor, operations,
   ]) {
     store.seed(`users/${current.uid}`, {
       isApproved: true,
@@ -1574,7 +1575,7 @@ describe('governed maintenance-ticket supervision', () => {
     }
   });
 
-  test('correction rejects non-admin, forbidden fields, and no-op changes', async () => {
+  test('correction permits SI but rejects non-supervisors and invalid changes', async () => {
     const command = {
       commandId: 'correct-ticket-1',
       commandType: 'correctMaintenanceTicket',
@@ -1588,6 +1589,15 @@ describe('governed maintenance-ticket supervision', () => {
     const denied = serviceFor(contractSupervisor);
     await expect(denied.service.execute(command, denied.context))
       .rejects.toMatchObject({code: 'permission-denied'});
+
+    const siCorrection = serviceFor(si, {status: 'resolved', isResolved: true});
+    await expect(siCorrection.service.execute({
+      ...command,
+      commandId: 'si-correct-terminal-ticket',
+    }, siCorrection.context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-corrected',
+      aggregateVersion: 4,
+    });
 
     const forbidden = serviceFor(admin);
     await expect(forbidden.service.execute({
