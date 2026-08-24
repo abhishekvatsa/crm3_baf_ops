@@ -20,6 +20,27 @@ void main() {
     expect(source, contains('roles: profile?.roles.map((role) => role.name)'));
   });
 
+  test(
+    'AuthGate rejects profile identity mismatch before approval and sync',
+    () {
+      final source = File('lib/main.dart').readAsStringSync();
+      final mismatchGuard = source.indexOf('if (user.uid != firebaseUser.uid)');
+      final approvalGuard = source.indexOf(
+        'if (!user.isApproved)',
+        mismatchGuard,
+      );
+      final startupSync = source.indexOf(
+        'return _StartupSyncGate(appUser: user)',
+        mismatchGuard,
+      );
+
+      expect(mismatchGuard, greaterThanOrEqualTo(0));
+      expect(approvalGuard, greaterThan(mismatchGuard));
+      expect(startupSync, greaterThan(mismatchGuard));
+      expect(source, contains("title: 'Switching account'"));
+    },
+  );
+
   test('approved scope is role-order stable and identity bound', () {
     final first = NavigationAuthorityScope.fromProfile(
       authenticatedUid: 'operator-1',
