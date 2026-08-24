@@ -127,6 +127,7 @@ class _CorrectionAuditView extends StatelessWidget {
   static const _fieldOrder = <String>[
     'description',
     'routedTo',
+    'issueAssignedLanes',
     'maintenanceType',
     'isCritical',
     'component',
@@ -217,7 +218,7 @@ class _CorrectionAuditView extends StatelessWidget {
       if (before == null || after == null) return null;
       return <_CorrectionChange>[
         for (final field in _fieldOrder)
-          if (before[field] != after[field])
+          if (!_sameFieldValue(field, before[field], after[field]))
             _CorrectionChange(
               field: field,
               before: before[field],
@@ -405,6 +406,7 @@ class _EvidenceMessage extends StatelessWidget {
 
 String _fieldLabel(String field) => switch (field) {
   'routedTo' => 'Responsible lane',
+  'issueAssignedLanes' => 'Accountable lanes',
   'maintenanceType' => 'Maintenance type',
   'isCritical' => 'Critical issue',
   'otherDepartment' => 'Other department',
@@ -415,6 +417,9 @@ String _fieldValue(String field, Object? value) {
   if (value == null || value is String && value.trim().isEmpty) {
     return 'Not recorded';
   }
+  if (field == 'issueAssignedLanes') {
+    return _retainedLaneList(value)!.map(_enumLabel).join(', ');
+  }
   if (value is bool) return value ? 'Yes' : 'No';
   final text = value.toString();
   if (field == 'routedTo' ||
@@ -423,6 +428,45 @@ String _fieldValue(String field, Object? value) {
     return _enumLabel(text);
   }
   return text;
+}
+
+bool _sameFieldValue(String field, Object? before, Object? after) {
+  if (field != 'issueAssignedLanes') return before == after;
+  final beforeLanes = _retainedLaneList(before);
+  final afterLanes = _retainedLaneList(after);
+  if (beforeLanes == null || afterLanes == null) {
+    return beforeLanes == null && afterLanes == null;
+  }
+  if (beforeLanes.length != afterLanes.length) return false;
+  for (var index = 0; index < beforeLanes.length; index++) {
+    if (beforeLanes[index] != afterLanes[index]) return false;
+  }
+  return true;
+}
+
+List<String>? _retainedLaneList(Object? value) {
+  if (value == null) return null;
+  const knownLanes = <String>{
+    'operations',
+    'electrical',
+    'mechanical',
+    'instrumentation',
+    'refractory',
+    'emd',
+    'shiftInCharge',
+    'others',
+  };
+  if (value is! List || value.isEmpty || value.length > knownLanes.length) {
+    throw const FormatException('Malformed retained lane evidence.');
+  }
+  final lanes = <String>[];
+  for (final lane in value) {
+    if (lane is! String || !knownLanes.contains(lane) || lanes.contains(lane)) {
+      throw const FormatException('Malformed retained lane evidence.');
+    }
+    lanes.add(lane);
+  }
+  return lanes;
 }
 
 String _enumLabel(String value) {

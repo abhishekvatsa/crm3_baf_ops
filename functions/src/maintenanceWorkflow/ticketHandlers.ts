@@ -3079,11 +3079,24 @@ export const correctMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-route-locked"},
     );
   }
-  const effectiveRoute = changed.routedTo ?? ticket.routedTo;
-  const effectiveLanes = Object.prototype.hasOwnProperty.call(
+  const routeChanged = Object.prototype.hasOwnProperty.call(
     changed,
     "routedTo",
-  ) ? [effectiveRoute] : currentLanePlan.assigned;
+  );
+  const effectiveRoute = routeChanged ? changed.routedTo : ticket.routedTo;
+  if (typeof effectiveRoute !== "string" || !ROUTES.has(effectiveRoute)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Other department is required only when the ticket route is Others.",
+      {reasonCode: "maintenance-ticket-route-department-invalid"},
+    );
+  }
+  const effectiveLanes = routeChanged ? [
+    effectiveRoute,
+    ...currentLanePlan.assigned
+      .slice(1)
+      .filter((lane) => lane !== effectiveRoute),
+  ] : currentLanePlan.assigned;
   const effectiveOtherDepartment = Object.prototype.hasOwnProperty.call(
     changed,
     "otherDepartment",
@@ -3091,8 +3104,7 @@ export const correctMaintenanceTicket = async ({
   const validOtherDepartment = typeof effectiveOtherDepartment === "string" &&
     effectiveOtherDepartment.trim().length >= 2 &&
     effectiveOtherDepartment.length <= 80;
-  if (typeof effectiveRoute !== "string" || !ROUTES.has(effectiveRoute) ||
-      (effectiveLanes.includes("others") ?
+  if ((effectiveLanes.includes("others") ?
         !validOtherDepartment : effectiveOtherDepartment != null)) {
     throw new WorkflowError(
       "invalid-argument",
@@ -3108,12 +3120,9 @@ export const correctMaintenanceTicket = async ({
     );
   }
   const nextVersion = version + 1;
-  const laneProjectionUpdate = Object.prototype.hasOwnProperty.call(
-    changed,
-    "routedTo",
-  ) ? ticketLaneProjection({
+  const laneProjectionUpdate = routeChanged ? ticketLaneProjection({
       revision: currentLanePlan.revision + 1,
-      assigned: [effectiveRoute as string],
+      assigned: effectiveLanes,
       acknowledged: [],
       completed: [],
     }) : {};

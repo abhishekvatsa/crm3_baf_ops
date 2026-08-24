@@ -95,6 +95,9 @@ void main() {
     expect(backend, contains('maintenance-ticket-replay-audit-invalid'));
     expect(backend, contains('maintenance-ticket-route-locked'));
     expect(backend, contains('maintenance-ticket-route-department-invalid'));
+    expect(backend, contains('currentLanePlan.assigned'));
+    expect(backend, contains('.slice(1)'));
+    expect(backend, contains('.filter((lane) => lane !== effectiveRoute)'));
     expect(backend, contains('maintenance-ticket-lane-completed'));
     expect(backend, contains('maintenance-ticket-lanes-reconfigured'));
     expect(backend, contains('maintenance-ticket-resolved'));
@@ -138,6 +141,8 @@ void main() {
     expect(correctionHistory, contains('event.reasonNotes'));
     expect(correctionHistory, contains('final before = event.before'));
     expect(correctionHistory, contains('final after = event.after'));
+    expect(correctionHistory, contains("'issueAssignedLanes'"));
+    expect(correctionHistory, contains("'Accountable lanes'"));
     expect(
       auditRepository,
       contains(".where('entityType', isEqualTo: 'maintenance')"),

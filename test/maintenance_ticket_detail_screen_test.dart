@@ -136,9 +136,11 @@ void main() {
             severity: AuditSeverity.medium,
             before: const <String, dynamic>{
               'description': 'Burner pressure was reported as normal.',
+              'issueAssignedLanes': <String>['electrical', 'mechanical'],
             },
             after: const <String, dynamic>{
               'description': 'Burner pressure instability was investigated.',
+              'issueAssignedLanes': <String>['instrumentation', 'mechanical'],
             },
           )
           ..timestamp = closedAt.subtract(const Duration(minutes: 20))
@@ -320,6 +322,27 @@ void main() {
       find.descendant(
         of: correctionCard,
         matching: find.text('Burner pressure instability was investigated.'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: correctionCard,
+        matching: find.text('Accountable lanes'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: correctionCard,
+        matching: find.text('Electrical, Mechanical'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: correctionCard,
+        matching: find.text('Instrumentation, Mechanical'),
       ),
       findsOneWidget,
     );

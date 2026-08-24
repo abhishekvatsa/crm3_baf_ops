@@ -1554,6 +1554,47 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('primary-route correction preserves and deduplicates secondary lanes', async () => {
+    const {store, service, context} = serviceFor(admin, {
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 4,
+      issueAssignedLanes: ['electrical', 'mechanical', 'instrumentation'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    await expect(service.execute({
+      commandId: 'correct-multi-lane-primary',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Primary accountability changed after the supervisor review.',
+        corrections: {routedTo: 'instrumentation'},
+      },
+    }, context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-corrected',
+      aggregateVersion: 4,
+    });
+
+    expect(store.read('maintenance_records/ticket-1')).toMatchObject({
+      routedTo: 'instrumentation',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 5,
+      issueAssignedLanes: ['instrumentation', 'mechanical'],
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+    });
+    const audit = store.read(
+      'audit_logs/server_maintenance_ticket_correct-multi-lane-primary',
+    );
+    expect(JSON.parse(audit.beforeJson).issueAssignedLanes).toEqual([
+      'electrical', 'mechanical', 'instrumentation',
+    ]);
+    expect(JSON.parse(audit.afterJson).issueAssignedLanes).toEqual([
+      'instrumentation', 'mechanical',
+    ]);
+  });
+
   test('admin correction preserves burner specialization and red-hot criticality', async () => {
     const burnerTicket = {
       classification: 'furnaceBurnerLockout',
