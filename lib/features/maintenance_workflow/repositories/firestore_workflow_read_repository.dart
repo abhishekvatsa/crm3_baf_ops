@@ -834,6 +834,11 @@ class FirestoreWorkflowReadRepository implements WorkflowRemoteReadRepository {
         .collection('compliance_requests')
         .doc(id)
         .get(const GetOptions(source: Source.server));
+    if (document.metadata.hasPendingWrites) {
+      throw StateError(
+        'Compliance server read contains uncommitted local mutations.',
+      );
+    }
     if (!document.exists) return null;
     final record = _compliance(document);
     return record.isDeleted ? null : record;

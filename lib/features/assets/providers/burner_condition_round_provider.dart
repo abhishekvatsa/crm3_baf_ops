@@ -92,6 +92,7 @@ final burnerConditionRoundsProvider = StreamProvider.autoDispose.family<
     actorUid: query.actorUid,
     queryKey: burnerConditionRoundQueryKey(query),
     isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+    hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
   ).map(
     (snapshot) => List<BurnerConditionRound>.unmodifiable(
       snapshot.docs.map(
