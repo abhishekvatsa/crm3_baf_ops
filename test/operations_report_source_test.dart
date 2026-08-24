@@ -156,6 +156,9 @@ void main() {
       ),
     );
     expect(burnerSource, contains('String actorUid'));
+    expect(burnerSource, contains('admitActorSessionSnapshots('));
+    expect(burnerSource, contains('includeMetadataChanges: true'));
+    expect(burnerSource, contains('snapshot.metadata.isFromCache'));
     expect(burnerScreenSource, contains('actorUid: widget.actor.uid'));
     expect(burnerScreenSource, contains('key: ValueKey(actor.uid)'));
     for (final provider in [
@@ -164,6 +167,7 @@ void main() {
       'workflowAllComplianceProvider',
       'assetClassesProvider',
       'burnerConditionRoundsProvider',
+      'burnerConditionRoundCacheTrustProvider',
       'operationsReportClockProvider',
     ]) {
       expect(source, contains('ref.invalidate($provider)'));

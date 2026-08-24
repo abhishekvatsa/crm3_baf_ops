@@ -113,6 +113,7 @@ final operationsReportAuthorityLifecycleProvider = Provider<void>((ref) {
     ref.invalidate(equipmentStatusProvider(null));
     ref.invalidate(plantAssetOverviewProvider);
     ref.invalidate(burnerConditionRoundsProvider);
+    ref.invalidate(burnerConditionRoundCacheTrustProvider);
     ref.invalidate(operationsReportClockProvider);
   });
 });

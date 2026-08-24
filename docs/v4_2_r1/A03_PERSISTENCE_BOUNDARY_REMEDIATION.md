@@ -40,16 +40,18 @@ their last authorized listener leaves and keys every live cache to the approved
 actor UID, including direct approved-account switches; operation and surface
 counts do not change, while explicit metadata-aware subscriptions add
 three scanned sites and constructor lifecycle plus session scope remain part of
-the exact digest. Cache-origin snapshots are admitted only after the same
+the exact digest. The burner-round report adds one metadata-aware read operation
+under its already classified provider surface. Cache-origin snapshots are
+admitted only after the same
 continuous approved actor and exact query have received server confirmation;
 loading, error, revocation, sign-out, or UID change clears that in-memory
 trust, while a confirmed same-actor query remains usable offline. The current
 actor-scoped compliance lookup now obtains each record through a server-only
 point read and permits offline fallback only from an exact record proved during
 the same continuous approved-actor session. The current manifest therefore
-covers 508 operations and 1,615 sites across 49 surfaces
+covers 509 operations and 1,615 sites across 49 surfaces
 with digest
-`DAEEE0300982926C13C1D6F671E110AD3D6ACB95CD39154D72E6BF13C017E044`;
+`F476035296F5FC83CABDDB169C4E25AEE804407AAAF5418115E8924BF1AEE274`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

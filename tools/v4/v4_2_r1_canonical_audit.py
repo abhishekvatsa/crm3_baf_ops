@@ -7859,6 +7859,12 @@ check(
     and "StreamProvider.autoDispose.family"
         in ui_burner_round_provider_source
     and "String actorUid" in ui_burner_round_provider_source
+    and "admitActorSessionSnapshots("
+        in ui_burner_round_provider_source
+    and "includeMetadataChanges: true"
+        in ui_burner_round_provider_source
+    and "snapshot.metadata.isFromCache"
+        in ui_burner_round_provider_source
     and "if (actorAsync.isLoading)" in ui_burner_report_source
     and "if (actorAsync.hasError)" in ui_burner_report_source
     and "key: ValueKey(actor.uid)" in ui_burner_report_source
@@ -9561,7 +9567,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "DAEEE0300982926C13C1D6F671E110AD3D6ACB95CD39154D72E6BF13C017E044"
+        == "F476035296F5FC83CABDDB169C4E25AEE804407AAAF5418115E8924BF1AEE274"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9585,7 +9591,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "508 operations" in a03_remediation
+    and "509 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:crm3_baf_ops/core/security/actor_session_cache_trust.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
@@ -34,6 +35,70 @@ void main() {
     startInclusive: startDate,
     endExclusive: DateTime(2026, 9, 1),
     assetInstanceId: 'furnace-2' as String?,
+  );
+
+  test(
+    'burner cache requires exact-query server proof for each actor',
+    () async {
+      final trust = ActorSessionCacheTrust()..observeActor('operations-1');
+      final queryKey = burnerConditionRoundQueryKey(furnaceRoundsQuery);
+      final firstSession =
+          await admitActorSessionSnapshots(
+            Stream.fromIterable(const [
+              (fromCache: true, value: 'unproved-cache'),
+              (fromCache: false, value: 'server'),
+              (fromCache: true, value: 'proved-cache'),
+            ]),
+            trust: trust,
+            actorUid: 'operations-1',
+            queryKey: queryKey,
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+      expect(firstSession.map((snapshot) => snapshot.value), [
+        'server',
+        'proved-cache',
+      ]);
+
+      trust.observeActor('operations-2');
+      final switchedOffline =
+          await admitActorSessionSnapshots(
+            Stream.value(const (fromCache: true, value: 'actor-a-cache')),
+            trust: trust,
+            actorUid: 'operations-2',
+            queryKey: queryKey,
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+      expect(switchedOffline, isEmpty);
+
+      final secondSession =
+          await admitActorSessionSnapshots(
+            Stream.fromIterable(const [
+              (fromCache: false, value: 'actor-b-server'),
+              (fromCache: true, value: 'actor-b-cache'),
+            ]),
+            trust: trust,
+            actorUid: 'operations-2',
+            queryKey: queryKey,
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+      expect(secondSession.map((snapshot) => snapshot.value), [
+        'actor-b-server',
+        'actor-b-cache',
+      ]);
+
+      final differentQueryCache =
+          await admitActorSessionSnapshots(
+            Stream.value(const (
+              fromCache: true,
+              value: 'different-query-cache',
+            )),
+            trust: trust,
+            actorUid: 'operations-2',
+            queryKey: burnerConditionRoundQueryKey(allRoundsQuery),
+            isFromCache: (snapshot) => snapshot.fromCache,
+          ).toList();
+      expect(differentQueryCache, isEmpty);
+    },
   );
 
   testWidgets(
