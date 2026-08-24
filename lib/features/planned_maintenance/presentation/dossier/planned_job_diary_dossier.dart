@@ -48,6 +48,7 @@ class _DiaryDossier extends StatelessWidget {
         final handovers = entries.where((entry) => entry.isHandover).length;
         final followUps =
             entries.where((entry) => entry.requiresFollowUp).length;
+        final visibleEntries = isOpenJob ? entries.take(8) : entries;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,8 +84,8 @@ class _DiaryDossier extends StatelessWidget {
               ],
             ),
             const SizedBox(height: BafSpacing.md),
-            ...entries.take(8).map(_DiaryEntryCard.new),
-            if (entries.length > 8) ...[
+            ...visibleEntries.map(_DiaryEntryCard.new),
+            if (isOpenJob && entries.length > 8) ...[
               const SizedBox(height: BafSpacing.sm),
               Text(
                 'Showing latest 8 of ${entries.length} diary entries.',

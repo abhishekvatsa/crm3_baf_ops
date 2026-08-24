@@ -713,7 +713,7 @@ class _PlannedJobDetailScreenState
         JobDiaryQueryKey(
           jobExecutionFirestoreId: _cleanOptionalString(execution.firestoreId),
           jobExecutionLocalId: kIsWeb ? null : execution.id,
-          limit: 50,
+          limit: isTerminal ? null : 50,
         ),
       ),
     );

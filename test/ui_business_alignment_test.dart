@@ -107,6 +107,28 @@ JobModuleInstance _openModule() {
     ..isSynced = true;
 }
 
+List<JobDiaryEntry> _diaryEntries(int count) {
+  return List<JobDiaryEntry>.generate(count, (index) {
+    final timestamp = DateTime.utc(2026, 7, 31, 18, index);
+    return JobDiaryEntry()
+      ..id = index + 1
+      ..firestoreId = 'diary-${index + 1}'
+      ..jobExecutionFirestoreId = 'execution-ui-alignment'
+      ..assetType = AssetType.base
+      ..assetNumber = 31
+      ..kind = JobDiaryKind.note
+      ..discipline = JobDiaryDiscipline.shared
+      ..severity = JobDiarySeverity.medium
+      ..title = 'Diary entry ${index + 1}'
+      ..note = 'Preserved diary evidence ${index + 1}'
+      ..createdByUid = 'operator-1'
+      ..createdByName = 'Operations User'
+      ..createdAt = timestamp
+      ..updatedAt = timestamp
+      ..isSynced = true;
+  });
+}
+
 class _StaticJobModuleRepository implements JobModuleRepository {
   _StaticJobModuleRepository([this.modules = const <JobModuleInstance>[]]);
 
@@ -135,13 +157,21 @@ class _StaticJobModuleRepository implements JobModuleRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _EmptyJobDiaryRepository implements JobDiaryRepository {
+class _StaticJobDiaryRepository implements JobDiaryRepository {
+  _StaticJobDiaryRepository([this.entries = const <JobDiaryEntry>[]]);
+
+  final List<JobDiaryEntry> entries;
+  int? lastLimit;
+
   @override
   Stream<List<JobDiaryEntry>> watchEntriesForJob({
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     int? limit,
-  }) => Stream<List<JobDiaryEntry>>.value(const []);
+  }) {
+    lastLimit = limit;
+    return Stream<List<JobDiaryEntry>>.value(entries);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -166,6 +196,7 @@ Future<void> _pumpDetail(
   required Size size,
   JobExecution? execution,
   JobModuleRepository? moduleRepository,
+  JobDiaryRepository? diaryRepository,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -179,7 +210,7 @@ Future<void> _pumpDetail(
           moduleRepository ?? _StaticJobModuleRepository(),
         ),
         jobDiaryRepositoryProvider.overrideWithValue(
-          _EmptyJobDiaryRepository(),
+          diaryRepository ?? _StaticJobDiaryRepository(),
         ),
         maintenanceClassDefinitionsProvider.overrideWith(
           (ref) => const Stream.empty(),
@@ -360,12 +391,15 @@ void main() {
     testWidgets('read-only governed dossier exposes no mutation bar', (
       tester,
     ) async {
+      final diaryRepository = _StaticJobDiaryRepository();
       await _pumpDetail(
         tester,
         actor: _actor(AppRole.operations),
         size: const Size(320, 700),
+        diaryRepository: diaryRepository,
       );
 
+      expect(diaryRepository.lastLimit, 50);
       expect(find.text('Add Note'), findsNothing);
       expect(find.text('Complete Job'), findsNothing);
       expect(find.text('Legacy execution summary'), findsNothing);
@@ -397,14 +431,17 @@ void main() {
           cancelledModule,
           earlierTombstone,
         ]);
+        final diaryRepository = _StaticJobDiaryRepository(_diaryEntries(9));
         await _pumpDetail(
           tester,
           actor: _actor(AppRole.admin),
           size: const Size(320, 800),
           execution: _cancelledExecution(),
           moduleRepository: moduleRepository,
+          diaryRepository: diaryRepository,
         );
 
+        expect(diaryRepository.lastLimit, isNull);
         expect(moduleRepository.lastIncludeDeleted, isTrue);
         expect(moduleRepository.lastLimit, isNull);
         expect(find.text('Cancelled'), findsWidgets);
@@ -430,6 +467,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Earlier removed module evidence'), findsOneWidget);
         expect(find.text('Removed before cancellation'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('Diary entry 9'), 400);
+        expect(find.text('Diary entry 9'), findsOneWidget);
+        expect(find.textContaining('Showing latest 8'), findsNothing);
         expect(find.textContaining('Workflow cancelled:'), findsWidgets);
         expect(find.text('Add Note'), findsNothing);
         expect(find.text('Complete Job'), findsNothing);
@@ -442,14 +482,17 @@ void main() {
       tester,
     ) async {
       final moduleRepository = _StaticJobModuleRepository([_openModule()]);
+      final diaryRepository = _StaticJobDiaryRepository();
       await _pumpDetail(
         tester,
         actor: _actor(AppRole.admin),
         size: const Size(320, 800),
         execution: _deletedExecution(),
         moduleRepository: moduleRepository,
+        diaryRepository: diaryRepository,
       );
 
+      expect(diaryRepository.lastLimit, isNull);
       expect(moduleRepository.lastIncludeDeleted, isFalse);
       expect(moduleRepository.lastLimit, 100);
       expect(find.text('Deleted job dossier'), findsOneWidget);
