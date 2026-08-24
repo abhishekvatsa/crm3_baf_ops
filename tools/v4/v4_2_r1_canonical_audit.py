@@ -9892,9 +9892,9 @@ check(
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
     and a05_timestamp_inventory_report.get("readerCount") == 69
-    and a05_timestamp_inventory_report.get("directCallCount") == 164
+    and a05_timestamp_inventory_report.get("directCallCount") == 165
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 97
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 65
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 66
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28

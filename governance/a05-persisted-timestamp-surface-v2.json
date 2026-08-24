@@ -344,11 +344,11 @@
       "readerFile": "lib/features/maintenance/data/maintenance_model.dart",
       "readerMarker": "factory ResolutionHistory.fromMap",
       "requiredFields": ["resolvedAt"],
-      "optionalFields": [],
+      "optionalFields": ["reopenedAt"],
       "owner": "maintenance",
-      "purpose": "restore nested resolution chronology",
+      "purpose": "restore nested resolution and reopening chronology",
       "authorityBoundary": "persisted-nested-operational-state",
-      "regression": "test/a05_operational_record_decoder_integrity_test.dart",
+      "regression": "test/a05_maintenance_audit_integrity_test.dart",
       "reArmCondition": "any resolution-history timestamp schema change"
     },
     {
