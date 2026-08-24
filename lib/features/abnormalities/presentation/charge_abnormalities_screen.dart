@@ -44,7 +44,7 @@ class _ChargeAbnormalitiesScreenState
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Charge abnormalities',
         appBarSubtitle: 'Verifying your approved abnormality scope',

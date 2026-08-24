@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
@@ -23,6 +24,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('business screens fail closed throughout authority refresh', () {
+    const paths = <String>[
+      'lib/features/abnormalities/presentation/abnormalities_home_screen.dart',
+      'lib/features/abnormalities/presentation/charge_abnormalities_screen.dart',
+      'lib/features/directives/presentation/directives_screen.dart',
+      'lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart',
+      'lib/features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart',
+      'lib/features/quality/presentation/quality_home_screen.dart',
+    ];
+
+    for (final path in paths) {
+      final source = File(path).readAsStringSync();
+      expect(source, contains('if (actorAsync.isLoading) {'), reason: path);
+      expect(
+        source,
+        isNot(contains('actorAsync.isLoading && !actorAsync.hasValue')),
+        reason: path,
+      );
+    }
+  });
+
   testWidgets('authority error hides quality data after an approved session', (
     tester,
   ) async {

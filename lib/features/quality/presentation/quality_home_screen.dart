@@ -31,7 +31,7 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Quality',
         appBarSubtitle: 'Verifying your approved quality scope',
