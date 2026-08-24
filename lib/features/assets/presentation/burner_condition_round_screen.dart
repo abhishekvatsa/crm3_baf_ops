@@ -52,10 +52,10 @@ class _BurnerConditionRoundScreenState
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    if (actorAsync.isLoading && !actorAsync.hasValue) {
+    if (actorAsync.isLoading) {
       return _shell(const Center(child: CircularProgressIndicator()));
     }
-    if (actorAsync.hasError && !actorAsync.hasValue) {
+    if (actorAsync.hasError) {
       return _shell(
         const Center(child: Text('Could not verify burner-round access.')),
       );

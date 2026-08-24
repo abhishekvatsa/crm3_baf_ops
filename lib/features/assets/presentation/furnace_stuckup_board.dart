@@ -30,7 +30,36 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentAppUserProvider).value;
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Furnace stuck-up',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.vertical_align_top_rounded,
+        accent: BafColors.warning,
+        label: 'Checking Furnace stuck-up access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Furnace stuck-up',
+        appBarSubtitle: 'Verifying your approved asset scope',
+        appBarIcon: Icons.vertical_align_top_rounded,
+        accent: BafColors.warning,
+        message: 'Furnace stuck-up access could not be verified.',
+      );
+    }
+    final user = actorAsync.value;
+    if (user == null || !user.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Furnace stuck-up',
+        appBarSubtitle: 'Assembly availability and confirmed causes',
+        appBarIcon: Icons.vertical_align_top_rounded,
+        accent: BafColors.warning,
+        title: 'Furnace stuck-up access required',
+        message: 'An approved account is required to view stuck-up cases.',
+      );
+    }
     final cases = ref.watch(furnaceStuckupCasesProvider);
     final declarations = ref.watch(assetConditionDeclarationsProvider);
     return Scaffold(

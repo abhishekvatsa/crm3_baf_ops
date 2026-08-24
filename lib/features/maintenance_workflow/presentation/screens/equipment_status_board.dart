@@ -17,9 +17,38 @@ class EquipmentStatusBoard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Equipment availability',
+        appBarSubtitle: 'Verifying your approved workflow scope',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        label: 'Checking equipment-state access',
+      );
+    }
+    if (actorAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Equipment availability',
+        appBarSubtitle: 'Verifying your approved workflow scope',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        message: 'Equipment-state access could not be verified.',
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.isApproved) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Equipment availability',
+        appBarSubtitle: 'Derived workflow state and service readiness',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        title: 'Equipment-state access required',
+        message: 'An approved account is required to view equipment state.',
+      );
+    }
     final rows = ref.watch(equipmentStatusProvider(null));
     final commandState = ref.watch(workflowCommandControllerProvider);
-    final actor = ref.watch(currentAppUserProvider).value;
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -87,12 +116,9 @@ class EquipmentStatusBoard extends ConsumerWidget {
                                     items[index],
                                     busy: commandState.isLoading,
                                     canDeploy:
-                                        actor?.canDeployMaintenanceEquipment ??
-                                        false,
+                                        actor.canDeployMaintenanceEquipment,
                                     canReconcile:
-                                        actor
-                                            ?.canReconcileMaintenanceEquipment ??
-                                        false,
+                                        actor.canReconcileMaintenanceEquipment,
                                   ),
                             ),
                           ),
