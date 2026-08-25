@@ -15,12 +15,12 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` contains the source used for Build 15 (`1.0.0-rc.5+15`). Build
-15 was production signed, independently verified and finalized into dual
-custody after exact production Functions, Firestore Rules and index readback.
-It remains non-distributable and has not yet been device-proved or promoted for
-pilot use. Build 15's completed package identity is consumed and cannot be
-reused; any successor requires a fresh governed build number and approval.
+Current `main` authorizes Build 16 (`1.0.0-rc.6+16`) after exact production
+Functions, Firestore Rules and index readback. Build 15 remains independently
+verified and finalized into dual custody; its consumed package identity cannot
+be reused. Build 16 must be production signed, independently verified and
+validated on an existing installation without clearing application data before
+any separate controlled-pilot decision.
 
 Authoritative status sources:
 

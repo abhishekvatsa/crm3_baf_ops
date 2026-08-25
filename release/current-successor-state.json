@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-25",
   "asOfDate": "2026-08-25",
-  "status": "BUILD15_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
+  "status": "BUILD16_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
-      "packageVersion": "1.0.0-rc.5+15",
-      "relationshipToLatestFinalizedArtifact": "BUILD15_SOURCE_CONTAINS_FINALIZED_BUILD15",
+      "packageVersion": "1.0.0-rc.6+16",
+      "relationshipToLatestFinalizedArtifact": "BUILD16_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD15",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": false,
+      "artifactConstructionAuthority": true,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true
@@ -26,10 +26,10 @@
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
     "deployedBackend": {
-      "functionFleetEvidenceFile": "release/evidence/pr290-backend-deployment-closure.json",
-      "functionFleetSourceCommit": "2c979435c3b977f040efb2cab05c3021cfe7cfb5",
-      "rulesAndIndexesEvidenceFile": "release/evidence/build15-firestore-rules-indexes-live-readback.json",
-      "rulesAndIndexesSourceCommit": "17a0772b7d21937826e790b7b219381f4eafe77e",
+      "functionFleetEvidenceFile": "release/evidence/pr295-backend-deployment-closure.json",
+      "functionFleetSourceCommit": "4cecd7fb0ee5dd661bae9cac035460892e7a63a7",
+      "rulesAndIndexesEvidenceFile": "release/evidence/build16-firestore-rules-indexes-live-readback.json",
+      "rulesAndIndexesSourceCommit": "4cecd7fb0ee5dd661bae9cac035460892e7a63a7",
       "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
     },
@@ -40,18 +40,21 @@
       "handoutPerformed": false,
       "appliesToCurrentSource": false,
       "appliesToBuild14": false,
-      "appliesToBuild15": false
+      "appliesToBuild15": false,
+      "appliesToBuild16": false
     },
     "nextCandidate": {
       "minimumBuildNumber": 16,
-      "status": "AWAITING_FRESH_GOVERNED_BUILD16_APPROVAL",
+      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD16_CONSTRUCTION",
+      "sourceApprovalFile": "release/approvals/build-number-16-successor-approval.json",
+      "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-16.json",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
     }
   },
   "localStore": {
-    "schemaVersion": 7,
+    "schemaVersion": 8,
     "verifier": "tools/isar/verify_v4_isar_schema.py --release"
   },
   "appCheck": {
@@ -63,10 +66,10 @@
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
     "release/evidence/build-15-finalization-closure.json",
-    "release/evidence/pr290-backend-deployment-closure.json",
-    "release/evidence/build15-firestore-rules-indexes-live-readback.json",
-    "release/approvals/build-number-15-successor-approval.json",
-    "release/approvals/public-repository-environment-reviewer-approval-build-15.json",
+    "release/evidence/pr295-backend-deployment-closure.json",
+    "release/evidence/build16-firestore-rules-indexes-live-readback.json",
+    "release/approvals/build-number-16-successor-approval.json",
+    "release/approvals/public-repository-environment-reviewer-approval-build-16.json",
     "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
   ]
 }

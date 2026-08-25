@@ -171,9 +171,15 @@ void main() {
       _object(firestoreReceipt['mutationBoundary']).values,
       everyElement(isFalse),
     );
+    final candidateBuild = _object(policy['release'])['buildNumber'];
+    final pendingConstruction =
+        _object(policy['finalization'])['status'] ==
+        'pending-source-authorized';
     expect(policy['knownOpenGates'], <String>[
-      'BUILD15_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
-      'BUILD15_EXPLICIT_PILOT_PROMOTION',
+      if (pendingConstruction)
+        'BUILD${candidateBuild}_PRODUCTION_SIGNED_FINALIZATION',
+      'BUILD${candidateBuild}_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
+      'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
     ]);
   });
 }

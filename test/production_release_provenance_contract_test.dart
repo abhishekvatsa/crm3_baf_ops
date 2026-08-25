@@ -1200,14 +1200,23 @@ void main() {
     });
 
     test(
-      'build 15 finalization preserves build 14 completion and build 10 failure',
+      'build 16 preserves builds 14-15 and the historical build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
                 as Map<String, dynamic>;
         final finalization = policy['finalization'] as Map<String, dynamic>;
-        final build14Finalization =
+        final build15Finalization =
             finalization['priorCompletedBuild'] as Map<String, dynamic>;
+        final build15Approval =
+            jsonDecode(
+                  read(
+                    'release/approvals/build-number-15-successor-approval.json',
+                  ),
+                )
+                as Map<String, dynamic>;
+        final build14Finalization =
+            build15Approval['preservedCompletedBuild'] as Map<String, dynamic>;
         final build13Receipt =
             jsonDecode(
                   read('release/evidence/build-13-finalization-closure.json'),
@@ -1219,7 +1228,9 @@ void main() {
                 )
                 as Map<String, dynamic>;
         final build15Receipt =
-            jsonDecode(read(finalization['completionReceiptFile'] as String))
+            jsonDecode(
+                  read(build15Finalization['completionReceiptFile'] as String),
+                )
                 as Map<String, dynamic>;
         final receipt =
             jsonDecode(
@@ -1300,9 +1311,18 @@ void main() {
         final programmeBoundary =
             backendEvidence['programmeBoundary'] as Map<String, dynamic>;
 
-        expect(finalization['status'], 'completed-non-distributable');
-        expect(finalization['dualCustodyCompleted'], isTrue);
-        expect(finalization['runtimeValidationPassed'], isFalse);
+        final pendingConstruction =
+            finalization['status'] == 'pending-source-authorized';
+        expect(
+          finalization['status'],
+          pendingConstruction
+              ? 'pending-source-authorized'
+              : 'completed-non-distributable',
+        );
+        expect(finalization['dualCustodyCompleted'], !pendingConstruction);
+        expect(build15Finalization['buildNumber'], 15);
+        expect(build15Finalization['dualCustodyCompleted'], isTrue);
+        expect(build15Finalization['runtimeValidationPassed'], isFalse);
         expect(finalization['controlledPilotApproved'], isFalse);
         final failedAttempt =
             (finalization['historicalFailedAttempts'] as List)
@@ -1512,12 +1532,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.5\+15$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.6\+16$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.5-b15"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.6-b16"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/15"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/16"'),
       );
       expect(policy, contains('"approved": true'));
       expect(
