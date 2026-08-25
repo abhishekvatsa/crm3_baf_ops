@@ -966,9 +966,9 @@
     {
       "path": "lib/core/services/live_remote_sync_service.dart",
       "canonicalSha256": "8D95DAEC7D28CB7280836F8A697248C4650A4063B68BB3F00D1C2C0CC853CCF0",
-      "candidateSha256": "BBCF8D0E5E8244F0D5509E3F890D551BAC44BBB46010AFF8D55CC2D48135A90A",
+      "candidateSha256": "878E2FE3AC74F64FEF11A4C361980C120DAEB767C9D26BA76DB961E39AB53976",
       "canonicalBytes": 27419,
-      "candidateBytes": 37886,
+      "candidateBytes": 39984,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

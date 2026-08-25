@@ -282,6 +282,10 @@ class LiveRemoteSyncService {
       <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
   final Set<_LiveRemoteMirrorKind> _reconciledProjectionKinds =
       <_LiveRemoteMirrorKind>{};
+  final Map<_LiveRemoteMirrorKind, Timer> _projectionReconciliationRetries =
+      <_LiveRemoteMirrorKind, Timer>{};
+  final Map<_LiveRemoteMirrorKind, int> _projectionReconciliationFailures =
+      <_LiveRemoteMirrorKind, int>{};
 
   LiveMaintenanceMirrorScope? _maintenanceScope;
   bool _maintenanceStarted = false;
@@ -597,6 +601,11 @@ class LiveRemoteSyncService {
         );
     _maintenanceSubs.clear();
     _reconciledProjectionKinds.clear();
+    for (final retry in _projectionReconciliationRetries.values) {
+      retry.cancel();
+    }
+    _projectionReconciliationRetries.clear();
+    _projectionReconciliationFailures.clear();
 
     for (final sub in subs) {
       unawaited(sub.cancel());
@@ -698,16 +707,44 @@ class LiveRemoteSyncService {
         await _applyRemovedWorkflowProjectionDoc(
           kind,
           FirebaseFirestore.instance.collection(collectionName).doc(documentId),
+          propagateFailure: true,
         );
       }
+      _projectionReconciliationFailures.remove(kind);
+      _projectionReconciliationRetries.remove(kind)?.cancel();
     } catch (error, stackTrace) {
+      _reconciledProjectionKinds.remove(kind);
       _recordWorkflowProjectionError(
         kind: kind,
         documentId: '*',
         error: error,
         stackTrace: stackTrace,
       );
+      _scheduleWorkflowProjectionReconciliationRetry(kind, activeRemoteIds);
     }
+  }
+
+  void _scheduleWorkflowProjectionReconciliationRetry(
+    _LiveRemoteMirrorKind kind,
+    Set<String> activeRemoteIds,
+  ) {
+    if (!_maintenanceStarted || _pausedForLifecycle) return;
+
+    final failures = (_projectionReconciliationFailures[kind] ?? 0) + 1;
+    _projectionReconciliationFailures[kind] = failures;
+    final delay = liveWorkflowProjectionReconciliationRetryDelay(failures);
+    if (delay == null) return;
+
+    _projectionReconciliationRetries.remove(kind)?.cancel();
+    _projectionReconciliationRetries[kind] = Timer(delay, () {
+      _projectionReconciliationRetries.remove(kind);
+      if (!_maintenanceStarted ||
+          _pausedForLifecycle ||
+          !_reconciledProjectionKinds.add(kind)) {
+        return;
+      }
+      unawaited(_reconcileActiveWorkflowProjections(kind, activeRemoteIds));
+    });
   }
 
   void _handleLiveSnapshot(
@@ -755,16 +792,22 @@ class LiveRemoteSyncService {
 
   Future<void> _applyRemovedWorkflowProjectionDoc(
     _LiveRemoteMirrorKind kind,
-    DocumentReference<Map<String, dynamic>> reference,
-  ) async {
+    DocumentReference<Map<String, dynamic>> reference, {
+    bool propagateFailure = false,
+  }) async {
     try {
       final doc = await reference.get(const GetOptions(source: Source.server));
       if (doc.exists) {
-        await _applyWorkflowProjectionDoc(kind, doc);
+        await _applyWorkflowProjectionDoc(
+          kind,
+          doc,
+          propagateFailure: propagateFailure,
+        );
       } else {
         await _removeWorkflowProjection(kind, reference.id);
       }
     } catch (error, stackTrace) {
+      if (propagateFailure) rethrow;
       _recordWorkflowProjectionError(
         kind: kind,
         documentId: reference.id,
@@ -776,8 +819,9 @@ class LiveRemoteSyncService {
 
   Future<void> _applyWorkflowProjectionDoc(
     _LiveRemoteMirrorKind kind,
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) async {
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    bool propagateFailure = false,
+  }) async {
     final data = doc.data();
     if (data == null || doc.metadata.hasPendingWrites) return;
 
@@ -871,6 +915,7 @@ class LiveRemoteSyncService {
         );
       }
     } catch (error, stackTrace) {
+      if (propagateFailure) rethrow;
       _recordWorkflowProjectionError(
         kind: kind,
         documentId: doc.id,
@@ -1172,6 +1217,18 @@ class _LiveRemoteListenerSpec {
 enum _RemoteApplyDecision { apply, skip, skipLocalUnsynced }
 
 enum _LiveRemoteMirrorKind { maintenanceTicket, workflow, lane, compliance }
+
+@visibleForTesting
+Duration? liveWorkflowProjectionReconciliationRetryDelay(int failureCount) {
+  const delays = <Duration>[
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+  ];
+  if (failureCount < 1 || failureCount > delays.length) return null;
+  return delays[failureCount - 1];
+}
 
 @visibleForTesting
 bool shouldApplyLiveWorkflowProjection({

@@ -117,6 +117,38 @@ void main() {
         ).allMatches(source).length,
         greaterThanOrEqualTo(2),
       );
+      expect(source, contains('propagateFailure: true'));
+      expect(source, contains('propagateFailure: propagateFailure'));
+      expect(
+        RegExp(r'if \(propagateFailure\) rethrow;').allMatches(source).length,
+        greaterThanOrEqualTo(2),
+      );
+      expect(source, contains('_reconciledProjectionKinds.remove(kind)'));
+      expect(
+        source,
+        contains('_scheduleWorkflowProjectionReconciliationRetry'),
+      );
+    });
+
+    test('failed projection reconciliation retries with bounded backoff', () {
+      expect(
+        liveWorkflowProjectionReconciliationRetryDelay(1),
+        const Duration(seconds: 1),
+      );
+      expect(
+        liveWorkflowProjectionReconciliationRetryDelay(2),
+        const Duration(seconds: 3),
+      );
+      expect(
+        liveWorkflowProjectionReconciliationRetryDelay(3),
+        const Duration(seconds: 10),
+      );
+      expect(
+        liveWorkflowProjectionReconciliationRetryDelay(4),
+        const Duration(seconds: 30),
+      );
+      expect(liveWorkflowProjectionReconciliationRetryDelay(0), isNull);
+      expect(liveWorkflowProjectionReconciliationRetryDelay(5), isNull);
     });
   });
 
