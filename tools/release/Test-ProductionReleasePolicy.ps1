@@ -680,6 +680,17 @@ if ([string]::IsNullOrWhiteSpace($functionFleetDeploymentReceiptPath) -or
 }
 $functionFleetDeploymentReceipt = Get-Content `
   -LiteralPath $functionFleetDeploymentReceiptPath -Raw | ConvertFrom-Json
+$deploymentPullRequestProperty = $versionSource.requiredSource.
+  PSObject.Properties['exactFunctionFleetDeploymentPullRequest']
+$expectedFunctionFleetPullRequest = if ($null -eq $deploymentPullRequestProperty) {
+  265
+} else {
+  $configuredPullRequest = [int64]$deploymentPullRequestProperty.Value
+  if ($configuredPullRequest -le 0) {
+    throw 'Exact Function fleet deployment pull request is invalid.'
+  }
+  $configuredPullRequest
+}
 if ([string]$functionFleetDeploymentReceipt.decision -ne
       'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
     [string]$functionFleetDeploymentReceipt.sourceAuthority.commit -ne
@@ -687,7 +698,7 @@ if ([string]$functionFleetDeploymentReceipt.decision -ne
     [string]$functionFleetDeploymentReceipt.sourceAuthority.tree -ne
       [string]$versionSource.sourceBaseline.tree -or
     [int64]$functionFleetDeploymentReceipt.sourceAuthority.pullRequestNumber -ne
-      265 -or
+      $expectedFunctionFleetPullRequest -or
     $functionFleetDeploymentReceipt.deployment.functionCount -ne 15 -or
     $functionFleetDeploymentReceipt.deployment.allFunctionsExactSourceVerified -ne
       $true -or
@@ -773,6 +784,25 @@ if ([string]$firestoreReadback.evidenceType -ne
     $firestoreReadback.mutationBoundary.firestoreDocumentsWritten -ne $false -or
     $firestoreReadback.mutationBoundary.businessDataMutated -ne $false) {
   throw 'Exact Firestore Rules/index live-readback receipt is incomplete.'
+}
+$requiredRulesShaProperty = $versionSource.requiredSource.
+  PSObject.Properties['exactFirestoreRulesSha256']
+$requiredIndexCountProperty = $versionSource.requiredSource.
+  PSObject.Properties['exactFirestoreIndexCount']
+if (($null -eq $requiredRulesShaProperty) -ne
+    ($null -eq $requiredIndexCountProperty)) {
+  throw 'Exact successor Firestore Rules and index requirements must coexist.'
+}
+if ($null -ne $requiredRulesShaProperty) {
+  $requiredRulesSha = [string]$requiredRulesShaProperty.Value
+  $requiredIndexCount = [int64]$requiredIndexCountProperty.Value
+  if ($requiredRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
+      $requiredIndexCount -le 0 -or
+      (Get-Sha256 'firestore.rules') -ne $requiredRulesSha.ToUpperInvariant() -or
+      [string]$firestoreReadbackAuthority.rulesSha256 -ne $requiredRulesSha -or
+      [int64]$firestoreReadbackAuthority.indexCount -ne $requiredIndexCount) {
+    throw 'Exact successor Firestore Rules/index readback differs from approval.'
+  }
 }
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
 $consumedAuthorityValid = $false
