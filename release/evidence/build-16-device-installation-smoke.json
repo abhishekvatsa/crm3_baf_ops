@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-device-installation-smoke",
+  "status": "passed-to-authentication-boundary",
+  "recordingTiming": "POST_FINALIZATION_DEVICE_SMOKE_RECONCILIATION",
+  "release": {
+    "versionName": "1.0.0-rc.6",
+    "buildNumber": 16,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "9c77309787ab401b99ea9736b685f6f601d8087e",
+    "apkSha256": "E55F05F423F01DD056FEBFD4BAADC3353CB047BEA490AB5DFE2262A9B90BD91C",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+  },
+  "physicalDevice": {
+    "targetCount": 1,
+    "manufacturer": "Samsung",
+    "model": "SM-G990E",
+    "androidRelease": "16",
+    "deviceSerialRecorded": false,
+    "priorApplicationPresent": false,
+    "installationMode": "fresh-install",
+    "installationResult": "success",
+    "installedVersionCode": 16,
+    "installedVersionName": "1.0.0-rc.6",
+    "firstInstallTimeLocal": "2026-08-25T19:50:20+05:30",
+    "applicationDataCleared": false,
+    "coldLaunchResult": "reached-branded-google-sign-in-screen",
+    "notificationPermissionAccepted": true,
+    "fatalAndroidRuntimeExceptionObserved": false,
+    "authenticatedBusinessFlowValidationCompleted": false
+  },
+  "emulator": {
+    "targetCount": 1,
+    "existingVersionCode": 14,
+    "existingVersionName": "1.0.0-rc.4",
+    "preservingUpgradeAttempted": true,
+    "upgradeResult": "blocked-existing-installation-signer-mismatch",
+    "applicationUninstalled": false,
+    "applicationDataCleared": false,
+    "existingInstallationPreserved": true
+  },
+  "boundary": {
+    "googleSignInCompleted": false,
+    "liveBusinessFlowValidationCompleted": false,
+    "deviceMigrationGateClosed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedDistributionApproved": false,
+    "productionBusinessDataReadOrWritten": false
+  }
+}

@@ -394,6 +394,62 @@ void main() {
     },
   );
 
+  test('Build 16 phone smoke never implies migration or pilot authority', () {
+    final state = _readObject('release/current-successor-state.json');
+    final policy = _readObject('release/production-release-policy.json');
+    final finalization =
+        (policy['finalization'] as Map).cast<String, dynamic>();
+    final artifact =
+        ((state['authorityPlanes'] as Map)['latestFinalizedArtifact'] as Map)
+            .cast<String, dynamic>();
+    final receipt = _readObject(
+      finalization['completionReceiptFile'] as String,
+    );
+    final smoke = _readObject(
+      finalization['installationSmokeReceiptFile'] as String,
+    );
+    final governedPackage =
+        (receipt['governedPackage'] as Map).cast<String, dynamic>();
+    final physical = (smoke['physicalDevice'] as Map).cast<String, dynamic>();
+    final emulator = (smoke['emulator'] as Map).cast<String, dynamic>();
+    final boundary = (smoke['boundary'] as Map).cast<String, dynamic>();
+
+    expect(finalization['status'], 'completed-non-distributable');
+    expect(artifact['buildNumber'], 16);
+    expect(
+      artifact['installationSmokeReceiptFile'],
+      finalization['installationSmokeReceiptFile'],
+    );
+    expect(
+      _sha256(finalization['installationSmokeReceiptFile'] as String),
+      finalization['installationSmokeReceiptSha256'],
+    );
+    expect(
+      artifact['installationSmokeReceiptSha256'],
+      finalization['installationSmokeReceiptSha256'],
+    );
+    expect(smoke['status'], 'passed-to-authentication-boundary');
+    expect(
+      (smoke['release'] as Map)['apkSha256'],
+      governedPackage['apkSha256'],
+    );
+    expect(physical['installedVersionCode'], 16);
+    expect(physical['installationMode'], 'fresh-install');
+    expect(physical['applicationDataCleared'], isFalse);
+    expect(physical['deviceSerialRecorded'], isFalse);
+    expect(physical['authenticatedBusinessFlowValidationCompleted'], isFalse);
+    expect(
+      emulator['upgradeResult'],
+      'blocked-existing-installation-signer-mismatch',
+    );
+    expect(emulator['existingInstallationPreserved'], isTrue);
+    expect(emulator['applicationUninstalled'], isFalse);
+    expect(emulator['applicationDataCleared'], isFalse);
+    expect(boundary.values, everyElement(isFalse));
+    expect(finalization['runtimeValidationPassed'], isFalse);
+    expect(finalization['controlledPilotApproved'], isFalse);
+  });
+
   test('historical Build 12 deployment record remains exact', () {
     final deployment = _readObject(
       'release/build12-live-deployment-authority.json',

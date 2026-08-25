@@ -52,6 +52,7 @@ void main() {
         13,
         14,
         15,
+        16,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -66,10 +67,11 @@ void main() {
         9468702427,
         9475994815,
         9547514373,
+        9567065107,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(10),
+        hasLength(11),
       );
       expect(
         artifacts.singleWhere(
@@ -114,9 +116,15 @@ void main() {
         'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
       );
       expect(
+        artifacts.singleWhere(
+          (entry) => entry['buildNumber'] == 16,
+        )['deletionBasis'],
+        'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
+      );
+      expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredPresentArtifactIds'],
-        <int>[9547514373],
+        <int>[9567065107],
       );
 
       final installation =
