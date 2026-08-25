@@ -530,9 +530,9 @@
     {
       "path": "functions/src/notifications.ts",
       "canonicalSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
-      "candidateSha256": "C0B40C1B48927A66796E49B7414CBC43A775BFDB11F5050420C89156F36FC236",
+      "candidateSha256": "7902C06563724693A348193B637A065B0A75322D092CA81A49730AC0961AAD17",
       "canonicalBytes": 15314,
-      "candidateBytes": 21448,
+      "candidateBytes": 22275,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -610,9 +610,9 @@
     {
       "path": "functions/test/notifications.test.js",
       "canonicalSha256": "7B27BE26533F60BAF001759FA8182D326AA347DA74EE1EC78F2434083904C378",
-      "candidateSha256": "3D1EFECE2FE784D36B3509FE7085E4AA66296BF2CC4C11A4883C88DDD5B22142",
+      "candidateSha256": "65583C112E02C72F3FEDCBE513612EAE174CF593E1822CF271269F1A80E3DFE4",
       "canonicalBytes": 17292,
-      "candidateBytes": 30503,
+      "candidateBytes": 32953,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -918,17 +918,17 @@
     {
       "path": "lib/core/services/isar_production_recovery_io.dart",
       "canonicalSha256": "62CE96285C80B629A52D404BCC4903466E2A597DA91DBF602262A8AEA1F5CA3C",
-      "candidateSha256": "71038F6256993FAFC535C91600536B59EDDC57ECB823D505E4505C3DF4AD943C",
+      "candidateSha256": "9744CD6F5312DC01E5ECD2878BE5627629DCF4B6857B9F817A1512B4E4D68B4A",
       "canonicalBytes": 10402,
-      "candidateBytes": 13225,
+      "candidateBytes": 15056,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/isar_production_recovery_stub.dart",
       "canonicalSha256": "1EC506BC93283F5EBD8F653F34C4CA1FA53434529E4840BC68921D11CCE31AA0",
-      "candidateSha256": "CDFC4DB27F6EEB13AD8BB32FA3959BAAF4E32FCA0B63C04BD20AE7CC18D910FA",
+      "candidateSha256": "2936F155063F2E6C892EE41B174A3342027E6029473327FB348C302EEED9E857",
       "canonicalBytes": 2506,
-      "candidateBytes": 3204,
+      "candidateBytes": 3612,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3086,7 +3086,7 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "18327EDD0477E8EDADA934DBC106ECB10F51DD2ADA2CCF6AEAB4FACCB256CB7D",
+      "candidateSha256": "6B1923D50CFFF4D5FB393C9F7802BC8DECE58A71EFE893E8E5824233C2B0C7E1",
       "canonicalBytes": 18375,
       "candidateBytes": 40327,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -3382,9 +3382,9 @@
     {
       "path": "tools/release/Test-ProductionReleasePolicy.ps1",
       "canonicalSha256": "6A7A51C91BCF2276ACEE8FE48AEC70783808F687E6539B600273178CD8FDF7D6",
-      "candidateSha256": "110AB2D29285DB6176238973B17041D66AD1F7733F60436ED5501B10A1BC8773",
+      "candidateSha256": "F335F3BE71CB65D0ABB1EE902E78D8968D33AA576C1A95C40806F17377842AE4",
       "canonicalBytes": 15649,
-      "candidateBytes": 92920,
+      "candidateBytes": 93199,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

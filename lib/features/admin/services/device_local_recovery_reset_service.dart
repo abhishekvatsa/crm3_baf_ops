@@ -85,6 +85,12 @@ typedef DeviceRecoveryJournalWriter =
       String value,
     );
 
+typedef DeviceRecoveryDurableJournalReader =
+    Future<String?> Function(String requestId);
+
+typedef DeviceRecoveryDurableJournalWriter =
+    Future<void> Function(String requestId, String serialized);
+
 class DeviceLocalRecoveryResetService {
   DeviceLocalRecoveryResetService({
     Isar? Function()? databaseLookup,
@@ -97,6 +103,8 @@ class DeviceLocalRecoveryResetService {
     DeviceRecoveryBackupEvidenceReader? backupEvidenceReader,
     DeviceRecoveryPreferenceRemover? preferenceRemover,
     DeviceRecoveryJournalWriter? journalWriter,
+    DeviceRecoveryDurableJournalReader? durableJournalReader,
+    DeviceRecoveryDurableJournalWriter? durableJournalWriter,
   }) : _databaseLookup = databaseLookup ?? Isar.getInstance,
        _authenticatedUidLookup =
            authenticatedUidLookup ??
@@ -114,7 +122,11 @@ class DeviceLocalRecoveryResetService {
            preferenceRemover ?? ((preferences, key) => preferences.remove(key)),
        _journalWriter =
            journalWriter ??
-           ((preferences, key, value) => preferences.setString(key, value));
+           ((preferences, key, value) => preferences.setString(key, value)),
+       _durableJournalReader =
+           durableJournalReader ?? readCrashDurableIsarRecoveryJournal,
+       _durableJournalWriter =
+           durableJournalWriter ?? writeCrashDurableIsarRecoveryJournal;
 
   final Isar? Function() _databaseLookup;
   final String? Function() _authenticatedUidLookup;
@@ -126,6 +138,8 @@ class DeviceLocalRecoveryResetService {
   final DeviceRecoveryBackupEvidenceReader _backupEvidenceReader;
   final DeviceRecoveryPreferenceRemover _preferenceRemover;
   final DeviceRecoveryJournalWriter _journalWriter;
+  final DeviceRecoveryDurableJournalReader _durableJournalReader;
+  final DeviceRecoveryDurableJournalWriter _durableJournalWriter;
 
   static Future<DeviceRecoveryLocalInventory> _readInventory(
     Isar database,
@@ -294,6 +308,11 @@ class DeviceLocalRecoveryResetService {
     final preferences = await _preferencesLoader();
     final marker = '$deviceRecoveryCompletionPrefix${request.requestId}';
     final journalKey = '$deviceRecoveryJournalPrefix${request.requestId}';
+    final existingJournal = await _readPersistedJournal(
+      preferences,
+      journalKey,
+      request: request,
+    );
     if (preferences.getBool(marker) == true) {
       final backupFiles = preferences.getInt('$marker.backupFiles');
       final clearedCursors = preferences.getInt('$marker.clearedCursors');
@@ -313,8 +332,7 @@ class DeviceLocalRecoveryResetService {
           dataMayHaveBeenCleared: true,
         );
       }
-      final completedJournal = preferences.get(journalKey);
-      if (completedJournal == null) {
+      if (existingJournal == null) {
         throw const DeviceRecoveryLocalResetException(
           'The prior local-reset completion has no protected backup journal.',
           reasonCode: 'device-recovery-completion-journal-missing',
@@ -322,7 +340,7 @@ class DeviceLocalRecoveryResetService {
         );
       }
       final journal = _DeviceRecoveryJournal.restore(
-        completedJournal,
+        existingJournal,
         request: request,
       );
       if (journal.backupDirectory != backupDirectory ||
@@ -345,7 +363,6 @@ class DeviceLocalRecoveryResetService {
       );
     }
 
-    final existingJournal = preferences.get(journalKey);
     late _DeviceRecoveryJournal journal;
     try {
       await database.writeTxn(() async {
@@ -559,10 +576,64 @@ class DeviceLocalRecoveryResetService {
     required bool dataMayHaveBeenCleared,
   }) async {
     final serialized = journal.toJson();
+    await _writeAndVerifyDurableJournal(
+      journal.requestId,
+      serialized,
+      dataMayHaveBeenCleared: dataMayHaveBeenCleared,
+    );
     if (!await _journalWriter(preferences, key, serialized) ||
         preferences.getString(key) != serialized) {
       throw DeviceRecoveryLocalResetException(
         'The protected recovery journal could not be saved before deletion.',
+        reasonCode: 'device-recovery-journal-write-failed',
+        dataMayHaveBeenCleared: dataMayHaveBeenCleared,
+      );
+    }
+  }
+
+  Future<String?> _readPersistedJournal(
+    SharedPreferences preferences,
+    String key, {
+    required DeviceRecoveryRequest request,
+  }) async {
+    String? durable;
+    try {
+      durable = await _durableJournalReader(request.requestId);
+    } catch (error) {
+      throw DeviceRecoveryLocalResetException(
+        'The protected recovery journal could not be read: $error',
+        reasonCode: 'device-recovery-journal-read-failed',
+        dataMayHaveBeenCleared: true,
+      );
+    }
+    if (durable != null) return durable;
+
+    final legacy = preferences.get(key);
+    if (legacy == null) return null;
+    final restored = _DeviceRecoveryJournal.restore(legacy, request: request);
+    final serialized = restored.toJson();
+    await _writeAndVerifyDurableJournal(
+      request.requestId,
+      serialized,
+      dataMayHaveBeenCleared: true,
+    );
+    return serialized;
+  }
+
+  Future<void> _writeAndVerifyDurableJournal(
+    String requestId,
+    String serialized, {
+    required bool dataMayHaveBeenCleared,
+  }) async {
+    try {
+      await _durableJournalWriter(requestId, serialized);
+      if (await _durableJournalReader(requestId) != serialized) {
+        throw const FormatException('Durable journal readback differs.');
+      }
+    } catch (error) {
+      throw DeviceRecoveryLocalResetException(
+        'The protected recovery journal could not be saved before deletion: '
+        '$error',
         reasonCode: 'device-recovery-journal-write-failed',
         dataMayHaveBeenCleared: dataMayHaveBeenCleared,
       );

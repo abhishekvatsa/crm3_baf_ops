@@ -10,7 +10,7 @@ import type {
   NotificationReceiptRuntime,
 } from "../notificationEventReceipt";
 import {
-  getTokenLookupsForUser,
+  getTokenLookupForInstallation,
   getTokenLookupsForRoles,
   sendNotification,
 } from "../notifications";
@@ -105,11 +105,10 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
               });
               return null;
             }
-            const recipients = (await getTokenLookupsForUser(
+            const recipients = await getTokenLookupForInstallation(
               notificationDb(db),
               recovery.targetUid,
-            )).filter((recipient) =>
-              recipient.installationId === recovery.installationId
+              recovery.installationId,
             );
             return {
               recipients,

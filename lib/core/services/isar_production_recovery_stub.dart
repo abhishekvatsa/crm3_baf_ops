@@ -115,6 +115,21 @@ Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(
   String path,
 ) async => null;
 
+Future<String?> readCrashDurableIsarRecoveryJournal(String requestId) async {
+  throw UnsupportedError(
+    'Crash-durable Isar recovery journals are not available on this platform.',
+  );
+}
+
+Future<void> writeCrashDurableIsarRecoveryJournal(
+  String requestId,
+  String serialized,
+) async {
+  throw UnsupportedError(
+    'Crash-durable Isar recovery journals are not available on this platform.',
+  );
+}
+
 Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
   required String reason,
   required String diagnosticsText,

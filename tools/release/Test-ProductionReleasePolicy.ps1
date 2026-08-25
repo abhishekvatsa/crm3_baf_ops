@@ -867,6 +867,10 @@ if ($null -ne $requiredRulesShaProperty) {
         $false -or
       [string]$currentDeployedBackendAuthority.rulesAndIndexesEvidenceFile -ne
         $firestoreReadbackPath -or
+      [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne
+        [string]$firestoreReadbackAuthority.sourceCommit -or
+      [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne
+        [string]$firestoreReadback.source.before.commit -or
       [string]$currentDeployedBackendAuthority.
         currentSourceRulesAndIndexesDeployment -ne
         'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT') {

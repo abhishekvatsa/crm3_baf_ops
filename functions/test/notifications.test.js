@@ -6,6 +6,7 @@ const {
   buildTicketLaneAddedNotification,
   buildTicketResolvedNotification,
   FCM_DEAD_TOKEN_CODES,
+  getTokenLookupForInstallation,
   getTokenLookupsForUser,
   getTokenLookupsForRoles,
   MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
@@ -624,6 +625,88 @@ describe('getTokenLookupsForRoles', () => {
       },
     ]);
     expect(await getTokenLookupsForUser(db, 'pending')).toEqual([]);
+  });
+
+  test('exact installation lookup is not hidden by the generic newest-eight cap', async () => {
+    const selected = '11111111-1111-4111-8111-111111111111';
+    const newer = Object.fromEntries(
+      Array.from({length: 8}, (_, index) => [
+        `22222222-2222-4222-8222-22222222222${index}`,
+        {
+          schemaVersion: 1,
+          token: `newer-token-${index}`,
+          platform: 'web',
+          updatedAt: fakeTimestamp(
+            `2026-08-05T${String(index).padStart(2, '0')}:00:00Z`,
+          ),
+        },
+      ]),
+    );
+    const {db} = buildFirestoreDouble(
+      {u1: {isApproved: true, roles: ['operations']}},
+      {
+        u1: {
+          [selected]: {
+            schemaVersion: 1,
+            token: 'selected-phone-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T00:00:00Z'),
+          },
+          ...newer,
+        },
+      },
+    );
+
+    expect(await getTokenLookupsForUser(db, 'u1')).not.toContainEqual({
+      uid: 'u1',
+      fcmToken: 'selected-phone-token',
+      installationId: selected,
+    });
+    expect(await getTokenLookupForInstallation(db, 'u1', selected)).toEqual([
+      {
+        uid: 'u1',
+        fcmToken: 'selected-phone-token',
+        installationId: selected,
+      },
+    ]);
+  });
+
+  test('exact installation lookup remains authority and shape constrained', async () => {
+    const installation = '11111111-1111-4111-8111-111111111111';
+    const {db} = buildFirestoreDouble(
+      {
+        approved: {isApproved: true, roles: ['operations']},
+        pending: {isApproved: false, roles: ['operations']},
+      },
+      {
+        approved: {
+          [installation]: {
+            schemaVersion: 1,
+            token: '',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T00:00:00Z'),
+          },
+        },
+        pending: {
+          [installation]: {
+            schemaVersion: 1,
+            token: 'pending-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T00:00:00Z'),
+          },
+        },
+      },
+    );
+
+    expect(
+      await getTokenLookupForInstallation(db, 'approved', installation),
+    ).toEqual([]);
+    expect(
+      await getTokenLookupForInstallation(db, 'pending', installation),
+    ).toEqual([]);
+    expect(
+      await getTokenLookupForInstallation(db, 'approved', 'not-a-uuid'),
+    ).toEqual([]);
   });
 });
 

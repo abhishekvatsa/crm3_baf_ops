@@ -238,13 +238,15 @@ void main() {
 
   test('completed replay rejects a missing protected journal', () async {
     await _withDatabase((database) async {
-      final service = _service(database);
+      final durableJournals = <String, String>{};
+      final service = _service(database, durableJournals: durableJournals);
       await service.reset(actor: _operator(), request: _request);
       await database.writeTxn(() async {
         await database.operationalDirectives.put(_directive());
       });
       final preferences = await SharedPreferences.getInstance();
       await preferences.remove('$deviceRecoveryJournalPrefix$_requestId');
+      durableJournals.remove(_requestId);
 
       await expectLater(
         service.reset(actor: _operator(), request: _request),
@@ -757,14 +759,70 @@ void main() {
   );
 
   test(
+    'crash-durable journal failure never clears cursors or local rows',
+    () async {
+      await _withDatabase((database) async {
+        final service = _service(
+          database,
+          durableJournalWriter:
+              (requestId, serialized) async =>
+                  throw StateError('durable storage unavailable'),
+        );
+
+        await expectLater(
+          service.reset(actor: _operator(), request: _request),
+          throwsA(_resetError('device-recovery-journal-write-failed')),
+        );
+        expect(await database.operationalDirectives.count(), 1);
+        expect(await database.syncRejections.count(), 1);
+        expect(
+          (await SharedPreferences.getInstance()).containsKey(_globalCursor),
+          isTrue,
+        );
+      });
+    },
+  );
+
+  test(
+    'durable journal read failure reports an uncertain prior clear',
+    () async {
+      await _withDatabase((database) async {
+        final service = _service(
+          database,
+          durableJournalReader:
+              (requestId) async =>
+                  throw StateError('durable storage unreadable'),
+        );
+
+        await expectLater(
+          service.reset(actor: _operator(), request: _request),
+          throwsA(
+            isA<DeviceRecoveryLocalResetException>()
+                .having(
+                  (error) => error.reasonCode,
+                  'reasonCode',
+                  'device-recovery-journal-read-failed',
+                )
+                .having(
+                  (error) => error.dataMayHaveBeenCleared,
+                  'dataMayHaveBeenCleared',
+                  isTrue,
+                ),
+          ),
+        );
+        expect(await database.operationalDirectives.count(), 1);
+      });
+    },
+  );
+
+  test(
     'crash after local clear reuses original backup and unsynced evidence',
     () async {
       await _withDatabase((database) async {
         final preferences = await SharedPreferences.getInstance();
-        await preferences.setString(
-          '$deviceRecoveryJournalPrefix$_requestId',
-          _journal(unsyncedRows: 7),
-        );
+        final durableJournals = <String, String>{
+          _requestId: _journal(unsyncedRows: 7),
+        };
         for (final key in <String>[
           'last_global_pull',
           _globalCursor,
@@ -778,6 +836,7 @@ void main() {
         var backupCalls = 0;
         final result = await _service(
           database,
+          durableJournals: durableJournals,
           backupCreator: ({
             required database,
             required diagnosticsText,
@@ -1088,37 +1147,50 @@ DeviceLocalRecoveryResetService _service(
   DeviceRecoveryBackupEvidenceReader? backupEvidenceReader,
   DeviceRecoveryPreferenceRemover? preferenceRemover,
   DeviceRecoveryJournalWriter? journalWriter,
+  Map<String, String>? durableJournals,
+  DeviceRecoveryDurableJournalReader? durableJournalReader,
+  DeviceRecoveryDurableJournalWriter? durableJournalWriter,
   String? Function()? authenticatedUidLookup,
   Future<String?> Function()? installationIdReader,
-}) => DeviceLocalRecoveryResetService(
-  databaseLookup: () => database,
-  authenticatedUidLookup: authenticatedUidLookup ?? () => 'operator-1',
-  installationIdReader: installationIdReader ?? () async => _installation,
-  inventoryReader:
-      (_) async => const DeviceRecoveryLocalInventory(
-        totalRows: 2,
-        unsyncedRows: 1,
-        unresolvedRejections: 1,
-      ),
-  backupCreator:
-      backupCreator ??
-      ({
-        required database,
-        required diagnosticsText,
-        required reason,
-        manifestJsonText,
-      }) async => backup ?? _backup(),
-  backupVerifier: backupVerifier ?? (_) async => true,
-  backupEvidenceReader:
-      backupEvidenceReader ??
-      (_) async => const IsarRecoveryBackupEvidence(
-        byteCount: 4096,
-        sha256:
-            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      ),
-  preferenceRemover: preferenceRemover,
-  journalWriter: journalWriter,
-);
+}) {
+  final journalStore = durableJournals ?? <String, String>{};
+  return DeviceLocalRecoveryResetService(
+    databaseLookup: () => database,
+    authenticatedUidLookup: authenticatedUidLookup ?? () => 'operator-1',
+    installationIdReader: installationIdReader ?? () async => _installation,
+    inventoryReader:
+        (_) async => const DeviceRecoveryLocalInventory(
+          totalRows: 2,
+          unsyncedRows: 1,
+          unresolvedRejections: 1,
+        ),
+    backupCreator:
+        backupCreator ??
+        ({
+          required database,
+          required diagnosticsText,
+          required reason,
+          manifestJsonText,
+        }) async => backup ?? _backup(),
+    backupVerifier: backupVerifier ?? (_) async => true,
+    backupEvidenceReader:
+        backupEvidenceReader ??
+        (_) async => const IsarRecoveryBackupEvidence(
+          byteCount: 4096,
+          sha256:
+              'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        ),
+    preferenceRemover: preferenceRemover,
+    journalWriter: journalWriter,
+    durableJournalReader:
+        durableJournalReader ?? (requestId) async => journalStore[requestId],
+    durableJournalWriter:
+        durableJournalWriter ??
+        (requestId, serialized) async {
+          journalStore[requestId] = serialized;
+        },
+  );
+}
 
 String _journal({required int unsyncedRows}) => jsonEncode(<String, Object?>{
   'schemaVersion': 2,

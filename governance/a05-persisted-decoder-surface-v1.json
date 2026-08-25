@@ -1137,7 +1137,7 @@
       "compatibility": "absent journal only before the first protected backup; no partial or cross-request journal compatibility",
       "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "journal identity or evidence is defaulted, a malformed journal authorizes deletion, or an interrupted reset replaces its original backup",
-      "riskFingerprint": "453b03faab27fc2da532e5678a0044d7cf9c7f8c56c65bfee17f20d8717b9177"
+      "riskFingerprint": "c67280899f893271e6c25a0ceb5c649f046e1d7479f6133d29af2de9c7cd826e"
     }
   ],
   "catchSites": [

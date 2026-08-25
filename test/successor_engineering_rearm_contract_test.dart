@@ -115,6 +115,10 @@ void main() {
       final rulesReadback = _readObject(
         deployed['rulesAndIndexesEvidenceFile'] as String,
       );
+      final rulesReadbackSource =
+          (rulesReadback['source'] as Map).cast<String, dynamic>();
+      final rulesReadbackBefore =
+          (rulesReadbackSource['before'] as Map).cast<String, dynamic>();
       final historicalRulesHold = _readObject(
         'release/evidence/build15-firestore-rules-readback-hold.json',
       );
@@ -307,6 +311,14 @@ void main() {
       expect(
         rulesReadback['receiptSha256'],
         firestoreAuthority['receiptCanonicalSha256'],
+      );
+      expect(
+        deployed['rulesAndIndexesSourceCommit'],
+        firestoreAuthority['sourceCommit'],
+      );
+      expect(
+        deployed['rulesAndIndexesSourceCommit'],
+        rulesReadbackBefore['commit'],
       );
       expect(verifiedRules['sourceSha256'], _sha256('firestore.rules'));
       expect(

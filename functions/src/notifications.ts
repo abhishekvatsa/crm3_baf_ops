@@ -160,6 +160,9 @@ export const NOTIFICATION_INSTALLATIONS_COLLECTION =
 export const NOTIFICATION_INSTALLATION_SCHEMA_VERSION = 1;
 export const MAX_NOTIFICATION_INSTALLATIONS_PER_USER = 8;
 
+const NOTIFICATION_INSTALLATION_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 const NOTIFICATION_PLATFORMS = new Set([
   "android",
   "ios",
@@ -279,6 +282,27 @@ export async function getTokenLookupsForUser(
   const authority = canonicalApprovedUserAuthority(result.data());
   if (authority == null) return [];
   return tokenLookupsForApprovedUser(db, uid, authority.data);
+}
+
+export async function getTokenLookupForInstallation(
+  db: FirestoreLike,
+  uid: string,
+  installationId: string,
+): Promise<UserTokenLookup[]> {
+  if (!NOTIFICATION_INSTALLATION_ID.test(installationId)) return [];
+  const user = await db.collection("users").doc(uid).get();
+  if (!user.exists || canonicalApprovedUserAuthority(user.data()) == null) {
+    return [];
+  }
+  const installation = await db
+    .collection("users")
+    .doc(uid)
+    .collection(NOTIFICATION_INSTALLATIONS_COLLECTION)
+    .doc(installationId)
+    .get();
+  if (!installation.exists) return [];
+  const token = canonicalInstallationToken(installation.data());
+  return token == null ? [] : [{uid, fcmToken: token, installationId}];
 }
 
 // ─── Send + stale-token cleanup ──────────────────────────────────────────────

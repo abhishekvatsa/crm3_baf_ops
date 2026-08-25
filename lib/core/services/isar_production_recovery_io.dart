@@ -263,6 +263,61 @@ Future<bool> isRetainedIsarRecoveryBackup(String path) async {
   return await readIsarRecoveryBackupEvidence(path) != null;
 }
 
+const _deviceRecoveryJournalDirectoryName =
+    'CRM3_BAF_Ops_Device_Recovery_Journals';
+
+String _deviceRecoveryJournalFileName(String requestId) {
+  if (requestId.isEmpty ||
+      requestId.length > 128 ||
+      !RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(requestId)) {
+    throw const FormatException('Invalid device-recovery request ID.');
+  }
+  return '$requestId.json';
+}
+
+Future<File> _deviceRecoveryJournalFile(String requestId) async {
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  await directory.create(recursive: true);
+  return File('${directory.path}/${_deviceRecoveryJournalFileName(requestId)}');
+}
+
+Future<String?> readCrashDurableIsarRecoveryJournal(String requestId) async {
+  final file = await _deviceRecoveryJournalFile(requestId);
+  if (!await file.exists()) return null;
+  return file.readAsString();
+}
+
+Future<void> writeCrashDurableIsarRecoveryJournal(
+  String requestId,
+  String serialized,
+) async {
+  if (serialized.isEmpty) {
+    throw const FormatException('Device-recovery journal cannot be empty.');
+  }
+  final target = await _deviceRecoveryJournalFile(requestId);
+  final pending = File('${target.path}.pending');
+  try {
+    if (await pending.exists()) await pending.delete();
+    await pending.writeAsString(serialized, flush: true);
+    if (await pending.readAsString() != serialized) {
+      throw const FileSystemException(
+        'Device-recovery journal write verification failed.',
+      );
+    }
+    await pending.rename(target.path);
+    if (await target.readAsString() != serialized) {
+      throw const FileSystemException(
+        'Device-recovery journal replacement verification failed.',
+      );
+    }
+  } finally {
+    if (await pending.exists()) await pending.delete();
+  }
+}
+
 Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
   required String reason,
   required String diagnosticsText,
