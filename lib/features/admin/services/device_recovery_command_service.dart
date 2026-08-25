@@ -9,6 +9,7 @@ import '../../auth/data/user_model.dart';
 const deviceRecoveryListOperation = 'DEVICE_RECOVERY_LIST';
 const deviceRecoveryRequestOperation = 'DEVICE_RECOVERY_REQUEST';
 const deviceRecoveryPollOperation = 'DEVICE_RECOVERY_POLL';
+const deviceRecoveryClaimOperation = 'DEVICE_RECOVERY_CLAIM';
 const deviceRecoveryCompleteOperation = 'DEVICE_RECOVERY_COMPLETE';
 const deviceRecoveryFailOperation = 'DEVICE_RECOVERY_FAIL';
 const deviceRecoveryCancelOperation = 'DEVICE_RECOVERY_CANCEL';
@@ -68,6 +69,7 @@ class DeviceRecoveryInstallation {
         !const {
           'none',
           'pending',
+          'in_progress',
           'completed',
           'failed',
           'cancelled',
@@ -133,7 +135,7 @@ class DeviceRecoveryRequest {
         !_installationIdentity.hasMatch(requestId) ||
         map['targetUid'] != expectedUid ||
         map['installationId'] != expectedInstallationId ||
-        map['status'] != 'pending' ||
+        !const {'pending', 'in_progress'}.contains(map['status']) ||
         requestedByUid is! String ||
         requestedByUid.isEmpty ||
         requestedByName is! String ||
@@ -312,6 +314,23 @@ class DeviceRecoveryCommandService {
       'backedUpUnsyncedRows': backedUpUnsyncedRows,
     });
     _verifyCompletion(response, request, 'completed');
+  }
+
+  Future<void> claimReset({
+    required AppUser? actor,
+    required DeviceRecoveryRequest request,
+  }) async {
+    _requireRequestOwner(actor, request);
+    final response = await _request(deviceRecoveryClaimOperation, {
+      'requestId': request.requestId,
+      'installationId': request.installationId,
+    });
+    if (response['targetUid'] != request.targetUid) {
+      throw const DeviceRecoveryException(
+        'The server returned a recovery claim for another account.',
+      );
+    }
+    _verifyCompletion(response, request, 'in_progress');
   }
 
   Future<void> failReset({

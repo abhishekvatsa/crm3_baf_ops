@@ -41,6 +41,7 @@ class DeviceRecoveryListener {
   Timer? _registrationRetry;
   int _registrationRetries = 0;
   bool _busy = false;
+  bool _followUpRequested = false;
   int _generation = 0;
 
   void start(AppUser actor) {
@@ -76,6 +77,7 @@ class DeviceRecoveryListener {
     if (subscription != null) unawaited(subscription.cancel());
     _actor = null;
     _busy = false;
+    _followUpRequested = false;
   }
 
   void _onMessage(RemoteMessage message) {
@@ -93,9 +95,14 @@ class DeviceRecoveryListener {
     String? expectedInstallationId,
   }) async {
     final actor = _actor;
-    if (actor == null || _busy || kIsWeb) return;
+    if (actor == null || kIsWeb) return;
+    if (_busy) {
+      _followUpRequested = true;
+      return;
+    }
     _busy = true;
     final generation = _generation;
+    DeviceRecoveryRequest? activeRequest;
     try {
       final installationId = await _installationIdReader();
       if (!_isCurrent(actor, generation)) return;
@@ -114,6 +121,7 @@ class DeviceRecoveryListener {
         installationId: installationId,
       );
       if (request == null || !_isCurrent(actor, generation)) return;
+      activeRequest = request;
 
       await _coordinator.runWithSyncPaused<void>(
         reason: 'admin_authorized_device_reset',
@@ -121,6 +129,13 @@ class DeviceRecoveryListener {
           if (!_isCurrent(actor, generation)) {
             throw const DeviceRecoveryLocalResetException(
               'The signed-in session changed before device recovery.',
+              reasonCode: 'device-recovery-session-changed',
+            );
+          }
+          await _commands.claimReset(actor: actor, request: request);
+          if (!_isCurrent(actor, generation)) {
+            throw const DeviceRecoveryLocalResetException(
+              'The signed-in session changed after its recovery claim.',
               reasonCode: 'device-recovery-session-changed',
             );
           }
@@ -156,8 +171,10 @@ class DeviceRecoveryListener {
           'recovery_stage': error.reasonCode,
         },
       );
-      if (!error.dataMayHaveBeenCleared && _isCurrent(actor, generation)) {
-        await _reportSafeFailure(actor, error);
+      if (!error.dataMayHaveBeenCleared &&
+          activeRequest != null &&
+          _isCurrent(actor, generation)) {
+        await _reportSafeFailure(actor, activeRequest, error);
       }
     } catch (error, stackTrace) {
       AppLogger.warning(
@@ -167,22 +184,24 @@ class DeviceRecoveryListener {
         context: const {'app_area': 'device_recovery'},
       );
     } finally {
-      if (generation == _generation) _busy = false;
+      if (generation == _generation) {
+        _busy = false;
+        if (_followUpRequested) {
+          _followUpRequested = false;
+          unawaited(checkNow(reason: 'queued_recovery_check'));
+        }
+      }
     }
   }
 
   Future<void> _reportSafeFailure(
     AppUser actor,
+    DeviceRecoveryRequest request,
     DeviceRecoveryLocalResetException error,
   ) async {
     try {
       final installationId = await _installationIdReader();
-      if (installationId == null) return;
-      final request = await _commands.pollPending(
-        actor: actor,
-        installationId: installationId,
-      );
-      if (request == null) return;
+      if (installationId != request.installationId) return;
       await _commands.failReset(
         actor: actor,
         request: request,

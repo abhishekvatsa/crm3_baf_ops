@@ -299,9 +299,11 @@ class _RecoveryUserPanelState extends ConsumerState<_RecoveryUserPanel> {
 
   Widget _buildInstallation(DeviceRecoveryInstallation installation) {
     final pending = installation.recoveryStatus == 'pending';
+    final inProgress = installation.recoveryStatus == 'in_progress';
     final busy = _busyInstallation == installation.installationId;
     final status = switch (installation.recoveryStatus) {
       'pending' => ('Reset pending', BafColors.warning),
+      'in_progress' => ('Reset in progress', BafColors.info),
       'completed' => ('Last reset completed', BafColors.success),
       'failed' => ('Last reset refused', BafColors.danger),
       'cancelled' => ('Last reset cancelled', BafColors.textSecondary),
@@ -348,7 +350,7 @@ class _RecoveryUserPanelState extends ConsumerState<_RecoveryUserPanel> {
               ],
             ),
           ),
-          if (busy)
+          if (busy || inProgress)
             const Padding(
               padding: EdgeInsets.all(10),
               child: SizedBox.square(

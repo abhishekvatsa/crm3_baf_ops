@@ -18,6 +18,7 @@ const OPERATIONS = new Set([
   "DEVICE_RECOVERY_LIST",
   "DEVICE_RECOVERY_REQUEST",
   "DEVICE_RECOVERY_POLL",
+  "DEVICE_RECOVERY_CLAIM",
   "DEVICE_RECOVERY_COMPLETE",
   "DEVICE_RECOVERY_FAIL",
   "DEVICE_RECOVERY_CANCEL",
@@ -318,7 +319,7 @@ async function listInstallations(
       result.recoveryRequestId = typeof state.requestId === "string" ?
         state.requestId : null;
       const updatedAt = state.completedAt ?? state.failedAt ??
-        state.cancelledAt ?? state.requestedAt;
+        state.cancelledAt ?? state.startedAt ?? state.requestedAt;
       if (updatedAt != null) {
         result.recoveryUpdatedAt = toIso(updatedAt, "recoveryUpdatedAt");
       }
@@ -402,6 +403,13 @@ async function requestReset(
       return {idempotentReplay: true};
     }
     const existingData = existing.data() as JsonMap | undefined;
+    if (existingData?.status === "in_progress") {
+      throw new DeviceRecoveryMutationError(
+        "failed-precondition",
+        "That phone already has an active device-recovery request.",
+        {reasonCode: "device-recovery-already-in-progress"},
+      );
+    }
     if (existingData?.status === "pending" &&
         new Date(toIso(existingData.expiresAt, "expiresAt")).getTime() >
           now.getTime()) {
@@ -517,9 +525,10 @@ async function pollReset(
       actorUid,
       installationId,
     );
-    if (state.status !== "pending" ||
-        new Date(toIso(state.expiresAt, "expiresAt")).getTime() <=
-          now.getTime()) {
+    if ((state.status !== "pending" && state.status !== "in_progress") ||
+        (state.status === "pending" &&
+          new Date(toIso(state.expiresAt, "expiresAt")).getTime() <=
+            now.getTime())) {
       return null;
     }
     const issuer = await transaction.get(
@@ -554,6 +563,141 @@ async function pollReset(
     operation: "DEVICE_RECOVERY_POLL",
     installationId,
     request,
+  };
+}
+
+async function claimReset(
+  args: DeviceRecoveryArgs,
+  actorUid: string,
+  now: Date,
+): Promise<DeviceRecoveryMutationResult> {
+  exactFields(args.data, ["operation", "requestId", "installationId"]);
+  const requestId = requiredUuid(args.data.requestId, "requestId");
+  const installationId = requiredUuid(
+    args.data.installationId,
+    "installationId",
+  );
+  const stateRef = args.db.collection(DEVICE_REQUESTS)
+    .doc(deviceStateId(actorUid, installationId));
+  const receiptRef = args.db.collection(DEVICE_RECEIPTS).doc(requestId);
+  const auditRef = args.db.collection("audit_logs")
+    .doc(`server_authority_device_recovery_${requestId}_claimed`);
+  const timestamp = args.timestampFromDate(now);
+
+  const replay = await args.db.runTransaction(async (transaction) => {
+    const actor = await authoritativeActor(
+      transaction,
+      args.db,
+      actorUid,
+      false,
+    );
+    const installation = await transaction.get(
+      args.db.collection("users").doc(actorUid)
+        .collection(INSTALLATIONS).doc(installationId),
+    );
+    const snapshot = await transaction.get(stateRef);
+    const receipt = await transaction.get(receiptRef);
+    const audit = await transaction.get(auditRef);
+    if (!installation.exists ||
+        !canonicalInstallation(installation.data())) {
+      throw new DeviceRecoveryMutationError(
+        "permission-denied",
+        "Only the registered target phone may claim its reset.",
+        {reasonCode: "device-recovery-installation-not-current"},
+      );
+    }
+    if (!snapshot.exists) {
+      throw new DeviceRecoveryMutationError(
+        "not-found",
+        "The requested device recovery no longer exists.",
+        {reasonCode: "device-recovery-state-missing"},
+      );
+    }
+    const state = validatePendingState(
+      snapshot.data(),
+      actorUid,
+      installationId,
+      requestId,
+    );
+    const issuer = await transaction.get(
+      args.db.collection("users").doc(state.requestedByUid as string),
+    );
+    const issuerAuthority = canonicalApprovedUserAuthority(issuer.data());
+    if (issuerAuthority == null || !issuerAuthority.roles.has("admin")) {
+      throw new DeviceRecoveryMutationError(
+        "permission-denied",
+        "The issuing administrator no longer authorizes this reset.",
+        {reasonCode: "device-recovery-issuer-authority-denied"},
+      );
+    }
+    const evidence = receipt.data() as JsonMap | undefined;
+    if (!receipt.exists || evidence == null ||
+        evidence.requestId !== requestId ||
+        evidence.actorUid !== state.requestedByUid ||
+        evidence.targetUid !== actorUid ||
+        evidence.installationId !== installationId ||
+        evidence.reason !== state.reason) {
+      throw new DeviceRecoveryMutationError(
+        "data-loss",
+        "The administrator device-recovery receipt is missing or inconsistent.",
+        {reasonCode: "device-recovery-receipt-invalid"},
+      );
+    }
+    if (state.status === "in_progress" && audit.exists) {
+      if (state.startedByUid !== actorUid) {
+        throw new DeviceRecoveryMutationError(
+          "aborted",
+          "The recovery claim is owned by another account.",
+          {reasonCode: "device-recovery-claim-owner-mismatch"},
+        );
+      }
+      return true;
+    }
+    if (state.status !== "pending" || audit.exists) {
+      throw new DeviceRecoveryMutationError(
+        "failed-precondition",
+        "Only a pending device-recovery request can be claimed.",
+        {reasonCode: "device-recovery-state-not-pending"},
+      );
+    }
+    if (new Date(toIso(state.expiresAt, "expiresAt")).getTime() <=
+        now.getTime()) {
+      throw new DeviceRecoveryMutationError(
+        "failed-precondition",
+        "The administrator device-recovery request has expired.",
+        {reasonCode: "device-recovery-request-expired"},
+      );
+    }
+    transaction.update(stateRef, {
+      status: "in_progress",
+      startedAt: timestamp,
+      startedByUid: actorUid,
+    });
+    transaction.create(
+      auditRef,
+      auditRecord({
+        uid: actorUid,
+        name: actorName(actor, actorUid),
+        requestId,
+        action: "update",
+        reason: state.reason as string,
+        summary: "Target phone claimed the administrator-authorized local reset.",
+        before: {status: "pending"},
+        after: {status: "in_progress", installationId},
+        timestamp,
+      }),
+    );
+    return false;
+  });
+
+  return {
+    ok: true,
+    operation: "DEVICE_RECOVERY_CLAIM",
+    requestId,
+    targetUid: actorUid,
+    installationId,
+    status: "in_progress",
+    idempotentReplay: replay,
   };
 }
 
@@ -611,6 +755,10 @@ async function finishReset(
         .collection(INSTALLATIONS).doc(installationId),
     );
     const snapshot = await transaction.get(stateRef);
+    const claimAudit = await transaction.get(
+      args.db.collection("audit_logs")
+        .doc(`server_authority_device_recovery_${requestId}_claimed`),
+    );
     const auditRef = args.db.collection("audit_logs")
       .doc(`server_authority_device_recovery_${requestId}_${status}`);
     const audit = await transaction.get(auditRef);
@@ -650,11 +798,12 @@ async function finishReset(
       }
       return true;
     }
-    if (state.status !== "pending" || audit.exists) {
+    if (state.status !== "in_progress" || state.startedByUid !== actorUid ||
+        !claimAudit.exists || audit.exists) {
       throw new DeviceRecoveryMutationError(
         "failed-precondition",
-        "The device-recovery request is no longer awaiting completion.",
-        {reasonCode: "device-recovery-state-not-pending"},
+        "The device-recovery request has not been claimed by this phone.",
+        {reasonCode: "device-recovery-state-not-claimed"},
       );
     }
     const changes: JsonMap = failed ?
@@ -678,7 +827,7 @@ async function finishReset(
         summary: failed ?
           "Target phone refused the administrator device-local reset." :
           "Target phone backed up and cleared its local application database.",
-        before: {status: "pending"},
+        before: {status: "in_progress"},
         after: {
           status,
           installationId,
@@ -820,6 +969,8 @@ export async function mutateDeviceRecoveryWithDb(
     return requestReset(args, actorUid, now);
   case "DEVICE_RECOVERY_POLL":
     return pollReset(args, actorUid, now);
+  case "DEVICE_RECOVERY_CLAIM":
+    return claimReset(args, actorUid, now);
   case "DEVICE_RECOVERY_COMPLETE":
     return finishReset(args, actorUid, now, false);
   case "DEVICE_RECOVERY_FAIL":

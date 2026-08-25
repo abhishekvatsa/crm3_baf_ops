@@ -347,6 +347,20 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       installationId: selectedInstallation,
     });
 
+    const claim = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CLAIM',
+      requestId,
+      installationId: selectedInstallation,
+    }, 'ops-1');
+    expect(claim).toMatchObject({status: 'in_progress', targetUid: 'ops-1'});
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CANCEL',
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+      reason: 'Cancellation cannot race the already claimed phone reset.',
+    }, 'admin-1')).rejects.toMatchObject({code: 'failed-precondition'});
+
     const completion = await invokeDeviceRecovery({
       operation: 'DEVICE_RECOVERY_COMPLETE',
       requestId,
@@ -361,6 +375,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
     const audits = await db.collection('audit_logs').get();
     expect(audits.docs.map((snapshot) => snapshot.id).sort()).toEqual([
+      `server_authority_device_recovery_${requestId}_claimed`,
       `server_authority_device_recovery_${requestId}_completed`,
       `server_authority_device_recovery_${requestId}_requested`,
     ]);

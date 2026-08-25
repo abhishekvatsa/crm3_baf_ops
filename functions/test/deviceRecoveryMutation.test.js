@@ -169,6 +169,15 @@ function requestData(overrides = {}) {
   };
 }
 
+function claimData(overrides = {}) {
+  return {
+    operation: 'DEVICE_RECOVERY_CLAIM',
+    requestId: REQUEST,
+    installationId: INSTALLATION,
+    ...overrides,
+  };
+}
+
 function statePath(uid = TARGET, installationId = INSTALLATION) {
   const crypto = require('crypto');
   const id = crypto.createHash('sha256')
@@ -180,6 +189,7 @@ function statePath(uid = TARGET, installationId = INSTALLATION) {
 describe('governed remote device recovery', () => {
   test('operation and authority classifiers fail closed', () => {
     expect(isDeviceRecoveryOperation('DEVICE_RECOVERY_REQUEST')).toBe(true);
+    expect(isDeviceRecoveryOperation('DEVICE_RECOVERY_CLAIM')).toBe(true);
     expect(isDeviceRecoveryOperation('RESET_EVERYTHING')).toBe(false);
     expect(userCanMutateDeviceRecovery(
       user('Admin', ['admin']),
@@ -342,6 +352,17 @@ describe('governed remote device recovery', () => {
     await expect(mutateDeviceRecoveryWithDb(args(
       fixture.db,
       TARGET,
+      completion,
+    ))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'device-recovery-state-not-claimed'},
+    });
+    await mutateDeviceRecoveryWithDb(
+      args(fixture.db, TARGET, claimData()),
+    );
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
       {...completion, backupFileCount: 0},
     ))).rejects.toMatchObject({code: 'failed-precondition'});
 
@@ -372,6 +393,7 @@ describe('governed remote device recovery', () => {
   test('backup failure is retained and prevents a false completion', async () => {
     const fixture = fakeDb(seed());
     await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    await mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, claimData()));
     await mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, {
       operation: 'DEVICE_RECOVERY_FAIL',
       requestId: REQUEST,
@@ -422,6 +444,7 @@ describe('governed remote device recovery', () => {
   test('failed recovery replays preserve the original failure evidence', async () => {
     const fixture = fakeDb(seed());
     await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    await mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, claimData()));
     const failure = {
       operation: 'DEVICE_RECOVERY_FAIL',
       requestId: REQUEST,
@@ -452,6 +475,89 @@ describe('governed remote device recovery', () => {
       new Date(NOW.getTime() + (25 * 60 * 60 * 1000)),
     ));
     expect(poll.request).toBeNull();
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      claimData(),
+      new Date(NOW.getTime() + (25 * 60 * 60 * 1000)),
+    ))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'device-recovery-request-expired'},
+    });
+  });
+
+  test('claimed reset cannot be cancelled or replaced during local deletion', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    const claim = await mutateDeviceRecoveryWithDb(
+      args(fixture.db, TARGET, claimData()),
+    );
+    expect(claim).toMatchObject({
+      status: 'in_progress',
+      targetUid: TARGET,
+      idempotentReplay: false,
+    });
+    expect(fixture.store.get(statePath())).toMatchObject({
+      status: 'in_progress',
+      startedByUid: TARGET,
+    });
+    expect(fixture.store.get(
+      `audit_logs/server_authority_device_recovery_${REQUEST}_claimed`,
+    )).toMatchObject({performedByUid: TARGET, entityType: 'deviceRecovery'});
+
+    const writes = fixture.writes.length;
+    const replay = await mutateDeviceRecoveryWithDb(
+      args(fixture.db, TARGET, claimData()),
+    );
+    expect(replay.idempotentReplay).toBe(true);
+    expect(fixture.writes).toHaveLength(writes);
+    const poll = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      {operation: 'DEVICE_RECOVERY_POLL', installationId: INSTALLATION},
+    ));
+    expect(poll.request.status).toBe('in_progress');
+
+    await expect(mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, {
+      operation: 'DEVICE_RECOVERY_CANCEL',
+      requestId: REQUEST,
+      targetUid: TARGET,
+      installationId: INSTALLATION,
+      reason: 'Cancellation must not race a claimed destructive reset.',
+    }))).rejects.toMatchObject({code: 'failed-precondition'});
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      requestData({requestId: '44444444-4444-4444-8444-444444444444'}),
+    ))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'device-recovery-already-in-progress'},
+    });
+  });
+
+  test('cancelled reset cannot be claimed and revoked issuer blocks claim', async () => {
+    const cancelled = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(cancelled.db, ADMIN, requestData()));
+    await mutateDeviceRecoveryWithDb(args(cancelled.db, ADMIN, {
+      operation: 'DEVICE_RECOVERY_CANCEL',
+      requestId: REQUEST,
+      targetUid: TARGET,
+      installationId: INSTALLATION,
+      reason: 'Operator confirmed the pending recovery is no longer needed.',
+    }));
+    await expect(mutateDeviceRecoveryWithDb(
+      args(cancelled.db, TARGET, claimData()),
+    )).rejects.toMatchObject({code: 'failed-precondition'});
+
+    const revoked = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(revoked.db, ADMIN, requestData()));
+    revoked.store.set(`users/${ADMIN}`, user('Admin One', ['operations']));
+    await expect(mutateDeviceRecoveryWithDb(
+      args(revoked.db, TARGET, claimData()),
+    )).rejects.toMatchObject({
+      code: 'permission-denied',
+      details: {reasonCode: 'device-recovery-issuer-authority-denied'},
+    });
   });
 
   test('missing selected installation fails without writing', async () => {

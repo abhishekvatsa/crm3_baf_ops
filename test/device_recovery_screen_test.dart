@@ -222,9 +222,69 @@ void main() {
         ),
         throwsA(isA<DeviceRecoveryException>()),
       );
+      await expectLater(
+        service.claimReset(
+          actor: _operator(uid: 'operator-2'),
+          request: recoveryRequest,
+        ),
+        throwsA(isA<DeviceRecoveryException>()),
+      );
+      await expectLater(
+        service.failReset(
+          actor: _operator(uid: 'operator-2'),
+          request: recoveryRequest,
+          failureCode: 'device-recovery-backup-failed',
+        ),
+        throwsA(isA<DeviceRecoveryException>()),
+      );
       expect(requests, 0);
     },
   );
+
+  testWidgets('claimed phone reset cannot be cancelled from the admin screen', (
+    tester,
+  ) async {
+    final service = DeviceRecoveryCommandService(
+      authenticatedUidLookup: () => 'admin-1',
+      invoke:
+          (_) async => <String, dynamic>{
+            'ok': true,
+            'operation': deviceRecoveryListOperation,
+            'targetUid': 'operator-1',
+            'installations': [
+              <String, Object?>{
+                'installationId': _installation,
+                'platform': 'android',
+                'updatedAt': '2026-08-25T12:00:00.000Z',
+                'recoveryStatus': 'in_progress',
+                'recoveryRequestId': '33333333-3333-4333-8333-333333333333',
+                'recoveryUpdatedAt': '2026-08-25T12:01:00.000Z',
+              },
+            ],
+          },
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => Stream.value(_admin())),
+          allUsersProvider.overrideWith((ref) => Stream.value([_operator()])),
+          deviceRecoveryCommandServiceProvider.overrideWithValue(service),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const DeviceRecoveryScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Operator One'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Reset in progress'), findsOneWidget);
+    expect(find.byTooltip('Cancel pending reset'), findsNothing);
+    expect(find.byTooltip('Reset this phone'), findsNothing);
+  });
 }
 
 AppUser _operator({String uid = 'operator-1'}) => AppUser(
