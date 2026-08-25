@@ -134,6 +134,73 @@ test("provisioning accepts only Editor rollback or the exact hardened build post
   ));
 });
 
+test("provisioning reuses exact service-scoped invoker access before broad fallback", () => {
+  const provision = source.slice(
+    source.indexOf("  'Provision' {"),
+    source.indexOf("  'DeployCallables' {"),
+  );
+  const inspectBinding = provision.indexOf("Test-PreflightScopedRunInvoker");
+  const serviceReady = provision.indexOf("-Bindings @($preflight.outputs.cloudRunBindings)");
+  const projectFallback = provision.indexOf(
+    "Ensure-ProjectRole -Email $email -Role 'roles/run.invoker'",
+  );
+  assert.ok(inspectBinding >= 0);
+  assert.ok(serviceReady > inspectBinding);
+  assert.ok(projectFallback > serviceReady);
+  assert.ok(provision.includes("if (-not $serviceInvokerReady)"));
+});
+
+test("IAM-preserving mode blocks every identity and grant mutation", () => {
+  assert.ok(source.includes("[switch]$PreserveExistingIam"));
+  const ensureRole = extractPowerShellFunction("Ensure-ProjectRole");
+  const removeRole = extractPowerShellFunction("Remove-ProjectRole");
+  const ensureInvoker = extractPowerShellFunction("Ensure-ServiceInvoker");
+  for (const [section, mutation] of [
+    [ensureRole, "'projects', 'add-iam-policy-binding'"],
+    [removeRole, "'projects', 'remove-iam-policy-binding'"],
+    [ensureInvoker, "'run', 'services', 'add-iam-policy-binding'"],
+  ]) {
+    const guard = section.indexOf("if ($PreserveExistingIam)");
+    assert.ok(guard >= 0);
+    assert.ok(section.indexOf(mutation) > guard);
+  }
+  assert.ok(source.includes(
+    "IAM-preserving deployment requires the existing notification sender role.",
+  ));
+  assert.ok(source.includes(
+    "IAM-preserving deployment requires the existing runtime identity:",
+  ));
+});
+
+test("preflight scoped invoker requires exact function, identity and role", () => {
+  const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+  const fixture = `
+Set-StrictMode -Version Latest
+${extractPowerShellFunction("Test-PreflightScopedRunInvoker")}
+$exact = [pscustomobject]@{
+  functionName = 'onTicketCreated'
+  expectedServiceAccountEmail = 'fn@example.test'
+  roles = @('roles/run.invoker')
+}
+if (-not (Test-PreflightScopedRunInvoker -Bindings @($exact) -FunctionName 'onTicketCreated' -Email 'fn@example.test')) { exit 31 }
+if (Test-PreflightScopedRunInvoker -Bindings @($exact) -FunctionName 'other' -Email 'fn@example.test') { exit 32 }
+if (Test-PreflightScopedRunInvoker -Bindings @($exact) -FunctionName 'onTicketCreated' -Email 'other@example.test') { exit 33 }
+$exact.roles = @('roles/run.invoker', 'roles/run.viewer')
+if (Test-PreflightScopedRunInvoker -Bindings @($exact) -FunctionName 'onTicketCreated' -Email 'fn@example.test') { exit 34 }
+if (Test-PreflightScopedRunInvoker -Bindings @() -FunctionName 'onTicketCreated' -Email 'fn@example.test') { exit 35 }
+`;
+  const result = childProcess.spawnSync(
+    powershell,
+    ["-NoProfile", "-NonInteractive", "-Command", "-"],
+    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+  );
+  assert.equal(
+    result.status,
+    0,
+    `Scoped binding fixture failed: ${result.error ?? ""}\n${result.stdout}\n${result.stderr}`,
+  );
+});
+
 test("strict-mode helpers accept absent optional IAM and policy fields", () => {
   const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
   const fixture = `

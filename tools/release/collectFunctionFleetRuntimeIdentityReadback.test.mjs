@@ -157,7 +157,7 @@ test("final phase proves exact fleet, IAM, scheduler and safe callable probes", 
   );
 });
 
-test("provisioned phase accepts Editor rollback or an already-hardened fleet", () => {
+test("provisioned phase accepts service-scoped access on an already-hardened fleet", () => {
   for (const retainEditor of [true, false]) {
     const state = live();
     if (retainEditor) {
@@ -166,15 +166,29 @@ test("provisioned phase accepts Editor rollback or an already-hardened fleet", (
         "roles/editor",
       ];
     }
-    for (const name of functionNames) {
-      if (policy.functionBindings[name].requiredCloudRunServiceRoles != null) {
-        state.projectRoles[emails[name]].push("roles/run.invoker");
-        state.projectRoles[emails[name]].sort();
-      }
-    }
     const result = adjudicate("provisioned", state, {probeCallables: false});
     assert.deepEqual(result.failedChecks, []);
   }
+});
+
+test("provisioned phase accepts temporary project access only when service access is absent", () => {
+  const state = live();
+  for (const name of functionNames) {
+    if (policy.functionBindings[name].requiredCloudRunServiceRoles != null) {
+      state.projectRoles[emails[name]].push("roles/run.invoker");
+      state.projectRoles[emails[name]].sort();
+    }
+  }
+  state.cloudRunBindings = [];
+  const result = adjudicate("provisioned", state, {probeCallables: false});
+  assert.deepEqual(result.failedChecks, []);
+});
+
+test("provisioned phase rejects a trigger with neither scoped nor temporary access", () => {
+  const state = live();
+  state.cloudRunBindings = state.cloudRunBindings.slice(1);
+  const result = adjudicate("provisioned", state, {probeCallables: false});
+  assert.ok(result.failedChecks.includes("triggerDeploymentInvokerReady"));
 });
 
 test("final phase fails closed on Editor, a wrong runtime identity or extra role", () => {
