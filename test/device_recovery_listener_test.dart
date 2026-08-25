@@ -157,6 +157,233 @@ void main() {
     },
   );
 
+  test(
+    'claimed reset retries completion after a temporary connection failure',
+    () async {
+      final calls = <Map<String, Object?>>[];
+      final completed = Completer<void>();
+      final reset = _LocalResetProbe();
+      var completionAttempts = 0;
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          calls.add(Map<String, Object?>.from(payload));
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              return _pollResponse(
+                _request,
+                status: completionAttempts == 0 ? 'pending' : 'in_progress',
+              );
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              completionAttempts++;
+              if (completionAttempts == 1) {
+                throw StateError('The connection was temporarily unavailable.');
+              }
+              completed.complete();
+              return _finishResponse(_request, 'completed');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: reset,
+        recoveryRetryDelay: const Duration(milliseconds: 1),
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await completed.future.timeout(const Duration(seconds: 2));
+
+      expect(completionAttempts, 2);
+      expect(reset.requests.map((request) => request.requestId), [
+        _request,
+        _request,
+      ]);
+      expect(calls.map((call) => call['operation']), <String>[
+        deviceRecoveryPollOperation,
+        deviceRecoveryClaimOperation,
+        deviceRecoveryCompleteOperation,
+        deviceRecoveryPollOperation,
+        deviceRecoveryClaimOperation,
+        deviceRecoveryCompleteOperation,
+      ]);
+    },
+  );
+
+  test(
+    'revoked phone retries claimed completion without ordinary synchronization',
+    () async {
+      final completed = Completer<void>();
+      final reset = _LocalResetProbe();
+      var completionAttempts = 0;
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              return _pollResponse(_request, status: 'in_progress');
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              completionAttempts++;
+              if (completionAttempts == 1) {
+                throw StateError('The connection was temporarily unavailable.');
+              }
+              completed.complete();
+              return _finishResponse(_request, 'completed');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: reset,
+        recoveryRetryDelay: const Duration(milliseconds: 1),
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(
+        _operator(approved: false),
+        claimedRecoveryOnly: true,
+      );
+      await completed.future.timeout(const Duration(seconds: 2));
+
+      expect(completionAttempts, 2);
+      expect(reset.claimedRecoveryModes, <bool>[true, true]);
+      expect(scope.coordinator.followUpModes, <bool>[false, false]);
+    },
+  );
+
+  test('claimed recovery retries are bounded', () async {
+    final lastAttempt = Completer<void>();
+    var completionAttempts = 0;
+    final commands = DeviceRecoveryCommandService(
+      authenticatedUidLookup: () => 'operator-1',
+      invoke: (payload) async {
+        switch (payload['operation']) {
+          case deviceRecoveryPollOperation:
+            return _pollResponse(_request, status: 'in_progress');
+          case deviceRecoveryClaimOperation:
+            return _claimResponse(_request);
+          case deviceRecoveryCompleteOperation:
+            completionAttempts++;
+            if (completionAttempts == 3) lastAttempt.complete();
+            throw StateError('The connection is still unavailable.');
+          default:
+            throw StateError('Unexpected request: ${payload['operation']}');
+        }
+      },
+    );
+    final scope = _listenerScope(
+      commands: commands,
+      reset: _LocalResetProbe(),
+      recoveryRetryDelay: const Duration(milliseconds: 1),
+      maxRecoveryRetries: 2,
+    );
+    addTearDown(scope.dispose);
+
+    scope.listener.start(_operator());
+    await lastAttempt.future.timeout(const Duration(seconds: 2));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    expect(completionAttempts, 3);
+  });
+
+  test(
+    'stopping the signed-in session cancels pending recovery retries',
+    () async {
+      final attempted = Completer<void>();
+      var completionAttempts = 0;
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              return _pollResponse(_request, status: 'in_progress');
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              completionAttempts++;
+              attempted.complete();
+              throw StateError('The connection was temporarily unavailable.');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        recoveryRetryDelay: const Duration(milliseconds: 30),
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await attempted.future.timeout(const Duration(seconds: 2));
+      await Future<void>.delayed(Duration.zero);
+      scope.listener.stop();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(completionAttempts, 1);
+    },
+  );
+
+  test(
+    'temporary failure-report errors retry the exact claimed request',
+    () async {
+      final reported = Completer<void>();
+      var failureAttempts = 0;
+      final reset = _LocalResetProbe(
+        onReset: (_) async {
+          throw const DeviceRecoveryLocalResetException(
+            'Backup was unavailable.',
+            reasonCode: 'device-recovery-backup-failed',
+          );
+        },
+      );
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              return _pollResponse(_request, status: 'in_progress');
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryFailOperation:
+              failureAttempts++;
+              if (failureAttempts == 1) {
+                throw StateError('The connection was temporarily unavailable.');
+              }
+              reported.complete();
+              return _finishResponse(_request, 'failed');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: reset,
+        recoveryRetryDelay: const Duration(milliseconds: 1),
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await reported.future.timeout(const Duration(seconds: 2));
+
+      expect(failureAttempts, 2);
+      expect(reset.requests.map((request) => request.requestId), [
+        _request,
+        _request,
+      ]);
+    },
+  );
+
   test('revoked phone cannot start an ordinary recovery listener', () async {
     var calls = 0;
     final commands = DeviceRecoveryCommandService(
@@ -179,6 +406,8 @@ void main() {
 _ListenerScope _listenerScope({
   required DeviceRecoveryCommandService commands,
   required _LocalResetProbe reset,
+  Duration recoveryRetryDelay = const Duration(seconds: 1),
+  int maxRecoveryRetries = 5,
 }) {
   final coordinator = _SyncCoordinatorProbe();
   final provider = Provider<DeviceRecoveryListener>((ref) {
@@ -189,6 +418,8 @@ _ListenerScope _listenerScope({
       ref: ref,
       installationIdReader: () async => _installation,
       foregroundMessages: const Stream<RemoteMessage>.empty(),
+      recoveryRetryDelay: recoveryRetryDelay,
+      maxRecoveryRetries: maxRecoveryRetries,
     );
     ref.onDispose(listener.stop);
     return listener;

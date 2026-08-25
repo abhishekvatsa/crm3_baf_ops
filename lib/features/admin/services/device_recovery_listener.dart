@@ -20,6 +20,8 @@ class DeviceRecoveryListener {
     required Ref ref,
     Future<String?> Function()? installationIdReader,
     Stream<RemoteMessage>? foregroundMessages,
+    Duration recoveryRetryDelay = const Duration(seconds: 1),
+    int maxRecoveryRetries = 5,
   }) : _commands = commands,
        _localReset = localReset,
        _coordinator = coordinator,
@@ -27,7 +29,9 @@ class DeviceRecoveryListener {
        _installationIdReader =
            installationIdReader ??
            SharedPreferencesNotificationInstallationIdStore().read,
-       _foregroundMessages = foregroundMessages;
+       _foregroundMessages = foregroundMessages,
+       _recoveryRetryDelay = recoveryRetryDelay,
+       _maxRecoveryRetries = maxRecoveryRetries;
 
   final DeviceRecoveryCommandService _commands;
   final DeviceLocalRecoveryResetService _localReset;
@@ -35,11 +39,16 @@ class DeviceRecoveryListener {
   final Ref _ref;
   final Future<String?> Function() _installationIdReader;
   final Stream<RemoteMessage>? _foregroundMessages;
+  final Duration _recoveryRetryDelay;
+  final int _maxRecoveryRetries;
 
   AppUser? _actor;
   StreamSubscription<RemoteMessage>? _messageSubscription;
   Timer? _registrationRetry;
+  Timer? _recoveryRetry;
   int _registrationRetries = 0;
+  int _recoveryRetries = 0;
+  String? _pendingRecoveryRequestId;
   bool _busy = false;
   bool _followUpRequested = false;
   bool _claimedRecoveryOnly = false;
@@ -79,6 +88,7 @@ class DeviceRecoveryListener {
     _generation++;
     _registrationRetry?.cancel();
     _registrationRetry = null;
+    _clearRecoveryRetry();
     final subscription = _messageSubscription;
     _messageSubscription = null;
     if (subscription != null) unawaited(subscription.cancel());
@@ -130,8 +140,13 @@ class DeviceRecoveryListener {
         installationId: installationId,
         claimedRecoveryOnly: claimedRecoveryOnly,
       );
-      if (request == null || !_isCurrent(actor, generation)) return;
+      if (!_isCurrent(actor, generation)) return;
+      if (request == null) {
+        _clearRecoveryRetry();
+        return;
+      }
       activeRequest = request;
+      _trackRecoveryRequest(request.requestId);
 
       await _coordinator.runWithSyncPaused<void>(
         reason: 'admin_authorized_device_reset',
@@ -167,6 +182,7 @@ class DeviceRecoveryListener {
             backedUpUnsyncedRows: result.backedUpUnsyncedRows,
             claimedRecoveryOnly: claimedRecoveryOnly,
           );
+          _clearRecoveryRetry();
           _ref.invalidate(syncPendingCountsProvider);
           AppLogger.breadcrumb(
             'Administrator-authorized device recovery completed',
@@ -188,15 +204,20 @@ class DeviceRecoveryListener {
           'recovery_stage': error.reasonCode,
         },
       );
-      if (!error.dataMayHaveBeenCleared &&
-          activeRequest != null &&
-          _isCurrent(actor, generation)) {
-        await _reportSafeFailure(
-          actor,
-          activeRequest,
-          error,
-          claimedRecoveryOnly: claimedRecoveryOnly,
-        );
+      if (activeRequest != null && _isCurrent(actor, generation)) {
+        final failureReported =
+            !error.dataMayHaveBeenCleared &&
+            await _reportSafeFailure(
+              actor,
+              activeRequest,
+              error,
+              claimedRecoveryOnly: claimedRecoveryOnly,
+            );
+        if (failureReported) {
+          _clearRecoveryRetry();
+        } else {
+          _scheduleRecoveryRetry(actor, generation);
+        }
       }
     } catch (error, stackTrace) {
       AppLogger.warning(
@@ -205,6 +226,7 @@ class DeviceRecoveryListener {
         stackTrace: stackTrace,
         context: const {'app_area': 'device_recovery'},
       );
+      _scheduleRecoveryRetry(actor, generation);
     } finally {
       if (generation == _generation) {
         _busy = false;
@@ -216,7 +238,7 @@ class DeviceRecoveryListener {
     }
   }
 
-  Future<void> _reportSafeFailure(
+  Future<bool> _reportSafeFailure(
     AppUser actor,
     DeviceRecoveryRequest request,
     DeviceRecoveryLocalResetException error, {
@@ -224,13 +246,14 @@ class DeviceRecoveryListener {
   }) async {
     try {
       final installationId = await _installationIdReader();
-      if (installationId != request.installationId) return;
+      if (installationId != request.installationId) return false;
       await _commands.failReset(
         actor: actor,
         request: request,
         failureCode: error.reasonCode,
         claimedRecoveryOnly: claimedRecoveryOnly,
       );
+      return true;
     } catch (reportError, stackTrace) {
       AppLogger.warning(
         'Device recovery failure receipt could not be recorded',
@@ -238,11 +261,45 @@ class DeviceRecoveryListener {
         stackTrace: stackTrace,
         context: const {'app_area': 'device_recovery'},
       );
+      return false;
     }
   }
 
   bool _isCurrent(AppUser actor, int generation) =>
       _generation == generation && _actor?.uid == actor.uid;
+
+  void _trackRecoveryRequest(String requestId) {
+    if (_pendingRecoveryRequestId == requestId) return;
+    _clearRecoveryRetry();
+    _pendingRecoveryRequestId = requestId;
+  }
+
+  void _scheduleRecoveryRetry(AppUser actor, int generation) {
+    final requestId = _pendingRecoveryRequestId;
+    if (requestId == null ||
+        _recoveryRetry != null ||
+        _recoveryRetries >= _maxRecoveryRetries ||
+        !_isCurrent(actor, generation)) {
+      return;
+    }
+    final delay = _recoveryRetryDelay * (1 << _recoveryRetries);
+    _recoveryRetries++;
+    _recoveryRetry = Timer(delay, () {
+      _recoveryRetry = null;
+      if (!_isCurrent(actor, generation) ||
+          _pendingRecoveryRequestId != requestId) {
+        return;
+      }
+      unawaited(checkNow(reason: 'claimed_recovery_retry'));
+    });
+  }
+
+  void _clearRecoveryRetry() {
+    _recoveryRetry?.cancel();
+    _recoveryRetry = null;
+    _recoveryRetries = 0;
+    _pendingRecoveryRequestId = null;
+  }
 
   void _scheduleRegistrationRetry() {
     if (_registrationRetries >= 3 || _registrationRetry != null) return;
