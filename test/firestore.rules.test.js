@@ -3912,6 +3912,43 @@ describe("audit_logs", () => {
     );
   });
 
+  test("remote device recovery state and reserved audits remain server-only", async () => {
+    const adminDb = dbAs("admin1");
+    const operatorDb = dbAs("ops1");
+    const requestId = "33333333-3333-4333-8333-333333333333";
+    const auditId = `server_authority_device_recovery_${requestId}_requested`;
+
+    await assertFails(
+      setDoc(
+        doc(adminDb, `audit_logs/${auditId}`),
+        auditEventPayload({
+          performedByUid: "admin1",
+          performedByName: "Admin One",
+        })
+      )
+    );
+    await seedDoc(`device_recovery_requests/${requestId}`, {
+      targetUid: "ops1",
+      status: "pending",
+    });
+    await seedDoc(`device_recovery_receipts/${requestId}`, {
+      targetUid: "ops1",
+    });
+    for (const db of [adminDb, operatorDb]) {
+      await assertFails(
+        getDoc(doc(db, `device_recovery_requests/${requestId}`))
+      );
+      await assertFails(
+        getDoc(doc(db, `device_recovery_receipts/${requestId}`))
+      );
+      await assertFails(
+        setDoc(doc(db, `device_recovery_requests/${requestId}`), {
+          status: "completed",
+        })
+      );
+    }
+  });
+
   test("admin can create governed knowledge seed audit shape", async () => {
     const db = dbAs("admin1");
 

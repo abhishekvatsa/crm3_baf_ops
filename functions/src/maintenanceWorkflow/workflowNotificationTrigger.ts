@@ -10,6 +10,7 @@ import type {
   NotificationReceiptRuntime,
 } from "../notificationEventReceipt";
 import {
+  getTokenLookupsForUser,
   getTokenLookupsForRoles,
   sendNotification,
 } from "../notifications";
@@ -84,6 +85,46 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
           const escalationTier = typeof payload.escalationTier === "number"
             ? payload.escalationTier
             : null;
+          if (eventType === "deviceRecovery.requested") {
+            const requestId = typeof payload.deviceRecoveryRequestId === "string" ?
+              payload.deviceRecoveryRequestId : "";
+            if (requestId.length === 0 || aggregateId !== requestId ||
+                sourceEventId !== `device_recovery_${requestId}`) return null;
+            const receipt = await db.collection("device_recovery_receipts")
+              .doc(requestId)
+              .get();
+            const recovery = receipt.data();
+            if (!receipt.exists || recovery?.schemaVersion !== 1 ||
+                recovery.requestId !== requestId ||
+                recovery.actorUid !== data.actorUid ||
+                typeof recovery.targetUid !== "string" ||
+                typeof recovery.installationId !== "string") {
+              logger.error("Device recovery notification receipt is invalid", {
+                eventId: sourceEventId,
+                requestId,
+              });
+              return null;
+            }
+            const recipients = (await getTokenLookupsForUser(
+              notificationDb(db),
+              recovery.targetUid,
+            )).filter((recipient) =>
+              recipient.installationId === recovery.installationId
+            );
+            return {
+              recipients,
+              roles: ["target-installation"],
+              title: "Administrator requested a device refresh",
+              body: "Open CRM-III BAF Ops to back up and refresh this phone.",
+              notificationData: {
+                destinationType: "admin_device_reset",
+                aggregateId: requestId,
+                requestId,
+                installationId: recovery.installationId,
+                eventId: sourceEventId,
+              },
+            };
+          }
           const roles = workflowRecipientRoles(
             eventType,
             laneKey,
@@ -145,7 +186,7 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
           recipients: plan.recipients,
           title: plan.title,
           body: plan.body,
-          data: plan.notificationData,
+          data: plan.notificationData as Readonly<Record<string, string>>,
         }),
       });
 

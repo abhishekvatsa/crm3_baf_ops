@@ -63,6 +63,7 @@ import 'core/services/sync_coordinator.dart';
 import 'core/theme/baf_design_system.dart';
 import 'core/widgets/brand/brand_widgets.dart';
 import 'features/reports/providers/operations_report_provider.dart';
+import 'features/admin/services/device_recovery_listener.dart';
 
 // ── UI ───────────────────────────────────────────────────────
 import 'home_screen.dart';
@@ -1236,6 +1237,11 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   @override
   void didUpdateWidget(_StartupSyncGate oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!kIsWeb &&
+        (oldWidget.appUser.uid != widget.appUser.uid ||
+            oldWidget.appUser.isApproved != widget.appUser.isApproved)) {
+      ref.read(deviceRecoveryListenerProvider).start(widget.appUser);
+    }
     final oldScope = LiveMaintenanceMirrorScope.forUser(oldWidget.appUser);
     final newScope = LiveMaintenanceMirrorScope.forUser(widget.appUser);
     if (oldScope.scopeKey != newScope.scopeKey) {
@@ -1245,6 +1251,13 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !kIsWeb) {
+      unawaited(
+        ref
+            .read(deviceRecoveryListenerProvider)
+            .checkNow(reason: 'app_resumed'),
+      );
+    }
     final liveService = _liveRemoteSyncService;
     if (liveService == null) {
       return;
@@ -1264,6 +1277,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     ref.read(autoSyncServiceProvider).stop();
+    if (!kIsWeb) ref.read(deviceRecoveryListenerProvider).stop();
     _liveRemoteSyncService?.dispose();
     _liveRemoteSyncService = null;
     super.dispose();
@@ -1325,6 +1339,9 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
           return;
         }
         ref.read(autoSyncServiceProvider).start();
+        if (!kIsWeb) {
+          ref.read(deviceRecoveryListenerProvider).start(widget.appUser);
+        }
 
         _startOrUpdateLiveMaintenanceMirror();
       } catch (e, st) {

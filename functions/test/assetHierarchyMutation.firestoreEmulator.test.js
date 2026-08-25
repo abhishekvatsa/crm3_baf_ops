@@ -15,6 +15,9 @@ const {
 const {
   mutateOperationalEventIssueLinkWithDb,
 } = require('../lib/operationalEventIssueLinkMutation');
+const {
+  mutateDeviceRecoveryWithDb,
+} = require('../lib/deviceRecoveryMutation');
 
 jest.setTimeout(60000);
 
@@ -170,6 +173,16 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   }
 
+  async function invokeDeviceRecovery(data, authUid) {
+    return mutateDeviceRecoveryWithDb({
+      db,
+      authUid,
+      data,
+      now: () => new Date('2026-08-13T12:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+  }
+
   function assetRequest({requestId, assetInstanceId, assetNumber, name}) {
     return {
       requestId,
@@ -260,6 +273,97 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
 
   afterAll(async () => {
     if (app) await app.delete();
+  });
+
+  test('admin recovery targets one non-admin phone with reserved audit custody', async () => {
+    const selectedInstallation = '41414141-4141-4141-8141-414141414141';
+    const otherInstallation = '42424242-4242-4242-8242-424242424242';
+    const requestId = '43434343-4343-4343-8343-434343434343';
+    const updatedAt = admin.firestore.Timestamp.fromDate(
+      new Date('2026-08-13T11:30:00.000Z'),
+    );
+    const target = db.collection('users').doc('ops-1');
+    await Promise.all([
+      target.collection('notification_installations')
+        .doc(selectedInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-selected-token',
+          platform: 'android',
+          updatedAt,
+        }),
+      target.collection('notification_installations')
+        .doc(otherInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-other-token',
+          platform: 'android',
+          updatedAt,
+        }),
+    ]);
+
+    const inventory = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_LIST',
+      targetUid: 'ops-1',
+    }, 'admin-1');
+    expect(inventory.installations).toHaveLength(2);
+    expect(JSON.stringify(inventory)).not.toContain('private-selected-token');
+
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+      reason: 'Safely remove stale pilot records from the selected phone.',
+    }, 'ops-1')).rejects.toMatchObject({code: 'permission-denied'});
+
+    const request = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+      reason: 'Safely remove stale pilot records from the selected phone.',
+    }, 'admin-1');
+    expect(request).toMatchObject({status: 'pending', notificationQueued: true});
+    const event = (await db.collection('maintenance_workflow_events')
+      .doc(`device_recovery_${requestId}`).get()).data();
+    expect(event.payload).toEqual({deviceRecoveryRequestId: requestId});
+    expect(JSON.stringify(event)).not.toContain('ops-1');
+    expect(JSON.stringify(event)).not.toContain('private-selected-token');
+
+    const wrongPhone = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: otherInstallation,
+    }, 'ops-1');
+    expect(wrongPhone.request).toBeNull();
+
+    const selectedPhone = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1');
+    expect(selectedPhone.request).toMatchObject({
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+    });
+
+    const completion = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_COMPLETE',
+      requestId,
+      installationId: selectedInstallation,
+      backupFileCount: 2,
+      clearedCursorCount: 3,
+      backedUpUnsyncedRows: 1,
+    }, 'ops-1');
+    expect(completion).toMatchObject({
+      status: 'completed',
+      idempotentReplay: false,
+    });
+    const audits = await db.collection('audit_logs').get();
+    expect(audits.docs.map((snapshot) => snapshot.id).sort()).toEqual([
+      `server_authority_device_recovery_${requestId}_completed`,
+      `server_authority_device_recovery_${requestId}_requested`,
+    ]);
   });
 
   test('creates a reusable definition and exact replay returns the same evidence', async () => {

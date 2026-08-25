@@ -2472,6 +2472,7 @@ export const closeMaintenanceTicketWithoutResolution = async ({
       {reasonCode: "maintenance-ticket-not-open-for-administrative-closure"},
     );
   }
+  const lanePlan = ticketLanePlan(ticket);
   const startDate = requiredPersistedInstantDate(
     ticket.startDate,
     "ticket.startDate",
@@ -2596,6 +2597,7 @@ export const closeMaintenanceTicketWithoutResolution = async ({
   const update: JsonMap = {
     isResolved: true,
     status: "closedWithoutResolution",
+    ...ticketLaneProjection(lanePlan),
     endDate: updatedAt,
     closedByUid: context.actor.uid,
     closedByName: context.actor.name,

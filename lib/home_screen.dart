@@ -29,6 +29,7 @@ import 'features/assets/providers/plant_asset_overview_provider.dart';
 import 'features/audit/presentation/audit_timeline_screen.dart';
 import 'features/admin/presentation/admin_data_browser.dart';
 import 'features/admin/presentation/local_diagnostics_screen.dart';
+import 'features/admin/services/device_recovery_listener.dart';
 import 'features/directives/presentation/directives_screen.dart';
 import 'features/maintenance/presentation/closed_tickets_screen.dart';
 import 'features/reports/presentation/fleet_status_screen.dart';
@@ -99,6 +100,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _handleNotificationTap(RemoteMessage message) {
+    if (message.data['destinationType'] == 'admin_device_reset') {
+      unawaited(
+        ref
+            .read(deviceRecoveryListenerProvider)
+            .checkNow(
+              reason: 'notification_opened',
+              expectedInstallationId: message.data['installationId'],
+            ),
+      );
+      return;
+    }
     final workflowId = message.data['aggregateId']?.trim();
     if (!mounted || workflowId == null || workflowId.isEmpty) return;
     final laneKey = message.data['laneKey']?.trim();

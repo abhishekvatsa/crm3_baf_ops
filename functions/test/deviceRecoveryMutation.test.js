@@ -1,0 +1,466 @@
+const {
+  DeviceRecoveryMutationError,
+  canonicalDeviceInstallationForTest,
+  isDeviceRecoveryOperation,
+  mutateDeviceRecoveryWithDb,
+  userCanMutateDeviceRecovery,
+} = require('../lib/deviceRecoveryMutation');
+
+const ADMIN = 'admin-1';
+const TARGET = 'operator-1';
+const OTHER = 'operator-2';
+const INSTALLATION = '11111111-1111-4111-8111-111111111111';
+const OTHER_INSTALLATION = '22222222-2222-4222-8222-222222222222';
+const REQUEST = '33333333-3333-4333-8333-333333333333';
+const NOW = new Date('2026-08-25T12:00:00.000Z');
+
+function clone(value) {
+  return value == null ? value : structuredClone(value);
+}
+
+function user(name, roles = ['operations'], approved = true) {
+  return {
+    name,
+    email: `${name.toLowerCase().replaceAll(' ', '.')}@test.local`,
+    roles,
+    isApproved: approved,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
+}
+
+function installation(platform = 'android') {
+  return {
+    schemaVersion: 1,
+    token: `private-${platform}-token`,
+    platform,
+    updatedAt: new Date('2026-08-25T10:00:00.000Z'),
+  };
+}
+
+function fakeDb(seed = {}) {
+  const store = new Map(
+    Object.entries(seed).map(([path, value]) => [path, clone(value)]),
+  );
+  const writes = [];
+
+  function snapshot(path) {
+    const value = store.get(path);
+    return {
+      id: path.split('/').at(-1),
+      exists: value != null,
+      data: () => clone(value),
+    };
+  }
+
+  function query(path, direction = 'asc', maximum = null) {
+    return {
+      path,
+      direction,
+      maximum,
+      orderBy(_field, nextDirection) {
+        return query(path, nextDirection, maximum);
+      },
+      limit(value) {
+        return query(path, direction, value);
+      },
+      async get() {
+        const prefix = `${path}/`;
+        let docs = [...store.keys()]
+          .filter((key) => key.startsWith(prefix) &&
+            !key.slice(prefix.length).includes('/'))
+          .map(snapshot)
+          .sort((left, right) => {
+            const leftAt = left.data()?.updatedAt?.getTime?.() ?? 0;
+            const rightAt = right.data()?.updatedAt?.getTime?.() ?? 0;
+            return direction === 'desc' ? rightAt - leftAt : leftAt - rightAt;
+          });
+        if (maximum != null) docs = docs.slice(0, maximum);
+        return {docs, forEach(callback) { docs.forEach(callback); }};
+      },
+    };
+  }
+
+  function document(path) {
+    return {
+      id: path.split('/').at(-1),
+      path,
+      async get() { return snapshot(path); },
+      collection(name) { return collection(`${path}/${name}`); },
+    };
+  }
+
+  function collection(path) {
+    return {
+      ...query(path),
+      doc(id) { return document(`${path}/${id}`); },
+    };
+  }
+
+  return {
+    store,
+    writes,
+    db: {
+      collection,
+      async runTransaction(work) {
+        const staged = [];
+        const transaction = {
+          async get(ref) {
+            return ref.maximum !== undefined ? ref.get() : snapshot(ref.path);
+          },
+          create(ref, data) {
+            if (store.has(ref.path) ||
+                staged.some((entry) => entry.path === ref.path)) {
+              throw new Error(`already exists: ${ref.path}`);
+            }
+            staged.push({kind: 'create', path: ref.path, data: clone(data)});
+          },
+          set(ref, data) {
+            staged.push({kind: 'set', path: ref.path, data: clone(data)});
+          },
+          update(ref, data) {
+            if (!store.has(ref.path)) throw new Error(`missing: ${ref.path}`);
+            staged.push({kind: 'update', path: ref.path, data: clone(data)});
+          },
+        };
+        const result = await work(transaction);
+        for (const entry of staged) {
+          const current = store.get(entry.path) ?? {};
+          const value = entry.kind === 'update' ?
+            {...clone(current), ...clone(entry.data)} : clone(entry.data);
+          store.set(entry.path, value);
+          writes.push(entry);
+        }
+        return result;
+      },
+    },
+  };
+}
+
+function seed() {
+  return {
+    [`users/${ADMIN}`]: user('Admin One', ['admin']),
+    [`users/${TARGET}`]: user('Operator One'),
+    [`users/${OTHER}`]: user('Operator Two'),
+    [`users/${TARGET}/notification_installations/${INSTALLATION}`]:
+      installation(),
+    [`users/${OTHER}/notification_installations/${OTHER_INSTALLATION}`]:
+      installation(),
+  };
+}
+
+function args(db, authUid, data, now = NOW) {
+  return {
+    db,
+    authUid,
+    data,
+    timestampFromDate: (value) => value,
+    now: () => now,
+  };
+}
+
+function requestData(overrides = {}) {
+  return {
+    operation: 'DEVICE_RECOVERY_REQUEST',
+    requestId: REQUEST,
+    targetUid: TARGET,
+    installationId: INSTALLATION,
+    reason: 'Pilot device contains stale local synchronization data.',
+    ...overrides,
+  };
+}
+
+function statePath(uid = TARGET, installationId = INSTALLATION) {
+  const crypto = require('crypto');
+  const id = crypto.createHash('sha256')
+    .update(`${uid}:${installationId}`, 'utf8')
+    .digest('hex');
+  return `device_recovery_requests/${id}`;
+}
+
+describe('governed remote device recovery', () => {
+  test('operation and authority classifiers fail closed', () => {
+    expect(isDeviceRecoveryOperation('DEVICE_RECOVERY_REQUEST')).toBe(true);
+    expect(isDeviceRecoveryOperation('RESET_EVERYTHING')).toBe(false);
+    expect(userCanMutateDeviceRecovery(
+      user('Admin', ['admin']),
+      'DEVICE_RECOVERY_REQUEST',
+    )).toBe(true);
+    expect(userCanMutateDeviceRecovery(
+      user('Operator'),
+      'DEVICE_RECOVERY_REQUEST',
+    )).toBe(false);
+    expect(userCanMutateDeviceRecovery(
+      user('Operator'),
+      'DEVICE_RECOVERY_POLL',
+    )).toBe(true);
+    expect(userCanMutateDeviceRecovery(
+      user('Revoked', ['admin'], false),
+      'DEVICE_RECOVERY_REQUEST',
+    )).toBe(false);
+  });
+
+  test('admin list returns bounded metadata without private tokens', async () => {
+    const fixture = fakeDb({
+      ...seed(),
+      [`users/${TARGET}/notification_installations/${OTHER_INSTALLATION}`]: {
+        ...installation('ios'),
+        unexpected: true,
+      },
+    });
+    expect(canonicalDeviceInstallationForTest(
+      fixture.store.get(
+        `users/${TARGET}/notification_installations/${INSTALLATION}`,
+      ),
+    )).toBe(true);
+    const result = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      {operation: 'DEVICE_RECOVERY_LIST', targetUid: TARGET},
+    ));
+    expect(result.installations).toHaveLength(1);
+    expect(result.installations[0]).toMatchObject({
+      installationId: INSTALLATION,
+      platform: 'android',
+      recoveryStatus: 'none',
+    });
+    expect(JSON.stringify(result)).not.toContain('private-android-token');
+  });
+
+  test('only a fresh admin can issue an exact targeted request', async () => {
+    const fixture = fakeDb(seed());
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      requestData(),
+    ))).rejects.toMatchObject({code: 'permission-denied'});
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      requestData({unexpected: true}),
+    ))).rejects.toMatchObject({code: 'invalid-argument'});
+
+    const result = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      requestData(),
+    ));
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'pending',
+      notificationQueued: true,
+      idempotentReplay: false,
+    });
+    expect(fixture.store.get(statePath())).toMatchObject({
+      requestId: REQUEST,
+      targetUid: TARGET,
+      installationId: INSTALLATION,
+      requestedByUid: ADMIN,
+      status: 'pending',
+    });
+    expect(fixture.store.get(
+      `maintenance_workflow_events/device_recovery_${REQUEST}`,
+    )).toMatchObject({
+      aggregateId: REQUEST,
+      eventType: 'deviceRecovery.requested',
+      payload: {deviceRecoveryRequestId: REQUEST},
+    });
+    expect(fixture.store.get(
+      `audit_logs/server_authority_device_recovery_${REQUEST}_requested`,
+    )).toMatchObject({
+      entityType: 'deviceRecovery',
+      performedByUid: ADMIN,
+      action: 'create',
+      severity: 'high',
+    });
+  });
+
+  test('exact request replay is idempotent and conflicts fail closed', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    const writes = fixture.writes.length;
+    const replay = await mutateDeviceRecoveryWithDb(
+      args(fixture.db, ADMIN, requestData()),
+    );
+    expect(replay.idempotentReplay).toBe(true);
+    expect(fixture.writes).toHaveLength(writes);
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      requestData({reason: 'A different reason cannot reuse the same identity.'}),
+    ))).rejects.toMatchObject({code: 'aborted'});
+  });
+
+  test('only the exact target phone can poll and acknowledge', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+
+    const poll = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      {operation: 'DEVICE_RECOVERY_POLL', installationId: INSTALLATION},
+    ));
+    expect(poll.request).toMatchObject({
+      requestId: REQUEST,
+      targetUid: TARGET,
+      installationId: INSTALLATION,
+      status: 'pending',
+    });
+    const otherPoll = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      OTHER,
+      {
+        operation: 'DEVICE_RECOVERY_POLL',
+        installationId: OTHER_INSTALLATION,
+      },
+    ));
+    expect(otherPoll.request).toBeNull();
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      OTHER,
+      {
+        operation: 'DEVICE_RECOVERY_COMPLETE',
+        requestId: REQUEST,
+        installationId: OTHER_INSTALLATION,
+        backupFileCount: 1,
+        clearedCursorCount: 2,
+        backedUpUnsyncedRows: 0,
+      },
+    ))).rejects.toMatchObject({code: 'not-found'});
+  });
+
+  test('completion requires backup evidence and is replay safe', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    const completion = {
+      operation: 'DEVICE_RECOVERY_COMPLETE',
+      requestId: REQUEST,
+      installationId: INSTALLATION,
+      backupFileCount: 1,
+      clearedCursorCount: 3,
+      backedUpUnsyncedRows: 2,
+    };
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      {...completion, backupFileCount: 0},
+    ))).rejects.toMatchObject({code: 'failed-precondition'});
+
+    const first = await mutateDeviceRecoveryWithDb(
+      args(fixture.db, TARGET, completion),
+    );
+    expect(first).toMatchObject({status: 'completed', idempotentReplay: false});
+    expect(fixture.store.get(statePath())).toMatchObject({
+      status: 'completed',
+      backupFileCount: 1,
+      clearedCursorCount: 3,
+      backedUpUnsyncedRows: 2,
+    });
+    const replay = await mutateDeviceRecoveryWithDb(
+      args(fixture.db, TARGET, completion),
+    );
+    expect(replay.idempotentReplay).toBe(true);
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      {...completion, backedUpUnsyncedRows: 7},
+    ))).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'device-recovery-replay-evidence-mismatch'},
+    });
+  });
+
+  test('backup failure is retained and prevents a false completion', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    await mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, {
+      operation: 'DEVICE_RECOVERY_FAIL',
+      requestId: REQUEST,
+      installationId: INSTALLATION,
+      failureCode: 'backup-not-created',
+    }));
+    expect(fixture.store.get(statePath())).toMatchObject({
+      status: 'failed',
+      failureCode: 'backup-not-created',
+    });
+    await expect(mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, {
+      operation: 'DEVICE_RECOVERY_COMPLETE',
+      requestId: REQUEST,
+      installationId: INSTALLATION,
+      backupFileCount: 1,
+      clearedCursorCount: 1,
+      backedUpUnsyncedRows: 0,
+    }))).rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
+  test('admin may cancel only an exact pending request', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    const result = await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, {
+      operation: 'DEVICE_RECOVERY_CANCEL',
+      requestId: REQUEST,
+      targetUid: TARGET,
+      installationId: INSTALLATION,
+      reason: 'Pilot operator confirmed that recovery is no longer needed.',
+    }));
+    expect(result.status).toBe('cancelled');
+    expect(fixture.store.get(statePath())).toMatchObject({
+      status: 'cancelled',
+      cancelledByUid: ADMIN,
+    });
+    await expect(mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, {
+      operation: 'DEVICE_RECOVERY_CANCEL',
+      requestId: REQUEST,
+      targetUid: TARGET,
+      installationId: INSTALLATION,
+      reason: 'A replacement reason cannot rewrite the cancellation audit.',
+    }))).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'device-recovery-cancellation-evidence-mismatch'},
+    });
+  });
+
+  test('failed recovery replays preserve the original failure evidence', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    const failure = {
+      operation: 'DEVICE_RECOVERY_FAIL',
+      requestId: REQUEST,
+      installationId: INSTALLATION,
+      failureCode: 'backup-not-created',
+    };
+    await mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, failure));
+    expect(await mutateDeviceRecoveryWithDb(
+      args(fixture.db, TARGET, failure),
+    )).toMatchObject({status: 'failed', idempotentReplay: true});
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      {...failure, failureCode: 'a-different-failure'},
+    ))).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'device-recovery-replay-evidence-mismatch'},
+    });
+  });
+
+  test('expired requests do not execute on a phone that returns later', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    const poll = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      {operation: 'DEVICE_RECOVERY_POLL', installationId: INSTALLATION},
+      new Date(NOW.getTime() + (25 * 60 * 60 * 1000)),
+    ));
+    expect(poll.request).toBeNull();
+  });
+
+  test('missing selected installation fails without writing', async () => {
+    const fixture = fakeDb(seed());
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      requestData({installationId: OTHER_INSTALLATION}),
+    ))).rejects.toBeInstanceOf(DeviceRecoveryMutationError);
+    expect(fixture.writes).toHaveLength(0);
+  });
+});

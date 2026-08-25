@@ -136,6 +136,13 @@ import type {
   OperationalEventIssueLinkMutationResult,
 } from "./operationalEventIssueLinkMutation";
 import {
+  DeviceRecoveryMutationError,
+  isDeviceRecoveryOperation,
+  mutateDeviceRecoveryWithDb,
+  userCanMutateDeviceRecovery,
+} from "./deviceRecoveryMutation";
+import type {DeviceRecoveryMutationResult} from "./deviceRecoveryMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketLaneAddedNotification,
@@ -595,12 +602,18 @@ export const mutateAssetHierarchy = onCall(
         AssetOperationalConditionMutationResult |
         BurnerConditionRoundMutationResult |
         OperationalEventMutationResult |
-        OperationalEventIssueLinkMutationResult
+        OperationalEventIssueLinkMutationResult |
+        DeviceRecoveryMutationResult
       >({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
         authorize: (userData) =>
+          isDeviceRecoveryOperation(request.data?.operation) ?
+            userCanMutateDeviceRecovery(
+              userData,
+              request.data.operation,
+            ) :
           isBurnerConditionRoundOperation(request.data?.operation) ?
             userCanRecordBurnerConditionRound(userData) :
           isOperationalEventIssueLinkOperation(request.data?.operation) ?
@@ -614,6 +627,14 @@ export const mutateAssetHierarchy = onCall(
             ) :
             userCanMutateAssetHierarchy(userData),
         execute: () => {
+          if (isDeviceRecoveryOperation(request.data?.operation)) {
+            return mutateDeviceRecoveryWithDb({
+              db,
+              authUid: request.auth?.uid ?? null,
+              data: request.data ?? {},
+              timestampFromDate: admin.firestore.Timestamp.fromDate,
+            });
+          }
           const args = {
             db: db as unknown as AssetHierarchyMutationFirestoreLike,
             authUid: request.auth?.uid ?? null,
@@ -643,6 +664,9 @@ export const mutateAssetHierarchy = onCall(
     } catch (error) {
       if (error instanceof HttpsError) throw error;
       if (error instanceof AssetHierarchyMutationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      if (error instanceof DeviceRecoveryMutationError) {
         throw new HttpsError(error.code, error.message, error.details);
       }
       logger.error("mutateAssetHierarchy failed", error);

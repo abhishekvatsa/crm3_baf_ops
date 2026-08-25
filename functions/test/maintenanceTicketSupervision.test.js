@@ -942,6 +942,51 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test.each([
+    ['open', false],
+    ['acknowledged', true],
+    ['inProgress', true],
+  ])(
+    'administrative closure preserves the canonical lane history of a legacy %s issue',
+    async (status, acknowledged) => {
+      const seeded = serviceFor(admin, {
+        startDate: '2026-08-14T14:30:00.000Z',
+        status,
+        ...(acknowledged ? {
+          acknowledgedByUid: electrical.uid,
+          acknowledgedByName: electrical.name,
+          acknowledgedAt: '2026-08-14T15:00:00.000Z',
+        } : {}),
+      });
+
+      const receipt = await seeded.service.execute({
+        commandId: `admin-close-legacy-${status}-ticket`,
+        commandType: 'closeMaintenanceTicketWithoutResolution',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          disposition: 'relevanceEnded',
+          reason: 'The operating cycle ended before the reported condition was repaired.',
+        },
+      }, seeded.context);
+
+      expect(receipt.aggregateVersion).toBe(4);
+      expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+        status: 'closedWithoutResolution',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['electrical'],
+        issueAcknowledgedLanes: acknowledged ? ['electrical'] : [],
+        issueCompletedLanes: [],
+        ...(acknowledged ? {
+          acknowledgedByUid: electrical.uid,
+          acknowledgedByName: electrical.name,
+          acknowledgedAt: '2026-08-14T15:00:00.000Z',
+        } : {}),
+      });
+    },
+  );
+
   test.each(['deferred', 'correctionRequired'])(
     'admin closure atomically cancels %s Operations coordination',
     async (workflowQueueState) => {
