@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -226,7 +227,9 @@ class DeviceRecoveryListener {
         stackTrace: stackTrace,
         context: const {'app_area': 'device_recovery'},
       );
-      _scheduleRecoveryRetry(actor, generation);
+      if (_isRetryableRecoveryError(error)) {
+        _scheduleRecoveryRetry(actor, generation);
+      }
     } finally {
       if (generation == _generation) {
         _busy = false;
@@ -276,8 +279,7 @@ class DeviceRecoveryListener {
 
   void _scheduleRecoveryRetry(AppUser actor, int generation) {
     final requestId = _pendingRecoveryRequestId;
-    if (requestId == null ||
-        _recoveryRetry != null ||
+    if (_recoveryRetry != null ||
         _recoveryRetries >= _maxRecoveryRetries ||
         !_isCurrent(actor, generation)) {
       return;
@@ -292,6 +294,21 @@ class DeviceRecoveryListener {
       }
       unawaited(checkNow(reason: 'claimed_recovery_retry'));
     });
+  }
+
+  bool _isRetryableRecoveryError(Object error) {
+    if (error is DeviceRecoveryException) return false;
+    if (error is FirebaseFunctionsException) {
+      return const {
+        'aborted',
+        'cancelled',
+        'deadline-exceeded',
+        'internal',
+        'unavailable',
+        'unknown',
+      }.contains(error.code);
+    }
+    return true;
   }
 
   void _clearRecoveryRetry() {

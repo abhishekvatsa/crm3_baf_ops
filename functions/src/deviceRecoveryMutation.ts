@@ -394,17 +394,14 @@ export async function userCanResumeClaimedDeviceRecovery(args: {
     if (status === "failed" && state.failureCode !== failureCode) return false;
 
     const claimedRequestId = state.requestId as string;
-    const [installation, receipt, claimAudit] = await Promise.all([
-      args.db.collection("users").doc(actorUid)
-        .collection(INSTALLATIONS).doc(installationId).get(),
+    const [receipt, claimAudit] = await Promise.all([
       args.db.collection(DEVICE_RECEIPTS).doc(claimedRequestId).get(),
       args.db.collection("audit_logs")
         .doc(`server_authority_device_recovery_${claimedRequestId}_claimed`)
         .get(),
     ]);
     const evidence = receipt.data() as JsonMap | undefined;
-    if (!installation.exists || !canonicalInstallation(installation.data()) ||
-        !receipt.exists || evidence == null || evidence.schemaVersion !== 1 ||
+    if (!receipt.exists || evidence == null || evidence.schemaVersion !== 1 ||
         evidence.requestId !== claimedRequestId ||
         evidence.actorUid !== state.requestedByUid ||
         evidence.targetUid !== actorUid ||
@@ -679,15 +676,16 @@ async function pollReset(
       args.db.collection(DEVICE_REQUESTS)
         .doc(deviceStateId(actorUid, installationId)),
     );
-    if (!installation.exists ||
-        !canonicalInstallation(installation.data())) {
-      throw new DeviceRecoveryMutationError(
-        "failed-precondition",
-        "The current phone no longer has a valid device registration.",
-        {reasonCode: "device-recovery-installation-not-current"},
-      );
-    }
+    const registrationCurrent = installation.exists &&
+      canonicalInstallation(installation.data());
     if (!stateSnapshot.exists) {
+      if (!registrationCurrent) {
+        throw new DeviceRecoveryMutationError(
+          "failed-precondition",
+          "The current phone no longer has a valid device registration.",
+          {reasonCode: "device-recovery-installation-not-current"},
+        );
+      }
       if (!actor.approved) throw rejectedRevokedRecovery();
       return null;
     }
@@ -696,6 +694,13 @@ async function pollReset(
       actorUid,
       installationId,
     );
+    if (!registrationCurrent && state.status !== "in_progress") {
+      throw new DeviceRecoveryMutationError(
+        "failed-precondition",
+        "The current phone no longer has a valid device registration.",
+        {reasonCode: "device-recovery-installation-not-current"},
+      );
+    }
     if (!actor.approved && state.status !== "in_progress") {
       throw rejectedRevokedRecovery();
     }
@@ -731,7 +736,7 @@ async function pollReset(
         {reasonCode: "device-recovery-receipt-invalid"},
       );
     }
-    if (!actor.approved) {
+    if (!actor.approved || !registrationCurrent) {
       const claimAudit = await transaction.get(
         args.db.collection("audit_logs")
           .doc(`server_authority_device_recovery_${state.requestId}_claimed`),
@@ -787,14 +792,6 @@ async function claimReset(
     const snapshot = await transaction.get(stateRef);
     const receipt = await transaction.get(receiptRef);
     const audit = await transaction.get(auditRef);
-    if (!installation.exists ||
-        !canonicalInstallation(installation.data())) {
-      throw new DeviceRecoveryMutationError(
-        "permission-denied",
-        "Only the registered target phone may claim its reset.",
-        {reasonCode: "device-recovery-installation-not-current"},
-      );
-    }
     if (!snapshot.exists) {
       throw new DeviceRecoveryMutationError(
         "not-found",
@@ -837,6 +834,14 @@ async function claimReset(
         );
       }
       return true;
+    }
+    if (!installation.exists ||
+        !canonicalInstallation(installation.data())) {
+      throw new DeviceRecoveryMutationError(
+        "permission-denied",
+        "Only the registered target phone may claim its reset.",
+        {reasonCode: "device-recovery-installation-not-current"},
+      );
     }
     if (!actor.approved) throw rejectedRevokedRecovery();
     if (state.status !== "pending" || audit.exists) {
@@ -946,11 +951,10 @@ async function finishReset(
       args.db,
       actorUid,
     );
-    const installation = await transaction.get(
-      args.db.collection("users").doc(actorUid)
-        .collection(INSTALLATIONS).doc(installationId),
-    );
     const snapshot = await transaction.get(stateRef);
+    const receipt = await transaction.get(
+      args.db.collection(DEVICE_RECEIPTS).doc(requestId),
+    );
     const claimAudit = await transaction.get(
       args.db.collection("audit_logs")
         .doc(`server_authority_device_recovery_${requestId}_claimed`),
@@ -958,14 +962,6 @@ async function finishReset(
     const auditRef = args.db.collection("audit_logs")
       .doc(`server_authority_device_recovery_${requestId}_${status}`);
     const audit = await transaction.get(auditRef);
-    if (!installation.exists ||
-        !canonicalInstallation(installation.data())) {
-      throw new DeviceRecoveryMutationError(
-        "permission-denied",
-        "Only the registered target phone may acknowledge its reset.",
-        {reasonCode: "device-recovery-installation-not-current"},
-      );
-    }
     if (!snapshot.exists) {
       throw new DeviceRecoveryMutationError(
         "not-found",
@@ -979,10 +975,27 @@ async function finishReset(
       installationId,
       requestId,
     );
-    if (!actor.approved &&
-        (state.startedByUid !== actorUid || !claimAudit.exists ||
-          !exactRecoveryAudit(claimAudit.data(), requestId, actorUid))) {
-      throw rejectedRevokedRecovery();
+    const evidence = receipt.data() as JsonMap | undefined;
+    if (!receipt.exists || evidence == null || evidence.schemaVersion !== 1 ||
+        evidence.requestId !== requestId ||
+        evidence.actorUid !== state.requestedByUid ||
+        evidence.targetUid !== actorUid ||
+        evidence.installationId !== installationId ||
+        evidence.reason !== state.reason) {
+      throw new DeviceRecoveryMutationError(
+        "data-loss",
+        "The administrator device-recovery receipt is missing or inconsistent.",
+        {reasonCode: "device-recovery-receipt-invalid"},
+      );
+    }
+    if (state.startedByUid !== actorUid || !claimAudit.exists ||
+        !exactRecoveryAudit(claimAudit.data(), requestId, actorUid)) {
+      if (!actor.approved) throw rejectedRevokedRecovery();
+      throw new DeviceRecoveryMutationError(
+        "failed-precondition",
+        "The device-recovery request has not been claimed by this phone.",
+        {reasonCode: "device-recovery-state-not-claimed"},
+      );
     }
     if (state.status === status && audit.exists) {
       const evidenceMatches = failed ?

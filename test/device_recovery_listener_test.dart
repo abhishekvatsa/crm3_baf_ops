@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
 import 'package:crm3_baf_ops/features/admin/services/device_local_recovery_reset_service.dart';
 import 'package:crm3_baf_ops/features/admin/services/device_recovery_command_service.dart';
@@ -213,6 +214,124 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'initial recovery lookup retries before the request identity is known',
+    () async {
+      final calls = <String>[];
+      final completed = Completer<void>();
+      var pollAttempts = 0;
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          final operation = payload['operation']! as String;
+          calls.add(operation);
+          switch (operation) {
+            case deviceRecoveryPollOperation:
+              pollAttempts++;
+              if (pollAttempts == 1) {
+                throw _RecoveryFunctionsException(code: 'unavailable');
+              }
+              return _pollResponse(_request);
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              completed.complete();
+              return _finishResponse(_request, 'completed');
+            default:
+              throw StateError('Unexpected request: $operation');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        recoveryRetryDelay: const Duration(milliseconds: 1),
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await completed.future.timeout(const Duration(seconds: 2));
+
+      expect(pollAttempts, 2);
+      expect(calls, <String>[
+        deviceRecoveryPollOperation,
+        deviceRecoveryPollOperation,
+        deviceRecoveryClaimOperation,
+        deviceRecoveryCompleteOperation,
+      ]);
+    },
+  );
+
+  test(
+    'revoked phone retries an initial lookup without enabling ordinary sync',
+    () async {
+      final completed = Completer<void>();
+      var pollAttempts = 0;
+      final reset = _LocalResetProbe();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              pollAttempts++;
+              if (pollAttempts == 1) {
+                throw _RecoveryFunctionsException(code: 'deadline-exceeded');
+              }
+              return _pollResponse(_request, status: 'in_progress');
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              completed.complete();
+              return _finishResponse(_request, 'completed');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: reset,
+        recoveryRetryDelay: const Duration(milliseconds: 1),
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(
+        _operator(approved: false),
+        claimedRecoveryOnly: true,
+      );
+      await completed.future.timeout(const Duration(seconds: 2));
+
+      expect(pollAttempts, 2);
+      expect(reset.claimedRecoveryModes, <bool>[true]);
+      expect(scope.coordinator.followUpModes, <bool>[false]);
+    },
+  );
+
+  test('permanent recovery authority denial is never retried', () async {
+    final denied = Completer<void>();
+    var pollAttempts = 0;
+    final commands = DeviceRecoveryCommandService(
+      authenticatedUidLookup: () => 'operator-1',
+      invoke: (_) async {
+        pollAttempts++;
+        denied.complete();
+        throw _RecoveryFunctionsException(code: 'permission-denied');
+      },
+    );
+    final scope = _listenerScope(
+      commands: commands,
+      reset: _LocalResetProbe(),
+      recoveryRetryDelay: const Duration(milliseconds: 1),
+    );
+    addTearDown(scope.dispose);
+
+    scope.listener.start(_operator());
+    await denied.future.timeout(const Duration(seconds: 2));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    expect(pollAttempts, 1);
+  });
 
   test(
     'revoked phone retries claimed completion without ordinary synchronization',
@@ -499,6 +618,11 @@ class _ListenerScope {
   final _SyncCoordinatorProbe coordinator;
 
   void dispose() => container.dispose();
+}
+
+class _RecoveryFunctionsException extends FirebaseFunctionsException {
+  _RecoveryFunctionsException({required super.code})
+    : super(message: 'Simulated callable outcome.');
 }
 
 class _SyncCoordinatorProbe implements SyncCoordinator {

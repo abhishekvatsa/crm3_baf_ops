@@ -393,6 +393,20 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       status: 'in_progress',
       idempotentReplay: true,
     });
+    await target.collection('notification_installations')
+      .doc(selectedInstallation).delete();
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({request: {status: 'in_progress'}});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CLAIM',
+      requestId,
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({
+      status: 'in_progress',
+      idempotentReplay: true,
+    });
 
     const completionRequest = {
       operation: 'DEVICE_RECOVERY_COMPLETE',
