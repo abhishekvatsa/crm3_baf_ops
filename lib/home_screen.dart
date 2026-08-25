@@ -428,10 +428,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               workflowAttentionCount: workflowAttentionCount,
               openOperationalEventCount: openOperationalEventCount,
               openQualityWarningCount: openQualityWarningCount,
+              activeQualityMonitoringCount: activeQualityMonitoringCount,
               overdueMaintenanceCount: overdueMaintenanceCount,
               activeInspectionFindingCount: activeInspectionFindingCount,
               operationalEventsUnavailable: operationalEventsUnavailable,
               qualityWarningsUnavailable: qualityWarningsUnavailable,
+              qualityMonitoringUnavailable: qualityMonitoringUnavailable,
               attentionDataUnavailable: attentionDataUnavailable,
               plantOverview: plantOverview,
               onProfileTap: () => _showProfileSheet(context, ref, appUser),
@@ -442,6 +444,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onQuality: () => _push(context, const QualityHomeScreen()),
+              onQualityMonitoring:
+                  () => _push(context, const QualityHomeScreen.monitoring()),
               onOperationalEvents:
                   () => _push(context, const OperationalEventsScreen()),
               onPlantCondition:
@@ -524,6 +528,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onOperationalEvents:
                   () => _push(context, const OperationalEventsScreen()),
               onQuality: () => _push(context, const QualityHomeScreen()),
+              onQualityMonitoring:
+                  () => _push(context, const QualityHomeScreen.monitoring()),
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onInspections:
@@ -594,6 +600,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onQuality: () => _push(context, const QualityHomeScreen()),
+              onQualityMonitoring:
+                  () => _push(context, const QualityHomeScreen.monitoring()),
               onOperationalEvents:
                   () => _push(context, const OperationalEventsScreen()),
               onTemplateAuthoring: () => _openModuleComposer(context, appUser),
@@ -819,10 +827,12 @@ class _DashboardHome extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final int activeQualityMonitoringCount;
   final int overdueMaintenanceCount;
   final int activeInspectionFindingCount;
   final bool operationalEventsUnavailable;
   final bool qualityWarningsUnavailable;
+  final bool qualityMonitoringUnavailable;
   final bool attentionDataUnavailable;
   final AsyncValue<PlantAssetOverview> plantOverview;
   final VoidCallback onProfileTap;
@@ -832,6 +842,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onDirectives;
   final VoidCallback onAbnormalities;
   final VoidCallback onQuality;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
   final VoidCallback onReports;
@@ -848,10 +859,12 @@ class _DashboardHome extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.activeQualityMonitoringCount,
     required this.overdueMaintenanceCount,
     required this.activeInspectionFindingCount,
     required this.operationalEventsUnavailable,
     required this.qualityWarningsUnavailable,
+    required this.qualityMonitoringUnavailable,
     required this.attentionDataUnavailable,
     required this.plantOverview,
     required this.onProfileTap,
@@ -861,6 +874,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onDirectives,
     required this.onAbnormalities,
     required this.onQuality,
+    required this.onQualityMonitoring,
     required this.onOperationalEvents,
     required this.onPlantCondition,
     required this.onReports,
@@ -879,6 +893,7 @@ class _DashboardHome extends StatelessWidget {
         workflowAttentionCount +
         openOperationalEventCount +
         openQualityWarningCount +
+        activeQualityMonitoringCount +
         overdueMaintenanceCount +
         activeInspectionFindingCount;
 
@@ -925,13 +940,16 @@ class _DashboardHome extends StatelessWidget {
                     openOperationalEventCount +
                     openQualityWarningCount,
                 assuranceCount:
-                    overdueMaintenanceCount + activeInspectionFindingCount,
+                    overdueMaintenanceCount +
+                    activeInspectionFindingCount +
+                    activeQualityMonitoringCount,
                 dataUnavailable: attentionDataUnavailable,
                 onOpenReports: onReports,
                 onPlantCondition: onPlantCondition,
                 onIssues: onIssues,
                 onWork: onWork,
                 onControl: onControl,
+                onQualityMonitoring: onQualityMonitoring,
                 onRetry: onManualSync,
                 onMaintenanceRhythm: onMaintenanceRhythm,
                 onInspectionProgrammes: onInspectionProgrammes,
@@ -941,6 +959,7 @@ class _DashboardHome extends StatelessWidget {
                 workflowAttentionCount: workflowAttentionCount,
                 openOperationalEventCount: openOperationalEventCount,
                 openQualityWarningCount: openQualityWarningCount,
+                activeQualityMonitoringCount: activeQualityMonitoringCount,
                 overdueMaintenanceCount: overdueMaintenanceCount,
                 activeInspectionFindingCount: activeInspectionFindingCount,
               ),
@@ -976,6 +995,7 @@ class _DashboardHome extends StatelessWidget {
                   workflowAttentionCount: workflowAttentionCount,
                   openOperationalEventCount: openOperationalEventCount,
                   openQualityWarningCount: openQualityWarningCount,
+                  activeQualityMonitoringCount: activeQualityMonitoringCount,
                   overdueMaintenanceCount: overdueMaintenanceCount,
                   activeInspectionFindingCount: activeInspectionFindingCount,
                   attentionDataUnavailable: attentionDataUnavailable,
@@ -984,6 +1004,7 @@ class _DashboardHome extends StatelessWidget {
                   onDirectives: onDirectives,
                   onOperationalEvents: onOperationalEvents,
                   onQuality: onQuality,
+                  onQualityMonitoring: onQualityMonitoring,
                   onMaintenanceRhythm: onMaintenanceRhythm,
                   onInspectionProgrammes: onInspectionProgrammes,
                   onRetry: onManualSync,
@@ -998,10 +1019,13 @@ class _DashboardHome extends StatelessWidget {
               _OperationalWatch(
                 operationalEventCount: openOperationalEventCount,
                 qualityWarningCount: openQualityWarningCount,
+                qualityMonitoringCount: activeQualityMonitoringCount,
                 operationalEventsUnavailable: operationalEventsUnavailable,
                 qualityWarningsUnavailable: qualityWarningsUnavailable,
+                qualityMonitoringUnavailable: qualityMonitoringUnavailable,
                 onOperationalEvents: onOperationalEvents,
                 onQuality: onQuality,
+                onQualityMonitoring: onQualityMonitoring,
                 onAbnormalities: onAbnormalities,
               ),
             ],
@@ -1057,27 +1081,36 @@ class _HomeSectionHeader extends StatelessWidget {
 class _OperationalWatch extends StatelessWidget {
   final int operationalEventCount;
   final int qualityWarningCount;
+  final int qualityMonitoringCount;
   final bool operationalEventsUnavailable;
   final bool qualityWarningsUnavailable;
+  final bool qualityMonitoringUnavailable;
   final VoidCallback onOperationalEvents;
   final VoidCallback onQuality;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onAbnormalities;
 
   const _OperationalWatch({
     required this.operationalEventCount,
     required this.qualityWarningCount,
+    required this.qualityMonitoringCount,
     required this.operationalEventsUnavailable,
     required this.qualityWarningsUnavailable,
+    required this.qualityMonitoringUnavailable,
     required this.onOperationalEvents,
     required this.onQuality,
+    required this.onQualityMonitoring,
     required this.onAbnormalities,
   });
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: _WatchTile(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 560 ? 4 : 2;
+      final width =
+          (constraints.maxWidth - BafSpacing.sm * (columns - 1)) / columns;
+      final tiles = <Widget>[
+        _WatchTile(
           icon: Icons.crisis_alert_outlined,
           color:
               operationalEventsUnavailable
@@ -1090,10 +1123,7 @@ class _OperationalWatch extends StatelessWidget {
           label: 'Events',
           onTap: onOperationalEvents,
         ),
-      ),
-      const SizedBox(width: BafSpacing.sm),
-      Expanded(
-        child: _WatchTile(
+        _WatchTile(
           icon: Icons.verified_user_outlined,
           color:
               qualityWarningsUnavailable ? BafColors.danger : BafColors.charges,
@@ -1101,21 +1131,38 @@ class _OperationalWatch extends StatelessWidget {
               qualityWarningsUnavailable
                   ? 'Unavailable'
                   : '$qualityWarningCount',
-          label: 'Quality',
+          label: 'Warnings',
           onTap: onQuality,
         ),
-      ),
-      const SizedBox(width: BafSpacing.sm),
-      Expanded(
-        child: _WatchTile(
+        _WatchTile(
+          icon: Icons.monitor_heart_outlined,
+          color:
+              qualityMonitoringUnavailable
+                  ? BafColors.danger
+                  : BafColors.instrument,
+          value:
+              qualityMonitoringUnavailable
+                  ? 'Unavailable'
+                  : '$qualityMonitoringCount',
+          label: 'Monitoring',
+          onTap: onQualityMonitoring,
+        ),
+        _WatchTile(
           icon: Icons.memory_outlined,
           color: BafColors.instrument,
           value: 'Review',
           label: 'Abnormalities',
           onTap: onAbnormalities,
         ),
-      ),
-    ],
+      ];
+      return Wrap(
+        spacing: BafSpacing.sm,
+        runSpacing: BafSpacing.sm,
+        children: [
+          for (final tile in tiles) SizedBox(width: width, child: tile),
+        ],
+      );
+    },
   );
 }
 
@@ -1198,6 +1245,7 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onAuditLog;
   final VoidCallback onAbnormalities;
   final VoidCallback onQuality;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onOperationalEvents;
   final VoidCallback onTemplateAuthoring;
   final VoidCallback onTemplatePublisher;
@@ -1228,6 +1276,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onAuditLog,
     required this.onAbnormalities,
     required this.onQuality,
+    required this.onQualityMonitoring,
     required this.onOperationalEvents,
     required this.onTemplateAuthoring,
     required this.onTemplatePublisher,
@@ -1285,6 +1334,13 @@ class _MoreScreen extends StatelessWidget {
           color: BafColors.charges,
           label: 'Quality decisions',
           onTap: onQuality,
+        ),
+      if (appUser.canManageQualityMonitoring)
+        _RoleRoute(
+          icon: Icons.monitor_heart_outlined,
+          color: BafColors.instrument,
+          label: 'Cycle monitoring',
+          onTap: onQualityMonitoring,
         ),
     ];
     final plantDestinations = <_MoreDestinationSpec>[
@@ -1416,6 +1472,15 @@ class _MoreScreen extends StatelessWidget {
           subtitle: 'Warnings, closure assurance and monitoring',
           keywords: 'quality warning grade charge cycle monitoring',
           onTap: onQuality,
+        ),
+      if (appUser.canViewQuality)
+        _MoreDestinationSpec(
+          icon: Icons.monitor_heart_outlined,
+          color: BafColors.instrument,
+          title: 'Cycle monitoring',
+          subtitle: 'Active Base, Grade, cycle and charge surveillance',
+          keywords: 'quality monitoring grade base cycle charge surveillance',
+          onTap: onQualityMonitoring,
         ),
       _MoreDestinationSpec(
         icon: Icons.crisis_alert_outlined,
@@ -1590,6 +1655,7 @@ class _AttentionPanel extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final int activeQualityMonitoringCount;
   final int overdueMaintenanceCount;
   final int activeInspectionFindingCount;
   final bool attentionDataUnavailable;
@@ -1598,6 +1664,7 @@ class _AttentionPanel extends StatelessWidget {
   final VoidCallback onDirectives;
   final VoidCallback onOperationalEvents;
   final VoidCallback onQuality;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onMaintenanceRhythm;
   final VoidCallback onInspectionProgrammes;
   final VoidCallback onRetry;
@@ -1609,6 +1676,7 @@ class _AttentionPanel extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.activeQualityMonitoringCount,
     required this.overdueMaintenanceCount,
     required this.activeInspectionFindingCount,
     required this.attentionDataUnavailable,
@@ -1617,6 +1685,7 @@ class _AttentionPanel extends StatelessWidget {
     required this.onDirectives,
     required this.onOperationalEvents,
     required this.onQuality,
+    required this.onQualityMonitoring,
     required this.onMaintenanceRhythm,
     required this.onInspectionProgrammes,
     required this.onRetry,
@@ -1705,6 +1774,15 @@ class _AttentionPanel extends StatelessWidget {
               '$activeInspectionFindingCount conditions under follow-through',
           urgency: 'Assurance',
           onTap: onInspectionProgrammes,
+        ),
+      if (activeQualityMonitoringCount > 0)
+        _AttentionRow(
+          icon: Icons.monitor_heart_outlined,
+          color: BafColors.instrument,
+          title: 'Active cycle monitoring',
+          detail: '$activeQualityMonitoringCount quality requests in progress',
+          urgency: 'Monitor',
+          onTap: onQualityMonitoring,
         ),
     ];
 

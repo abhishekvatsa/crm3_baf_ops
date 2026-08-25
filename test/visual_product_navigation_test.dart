@@ -78,6 +78,7 @@ void main() {
                     onIssues: () {},
                     onWork: () {},
                     onControl: () => control += 1,
+                    onQualityMonitoring: () {},
                     onRetry: () {},
                     onMaintenanceRhythm: () {},
                     onInspectionProgrammes: () {},
@@ -87,6 +88,7 @@ void main() {
                     workflowAttentionCount: 0,
                     openOperationalEventCount: 0,
                     openQualityWarningCount: 0,
+                    activeQualityMonitoringCount: 0,
                     overdueMaintenanceCount: 0,
                     activeInspectionFindingCount: 0,
                   ),
@@ -135,6 +137,7 @@ void main() {
                 onIssues: () {},
                 onWork: () {},
                 onControl: () {},
+                onQualityMonitoring: () {},
                 onRetry: () => retries += 1,
                 onMaintenanceRhythm: () {},
                 onInspectionProgrammes: () {},
@@ -144,6 +147,7 @@ void main() {
                 workflowAttentionCount: 0,
                 openOperationalEventCount: 0,
                 openQualityWarningCount: 0,
+                activeQualityMonitoringCount: 0,
                 overdueMaintenanceCount: 0,
                 activeInspectionFindingCount: 0,
               ),
@@ -163,6 +167,117 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('management pulse exposes and opens active cycle monitoring', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var monitoringOpens = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: BafAppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(BafSpacing.md),
+              child: HomeManagementPulsePanel(
+                plantOverview: const AsyncData(
+                  PlantAssetOverview(classes: [], assets: []),
+                ),
+                actionCount: 0,
+                assuranceCount: 2,
+                dataUnavailable: false,
+                onOpenReports: () {},
+                onPlantCondition: () {},
+                onIssues: () {},
+                onWork: () {},
+                onControl: () {},
+                onQualityMonitoring: () => monitoringOpens += 1,
+                onRetry: () {},
+                onMaintenanceRhythm: () {},
+                onInspectionProgrammes: () {},
+                ticketCount: 0,
+                executionCount: 0,
+                directiveCount: 0,
+                workflowAttentionCount: 0,
+                openOperationalEventCount: 0,
+                openQualityWarningCount: 0,
+                activeQualityMonitoringCount: 2,
+                overdueMaintenanceCount: 0,
+                activeInspectionFindingCount: 0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final signal = find.text('2 quality monitoring requests remain active.');
+    expect(signal, findsOneWidget);
+    await tester.tap(signal);
+    expect(monitoringOpens, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('active disruptions remain ahead of routine monitoring', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var controlOpens = 0;
+    var monitoringOpens = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: BafAppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: HomeManagementPulsePanel(
+              plantOverview: const AsyncData(
+                PlantAssetOverview(classes: [], assets: []),
+              ),
+              actionCount: 1,
+              assuranceCount: 2,
+              dataUnavailable: false,
+              onOpenReports: () {},
+              onPlantCondition: () {},
+              onIssues: () {},
+              onWork: () {},
+              onControl: () => controlOpens += 1,
+              onQualityMonitoring: () => monitoringOpens += 1,
+              onRetry: () {},
+              onMaintenanceRhythm: () {},
+              onInspectionProgrammes: () {},
+              ticketCount: 0,
+              executionCount: 0,
+              directiveCount: 0,
+              workflowAttentionCount: 0,
+              openOperationalEventCount: 1,
+              openQualityWarningCount: 0,
+              activeQualityMonitoringCount: 2,
+              overdueMaintenanceCount: 0,
+              activeInspectionFindingCount: 0,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final disruption = find.text('1 plant disruption remains open.');
+    expect(disruption, findsOneWidget);
+    expect(
+      find.text('2 quality monitoring requests remain active.'),
+      findsNothing,
+    );
+    await tester.tap(disruption);
+    expect(controlOpens, 1);
+    expect(monitoringOpens, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('operational control represents cross-functional queues', (
     tester,
   ) async {
@@ -176,6 +291,7 @@ void main() {
       isApproved: true,
       createdAt: DateTime.utc(2026),
     );
+    var monitoringOpens = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -199,6 +315,7 @@ void main() {
             onWorkflow: () {},
             onOperationalEvents: () {},
             onQuality: () {},
+            onQualityMonitoring: () => monitoringOpens += 1,
             onAbnormalities: () {},
             onInspections: () {},
           ),
@@ -214,6 +331,68 @@ void main() {
     expect(find.text('Cycle abnormalities'), findsOneWidget);
     expect(find.text('Cycle monitoring'), findsOneWidget);
     expect(find.text('Inspection findings'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Cycle monitoring'), 220);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cycle monitoring'));
+    expect(monitoringOpens, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('operational control prioritizes disruptions over monitoring', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var eventOpens = 0;
+    var monitoringOpens = 0;
+    final actor = AppUser(
+      uid: 'operations',
+      name: 'Operations',
+      email: 'operations@example.com',
+      roles: const [AppRole.operations],
+      isApproved: true,
+      createdAt: DateTime.utc(2026),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: BafAppTheme.light,
+        home: Scaffold(
+          body: OperationalControlScreen(
+            appUser: actor,
+            directiveCount: 0,
+            workflowAttentionCount: 0,
+            operationalEventCount: 1,
+            qualityWarningCount: 0,
+            qualityMonitoringCount: 2,
+            inspectionFindingCount: 0,
+            directiveDataUnavailable: false,
+            workflowDataUnavailable: false,
+            operationalEventsUnavailable: false,
+            qualityWarningsUnavailable: false,
+            qualityMonitoringUnavailable: false,
+            inspectionFindingsUnavailable: false,
+            onDirectives: () {},
+            onWorkflow: () {},
+            onOperationalEvents: () => eventOpens += 1,
+            onQuality: () {},
+            onQualityMonitoring: () => monitoringOpens += 1,
+            onAbnormalities: () {},
+            onInspections: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 operational event remains open'), findsOneWidget);
+    expect(
+      find.text('2 cycle monitoring requests remain active'),
+      findsNothing,
+    );
+    await tester.tap(find.text('Open events'));
+    expect(eventOpens, 1);
+    expect(monitoringOpens, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -275,6 +454,7 @@ void main() {
       disruptionDuration: Duration.zero,
     );
     var qualityOpens = 0;
+    var monitoringOpens = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -285,6 +465,7 @@ void main() {
             child: OperationsControlReportPanel(
               report: report,
               onQuality: () => qualityOpens += 1,
+              onQualityMonitoring: () => monitoringOpens += 1,
               onAbnormalities: () {},
               onDirectives: () {},
               onWorkflow: () {},
@@ -298,10 +479,14 @@ void main() {
 
     expect(find.text('Decision routes'), findsOneWidget);
     expect(find.text('Quality disposition'), findsOneWidget);
+    expect(find.text('Cycle monitoring'), findsOneWidget);
     expect(find.text('Maintenance coordination'), findsOneWidget);
     expect(find.text('Charge abnormalities'), findsOneWidget);
     await tester.tap(find.text('Quality disposition'));
     expect(qualityOpens, 1);
+    await tester.ensureVisible(find.text('Cycle monitoring'));
+    await tester.tap(find.text('Cycle monitoring'));
+    expect(monitoringOpens, 1);
     expect(tester.takeException(), isNull);
   });
 

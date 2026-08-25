@@ -17,8 +17,18 @@ part 'quality_home_screen.widgets.dart';
 
 enum _WarningFilter { open, review, closed }
 
+enum QualityWorkspaceTab { warnings, monitoring }
+
 class QualityHomeScreen extends ConsumerStatefulWidget {
-  const QualityHomeScreen({super.key});
+  const QualityHomeScreen({
+    super.key,
+    this.initialTab = QualityWorkspaceTab.warnings,
+  });
+
+  const QualityHomeScreen.monitoring({super.key})
+    : initialTab = QualityWorkspaceTab.monitoring;
+
+  final QualityWorkspaceTab initialTab;
 
   @override
   ConsumerState<QualityHomeScreen> createState() => _QualityHomeScreenState();
@@ -78,7 +88,7 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
     );
     return DefaultTabController(
       length: 2,
-      initialIndex: 0,
+      initialIndex: widget.initialTab.index,
       child: Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(

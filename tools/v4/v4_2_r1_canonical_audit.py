@@ -376,8 +376,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 173
-    and counts.get("SUCCESSOR_MODIFIED") == 237
+    and counts.get("BYTE_IDENTICAL") == 172
+    and counts.get("SUCCESSOR_MODIFIED") == 238
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -10529,8 +10529,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 173
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 237
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 172
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 238
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

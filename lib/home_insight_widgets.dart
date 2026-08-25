@@ -123,6 +123,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
     required this.onIssues,
     required this.onWork,
     required this.onControl,
+    required this.onQualityMonitoring,
     required this.onRetry,
     required this.onMaintenanceRhythm,
     required this.onInspectionProgrammes,
@@ -132,6 +133,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.activeQualityMonitoringCount,
     required this.overdueMaintenanceCount,
     required this.activeInspectionFindingCount,
   });
@@ -145,6 +147,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onControl;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onRetry;
   final VoidCallback onMaintenanceRhythm;
   final VoidCallback onInspectionProgrammes;
@@ -154,6 +157,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final int activeQualityMonitoringCount;
   final int overdueMaintenanceCount;
   final int activeInspectionFindingCount;
 
@@ -282,7 +286,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
                     child: _HomePulseMetric(
                       value: dataUnavailable ? '--' : '$assuranceCount',
                       label: 'Assurance',
-                      detail: 'Overdue and active findings',
+                      detail: 'Monitoring, overdue and findings',
                       color:
                           assuranceCount == 0
                               ? BafColors.success
@@ -290,6 +294,10 @@ class HomeManagementPulsePanel extends StatelessWidget {
                       onTap:
                           overdueMaintenanceCount > 0
                               ? onMaintenanceRhythm
+                              : activeInspectionFindingCount > 0
+                              ? onInspectionProgrammes
+                              : activeQualityMonitoringCount > 0
+                              ? onQualityMonitoring
                               : onInspectionProgrammes,
                     ),
                   ),
@@ -444,6 +452,16 @@ class HomeManagementPulsePanel extends StatelessWidget {
         icon: Icons.work_outline_rounded,
         color: BafColors.planned,
         onTap: onWork,
+      );
+    }
+    if (activeQualityMonitoringCount > 0) {
+      return _HomeLeadingSignal(
+        text:
+            '$activeQualityMonitoringCount quality monitoring '
+            '${activeQualityMonitoringCount == 1 ? 'request remains' : 'requests remain'} active.',
+        icon: Icons.monitor_heart_outlined,
+        color: BafColors.instrument,
+        onTap: onQualityMonitoring,
       );
     }
     return _HomeLeadingSignal(

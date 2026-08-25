@@ -38,8 +38,6 @@ import '../providers/operations_report_provider.dart';
 part 'fleet_status_insight_widgets.dart';
 part 'fleet_status_control_widgets.dart';
 
-enum OperationsReportView { overview, control, work, reliability, assurance }
-
 class FleetStatusScreen extends ConsumerStatefulWidget {
   const FleetStatusScreen({super.key});
 
@@ -258,6 +256,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       onInspections: () => _open(const InspectionProgrammesScreen()),
       onPlannedWork: () => _open(const TemplatesScreen()),
       onQuality: () => _open(const QualityHomeScreen()),
+      onQualityMonitoring: () => _open(const QualityHomeScreen.monitoring()),
       onAbnormalities: () => _open(const AbnormalitiesHomeScreen()),
       onDirectives: () => _open(const DirectivesScreen()),
       onWorkflow: () => _open(const WorkflowHubScreen()),
@@ -385,6 +384,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     OperationsControlReportPanel(
       report: report,
       onQuality: () => _open(const QualityHomeScreen()),
+      onQualityMonitoring: () => _open(const QualityHomeScreen.monitoring()),
       onAbnormalities: () => _open(const AbnormalitiesHomeScreen()),
       onDirectives: () => _open(const DirectivesScreen()),
       onWorkflow: () => _open(const WorkflowHubScreen()),

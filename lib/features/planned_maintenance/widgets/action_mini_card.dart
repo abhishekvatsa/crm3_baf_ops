@@ -115,6 +115,34 @@ class ActionMiniCard extends StatelessWidget {
                         label: _statusLabel(action.status!),
                         color: color,
                       ),
+                    if (action.replacement != null)
+                      StatusBadge(
+                        label: _evidenceLabel(action.replacement!.name),
+                        color: BafColors.assets,
+                      ),
+                    if (action.burnerPosition != null &&
+                        componentText.toLowerCase() !=
+                            'burner ${action.burnerPosition}')
+                      StatusBadge(
+                        label: 'Burner ${action.burnerPosition}',
+                        color: BafColors.instrument,
+                      ),
+                    if (action.burnerActionCode != null)
+                      StatusBadge(
+                        label: _evidenceLabel(action.burnerActionCode!),
+                        color: BafColors.instrument,
+                      ),
+                    if (action.burnerOutcome != null)
+                      StatusBadge(
+                        label: _evidenceLabel(action.burnerOutcome!),
+                        color: BafColors.sync,
+                      ),
+                    if (action.burnerMicroampReading != null)
+                      StatusBadge(
+                        label:
+                            '${action.burnerMicroampReading!.toStringAsFixed(3)} \u00B5A',
+                        color: BafColors.instrument,
+                      ),
                     StatusBadge(
                       label: TimeOfDay.fromDateTime(
                         action.createdAt,
@@ -180,5 +208,17 @@ class ActionMiniCard extends StatelessWidget {
       case ActionStatus.resolved:
         return 'Resolved';
     }
+  }
+
+  String _evidenceLabel(String value) {
+    return value
+        .replaceAllMapped(
+          RegExp(r'([a-z])([A-Z])'),
+          (match) => '${match.group(1)} ${match.group(2)}',
+        )
+        .split(RegExp(r'[_\s]+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
   }
 }

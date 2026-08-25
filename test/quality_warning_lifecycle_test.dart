@@ -289,6 +289,44 @@ void main() {
     },
   );
 
+  testWidgets('monitoring routes open directly on active cycle surveillance', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final active = QualityMonitoringRequest.fromMap(
+      _monitoring(),
+      'monitoring-1',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_qualityViewer()),
+          ),
+          qualityWarningsProvider.overrideWith(
+            (ref) => Stream.value(const <QualityWarning>[]),
+          ),
+          qualityMonitoringRequestsProvider.overrideWith(
+            (ref) => Stream.value(<QualityMonitoringRequest>[active]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const QualityHomeScreen.monitoring(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Warnings (0)'), findsOneWidget);
+    expect(find.text('Monitoring (1)'), findsOneWidget);
+    expect(find.text('Base 12 · CRGO M4'), findsOneWidget);
+    expect(find.text('No warnings in this view'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'warning cards create only visible charge listeners and dispose them',
     (tester) async {

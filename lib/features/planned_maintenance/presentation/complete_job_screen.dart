@@ -22,6 +22,7 @@ import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../maintenance_workflow/data/compliance_request_record.dart';
 import '../../maintenance_workflow/data/job_lane_record.dart';
 import '../../maintenance_workflow/data/workflow_aggregate_record.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
@@ -29,6 +30,8 @@ import '../../maintenance_workflow/domain/workflow_policy.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../../maintenance_workflow/presentation/widgets/red_exit_dialog.dart';
+
+part 'complete_job_screen.workflow_gate.dart';
 
 class CompleteJobScreen extends ConsumerStatefulWidget {
   final JobExecution execution;
@@ -157,6 +160,17 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       );
       return;
     }
+    if (!widget.execution.assignmentInnerCoverPositionReadResult.isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot complete: Inner Cover assignment evidence needs repair.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
     if (_template != null && !_template!.fieldsReadResult.isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -265,6 +279,14 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
             'Maintenance workflow is not available locally. Synchronize and try again.',
           );
         }
+        if (workflow.statusKey == 'completed' ||
+            workflow.statusKey == 'cancelled' ||
+            workflow.cancelled ||
+            workflow.completedAt != null) {
+          throw StateError(
+            'This maintenance workflow is already closed and cannot be finalized again.',
+          );
+        }
         final lanes = await workflowRepository.getLanes(workflowId);
         final activeLanes = lanes.where(
           (lane) =>
@@ -274,6 +296,12 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
             activeLanes.any((lane) => lane.statusKey != 'closed')) {
           throw StateError(
             'Every active maintenance lane must be closed before final job closure.',
+          );
+        }
+        final compliance = await workflowRepository.getCompliance(workflowId);
+        if (compliance.any(_WorkflowClosureGateResult.isBlockingCompliance)) {
+          throw StateError(
+            'Every blocking Operations coordination request must be closed before final job closure.',
           );
         }
 
@@ -714,19 +742,36 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     final hasCompletionAuthority = appUser?.canCompleteJobExecution ?? false;
     final actionRead = widget.execution.actionsReadResult;
     final responseRead = widget.execution.responsesReadResult;
+    final innerCoverPositionRead =
+        widget.execution.assignmentInnerCoverPositionReadResult;
     final workflowId = widget.execution.firestoreId?.trim();
+    final requiresWorkflow = widget.execution.workflowSchemaVersion == 1;
+    final hasWorkflowIdentity =
+        requiresWorkflow && workflowId != null && workflowId.isNotEmpty;
     final workflowAsync =
-        widget.execution.workflowSchemaVersion == 1 &&
-                workflowId != null &&
-                workflowId.isNotEmpty
+        hasWorkflowIdentity
             ? ref.watch(workflowRecordProvider(workflowId))
             : null;
     final workflowLanesAsync =
-        widget.execution.workflowSchemaVersion == 1 &&
-                workflowId != null &&
-                workflowId.isNotEmpty
+        hasWorkflowIdentity
             ? ref.watch(workflowLanesProvider(workflowId))
             : null;
+    final workflowComplianceAsync =
+        hasWorkflowIdentity
+            ? ref.watch(workflowComplianceProvider(workflowId))
+            : null;
+    final workflowGate =
+        !requiresWorkflow
+            ? null
+            : workflowAsync == null ||
+                workflowLanesAsync == null ||
+                workflowComplianceAsync == null
+            ? const _WorkflowClosureGateResult.missingIdentity()
+            : _WorkflowClosureGateResult.fromAsyncValues(
+              workflowAsync: workflowAsync,
+              lanesAsync: workflowLanesAsync,
+              complianceAsync: workflowComplianceAsync,
+            );
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -766,6 +811,14 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                     'Completion is blocked until this payload is repaired. No saved responses were discarded or replaced.',
               ),
             ],
+            if (!innerCoverPositionRead.isValid) ...[
+              const SizedBox(height: BafSpacing.lg),
+              const PersistedDataIntegrityNotice(
+                title: 'Inner Cover assignment evidence needs repair',
+                message:
+                    'Completion is blocked until the frozen Base, serial and linkage identity can be verified.',
+              ),
+            ],
             if (templateFieldRead != null && !templateFieldRead.isValid) ...[
               const SizedBox(height: BafSpacing.lg),
               const PersistedDataIntegrityNotice(
@@ -778,12 +831,9 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
             _CompletionAuthorityCard(hasAuthority: hasCompletionAuthority),
             const SizedBox(height: BafSpacing.lg),
             _ModuleClosureGateCard(gate: moduleGate),
-            if (workflowAsync != null && workflowLanesAsync != null) ...[
+            if (workflowGate != null) ...[
               const SizedBox(height: BafSpacing.lg),
-              _WorkflowClosureGateCard(
-                workflowAsync: workflowAsync,
-                lanesAsync: workflowLanesAsync,
-              ),
+              _WorkflowClosureGateCard(gate: workflowGate),
             ],
             if (!widget.execution.isGovernedTemplateAssignment &&
                 templateFieldRead?.isValid != false) ...[
@@ -905,7 +955,10 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                     !hasCompletionAuthority ||
                     !actionRead.isValid ||
                     !responseRead.isValid ||
-                    !moduleGate.canComplete
+                    !innerCoverPositionRead.isValid ||
+                    templateFieldRead?.isValid == false ||
+                    !moduleGate.canComplete ||
+                    workflowGate?.canComplete == false
                 ? null
                 : _submit,
       ),
@@ -2028,26 +2081,13 @@ class _EmptyInlineState extends StatelessWidget {
 }
 
 class _WorkflowClosureGateCard extends StatelessWidget {
-  final AsyncValue<WorkflowAggregateRecord?> workflowAsync;
-  final AsyncValue<List<JobLaneRecord>> lanesAsync;
+  final _WorkflowClosureGateResult gate;
 
-  const _WorkflowClosureGateCard({
-    required this.workflowAsync,
-    required this.lanesAsync,
-  });
+  const _WorkflowClosureGateCard({required this.gate});
 
   @override
   Widget build(BuildContext context) {
-    final workflow = workflowAsync.value;
-    final lanes = lanesAsync.value ?? const <JobLaneRecord>[];
-    final active = lanes.where(
-      (lane) => lane.statusKey != 'removed' && lane.statusKey != 'terminated',
-    );
-    final ready =
-        workflow != null &&
-        active.isNotEmpty &&
-        active.every((lane) => lane.statusKey == 'closed');
-    final loading = workflowAsync.isLoading || lanesAsync.isLoading;
+    final ready = gate.canComplete;
     final color = ready ? BafColors.sync : BafColors.warning;
 
     return Container(
@@ -2071,11 +2111,7 @@ class _WorkflowClosureGateCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  loading
-                      ? 'Checking workflow lanes…'
-                      : ready
-                      ? 'All workflow lanes are closed'
-                      : 'Workflow lane closure is incomplete',
+                  gate.title,
                   style: const TextStyle(
                     color: BafColors.textPrimary,
                     fontWeight: FontWeight.w900,
@@ -2084,17 +2120,38 @@ class _WorkflowClosureGateCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  loading
-                      ? 'The current lane and compliance state is loading.'
-                      : ready
-                      ? 'The server will still recheck lane versions, blocking compliance, RED applicability and equipment state.'
-                      : 'Return to the job dossier and close or formally resolve every active lane before final submission.',
+                  gate.summary,
                   style: const TextStyle(
                     color: BafColors.textSecondary,
                     fontSize: 12,
                     height: 1.3,
                   ),
                 ),
+                if (!gate.isLoading && gate.activeLaneCount > 0) ...[
+                  const SizedBox(height: BafSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      StatusBadge(
+                        label:
+                            '${gate.activeLaneCount - gate.openLaneKeys.length}/${gate.activeLaneCount} lanes closed',
+                        color:
+                            gate.openLaneKeys.isEmpty
+                                ? BafColors.sync
+                                : BafColors.warning,
+                      ),
+                      StatusBadge(
+                        label:
+                            '${gate.blockingComplianceCount} blocking ${gate.blockingComplianceCount == 1 ? 'obligation' : 'obligations'}',
+                        color:
+                            gate.blockingComplianceCount == 0
+                                ? BafColors.sync
+                                : BafColors.warning,
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
