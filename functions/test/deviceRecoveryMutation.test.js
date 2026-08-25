@@ -53,16 +53,23 @@ function fakeDb(seed = {}) {
     };
   }
 
-  function query(path, direction = 'asc', maximum = null) {
+  function query(path, direction = 'asc', maximum = null, filters = []) {
     return {
       path,
       direction,
       maximum,
+      filters,
+      where(field, operator, value) {
+        return query(path, direction, maximum, [
+          ...filters,
+          {field, operator, value},
+        ]);
+      },
       orderBy(_field, nextDirection) {
-        return query(path, nextDirection, maximum);
+        return query(path, nextDirection, maximum, filters);
       },
       limit(value) {
-        return query(path, direction, value);
+        return query(path, direction, value, filters);
       },
       async get() {
         const prefix = `${path}/`;
@@ -70,6 +77,12 @@ function fakeDb(seed = {}) {
           .filter((key) => key.startsWith(prefix) &&
             !key.slice(prefix.length).includes('/'))
           .map(snapshot)
+          .filter((entry) => filters.every((filter) => {
+            const actual = entry.data()?.[filter.field];
+            if (filter.operator === 'in') return filter.value.includes(actual);
+            if (filter.operator === '==') return actual === filter.value;
+            throw new Error(`unsupported fake query operator: ${filter.operator}`);
+          }))
           .sort((left, right) => {
             const leftAt = left.data()?.updatedAt?.getTime?.() ?? 0;
             const rightAt = right.data()?.updatedAt?.getTime?.() ?? 0;
@@ -262,6 +275,36 @@ describe('governed remote device recovery', () => {
       details: {reasonCode: 'device-recovery-installation-not-found'},
     });
   });
+
+  test('web registrations cannot occupy the bounded recoverable-phone window',
+    async () => {
+      const newerWebInstallations = Object.fromEntries(
+        Array.from({length: 9}, (_, index) => {
+          const suffix = String(index + 1).padStart(12, '0');
+          return [
+            `users/${TARGET}/notification_installations/aaaaaaaa-aaaa-4aaa-8aaa-${suffix}`,
+            {
+              ...installation('web'),
+              updatedAt: new Date(`2026-08-25T11:0${index}:00.000Z`),
+            },
+          ];
+        }),
+      );
+      const fixture = fakeDb({...seed(), ...newerWebInstallations});
+
+      const inventory = await mutateDeviceRecoveryWithDb(args(
+        fixture.db,
+        ADMIN,
+        {operation: 'DEVICE_RECOVERY_LIST', targetUid: TARGET},
+      ));
+
+      expect(inventory.installations).toHaveLength(1);
+      expect(inventory.installations[0]).toMatchObject({
+        installationId: INSTALLATION,
+        platform: 'android',
+      });
+    },
+  );
 
   test('only a fresh admin can issue an exact targeted request', async () => {
     const fixture = fakeDb(seed());

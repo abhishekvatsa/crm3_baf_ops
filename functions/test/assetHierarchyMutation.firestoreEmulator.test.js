@@ -309,6 +309,19 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
           platform: 'web',
           updatedAt,
         }),
+      ...Array.from({length: 9}, (_, index) => {
+        const suffix = String(index + 1).padStart(12, '0');
+        return target.collection('notification_installations')
+          .doc(`aaaaaaaa-aaaa-4aaa-8aaa-${suffix}`)
+          .set({
+            schemaVersion: 1,
+            token: `private-newer-web-token-${index}`,
+            platform: 'web',
+            updatedAt: admin.firestore.Timestamp.fromDate(
+              new Date(`2026-08-13T11:4${index}:00.000Z`),
+            ),
+          });
+      }),
     ]);
 
     const inventory = await invokeDeviceRecovery({

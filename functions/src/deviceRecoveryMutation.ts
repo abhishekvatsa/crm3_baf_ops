@@ -16,6 +16,9 @@ const DEVICE_RECEIPTS = "device_recovery_receipts";
 const INSTALLATIONS = "notification_installations";
 const MAX_INSTALLATIONS = 8;
 const REQUEST_LIFETIME_MS = 24 * 60 * 60 * 1000;
+const SUPPORTED_INSTALLATION_PLATFORMS: readonly string[] = [
+  "android", "ios", "macos", "windows", "linux", "fuchsia",
+];
 
 const OPERATIONS = new Set([
   "DEVICE_RECOVERY_LIST",
@@ -175,8 +178,7 @@ function canonicalInstallation(data: JsonMap | undefined): boolean {
       data.schemaVersion !== 1 || typeof data.token !== "string" ||
       data.token.length === 0 || data.token.length > 4096 ||
       typeof data.platform !== "string" ||
-      !["android", "ios", "macos", "windows", "linux", "fuchsia"]
-        .includes(data.platform)) {
+      !SUPPORTED_INSTALLATION_PLATFORMS.includes(data.platform)) {
     return false;
   }
   try {
@@ -453,14 +455,21 @@ async function listInstallations(
   }
 
   const snapshots = await targetRef.collection(INSTALLATIONS)
-    .orderBy("updatedAt", "desc")
+    .where("platform", "in", SUPPORTED_INSTALLATION_PLATFORMS)
     .limit(MAX_INSTALLATIONS)
     .get();
   const installations: JsonMap[] = [];
-  for (const installation of snapshots.docs) {
+  const eligibleSnapshots = snapshots.docs
+    .filter((installation) =>
+      INSTALLATION_ID.test(installation.id) &&
+      canonicalInstallation(installation.data() as JsonMap)
+    )
+    .sort((left, right) =>
+      Date.parse(toIso(right.data().updatedAt, "updatedAt")) -
+      Date.parse(toIso(left.data().updatedAt, "updatedAt"))
+    );
+  for (const installation of eligibleSnapshots) {
     const data = installation.data() as JsonMap;
-    if (!INSTALLATION_ID.test(installation.id) ||
-        !canonicalInstallation(data)) continue;
     const stateSnapshot = await args.db.collection(DEVICE_REQUESTS)
       .doc(deviceStateId(targetUid, installation.id))
       .get();
