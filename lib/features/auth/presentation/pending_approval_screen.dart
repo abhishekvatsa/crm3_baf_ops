@@ -17,6 +17,7 @@ class PendingApprovalScreen extends ConsumerStatefulWidget {
 
 class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
   bool _isRefreshingProfile = false;
+  bool _isSigningOut = false;
   String? _refreshError;
 
   @override
@@ -111,9 +112,23 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                         ),
                         const SizedBox(width: BafSpacing.md),
                         FilledButton.icon(
-                          onPressed: _isRefreshingProfile ? null : _signOut,
-                          icon: const Icon(Icons.logout_rounded),
-                          label: const Text('Sign Out'),
+                          onPressed:
+                              _isRefreshingProfile || _isSigningOut
+                                  ? null
+                                  : _signOut,
+                          icon:
+                              _isSigningOut
+                                  ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Icon(Icons.logout_rounded),
+                          label: Text(
+                            _isSigningOut ? 'Signing out…' : 'Sign Out',
+                          ),
                           style: FilledButton.styleFrom(
                             backgroundColor: BafColors.navySoft,
                             foregroundColor: Colors.white,
@@ -159,7 +174,18 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
   }
 
   Future<void> _signOut() async {
-    await ref.read(authServiceProvider).signOut();
+    setState(() {
+      _isSigningOut = true;
+      _refreshError = null;
+    });
+    try {
+      await ref.read(authServiceProvider).signOut();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _refreshError = '$error');
+    } finally {
+      if (mounted) setState(() => _isSigningOut = false);
+    }
   }
 }
 

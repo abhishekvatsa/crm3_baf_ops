@@ -306,6 +306,35 @@ describe('governed remote device recovery', () => {
     },
   );
 
+  test('the bounded inventory keeps the newest supported phone registrations',
+    async () => {
+      const olderSupportedInstallations = Object.fromEntries(
+        Array.from({length: 9}, (_, index) => {
+          const suffix = String(index + 1).padStart(12, '0');
+          return [
+            `users/${TARGET}/notification_installations/bbbbbbbb-bbbb-4bbb-8bbb-${suffix}`,
+            {
+              ...installation(index % 2 === 0 ? 'android' : 'ios'),
+              updatedAt: new Date(`2026-08-25T09:0${index}:00.000Z`),
+            },
+          ];
+        }),
+      );
+      const fixture = fakeDb({...seed(), ...olderSupportedInstallations});
+
+      const inventory = await mutateDeviceRecoveryWithDb(args(
+        fixture.db,
+        ADMIN,
+        {operation: 'DEVICE_RECOVERY_LIST', targetUid: TARGET},
+      ));
+
+      expect(inventory.installations).toHaveLength(8);
+      expect(inventory.installations[0].installationId).toBe(INSTALLATION);
+      expect(inventory.installations.map(({installationId}) => installationId))
+        .not.toContain('bbbbbbbb-bbbb-4bbb-8bbb-000000000001');
+    },
+  );
+
   test('only a fresh admin can issue an exact targeted request', async () => {
     const fixture = fakeDb(seed());
     await expect(mutateDeviceRecoveryWithDb(args(

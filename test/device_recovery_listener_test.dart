@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
+import 'package:crm3_baf_ops/core/services/local_recovery_session_guard.dart';
 import 'package:crm3_baf_ops/features/admin/services/device_local_recovery_reset_service.dart';
 import 'package:crm3_baf_ops/features/admin/services/device_recovery_command_service.dart';
 import 'package:crm3_baf_ops/features/admin/services/device_recovery_listener.dart';
@@ -503,6 +504,124 @@ void main() {
     },
   );
 
+  test('sign-out stays blocked between claimed completion retries', () async {
+    final firstCompletion = Completer<void>();
+    final completed = Completer<void>();
+    var completionAttempts = 0;
+    final commands = DeviceRecoveryCommandService(
+      authenticatedUidLookup: () => 'operator-1',
+      invoke: (payload) async {
+        switch (payload['operation']) {
+          case deviceRecoveryPollOperation:
+            return _pollResponse(_request, status: 'in_progress');
+          case deviceRecoveryClaimOperation:
+            return _claimResponse(_request);
+          case deviceRecoveryCompleteOperation:
+            completionAttempts++;
+            if (completionAttempts == 1) {
+              firstCompletion.complete();
+              throw StateError('The completion receipt was interrupted.');
+            }
+            completed.complete();
+            return _finishResponse(_request, 'completed');
+          default:
+            throw StateError('Unexpected request: ${payload['operation']}');
+        }
+      },
+    );
+    final scope = _listenerScope(
+      commands: commands,
+      reset: _LocalResetProbe(),
+      recoveryRetryDelay: const Duration(milliseconds: 100),
+    );
+    addTearDown(scope.dispose);
+
+    scope.listener.start(_operator());
+    await firstCompletion.future.timeout(const Duration(seconds: 2));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      scope.recoverySessionGuard.beginSessionEnd,
+      throwsA(isA<LocalRecoverySignOutBlockedException>()),
+    );
+
+    await completed.future.timeout(const Duration(seconds: 2));
+    await Future<void>.delayed(Duration.zero);
+    expect(scope.recoverySessionGuard.beginSessionEnd, returnsNormally);
+    scope.recoverySessionGuard.endSessionEnd();
+  });
+
+  test('final listener disposal releases a retained claim interlock', () async {
+    final firstCompletion = Completer<void>();
+    final commands = DeviceRecoveryCommandService(
+      authenticatedUidLookup: () => 'operator-1',
+      invoke: (payload) async {
+        switch (payload['operation']) {
+          case deviceRecoveryPollOperation:
+            return _pollResponse(_request, status: 'in_progress');
+          case deviceRecoveryClaimOperation:
+            return _claimResponse(_request);
+          case deviceRecoveryCompleteOperation:
+            firstCompletion.complete();
+            throw StateError('The completion receipt was interrupted.');
+          default:
+            throw StateError('Unexpected request: ${payload['operation']}');
+        }
+      },
+    );
+    final scope = _listenerScope(
+      commands: commands,
+      reset: _LocalResetProbe(),
+      recoveryRetryDelay: const Duration(seconds: 5),
+    );
+    addTearDown(scope.dispose);
+
+    scope.listener.start(_operator());
+    await firstCompletion.future.timeout(const Duration(seconds: 2));
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      scope.recoverySessionGuard.beginSessionEnd,
+      throwsA(isA<LocalRecoverySignOutBlockedException>()),
+    );
+
+    scope.listener.dispose();
+    expect(scope.recoverySessionGuard.beginSessionEnd, returnsNormally);
+    scope.recoverySessionGuard.endSessionEnd();
+  });
+
+  test(
+    'a definitive claim rejection releases the sign-out interlock',
+    () async {
+      final rejected = Completer<void>();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              return _pollResponse(_request);
+            case deviceRecoveryClaimOperation:
+              rejected.complete();
+              throw _RecoveryFunctionsException(code: 'permission-denied');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await rejected.future.timeout(const Duration(seconds: 2));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(scope.recoverySessionGuard.beginSessionEnd, returnsNormally);
+      scope.recoverySessionGuard.endSessionEnd();
+    },
+  );
+
   test('revoked phone cannot start an ordinary recovery listener', () async {
     var calls = 0;
     final commands = DeviceRecoveryCommandService(
@@ -529,22 +648,29 @@ _ListenerScope _listenerScope({
   int maxRecoveryRetries = 5,
 }) {
   final coordinator = _SyncCoordinatorProbe();
+  final recoverySessionGuard = LocalRecoverySessionGuard();
   final provider = Provider<DeviceRecoveryListener>((ref) {
     final listener = DeviceRecoveryListener(
       commands: commands,
       localReset: reset,
       coordinator: coordinator,
+      recoverySessionGuard: recoverySessionGuard,
       ref: ref,
       installationIdReader: () async => _installation,
       foregroundMessages: const Stream<RemoteMessage>.empty(),
       recoveryRetryDelay: recoveryRetryDelay,
       maxRecoveryRetries: maxRecoveryRetries,
     );
-    ref.onDispose(listener.stop);
+    ref.onDispose(listener.dispose);
     return listener;
   });
   final container = ProviderContainer();
-  return _ListenerScope(container, container.read(provider), coordinator);
+  return _ListenerScope(
+    container,
+    container.read(provider),
+    coordinator,
+    recoverySessionGuard,
+  );
 }
 
 Future<void> _waitFor(bool Function() condition) async {
@@ -611,11 +737,17 @@ AppUser _operator({bool approved = true}) => AppUser(
 );
 
 class _ListenerScope {
-  _ListenerScope(this.container, this.listener, this.coordinator);
+  _ListenerScope(
+    this.container,
+    this.listener,
+    this.coordinator,
+    this.recoverySessionGuard,
+  );
 
   final ProviderContainer container;
   final DeviceRecoveryListener listener;
   final _SyncCoordinatorProbe coordinator;
+  final LocalRecoverySessionGuard recoverySessionGuard;
 
   void dispose() => container.dispose();
 }

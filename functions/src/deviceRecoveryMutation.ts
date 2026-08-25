@@ -456,6 +456,7 @@ async function listInstallations(
 
   const snapshots = await targetRef.collection(INSTALLATIONS)
     .where("platform", "in", SUPPORTED_INSTALLATION_PLATFORMS)
+    .orderBy("updatedAt", "desc")
     .limit(MAX_INSTALLATIONS)
     .get();
   const installations: JsonMap[] = [];

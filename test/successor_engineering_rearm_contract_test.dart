@@ -70,6 +70,9 @@ void main() {
       final planes = (state['authorityPlanes'] as Map).cast<String, dynamic>();
       final currentSource =
           (planes['currentSource'] as Map).cast<String, dynamic>();
+      final currentFirestoreSource =
+          (currentSource['firestoreRulesAndIndexes'] as Map)
+              .cast<String, dynamic>();
       final artifact =
           (planes['latestFinalizedArtifact'] as Map).cast<String, dynamic>();
       final deployed =
@@ -156,8 +159,9 @@ void main() {
         pendingConstruction
             ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_BACKEND_READY_'
                 'AWAITING_SIGNED_CONSTRUCTION'
-            : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
-                'AWAITING_DEVICE_AND_PILOT_DECISIONS',
+            : 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
+                'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_'
+                'PILOT_DECISIONS',
       );
       expect(currentSource['reference'], 'refs/heads/main');
       expect(currentSource['packageVersion'], _packageVersion());
@@ -177,6 +181,11 @@ void main() {
       expect(currentSource['deploymentAuthority'], isFalse);
       expect(currentSource['distributionAuthority'], isFalse);
       expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
+      expect(
+        currentSource['backendDeploymentStatus'],
+        'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+      );
+      expect(currentSource['productionRuntimeUseAuthorized'], isFalse);
 
       expect(artifact['buildNumber'], finalizedBuildNumber);
       expect(
@@ -243,16 +252,24 @@ void main() {
         requiredSource['exactFunctionFleetDeploymentReceiptSha256'],
       );
       expect(
-        deployed['currentSourceFunctionDeployment'],
+        deployed['functionFleetReadbackDecision'],
         'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK',
       );
       expect(
-        deployed['currentSourceRulesAndIndexesDeployment'],
+        deployed['rulesAndIndexesReadbackDecision'],
         'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
       );
       expect(
         liveBackend['decision'],
+        deployed['functionFleetReadbackDecision'],
+      );
+      expect(
         deployed['currentSourceFunctionDeployment'],
+        'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+      );
+      expect(
+        deployed['currentSourceRulesAndIndexesDeployment'],
+        'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
       );
       expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
       expect(
@@ -277,7 +294,7 @@ void main() {
       );
       expect(
         rulesReadback['decision'],
-        'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
+        deployed['rulesAndIndexesReadbackDecision'],
       );
       expect(
         firestoreAuthority['receiptFile'],
@@ -295,6 +312,10 @@ void main() {
       expect(
         verifiedRules['sourceSha256'],
         requiredSource['exactFirestoreRulesSha256'],
+      );
+      expect(
+        currentFirestoreSource['rulesSha256'],
+        verifiedRules['sourceSha256'],
       );
       expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
       expect(verifiedRules['byteExact'], isTrue);
@@ -318,11 +339,21 @@ void main() {
       final sourceIndexBinding =
           (jsonDecode(sourceIndexProbe.stdout as String) as Map)
               .cast<String, dynamic>();
-      expect(sourceIndexBinding['count'], verifiedIndexes['sourceCount']);
+      expect(sourceIndexBinding['count'], currentFirestoreSource['indexCount']);
       expect(
         sourceIndexBinding['indexSetSha256'],
-        requiredSource['exactFirestoreIndexSetSha256'],
+        currentFirestoreSource['indexSetSha256'],
       );
+      expect(
+        currentFirestoreSource['relationshipToDeployedBackend'],
+        'RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+      );
+      expect(
+        currentFirestoreSource['indexSetSha256'],
+        isNot(verifiedIndexes['sourceSetSha256']),
+      );
+      expect(currentFirestoreSource['productionDeploymentPerformed'], isFalse);
+      expect(currentFirestoreSource['productionRuntimeUseAuthorized'], isFalse);
       expect(
         historicalRulesHold['decision'],
         'HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK',

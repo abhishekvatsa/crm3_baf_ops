@@ -703,11 +703,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _showProfileSheet(BuildContext context, WidgetRef ref, AppUser appUser) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
       builder:
-          (context) => Center(
+          (sheetContext) => Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 400),
               child: SafeArea(
@@ -781,8 +782,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: () async {
-                              Navigator.pop(context);
-                              await ref.read(authServiceProvider).signOut();
+                              Navigator.pop(sheetContext);
+                              try {
+                                await ref.read(authServiceProvider).signOut();
+                              } catch (error) {
+                                messenger?.showSnackBar(
+                                  SnackBar(
+                                    content: Text('$error'),
+                                    backgroundColor: BafColors.warning,
+                                  ),
+                                );
+                              }
                             },
                             icon: const Icon(
                               Icons.logout,

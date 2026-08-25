@@ -322,13 +322,32 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
             ),
           });
       }),
+      ...Array.from({length: 9}, (_, index) => {
+        const suffix = String(index + 1).padStart(12, '0');
+        return target.collection('notification_installations')
+          .doc(`bbbbbbbb-bbbb-4bbb-8bbb-${suffix}`)
+          .set({
+            schemaVersion: 1,
+            token: `private-older-supported-token-${index}`,
+            platform: index % 2 === 0 ? 'android' : 'ios',
+            updatedAt: admin.firestore.Timestamp.fromDate(
+              new Date(`2026-08-13T10:0${index}:00.000Z`),
+            ),
+          });
+      }),
     ]);
 
     const inventory = await invokeDeviceRecovery({
       operation: 'DEVICE_RECOVERY_LIST',
       targetUid: 'ops-1',
     }, 'admin-1');
-    expect(inventory.installations).toHaveLength(2);
+    expect(inventory.installations).toHaveLength(8);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .toContain(selectedInstallation);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .toContain(otherInstallation);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .not.toContain('bbbbbbbb-bbbb-4bbb-8bbb-000000000001');
     expect(JSON.stringify(inventory)).not.toContain('private-selected-token');
     expect(inventory.installations.map(({installationId}) => installationId))
       .not.toContain(webInstallation);

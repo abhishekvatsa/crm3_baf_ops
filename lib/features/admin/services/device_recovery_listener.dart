@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/app_logger.dart';
+import '../../../core/services/local_recovery_session_guard.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/services/sync_service.dart';
 import '../../auth/data/user_model.dart';
@@ -18,6 +19,7 @@ class DeviceRecoveryListener {
     required DeviceRecoveryCommandService commands,
     required DeviceLocalRecoveryResetService localReset,
     required SyncCoordinator coordinator,
+    required LocalRecoverySessionGuard recoverySessionGuard,
     required Ref ref,
     Future<String?> Function()? installationIdReader,
     Stream<RemoteMessage>? foregroundMessages,
@@ -26,6 +28,7 @@ class DeviceRecoveryListener {
   }) : _commands = commands,
        _localReset = localReset,
        _coordinator = coordinator,
+       _recoverySessionGuard = recoverySessionGuard,
        _ref = ref,
        _installationIdReader =
            installationIdReader ??
@@ -37,6 +40,7 @@ class DeviceRecoveryListener {
   final DeviceRecoveryCommandService _commands;
   final DeviceLocalRecoveryResetService _localReset;
   final SyncCoordinator _coordinator;
+  final LocalRecoverySessionGuard _recoverySessionGuard;
   final Ref _ref;
   final Future<String?> Function() _installationIdReader;
   final Stream<RemoteMessage>? _foregroundMessages;
@@ -53,6 +57,7 @@ class DeviceRecoveryListener {
   bool _busy = false;
   bool _followUpRequested = false;
   bool _claimedRecoveryOnly = false;
+  bool _claimProtectionHeld = false;
   int _generation = 0;
 
   void start(AppUser actor, {bool claimedRecoveryOnly = false}) {
@@ -99,6 +104,11 @@ class DeviceRecoveryListener {
     _claimedRecoveryOnly = false;
   }
 
+  void dispose() {
+    stop();
+    _releaseClaimProtection();
+  }
+
   void _onMessage(RemoteMessage message) {
     if (message.data['destinationType'] != 'admin_device_reset') return;
     unawaited(
@@ -123,6 +133,7 @@ class DeviceRecoveryListener {
     _busy = true;
     final generation = _generation;
     DeviceRecoveryRequest? activeRequest;
+    var claimAcknowledged = false;
     try {
       final installationId = await _installationIdReader();
       if (!_isCurrent(actor, generation)) return;
@@ -143,10 +154,12 @@ class DeviceRecoveryListener {
       );
       if (!_isCurrent(actor, generation)) return;
       if (request == null) {
+        _releaseClaimProtection();
         _clearRecoveryRetry();
         return;
       }
       activeRequest = request;
+      claimAcknowledged = request.status == 'in_progress';
       _trackRecoveryRequest(request.requestId);
 
       await _coordinator.runWithSyncPaused<void>(
@@ -159,11 +172,13 @@ class DeviceRecoveryListener {
               reasonCode: 'device-recovery-session-changed',
             );
           }
+          _holdClaimProtection();
           await _commands.claimReset(
             actor: actor,
             request: request,
             claimedRecoveryOnly: claimedRecoveryOnly,
           );
+          claimAcknowledged = true;
           if (!_isCurrent(actor, generation)) {
             throw const DeviceRecoveryLocalResetException(
               'The signed-in session changed after its recovery claim.',
@@ -183,6 +198,7 @@ class DeviceRecoveryListener {
             backedUpUnsyncedRows: result.backedUpUnsyncedRows,
             claimedRecoveryOnly: claimedRecoveryOnly,
           );
+          _releaseClaimProtection();
           _clearRecoveryRetry();
           _ref.invalidate(syncPendingCountsProvider);
           AppLogger.breadcrumb(
@@ -215,6 +231,7 @@ class DeviceRecoveryListener {
               claimedRecoveryOnly: claimedRecoveryOnly,
             );
         if (failureReported) {
+          _releaseClaimProtection();
           _clearRecoveryRetry();
         } else {
           _scheduleRecoveryRetry(actor, generation);
@@ -227,7 +244,12 @@ class DeviceRecoveryListener {
         stackTrace: stackTrace,
         context: const {'app_area': 'device_recovery'},
       );
-      if (_isRetryableRecoveryError(error)) {
+      if (_claimProtectionHeld &&
+          !claimAcknowledged &&
+          _isDefinitiveClaimRejection(error)) {
+        _releaseClaimProtection();
+        _clearRecoveryRetry();
+      } else if (_claimProtectionHeld || _isRetryableRecoveryError(error)) {
         _scheduleRecoveryRetry(actor, generation);
       }
     } finally {
@@ -273,8 +295,21 @@ class DeviceRecoveryListener {
 
   void _trackRecoveryRequest(String requestId) {
     if (_pendingRecoveryRequestId == requestId) return;
+    _releaseClaimProtection();
     _clearRecoveryRetry();
     _pendingRecoveryRequestId = requestId;
+  }
+
+  void _holdClaimProtection() {
+    if (_claimProtectionHeld) return;
+    _recoverySessionGuard.beginRecovery();
+    _claimProtectionHeld = true;
+  }
+
+  void _releaseClaimProtection() {
+    if (!_claimProtectionHeld) return;
+    _claimProtectionHeld = false;
+    _recoverySessionGuard.endRecovery();
   }
 
   void _scheduleRecoveryRetry(AppUser actor, int generation) {
@@ -311,6 +346,9 @@ class DeviceRecoveryListener {
     return true;
   }
 
+  bool _isDefinitiveClaimRejection(Object error) =>
+      error is FirebaseFunctionsException && !_isRetryableRecoveryError(error);
+
   void _clearRecoveryRetry() {
     _recoveryRetry?.cancel();
     _recoveryRetry = null;
@@ -333,8 +371,9 @@ final deviceRecoveryListenerProvider = Provider<DeviceRecoveryListener>((ref) {
     commands: ref.watch(deviceRecoveryCommandServiceProvider),
     localReset: ref.watch(deviceLocalRecoveryResetServiceProvider),
     coordinator: ref.watch(syncCoordinatorProvider),
+    recoverySessionGuard: ref.watch(localRecoverySessionGuardProvider),
     ref: ref,
   );
-  ref.onDispose(listener.stop);
+  ref.onDispose(listener.dispose);
   return listener;
 });

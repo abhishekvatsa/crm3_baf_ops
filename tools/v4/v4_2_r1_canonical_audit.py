@@ -5240,7 +5240,7 @@ current_firestore_authority = combined_policy.get("finalization", {}).get(
     "exactFirestoreRulesIndexesLiveReadback", {}
 )
 check(
-    "Build 16 Firestore Rules and indexes are exact on merged production main",
+    "Build 16 Firestore Rules and indexes are exact at the deployed baseline",
     current_firestore_authority.get("verified") is True
     and sha(build14_firestore_readback_path)
         == "7E1D7ACC72ED094A03691D1AEB5D59AC9E576D3DFE6B6CE595B355DD71595B8D"
