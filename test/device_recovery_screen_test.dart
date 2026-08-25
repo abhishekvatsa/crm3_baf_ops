@@ -137,6 +137,29 @@ void main() {
     );
   });
 
+  testWidgets('administrator-owned phones remain visible recovery targets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => Stream.value(_admin())),
+          allUsersProvider.overrideWith(
+            (ref) => Stream.value([_admin(), _operator()]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const DeviceRecoveryScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Administrator'), findsOneWidget);
+    expect(find.text('Operator One'), findsOneWidget);
+  });
+
   test(
     'command client denies admin-only reset without making a server call',
     () async {

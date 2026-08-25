@@ -254,6 +254,100 @@ void main() {
   });
 
   test(
+    'completed replay rejects a nonempty snapshot whose contents changed',
+    () async {
+      await _withDatabase((database) async {
+        final backupDirectory = await Directory.systemTemp.createTemp(
+          'device_recovery_integrity_',
+        );
+        try {
+          final snapshotPath = '${backupDirectory.path}/protected.isar';
+          final service = _service(
+            database,
+            backupCreator: ({
+              required database,
+              required diagnosticsText,
+              required reason,
+              manifestJsonText,
+            }) async {
+              await database.copyToFile(snapshotPath);
+              return IsarRecoveryPackageResult(
+                directoryPath: backupDirectory.path,
+                reportPath: '${backupDirectory.path}/report.txt',
+                copiedFileCount: 1,
+                warnings: const [],
+                files: [
+                  IsarRecoveryFileEntry(
+                    sourcePath: database.path!,
+                    targetPath: snapshotPath,
+                    status: 'copied',
+                  ),
+                ],
+              );
+            },
+            backupVerifier: isRetainedIsarRecoveryBackup,
+            backupEvidenceReader: readIsarRecoveryBackupEvidence,
+          );
+          await service.reset(actor: _operator(), request: _request);
+          await database.writeTxn(() async {
+            await database.operationalDirectives.put(_directive());
+          });
+
+          final snapshot = File(snapshotPath);
+          final bytes = await snapshot.readAsBytes();
+          bytes[bytes.length ~/ 2] ^= 0xFF;
+          await snapshot.writeAsBytes(bytes, flush: true);
+          expect(await snapshot.length(), bytes.length);
+
+          await expectLater(
+            service.reset(actor: _operator(), request: _request),
+            throwsA(_resetError('device-recovery-backup-missing')),
+          );
+          expect(await database.operationalDirectives.count(), 1);
+        } finally {
+          if (await backupDirectory.exists()) {
+            await backupDirectory.delete(recursive: true);
+          }
+        }
+      });
+    },
+  );
+
+  test('completed replay verifies every resumed supplemental snapshot', () async {
+    await _withDatabase((database) async {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(
+        '$deviceRecoveryJournalPrefix$_requestId',
+        _journal(unsyncedRows: 2),
+      );
+      var supplementalChanged = false;
+      final service = _service(
+        database,
+        backup: _backup(directory: '/protected-backup-resumed'),
+        backupEvidenceReader:
+            (path) async => IsarRecoveryBackupEvidence(
+              byteCount: 4096,
+              sha256:
+                  supplementalChanged && path.contains('resumed')
+                      ? 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+                      : 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            ),
+      );
+      await service.reset(actor: _operator(), request: _request);
+      await database.writeTxn(() async {
+        await database.operationalDirectives.put(_directive());
+      });
+      supplementalChanged = true;
+
+      await expectLater(
+        service.reset(actor: _operator(), request: _request),
+        throwsA(_resetError('device-recovery-backup-missing')),
+      );
+      expect(await database.operationalDirectives.count(), 1);
+    });
+  });
+
+  test(
     'completed replay rejects evidence that differs from its journal',
     () async {
       await _withDatabase((database) async {
@@ -491,6 +585,19 @@ void main() {
   );
 
   test(
+    'aggregate database size identifies every collection after clearing',
+    () async {
+      await _withDatabase((database) async {
+        expect(await database.getSize(), greaterThan(0));
+        await database.writeTxn(() async {
+          await database.clear();
+          expect(await database.getSize(), 0);
+        });
+      });
+    },
+  );
+
+  test(
     'a write queued after backup survives the protected database reset',
     () async {
       await _withDatabase((database) async {
@@ -665,6 +772,7 @@ void main() {
         await expectLater(
           _service(
             database,
+            backup: _backup(directory: '/protected-backup-resumed'),
             journalWriter: (preferences, key, value) async => false,
           ).reset(actor: _operator(), request: _request),
           throwsA(
@@ -687,7 +795,47 @@ void main() {
   );
 
   test(
-    'pre-clear crash resumes original snapshot without taking another',
+    'resumed supplemental backup failure preserves uncertain-clear protection',
+    () async {
+      await _withDatabase((database) async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(
+          '$deviceRecoveryJournalPrefix$_requestId',
+          _journal(unsyncedRows: 3),
+        );
+
+        await expectLater(
+          _service(
+            database,
+            backupCreator:
+                ({
+                  required database,
+                  required diagnosticsText,
+                  required reason,
+                  manifestJsonText,
+                }) async => throw StateError('backup storage unavailable'),
+          ).reset(actor: _operator(), request: _request),
+          throwsA(
+            isA<DeviceRecoveryLocalResetException>()
+                .having(
+                  (error) => error.reasonCode,
+                  'reasonCode',
+                  'device-recovery-backup-failed',
+                )
+                .having(
+                  (error) => error.dataMayHaveBeenCleared,
+                  'dataMayHaveBeenCleared',
+                  isTrue,
+                ),
+          ),
+        );
+        expect(await database.operationalDirectives.count(), 1);
+      });
+    },
+  );
+
+  test(
+    'pre-clear crash supplements the original snapshot before clearing',
     () async {
       await _withDatabase((database) async {
         final preferences = await SharedPreferences.getInstance();
@@ -705,14 +853,101 @@ void main() {
             manifestJsonText,
           }) async {
             backupCalls++;
-            return _backup();
+            return _backup(directory: '/protected-backup-resumed');
           },
         ).reset(actor: _operator(), request: _request);
 
-        expect(backupCalls, 0);
-        expect(result.backedUpUnsyncedRows, 3);
+        expect(backupCalls, 1);
+        expect(result.backupFileCount, 2);
+        expect(result.backedUpUnsyncedRows, 4);
         expect(await database.operationalDirectives.count(), 0);
         expect(await database.syncRejections.count(), 0);
+      });
+    },
+  );
+
+  test(
+    'resumed recovery preserves local work written after its original snapshot',
+    () async {
+      await _withDatabase((database) async {
+        final originalDirectory = await Directory.systemTemp.createTemp(
+          'device_recovery_original_snapshot_',
+        );
+        final resumedDirectory = await Directory.systemTemp.createTemp(
+          'device_recovery_resumed_snapshot_',
+        );
+        try {
+          final originalPath = '${originalDirectory.path}/original.isar';
+          await database.copyToFile(originalPath);
+          final journal =
+              jsonDecode(_journal(unsyncedRows: 1)) as Map<String, dynamic>;
+          journal['backupDirectory'] = originalDirectory.path;
+          journal['backupPrimaryPath'] = originalPath;
+          final preferences = await SharedPreferences.getInstance();
+          await preferences.setString(
+            '$deviceRecoveryJournalPrefix$_requestId',
+            jsonEncode(journal),
+          );
+          await database.writeTxn(() async {
+            await database.operationalDirectives.put(
+              _directive()..firestoreId = 'directive-created-after-crash',
+            );
+          });
+
+          var supplementarySnapshots = 0;
+          final result = await _service(
+            database,
+            backupCreator: ({
+              required database,
+              required diagnosticsText,
+              required reason,
+              manifestJsonText,
+            }) async {
+              supplementarySnapshots++;
+              final path = '${resumedDirectory.path}/resumed.isar';
+              await database.copyToFile(path);
+              return IsarRecoveryPackageResult(
+                directoryPath: resumedDirectory.path,
+                reportPath: '${resumedDirectory.path}/report.txt',
+                copiedFileCount: 1,
+                warnings: const [],
+                files: [
+                  IsarRecoveryFileEntry(
+                    sourcePath: database.path!,
+                    targetPath: path,
+                    status: 'copied',
+                  ),
+                ],
+              );
+            },
+            backupVerifier: (path) async => File(path).exists(),
+          ).reset(actor: _operator(), request: _request);
+
+          expect(supplementarySnapshots, 1);
+          expect(result.backupFileCount, 2);
+          final retained = await Isar.open(
+            [OperationalDirectiveSchema, SyncRejectionSchema],
+            directory: resumedDirectory.path,
+            name: 'resumed',
+          );
+          try {
+            final directives =
+                await retained.operationalDirectives.where().findAll();
+            expect(
+              directives.map((directive) => directive.firestoreId),
+              contains('directive-created-after-crash'),
+            );
+          } finally {
+            await retained.close(deleteFromDisk: true);
+          }
+        } finally {
+          if (await originalDirectory.exists()) {
+            await originalDirectory.delete(recursive: true);
+          }
+          if (await resumedDirectory.exists()) {
+            await resumedDirectory.delete(recursive: true);
+          }
+        }
       });
     },
   );
@@ -796,6 +1031,7 @@ DeviceLocalRecoveryResetService _service(
   IsarRecoveryPackageResult? backup,
   DeviceRecoveryBackupCreator? backupCreator,
   DeviceRecoveryBackupVerifier? backupVerifier,
+  DeviceRecoveryBackupEvidenceReader? backupEvidenceReader,
   DeviceRecoveryPreferenceRemover? preferenceRemover,
   DeviceRecoveryJournalWriter? journalWriter,
   String? Function()? authenticatedUidLookup,
@@ -819,19 +1055,30 @@ DeviceLocalRecoveryResetService _service(
         manifestJsonText,
       }) async => backup ?? _backup(),
   backupVerifier: backupVerifier ?? (_) async => true,
+  backupEvidenceReader:
+      backupEvidenceReader ??
+      (_) async => const IsarRecoveryBackupEvidence(
+        byteCount: 4096,
+        sha256:
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      ),
   preferenceRemover: preferenceRemover,
   journalWriter: journalWriter,
 );
 
 String _journal({required int unsyncedRows}) => jsonEncode(<String, Object?>{
-  'schemaVersion': 1,
+  'schemaVersion': 2,
   'requestId': _requestId,
   'targetUid': 'operator-1',
   'installationId': _installation,
   'backupDirectory': '/protected-backup',
   'backupPrimaryPath': '/protected-backup/default.isar',
+  'backupByteCount': 4096,
+  'backupSha256':
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   'backupFileCount': 1,
   'backedUpUnsyncedRows': unsyncedRows,
+  'supplementalBackups': <Object?>[],
   'cursorKeys': <String>[
     'last_global_pull',
     _globalCursor,
@@ -840,24 +1087,23 @@ String _journal({required int unsyncedRows}) => jsonEncode(<String, Object?>{
   ],
 });
 
-IsarRecoveryPackageResult _backup({bool primary = true}) =>
-    IsarRecoveryPackageResult(
-      directoryPath: '/protected-backup',
-      reportPath: '/protected-backup/report.txt',
-      copiedFileCount: 1,
-      warnings: const [],
-      files: [
-        IsarRecoveryFileEntry(
-          sourcePath:
-              primary ? '/data/default.isar' : '/data/default.isar.lock',
-          targetPath:
-              primary
-                  ? '/protected-backup/default.isar'
-                  : '/protected-backup/default.isar.lock',
-          status: 'copied',
-        ),
-      ],
-    );
+IsarRecoveryPackageResult _backup({
+  bool primary = true,
+  String directory = '/protected-backup',
+}) => IsarRecoveryPackageResult(
+  directoryPath: directory,
+  reportPath: '$directory/report.txt',
+  copiedFileCount: 1,
+  warnings: const [],
+  files: [
+    IsarRecoveryFileEntry(
+      sourcePath: primary ? '/data/default.isar' : '/data/default.isar.lock',
+      targetPath:
+          primary ? '$directory/default.isar' : '$directory/default.isar.lock',
+      status: 'copied',
+    ),
+  ],
+);
 
 const _request = DeviceRecoveryRequest(
   requestId: _requestId,

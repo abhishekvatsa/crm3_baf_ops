@@ -36,6 +36,16 @@ class IsarRecoveryPackageResult {
   });
 }
 
+class IsarRecoveryBackupEvidence {
+  final int byteCount;
+  final String sha256;
+
+  const IsarRecoveryBackupEvidence({
+    required this.byteCount,
+    required this.sha256,
+  });
+}
+
 class IsarStartupDiagnosticsResult {
   final String filePath;
   final String directoryPath;
@@ -100,6 +110,10 @@ Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
 }
 
 Future<bool> isRetainedIsarRecoveryBackup(String path) async => false;
+
+Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(
+  String path,
+) async => null;
 
 Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
   required String reason,

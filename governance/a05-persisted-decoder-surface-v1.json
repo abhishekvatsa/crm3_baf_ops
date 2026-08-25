@@ -1137,7 +1137,7 @@
       "compatibility": "absent journal only before the first protected backup; no partial or cross-request journal compatibility",
       "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "journal identity or evidence is defaulted, a malformed journal authorizes deletion, or an interrupted reset replaces its original backup",
-      "riskFingerprint": "6fc303a7191d27507f4c160d0b8a4bc7adf81a474fe278b217e62116f745d2e2"
+      "riskFingerprint": "453b03faab27fc2da532e5678a0044d7cf9c7f8c56c65bfee17f20d8717b9177"
     }
   ],
   "catchSites": [
@@ -1755,15 +1755,15 @@
     {
       "id": "device-recovery-journal-decode-hold",
       "file": "lib/features/admin/services/device_local_recovery_reset_service.dart",
-      "siteFingerprint": "21d04ab37b2cf14f51bf3bbc6663dc285208ee52c801dfe5fdcbb6cf257705dc",
+      "siteFingerprint": "a81c9dcc90cf9cbabc5e84ccc1a2a406ff944da4e4ad85e6162678492b173400",
       "classification": "DURABLE_REPAIR_STATE",
       "purpose": "validate the exact pre-clear recovery journal before resuming an interrupted device-local reset",
       "authorityBoundary": "administrator-authorized exact-device recovery resumption",
       "mutability": "no cursor or local-database mutation when journal decoding or identity validation fails",
-      "dataScope": "one request-bound local backup path, unsynced inventory, and synchronization-cursor set",
+      "dataScope": "request-bound original and supplemental local backup paths, exact SHA-256 and byte-count evidence, unsynced inventory, and synchronization-cursor set",
       "malformedDisposition": "throw device-recovery-journal-invalid, preserve retained evidence, and withhold server failure acknowledgement because data may already have been cleared",
       "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "malformed, cross-user, cross-device, or cross-request journal data resumes deletion"
+      "reArmCondition": "malformed, cross-user, cross-device, cross-request, corrupted-backup, or incomplete supplemental-backup journal data resumes deletion"
     }
   ]
 }

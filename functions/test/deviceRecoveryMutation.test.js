@@ -284,6 +284,32 @@ describe('governed remote device recovery', () => {
     });
   });
 
+  test('approved administrator-owned phones remain valid recovery targets', async () => {
+    const fixture = fakeDb({
+      ...seed(),
+      [`users/${ADMIN}/notification_installations/${INSTALLATION}`]:
+        installation(),
+    });
+
+    const inventory = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      {operation: 'DEVICE_RECOVERY_LIST', targetUid: ADMIN},
+    ));
+    expect(inventory.installations).toHaveLength(1);
+
+    const result = await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      ADMIN,
+      requestData({targetUid: ADMIN}),
+    ));
+    expect(result).toMatchObject({
+      status: 'pending',
+      targetUid: ADMIN,
+      installationId: INSTALLATION,
+    });
+  });
+
   test('exact request replay is idempotent and conflicts fail closed', async () => {
     const fixture = fakeDb(seed());
     await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
@@ -558,6 +584,44 @@ describe('governed remote device recovery', () => {
       code: 'permission-denied',
       details: {reasonCode: 'device-recovery-issuer-authority-denied'},
     });
+  });
+
+  test('issuer revocation blocks pending polling but cannot strand a claimed reset', async () => {
+    const pending = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(pending.db, ADMIN, requestData()));
+    pending.store.set(`users/${ADMIN}`, user('Admin One', ['operations']));
+    const withheld = await mutateDeviceRecoveryWithDb(args(
+      pending.db,
+      TARGET,
+      {operation: 'DEVICE_RECOVERY_POLL', installationId: INSTALLATION},
+    ));
+    expect(withheld.request).toBeNull();
+
+    const claimed = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(claimed.db, ADMIN, requestData()));
+    await mutateDeviceRecoveryWithDb(args(claimed.db, TARGET, claimData()));
+    claimed.store.delete(`users/${ADMIN}`);
+
+    const resumed = await mutateDeviceRecoveryWithDb(args(
+      claimed.db,
+      TARGET,
+      {operation: 'DEVICE_RECOVERY_POLL', installationId: INSTALLATION},
+    ));
+    expect(resumed.request).toMatchObject({
+      requestId: REQUEST,
+      status: 'in_progress',
+    });
+    expect(await mutateDeviceRecoveryWithDb(
+      args(claimed.db, TARGET, claimData()),
+    )).toMatchObject({status: 'in_progress', idempotentReplay: true});
+    expect(await mutateDeviceRecoveryWithDb(args(claimed.db, TARGET, {
+      operation: 'DEVICE_RECOVERY_COMPLETE',
+      requestId: REQUEST,
+      installationId: INSTALLATION,
+      backupFileCount: 1,
+      clearedCursorCount: 3,
+      backedUpUnsyncedRows: 2,
+    }))).toMatchObject({status: 'completed'});
   });
 
   test('missing selected installation fails without writing', async () => {

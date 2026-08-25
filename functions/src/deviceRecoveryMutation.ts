@@ -531,13 +531,15 @@ async function pollReset(
             now.getTime())) {
       return null;
     }
-    const issuer = await transaction.get(
-      args.db.collection("users")
-        .doc(state.requestedByUid as string),
-    );
-    const issuerAuthority = canonicalApprovedUserAuthority(issuer.data());
-    if (issuerAuthority == null || !issuerAuthority.roles.has("admin")) {
-      return null;
+    if (state.status === "pending") {
+      const issuer = await transaction.get(
+        args.db.collection("users")
+          .doc(state.requestedByUid as string),
+      );
+      const issuerAuthority = canonicalApprovedUserAuthority(issuer.data());
+      if (issuerAuthority == null || !issuerAuthority.roles.has("admin")) {
+        return null;
+      }
     }
     const receipt = await transaction.get(
       args.db.collection(DEVICE_RECEIPTS)
@@ -619,17 +621,6 @@ async function claimReset(
       installationId,
       requestId,
     );
-    const issuer = await transaction.get(
-      args.db.collection("users").doc(state.requestedByUid as string),
-    );
-    const issuerAuthority = canonicalApprovedUserAuthority(issuer.data());
-    if (issuerAuthority == null || !issuerAuthority.roles.has("admin")) {
-      throw new DeviceRecoveryMutationError(
-        "permission-denied",
-        "The issuing administrator no longer authorizes this reset.",
-        {reasonCode: "device-recovery-issuer-authority-denied"},
-      );
-    }
     const evidence = receipt.data() as JsonMap | undefined;
     if (!receipt.exists || evidence == null ||
         evidence.requestId !== requestId ||
@@ -658,6 +649,17 @@ async function claimReset(
         "failed-precondition",
         "Only a pending device-recovery request can be claimed.",
         {reasonCode: "device-recovery-state-not-pending"},
+      );
+    }
+    const issuer = await transaction.get(
+      args.db.collection("users").doc(state.requestedByUid as string),
+    );
+    const issuerAuthority = canonicalApprovedUserAuthority(issuer.data());
+    if (issuerAuthority == null || !issuerAuthority.roles.has("admin")) {
+      throw new DeviceRecoveryMutationError(
+        "permission-denied",
+        "The issuing administrator no longer authorizes this reset.",
+        {reasonCode: "device-recovery-issuer-authority-denied"},
       );
     }
     if (new Date(toIso(state.expiresAt, "expiresAt")).getTime() <=

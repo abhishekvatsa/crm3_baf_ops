@@ -23,11 +23,12 @@ business-function tranche added on 21 August 2026 and the strict issue-lane
 topology plus strict asset-hierarchy and workflow command receipts added on
 23 August 2026, and the administrative issue-closure envelope added on 24
 August 2026. The strict remote business mirror and account-owned local
-recovery catches and the exact-device reset journal are separately classified
-without adding a persisted dynamic field. Text-file authority is
+recovery catches and the exact-device reset journal, including its SHA-256-bound
+original and supplemental backup evidence, are separately classified without
+adding a persisted dynamic field. Text-file authority is
 canonicalized to LF before hashing so the same tracked content has one digest
 on Windows and Linux. Its current stable digest is
-`9FED3A11767FA1397D910330B5E54296B7E6D9F5D3D7D8BC95ED49AA37B923F1`.
+`B859104559C13BF93F101C20B3BA1F1BA2B38FDCB049C5E46DEBCD9D94305DBC`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing

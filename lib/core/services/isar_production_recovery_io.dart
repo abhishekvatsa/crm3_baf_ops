@@ -2,6 +2,7 @@
 
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -41,6 +42,16 @@ class IsarRecoveryPackageResult {
     required this.copiedFileCount,
     required this.warnings,
     required this.files,
+  });
+}
+
+class IsarRecoveryBackupEvidence {
+  final int byteCount;
+  final String sha256;
+
+  const IsarRecoveryBackupEvidence({
+    required this.byteCount,
+    required this.sha256,
   });
 }
 
@@ -231,9 +242,25 @@ Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
   );
 }
 
-Future<bool> isRetainedIsarRecoveryBackup(String path) async {
+Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(
+  String path,
+) async {
   final file = File(path);
-  return await file.exists() && await file.length() > 0;
+  final before = await file.stat();
+  if (before.type != FileSystemEntityType.file || before.size <= 0) return null;
+  final digest = await sha256.bind(file.openRead()).first;
+  final after = await file.stat();
+  if (after.type != FileSystemEntityType.file || after.size != before.size) {
+    return null;
+  }
+  return IsarRecoveryBackupEvidence(
+    byteCount: after.size,
+    sha256: digest.toString(),
+  );
+}
+
+Future<bool> isRetainedIsarRecoveryBackup(String path) async {
+  return await readIsarRecoveryBackupEvidence(path) != null;
 }
 
 Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
