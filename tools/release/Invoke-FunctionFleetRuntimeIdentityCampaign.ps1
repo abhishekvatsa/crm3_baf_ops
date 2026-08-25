@@ -32,7 +32,9 @@ param(
   [long]$PostMergeRunId,
 
   [Parameter(Mandatory = $true)]
-  [string]$EvidenceDirectory
+  [string]$EvidenceDirectory,
+
+  [switch]$PreserveExistingIam
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +106,25 @@ function Test-RequiresCloudRunServiceRole {
   )
 }
 
+function Test-PreflightScopedRunInvoker {
+  param(
+    [AllowEmptyCollection()][object[]]$Bindings,
+    [Parameter(Mandatory = $true)][string]$FunctionName,
+    [Parameter(Mandatory = $true)][string]$Email
+  )
+  $matches = @($Bindings | Where-Object {
+    $_.functionName -ceq $FunctionName
+  })
+  if ($matches.Count -ne 1) {
+    return $false
+  }
+  return (
+    $matches[0].expectedServiceAccountEmail -ceq $Email -and
+    @($matches[0].roles).Count -eq 1 -and
+    @($matches[0].roles) -contains 'roles/run.invoker'
+  )
+}
+
 function Get-ProjectRoles {
   param([Parameter(Mandatory = $true)][string]$Email)
   $policy = Get-GcloudJson -Arguments @(
@@ -124,6 +145,9 @@ function Ensure-ProjectRole {
     Write-Host "Role already present: $Role -> $Email"
     return
   }
+  if ($PreserveExistingIam) {
+    throw "IAM-preserving deployment cannot add project role: $Role -> $Email"
+  }
   Invoke-ExternalText -FilePath $script:gcloud -WorkingDirectory $root `
     -Arguments @(
       'projects', 'add-iam-policy-binding', $ProjectId,
@@ -142,6 +166,9 @@ function Remove-ProjectRole {
   if ((Get-ProjectRoles -Email $Email) -notcontains $Role) {
     Write-Host "Role already absent: $Role -> $Email"
     return
+  }
+  if ($PreserveExistingIam) {
+    throw "IAM-preserving deployment cannot remove project role: $Role -> $Email"
   }
   Invoke-ExternalText -FilePath $script:gcloud -WorkingDirectory $root `
     -Arguments @(
@@ -280,6 +307,9 @@ function Ensure-ServiceInvoker {
     @($_.members) -contains "serviceAccount:$Email"
   }).Count -gt 0
   if (-not $hasBinding) {
+    if ($PreserveExistingIam) {
+      throw "IAM-preserving deployment cannot add a Cloud Run binding: $FunctionName -> $Email"
+    }
     Invoke-ExternalText -FilePath $script:gcloud -WorkingDirectory $root `
       -Arguments @(
         'run', 'services', 'add-iam-policy-binding', $service,
@@ -390,8 +420,8 @@ switch ($Phase) {
   }
 
   'Provision' {
-    Assert-Receipt -Path $preflightPath `
-      -Decision 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PREFLIGHT' | Out-Null
+    $preflight = Assert-Receipt -Path $preflightPath `
+      -Decision 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PREFLIGHT'
     $defaultComputeRoles = @(Get-ProjectRoles -Email $defaultCompute)
     $defaultComputeAlreadyHardened = (
       $defaultComputeRoles.Count -eq 1 -and
@@ -410,6 +440,9 @@ switch ($Phase) {
     $customRoleName = "projects/$ProjectId/roles/$($policy.customRoles.notificationSender.roleId)"
     $customRole = $roles | Where-Object { $_.name -eq $customRoleName }
     if ($null -eq $customRole) {
+      if ($PreserveExistingIam) {
+        throw 'IAM-preserving deployment requires the existing notification sender role.'
+      }
       Invoke-ExternalText -FilePath $script:gcloud -WorkingDirectory $root `
         -Arguments @(
           'iam', 'roles', 'create', $policy.customRoles.notificationSender.roleId,
@@ -445,6 +478,9 @@ switch ($Phase) {
       $accountId = [string]$property.Value.runtimeServiceAccountId
       $email = "$accountId@$ProjectId.iam.gserviceaccount.com"
       if (@($accounts | Where-Object { $_.email -eq $email }).Count -eq 0) {
+        if ($PreserveExistingIam) {
+          throw "IAM-preserving deployment requires the existing runtime identity: $email"
+        }
         Invoke-ExternalText -FilePath $script:gcloud -WorkingDirectory $root `
           -Arguments @(
             'iam', 'service-accounts', 'create', $accountId,
@@ -458,7 +494,13 @@ switch ($Phase) {
         Ensure-ProjectRole -Email $email -Role $role
       }
       if (Test-RequiresCloudRunServiceRole -Binding $property.Value) {
-        Ensure-ProjectRole -Email $email -Role 'roles/run.invoker'
+        $serviceInvokerReady = Test-PreflightScopedRunInvoker `
+          -Bindings @($preflight.outputs.cloudRunBindings) `
+          -FunctionName ([string]$property.Name) `
+          -Email $email
+        if (-not $serviceInvokerReady) {
+          Ensure-ProjectRole -Email $email -Role 'roles/run.invoker'
+        }
       }
     }
     Ensure-ProjectRole -Email $defaultCompute `

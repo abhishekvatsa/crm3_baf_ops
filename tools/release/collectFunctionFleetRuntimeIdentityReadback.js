@@ -520,8 +520,6 @@ function adjudicateReadback({
   ));
   const triggerNames = roleNames.filter((name) =>
     policy.functionBindings[name].requiredCloudRunServiceRoles != null);
-  const temporaryRunInvokerPresent = triggerNames.every((name) =>
-    (live.projectRoles[live.emailMap[name]] ?? []).includes("roles/run.invoker"));
   const forbiddenRoles = new Set(policy.forbiddenProjectRolesForRuntimeIdentities);
   const broadRuntimeGrants = roleNames.flatMap((name) =>
     (live.projectRoles[live.emailMap[name]] ?? [])
@@ -536,6 +534,15 @@ function adjudicateReadback({
     const observed = cloudRunByFunction.get(name)?.roles ?? [];
     return sameValues(
       observed,
+      policy.functionBindings[name].requiredCloudRunServiceRoles,
+    );
+  });
+  const triggerDeploymentInvokerReady = triggerNames.every((name) => {
+    const projectInvokerPresent =
+      (live.projectRoles[live.emailMap[name]] ?? []).includes("roles/run.invoker");
+    const serviceRoles = cloudRunByFunction.get(name)?.roles ?? [];
+    return projectInvokerPresent || sameValues(
+      serviceRoles,
       policy.functionBindings[name].requiredCloudRunServiceRoles,
     );
   });
@@ -611,7 +618,7 @@ function adjudicateReadback({
     });
   }
   if (phase === "provisioned") {
-    checks.temporaryTriggerRunInvokerReady = temporaryRunInvokerPresent;
+    checks.triggerDeploymentInvokerReady = triggerDeploymentInvokerReady;
   }
   if (["callables", "events", "fleet", "final"].includes(phase)) {
     Object.assign(checks, {
