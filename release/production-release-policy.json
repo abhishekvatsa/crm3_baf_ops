@@ -69,7 +69,7 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
+    "status": "completed-non-distributable",
     "priorCompletedBuild": {
       "buildNumber": 15,
       "status": "completed-non-distributable",
@@ -103,7 +103,22 @@
         "distributionPerformed": false
       }
     ],
-    "dualCustodyCompleted": false,
+    "completionReceiptFile": "release/evidence/build-16-finalization-closure.json",
+    "completionReceiptSha256": "86750F0BFB7E2C880ADC62880B82AA53AD3A2CB8BE00B6B6651D5F6B504D7E6F",
+    "sourceCommit": "9c77309787ab401b99ea9736b685f6f601d8087e",
+    "githubRunId": 32855930817,
+    "remoteBuiltTag": "crm3-build-built/16",
+    "remoteReservationTagObject": "2dd75241b02ed04c9ead3a68a6c4d45f3fe732b6",
+    "remoteBuiltTagObject": "d47a75298fcf4becd289e08b85e16dd2e7b2438c",
+    "governedPackageSha256": "8C0B71CF37347B540CB26FAE19567D329D22B2C9562E7A84E2A70E937FDFA76E",
+    "closurePackageSha256": "EB049BBFE9BA0AB81F8E7B9C8D49443781311B55AC65D2DE13EF99C1470F8844",
+    "custodyRecordSha256": "45F2BFFCA300CE6D170813193C8160E5C4452EE42BAD7EB38E95A6D08445F533",
+    "dualCustodyCompleted": true,
+    "runtimeValidationPassed": false,
+    "runtimeDisposition": "not-adjudicated-by-build-finalization",
+    "fullBusinessFlowValidationCompleted": false,
+    "installationSmokeReceiptFile": "release/evidence/build-16-device-installation-smoke.json",
+    "installationSmokeReceiptSha256": "FBAAFB5EBFC68F630C5576D41362EC50F4A502FADE65511A98A7F279BCD63BB0",
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/pr295-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "AA21D08A4F0CB02334AAE21B76AC3D380B8FB1F448CACA8444066F52839FEF48",
     "exactFirestoreRulesIndexesLiveReadback": {
@@ -242,7 +257,6 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD16_PRODUCTION_SIGNED_FINALIZATION",
     "BUILD16_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
     "BUILD16_EXPLICIT_PILOT_PROMOTION"
   ]

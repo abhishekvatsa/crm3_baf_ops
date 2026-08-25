@@ -2,26 +2,28 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-25",
   "asOfDate": "2026-08-25",
-  "status": "BUILD16_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+  "status": "BUILD16_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.6+16",
-      "relationshipToLatestFinalizedArtifact": "BUILD16_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD15",
+      "relationshipToLatestFinalizedArtifact": "BUILD16_SOURCE_CONTAINS_FINALIZED_BUILD16",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": true,
+      "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true
     },
     "latestFinalizedArtifact": {
-      "buildNumber": 15,
-      "version": "1.0.0-rc.5+15",
-      "sourceCommit": "9fcf65883265947cfd3def7de7bdc13bda7eff16",
+      "buildNumber": 16,
+      "version": "1.0.0-rc.6+16",
+      "sourceCommit": "9c77309787ab401b99ea9736b685f6f601d8087e",
       "status": "COMPLETED_NON_DISTRIBUTABLE",
-      "completionReceiptFile": "release/evidence/build-15-finalization-closure.json",
-      "completionReceiptSha256": "EEE3017F554A5A326FBD7B2C20EF6100C8CFECCAD56D28C3EAFB0CB0ACAE33DD",
-      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD15",
+      "completionReceiptFile": "release/evidence/build-16-finalization-closure.json",
+      "completionReceiptSha256": "86750F0BFB7E2C880ADC62880B82AA53AD3A2CB8BE00B6B6651D5F6B504D7E6F",
+      "runtimeValidation": "INSTALLATION_SMOKE_PASSED_AUTHENTICATED_BUSINESS_FLOW_NOT_ADJUDICATED",
+      "installationSmokeReceiptFile": "release/evidence/build-16-device-installation-smoke.json",
+      "installationSmokeReceiptSha256": "FBAAFB5EBFC68F630C5576D41362EC50F4A502FADE65511A98A7F279BCD63BB0",
       "pilotPromotion": "NOT_AUTHORIZED",
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
@@ -44,10 +46,8 @@
       "appliesToBuild16": false
     },
     "nextCandidate": {
-      "minimumBuildNumber": 16,
-      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD16_CONSTRUCTION",
-      "sourceApprovalFile": "release/approvals/build-number-16-successor-approval.json",
-      "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-16.json",
+      "minimumBuildNumber": 17,
+      "status": "AWAITING_FRESH_GOVERNED_BUILD17_APPROVAL",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
@@ -65,7 +65,8 @@
   "authoritativeSources": [
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
-    "release/evidence/build-15-finalization-closure.json",
+    "release/evidence/build-16-finalization-closure.json",
+    "release/evidence/build-16-device-installation-smoke.json",
     "release/evidence/pr295-backend-deployment-closure.json",
     "release/evidence/build16-firestore-rules-indexes-live-readback.json",
     "release/approvals/build-number-16-successor-approval.json",
