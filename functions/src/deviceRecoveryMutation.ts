@@ -16,9 +16,7 @@ const DEVICE_RECEIPTS = "device_recovery_receipts";
 const INSTALLATIONS = "notification_installations";
 const MAX_INSTALLATIONS = 8;
 const REQUEST_LIFETIME_MS = 24 * 60 * 60 * 1000;
-const SUPPORTED_INSTALLATION_PLATFORMS: readonly string[] = [
-  "android", "ios", "macos", "windows", "linux", "fuchsia",
-];
+const SUPPORTED_INSTALLATION_PLATFORMS: readonly string[] = ["android"];
 
 const OPERATIONS = new Set([
   "DEVICE_RECOVERY_LIST",

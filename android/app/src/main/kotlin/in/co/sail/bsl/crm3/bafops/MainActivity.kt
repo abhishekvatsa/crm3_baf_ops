@@ -14,38 +14,58 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             RECOVERY_STORAGE_CHANNEL,
         ).setMethodCallHandler { call, result ->
-            if (call.method != "syncDirectory") {
-                result.notImplemented()
-                return@setMethodCallHandler
+            val pathArgument: String
+            val expectedDirectory: Boolean
+            when (call.method) {
+                "syncDirectory" -> {
+                    pathArgument = "directoryPath"
+                    expectedDirectory = true
+                }
+                "syncFile" -> {
+                    pathArgument = "filePath"
+                    expectedDirectory = false
+                }
+                else -> {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
             }
 
-            val rawPath = call.argument<String>("directoryPath")
+            val rawPath = call.argument<String>(pathArgument)
             if (rawPath.isNullOrBlank()) {
                 result.error(
-                    "directory-path-invalid",
-                    "A recovery-journal directory path is required.",
+                    "storage-path-invalid",
+                    "An application-private recovery storage path is required.",
                     null,
                 )
                 return@setMethodCallHandler
             }
 
             try {
-                val directory = File(rawPath).canonicalFile
+                val entity = File(rawPath).canonicalFile
                 val appDataDirectory = File(applicationInfo.dataDir).canonicalFile
-                val insideAppData = directory.path == appDataDirectory.path ||
-                    directory.path.startsWith(appDataDirectory.path + File.separator)
-                if (!insideAppData || !directory.isDirectory) {
+                val insideAppData = entity.path == appDataDirectory.path ||
+                    entity.path.startsWith(appDataDirectory.path + File.separator)
+                val expectedEntityType =
+                    (expectedDirectory && entity.isDirectory) ||
+                        (!expectedDirectory && entity.isFile)
+                if (!insideAppData || !expectedEntityType) {
                     result.error(
-                        "directory-path-rejected",
-                        "Only an existing application-private directory can be synchronized.",
+                        "storage-path-rejected",
+                        "Only an existing application-private recovery storage entity can be synchronized.",
                         null,
                     )
                     return@setMethodCallHandler
                 }
 
+                val openFlags = if (expectedDirectory) {
+                    OsConstants.O_RDONLY
+                } else {
+                    OsConstants.O_RDWR
+                }
                 val descriptor = Os.open(
-                    directory.path,
-                    OsConstants.O_RDONLY,
+                    entity.path,
+                    openFlags,
                     0,
                 )
                 try {
@@ -56,8 +76,8 @@ class MainActivity : FlutterActivity() {
                 result.success(true)
             } catch (error: Exception) {
                 result.error(
-                    "directory-sync-failed",
-                    error.message ?: "The recovery-journal directory could not be synchronized.",
+                    "storage-sync-failed",
+                    error.message ?: "The recovery storage entity could not be synchronized.",
                     null,
                 )
             }

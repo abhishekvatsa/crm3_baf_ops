@@ -174,9 +174,9 @@
     {
       "path": "android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt",
       "canonicalSha256": "13EF2CB6369D96B29194023BAF145167337A107D5044A6635FF3799A61D9377A",
-      "candidateSha256": "61856788A09EB76B796E5BBBD489ECAC4D97498406DBFCA0801FDAA625486802",
+      "candidateSha256": "81AFACF9A0E8E5BE2CC1EA2168471BB8F5A3204FFB2E22088DCA2826929D0CB0",
       "canonicalBytes": 130,
-      "candidateBytes": 2570,
+      "candidateBytes": 3313,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -918,9 +918,9 @@
     {
       "path": "lib/core/services/isar_production_recovery_io.dart",
       "canonicalSha256": "62CE96285C80B629A52D404BCC4903466E2A597DA91DBF602262A8AEA1F5CA3C",
-      "candidateSha256": "33838664AEE897A8B2EC26E94B8367D4139CE1A3EE0F9B41A462E42C216C4A2B",
+      "candidateSha256": "7A7535A0B552ABC7EE3231156D23223068EBAFB00FFEFC62F4A2E5DAA0964FDA",
       "canonicalBytes": 10402,
-      "candidateBytes": 17035,
+      "candidateBytes": 17823,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

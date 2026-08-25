@@ -231,6 +231,13 @@ Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
     copied,
     title: 'Transactionally consistent Isar database backup',
   );
+  // The snapshot bytes and every new parent entry must survive before return.
+  await _syncRecoveryFile(snapshot);
+  await _syncRecoveryDirectory(backupDir);
+  await _syncRecoveryDirectory(recoveryDir);
+  final diagnosticsRoot = recoveryDir.parent;
+  await _syncRecoveryDirectory(diagnosticsRoot);
+  await _syncRecoveryDirectory(diagnosticsRoot.parent);
 
   return IsarRecoveryPackageResult(
     directoryPath: recoveryDir.path,
@@ -291,23 +298,43 @@ String _deviceRecoveryJournalFileName(String requestId) {
   return '$requestId.json';
 }
 
-Future<void> _syncRecoveryJournalDirectory(Directory directory) async {
+Future<void> _syncRecoveryStorageEntity({
+  required String method,
+  required String argumentName,
+  required String path,
+  required String entityLabel,
+}) async {
   if (!Platform.isAndroid) {
     throw const FileSystemException(
       'Crash-durable device recovery is currently supported only on Android.',
     );
   }
   final synchronized = await _deviceRecoveryStorageChannel.invokeMethod<bool>(
-    'syncDirectory',
-    <String, Object?>{'directoryPath': directory.path},
+    method,
+    <String, Object?>{argumentName: path},
   );
   if (synchronized != true) {
     throw FileSystemException(
-      'Recovery-journal directory synchronization was not confirmed.',
-      directory.path,
+      'Recovery $entityLabel synchronization was not confirmed.',
+      path,
     );
   }
 }
+
+Future<void> _syncRecoveryFile(File file) => _syncRecoveryStorageEntity(
+  method: 'syncFile',
+  argumentName: 'filePath',
+  path: file.path,
+  entityLabel: 'file',
+);
+
+Future<void> _syncRecoveryDirectory(Directory directory) =>
+    _syncRecoveryStorageEntity(
+      method: 'syncDirectory',
+      argumentName: 'directoryPath',
+      path: directory.path,
+      entityLabel: 'directory',
+    );
 
 Future<_DeviceRecoveryJournalPaths> _deviceRecoveryJournalPaths(
   String requestId, {
@@ -319,7 +346,7 @@ Future<_DeviceRecoveryJournalPaths> _deviceRecoveryJournalPaths(
   );
   if (createDirectory && !await directory.exists()) {
     await directory.create(recursive: true);
-    await _syncRecoveryJournalDirectory(documents);
+    await _syncRecoveryDirectory(documents);
   }
   final target = File(
     '${directory.path}/${_deviceRecoveryJournalFileName(requestId)}',
@@ -346,7 +373,7 @@ Future<String?> readCrashDurableIsarRecoveryJournal(String requestId) async {
     );
   }
   await paths.pending.rename(paths.target.path);
-  await _syncRecoveryJournalDirectory(paths.journalDirectory);
+  await _syncRecoveryDirectory(paths.journalDirectory);
   if (await paths.target.readAsString() != serialized) {
     throw const FileSystemException(
       'Recovered device-recovery journal readback failed.',
@@ -377,7 +404,7 @@ Future<void> writeCrashDurableIsarRecoveryJournal(
       );
     }
     await pending.rename(target.path);
-    await _syncRecoveryJournalDirectory(paths.journalDirectory);
+    await _syncRecoveryDirectory(paths.journalDirectory);
     if (await target.readAsString() != serialized) {
       throw const FileSystemException(
         'Device-recovery journal replacement verification failed.',

@@ -250,31 +250,35 @@ describe('governed remote device recovery', () => {
     expect(JSON.stringify(result)).not.toContain('private-android-token');
   });
 
-  test('web installations cannot be selected for local database recovery', async () => {
-    const fixture = fakeDb({
-      ...seed(),
-      [`users/${TARGET}/notification_installations/${OTHER_INSTALLATION}`]:
-        installation('web'),
-    });
+  test.each(['ios', 'web'])(
+    '%s installations cannot be selected for Android local database recovery',
+    async (platform) => {
+      const fixture = fakeDb({
+        ...seed(),
+        [`users/${TARGET}/notification_installations/${OTHER_INSTALLATION}`]:
+          installation(platform),
+      });
 
-    expect(canonicalDeviceInstallationForTest(installation('web'))).toBe(false);
-    const inventory = await mutateDeviceRecoveryWithDb(args(
-      fixture.db,
-      ADMIN,
-      {operation: 'DEVICE_RECOVERY_LIST', targetUid: TARGET},
-    ));
-    expect(inventory.installations).toHaveLength(1);
-    expect(inventory.installations[0].installationId).toBe(INSTALLATION);
+      expect(canonicalDeviceInstallationForTest(installation(platform)))
+        .toBe(false);
+      const inventory = await mutateDeviceRecoveryWithDb(args(
+        fixture.db,
+        ADMIN,
+        {operation: 'DEVICE_RECOVERY_LIST', targetUid: TARGET},
+      ));
+      expect(inventory.installations).toHaveLength(1);
+      expect(inventory.installations[0].installationId).toBe(INSTALLATION);
 
-    await expect(mutateDeviceRecoveryWithDb(args(
-      fixture.db,
-      ADMIN,
-      requestData({installationId: OTHER_INSTALLATION}),
-    ))).rejects.toMatchObject({
-      code: 'not-found',
-      details: {reasonCode: 'device-recovery-installation-not-found'},
-    });
-  });
+      await expect(mutateDeviceRecoveryWithDb(args(
+        fixture.db,
+        ADMIN,
+        requestData({installationId: OTHER_INSTALLATION}),
+      ))).rejects.toMatchObject({
+        code: 'not-found',
+        details: {reasonCode: 'device-recovery-installation-not-found'},
+      });
+    },
+  );
 
   test('web registrations cannot occupy the bounded recoverable-phone window',
     async () => {
@@ -314,7 +318,7 @@ describe('governed remote device recovery', () => {
           return [
             `users/${TARGET}/notification_installations/bbbbbbbb-bbbb-4bbb-8bbb-${suffix}`,
             {
-              ...installation(index % 2 === 0 ? 'android' : 'ios'),
+              ...installation('android'),
               updatedAt: new Date(`2026-08-25T09:0${index}:00.000Z`),
             },
           ];

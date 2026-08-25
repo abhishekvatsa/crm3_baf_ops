@@ -280,6 +280,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     const otherInstallation = '42424242-4242-4242-8242-424242424242';
     const requestId = '43434343-4343-4343-8343-434343434343';
     const webInstallation = '45454545-4545-4545-8545-454545454545';
+    const iosInstallation = '47474747-4747-4747-8747-474747474747';
     const updatedAt = admin.firestore.Timestamp.fromDate(
       new Date('2026-08-13T11:30:00.000Z'),
     );
@@ -309,6 +310,14 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
           platform: 'web',
           updatedAt,
         }),
+      target.collection('notification_installations')
+        .doc(iosInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-ios-token',
+          platform: 'ios',
+          updatedAt,
+        }),
       ...Array.from({length: 9}, (_, index) => {
         const suffix = String(index + 1).padStart(12, '0');
         return target.collection('notification_installations')
@@ -329,7 +338,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
           .set({
             schemaVersion: 1,
             token: `private-older-supported-token-${index}`,
-            platform: index % 2 === 0 ? 'android' : 'ios',
+            platform: 'android',
             updatedAt: admin.firestore.Timestamp.fromDate(
               new Date(`2026-08-13T10:0${index}:00.000Z`),
             ),
@@ -351,6 +360,8 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     expect(JSON.stringify(inventory)).not.toContain('private-selected-token');
     expect(inventory.installations.map(({installationId}) => installationId))
       .not.toContain(webInstallation);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .not.toContain(iosInstallation);
 
     await expect(invokeDeviceRecovery({
       operation: 'DEVICE_RECOVERY_REQUEST',
@@ -358,6 +369,14 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       targetUid: 'ops-1',
       installationId: webInstallation,
       reason: 'Web clients cannot perform a protected local Isar reset.',
+    }, 'admin-1')).rejects.toMatchObject({code: 'not-found'});
+
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId: '48484848-4848-4848-8848-484848484848',
+      targetUid: 'ops-1',
+      installationId: iosInstallation,
+      reason: 'iOS lacks the governed crash-durable local reset bridge.',
     }, 'admin-1')).rejects.toMatchObject({code: 'not-found'});
 
     await expect(invokeDeviceRecovery({

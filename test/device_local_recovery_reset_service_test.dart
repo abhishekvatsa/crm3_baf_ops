@@ -1139,7 +1139,7 @@ void main() {
   );
 
   test(
-    'Android journal commit syncs directory metadata and recovers rename',
+    'Android recovery syncs retained snapshots and journal directory metadata',
     () {
       final ioSource =
           File(
@@ -1158,15 +1158,39 @@ void main() {
       );
       expect(
         ioSource,
-        contains('await _syncRecoveryJournalDirectory(paths.journalDirectory)'),
+        contains('await _syncRecoveryDirectory(paths.journalDirectory)'),
       );
       expect(
         ioSource,
         contains('if (!await paths.pending.exists()) return null'),
       );
       expect(androidSource, contains('OsConstants.O_RDONLY'));
+      expect(androidSource, contains('OsConstants.O_RDWR'));
       expect(androidSource, contains('Os.fsync(descriptor)'));
       expect(androidSource, contains('applicationInfo.dataDir'));
+      final snapshotCopy = ioSource.indexOf(
+        'await database.copyToFile(snapshot.path)',
+      );
+      final snapshotSync = ioSource.indexOf(
+        'await _syncRecoveryFile(snapshot)',
+      );
+      final backupDirectorySync = ioSource.indexOf(
+        'await _syncRecoveryDirectory(backupDir)',
+      );
+      final recoveryDirectorySync = ioSource.indexOf(
+        'await _syncRecoveryDirectory(recoveryDir)',
+      );
+      expect(snapshotCopy, greaterThanOrEqualTo(0));
+      expect(snapshotSync, greaterThan(snapshotCopy));
+      expect(backupDirectorySync, greaterThan(snapshotSync));
+      expect(recoveryDirectorySync, greaterThan(backupDirectorySync));
+      expect(ioSource, contains('final diagnosticsRoot = recoveryDir.parent'));
+      expect(
+        ioSource,
+        contains('await _syncRecoveryDirectory(diagnosticsRoot.parent)'),
+      );
+      expect(androidSource, contains('"syncFile"'));
+      expect(androidSource, contains('entity.isFile'));
     },
   );
 }
