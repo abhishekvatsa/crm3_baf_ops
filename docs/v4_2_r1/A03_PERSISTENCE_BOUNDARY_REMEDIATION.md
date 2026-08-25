@@ -59,8 +59,8 @@ recovery service also owns exact, Admin-receipted local tombstone removal;
 presentation still owns no persistence. The manifest refresh preserves every
 previously registered feature regression instead of replacing named coverage
 with a generic test. The current manifest therefore covers 532 operations and
-1,852 sites across 52 surfaces with digest
-`901BF237E8CE96768C135D30E9AAC09E21185AF915303AD2A8547D2AD33BA0AF`;
+1,855 sites across 52 surfaces with digest
+`CC5A25125847AB1C6C13A33CB8EF4F52169A5AB0227EEDBE448C41A3ABA82D1C`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

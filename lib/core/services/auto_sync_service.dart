@@ -375,8 +375,8 @@ Duration? automaticSyncFailureRetryDelay(int failureCount) {
     Duration(seconds: 10),
     Duration(seconds: 30),
   ];
-  if (failureCount < 1 || failureCount > delays.length) {
+  if (failureCount < 1) {
     return null;
   }
-  return delays[failureCount - 1];
+  return failureCount > delays.length ? delays.last : delays[failureCount - 1];
 }

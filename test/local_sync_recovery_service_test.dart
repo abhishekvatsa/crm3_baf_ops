@@ -7,6 +7,9 @@ import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 
@@ -394,6 +397,57 @@ void main() {
       expect(await database.operationalDirectives.get(local.id), isNotNull);
     });
   });
+
+  test(
+    'purge preserves a template referenced by an unsynced local diary entry',
+    () async {
+      await _withDatabase((database) async {
+        final created = DateTime.utc(2026, 8, 25, 9);
+        final template =
+            JobTemplate()
+              ..firestoreId = 'template-1'
+              ..jobName = 'Governed maintenance template'
+              ..applicableAssetType = AssetType.furnace
+              ..createdAt = created
+              ..updatedAt = created
+              ..deletedAt = created
+              ..version = 4
+              ..isDeleted = true
+              ..isSynced = true;
+        final diary =
+            JobDiaryEntry()
+              ..firestoreId = 'diary-local-1'
+              ..templateFirestoreId = 'template-1'
+              ..note = 'Pending maintenance evidence must be retained.'
+              ..createdAt = created
+              ..updatedAt = created
+              ..isSynced = false;
+        await database.writeTxn(() async {
+          await database.jobTemplates.put(template);
+          await database.jobDiaryEntrys.put(diary);
+        });
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'admin-1',
+        );
+
+        final removed = await service.removeAuthoritativelyPurgedTombstone(
+          actor: _adminActor(),
+          receipt: _purgeReceipt(
+            version: 4,
+            collectionId: 'job_templates',
+            documentId: 'template-1',
+          ),
+          collectionId: 'job_templates',
+          documentId: 'template-1',
+        );
+
+        expect(removed, isFalse);
+        expect(await database.jobTemplates.get(template.id), isNotNull);
+        expect(await database.jobDiaryEntrys.get(diary.id), isNotNull);
+      });
+    },
+  );
 }
 
 Future<void> _withDatabase(Future<void> Function(Isar) operation) async {
@@ -401,7 +455,14 @@ Future<void> _withDatabase(Future<void> Function(Isar) operation) async {
     'local_sync_recovery_',
   );
   final database = await Isar.open(
-    [OperationalDirectiveSchema, SyncRejectionSchema],
+    [
+      OperationalDirectiveSchema,
+      SyncRejectionSchema,
+      JobTemplateSchema,
+      JobExecutionSchema,
+      JobModuleInstanceSchema,
+      JobDiaryEntrySchema,
+    ],
     directory: directory.path,
     name: 'local_sync_recovery_${DateTime.now().microsecondsSinceEpoch}',
   );
@@ -449,19 +510,22 @@ AppUser _adminActor() => AppUser(
   createdAt: DateTime.utc(2026, 8, 25),
 );
 
-WorkflowCommandReceipt _purgeReceipt({required int version}) =>
-    WorkflowCommandReceipt(
-      commandId: 'purge-command-1',
-      resultKey: 'pilot-record-permanently-removed',
-      aggregateVersion: version,
-      result: <String, Object?>{
-        'collectionId': 'directives',
-        'documentId': 'directive-1',
-        'purgeReceiptId': 'purge_${List.filled(64, 'a').join()}',
-        'sourceDigest': List.filled(64, 'b').join(),
-      },
-      appliedAt: DateTime.utc(2026, 8, 25, 12),
-    );
+WorkflowCommandReceipt _purgeReceipt({
+  required int version,
+  String collectionId = 'directives',
+  String documentId = 'directive-1',
+}) => WorkflowCommandReceipt(
+  commandId: 'purge-command-1',
+  resultKey: 'pilot-record-permanently-removed',
+  aggregateVersion: version,
+  result: <String, Object?>{
+    'collectionId': collectionId,
+    'documentId': documentId,
+    'purgeReceiptId': 'purge_${List.filled(64, 'a').join()}',
+    'sourceDigest': List.filled(64, 'b').join(),
+  },
+  appliedAt: DateTime.utc(2026, 8, 25, 12),
+);
 
 OperationalDirective _directive({
   String ownerUid = 'operator-1',

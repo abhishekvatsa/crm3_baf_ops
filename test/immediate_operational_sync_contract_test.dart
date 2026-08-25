@@ -122,7 +122,8 @@ void main() {
       expect(automaticSyncFailureRetryDelay(3), const Duration(seconds: 10));
       expect(automaticSyncFailureRetryDelay(4), const Duration(seconds: 30));
       expect(automaticSyncFailureRetryDelay(0), isNull);
-      expect(automaticSyncFailureRetryDelay(5), isNull);
+      expect(automaticSyncFailureRetryDelay(5), const Duration(seconds: 30));
+      expect(automaticSyncFailureRetryDelay(100), const Duration(seconds: 30));
     });
 
     test(

@@ -389,6 +389,11 @@ class LocalSyncRecoveryService {
                     .filter()
                     .templateFirestoreIdEqualTo(remoteId)
                     .findFirst() !=
+                null ||
+            await database.jobDiaryEntrys
+                    .filter()
+                    .templateFirestoreIdEqualTo(remoteId)
+                    .findFirst() !=
                 null;
       case 'template_package':
         return await database.templateVersions
