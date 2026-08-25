@@ -572,6 +572,9 @@ if (($approvalSecretNames -join "`n") -cne
 $versionSource = Get-Content `
   -LiteralPath $policy.versionPolicy.sourceDocumentFile `
   -Raw | ConvertFrom-Json
+$currentSuccessorStatePath = 'release/current-successor-state.json'
+$currentSuccessorState = Get-Content `
+  -LiteralPath $currentSuccessorStatePath -Raw | ConvertFrom-Json
 $predecessorBindingsPath =
   'release/predecessor-finalization-receipt-bindings.json'
 $predecessorBindings = Get-Content `
@@ -801,6 +804,12 @@ if ($null -ne $requiredRulesShaProperty) {
   $requiredRulesSha = [string]$requiredRulesShaProperty.Value
   $requiredIndexCount = [int64]$requiredIndexCountProperty.Value
   $requiredIndexSetSha = [string]$requiredIndexSetShaProperty.Value
+  $currentSourceAuthority =
+    $currentSuccessorState.authorityPlanes.currentSource
+  $currentSourceFirestoreAuthority =
+    $currentSourceAuthority.firestoreRulesAndIndexes
+  $currentDeployedBackendAuthority =
+    $currentSuccessorState.authorityPlanes.deployedBackend
   $sourceIndexBindingOutput = @(
     & node tools/release/collectFirestoreRulesIndexesReadback.js `
       --source-index-set firestore.indexes.json
@@ -813,16 +822,55 @@ if ($null -ne $requiredRulesShaProperty) {
   if ($requiredRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $requiredIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $requiredIndexCount -le 0 -or
-      (Get-Sha256 'firestore.rules') -ne $requiredRulesSha.ToUpperInvariant() -or
       [string]$firestoreReadbackAuthority.rulesSha256 -ne $requiredRulesSha -or
-      [int64]$sourceIndexBinding.count -ne $requiredIndexCount -or
-      [string]$sourceIndexBinding.indexSetSha256 -ne $requiredIndexSetSha -or
       [int64]$firestoreReadbackAuthority.indexCount -ne $requiredIndexCount -or
       [string]$firestoreReadbackAuthority.indexSetSha256 -ne
         $requiredIndexSetSha -or
+      [string]$firestoreReadback.outputs.rules.sourceSha256 -ne
+        $requiredRulesSha -or
       [string]$firestoreReadback.outputs.indexes.sourceSetSha256 -ne
         $requiredIndexSetSha) {
-    throw 'Exact successor Firestore Rules/index readback differs from approval.'
+    throw 'Exact finalized Firestore Rules/index readback differs from approval.'
+  }
+
+  $currentRulesSha =
+    [string]$currentSourceFirestoreAuthority.rulesSha256
+  $currentIndexCount =
+    [int64]$currentSourceFirestoreAuthority.indexCount
+  $currentIndexSetSha =
+    [string]$currentSourceFirestoreAuthority.indexSetSha256
+  if ($currentSuccessorState.schemaVersion -lt 2 -or
+      [string]$currentSourceAuthority.reference -ne 'refs/heads/main' -or
+      $currentSourceAuthority.sourceAndCiAuthority -ne $true -or
+      $currentSourceAuthority.artifactConstructionAuthority -ne $false -or
+      $currentSourceAuthority.deploymentAuthority -ne $false -or
+      $currentSourceAuthority.distributionAuthority -ne $false -or
+      [string]$currentSourceAuthority.backendDeploymentStatus -ne
+        'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT' -or
+      $currentSourceAuthority.productionRuntimeUseAuthorized -ne $false -or
+      $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
+      $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
+      $currentIndexCount -le 0 -or
+      $currentRulesSha -ne $requiredRulesSha -or
+      ($currentIndexCount -eq $requiredIndexCount -and
+        $currentIndexSetSha -eq $requiredIndexSetSha) -or
+      (Get-Sha256 'firestore.rules') -ne
+        $currentRulesSha.ToUpperInvariant() -or
+      [int64]$sourceIndexBinding.count -ne $currentIndexCount -or
+      [string]$sourceIndexBinding.indexSetSha256 -ne $currentIndexSetSha -or
+      [string]$currentSourceFirestoreAuthority.
+        relationshipToDeployedBackend -ne
+        'RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT' -or
+      $currentSourceFirestoreAuthority.productionDeploymentPerformed -ne
+        $false -or
+      $currentSourceFirestoreAuthority.productionRuntimeUseAuthorized -ne
+        $false -or
+      [string]$currentDeployedBackendAuthority.rulesAndIndexesEvidenceFile -ne
+        $firestoreReadbackPath -or
+      [string]$currentDeployedBackendAuthority.
+        currentSourceRulesAndIndexesDeployment -ne
+        'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT') {
+    throw 'Current source Firestore Rules/index authority differs from source state.'
   }
 }
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
