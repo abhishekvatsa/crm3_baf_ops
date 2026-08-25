@@ -115,6 +115,102 @@ void main() {
   );
 
   testWidgets(
+    'system Back protects a focused editor even when Android reports zero insets',
+    (WidgetTester tester) async {
+      final failure = StartupFailure(
+        stage: 'firebase_initialize',
+        error: StateError('Firebase failed'),
+        stackTrace: StackTrace.current,
+        occurredAt: DateTime.utc(2026, 5, 14, 12),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(child: CrmBafApp(startupFailure: failure)),
+      );
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
+            MaterialPageRoute<void>(
+              builder:
+                  (_) => Scaffold(
+                    body: TextField(
+                      key: const Key('zero-inset-keyboard-back-field'),
+                      focusNode: focusNode,
+                      autofocus: true,
+                    ),
+                  ),
+            ),
+          );
+      await tester.pumpAndSettle();
+
+      expect(tester.view.viewInsets.bottom, 0);
+      expect(focusNode.hasFocus, isTrue);
+      expect(await WidgetsBinding.instance.handlePopRoute(), isTrue);
+      await tester.pump();
+
+      expect(focusNode.hasFocus, isFalse);
+      expect(
+        find.byKey(const Key('zero-inset-keyboard-back-field')),
+        findsOneWidget,
+      );
+
+      expect(await WidgetsBinding.instance.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('zero-inset-keyboard-back-field')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'predictive Back protects a focused editor when keyboard insets are unavailable',
+    (WidgetTester tester) async {
+      final failure = StartupFailure(
+        stage: 'firebase_initialize',
+        error: StateError('Firebase failed'),
+        stackTrace: StackTrace.current,
+        occurredAt: DateTime.utc(2026, 5, 14, 12),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(child: CrmBafApp(startupFailure: failure)),
+      );
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
+            MaterialPageRoute<void>(
+              builder:
+                  (_) => Scaffold(
+                    body: TextField(
+                      key: const Key('zero-inset-predictive-back-field'),
+                      focusNode: focusNode,
+                      autofocus: true,
+                    ),
+                  ),
+            ),
+          );
+      await tester.pumpAndSettle();
+
+      expect(tester.view.viewInsets.bottom, 0);
+      await _sendBackGesture(tester, 'startBackGesture', _startArguments);
+      await _sendBackGesture(tester, 'commitBackGesture');
+      await tester.pumpAndSettle();
+
+      expect(focusNode.hasFocus, isFalse);
+      expect(
+        find.byKey(const Key('zero-inset-predictive-back-field')),
+        findsOneWidget,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  testWidgets(
     'cancelled predictive Back keeps the editor focused',
     (WidgetTester tester) async {
       final failure = StartupFailure(

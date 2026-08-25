@@ -1,6 +1,6 @@
 // FILE: lib/core/services/sync_coordinator.dart
 
-import 'dart:async' show StreamSubscription, unawaited;
+import 'dart:async' show Completer, StreamSubscription, unawaited;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -151,6 +151,8 @@ final syncRunHealthProvider = StateProvider<SyncRunHealth>(
   (ref) => const SyncRunHealth(),
 );
 
+final syncLocalRecoveryActiveProvider = StateProvider<bool>((ref) => false);
+
 // ─────────────────────────────────────────────────────────────
 // COORDINATOR
 // ─────────────────────────────────────────────────────────────
@@ -162,10 +164,12 @@ class SyncCoordinator {
 
   bool _running = false;
   bool _initialized = false;
+  bool _localRecoveryActive = false;
   bool _followUpRequested = false;
   String? _followUpReason;
   bool _followUpForce = false;
   bool _followUpRecheckPermanentRejections = false;
+  Completer<void>? _activeRunCompletion;
 
   DateTime _lastRun = DateTime.fromMillisecondsSinceEpoch(0);
   final Duration minGap = const Duration(seconds: 10);
@@ -203,6 +207,43 @@ class SyncCoordinator {
     );
   }
 
+  Future<T> runWithSyncPaused<T>({
+    required Future<T> Function() operation,
+    String reason = 'local_recovery',
+  }) async {
+    if (_localRecoveryActive) {
+      throw StateError('Local synchronization recovery is already running.');
+    }
+
+    _localRecoveryActive = true;
+    _ref.read(syncLocalRecoveryActiveProvider.notifier).state = true;
+
+    try {
+      final activeRun = _activeRunCompletion;
+      if (activeRun != null) {
+        await activeRun.future;
+      }
+      return await operation();
+    } finally {
+      _localRecoveryActive = false;
+      _ref.read(syncLocalRecoveryActiveProvider.notifier).state = false;
+
+      final followUp = _takeQueuedFollowUp();
+      if (followUp != null) {
+        _clearPendingFollowUpHealth();
+      }
+      unawaited(
+        _runFullSync(
+          reason: '${followUp?.reason ?? reason} (recovery refresh)',
+          force: true,
+          queuedFollowUp: true,
+          recheckPermanentRejections:
+              followUp?.recheckPermanentRejections ?? false,
+        ),
+      );
+    }
+  }
+
   Future<SyncRequestOutcome> _runFullSync({
     String reason = 'unknown',
     bool force = false,
@@ -211,7 +252,7 @@ class SyncCoordinator {
   }) async {
     final now = DateTime.now();
 
-    if (_running) {
+    if (_running || _localRecoveryActive) {
       _queueFollowUp(
         reason: reason,
         force: force,
@@ -226,6 +267,7 @@ class SyncCoordinator {
     }
 
     _running = true;
+    _activeRunCompletion = Completer<void>();
     _lastRun = now;
 
     _ref.read(syncConflictProvider.notifier).state = 0;
@@ -404,8 +446,13 @@ class SyncCoordinator {
       );
       return SyncRequestOutcome.failed;
     } finally {
-      final followUp = _takeQueuedFollowUp();
+      final followUp = _localRecoveryActive ? null : _takeQueuedFollowUp();
       _running = false;
+      final completedRun = _activeRunCompletion;
+      _activeRunCompletion = null;
+      if (completedRun != null && !completedRun.isCompleted) {
+        completedRun.complete();
+      }
       unawaited(AppLogger.setCustomKey('sync_running', false));
 
       if (followUp != null) {
@@ -649,7 +696,7 @@ class SyncCoordinator {
       final hasConnection = results.any((r) => r != ConnectivityResult.none);
 
       if (hasConnection) {
-        unawaited(runFullSync(reason: 'reconnected'));
+        unawaited(runFullSync(reason: 'reconnected', force: true));
       }
     });
 

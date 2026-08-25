@@ -51,6 +51,7 @@ const commandTypes = new Set<WorkflowCommandType>([
   "reopenMaintenanceTicket",
   "correctMaintenanceTicket",
   "releaseFurnaceStuckup", "adjudicateFurnaceStuckup",
+  "purgePilotBusinessRecord",
 ]);
 
 const parseCommand = (raw: unknown): WorkflowCommand => {

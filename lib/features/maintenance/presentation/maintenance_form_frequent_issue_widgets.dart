@@ -18,7 +18,7 @@ class _FrequentIssueChoicePanel extends StatelessWidget {
   final String? componentNodeId;
   final FrequentIssueDefinition? selected;
   final bool unlisted;
-  final ValueChanged<FrequentIssueDefinition?> onSelected;
+  final ValueChanged<_FrequentIssueChoice> onSelected;
   final VoidCallback onRetry;
 
   @override
@@ -29,12 +29,7 @@ class _FrequentIssueChoicePanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: BafColors.background,
-        border: Border.all(
-          color:
-              label == null && enabled
-                  ? BafColors.warning.withValues(alpha: 0.55)
-                  : BafColors.border,
-        ),
+        border: Border.all(color: BafColors.border),
         borderRadius: BorderRadius.circular(BafRadius.medium),
       ),
       child: Padding(
@@ -67,7 +62,7 @@ class _FrequentIssueChoicePanel extends StatelessWidget {
                   Text(
                     label ??
                         (enabled
-                            ? 'Choose a matching issue'
+                            ? 'Optional - no category selected'
                             : 'Choose an asset first'),
                     style: TextStyle(
                       color:
@@ -146,11 +141,12 @@ class _FrequentIssueChoicePanel extends StatelessWidget {
           ),
     );
     if (result == null) return;
-    onSelected(result.unlisted ? null : result.definition);
+    onSelected(result);
   }
 }
 
 class _FrequentIssueChoice {
+  const _FrequentIssueChoice.none() : definition = null, unlisted = false;
   const _FrequentIssueChoice.definition(this.definition) : unlisted = false;
   const _FrequentIssueChoice.unlisted() : definition = null, unlisted = true;
 
@@ -239,6 +235,23 @@ class _FrequentIssuePickerSheetState extends State<_FrequentIssuePickerSheet> {
             child: ListView(
               padding: const EdgeInsets.all(BafSpacing.md),
               children: [
+                ListTile(
+                  selected: widget.selectedId == null && !widget.unlisted,
+                  leading: const Icon(Icons.remove_circle_outline_rounded),
+                  title: const Text(
+                    'No frequent issue category',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text(
+                    'Describe this issue without classifying it.',
+                  ),
+                  onTap:
+                      () => Navigator.pop(
+                        context,
+                        const _FrequentIssueChoice.none(),
+                      ),
+                ),
+                const Divider(),
                 if (visible.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(BafSpacing.lg),

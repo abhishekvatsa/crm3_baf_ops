@@ -7,6 +7,7 @@ import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import '../services/auto_sync_service.dart';
 import '../services/live_remote_sync_service.dart';
+import '../services/local_sync_recovery_service.dart';
 import '../services/sync_coordinator.dart';
 import '../services/sync_rejection_service.dart';
 import '../services/sync_service.dart';
@@ -207,10 +208,19 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
               );
               final actorAsync = ref.watch(currentAppUserProvider);
               final actor = actorAsync.asData?.value;
+              final recoveryActive = ref.watch(syncLocalRecoveryActiveProvider);
+              final permanentRejectionCount =
+                  ref
+                      .watch(unresolvedPermanentSyncRejectionCountProvider)
+                      .asData
+                      ?.value ??
+                  0;
               final canResolveSyncRejections =
                   actor?.canResolveSyncConflicts == true;
               final isSyncing =
-                  status == SyncStatus.syncing || runHealth.isRunning;
+                  status == SyncStatus.syncing ||
+                  runHealth.isRunning ||
+                  recoveryActive;
 
               return DraggableScrollableSheet(
                 expand: false,
@@ -297,7 +307,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                             Text(
                               isSyncing
                                   ? 'A sync is already running.'
-                                  : 'Press to push and pull everything now, without waiting for the 5-minute or 20-minute timers.',
+                                  : 'Business changes synchronize immediately. Press to reconcile all current server and device records again.',
                               style: const TextStyle(
                                 color: BafColors.textSecondary,
                                 fontSize: 13,
@@ -507,9 +517,62 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                           ],
                         ),
                         const SizedBox(height: BafSpacing.md),
+                        if (actor?.isApproved == true) ...[
+                          _HealthCard(
+                            title: 'Remove unsynced local data',
+                            icon: Icons.cleaning_services_outlined,
+                            color:
+                                permanentRejectionCount > 0
+                                    ? BafColors.warning
+                                    : BafColors.sync,
+                            children: [
+                              _HealthRow(
+                                'Rejected changes',
+                                '$permanentRejectionCount',
+                              ),
+                              const SizedBox(height: BafSpacing.xs),
+                              const Text(
+                                'Only your permanently rejected local changes are removed. Existing server records are restored, valid pending work is retained, and synchronization resumes automatically.',
+                                style: TextStyle(
+                                  color: BafColors.textSecondary,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: BafSpacing.md),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  key: const ValueKey(
+                                    'discard-rejected-local-changes',
+                                  ),
+                                  onPressed:
+                                      recoveryActive ||
+                                              permanentRejectionCount == 0
+                                          ? null
+                                          : () => _discardRejectedLocalChanges(
+                                            sheetContext,
+                                            actor!,
+                                          ),
+                                  icon: Icon(
+                                    recoveryActive
+                                        ? Icons.hourglass_top_rounded
+                                        : Icons.cleaning_services_outlined,
+                                  ),
+                                  label: Text(
+                                    recoveryActive
+                                        ? 'Recovering local data'
+                                        : 'Remove my unsynced local data',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: BafSpacing.md),
+                        ],
                         _HealthCard(
-                          title: 'Issue timers',
-                          icon: Icons.timer_rounded,
+                          title: 'Immediate synchronization',
+                          icon: Icons.bolt_rounded,
                           color:
                               autoHealth.normalIssueSyncPending
                                   ? BafColors.warning
@@ -522,16 +585,8 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                             _HealthRow(
                               'Normal issue queue',
                               autoHealth.normalIssueSyncPending
-                                  ? 'Pending'
-                                  : 'None waiting',
-                            ),
-                            _HealthRow(
-                              'Next normal issue sync',
-                              _relativeTime(autoHealth.nextNormalIssueSyncAt),
-                            ),
-                            _HealthRow(
-                              'Next 20-minute sync',
-                              _relativeTime(autoHealth.nextGeneralSyncAt),
+                                  ? 'Sending or awaiting reconnection'
+                                  : 'No changes waiting',
                             ),
                             _HealthRow(
                               'Last automatic attempt',
@@ -615,6 +670,63 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
       );
     } finally {
       _isHealthPanelOpen = false;
+    }
+  }
+
+  Future<void> _discardRejectedLocalChanges(
+    BuildContext context,
+    AppUser actor,
+  ) async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Remove unsynced local data?'),
+            content: const Text(
+              'Synchronization will pause while your permanently rejected local changes are discarded. Existing server records will be restored. Other users\' records, normal pending work, and audit evidence will not be deleted.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Remove unsynced data'),
+              ),
+            ],
+          ),
+    );
+    if (approved != true || !mounted || !context.mounted) return;
+
+    try {
+      final result = await ref
+          .read(syncCoordinatorProvider)
+          .runWithSyncPaused(
+            operation:
+                () => ref
+                    .read(localSyncRecoveryServiceProvider)
+                    .discardOwnRejectedChanges(actor: actor),
+          );
+      ref.invalidate(syncPendingCountsProvider);
+      if (!mounted || !context.mounted) return;
+
+      final preserved =
+          result.preservedCount == 0
+              ? ''
+              : ' ${result.preservedCount} protected or unavailable record(s) were preserved.';
+      _showSyncSnack(
+        context,
+        '${result.restoredFromServer} server record(s) restored, ${result.removedLocalOnly} local-only record(s) removed.$preserved',
+        result.preservedFailed == 0 ? BafColors.sync : BafColors.warning,
+      );
+    } catch (error) {
+      if (!mounted || !context.mounted) return;
+      _showSyncSnack(
+        context,
+        'Rejected local changes were preserved: $error',
+        BafColors.danger,
+      );
     }
   }
 }

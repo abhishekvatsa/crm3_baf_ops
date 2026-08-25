@@ -431,6 +431,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const OperationalEventsScreen()),
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
+              onPlantConditionFiltered:
+                  (filter) => _push(
+                    context,
+                    AssetConditionBoard(initialFilter: filter),
+                  ),
               onReports: () => _push(context, const FleetStatusScreen()),
               onControl: () => setState(() => _currentIndex = 3),
               onMaintenanceRhythm:
@@ -826,6 +831,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onQualityMonitoring;
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
+  final ValueChanged<AssetConditionFilter> onPlantConditionFiltered;
   final VoidCallback onReports;
   final VoidCallback onControl;
   final VoidCallback onMaintenanceRhythm;
@@ -858,6 +864,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onQualityMonitoring,
     required this.onOperationalEvents,
     required this.onPlantCondition,
+    required this.onPlantConditionFiltered,
     required this.onReports,
     required this.onControl,
     required this.onMaintenanceRhythm,
@@ -909,6 +916,7 @@ class _DashboardHome extends StatelessWidget {
               PlantOverviewPanel(
                 overview: plantOverview,
                 onOpen: onPlantCondition,
+                onOpenFiltered: onPlantConditionFiltered,
               ),
               const SizedBox(height: BafSpacing.lg),
               HomeManagementPulsePanel(

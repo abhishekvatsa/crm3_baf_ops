@@ -14,6 +14,7 @@ import '../../providers/admin_stream_providers.dart';
 import '../../utils/admin_search_sort_helpers.dart';
 import 'admin_data_browser_shared.dart';
 import 'admin_delete_reason_dialog.dart';
+import 'admin_pilot_purge.dart';
 
 // ============================================================================
 // TEMPLATES BROWSER (delete only – no edit)
@@ -223,8 +224,18 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
                 icon: const Icon(Icons.delete, color: BafColors.danger),
                 onPressed: () => _confirmDelete(template),
               )
-            else
+            else ...[
               const AdminChip(label: 'DELETED', color: BafColors.textSecondary),
+              if (template.firestoreId != null)
+                IconButton(
+                  tooltip: 'Permanently remove pilot record',
+                  icon: const Icon(
+                    Icons.delete_forever_rounded,
+                    color: BafColors.danger,
+                  ),
+                  onPressed: () => _purgePermanently(template),
+                ),
+            ],
           ],
         ),
       ),
@@ -299,5 +310,18 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
       if (!mounted) return;
       showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);
     }
+  }
+
+  Future<void> _purgePermanently(JobTemplate template) async {
+    final id = template.firestoreId;
+    if (id == null) return;
+    await purgePilotBusinessRecord(
+      context: context,
+      ref: ref,
+      collectionId: 'job_templates',
+      documentId: id,
+      expectedVersion: template.version,
+      recordLabel: template.jobName,
+    );
   }
 }

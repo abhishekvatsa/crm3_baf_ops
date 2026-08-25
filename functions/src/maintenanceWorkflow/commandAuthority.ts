@@ -77,6 +77,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   adjudicateInspectionFinding: "inspectionFinding.adjudicate",
   releaseFurnaceStuckup: "integrity.supervise",
   adjudicateFurnaceStuckup: "integrity.adjudicate",
+  purgePilotBusinessRecord: "pilotRecord.purge",
 };
 
 const LANE_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
@@ -116,6 +117,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "inspectionFinding.adjudicate",
   "integrity.supervise",
   "integrity.adjudicate",
+  "pilotRecord.purge",
 ]);
 
 const laneScope = (
@@ -238,6 +240,9 @@ export const assertWorkflowAuthorityScope = (
     if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
     return;
   case "ticket.closeWithoutResolution":
+    if (!actor.roles.has("admin")) denied();
+    return;
+  case "pilotRecord.purge":
     if (!actor.roles.has("admin")) denied();
     return;
   case "issueDefinition.manage":

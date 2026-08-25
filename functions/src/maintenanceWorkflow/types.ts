@@ -66,7 +66,8 @@ export type WorkflowAuthorityCapability =
   | "inspectionDefinition.manage" | "inspectionCampaign.manage"
   | "inspection.observe" | "inspectionIssue.link"
   | "inspectionFinding.adjudicate"
-  | "integrity.supervise" | "integrity.adjudicate";
+  | "integrity.supervise" | "integrity.adjudicate"
+  | "pilotRecord.purge";
 
 export interface WorkflowAuthorityScope extends JsonMap {
   readonly schemaVersion: 1;
@@ -100,7 +101,8 @@ export type WorkflowCommandType =
   | "closeMaintenanceTicketWithoutResolution"
   | "reopenMaintenanceTicket"
   | "correctMaintenanceTicket"
-  | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup";
+  | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup"
+  | "purgePilotBusinessRecord";
 
 export interface WorkflowCommandReceipt {
   readonly commandId: string;

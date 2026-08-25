@@ -648,11 +648,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
-  void _selectFrequentIssue(FrequentIssueDefinition? definition) {
+  void _selectFrequentIssue(_FrequentIssueChoice choice) {
+    final definition = choice.definition;
     final previousDescription = _selectedFrequentIssue?.description;
     setState(() {
       _selectedFrequentIssue = definition;
-      _frequentIssueUnlisted = definition == null;
+      _frequentIssueUnlisted = choice.unlisted;
       if (definition == null) return;
       if (_descController.text.trim().isEmpty ||
           _descController.text.trim() == previousDescription) {
@@ -850,16 +851,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     final assetNumber = selectedAsset.assetNumber;
     final selectedStuckupBase =
         _isFurnaceStuckup ? _selectedStuckupBase() : null;
-    if (!_isBurnerLockout &&
-        !_isFurnaceStuckup &&
-        _selectedFrequentIssue == null &&
-        !_frequentIssueUnlisted) {
-      _showMessage(
-        'Choose a frequent issue or select Other / not listed.',
-        BafColors.warning,
-      );
-      return;
-    }
     if (_selectedFrequentIssue?.requiredEvidenceFields.contains('chargeNo') ==
             true &&
         int.tryParse(_chargeNoController.text.trim()) == null) {
@@ -1145,7 +1136,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       record.issueLanePlan = IssueLanePlan.initial(
         _orderedRoutedLanes.map((lane) => lane.name),
       );
-      if (!_isBurnerLockout && !_isFurnaceStuckup) {
+      if (!_isBurnerLockout &&
+          !_isFurnaceStuckup &&
+          (_selectedFrequentIssue != null || _frequentIssueUnlisted)) {
         record.frequentIssueSelection =
             _selectedFrequentIssue != null
                 ? FrequentIssueSelection.definition(_selectedFrequentIssue!)
@@ -1185,13 +1178,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         final autoSyncService = ref.read(autoSyncServiceProvider);
         await repository.saveTicket(record);
 
-        // Arm retry before the immediate attempt so weak connectivity, process
-        // exit, or a lost response cannot strand the local evidence.
-        autoSyncService.scheduleTicketSyncWithinFiveMinutes(
+        autoSyncService.markImmediateTicketSyncRequested(
           reason:
               record.isCritical
-                  ? 'critical_ticket_created_retry'
-                  : 'normal_ticket_created_retry',
+                  ? 'critical_ticket_created'
+                  : 'normal_ticket_created',
         );
         final syncOutcome = await syncCoordinator.runFullSyncWithResult(
           reason:

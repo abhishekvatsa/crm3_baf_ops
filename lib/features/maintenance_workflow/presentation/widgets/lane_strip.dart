@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../data/job_lane_record.dart';
 import '../../domain/maintenance_lane.dart';
@@ -88,6 +89,19 @@ class WorkflowLaneStrip extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
+                        if (lane.closedAt != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Closed ${DateFormat('dd MMM yyyy, HH:mm').format(lane.closedAt!.toLocal())}'
+                            '${lane.closedByName?.trim().isNotEmpty == true ? ' by ${lane.closedByName!.trim()}' : ''}',
+                            key: ValueKey<String>(
+                              'workflow-lane-closure-${lane.laneKey}-${lane.activationGeneration}',
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                         if (progress != null) ...[
                           const SizedBox(height: 7),
                           LinearProgressIndicator(

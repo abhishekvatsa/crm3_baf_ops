@@ -131,7 +131,7 @@ class _SubmitIssueBar extends StatelessWidget {
                   child: Text(
                     isCritical
                         ? 'Critical issue: sends immediately.'
-                        : 'Normal issue: sends now, with 5-minute retry safety.',
+                        : 'Issue sends immediately when connected.',
                     style: const TextStyle(
                       color: BafColors.textSecondary,
                       fontSize: 12,
@@ -224,7 +224,7 @@ class _CriticalIssueToggle extends StatelessWidget {
           ),
         ),
         subtitle: const Text(
-          'Tick this for H₂-sensitive or urgent breakdowns. Critical issues are pushed immediately; normal issues are sent within 5 minutes unless manually synced earlier.',
+          'Tick this for H₂-sensitive or urgent breakdowns. All issues synchronize immediately; critical issues receive additional visual priority.',
           style: TextStyle(
             color: BafColors.textSecondary,
             fontSize: 12,

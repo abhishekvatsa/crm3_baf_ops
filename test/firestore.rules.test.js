@@ -279,6 +279,47 @@ describe("server-only callable abuse controls", () => {
   });
 });
 
+describe("immutable pilot record purge receipts", () => {
+  test("purge evidence remains server-only, including from Admin clients", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedUser("ops1", ["operations"]);
+    await seedDoc("pilot_record_purge_receipts/receipt-1", {
+      schemaVersion: 1,
+      sourceCollection: "directives",
+      sourceDocumentId: "directive-1",
+      sourcePath: "directives/directive-1",
+      sourceVersion: 2,
+      sourceDigest: "a".repeat(64),
+      purgedAt: Timestamp.now(),
+      purgedByUid: "admin1",
+      purgedByName: "Administrator",
+      reason: "Remove duplicate pilot-only test data.",
+      commandId: "purge-command-1",
+    });
+
+    const adminDb = dbAs("admin1");
+    const adminRef = doc(adminDb, "pilot_record_purge_receipts/receipt-1");
+    await assertFails(getDoc(adminRef));
+    await assertFails(
+      getDoc(doc(dbAs("ops1"), "pilot_record_purge_receipts/receipt-1")),
+    );
+    await assertFails(
+      getDocs(collection(dbAs("ops1"), "pilot_record_purge_receipts")),
+    );
+    await assertFails(
+      getDoc(doc(
+        testEnv.unauthenticatedContext().firestore(),
+        "pilot_record_purge_receipts/receipt-1",
+      )),
+    );
+    await assertFails(
+      setDoc(doc(adminDb, "pilot_record_purge_receipts/forged"), {schemaVersion: 1}),
+    );
+    await assertFails(updateDoc(adminRef, {reason: "tampered"}));
+    await assertFails(deleteDoc(adminRef));
+  });
+});
+
 describe("global pull server clock custody", () => {
   test("clients cannot author or replace the stamp, and stamp-only removal fails", async () => {
     await seedUser("admin1", ["admin"]);

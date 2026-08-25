@@ -174,6 +174,7 @@ import type {
   GlobalPullAuthorityFirestoreLike,
   GlobalPullWriteChangeLike,
 } from "./globalPullServerClock";
+import {isAuthorizedPilotRecordPurge} from "./pilotRecordPurge";
 
 admin.initializeApp();
 
@@ -356,9 +357,21 @@ export const stampGlobalPullServerClock = onDocumentWritten(
       collectionId: event.params.collectionId,
       change: event.data as unknown as GlobalPullWriteChangeLike,
       serverTimestamp: admin.firestore.FieldValue.serverTimestamp,
+      authorizePermanentDelete: (collectionId, before) =>
+        isAuthorizedPilotRecordPurge({
+          db: admin.firestore(),
+          collectionId,
+          documentId: event.params.documentId,
+          before,
+        }),
     });
     if (action === "restored-tombstone") {
       logger.warn("Global pull writer converted a hard delete to a tombstone.", {
+        collectionId: event.params.collectionId,
+        documentId: event.params.documentId,
+      });
+    } else if (action === "authorized-permanent-delete") {
+      logger.info("Authorized pilot record purge preserved.", {
         collectionId: event.params.collectionId,
         documentId: event.params.documentId,
       });

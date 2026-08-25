@@ -16,11 +16,31 @@ import '../domain/plant_asset_overview.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../providers/plant_asset_overview_provider.dart';
 
-class AssetConditionBoard extends ConsumerWidget {
-  const AssetConditionBoard({super.key});
+part 'asset_condition_board.filters.dart';
+
+enum AssetConditionFilter { all, available, maintenance, stuckUp, down, unfit }
+
+class AssetConditionBoard extends ConsumerStatefulWidget {
+  final AssetConditionFilter initialFilter;
+  final String? initialAssetClassId;
+
+  const AssetConditionBoard({
+    super.key,
+    this.initialFilter = AssetConditionFilter.all,
+    this.initialAssetClassId,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AssetConditionBoard> createState() =>
+      _AssetConditionBoardState();
+}
+
+class _AssetConditionBoardState extends ConsumerState<AssetConditionBoard> {
+  late AssetConditionFilter _selectedFilter = widget.initialFilter;
+  late String? _selectedAssetClassId = widget.initialAssetClassId;
+
+  @override
+  Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
@@ -82,6 +102,14 @@ class AssetConditionBoard extends ConsumerWidget {
                     openTickets:
                         openTickets.value ?? const <MaintenanceRecord>[],
                     ticketLoadFailed: openTickets.hasError,
+                    selectedFilter: _selectedFilter,
+                    selectedAssetClassId: _selectedAssetClassId,
+                    onFilterChanged:
+                        (filter) => setState(() => _selectedFilter = filter),
+                    onAssetClassChanged:
+                        (assetClassId) => setState(
+                          () => _selectedAssetClassId = assetClassId,
+                        ),
                   ),
             ),
           ),
@@ -94,11 +122,13 @@ class AssetConditionBoard extends ConsumerWidget {
 class PlantOverviewPanel extends StatelessWidget {
   final AsyncValue<PlantAssetOverview> overview;
   final VoidCallback onOpen;
+  final ValueChanged<AssetConditionFilter>? onOpenFiltered;
 
   const PlantOverviewPanel({
     super.key,
     required this.overview,
     required this.onOpen,
+    this.onOpenFiltered,
   });
 
   @override
@@ -210,30 +240,48 @@ class PlantOverviewPanel extends StatelessWidget {
                                 value: value.available,
                                 label: 'Available',
                                 color: BafColors.success,
+                                onTap:
+                                    () => _openFilter(
+                                      AssetConditionFilter.available,
+                                    ),
                               ),
                               _PlantMetric(
                                 width: width,
                                 value: value.underMaintenance,
                                 label: 'Maintenance',
                                 color: BafColors.maintenance,
+                                onTap:
+                                    () => _openFilter(
+                                      AssetConditionFilter.maintenance,
+                                    ),
                               ),
                               _PlantMetric(
                                 width: width,
                                 value: value.temporarilyBlocked,
                                 label: 'Stuck-up',
                                 color: BafColors.instrument,
+                                onTap:
+                                    () => _openFilter(
+                                      AssetConditionFilter.stuckUp,
+                                    ),
                               ),
                               _PlantMetric(
                                 width: width,
                                 value: value.down,
                                 label: 'Down',
                                 color: BafColors.danger,
+                                onTap:
+                                    () =>
+                                        _openFilter(AssetConditionFilter.down),
                               ),
                               _PlantMetric(
                                 width: width,
                                 value: value.unfit,
                                 label: 'Unfit',
                                 color: BafColors.warning,
+                                onTap:
+                                    () =>
+                                        _openFilter(AssetConditionFilter.unfit),
                               ),
                             ],
                           );
@@ -242,7 +290,6 @@ class PlantOverviewPanel extends StatelessWidget {
                       const SizedBox(height: BafSpacing.sm),
                       ...value.classes
                           .where((summary) => summary.total > 0)
-                          .take(2)
                           .map(
                             (summary) => Padding(
                               padding: const EdgeInsets.only(
@@ -267,51 +314,15 @@ class PlantOverviewPanel extends StatelessWidget {
       ),
     );
   }
-}
 
-class _PlantMetric extends StatelessWidget {
-  final double? width;
-  final int value;
-  final String label;
-  final Color color;
-
-  const _PlantMetric({
-    this.width,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: width,
-    constraints: const BoxConstraints(minHeight: 54),
-    padding: const EdgeInsets.symmetric(
-      horizontal: BafSpacing.xs,
-      vertical: BafSpacing.sm,
-    ),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(BafRadius.small),
-      border: Border.all(color: color.withValues(alpha: 0.18)),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          '$value ${label.toLowerCase()}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            height: 1.15,
-          ),
-        ),
-      ],
-    ),
-  );
+  void _openFilter(AssetConditionFilter filter) {
+    final callback = onOpenFiltered;
+    if (callback != null) {
+      callback(filter);
+    } else {
+      onOpen();
+    }
+  }
 }
 
 class _ConditionBoardBody extends StatelessWidget {
@@ -319,12 +330,20 @@ class _ConditionBoardBody extends StatelessWidget {
   final AppUser? user;
   final List<MaintenanceRecord> openTickets;
   final bool ticketLoadFailed;
+  final AssetConditionFilter selectedFilter;
+  final String? selectedAssetClassId;
+  final ValueChanged<AssetConditionFilter> onFilterChanged;
+  final ValueChanged<String?> onAssetClassChanged;
 
   const _ConditionBoardBody({
     required this.overview,
     required this.user,
     required this.openTickets,
     required this.ticketLoadFailed,
+    required this.selectedFilter,
+    required this.selectedAssetClassId,
+    required this.onFilterChanged,
+    required this.onAssetClassChanged,
   });
 
   @override
@@ -341,6 +360,24 @@ class _ConditionBoardBody extends StatelessWidget {
         ),
       );
     }
+    final visibleClasses = overview.classes
+        .where(
+          (summary) =>
+              summary.total > 0 &&
+              (selectedAssetClassId == null ||
+                  summary.assetClass.id == selectedAssetClassId),
+        )
+        .map(
+          (summary) => PlantAssetClassSummary(
+            assetClass: summary.assetClass,
+            assets: summary.assets
+                .where(_matchesSelectedCondition)
+                .toList(growable: false),
+          ),
+        )
+        .where((summary) => summary.total > 0)
+        .toList(growable: false);
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         BafSpacing.lg,
@@ -367,30 +404,67 @@ class _ConditionBoardBody extends StatelessWidget {
           spacing: BafSpacing.sm,
           runSpacing: BafSpacing.sm,
           children: [
-            StatusBadge(
+            _ConditionFilterChip(
               label: '${overview.total} registered',
               color: BafColors.assets,
+              selected: selectedFilter == AssetConditionFilter.all,
+              onSelected: () => onFilterChanged(AssetConditionFilter.all),
             ),
-            StatusBadge(
+            _ConditionFilterChip(
               label: '${overview.available} available',
               color: BafColors.success,
+              selected: selectedFilter == AssetConditionFilter.available,
+              onSelected: () => onFilterChanged(AssetConditionFilter.available),
             ),
-            StatusBadge(
+            _ConditionFilterChip(
               label: '${overview.underMaintenance} maintenance',
               color: BafColors.maintenance,
+              selected: selectedFilter == AssetConditionFilter.maintenance,
+              onSelected:
+                  () => onFilterChanged(AssetConditionFilter.maintenance),
             ),
-            StatusBadge(
+            _ConditionFilterChip(
               label: '${overview.temporarilyBlocked} stuck-up',
               color: BafColors.instrument,
+              selected: selectedFilter == AssetConditionFilter.stuckUp,
+              onSelected: () => onFilterChanged(AssetConditionFilter.stuckUp),
             ),
-            StatusBadge(
+            _ConditionFilterChip(
               label: '${overview.down} down',
               color: BafColors.danger,
+              selected: selectedFilter == AssetConditionFilter.down,
+              onSelected: () => onFilterChanged(AssetConditionFilter.down),
             ),
-            StatusBadge(
+            _ConditionFilterChip(
               label: '${overview.unfit} unfit',
               color: BafColors.warning,
+              selected: selectedFilter == AssetConditionFilter.unfit,
+              onSelected: () => onFilterChanged(AssetConditionFilter.unfit),
             ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.md),
+        Wrap(
+          spacing: BafSpacing.xs,
+          runSpacing: BafSpacing.xs,
+          children: [
+            ChoiceChip(
+              key: const ValueKey('plant-asset-class-all'),
+              label: const Text('All asset classes'),
+              selected: selectedAssetClassId == null,
+              onSelected: (_) => onAssetClassChanged(null),
+            ),
+            for (final summary in overview.classes.where(
+              (item) => item.total > 0,
+            ))
+              ChoiceChip(
+                key: ValueKey<String>(
+                  'plant-asset-class-${summary.assetClass.id}',
+                ),
+                label: Text(summary.assetClass.name),
+                selected: selectedAssetClassId == summary.assetClass.id,
+                onSelected: (_) => onAssetClassChanged(summary.assetClass.id),
+              ),
           ],
         ),
         if (ticketLoadFailed) ...[
@@ -401,18 +475,36 @@ class _ConditionBoardBody extends StatelessWidget {
           ),
         ],
         const SizedBox(height: BafSpacing.xl),
-        ...overview.classes
-            .where((summary) => summary.total > 0)
-            .map(
-              (summary) => _AssetClassSection(
-                summary: summary,
-                user: user,
-                openTickets: openTickets,
-              ),
+        if (visibleClasses.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
+            child: Text(
+              'No assets match the selected condition and asset class.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: BafColors.textSecondary),
             ),
+          )
+        else
+          ...visibleClasses.map(
+            (summary) => _AssetClassSection(
+              summary: summary,
+              user: user,
+              openTickets: openTickets,
+            ),
+          ),
       ],
     );
   }
+
+  bool _matchesSelectedCondition(PlantAssetState asset) =>
+      switch (selectedFilter) {
+        AssetConditionFilter.all => true,
+        AssetConditionFilter.available => asset.isAvailable,
+        AssetConditionFilter.maintenance => asset.isUnderMaintenance,
+        AssetConditionFilter.stuckUp => asset.isTemporarilyBlocked,
+        AssetConditionFilter.down => asset.isDown,
+        AssetConditionFilter.unfit => asset.isUnfit,
+      };
 }
 
 class _AssetClassSection extends StatelessWidget {

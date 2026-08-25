@@ -8,15 +8,25 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart' hide Query;
 
+import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/auth/data/user_model.dart';
+import '../../features/directives/data/operational_directive_model.dart';
+import '../../features/directives/data/remote_operational_directive_reader.dart';
 import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/data/remote_maintenance_reader.dart';
 import '../../features/maintenance_workflow/data/compliance_request_record.dart';
 import '../../features/maintenance_workflow/data/job_lane_record.dart';
 import '../../features/maintenance_workflow/data/workflow_aggregate_record.dart';
 import '../../features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart';
+import '../../features/planned_maintenance/data/baf_knowledge_model.dart';
+import '../../features/planned_maintenance/data/job_diary_model.dart';
+import '../../features/planned_maintenance/data/job_module_model.dart';
+import '../../features/planned_maintenance/data/job_template_model.dart';
+import '../../features/planned_maintenance/data/template_governance_model.dart';
 import 'app_logger.dart';
 import 'sync_remote_freshness_policy.dart';
+
+part 'live_remote_sync_service.business.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -36,11 +46,10 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
 // It listens to selected Firestore queries and mirrors safe remote changes
 // into local Isar so existing Isar-backed providers update immediately.
 //
-// Current rollout scope: open, non-deleted maintenance tickets plus active
-// workflow aggregates, lane assignments and compliance obligations. Tickets
-// are scoped by actor; workflow projections already have approved-user read
-// authority and are filtered by the existing role policy before display. Full
-// SyncCoordinator/GlobalPullService remains the source of convergence.
+// Open maintenance tickets are scoped by actor. Active workflows, directives,
+// planned jobs and modules plus bounded recent operational records are kept
+// live across devices; the existing role policy still controls presentation.
+// SyncCoordinator/GlobalPullService remains the complete recovery authority.
 
 const _activeWorkflowStatuses = <String>[
   'pendingLaneClassification',
@@ -282,10 +291,22 @@ class LiveRemoteSyncService {
       <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
   final Set<_LiveRemoteMirrorKind> _reconciledProjectionKinds =
       <_LiveRemoteMirrorKind>{};
+  final Set<_LiveBusinessMirrorKind> _reconciledBusinessKinds =
+      <_LiveBusinessMirrorKind>{};
   final Map<_LiveRemoteMirrorKind, Timer> _projectionReconciliationRetries =
       <_LiveRemoteMirrorKind, Timer>{};
   final Map<_LiveRemoteMirrorKind, int> _projectionReconciliationFailures =
       <_LiveRemoteMirrorKind, int>{};
+  final Map<_LiveBusinessMirrorKind, Timer> _businessReconciliationRetries =
+      <_LiveBusinessMirrorKind, Timer>{};
+  final Map<_LiveBusinessMirrorKind, int> _businessReconciliationFailures =
+      <_LiveBusinessMirrorKind, int>{};
+  final Map<String, Set<String>> _authoritativeTicketIdsByListener =
+      <String, Set<String>>{};
+  final Set<String> _expectedTicketListeners = <String>{};
+  bool _initialTicketReconciliationComplete = false;
+  Timer? _ticketReconciliationRetry;
+  int _ticketReconciliationFailures = 0;
 
   LiveMaintenanceMirrorScope? _maintenanceScope;
   bool _maintenanceStarted = false;
@@ -433,6 +454,7 @@ class LiveRemoteSyncService {
       ..._maintenanceListenerSpecs(scope),
       ..._workflowProjectionListenerSpecs(),
     ];
+    final businessSpecs = _businessListenerSpecs();
     if (listenerSpecs.isEmpty) {
       _setHealth(
         _health.copyWith(
@@ -455,7 +477,7 @@ class LiveRemoteSyncService {
         clearPausedAt: true,
         clearLastError: true,
         maintenanceScopeLabel: scope.label,
-        listenerCount: listenerSpecs.length,
+        listenerCount: listenerSpecs.length + businessSpecs.length,
       ),
     );
 
@@ -463,18 +485,25 @@ class LiveRemoteSyncService {
       AppLogger.setCustomKeys({
         'live_maintenance_state': 'listening',
         'live_maintenance_scope': scope.label,
-        'live_maintenance_listener_count': listenerSpecs.length,
+        'live_maintenance_listener_count':
+            listenerSpecs.length + businessSpecs.length,
       }),
     );
 
+    _expectedTicketListeners.addAll(
+      listenerSpecs
+          .where((spec) => spec.kind == _LiveRemoteMirrorKind.maintenanceTicket)
+          .map((spec) => spec.label),
+    );
     for (final spec in listenerSpecs) {
       final sub = spec.query
-          .snapshots(
-            includeMetadataChanges:
-                spec.kind != _LiveRemoteMirrorKind.maintenanceTicket,
-          )
+          .snapshots(includeMetadataChanges: true)
           .listen(
-            (snapshot) => _handleLiveSnapshot(spec.kind, snapshot),
+            (snapshot) => _handleLiveSnapshot(
+              spec.kind,
+              snapshot,
+              listenerLabel: spec.label,
+            ),
             onError: (Object error, StackTrace stackTrace) {
               debugPrint(
                 '⚠️ Live maintenance listener failed (${spec.label}): $error',
@@ -508,6 +537,10 @@ class LiveRemoteSyncService {
             },
           );
       _maintenanceSubs.add(sub);
+    }
+
+    for (final spec in businessSpecs) {
+      _startBusinessListener(spec);
     }
   }
 
@@ -600,12 +633,24 @@ class LiveRemoteSyncService {
           _maintenanceSubs,
         );
     _maintenanceSubs.clear();
+    _authoritativeTicketIdsByListener.clear();
+    _expectedTicketListeners.clear();
+    _initialTicketReconciliationComplete = false;
+    _ticketReconciliationRetry?.cancel();
+    _ticketReconciliationRetry = null;
+    _ticketReconciliationFailures = 0;
+    _reconciledBusinessKinds.clear();
     _reconciledProjectionKinds.clear();
     for (final retry in _projectionReconciliationRetries.values) {
       retry.cancel();
     }
     _projectionReconciliationRetries.clear();
     _projectionReconciliationFailures.clear();
+    for (final retry in _businessReconciliationRetries.values) {
+      retry.cancel();
+    }
+    _businessReconciliationRetries.clear();
+    _businessReconciliationFailures.clear();
 
     for (final sub in subs) {
       unawaited(sub.cancel());
@@ -613,8 +658,9 @@ class LiveRemoteSyncService {
   }
 
   void _handleMaintenanceSnapshot(
-    QuerySnapshot<Map<String, dynamic>> snapshot,
-  ) {
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required String listenerLabel,
+  }) {
     _setHealth(
       _health.copyWith(
         maintenanceState: LiveRemoteSyncConnectionState.listening,
@@ -641,6 +687,109 @@ class LiveRemoteSyncService {
           break;
       }
     }
+
+    if (!snapshot.metadata.isFromCache && !snapshot.metadata.hasPendingWrites) {
+      _authoritativeTicketIdsByListener[listenerLabel] =
+          snapshot.docs.map((document) => document.id).toSet();
+      if (!_initialTicketReconciliationComplete &&
+          _expectedTicketListeners.every(
+            _authoritativeTicketIdsByListener.containsKey,
+          )) {
+        _initialTicketReconciliationComplete = true;
+        unawaited(_reconcileInitiallyVisibleMaintenanceTickets());
+      }
+    }
+  }
+
+  Future<void> _reconcileInitiallyVisibleMaintenanceTickets() async {
+    try {
+      final remoteIds = <String>{
+        for (final ids in _authoritativeTicketIdsByListener.values) ...ids,
+      };
+      final scope = _maintenanceScope;
+      if (scope == null) {
+        return;
+      }
+
+      final records =
+          await _isar.maintenanceRecords
+              .filter()
+              .isResolvedEqualTo(false)
+              .and()
+              .isDeletedEqualTo(false)
+              .findAll();
+      for (final record in records) {
+        final identifier = record.firestoreId?.trim();
+        if (!record.isSynced ||
+            identifier == null ||
+            identifier.isEmpty ||
+            remoteIds.contains(identifier) ||
+            !_ticketBelongsToScope(record, scope)) {
+          continue;
+        }
+        await _applyRemovedMaintenanceDoc(
+          FirebaseFirestore.instance
+              .collection('maintenance_records')
+              .doc(identifier),
+          propagateFailure: true,
+        );
+      }
+      _ticketReconciliationFailures = 0;
+      _ticketReconciliationRetry?.cancel();
+      _ticketReconciliationRetry = null;
+    } catch (error, stackTrace) {
+      _initialTicketReconciliationComplete = false;
+      _recordWorkflowProjectionError(
+        kind: _LiveRemoteMirrorKind.maintenanceTicket,
+        documentId: '*',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _scheduleMaintenanceTicketReconciliationRetry();
+    }
+  }
+
+  void _scheduleMaintenanceTicketReconciliationRetry() {
+    if (!_maintenanceStarted || _pausedForLifecycle) {
+      return;
+    }
+
+    _ticketReconciliationFailures += 1;
+    final delay = liveWorkflowProjectionReconciliationRetryDelay(
+      _ticketReconciliationFailures,
+    );
+    if (delay == null) {
+      return;
+    }
+
+    _ticketReconciliationRetry?.cancel();
+    _ticketReconciliationRetry = Timer(delay, () {
+      _ticketReconciliationRetry = null;
+      if (!_maintenanceStarted ||
+          _pausedForLifecycle ||
+          _initialTicketReconciliationComplete ||
+          !_expectedTicketListeners.every(
+            _authoritativeTicketIdsByListener.containsKey,
+          )) {
+        return;
+      }
+      _initialTicketReconciliationComplete = true;
+      unawaited(_reconcileInitiallyVisibleMaintenanceTickets());
+    });
+  }
+
+  bool _ticketBelongsToScope(
+    MaintenanceRecord record,
+    LiveMaintenanceMirrorScope scope,
+  ) {
+    if (scope.listenToAllOpenTickets) return true;
+    if (scope.includeOwnLoggedTickets && record.loggedByUid == scope.actorUid) {
+      return true;
+    }
+    if (scope.includeCriticalTickets && record.isCritical) return true;
+    final plan = record.issueLanePlanReadResult.value;
+    final assigned = plan?.assignedLanes ?? <String>[record.routedTo.name];
+    return scope.routedTo.any((route) => assigned.contains(route.name));
   }
 
   Future<void> _reconcileActiveWorkflowProjections(
@@ -749,10 +898,11 @@ class LiveRemoteSyncService {
 
   void _handleLiveSnapshot(
     _LiveRemoteMirrorKind kind,
-    QuerySnapshot<Map<String, dynamic>> snapshot,
-  ) {
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required String listenerLabel,
+  }) {
     if (kind == _LiveRemoteMirrorKind.maintenanceTicket) {
-      _handleMaintenanceSnapshot(snapshot);
+      _handleMaintenanceSnapshot(snapshot, listenerLabel: listenerLabel);
       return;
     }
 
@@ -992,13 +1142,29 @@ class LiveRemoteSyncService {
   }
 
   Future<void> _applyRemovedMaintenanceDoc(
-    DocumentReference<Map<String, dynamic>> reference,
-  ) async {
+    DocumentReference<Map<String, dynamic>> reference, {
+    bool propagateFailure = false,
+  }) async {
     try {
-      final doc = await reference.get();
-      if (!doc.exists) return;
-      await _applyMaintenanceDoc(doc);
+      final doc = await reference.get(const GetOptions(source: Source.server));
+      if (!doc.exists) {
+        await _isar.writeTxn(() async {
+          final local =
+              await _isar.maintenanceRecords
+                  .filter()
+                  .firestoreIdEqualTo(reference.id)
+                  .findFirst();
+          if (local != null && local.isSynced) {
+            await _isar.maintenanceRecords.delete(local.id);
+          }
+        });
+        return;
+      }
+      await _applyMaintenanceDoc(doc, propagateFailure: propagateFailure);
     } catch (error, stackTrace) {
+      if (propagateFailure) {
+        rethrow;
+      }
       debugPrint('⚠️ Failed to fetch removed live maintenance doc: $error');
       debugPrintStack(stackTrace: stackTrace);
       AppLogger.warning(
@@ -1017,10 +1183,11 @@ class LiveRemoteSyncService {
   }
 
   Future<void> _applyMaintenanceDoc(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) async {
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    bool propagateFailure = false,
+  }) async {
     final data = doc.data();
-    if (data == null) return;
+    if (data == null || doc.metadata.hasPendingWrites) return;
 
     try {
       final remote = _mapTicket(doc, data);
@@ -1072,6 +1239,9 @@ class LiveRemoteSyncService {
         );
       }
     } catch (error, stackTrace) {
+      if (propagateFailure) {
+        rethrow;
+      }
       debugPrint('⚠️ Failed to apply live maintenance doc ${doc.id}: $error');
       debugPrintStack(stackTrace: stackTrace);
       AppLogger.warning(

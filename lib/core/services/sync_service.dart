@@ -57,6 +57,7 @@ class SyncFailureDetail {
   final String message;
   final String? errorCode;
   final String? firestoreId;
+  final String? originatingUid;
   final bool isLikelyPermanent;
   final DateTime occurredAt;
 
@@ -67,6 +68,7 @@ class SyncFailureDetail {
     required this.occurredAt,
     this.errorCode,
     this.firestoreId,
+    this.originatingUid,
     this.isLikelyPermanent = false,
   });
 
@@ -156,6 +158,7 @@ class SyncService {
   final BafKnowledgeRepository _knowledgeRepo;
 
   final AuditRepository _auditRepo;
+  final String? Function() _rejectionOwnerUidLookup;
 
   bool _isSyncing = false;
   bool _recheckPermanentRejections = false;
@@ -190,6 +193,7 @@ class SyncService {
     ChargeAbnormalityCommandService? abnormalityCommandService,
     required BafKnowledgeRepository knowledgeRepo,
     required AuditRepository auditRepository,
+    String? Function()? rejectionOwnerUidLookup,
   }) : _maintenanceRepo = maintenanceRepo,
        _firestoreMaintenance = firestoreMaintenance,
        _maintenanceCommands =
@@ -210,7 +214,10 @@ class SyncService {
        _abnormalityCommands =
            abnormalityCommandService ?? ChargeAbnormalityCommandService(),
        _knowledgeRepo = knowledgeRepo,
-       _auditRepo = auditRepository;
+       _auditRepo = auditRepository,
+       _rejectionOwnerUidLookup =
+           rejectionOwnerUidLookup ??
+           (() => FirebaseAuth.instance.currentUser?.uid.trim());
 
   @visibleForTesting
   Future<void> syncJobModulesForTest({

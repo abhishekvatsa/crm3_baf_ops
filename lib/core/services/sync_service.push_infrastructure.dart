@@ -101,6 +101,7 @@ extension _SyncServicePushInfrastructure on SyncService {
       message: message,
       errorCode: errorCode,
       firestoreId: firestoreId,
+      originatingUid: _rejectionOwnerUidLookup(),
       isLikelyPermanent: isLikelyPermanent,
       occurredAt: DateTime.now(),
     );
@@ -173,6 +174,8 @@ extension _SyncServicePushInfrastructure on SyncService {
                 .and()
                 .entityIdEqualTo(detail.entityId)
                 .and()
+                .originatingUidEqualTo(detail.originatingUid)
+                .and()
                 .isResolvedEqualTo(false)
                 .findFirst();
 
@@ -187,6 +190,7 @@ extension _SyncServicePushInfrastructure on SyncService {
                     ? existing.errorCode
                     : detail.errorCode,
             firestoreId: detail.firestoreId,
+            originatingUid: detail.originatingUid,
             isLikelyPermanent:
                 existing.isLikelyPermanent || detail.isLikelyPermanent,
             at: detail.occurredAt,
@@ -202,6 +206,7 @@ extension _SyncServicePushInfrastructure on SyncService {
               ..firestoreId = detail.firestoreId
               ..errorCode = detail.errorCode
               ..message = detail.message
+              ..originatingUid = detail.originatingUid
               ..firstSeenAt = detail.occurredAt
               ..lastSeenAt = detail.occurredAt
               ..attemptCount = 1
@@ -417,6 +422,7 @@ extension _SyncServicePushInfrastructure on SyncService {
           'The server reports this $entityLabel deleted, but newer unsynchronized local evidence was preserved.',
       isLikelyPermanent: true,
       occurredAt: DateTime.now(),
+      originatingUid: _rejectionOwnerUidLookup(),
     );
     await _upsertSyncRejection(detail, failClosed: true);
     _appendPushFailureDetail(detail);
@@ -454,6 +460,7 @@ extension _SyncServicePushInfrastructure on SyncService {
             'Review or resolve the rejection before retrying. Last rejection: ${rejection.displayMessage}',
         isLikelyPermanent: true,
         occurredAt: DateTime.now(),
+        originatingUid: rejection.originatingUid,
       ),
     );
 

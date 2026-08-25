@@ -1708,6 +1708,32 @@
       "malformedDisposition": "return no selection and require explicit valid input",
       "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "malformed draft metadata selects or authorizes a maintenance class"
+    },
+    {
+      "id": "live-business-mirror-decode-hold",
+      "file": "lib/core/services/live_remote_sync_service.business.dart",
+      "siteFingerprint": "339c7c71d980d86d347190e7b3eaa2749b54a250deee75053df3b15fbeebcb40",
+      "classification": "FAIL_CLOSED_SYNC_CONTAINMENT",
+      "purpose": "surface invalid authoritative business records without replacing a local record or reporting successful synchronization",
+      "authorityBoundary": "approved-user server-to-device live operational mirror",
+      "mutability": "no local write on malformed remote data; exact server-read failures propagate when reconciliation requires them",
+      "dataScope": "bounded live documents across approved operational business collections",
+      "malformedDisposition": "record the sync error, preserve existing local state, and withhold applied-success evidence",
+      "regression": "test/immediate_operational_sync_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "a malformed remote record overwrites local evidence, marks a row synchronized, or suppresses a required reconciliation failure"
+    },
+    {
+      "id": "user-local-recovery-authoritative-decode-hold",
+      "file": "lib/core/services/local_sync_recovery_service.dart",
+      "siteFingerprint": "10b7211740c19aa9c8694c30eb3c9bdccc8813b6881f71d422413daf459c5ba2",
+      "classification": "FAIL_CLOSED_USER_RECOVERY",
+      "purpose": "contain a malformed authoritative server record before owned rejected local work can be restored or discarded",
+      "authorityBoundary": "approved actor, exact rejection owner, authenticated identity, and authoritative server-only read",
+      "mutability": "no local row or durable rejection changes when the authoritative document cannot be strictly decoded",
+      "dataScope": "one user-owned permanently rejected local business record and its exact server counterpart",
+      "malformedDisposition": "retain the local row and unresolved rejection, increment preserved-failure evidence, and expose the decoding error",
+      "regression": "test/local_sync_recovery_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "a malformed server document is accepted, local evidence is removed, another user's work is changed, or its rejection is marked resolved"
     }
   ]
 }

@@ -25,6 +25,20 @@ class SyncRejectionService {
         .watch(fireImmediately: true);
   }
 
+  Stream<int> watchUnresolvedPermanentCount() {
+    if (kIsWeb) return Stream.value(0);
+    final database = _databaseLookup();
+    if (database == null) return Stream.value(0);
+    final query = database.syncRejections
+        .filter()
+        .isResolvedEqualTo(false)
+        .and()
+        .isLikelyPermanentEqualTo(true);
+    return query
+        .watchLazy(fireImmediately: true)
+        .asyncMap((_) => query.count());
+  }
+
   Future<bool> resolve({
     required int rejectionId,
     required AppUser? actor,
@@ -64,4 +78,9 @@ final recentSyncRejectionsProvider = StreamProvider<List<SyncRejection>>(
   (ref) => ref
       .watch(syncRejectionServiceProvider)
       .watchRecent(limit: recentSyncRejectionLimit),
+);
+
+final unresolvedPermanentSyncRejectionCountProvider = StreamProvider<int>(
+  (ref) =>
+      ref.watch(syncRejectionServiceProvider).watchUnresolvedPermanentCount(),
 );
