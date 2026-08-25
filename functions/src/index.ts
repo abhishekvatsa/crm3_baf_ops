@@ -140,6 +140,7 @@ import {
   isDeviceRecoveryOperation,
   mutateDeviceRecoveryWithDb,
   userCanMutateDeviceRecovery,
+  userCanResumeClaimedDeviceRecovery,
 } from "./deviceRecoveryMutation";
 import type {DeviceRecoveryMutationResult} from "./deviceRecoveryMutation";
 import {
@@ -192,7 +193,8 @@ async function executeAuthorizedMutation<T>(args: {
   db: admin.firestore.Firestore;
   authUid: string | null;
   callableName: MutatingCallableName;
-  authorize: (userData: {[key: string]: unknown}) => boolean;
+  authorize: (userData: {[key: string]: unknown}) =>
+    boolean | Promise<boolean>;
   execute: () => Promise<T>;
 }): Promise<T> {
   try {
@@ -613,7 +615,12 @@ export const mutateAssetHierarchy = onCall(
             userCanMutateDeviceRecovery(
               userData,
               request.data.operation,
-            ) :
+            ) || userCanResumeClaimedDeviceRecovery({
+              db,
+              actorUid: request.auth?.uid ?? null,
+              actorData: userData,
+              data: request.data ?? {},
+            }) :
           isBurnerConditionRoundOperation(request.data?.operation) ?
             userCanRecordBurnerConditionRound(userData) :
           isOperationalEventIssueLinkOperation(request.data?.operation) ?

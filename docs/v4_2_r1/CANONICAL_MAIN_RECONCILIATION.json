@@ -522,9 +522,9 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "85ECA92B872634DC0E50B07BEEF84552886E92B71A6FA1B6098113F58489B0F5",
+      "candidateSha256": "4321B2601C0A3BD89B0F1C86FD0F992C59CBB468FD77A6F08ED8DE81293C95D5",
       "canonicalBytes": 9674,
-      "candidateBytes": 28270,
+      "candidateBytes": 28530,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

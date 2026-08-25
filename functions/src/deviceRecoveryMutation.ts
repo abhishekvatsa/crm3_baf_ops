@@ -2,7 +2,10 @@ import {createHash} from "crypto";
 import type {Firestore, Transaction} from "firebase-admin/firestore";
 
 import {stableJson} from "./stableJson";
-import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {
+  canonicalApprovedUserAuthority,
+  canonicalUserAuthorityCapsule,
+} from "./userAuthority";
 
 type JsonMap = {[key: string]: unknown};
 
@@ -29,6 +32,18 @@ const ADMIN_OPERATIONS = new Set([
   "DEVICE_RECOVERY_REQUEST",
   "DEVICE_RECOVERY_CANCEL",
 ]);
+
+const CLAIMED_RECOVERY_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  DEVICE_RECOVERY_POLL: ["operation", "installationId"],
+  DEVICE_RECOVERY_CLAIM: ["operation", "requestId", "installationId"],
+  DEVICE_RECOVERY_COMPLETE: [
+    "operation", "requestId", "installationId", "backupFileCount",
+    "clearedCursorCount", "backedUpUnsyncedRows",
+  ],
+  DEVICE_RECOVERY_FAIL: [
+    "operation", "requestId", "installationId", "failureCode",
+  ],
+};
 
 export class DeviceRecoveryMutationError extends Error {
   constructor(
@@ -160,7 +175,7 @@ function canonicalInstallation(data: JsonMap | undefined): boolean {
       data.schemaVersion !== 1 || typeof data.token !== "string" ||
       data.token.length === 0 || data.token.length > 4096 ||
       typeof data.platform !== "string" ||
-      !["android", "ios", "macos", "windows", "linux", "fuchsia", "web"]
+      !["android", "ios", "macos", "windows", "linux", "fuchsia"]
         .includes(data.platform)) {
     return false;
   }
@@ -192,6 +207,47 @@ async function authoritativeActor(
     );
   }
   return authority.data;
+}
+
+interface RecoveryActor {
+  readonly data: JsonMap;
+  readonly approved: boolean;
+}
+
+async function authoritativeRecoveryActor(
+  transaction: Transaction,
+  db: Firestore,
+  uid: string,
+): Promise<RecoveryActor> {
+  const snapshot = await transaction.get(db.collection("users").doc(uid));
+  const data = snapshot.data() as JsonMap | undefined;
+  const authority = canonicalUserAuthorityCapsule(data);
+  if (!snapshot.exists || data == null || authority == null) {
+    throw new DeviceRecoveryMutationError(
+      "permission-denied",
+      "A valid signed-in recovery account is required.",
+      {reasonCode: "device-recovery-authority-denied"},
+    );
+  }
+  return {data, approved: authority.isApproved};
+}
+
+function exactRecoveryAudit(
+  value: JsonMap | undefined,
+  requestId: string,
+  actorUid: string,
+): boolean {
+  return value != null && value.entityType === "deviceRecovery" &&
+    value.entityId === requestId && value.performedByUid === actorUid &&
+    value.action === "update";
+}
+
+function rejectedRevokedRecovery(): DeviceRecoveryMutationError {
+  return new DeviceRecoveryMutationError(
+    "permission-denied",
+    "A revoked account may resume only its exact previously claimed reset.",
+    {reasonCode: "device-recovery-claim-authority-denied"},
+  );
 }
 
 function actorName(data: JsonMap, uid: string): string {
@@ -263,6 +319,114 @@ function validatePendingState(
   toIso(state.requestedAt, "requestedAt");
   toIso(state.expiresAt, "expiresAt");
   return state;
+}
+
+export async function userCanResumeClaimedDeviceRecovery(args: {
+  db: Firestore;
+  actorUid: string | null;
+  actorData: JsonMap;
+  data: JsonMap;
+}): Promise<boolean> {
+  const actorUid = args.actorUid?.trim() ?? "";
+  const authority = canonicalUserAuthorityCapsule(args.actorData);
+  const operation = args.data.operation;
+  if (actorUid.length === 0 || authority == null || authority.isApproved ||
+      typeof operation !== "string") {
+    return false;
+  }
+  const fields = CLAIMED_RECOVERY_FIELDS[operation];
+  if (fields == null) return false;
+
+  try {
+    exactFields(args.data, fields);
+    const installationId = requiredUuid(
+      args.data.installationId,
+      "installationId",
+    );
+    const requestId = operation === "DEVICE_RECOVERY_POLL" ? undefined :
+      requiredUuid(args.data.requestId, "requestId");
+    let backupFileCount: number | null = null;
+    let clearedCursorCount: number | null = null;
+    let backedUpUnsyncedRows: number | null = null;
+    let failureCode: string | null = null;
+    if (operation === "DEVICE_RECOVERY_COMPLETE") {
+      backupFileCount = nonNegativeInteger(
+        args.data.backupFileCount,
+        "backupFileCount",
+      );
+      clearedCursorCount = nonNegativeInteger(
+        args.data.clearedCursorCount,
+        "clearedCursorCount",
+      );
+      backedUpUnsyncedRows = nonNegativeInteger(
+        args.data.backedUpUnsyncedRows,
+        "backedUpUnsyncedRows",
+      );
+      if (backupFileCount === 0) return false;
+    } else if (operation === "DEVICE_RECOVERY_FAIL") {
+      failureCode = requiredText(args.data.failureCode, "failureCode", 80);
+    }
+
+    const stateSnapshot = await args.db.collection(DEVICE_REQUESTS)
+      .doc(deviceStateId(actorUid, installationId))
+      .get();
+    if (!stateSnapshot.exists) return false;
+    const state = validatePendingState(
+      stateSnapshot.data(),
+      actorUid,
+      installationId,
+      requestId,
+    );
+    if (state.startedByUid !== actorUid) return false;
+    const status = state.status;
+    const terminalStatus = operation === "DEVICE_RECOVERY_COMPLETE" ?
+      "completed" : operation === "DEVICE_RECOVERY_FAIL" ? "failed" : null;
+    if (status !== "in_progress" &&
+        (terminalStatus == null || status !== terminalStatus)) {
+      return false;
+    }
+    if (status === "completed" &&
+        (state.backupFileCount !== backupFileCount ||
+          state.clearedCursorCount !== clearedCursorCount ||
+          state.backedUpUnsyncedRows !== backedUpUnsyncedRows)) {
+      return false;
+    }
+    if (status === "failed" && state.failureCode !== failureCode) return false;
+
+    const claimedRequestId = state.requestId as string;
+    const [installation, receipt, claimAudit] = await Promise.all([
+      args.db.collection("users").doc(actorUid)
+        .collection(INSTALLATIONS).doc(installationId).get(),
+      args.db.collection(DEVICE_RECEIPTS).doc(claimedRequestId).get(),
+      args.db.collection("audit_logs")
+        .doc(`server_authority_device_recovery_${claimedRequestId}_claimed`)
+        .get(),
+    ]);
+    const evidence = receipt.data() as JsonMap | undefined;
+    if (!installation.exists || !canonicalInstallation(installation.data()) ||
+        !receipt.exists || evidence == null || evidence.schemaVersion !== 1 ||
+        evidence.requestId !== claimedRequestId ||
+        evidence.actorUid !== state.requestedByUid ||
+        evidence.targetUid !== actorUid ||
+        evidence.installationId !== installationId ||
+        evidence.reason !== state.reason || !claimAudit.exists ||
+        !exactRecoveryAudit(claimAudit.data(), claimedRequestId, actorUid)) {
+      return false;
+    }
+    if (status !== "in_progress") {
+      const finalAudit = await args.db.collection("audit_logs")
+        .doc(`server_authority_device_recovery_${claimedRequestId}_${status}`)
+        .get();
+      if (!finalAudit.exists ||
+          !exactRecoveryAudit(finalAudit.data(), claimedRequestId, actorUid)) {
+        return false;
+      }
+    }
+    return true;
+  } catch (error) {
+    if (error instanceof DeviceRecoveryMutationError) return false;
+    throw error;
+  }
 }
 
 async function listInstallations(
@@ -502,7 +666,11 @@ async function pollReset(
   );
 
   const request = await args.db.runTransaction(async (transaction) => {
-    await authoritativeActor(transaction, args.db, actorUid, false);
+    const actor = await authoritativeRecoveryActor(
+      transaction,
+      args.db,
+      actorUid,
+    );
     const userRef = args.db.collection("users").doc(actorUid);
     const installation = await transaction.get(
       userRef.collection(INSTALLATIONS).doc(installationId),
@@ -519,12 +687,18 @@ async function pollReset(
         {reasonCode: "device-recovery-installation-not-current"},
       );
     }
-    if (!stateSnapshot.exists) return null;
+    if (!stateSnapshot.exists) {
+      if (!actor.approved) throw rejectedRevokedRecovery();
+      return null;
+    }
     const state = validatePendingState(
       stateSnapshot.data(),
       actorUid,
       installationId,
     );
+    if (!actor.approved && state.status !== "in_progress") {
+      throw rejectedRevokedRecovery();
+    }
     if ((state.status !== "pending" && state.status !== "in_progress") ||
         (state.status === "pending" &&
           new Date(toIso(state.expiresAt, "expiresAt")).getTime() <=
@@ -557,6 +731,20 @@ async function pollReset(
         {reasonCode: "device-recovery-receipt-invalid"},
       );
     }
+    if (!actor.approved) {
+      const claimAudit = await transaction.get(
+        args.db.collection("audit_logs")
+          .doc(`server_authority_device_recovery_${state.requestId}_claimed`),
+      );
+      if (state.startedByUid !== actorUid || !claimAudit.exists ||
+          !exactRecoveryAudit(
+            claimAudit.data(),
+            state.requestId as string,
+            actorUid,
+          )) {
+        throw rejectedRevokedRecovery();
+      }
+    }
     return publicRequest(state);
   });
 
@@ -587,11 +775,10 @@ async function claimReset(
   const timestamp = args.timestampFromDate(now);
 
   const replay = await args.db.runTransaction(async (transaction) => {
-    const actor = await authoritativeActor(
+    const actor = await authoritativeRecoveryActor(
       transaction,
       args.db,
       actorUid,
-      false,
     );
     const installation = await transaction.get(
       args.db.collection("users").doc(actorUid)
@@ -642,8 +829,16 @@ async function claimReset(
           {reasonCode: "device-recovery-claim-owner-mismatch"},
         );
       }
+      if (!exactRecoveryAudit(audit.data(), requestId, actorUid)) {
+        throw new DeviceRecoveryMutationError(
+          "data-loss",
+          "The existing recovery claim audit is inconsistent.",
+          {reasonCode: "device-recovery-claim-audit-invalid"},
+        );
+      }
       return true;
     }
+    if (!actor.approved) throw rejectedRevokedRecovery();
     if (state.status !== "pending" || audit.exists) {
       throw new DeviceRecoveryMutationError(
         "failed-precondition",
@@ -679,7 +874,7 @@ async function claimReset(
       auditRef,
       auditRecord({
         uid: actorUid,
-        name: actorName(actor, actorUid),
+        name: actorName(actor.data, actorUid),
         requestId,
         action: "update",
         reason: state.reason as string,
@@ -746,11 +941,10 @@ async function finishReset(
   const status = failed ? "failed" : "completed";
 
   const replay = await args.db.runTransaction(async (transaction) => {
-    const actor = await authoritativeActor(
+    const actor = await authoritativeRecoveryActor(
       transaction,
       args.db,
       actorUid,
-      false,
     );
     const installation = await transaction.get(
       args.db.collection("users").doc(actorUid)
@@ -785,6 +979,11 @@ async function finishReset(
       installationId,
       requestId,
     );
+    if (!actor.approved &&
+        (state.startedByUid !== actorUid || !claimAudit.exists ||
+          !exactRecoveryAudit(claimAudit.data(), requestId, actorUid))) {
+      throw rejectedRevokedRecovery();
+    }
     if (state.status === status && audit.exists) {
       const evidenceMatches = failed ?
         state.failureCode === failureCode :
@@ -801,7 +1000,9 @@ async function finishReset(
       return true;
     }
     if (state.status !== "in_progress" || state.startedByUid !== actorUid ||
-        !claimAudit.exists || audit.exists) {
+        !claimAudit.exists ||
+        !exactRecoveryAudit(claimAudit.data(), requestId, actorUid) ||
+        audit.exists) {
       throw new DeviceRecoveryMutationError(
         "failed-precondition",
         "The device-recovery request has not been claimed by this phone.",
@@ -822,7 +1023,7 @@ async function finishReset(
       auditRef,
       auditRecord({
         uid: actorUid,
-        name: actorName(actor, actorUid),
+        name: actorName(actor.data, actorUid),
         requestId,
         action: "update",
         reason: state.reason as string,

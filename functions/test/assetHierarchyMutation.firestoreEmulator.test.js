@@ -279,6 +279,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     const selectedInstallation = '41414141-4141-4141-8141-414141414141';
     const otherInstallation = '42424242-4242-4242-8242-424242424242';
     const requestId = '43434343-4343-4343-8343-434343434343';
+    const webInstallation = '45454545-4545-4545-8545-454545454545';
     const updatedAt = admin.firestore.Timestamp.fromDate(
       new Date('2026-08-13T11:30:00.000Z'),
     );
@@ -300,6 +301,14 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
           platform: 'android',
           updatedAt,
         }),
+      target.collection('notification_installations')
+        .doc(webInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-web-token',
+          platform: 'web',
+          updatedAt,
+        }),
     ]);
 
     const inventory = await invokeDeviceRecovery({
@@ -308,6 +317,16 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     }, 'admin-1');
     expect(inventory.installations).toHaveLength(2);
     expect(JSON.stringify(inventory)).not.toContain('private-selected-token');
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .not.toContain(webInstallation);
+
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId: '46464646-4646-4646-8646-464646464646',
+      targetUid: 'ops-1',
+      installationId: webInstallation,
+      reason: 'Web clients cannot perform a protected local Isar reset.',
+    }, 'admin-1')).rejects.toMatchObject({code: 'not-found'});
 
     await expect(invokeDeviceRecovery({
       operation: 'DEVICE_RECOVERY_REQUEST',
@@ -361,18 +380,35 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       reason: 'Cancellation cannot race the already claimed phone reset.',
     }, 'admin-1')).rejects.toMatchObject({code: 'failed-precondition'});
 
-    const completion = await invokeDeviceRecovery({
+    await target.update({isApproved: false});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({request: {status: 'in_progress'}});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CLAIM',
+      requestId,
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({
+      status: 'in_progress',
+      idempotentReplay: true,
+    });
+
+    const completionRequest = {
       operation: 'DEVICE_RECOVERY_COMPLETE',
       requestId,
       installationId: selectedInstallation,
       backupFileCount: 2,
       clearedCursorCount: 3,
       backedUpUnsyncedRows: 1,
-    }, 'ops-1');
+    };
+    const completion = await invokeDeviceRecovery(completionRequest, 'ops-1');
     expect(completion).toMatchObject({
       status: 'completed',
       idempotentReplay: false,
     });
+    expect(await invokeDeviceRecovery(completionRequest, 'ops-1'))
+      .toMatchObject({status: 'completed', idempotentReplay: true});
     const audits = await db.collection('audit_logs').get();
     expect(audits.docs.map((snapshot) => snapshot.id).sort()).toEqual([
       `server_authority_device_recovery_${requestId}_claimed`,

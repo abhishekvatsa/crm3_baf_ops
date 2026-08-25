@@ -69,6 +69,7 @@ describe('S-03 callable boundary wiring', () => {
     );
     expect(callableBlock).toContain('userCanMutateAssetOperationalCondition(');
     expect(callableBlock).toContain('userCanMutateAssetHierarchy(userData)');
+    expect(callableBlock).toContain('userCanResumeClaimedDeviceRecovery({');
   });
 
   test('workflow command admission follows the approved actor read', () => {

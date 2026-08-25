@@ -227,6 +227,41 @@ describe('S-03 callable abuse control', () => {
     expect(db.abuseRecords()).toHaveLength(1);
   });
 
+  test('asynchronous authority evidence is resolved before limiter admission', async () => {
+    const db = new MemoryFirestore();
+    const timer = clock();
+    db.seed('users/recovery-user', {allowed: false});
+    let executed = false;
+
+    await expect(executeAuthorizedMutationWithAbuseControl({
+      db,
+      actorUid: 'recovery-user',
+      callableName: 'mutateAssetHierarchy',
+      authorize: async () => false,
+      now: timer.now,
+      execute: async () => {
+        executed = true;
+      },
+    })).rejects.toMatchObject({
+      code: 'permission-denied',
+      details: {reasonCode: 'callable-preflight-authority-denied'},
+    });
+    expect(db.transactionCalls).toBe(0);
+    expect(db.abuseRecords()).toHaveLength(0);
+    expect(executed).toBe(false);
+
+    await expect(executeAuthorizedMutationWithAbuseControl({
+      db,
+      actorUid: 'recovery-user',
+      callableName: 'mutateAssetHierarchy',
+      authorize: async () => true,
+      now: timer.now,
+      execute: async () => ({ok: true}),
+    })).resolves.toEqual({ok: true});
+    expect(db.transactionCalls).toBe(1);
+    expect(db.abuseRecords()).toHaveLength(1);
+  });
+
   test('atomically admits only the configured burst limit under concurrency', async () => {
     const db = new MemoryFirestore();
     const timer = clock();
