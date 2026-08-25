@@ -278,12 +278,12 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "acf8fea58c3689a730d1ef56c61694ff3e618175"
+        == "11331d2291c2c7617647c691320a8563f36059e9"
     and post_codegen_refresh.get("sourceTree")
-        == "311ac9be55ddc253bc9cf2f220d2c809c292929d"
+        == "f84fecd17404205b539e5498b2d2dd92a88ca57e"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
-        "lib/features/maintenance/data/maintenance_model.g.dart",
+        "lib/features/audit/models/audit_event_model.g.dart",
     ]
     and len(post_codegen_bindings) == 19
     and all(
