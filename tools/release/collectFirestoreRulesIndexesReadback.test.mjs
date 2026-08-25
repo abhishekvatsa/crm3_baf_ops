@@ -10,6 +10,7 @@ const {
   PRODUCTION_PROJECT_ID,
   adjudicateReadback,
   listCompositeIndexes,
+  sourceIndexSetBinding,
   summarizeIndexes,
   summarizeRules,
 } = require("./collectFirestoreRulesIndexesReadback.js");
@@ -117,6 +118,21 @@ test("CLI or API index drift fails closed", () => {
     indexes: indexSummary({apiIndexes: [{...drifted, state: "READY"}]}),
   });
   assert.ok(apiDrift.failedChecks.includes("apiIndexesMatchSource"));
+});
+
+test("source index binding rejects count-preserving identity substitutions", () => {
+  const approved = sourceIndexSetBinding([sourceIndex]);
+  const substituted = sourceIndexSetBinding([
+    {...sourceIndex, collectionGroup: "other_collection"},
+  ]);
+
+  assert.equal(approved.count, substituted.count);
+  assert.notEqual(approved.indexSetSha256, substituted.indexSetSha256);
+  assert.match(approved.indexSetSha256, /^[0-9A-F]{64}$/);
+  assert.throws(
+    () => sourceIndexSetBinding([]),
+    /source Firestore index inventory must be a nonempty array/,
+  );
 });
 
 test("field-override drift and non-ready indexes fail closed", () => {

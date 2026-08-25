@@ -122,6 +122,7 @@
     "exactFunctionFleetDeploymentReceiptSha256": "EA66C347CE1C1F8F795150415AFD18EF9D68D1DA10B8886A34D3ABA47C61B8ED",
     "exactFirestoreRulesSha256": "42A2039D958A1EA691DE20D89027B5CDA0FF5DC9EE09B0654EBEF9C619CF7621",
     "exactFirestoreIndexCount": 65,
+    "exactFirestoreIndexSetSha256": "870D0DAF3E88042E56FE5FCBAD1B36EAB52A4847D160604AB3E511D64A76857B",
     "predecessorFinalizationReceipt": {
       "buildNumber": 14,
       "file": "release/evidence/build-14-finalization-closure.json",

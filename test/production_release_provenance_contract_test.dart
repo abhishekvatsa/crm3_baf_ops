@@ -167,6 +167,8 @@ void main() {
       expect(text, contains('exactFunctionFleetDeploymentPullRequest'));
       expect(text, contains('exactFirestoreRulesSha256'));
       expect(text, contains('exactFirestoreIndexCount'));
+      expect(text, contains('exactFirestoreIndexSetSha256'));
+      expect(text, contains('--source-index-set firestore.indexes.json'));
       expect(
         text,
         contains(

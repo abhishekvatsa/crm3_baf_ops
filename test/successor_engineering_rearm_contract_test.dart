@@ -239,6 +239,24 @@ void main() {
       expect(holdIndexes['readyCount'], holdIndexes['sourceCount']);
       expect(holdIndexes['allIndexesReady'], isTrue);
       expect(
+        holdIndexes['normalizedSetSha256'],
+        requiredSource['exactFirestoreIndexSetSha256'],
+      );
+      final sourceIndexProbe = Process.runSync('node', <String>[
+        'tools/release/collectFirestoreRulesIndexesReadback.js',
+        '--source-index-set',
+        'firestore.indexes.json',
+      ]);
+      expect(sourceIndexProbe.exitCode, 0);
+      final sourceIndexBinding =
+          (jsonDecode(sourceIndexProbe.stdout as String) as Map)
+              .cast<String, dynamic>();
+      expect(sourceIndexBinding['count'], holdIndexes['sourceCount']);
+      expect(
+        sourceIndexBinding['indexSetSha256'],
+        requiredSource['exactFirestoreIndexSetSha256'],
+      );
+      expect(
         holdBoundary['build15ConstructionAuthorizedByThisEvidence'],
         isFalse,
       );
