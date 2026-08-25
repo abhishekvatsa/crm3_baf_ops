@@ -1,5 +1,7 @@
 // FILE: lib/core/services/isar_production_recovery_stub.dart
 
+import 'package:isar/isar.dart';
+
 class IsarRecoveryFileEntry {
   final String sourcePath;
   final String targetPath;
@@ -85,6 +87,19 @@ Future<IsarRecoveryPackageResult> createIsarRecoveryPackage({
     'Isar recovery package creation is not available on this platform.',
   );
 }
+
+Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
+  required Isar database,
+  required String diagnosticsText,
+  required String reason,
+  String? manifestJsonText,
+}) async {
+  throw UnsupportedError(
+    'Consistent Isar recovery backups are not available on this platform.',
+  );
+}
+
+Future<bool> isRetainedIsarRecoveryBackup(String path) async => false;
 
 Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
   required String reason,

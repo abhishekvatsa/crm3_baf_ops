@@ -376,8 +376,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 171
-    and counts.get("SUCCESSOR_MODIFIED") == 239
+    and counts.get("BYTE_IDENTICAL") == 169
+    and counts.get("SUCCESSOR_MODIFIED") == 241
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -9965,16 +9965,16 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 71
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 72
     and a04_inventory_report.get("inventoryDigest")
-    == "30671D10AAFC7C6EE70A5D785FDC6BD17C92D6A8EDEE384D0FC82450345B5F49"
+    == "9FED3A11767FA1397D910330B5E54296B7E6D9F5D3D7D8BC95ED49AA37B923F1"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
     and len(a04_fields) == 53
     and len({field.get("id") for field in a04_fields}) == 53
-    and len(a04_inherited_decoders) == 71
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 71
+    and len(a04_inherited_decoders) == 72
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 72
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -10284,17 +10284,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 71
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 47
+    and a05_decoder_inventory_report.get("surfaceCount") == 72
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 48
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 48
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 35
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 373
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 36
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 380
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 71
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 47
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 72
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 48
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -10882,8 +10882,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 171
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 239
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 169
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 241
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

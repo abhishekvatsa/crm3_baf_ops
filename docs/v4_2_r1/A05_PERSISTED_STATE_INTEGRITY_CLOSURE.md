@@ -49,6 +49,14 @@ metadata is retained as opaque evidence during a governed merge. The current
 inventories report no unclassified file, catch site, timestamp call, direct
 parser or stale policy.
 
+The 25 August 2026 exact-device recovery re-arm brings the current inventory
+to 72 decoder surfaces, 48 decoder catch sites, 69 timestamp readers and 380
+risk candidates. The pre-clear journal is request-, user- and
+installation-bound; malformed or incomplete journal evidence blocks further
+local deletion and preserves the original retained Isar snapshot. The current
+inventories again report no unclassified file, catch site, timestamp call,
+direct parser or stale policy.
+
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not
 manufactured. Maintenance and workflow synchronization quarantine or reject

@@ -2,6 +2,7 @@
 
 import 'dart:io';
 
+import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
 class IsarRecoveryFileEntry {
@@ -89,9 +90,9 @@ String _stamp() {
 
 String _safeReason(String reason) {
   final cleaned = reason.trim().toLowerCase().replaceAll(
-        RegExp(r'[^a-z0-9_\-]+'),
-        '_',
-      );
+    RegExp(r'[^a-z0-9_\-]+'),
+    '_',
+  );
   return cleaned.isEmpty ? 'recovery' : cleaned;
 }
 
@@ -171,6 +172,70 @@ Future<IsarRecoveryPackageResult> createIsarRecoveryPackage({
   );
 }
 
+Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
+  required Isar database,
+  required String diagnosticsText,
+  required String reason,
+  String? manifestJsonText,
+}) async {
+  final sourcePath = database.path;
+  if (sourcePath == null) {
+    throw UnsupportedError(
+      'The active Isar database does not expose a local store path.',
+    );
+  }
+
+  final recoveryDir = await _newRecoveryDirectory(reason);
+  final report = File('${recoveryDir.path}/recovery_report.txt');
+  await report.writeAsString(
+    _recoveryReportHeader(reason) + diagnosticsText,
+    flush: true,
+  );
+
+  String? manifestJsonPath;
+  if (manifestJsonText != null && manifestJsonText.trim().isNotEmpty) {
+    final manifest = File('${recoveryDir.path}/recovery_manifest.json');
+    await manifest.writeAsString(manifestJsonText, flush: true);
+    manifestJsonPath = manifest.path;
+  }
+
+  final backupDir = Directory('${recoveryDir.path}/raw_isar_backup');
+  await backupDir.create(recursive: true);
+  final snapshot = File('${backupDir.path}/${database.name}.isar');
+  await database.copyToFile(snapshot.path);
+  if (!await snapshot.exists() || await snapshot.length() == 0) {
+    throw StateError('The consistent Isar backup was not retained.');
+  }
+
+  final copied = <IsarRecoveryFileEntry>[
+    IsarRecoveryFileEntry(
+      sourcePath: sourcePath,
+      targetPath: snapshot.path,
+      status: 'copied',
+    ),
+  ];
+  await _appendFileList(
+    report,
+    copied,
+    title: 'Transactionally consistent Isar database backup',
+  );
+
+  return IsarRecoveryPackageResult(
+    directoryPath: recoveryDir.path,
+    reportPath: report.path,
+    manifestJsonPath: manifestJsonPath,
+    rawBackupDirectoryPath: backupDir.path,
+    copiedFileCount: copied.length,
+    warnings: const <String>[],
+    files: copied,
+  );
+}
+
+Future<bool> isRetainedIsarRecoveryBackup(String path) async {
+  final file = File(path);
+  return await file.exists() && await file.length() > 0;
+}
+
 Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
   required String reason,
   required String diagnosticsText,
@@ -182,11 +247,14 @@ Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
     reason: reason,
   );
 
-  final movedAsideDir = Directory('${package.directoryPath}/moved_aside_isar_store');
+  final movedAsideDir = Directory(
+    '${package.directoryPath}/moved_aside_isar_store',
+  );
   await movedAsideDir.create(recursive: true);
   final moved = await _moveLikelyIsarFiles(movedAsideDir);
   final warnings = <String>[...package.warnings];
-  final failedMoves = moved.where((entry) => entry.status == 'move_failed').toList();
+  final failedMoves =
+      moved.where((entry) => entry.status == 'move_failed').toList();
   if (failedMoves.isNotEmpty) {
     warnings.add(
       'One or more Isar files could not be moved aside. Local rebuild was not completed; the existing files were left in place.',
@@ -238,17 +306,22 @@ Future<void> _appendFileList(
   List<String> warnings = const <String>[],
   String title = 'Raw Isar file backup',
 }) async {
-  final buffer = StringBuffer()
-    ..writeln('')
-    ..writeln(title)
-    ..writeln('fileCount: ${files.length}');
+  final buffer =
+      StringBuffer()
+        ..writeln('')
+        ..writeln(title)
+        ..writeln('fileCount: ${files.length}');
   for (final warning in warnings) {
     buffer.writeln('warning: $warning');
   }
   for (final file in files) {
     buffer.writeln(file.toLine());
   }
-  await report.writeAsString(buffer.toString(), mode: FileMode.append, flush: true);
+  await report.writeAsString(
+    buffer.toString(),
+    mode: FileMode.append,
+    flush: true,
+  );
 }
 
 Future<List<FileSystemEntity>> _likelyIsarFiles() async {
@@ -260,9 +333,10 @@ Future<List<FileSystemEntity>> _likelyIsarFiles() async {
 
 bool _isLikelyIsarStoreEntity(FileSystemEntity entity) {
   if (entity is! File) return false;
-  final name = entity.uri.pathSegments.isEmpty
-      ? entity.path.split(Platform.pathSeparator).last
-      : entity.uri.pathSegments.last;
+  final name =
+      entity.uri.pathSegments.isEmpty
+          ? entity.path.split(Platform.pathSeparator).last
+          : entity.uri.pathSegments.last;
   return name == 'default.isar' ||
       name == 'default.isar.lock' ||
       name.startsWith('default.isar.') ||
@@ -271,13 +345,16 @@ bool _isLikelyIsarStoreEntity(FileSystemEntity entity) {
       name.endsWith('.isar.tmp');
 }
 
-Future<List<IsarRecoveryFileEntry>> _copyLikelyIsarFiles(Directory targetDir) async {
+Future<List<IsarRecoveryFileEntry>> _copyLikelyIsarFiles(
+  Directory targetDir,
+) async {
   final entries = await _likelyIsarFiles();
   final results = <IsarRecoveryFileEntry>[];
   for (final entity in entries) {
-    final name = entity.uri.pathSegments.isEmpty
-        ? entity.path.split(Platform.pathSeparator).last
-        : entity.uri.pathSegments.last;
+    final name =
+        entity.uri.pathSegments.isEmpty
+            ? entity.path.split(Platform.pathSeparator).last
+            : entity.uri.pathSegments.last;
     final target = File('${targetDir.path}/$name');
     try {
       await (entity as File).copy(target.path);
@@ -302,13 +379,16 @@ Future<List<IsarRecoveryFileEntry>> _copyLikelyIsarFiles(Directory targetDir) as
   return results;
 }
 
-Future<List<IsarRecoveryFileEntry>> _moveLikelyIsarFiles(Directory targetDir) async {
+Future<List<IsarRecoveryFileEntry>> _moveLikelyIsarFiles(
+  Directory targetDir,
+) async {
   final entries = await _likelyIsarFiles();
   final results = <IsarRecoveryFileEntry>[];
   for (final entity in entries) {
-    final name = entity.uri.pathSegments.isEmpty
-        ? entity.path.split(Platform.pathSeparator).last
-        : entity.uri.pathSegments.last;
+    final name =
+        entity.uri.pathSegments.isEmpty
+            ? entity.path.split(Platform.pathSeparator).last
+            : entity.uri.pathSegments.last;
     final target = File('${targetDir.path}/$name');
     try {
       await entity.rename(target.path);

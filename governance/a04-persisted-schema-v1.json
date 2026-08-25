@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "30671D10AAFC7C6EE70A5D785FDC6BD17C92D6A8EDEE384D0FC82450345B5F49",
+  "inventoryDigest": "9FED3A11767FA1397D910330B5E54296B7E6D9F5D3D7D8BC95ED49AA37B923F1",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "B5947772ED3510EF6F15A6655CA29A0CA6F820CE287AFE603E782F909B4C855B",
+  "a05ManifestSha256": "098C3EED9E5F62FC717CD616402DFF0E30C7598371FB70409810F228DCA2185E",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -966,6 +966,15 @@
       "malformedDisposition": "show repair notice and preserve exact recovery bytes",
       "compatibility": "none for malformed envelope; valid saved authoring payloads may contain empty draft collections",
       "regression": "test/a05_template_composer_integrity_test.dart"
+    },
+    {
+      "id": "device-recovery-journal",
+      "file": "lib/features/admin/services/device_local_recovery_reset_service.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "administrator-authorized exact-device local reset resumption",
+      "malformedDisposition": "fail closed without replacing the retained backup or clearing additional local state",
+      "compatibility": "absent journal only before the first protected backup; no partial or cross-request journal compatibility",
+      "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
     },
     {
       "id": "frequent-issue-definition-record",

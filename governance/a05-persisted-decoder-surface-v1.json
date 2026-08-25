@@ -1121,6 +1121,23 @@
       "regression": "test/a05_operational_timestamp_integrity_test.dart; test/business_sync_alignment_contract_test.dart",
       "reArmCondition": "any workflow receipt field is defaulted, coerced, or admitted outside the strict decoder",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "device-recovery-journal",
+      "file": "lib/features/admin/services/device_local_recovery_reset_service.dart",
+      "markers": [
+        "factory _DeviceRecoveryJournal.restore(",
+        "final decoded = jsonDecode(raw);",
+        "'device-recovery-journal-invalid'"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "device-recovery",
+      "authorityBoundary": "administrator-authorized exact-device local reset resumption",
+      "malformedDisposition": "fail closed without replacing the retained backup or clearing additional local state",
+      "compatibility": "absent journal only before the first protected backup; no partial or cross-request journal compatibility",
+      "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "journal identity or evidence is defaulted, a malformed journal authorizes deletion, or an interrupted reset replaces its original backup",
+      "riskFingerprint": "6fc303a7191d27507f4c160d0b8a4bc7adf81a474fe278b217e62116f745d2e2"
     }
   ],
   "catchSites": [
@@ -1734,6 +1751,19 @@
       "malformedDisposition": "retain the local row and unresolved rejection, increment preserved-failure evidence, and expose the decoding error",
       "regression": "test/local_sync_recovery_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "a malformed server document is accepted, local evidence is removed, another user's work is changed, or its rejection is marked resolved"
+    },
+    {
+      "id": "device-recovery-journal-decode-hold",
+      "file": "lib/features/admin/services/device_local_recovery_reset_service.dart",
+      "siteFingerprint": "21d04ab37b2cf14f51bf3bbc6663dc285208ee52c801dfe5fdcbb6cf257705dc",
+      "classification": "DURABLE_REPAIR_STATE",
+      "purpose": "validate the exact pre-clear recovery journal before resuming an interrupted device-local reset",
+      "authorityBoundary": "administrator-authorized exact-device recovery resumption",
+      "mutability": "no cursor or local-database mutation when journal decoding or identity validation fails",
+      "dataScope": "one request-bound local backup path, unsynced inventory, and synchronization-cursor set",
+      "malformedDisposition": "throw device-recovery-journal-invalid, preserve retained evidence, and withhold server failure acknowledgement because data may already have been cleared",
+      "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed, cross-user, cross-device, or cross-request journal data resumes deletion"
     }
   ]
 }

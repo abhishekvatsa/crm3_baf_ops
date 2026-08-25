@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/services/isar_production_recovery.dart';
@@ -44,6 +45,7 @@ void main() {
         final service = _service(
           database,
           backupCreator: ({
+            required database,
             required diagnosticsText,
             required reason,
             manifestJsonText,
@@ -89,6 +91,16 @@ void main() {
           preferences.getBool('$deviceRecoveryCompletionPrefix$_requestId'),
           isTrue,
         );
+        final journal =
+            jsonDecode(
+                  preferences.getString(
+                    '$deviceRecoveryJournalPrefix$_requestId',
+                  )!,
+                )
+                as Map<String, dynamic>;
+        expect(journal['backedUpUnsyncedRows'], 1);
+        expect(journal['backupPrimaryPath'], '/protected-backup/default.isar');
+        expect(journal['cursorKeys'], hasLength(4));
       });
     },
   );
@@ -101,6 +113,7 @@ void main() {
         final service = _service(
           database,
           backupCreator: ({
+            required database,
             required diagnosticsText,
             required reason,
             manifestJsonText,
@@ -135,6 +148,7 @@ void main() {
           database,
           authenticatedUidLookup: () => 'another-user',
           backupCreator: ({
+            required database,
             required diagnosticsText,
             required reason,
             manifestJsonText,
@@ -175,6 +189,7 @@ void main() {
           database,
           backupCreator:
               ({
+                required database,
                 required diagnosticsText,
                 required reason,
                 manifestJsonText,
@@ -274,6 +289,7 @@ void main() {
           database,
           authenticatedUidLookup: () => authenticatedUid,
           backupCreator: ({
+            required database,
             required diagnosticsText,
             required reason,
             manifestJsonText,
@@ -292,6 +308,266 @@ void main() {
           (await SharedPreferences.getInstance()).containsKey(_globalCursor),
           isTrue,
         );
+      });
+    },
+  );
+
+  test(
+    'transactionally consistent snapshot still opens after local store clears',
+    () async {
+      await _withDatabase((database) async {
+        final backupDirectory = await Directory.systemTemp.createTemp(
+          'device_recovery_snapshot_',
+        );
+        try {
+          final snapshotPath = '${backupDirectory.path}/restored_snapshot.isar';
+          final service = _service(
+            database,
+            backupCreator: ({
+              required database,
+              required diagnosticsText,
+              required reason,
+              manifestJsonText,
+            }) async {
+              await database.copyToFile(snapshotPath);
+              return IsarRecoveryPackageResult(
+                directoryPath: backupDirectory.path,
+                reportPath: '${backupDirectory.path}/report.txt',
+                copiedFileCount: 1,
+                warnings: const [],
+                files: [
+                  IsarRecoveryFileEntry(
+                    sourcePath: database.path!,
+                    targetPath: snapshotPath,
+                    status: 'copied',
+                  ),
+                ],
+              );
+            },
+            backupVerifier: (path) async {
+              final file = File(path);
+              return await file.exists() && await file.length() > 0;
+            },
+          );
+
+          await service.reset(actor: _operator(), request: _request);
+          expect(await database.operationalDirectives.count(), 0);
+
+          final restored = await Isar.open(
+            [OperationalDirectiveSchema, SyncRejectionSchema],
+            directory: backupDirectory.path,
+            name: 'restored_snapshot',
+          );
+          try {
+            expect(await restored.operationalDirectives.count(), 1);
+            expect(await restored.syncRejections.count(), 1);
+          } finally {
+            await restored.close(deleteFromDisk: true);
+          }
+        } finally {
+          if (await backupDirectory.exists()) {
+            await backupDirectory.delete(recursive: true);
+          }
+        }
+      });
+    },
+  );
+
+  test(
+    'journal persistence failure never clears cursors or local rows',
+    () async {
+      await _withDatabase((database) async {
+        final service = _service(
+          database,
+          journalWriter: (preferences, key, value) async => false,
+        );
+
+        await expectLater(
+          service.reset(actor: _operator(), request: _request),
+          throwsA(_resetError('device-recovery-journal-write-failed')),
+        );
+        expect(await database.operationalDirectives.count(), 1);
+        expect(await database.syncRejections.count(), 1);
+        expect(
+          (await SharedPreferences.getInstance()).containsKey(_globalCursor),
+          isTrue,
+        );
+      });
+    },
+  );
+
+  test(
+    'crash after local clear reuses original backup and unsynced evidence',
+    () async {
+      await _withDatabase((database) async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(
+          '$deviceRecoveryJournalPrefix$_requestId',
+          _journal(unsyncedRows: 7),
+        );
+        for (final key in <String>[
+          'last_global_pull',
+          _globalCursor,
+          _workflowCursor,
+          _workflowQuarantine,
+        ]) {
+          await preferences.remove(key);
+        }
+        await database.writeTxn(() async => database.clear());
+
+        var backupCalls = 0;
+        final result = await _service(
+          database,
+          backupCreator: ({
+            required database,
+            required diagnosticsText,
+            required reason,
+            manifestJsonText,
+          }) async {
+            backupCalls++;
+            return _backup();
+          },
+        ).reset(actor: _operator(), request: _request);
+
+        expect(backupCalls, 0);
+        expect(result.backupDirectory, '/protected-backup');
+        expect(result.backedUpUnsyncedRows, 7);
+        expect(result.clearedCursorCount, 4);
+        expect(
+          preferences.getInt(
+            '$deviceRecoveryCompletionPrefix$_requestId.unsyncedRows',
+          ),
+          7,
+        );
+        expect(
+          preferences.getString(
+            '$deviceRecoveryCompletionPrefix$_requestId.backupDirectory',
+          ),
+          '/protected-backup',
+        );
+      });
+    },
+  );
+
+  test(
+    'resumed journal update failure retains uncertain-clear protection',
+    () async {
+      await _withDatabase((database) async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(
+          '$deviceRecoveryJournalPrefix$_requestId',
+          _journal(unsyncedRows: 3),
+        );
+        await preferences.setString(
+          'last_maintenance_workflow_pull_v2_additional',
+          'new-cursor',
+        );
+
+        await expectLater(
+          _service(
+            database,
+            journalWriter: (preferences, key, value) async => false,
+          ).reset(actor: _operator(), request: _request),
+          throwsA(
+            isA<DeviceRecoveryLocalResetException>()
+                .having(
+                  (error) => error.reasonCode,
+                  'reasonCode',
+                  'device-recovery-journal-write-failed',
+                )
+                .having(
+                  (error) => error.dataMayHaveBeenCleared,
+                  'dataMayHaveBeenCleared',
+                  isTrue,
+                ),
+          ),
+        );
+        expect(await database.operationalDirectives.count(), 1);
+      });
+    },
+  );
+
+  test(
+    'pre-clear crash resumes original snapshot without taking another',
+    () async {
+      await _withDatabase((database) async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(
+          '$deviceRecoveryJournalPrefix$_requestId',
+          _journal(unsyncedRows: 3),
+        );
+        var backupCalls = 0;
+        final result = await _service(
+          database,
+          backupCreator: ({
+            required database,
+            required diagnosticsText,
+            required reason,
+            manifestJsonText,
+          }) async {
+            backupCalls++;
+            return _backup();
+          },
+        ).reset(actor: _operator(), request: _request);
+
+        expect(backupCalls, 0);
+        expect(result.backedUpUnsyncedRows, 3);
+        expect(await database.operationalDirectives.count(), 0);
+        expect(await database.syncRejections.count(), 0);
+      });
+    },
+  );
+
+  test('damaged journal fails closed without replacing its backup', () async {
+    await _withDatabase((database) async {
+      final preferences = await SharedPreferences.getInstance();
+      final wrongIdentity =
+          jsonDecode(_journal(unsyncedRows: 2)) as Map<String, dynamic>;
+      wrongIdentity['targetUid'] = 'another-user';
+      await preferences.setString(
+        '$deviceRecoveryJournalPrefix$_requestId',
+        jsonEncode(wrongIdentity),
+      );
+
+      await expectLater(
+        _service(database).reset(actor: _operator(), request: _request),
+        throwsA(_resetError('device-recovery-journal-invalid')),
+      );
+      expect(await database.operationalDirectives.count(), 1);
+      expect(preferences.containsKey(_globalCursor), isTrue);
+    });
+  });
+
+  test(
+    'missing journaled snapshot never authorizes a repeated clear',
+    () async {
+      await _withDatabase((database) async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(
+          '$deviceRecoveryJournalPrefix$_requestId',
+          _journal(unsyncedRows: 4),
+        );
+
+        await expectLater(
+          _service(
+            database,
+            backupVerifier: (_) async => false,
+          ).reset(actor: _operator(), request: _request),
+          throwsA(
+            isA<DeviceRecoveryLocalResetException>()
+                .having(
+                  (error) => error.reasonCode,
+                  'reasonCode',
+                  'device-recovery-backup-missing',
+                )
+                .having(
+                  (error) => error.dataMayHaveBeenCleared,
+                  'dataMayHaveBeenCleared',
+                  isTrue,
+                ),
+          ),
+        );
+        expect(await database.operationalDirectives.count(), 1);
       });
     },
   );
@@ -320,7 +596,9 @@ DeviceLocalRecoveryResetService _service(
   Isar database, {
   IsarRecoveryPackageResult? backup,
   DeviceRecoveryBackupCreator? backupCreator,
+  DeviceRecoveryBackupVerifier? backupVerifier,
   DeviceRecoveryPreferenceRemover? preferenceRemover,
+  DeviceRecoveryJournalWriter? journalWriter,
   String? Function()? authenticatedUidLookup,
   Future<String?> Function()? installationIdReader,
 }) => DeviceLocalRecoveryResetService(
@@ -335,10 +613,33 @@ DeviceLocalRecoveryResetService _service(
       ),
   backupCreator:
       backupCreator ??
-      ({required diagnosticsText, required reason, manifestJsonText}) async =>
-          backup ?? _backup(),
+      ({
+        required database,
+        required diagnosticsText,
+        required reason,
+        manifestJsonText,
+      }) async => backup ?? _backup(),
+  backupVerifier: backupVerifier ?? (_) async => true,
   preferenceRemover: preferenceRemover,
+  journalWriter: journalWriter,
 );
+
+String _journal({required int unsyncedRows}) => jsonEncode(<String, Object?>{
+  'schemaVersion': 1,
+  'requestId': _requestId,
+  'targetUid': 'operator-1',
+  'installationId': _installation,
+  'backupDirectory': '/protected-backup',
+  'backupPrimaryPath': '/protected-backup/default.isar',
+  'backupFileCount': 1,
+  'backedUpUnsyncedRows': unsyncedRows,
+  'cursorKeys': <String>[
+    'last_global_pull',
+    _globalCursor,
+    _workflowCursor,
+    _workflowQuarantine,
+  ],
+});
 
 IsarRecoveryPackageResult _backup({bool primary = true}) =>
     IsarRecoveryPackageResult(
