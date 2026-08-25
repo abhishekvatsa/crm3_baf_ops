@@ -201,6 +201,32 @@ class DeviceLocalRecoveryResetService {
           dataMayHaveBeenCleared: true,
         );
       }
+      final completedJournal = preferences.get(journalKey);
+      if (completedJournal == null) {
+        throw const DeviceRecoveryLocalResetException(
+          'The prior local-reset completion has no protected backup journal.',
+          reasonCode: 'device-recovery-completion-journal-missing',
+          dataMayHaveBeenCleared: true,
+        );
+      }
+      final journal = _DeviceRecoveryJournal.restore(
+        completedJournal,
+        request: request,
+      );
+      if (journal.backupDirectory != backupDirectory ||
+          journal.backupFileCount != backupFiles ||
+          journal.backedUpUnsyncedRows != unsyncedRows ||
+          journal.cursorKeys.length != clearedCursors) {
+        throw const DeviceRecoveryLocalResetException(
+          'The prior local-reset completion does not match its backup journal.',
+          reasonCode: 'device-recovery-completion-marker-invalid',
+          dataMayHaveBeenCleared: true,
+        );
+      }
+      await _verifyRetainedBackup(
+        journal.backupPrimaryPath,
+        dataMayHaveBeenCleared: true,
+      );
       return DeviceRecoveryLocalResetResult(
         backupDirectory: backupDirectory,
         backupFileCount: backupFiles,
@@ -211,144 +237,143 @@ class DeviceLocalRecoveryResetService {
     }
 
     final existingJournal = preferences.get(journalKey);
-    _DeviceRecoveryJournal journal;
-    if (existingJournal != null) {
-      journal = _DeviceRecoveryJournal.restore(
-        existingJournal,
-        request: request,
-      );
-      await _verifyRetainedBackup(
-        journal.backupPrimaryPath,
-        dataMayHaveBeenCleared: true,
-      );
-    } else {
-      final inventory = await _inventoryReader(database);
-      await _verifyActorAndInstallation(actor: actor, request: request);
-      final createdAt = DateTime.now().toUtc().toIso8601String();
-      final manifest = <String, Object?>{
-        'schemaVersion': 1,
-        'mode': 'admin_authorized_remote_device_reset',
-        'requestId': request.requestId,
-        'targetUid': request.targetUid,
-        'installationId': request.installationId,
-        'requestedByUid': request.requestedByUid,
-        'requestedByName': request.requestedByName,
-        'reason': request.reason,
-        'requestedAt': request.requestedAt,
-        'createdAt': createdAt,
-        'totalLocalRows': inventory.totalRows,
-        'backedUpUnsyncedRows': inventory.unsyncedRows,
-        'unresolvedSyncRejections': inventory.unresolvedRejections,
-        'cloudDataDeleted': false,
-        'authenticationCleared': false,
-      };
-      final diagnostics =
-          StringBuffer()
-            ..writeln('Administrator-authorized device-local recovery')
-            ..writeln('requestId: ${request.requestId}')
-            ..writeln('targetUid: ${request.targetUid}')
-            ..writeln('installationId: ${request.installationId}')
-            ..writeln('requestedByUid: ${request.requestedByUid}')
-            ..writeln('totalLocalRows: ${inventory.totalRows}')
-            ..writeln('backedUpUnsyncedRows: ${inventory.unsyncedRows}')
-            ..writeln(
-              'unresolvedSyncRejections: ${inventory.unresolvedRejections}',
-            )
-            ..writeln('reason: ${request.reason}');
-
-      late final IsarRecoveryPackageResult backup;
-      try {
-        backup = await _backupCreator(
-          database: database,
-          diagnosticsText: diagnostics.toString(),
-          reason: 'admin_authorized_device_reset',
-          manifestJsonText: jsonEncode(manifest),
-        );
-      } catch (error) {
-        throw DeviceRecoveryLocalResetException(
-          'A protected database backup could not be created: $error',
-          reasonCode: 'device-recovery-backup-failed',
-        );
-      }
-      final primaryCopyFailed = backup.files.any(
-        (file) =>
-            file.status == 'copy_failed' &&
-            file.sourcePath.endsWith('.isar') &&
-            !file.sourcePath.endsWith('.isar.lock'),
-      );
-      final primaryCopies = backup.files.where(
-        (file) =>
-            file.status == 'copied' &&
-            file.sourcePath.endsWith('.isar') &&
-            !file.sourcePath.endsWith('.isar.lock') &&
-            file.targetPath.endsWith('.isar'),
-      );
-      if (backup.copiedFileCount < 1 ||
-          primaryCopyFailed ||
-          primaryCopies.length != 1) {
-        throw const DeviceRecoveryLocalResetException(
-          'No verified primary local-database backup was retained.',
-          reasonCode: 'device-recovery-backup-missing',
-        );
-      }
-      final primaryCopy = primaryCopies.single;
-      await _verifyRetainedBackup(
-        primaryCopy.targetPath,
-        dataMayHaveBeenCleared: false,
-      );
-      await _verifyActorAndInstallation(actor: actor, request: request);
-
-      final cursorKeys =
-          preferences.getKeys().where(_isSyncCursorKey).toList()..sort();
-      journal = _DeviceRecoveryJournal(
-        requestId: request.requestId,
-        targetUid: request.targetUid,
-        installationId: request.installationId,
-        backupDirectory: backup.directoryPath,
-        backupPrimaryPath: primaryCopy.targetPath,
-        backupFileCount: backup.copiedFileCount,
-        backedUpUnsyncedRows: inventory.unsyncedRows,
-        cursorKeys: cursorKeys,
-      );
-      await _persistJournal(
-        preferences,
-        journalKey,
-        journal,
-        dataMayHaveBeenCleared: false,
-      );
-    }
-
-    await _verifyActorAndInstallation(actor: actor, request: request);
-    final currentCursorKeys =
-        <String>{
-            ...journal.cursorKeys,
-            ...preferences.getKeys().where(_isSyncCursorKey),
-          }.toList()
-          ..sort();
-    if (currentCursorKeys.length != journal.cursorKeys.length) {
-      journal = journal.withCursorKeys(currentCursorKeys);
-      await _persistJournal(
-        preferences,
-        journalKey,
-        journal,
-        dataMayHaveBeenCleared: existingJournal != null,
-      );
-    }
-    for (final key in journal.cursorKeys) {
-      if (!preferences.containsKey(key)) continue;
-      if (!await _preferenceRemover(preferences, key) ||
-          preferences.containsKey(key)) {
-        throw DeviceRecoveryLocalResetException(
-          'The durable synchronization cursor could not be cleared: $key',
-          reasonCode: 'device-recovery-cursor-clear-failed',
-          dataMayHaveBeenCleared: existingJournal != null,
-        );
-      }
-    }
-    await _verifyActorAndInstallation(actor: actor, request: request);
-
+    late _DeviceRecoveryJournal journal;
     try {
       await database.writeTxn(() async {
+        if (existingJournal != null) {
+          journal = _DeviceRecoveryJournal.restore(
+            existingJournal,
+            request: request,
+          );
+          await _verifyRetainedBackup(
+            journal.backupPrimaryPath,
+            dataMayHaveBeenCleared: true,
+          );
+        } else {
+          final inventory = await _inventoryReader(database);
+          await _verifyActorAndInstallation(actor: actor, request: request);
+          final createdAt = DateTime.now().toUtc().toIso8601String();
+          final manifest = <String, Object?>{
+            'schemaVersion': 1,
+            'mode': 'admin_authorized_remote_device_reset',
+            'requestId': request.requestId,
+            'targetUid': request.targetUid,
+            'installationId': request.installationId,
+            'requestedByUid': request.requestedByUid,
+            'requestedByName': request.requestedByName,
+            'reason': request.reason,
+            'requestedAt': request.requestedAt,
+            'createdAt': createdAt,
+            'totalLocalRows': inventory.totalRows,
+            'backedUpUnsyncedRows': inventory.unsyncedRows,
+            'unresolvedSyncRejections': inventory.unresolvedRejections,
+            'cloudDataDeleted': false,
+            'authenticationCleared': false,
+          };
+          final diagnostics =
+              StringBuffer()
+                ..writeln('Administrator-authorized device-local recovery')
+                ..writeln('requestId: ${request.requestId}')
+                ..writeln('targetUid: ${request.targetUid}')
+                ..writeln('installationId: ${request.installationId}')
+                ..writeln('requestedByUid: ${request.requestedByUid}')
+                ..writeln('totalLocalRows: ${inventory.totalRows}')
+                ..writeln('backedUpUnsyncedRows: ${inventory.unsyncedRows}')
+                ..writeln(
+                  'unresolvedSyncRejections: ${inventory.unresolvedRejections}',
+                )
+                ..writeln('reason: ${request.reason}');
+
+          late final IsarRecoveryPackageResult backup;
+          try {
+            backup = await _backupCreator(
+              database: database,
+              diagnosticsText: diagnostics.toString(),
+              reason: 'admin_authorized_device_reset',
+              manifestJsonText: jsonEncode(manifest),
+            );
+          } catch (error) {
+            throw DeviceRecoveryLocalResetException(
+              'A protected database backup could not be created: $error',
+              reasonCode: 'device-recovery-backup-failed',
+            );
+          }
+          final primaryCopyFailed = backup.files.any(
+            (file) =>
+                file.status == 'copy_failed' &&
+                file.sourcePath.endsWith('.isar') &&
+                !file.sourcePath.endsWith('.isar.lock'),
+          );
+          final primaryCopies = backup.files.where(
+            (file) =>
+                file.status == 'copied' &&
+                file.sourcePath.endsWith('.isar') &&
+                !file.sourcePath.endsWith('.isar.lock') &&
+                file.targetPath.endsWith('.isar'),
+          );
+          if (backup.copiedFileCount < 1 ||
+              primaryCopyFailed ||
+              primaryCopies.length != 1) {
+            throw const DeviceRecoveryLocalResetException(
+              'No verified primary local-database backup was retained.',
+              reasonCode: 'device-recovery-backup-missing',
+            );
+          }
+          final primaryCopy = primaryCopies.single;
+          await _verifyRetainedBackup(
+            primaryCopy.targetPath,
+            dataMayHaveBeenCleared: false,
+          );
+          await _verifyActorAndInstallation(actor: actor, request: request);
+
+          final cursorKeys =
+              preferences.getKeys().where(_isSyncCursorKey).toList()..sort();
+          journal = _DeviceRecoveryJournal(
+            requestId: request.requestId,
+            targetUid: request.targetUid,
+            installationId: request.installationId,
+            backupDirectory: backup.directoryPath,
+            backupPrimaryPath: primaryCopy.targetPath,
+            backupFileCount: backup.copiedFileCount,
+            backedUpUnsyncedRows: inventory.unsyncedRows,
+            cursorKeys: cursorKeys,
+          );
+          await _persistJournal(
+            preferences,
+            journalKey,
+            journal,
+            dataMayHaveBeenCleared: false,
+          );
+        }
+
+        await _verifyActorAndInstallation(actor: actor, request: request);
+        final currentCursorKeys =
+            <String>{
+                ...journal.cursorKeys,
+                ...preferences.getKeys().where(_isSyncCursorKey),
+              }.toList()
+              ..sort();
+        if (currentCursorKeys.length != journal.cursorKeys.length) {
+          journal = journal.withCursorKeys(currentCursorKeys);
+          await _persistJournal(
+            preferences,
+            journalKey,
+            journal,
+            dataMayHaveBeenCleared: existingJournal != null,
+          );
+        }
+        for (final key in journal.cursorKeys) {
+          if (!preferences.containsKey(key)) continue;
+          if (!await _preferenceRemover(preferences, key) ||
+              preferences.containsKey(key)) {
+            throw DeviceRecoveryLocalResetException(
+              'The durable synchronization cursor could not be cleared: $key',
+              reasonCode: 'device-recovery-cursor-clear-failed',
+              dataMayHaveBeenCleared: existingJournal != null,
+            );
+          }
+        }
+        await _verifyActorAndInstallation(actor: actor, request: request);
         if (_authenticatedUidLookup() != request.targetUid) {
           throw const DeviceRecoveryLocalResetException(
             'The signed-in account changed before local data removal.',

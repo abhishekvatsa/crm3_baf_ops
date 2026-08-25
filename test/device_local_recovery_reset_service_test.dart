@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -176,6 +177,97 @@ void main() {
         expect(
           (await SharedPreferences.getInstance()).containsKey(_globalCursor),
           isTrue,
+        );
+      });
+    },
+  );
+
+  test('completed replay rejects a missing protected journal', () async {
+    await _withDatabase((database) async {
+      final service = _service(database);
+      await service.reset(actor: _operator(), request: _request);
+      await database.writeTxn(() async {
+        await database.operationalDirectives.put(_directive());
+      });
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.remove('$deviceRecoveryJournalPrefix$_requestId');
+
+      await expectLater(
+        service.reset(actor: _operator(), request: _request),
+        throwsA(
+          isA<DeviceRecoveryLocalResetException>()
+              .having(
+                (error) => error.reasonCode,
+                'reasonCode',
+                'device-recovery-completion-journal-missing',
+              )
+              .having(
+                (error) => error.dataMayHaveBeenCleared,
+                'dataMayHaveBeenCleared',
+                isTrue,
+              ),
+        ),
+      );
+      expect(await database.operationalDirectives.count(), 1);
+    });
+  });
+
+  test('completed replay revalidates the original retained snapshot', () async {
+    await _withDatabase((database) async {
+      var backupAvailable = true;
+      final verifiedPaths = <String>[];
+      final service = _service(
+        database,
+        backupVerifier: (path) async {
+          verifiedPaths.add(path);
+          return backupAvailable;
+        },
+      );
+      await service.reset(actor: _operator(), request: _request);
+      await database.writeTxn(() async {
+        await database.operationalDirectives.put(_directive());
+      });
+      backupAvailable = false;
+
+      await expectLater(
+        service.reset(actor: _operator(), request: _request),
+        throwsA(
+          isA<DeviceRecoveryLocalResetException>()
+              .having(
+                (error) => error.reasonCode,
+                'reasonCode',
+                'device-recovery-backup-missing',
+              )
+              .having(
+                (error) => error.dataMayHaveBeenCleared,
+                'dataMayHaveBeenCleared',
+                isTrue,
+              ),
+        ),
+      );
+      expect(verifiedPaths, <String>[
+        '/protected-backup/default.isar',
+        '/protected-backup/default.isar',
+      ]);
+      expect(await database.operationalDirectives.count(), 1);
+    });
+  });
+
+  test(
+    'completed replay rejects evidence that differs from its journal',
+    () async {
+      await _withDatabase((database) async {
+        final service = _service(database);
+        await service.reset(actor: _operator(), request: _request);
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setInt(
+          '$deviceRecoveryCompletionPrefix$_requestId.unsyncedRows',
+          99,
+        );
+
+        await expectLater(
+          service.reset(actor: _operator(), request: _request),
+          throwsA(_resetError('device-recovery-completion-marker-invalid')),
         );
       });
     },
@@ -365,6 +457,113 @@ void main() {
             await restored.close(deleteFromDisk: true);
           }
         } finally {
+          if (await backupDirectory.exists()) {
+            await backupDirectory.delete(recursive: true);
+          }
+        }
+      });
+    },
+  );
+
+  test(
+    'consistent snapshot can run inside an exclusive write transaction',
+    () async {
+      await _withDatabase((database) async {
+        final backupDirectory = await Directory.systemTemp.createTemp(
+          'device_recovery_exclusive_snapshot_',
+        );
+        try {
+          final snapshotPath =
+              '${backupDirectory.path}/exclusive_snapshot.isar';
+          await database.writeTxn(() async {
+            await database
+                .copyToFile(snapshotPath)
+                .timeout(const Duration(seconds: 5));
+          });
+          expect(await File(snapshotPath).exists(), isTrue);
+        } finally {
+          if (await backupDirectory.exists()) {
+            await backupDirectory.delete(recursive: true);
+          }
+        }
+      });
+    },
+  );
+
+  test(
+    'a write queued after backup survives the protected database reset',
+    () async {
+      await _withDatabase((database) async {
+        final backupDirectory = await Directory.systemTemp.createTemp(
+          'device_recovery_writer_race_',
+        );
+        Future<void>? competingWrite;
+        var competingWriteCompleted = false;
+        try {
+          final snapshotPath = '${backupDirectory.path}/race_snapshot.isar';
+          final service = _service(
+            database,
+            backupCreator: ({
+              required database,
+              required diagnosticsText,
+              required reason,
+              manifestJsonText,
+            }) async {
+              await database.copyToFile(snapshotPath);
+              competingWrite = Zone.root.run(
+                () => database.writeTxn(() async {
+                  final directive =
+                      _directive()
+                        ..firestoreId = 'directive-created-after-backup';
+                  await database.operationalDirectives.put(directive);
+                  competingWriteCompleted = true;
+                }),
+              );
+              await Future<void>.delayed(const Duration(milliseconds: 25));
+              expect(competingWriteCompleted, isFalse);
+              return IsarRecoveryPackageResult(
+                directoryPath: backupDirectory.path,
+                reportPath: '${backupDirectory.path}/report.txt',
+                copiedFileCount: 1,
+                warnings: const [],
+                files: [
+                  IsarRecoveryFileEntry(
+                    sourcePath: database.path!,
+                    targetPath: snapshotPath,
+                    status: 'copied',
+                  ),
+                ],
+              );
+            },
+            backupVerifier: (path) async => File(path).exists(),
+          );
+
+          await service.reset(actor: _operator(), request: _request);
+          await competingWrite;
+
+          final remaining =
+              await database.operationalDirectives.where().findAll();
+          expect(remaining, hasLength(1));
+          expect(
+            remaining.single.firestoreId,
+            'directive-created-after-backup',
+          );
+
+          final restored = await Isar.open(
+            [OperationalDirectiveSchema, SyncRejectionSchema],
+            directory: backupDirectory.path,
+            name: 'race_snapshot',
+          );
+          try {
+            final retained =
+                await restored.operationalDirectives.where().findAll();
+            expect(retained, hasLength(1));
+            expect(retained.single.firestoreId, 'directive-1');
+          } finally {
+            await restored.close(deleteFromDisk: true);
+          }
+        } finally {
+          await competingWrite;
           if (await backupDirectory.exists()) {
             await backupDirectory.delete(recursive: true);
           }
