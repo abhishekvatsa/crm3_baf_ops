@@ -106,5 +106,24 @@ void main() {
       expect(diagnosticsSource, contains('syncPendingFollowUpSummary'));
       expect(diagnosticsSource, contains("label: 'Pending follow-up sync'"));
     });
+
+    test(
+      'restricted revoked-account recovery never schedules business sync',
+      () {
+        final coordinator =
+            File('lib/core/services/sync_coordinator.dart').readAsStringSync();
+        final listener =
+            File(
+              'lib/features/admin/services/device_recovery_listener.dart',
+            ).readAsStringSync();
+
+      expect(coordinator, contains('bool resumeSyncAfterRecovery = true'));
+      expect(coordinator, contains('if (resumeSyncAfterRecovery)'));
+      expect(
+        listener,
+        contains('resumeSyncAfterRecovery: !claimedRecoveryOnly'),
+      );
+      },
+    );
   });
 }

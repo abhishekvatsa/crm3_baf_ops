@@ -233,6 +233,7 @@ void main() {
         reason: 'Protect this particular registered installation.',
         requestedAt: '2026-08-25T12:00:00.000Z',
         expiresAt: '2026-08-26T12:00:00.000Z',
+        status: 'in_progress',
       );
 
       await expectLater(
@@ -261,6 +262,61 @@ void main() {
         throwsA(isA<DeviceRecoveryException>()),
       );
       expect(requests, 0);
+    },
+  );
+
+  test(
+    'revoked command client rejects new and unclaimed recovery actions',
+    () async {
+      var requests = 0;
+      final revoked = _operator(approved: false);
+      final service = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => revoked.uid,
+        invoke: (_) async {
+          requests++;
+          return <String, dynamic>{
+            'ok': true,
+            'operation': deviceRecoveryPollOperation,
+            'installationId': _installation,
+            'request': <String, Object?>{
+              'requestId': '33333333-3333-4333-8333-333333333333',
+              'targetUid': revoked.uid,
+              'installationId': _installation,
+              'status': 'pending',
+              'requestedByUid': 'admin-1',
+              'requestedByName': 'Administrator',
+              'reason': 'Protect this particular registered installation.',
+              'requestedAt': '2026-08-25T12:00:00.000Z',
+              'expiresAt': '2026-08-26T12:00:00.000Z',
+            },
+          };
+        },
+      );
+
+      await expectLater(
+        service.pollPending(actor: revoked, installationId: _installation),
+        throwsA(isA<DeviceRecoveryException>()),
+      );
+      expect(requests, 0);
+      await expectLater(
+        service.requestReset(
+          actor: revoked,
+          targetUid: revoked.uid,
+          installationId: _installation,
+          reason: 'A revoked actor must never request a fresh reset.',
+        ),
+        throwsA(isA<DeviceRecoveryException>()),
+      );
+      expect(requests, 0);
+      await expectLater(
+        service.pollPending(
+          actor: revoked,
+          installationId: _installation,
+          claimedRecoveryOnly: true,
+        ),
+        throwsA(isA<DeviceRecoveryException>()),
+      );
+      expect(requests, 1);
     },
   );
 
@@ -310,12 +366,12 @@ void main() {
   });
 }
 
-AppUser _operator({String uid = 'operator-1'}) => AppUser(
+AppUser _operator({String uid = 'operator-1', bool approved = true}) => AppUser(
   uid: uid,
   name: 'Operator One',
   email: 'operator@example.invalid',
   roles: const [AppRole.operations],
-  isApproved: true,
+  isApproved: approved,
   createdAt: DateTime.utc(2026, 8, 25),
 );
 

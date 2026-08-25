@@ -103,6 +103,7 @@ class DeviceRecoveryRequest {
     required this.reason,
     required this.requestedAt,
     required this.expiresAt,
+    required this.status,
   });
 
   final String requestId;
@@ -113,6 +114,7 @@ class DeviceRecoveryRequest {
   final String reason;
   final String requestedAt;
   final String expiresAt;
+  final String status;
 
   factory DeviceRecoveryRequest.fromResponse(
     Object? raw, {
@@ -159,6 +161,7 @@ class DeviceRecoveryRequest {
       reason: reason,
       requestedAt: requestedAt,
       expiresAt: expiresAt,
+      status: map['status'] as String,
     );
   }
 }
@@ -192,9 +195,13 @@ class DeviceRecoveryCommandService {
     return result.data;
   }
 
-  void _requireActor(AppUser? actor, {required bool admin}) {
+  void _requireActor(
+    AppUser? actor, {
+    required bool admin,
+    bool claimedRecoveryOnly = false,
+  }) {
     if (actor == null ||
-        !actor.isApproved ||
+        (!actor.isApproved && !claimedRecoveryOnly) ||
         _authenticatedUidLookup() != actor.uid ||
         (admin && !actor.isAdmin)) {
       throw DeviceRecoveryException(
@@ -205,11 +212,24 @@ class DeviceRecoveryCommandService {
     }
   }
 
-  void _requireRequestOwner(AppUser? actor, DeviceRecoveryRequest request) {
-    _requireActor(actor, admin: false);
+  void _requireRequestOwner(
+    AppUser? actor,
+    DeviceRecoveryRequest request, {
+    bool claimedRecoveryOnly = false,
+  }) {
+    _requireActor(
+      actor,
+      admin: false,
+      claimedRecoveryOnly: claimedRecoveryOnly,
+    );
     if (actor!.uid != request.targetUid) {
       throw const DeviceRecoveryException(
         'The recovery request belongs to another signed-in account.',
+      );
+    }
+    if (claimedRecoveryOnly && request.status != 'in_progress') {
+      throw const DeviceRecoveryException(
+        'A revoked account may resume only its already-claimed phone reset.',
       );
     }
   }
@@ -278,8 +298,13 @@ class DeviceRecoveryCommandService {
   Future<DeviceRecoveryRequest?> pollPending({
     required AppUser? actor,
     required String installationId,
+    bool claimedRecoveryOnly = false,
   }) async {
-    _requireActor(actor, admin: false);
+    _requireActor(
+      actor,
+      admin: false,
+      claimedRecoveryOnly: claimedRecoveryOnly,
+    );
     final response = await _request(deviceRecoveryPollOperation, {
       'installationId': installationId,
     });
@@ -289,13 +314,22 @@ class DeviceRecoveryCommandService {
       );
     }
     final pending = response['request'];
-    return pending == null
-        ? null
-        : DeviceRecoveryRequest.fromResponse(
-          pending,
-          expectedUid: actor!.uid,
-          expectedInstallationId: installationId,
-        );
+    final request =
+        pending == null
+            ? null
+            : DeviceRecoveryRequest.fromResponse(
+              pending,
+              expectedUid: actor!.uid,
+              expectedInstallationId: installationId,
+            );
+    if (claimedRecoveryOnly &&
+        request != null &&
+        request.status != 'in_progress') {
+      throw const DeviceRecoveryException(
+        'A revoked account cannot accept an unclaimed phone reset.',
+      );
+    }
+    return request;
   }
 
   Future<void> completeReset({
@@ -304,8 +338,13 @@ class DeviceRecoveryCommandService {
     required int backupFileCount,
     required int clearedCursorCount,
     required int backedUpUnsyncedRows,
+    bool claimedRecoveryOnly = false,
   }) async {
-    _requireRequestOwner(actor, request);
+    _requireRequestOwner(
+      actor,
+      request,
+      claimedRecoveryOnly: claimedRecoveryOnly,
+    );
     final response = await _request(deviceRecoveryCompleteOperation, {
       'requestId': request.requestId,
       'installationId': request.installationId,
@@ -319,8 +358,13 @@ class DeviceRecoveryCommandService {
   Future<void> claimReset({
     required AppUser? actor,
     required DeviceRecoveryRequest request,
+    bool claimedRecoveryOnly = false,
   }) async {
-    _requireRequestOwner(actor, request);
+    _requireRequestOwner(
+      actor,
+      request,
+      claimedRecoveryOnly: claimedRecoveryOnly,
+    );
     final response = await _request(deviceRecoveryClaimOperation, {
       'requestId': request.requestId,
       'installationId': request.installationId,
@@ -337,8 +381,13 @@ class DeviceRecoveryCommandService {
     required AppUser? actor,
     required DeviceRecoveryRequest request,
     required String failureCode,
+    bool claimedRecoveryOnly = false,
   }) async {
-    _requireRequestOwner(actor, request);
+    _requireRequestOwner(
+      actor,
+      request,
+      claimedRecoveryOnly: claimedRecoveryOnly,
+    );
     final response = await _request(deviceRecoveryFailOperation, {
       'requestId': request.requestId,
       'installationId': request.installationId,

@@ -150,9 +150,16 @@ class DeviceLocalRecoveryResetService {
   Future<void> _verifyActorAndInstallation({
     required AppUser? actor,
     required DeviceRecoveryRequest request,
+    required bool claimedRecoveryOnly,
   }) async {
+    if (claimedRecoveryOnly && request.status != 'in_progress') {
+      throw const DeviceRecoveryLocalResetException(
+        'A revoked account cannot clear data for an unclaimed recovery.',
+        reasonCode: 'device-recovery-unclaimed-request',
+      );
+    }
     if (actor == null ||
-        !actor.isApproved ||
+        (!actor.isApproved && !claimedRecoveryOnly) ||
         actor.uid != request.targetUid ||
         _authenticatedUidLookup() != request.targetUid) {
       throw const DeviceRecoveryLocalResetException(
@@ -264,6 +271,7 @@ class DeviceLocalRecoveryResetService {
   Future<DeviceRecoveryLocalResetResult> reset({
     required AppUser? actor,
     required DeviceRecoveryRequest request,
+    bool claimedRecoveryOnly = false,
   }) async {
     if (kIsWeb) {
       throw const DeviceRecoveryLocalResetException(
@@ -271,7 +279,11 @@ class DeviceLocalRecoveryResetService {
         reasonCode: 'device-recovery-platform-unsupported',
       );
     }
-    await _verifyActorAndInstallation(actor: actor, request: request);
+    await _verifyActorAndInstallation(
+      actor: actor,
+      request: request,
+      claimedRecoveryOnly: claimedRecoveryOnly,
+    );
     final database = _databaseLookup();
     if (database == null) {
       throw const DeviceRecoveryLocalResetException(
@@ -345,7 +357,11 @@ class DeviceLocalRecoveryResetService {
           await _verifyJournalBackups(journal, dataMayHaveBeenCleared: true);
           if (await database.getSize() > 0) {
             final inventory = await _inventoryReader(database);
-            await _verifyActorAndInstallation(actor: actor, request: request);
+            await _verifyActorAndInstallation(
+              actor: actor,
+              request: request,
+              claimedRecoveryOnly: claimedRecoveryOnly,
+            );
             final supplemental = await _createVerifiedBackup(
               database: database,
               request: request,
@@ -362,14 +378,22 @@ class DeviceLocalRecoveryResetService {
           }
         } else {
           final inventory = await _inventoryReader(database);
-          await _verifyActorAndInstallation(actor: actor, request: request);
+          await _verifyActorAndInstallation(
+            actor: actor,
+            request: request,
+            claimedRecoveryOnly: claimedRecoveryOnly,
+          );
           final created = await _createVerifiedBackup(
             database: database,
             request: request,
             inventory: inventory,
             resumed: false,
           );
-          await _verifyActorAndInstallation(actor: actor, request: request);
+          await _verifyActorAndInstallation(
+            actor: actor,
+            request: request,
+            claimedRecoveryOnly: claimedRecoveryOnly,
+          );
 
           final cursorKeys =
               preferences.getKeys().where(_isSyncCursorKey).toList()..sort();
@@ -394,7 +418,11 @@ class DeviceLocalRecoveryResetService {
           );
         }
 
-        await _verifyActorAndInstallation(actor: actor, request: request);
+        await _verifyActorAndInstallation(
+          actor: actor,
+          request: request,
+          claimedRecoveryOnly: claimedRecoveryOnly,
+        );
         final currentCursorKeys =
             <String>{
                 ...journal.cursorKeys,
@@ -421,7 +449,11 @@ class DeviceLocalRecoveryResetService {
             );
           }
         }
-        await _verifyActorAndInstallation(actor: actor, request: request);
+        await _verifyActorAndInstallation(
+          actor: actor,
+          request: request,
+          claimedRecoveryOnly: claimedRecoveryOnly,
+        );
         if (_authenticatedUidLookup() != request.targetUid) {
           throw const DeviceRecoveryLocalResetException(
             'The signed-in account changed before local data removal.',

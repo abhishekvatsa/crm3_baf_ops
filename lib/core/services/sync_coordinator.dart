@@ -210,6 +210,7 @@ class SyncCoordinator {
   Future<T> runWithSyncPaused<T>({
     required Future<T> Function() operation,
     String reason = 'local_recovery',
+    bool resumeSyncAfterRecovery = true,
   }) async {
     if (_localRecoveryActive) {
       throw StateError('Local synchronization recovery is already running.');
@@ -232,15 +233,17 @@ class SyncCoordinator {
       if (followUp != null) {
         _clearPendingFollowUpHealth();
       }
-      unawaited(
-        _runFullSync(
-          reason: '${followUp?.reason ?? reason} (recovery refresh)',
-          force: true,
-          queuedFollowUp: true,
-          recheckPermanentRejections:
-              followUp?.recheckPermanentRejections ?? false,
-        ),
-      );
+      if (resumeSyncAfterRecovery) {
+        unawaited(
+          _runFullSync(
+            reason: '${followUp?.reason ?? reason} (recovery refresh)',
+            force: true,
+            queuedFollowUp: true,
+            recheckPermanentRejections:
+                followUp?.recheckPermanentRejections ?? false,
+          ),
+        );
+      }
     }
   }
 

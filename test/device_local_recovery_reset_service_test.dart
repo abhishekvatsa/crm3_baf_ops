@@ -141,6 +141,60 @@ void main() {
   );
 
   test(
+    'revoked target can resume only an exact already-claimed recovery',
+    () async {
+      await _withDatabase((database) async {
+        final service = _service(database);
+        final revoked = _operator(approved: false);
+
+        await expectLater(
+          service.reset(actor: revoked, request: _request),
+          throwsA(_resetError('device-recovery-account-mismatch')),
+        );
+        expect(await database.operationalDirectives.count(), 1);
+
+        final result = await service.reset(
+          actor: revoked,
+          request: _request,
+          claimedRecoveryOnly: true,
+        );
+        expect(result.replayed, isFalse);
+        expect(await database.operationalDirectives.count(), 0);
+      });
+    },
+  );
+
+  test(
+    'restricted recovery never accepts an unclaimed pending request',
+    () async {
+      await _withDatabase((database) async {
+        final service = _service(database);
+        const pending = DeviceRecoveryRequest(
+          requestId: _requestId,
+          targetUid: 'operator-1',
+          installationId: _installation,
+          requestedByUid: 'admin-1',
+          requestedByName: 'Administrator',
+          reason: 'Remove stale pilot records after a synchronization failure.',
+          requestedAt: '2026-08-25T12:00:00.000Z',
+          expiresAt: '2026-08-26T12:00:00.000Z',
+          status: 'pending',
+        );
+
+        await expectLater(
+          service.reset(
+            actor: _operator(approved: false),
+            request: pending,
+            claimedRecoveryOnly: true,
+          ),
+          throwsA(_resetError('device-recovery-unclaimed-request')),
+        );
+        expect(await database.operationalDirectives.count(), 1);
+      });
+    },
+  );
+
+  test(
     'different account or phone is rejected before backup or deletion',
     () async {
       await _withDatabase((database) async {
@@ -1114,14 +1168,15 @@ const _request = DeviceRecoveryRequest(
   reason: 'Remove stale pilot records after a synchronization failure.',
   requestedAt: '2026-08-25T12:00:00.000Z',
   expiresAt: '2026-08-26T12:00:00.000Z',
+  status: 'in_progress',
 );
 
-AppUser _operator() => AppUser(
+AppUser _operator({bool approved = true}) => AppUser(
   uid: 'operator-1',
   name: 'Operator One',
   email: 'operator@example.invalid',
   roles: const [AppRole.operations],
-  isApproved: true,
+  isApproved: approved,
   createdAt: DateTime.utc(2026, 8, 25),
 );
 

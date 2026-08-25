@@ -42,13 +42,20 @@ class DeviceRecoveryListener {
   int _registrationRetries = 0;
   bool _busy = false;
   bool _followUpRequested = false;
+  bool _claimedRecoveryOnly = false;
   int _generation = 0;
 
-  void start(AppUser actor) {
-    if (kIsWeb || !actor.isApproved) return;
-    if (_actor?.uid != actor.uid) {
+  void start(AppUser actor, {bool claimedRecoveryOnly = false}) {
+    if (kIsWeb ||
+        (!actor.isApproved && !claimedRecoveryOnly) ||
+        (actor.isApproved && claimedRecoveryOnly)) {
+      return;
+    }
+    if (_actor?.uid != actor.uid ||
+        _claimedRecoveryOnly != claimedRecoveryOnly) {
       stop();
       _actor = actor;
+      _claimedRecoveryOnly = claimedRecoveryOnly;
       _registrationRetries = 0;
       final stream = _foregroundMessages ?? FirebaseMessaging.onMessage;
       _messageSubscription = stream.listen(
@@ -78,6 +85,7 @@ class DeviceRecoveryListener {
     _actor = null;
     _busy = false;
     _followUpRequested = false;
+    _claimedRecoveryOnly = false;
   }
 
   void _onMessage(RemoteMessage message) {
@@ -95,6 +103,7 @@ class DeviceRecoveryListener {
     String? expectedInstallationId,
   }) async {
     final actor = _actor;
+    final claimedRecoveryOnly = _claimedRecoveryOnly;
     if (actor == null || kIsWeb) return;
     if (_busy) {
       _followUpRequested = true;
@@ -119,12 +128,14 @@ class DeviceRecoveryListener {
       final request = await _commands.pollPending(
         actor: actor,
         installationId: installationId,
+        claimedRecoveryOnly: claimedRecoveryOnly,
       );
       if (request == null || !_isCurrent(actor, generation)) return;
       activeRequest = request;
 
       await _coordinator.runWithSyncPaused<void>(
         reason: 'admin_authorized_device_reset',
+        resumeSyncAfterRecovery: !claimedRecoveryOnly,
         operation: () async {
           if (!_isCurrent(actor, generation)) {
             throw const DeviceRecoveryLocalResetException(
@@ -132,7 +143,11 @@ class DeviceRecoveryListener {
               reasonCode: 'device-recovery-session-changed',
             );
           }
-          await _commands.claimReset(actor: actor, request: request);
+          await _commands.claimReset(
+            actor: actor,
+            request: request,
+            claimedRecoveryOnly: claimedRecoveryOnly,
+          );
           if (!_isCurrent(actor, generation)) {
             throw const DeviceRecoveryLocalResetException(
               'The signed-in session changed after its recovery claim.',
@@ -142,6 +157,7 @@ class DeviceRecoveryListener {
           final result = await _localReset.reset(
             actor: actor,
             request: request,
+            claimedRecoveryOnly: claimedRecoveryOnly,
           );
           await _commands.completeReset(
             actor: actor,
@@ -149,6 +165,7 @@ class DeviceRecoveryListener {
             backupFileCount: result.backupFileCount,
             clearedCursorCount: result.clearedCursorCount,
             backedUpUnsyncedRows: result.backedUpUnsyncedRows,
+            claimedRecoveryOnly: claimedRecoveryOnly,
           );
           _ref.invalidate(syncPendingCountsProvider);
           AppLogger.breadcrumb(
@@ -174,7 +191,12 @@ class DeviceRecoveryListener {
       if (!error.dataMayHaveBeenCleared &&
           activeRequest != null &&
           _isCurrent(actor, generation)) {
-        await _reportSafeFailure(actor, activeRequest, error);
+        await _reportSafeFailure(
+          actor,
+          activeRequest,
+          error,
+          claimedRecoveryOnly: claimedRecoveryOnly,
+        );
       }
     } catch (error, stackTrace) {
       AppLogger.warning(
@@ -197,8 +219,9 @@ class DeviceRecoveryListener {
   Future<void> _reportSafeFailure(
     AppUser actor,
     DeviceRecoveryRequest request,
-    DeviceRecoveryLocalResetException error,
-  ) async {
+    DeviceRecoveryLocalResetException error, {
+    required bool claimedRecoveryOnly,
+  }) async {
     try {
       final installationId = await _installationIdReader();
       if (installationId != request.installationId) return;
@@ -206,6 +229,7 @@ class DeviceRecoveryListener {
         actor: actor,
         request: request,
         failureCode: error.reasonCode,
+        claimedRecoveryOnly: claimedRecoveryOnly,
       );
     } catch (reportError, stackTrace) {
       AppLogger.warning(

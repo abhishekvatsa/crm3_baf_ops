@@ -113,17 +113,79 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'revoked phone resumes only its previously claimed protected reset',
+    () async {
+      final calls = <Map<String, Object?>>[];
+      final completed = Completer<void>();
+      final reset = _LocalResetProbe();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          calls.add(Map<String, Object?>.from(payload));
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              return _pollResponse(_request, status: 'in_progress');
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              completed.complete();
+              return _finishResponse(_request, 'completed');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(commands: commands, reset: reset);
+      addTearDown(scope.dispose);
+
+      scope.listener.start(
+        _operator(approved: false),
+        claimedRecoveryOnly: true,
+      );
+      await completed.future.timeout(const Duration(seconds: 2));
+
+      expect(calls.map((call) => call['operation']), <String>[
+        deviceRecoveryPollOperation,
+        deviceRecoveryClaimOperation,
+        deviceRecoveryCompleteOperation,
+      ]);
+      expect(reset.requests.single.status, 'in_progress');
+      expect(reset.claimedRecoveryModes, <bool>[true]);
+      expect(scope.coordinator.followUpModes, <bool>[false]);
+    },
+  );
+
+  test('revoked phone cannot start an ordinary recovery listener', () async {
+    var calls = 0;
+    final commands = DeviceRecoveryCommandService(
+      authenticatedUidLookup: () => 'operator-1',
+      invoke: (_) async {
+        calls++;
+        return _pollResponse(_request, status: 'in_progress');
+      },
+    );
+    final scope = _listenerScope(commands: commands, reset: _LocalResetProbe());
+    addTearDown(scope.dispose);
+
+    scope.listener.start(_operator(approved: false));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(calls, 0);
+  });
 }
 
 _ListenerScope _listenerScope({
   required DeviceRecoveryCommandService commands,
   required _LocalResetProbe reset,
 }) {
+  final coordinator = _SyncCoordinatorProbe();
   final provider = Provider<DeviceRecoveryListener>((ref) {
     final listener = DeviceRecoveryListener(
       commands: commands,
       localReset: reset,
-      coordinator: _SyncCoordinatorProbe(),
+      coordinator: coordinator,
       ref: ref,
       installationIdReader: () async => _installation,
       foregroundMessages: const Stream<RemoteMessage>.empty(),
@@ -132,7 +194,7 @@ _ListenerScope _listenerScope({
     return listener;
   });
   final container = ProviderContainer();
-  return _ListenerScope(container, container.read(provider));
+  return _ListenerScope(container, container.read(provider), coordinator);
 }
 
 Future<void> _waitFor(bool Function() condition) async {
@@ -145,7 +207,10 @@ Future<void> _waitFor(bool Function() condition) async {
   }
 }
 
-Map<String, dynamic> _pollResponse(String? requestId) => <String, dynamic>{
+Map<String, dynamic> _pollResponse(
+  String? requestId, {
+  String status = 'pending',
+}) => <String, dynamic>{
   'ok': true,
   'operation': deviceRecoveryPollOperation,
   'installationId': _installation,
@@ -156,7 +221,7 @@ Map<String, dynamic> _pollResponse(String? requestId) => <String, dynamic>{
             'requestId': requestId,
             'targetUid': 'operator-1',
             'installationId': _installation,
-            'status': 'pending',
+            'status': status,
             'requestedByUid': 'admin-1',
             'requestedByName': 'Administrator',
             'reason': 'Recover the selected operator phone safely.',
@@ -186,30 +251,37 @@ Map<String, dynamic> _finishResponse(String requestId, String status) =>
       'status': status,
     };
 
-AppUser _operator() => AppUser(
+AppUser _operator({bool approved = true}) => AppUser(
   uid: 'operator-1',
   name: 'Operator One',
   email: 'operator@example.invalid',
   roles: const <AppRole>[AppRole.operations],
-  isApproved: true,
+  isApproved: approved,
   createdAt: DateTime.utc(2026, 8, 25),
 );
 
 class _ListenerScope {
-  _ListenerScope(this.container, this.listener);
+  _ListenerScope(this.container, this.listener, this.coordinator);
 
   final ProviderContainer container;
   final DeviceRecoveryListener listener;
+  final _SyncCoordinatorProbe coordinator;
 
   void dispose() => container.dispose();
 }
 
 class _SyncCoordinatorProbe implements SyncCoordinator {
+  final List<bool> followUpModes = <bool>[];
+
   @override
   Future<T> runWithSyncPaused<T>({
     required Future<T> Function() operation,
     String reason = 'local_recovery',
-  }) => operation();
+    bool resumeSyncAfterRecovery = true,
+  }) {
+    followUpModes.add(resumeSyncAfterRecovery);
+    return operation();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -220,13 +292,16 @@ class _LocalResetProbe implements DeviceLocalRecoveryResetService {
 
   final Future<void> Function(DeviceRecoveryRequest request)? onReset;
   final List<DeviceRecoveryRequest> requests = <DeviceRecoveryRequest>[];
+  final List<bool> claimedRecoveryModes = <bool>[];
 
   @override
   Future<DeviceRecoveryLocalResetResult> reset({
     required AppUser? actor,
     required DeviceRecoveryRequest request,
+    bool claimedRecoveryOnly = false,
   }) async {
     requests.add(request);
+    claimedRecoveryModes.add(claimedRecoveryOnly);
     await onReset?.call(request);
     return const DeviceRecoveryLocalResetResult(
       backupDirectory: 'backup',
