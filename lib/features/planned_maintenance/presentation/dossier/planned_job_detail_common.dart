@@ -692,9 +692,42 @@ class _ActionDossierCard extends StatelessWidget {
               _InfoPair('Sub-component', action.subComponent),
               _InfoPair('Tag', action.tag),
               _InfoPair('Instance', action.instance),
-              _InfoPair('Replacement', action.replacement?.name),
+              _InfoPair(
+                'Replacement',
+                action.replacement == null
+                    ? null
+                    : _titleCase(action.replacement!.name),
+              ),
               _InfoPair('Performed by', action.performedBy),
-              _InfoPair('Created', _formatDateTime(action.createdAt)),
+              _InfoPair('Action time', _formatDateTime(action.createdAt)),
+              if (action.updatedAt != null &&
+                  !action.createdAt.isAtSameMomentAs(action.updatedAt!))
+                _InfoPair('Last corrected', _formatDateTime(action.updatedAt!)),
+              _InfoPair(
+                'Burner',
+                action.burnerPosition == null
+                    ? null
+                    : '${action.burnerPosition}',
+              ),
+              _InfoPair(
+                'Burner action',
+                action.burnerActionCode == null
+                    ? null
+                    : _titleCase(action.burnerActionCode!),
+              ),
+              _InfoPair(
+                'Burner outcome',
+                action.burnerOutcome == null
+                    ? null
+                    : _titleCase(action.burnerOutcome!),
+              ),
+              _InfoPair(
+                'Flame signal',
+                action.burnerMicroampReading == null
+                    ? null
+                    : '${action.burnerMicroampReading!.toStringAsFixed(3)} \u00B5A',
+              ),
+              _InfoPair('Attendance reference', action.attendanceSessionId),
             ],
           ),
           if (_hasText(action.issue)) ...[

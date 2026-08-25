@@ -5,6 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/job_lane_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_aggregate_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/workflow_repository.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
@@ -76,6 +81,36 @@ JobModuleInstance _acceptedModule() {
     ..isDeleted = false;
 }
 
+WorkflowAggregateRecord _workflow() {
+  return WorkflowAggregateRecord()
+    ..firestoreId = 'exec_1'
+    ..jobExecutionFirestoreId = 'exec_1'
+    ..assetTypeKey = 'base'
+    ..assetNumber = 101
+    ..statusKey = 'inProgress'
+    ..version = 2;
+}
+
+JobLaneRecord _lane({String status = 'closed'}) {
+  return JobLaneRecord()
+    ..firestoreId = 'exec_1_mechanical_1'
+    ..workflowFirestoreId = 'exec_1'
+    ..jobExecutionFirestoreId = 'exec_1'
+    ..laneKey = 'mechanical'
+    ..statusKey = status;
+}
+
+ComplianceRequestRecord _compliance({String status = 'raised'}) {
+  return ComplianceRequestRecord()
+    ..firestoreId = 'compliance_1'
+    ..title = 'Operations support'
+    ..description = 'Move the furnace to its maintenance stand.'
+    ..targetLaneKey = 'oprn'
+    ..statusKey = status
+    ..linkedWorkflowId = 'exec_1'
+    ..gatesLaneFirestoreId = 'job_lanes/exec_1_mechanical_1';
+}
+
 class _GateRejectingPlannedRepository extends PlannedMaintenanceRepository {
   int completionCalls = 0;
 
@@ -125,6 +160,56 @@ class _StaticJobModuleRepository implements JobModuleRepository {
     bool includeDeleted = false,
   }) {
     return Stream<List<JobModuleInstance>>.value(modules);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _StaticWorkflowRepository implements WorkflowRepository {
+  _StaticWorkflowRepository({
+    required this.workflow,
+    required this.lanes,
+    this.compliance = const <ComplianceRequestRecord>[],
+    this.workflowError,
+  });
+
+  final WorkflowAggregateRecord? workflow;
+  final List<JobLaneRecord> lanes;
+  final List<ComplianceRequestRecord> compliance;
+  final Object? workflowError;
+
+  @override
+  Stream<WorkflowAggregateRecord?> watchWorkflow(String workflowId) {
+    if (workflowError != null) {
+      return Stream<WorkflowAggregateRecord?>.error(workflowError!);
+    }
+    return Stream<WorkflowAggregateRecord?>.value(workflow);
+  }
+
+  @override
+  Stream<List<JobLaneRecord>> watchLanes(String workflowId) {
+    return Stream<List<JobLaneRecord>>.value(lanes);
+  }
+
+  @override
+  Stream<List<ComplianceRequestRecord>> watchCompliance(String workflowId) {
+    return Stream<List<ComplianceRequestRecord>>.value(compliance);
+  }
+
+  @override
+  Future<WorkflowAggregateRecord?> getWorkflow(String workflowId) async {
+    return workflow;
+  }
+
+  @override
+  Future<List<JobLaneRecord>> getLanes(String workflowId) async {
+    return lanes;
+  }
+
+  @override
+  Future<List<ComplianceRequestRecord>> getCompliance(String workflowId) async {
+    return compliance;
   }
 
   @override
@@ -206,6 +291,295 @@ void main() {
     );
     expect(button.onPressed, isNull);
   });
+
+  testWidgets('malformed Inner Cover assignment blocks completion visibly', (
+    tester,
+  ) async {
+    final execution =
+        _execution()..metadataJson = '{"assignmentInnerCoverPosition":{}}';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([_acceptedModule()]),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+      ),
+    );
+
+    await _pumpFrames(tester);
+
+    expect(
+      find.text('Inner Cover assignment evidence needs repair'),
+      findsOneWidget,
+    );
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('an unclosed accountable lane disables governed completion', (
+    tester,
+  ) async {
+    final execution = _execution()..workflowSchemaVersion = 1;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([_acceptedModule()]),
+          ),
+          workflowRepositoryProvider.overrideWithValue(
+            _StaticWorkflowRepository(
+              workflow: _workflow(),
+              lanes: [_lane(status: 'acknowledged')],
+            ),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+      ),
+    );
+
+    await _pumpFrames(tester);
+    await tester.scrollUntilVisible(
+      find.text('Workflow lane closure is incomplete'),
+      200,
+    );
+
+    expect(find.text('Workflow lane closure is incomplete'), findsOneWidget);
+    expect(find.text('0/1 lanes closed'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('a governed job without workflow identity cannot be closed', (
+    tester,
+  ) async {
+    final execution =
+        _execution()
+          ..workflowSchemaVersion = 1
+          ..firestoreId = null;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([_acceptedModule()]),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+      ),
+    );
+
+    await _pumpFrames(tester);
+    await tester.scrollUntilVisible(
+      find.text('Workflow identity needs repair'),
+      200,
+    );
+
+    expect(find.text('Workflow identity needs repair'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a failed workflow read blocks completion without crashing', (
+    tester,
+  ) async {
+    final execution = _execution()..workflowSchemaVersion = 1;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([_acceptedModule()]),
+          ),
+          workflowRepositoryProvider.overrideWithValue(
+            _StaticWorkflowRepository(
+              workflow: _workflow(),
+              lanes: [_lane()],
+              workflowError: StateError('Workflow state is unavailable.'),
+            ),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+      ),
+    );
+
+    await _pumpFrames(tester);
+    await tester.scrollUntilVisible(
+      find.text('Workflow readiness cannot be verified'),
+      200,
+    );
+
+    expect(find.text('Workflow readiness cannot be verified'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a terminal workflow cannot accept another planned closure', (
+    tester,
+  ) async {
+    final execution = _execution()..workflowSchemaVersion = 1;
+    final workflow =
+        _workflow()
+          ..statusKey = 'cancelled'
+          ..cancelled = true;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([_acceptedModule()]),
+          ),
+          workflowRepositoryProvider.overrideWithValue(
+            _StaticWorkflowRepository(workflow: workflow, lanes: [_lane()]),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+      ),
+    );
+
+    await _pumpFrames(tester);
+    await tester.scrollUntilVisible(
+      find.text('Workflow is already closed'),
+      200,
+    );
+
+    expect(find.text('Workflow is already closed'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('blocking coordination disables otherwise ready completion', (
+    tester,
+  ) async {
+    final execution = _execution()..workflowSchemaVersion = 1;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([_acceptedModule()]),
+          ),
+          workflowRepositoryProvider.overrideWithValue(
+            _StaticWorkflowRepository(
+              workflow: _workflow(),
+              lanes: [_lane()],
+              compliance: [_compliance()],
+            ),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+      ),
+    );
+
+    await _pumpFrames(tester);
+    await tester.scrollUntilVisible(
+      find.text('Blocking coordination remains open'),
+      200,
+    );
+
+    expect(find.text('Blocking coordination remains open'), findsOneWidget);
+    expect(find.text('1 blocking obligation'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets(
+    'closed lanes and settled coordination enable governed completion',
+    (tester) async {
+      final execution = _execution()..workflowSchemaVersion = 1;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream<AppUser?>.value(_supervisor()),
+            ),
+            plannedRepositoryProvider.overrideWithValue(
+              _GateRejectingPlannedRepository(),
+            ),
+            jobModuleRepositoryProvider.overrideWithValue(
+              _StaticJobModuleRepository([_acceptedModule()]),
+            ),
+            workflowRepositoryProvider.overrideWithValue(
+              _StaticWorkflowRepository(
+                workflow: _workflow(),
+                lanes: [_lane()],
+                compliance: [_compliance(status: 'confirmedClosed')],
+              ),
+            ),
+          ],
+          child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+        ),
+      );
+
+      await _pumpFrames(tester);
+      await tester.scrollUntilVisible(
+        find.text('All workflow lanes are closed'),
+        200,
+      );
+
+      expect(find.text('All workflow lanes are closed'), findsOneWidget);
+      expect(find.text('1/1 lanes closed'), findsOneWidget);
+      expect(find.text('0 blocking obligations'), findsOneWidget);
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Mark Job Completed'),
+      );
+      expect(button.onPressed, isNotNull);
+    },
+  );
 
   testWidgets('server closure-gate rejection shows actionable dialog', (
     tester,

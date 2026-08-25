@@ -1,5 +1,7 @@
 part of 'fleet_status_screen.dart';
 
+enum OperationsReportView { overview, control, work, reliability, assurance }
+
 class OperationsReportViewSelector extends StatelessWidget {
   const OperationsReportViewSelector({
     super.key,
@@ -274,6 +276,7 @@ class OperationsDecisionBrief extends StatelessWidget {
     required this.onInspections,
     required this.onPlannedWork,
     required this.onQuality,
+    required this.onQualityMonitoring,
     required this.onAbnormalities,
     required this.onDirectives,
     required this.onWorkflow,
@@ -287,6 +290,7 @@ class OperationsDecisionBrief extends StatelessWidget {
   final VoidCallback onInspections;
   final VoidCallback onPlannedWork;
   final VoidCallback onQuality;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onAbnormalities;
   final VoidCallback onDirectives;
   final VoidCallback onWorkflow;
@@ -381,7 +385,7 @@ class OperationsDecisionBrief extends StatelessWidget {
     OperationsManagementSignalType.workflowObligations => onWorkflow,
     OperationsManagementSignalType.activeDirectives => onDirectives,
     OperationsManagementSignalType.criticalAbnormalities => onAbnormalities,
-    OperationsManagementSignalType.qualityMonitoring => onQuality,
+    OperationsManagementSignalType.qualityMonitoring => onQualityMonitoring,
     OperationsManagementSignalType.openIssues => onIssues,
     OperationsManagementSignalType.openPlannedWork => onPlannedWork,
   };

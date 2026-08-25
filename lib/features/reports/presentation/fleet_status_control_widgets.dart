@@ -5,6 +5,7 @@ class OperationsControlReportPanel extends StatelessWidget {
     super.key,
     required this.report,
     required this.onQuality,
+    required this.onQualityMonitoring,
     required this.onAbnormalities,
     required this.onDirectives,
     required this.onWorkflow,
@@ -13,6 +14,7 @@ class OperationsControlReportPanel extends StatelessWidget {
 
   final OperationsReport report;
   final VoidCallback onQuality;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onAbnormalities;
   final VoidCallback onDirectives;
   final VoidCallback onWorkflow;
@@ -27,9 +29,16 @@ class OperationsControlReportPanel extends StatelessWidget {
         title: 'Quality disposition',
         value: '${report.openQualityWarningCount}',
         detail:
-            '${report.qualityClosureRequestCount} awaiting a closure decision · '
-            '${report.activeQualityMonitoringCount} monitoring requests active',
+            '${report.qualityClosureRequestCount} awaiting a closure decision',
         onTap: onQuality,
+      ),
+      _ControlReportRoute(
+        icon: Icons.monitor_heart_outlined,
+        color: BafColors.instrument,
+        title: 'Cycle monitoring',
+        value: '${report.activeQualityMonitoringCount}',
+        detail: 'Active Base, Grade, cycle and charge surveillance',
+        onTap: onQualityMonitoring,
       ),
       _ControlReportRoute(
         icon: Icons.assignment_late_outlined,

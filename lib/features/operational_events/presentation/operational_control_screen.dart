@@ -26,6 +26,7 @@ class OperationalControlScreen extends StatelessWidget {
     required this.onWorkflow,
     required this.onOperationalEvents,
     required this.onQuality,
+    required this.onQualityMonitoring,
     required this.onAbnormalities,
     required this.onInspections,
   });
@@ -47,6 +48,7 @@ class OperationalControlScreen extends StatelessWidget {
   final VoidCallback onWorkflow;
   final VoidCallback onOperationalEvents;
   final VoidCallback onQuality;
+  final VoidCallback onQualityMonitoring;
   final VoidCallback onAbnormalities;
   final VoidCallback onInspections;
 
@@ -95,7 +97,7 @@ class OperationalControlScreen extends StatelessWidget {
           value:
               qualityMonitoringUnavailable ? '--' : '$qualityMonitoringCount',
           detail: 'Active Base, Grade and charge surveillance',
-          onTap: onQuality,
+          onTap: onQualityMonitoring,
         ),
       _ControlDomain(
         icon: Icons.memory_outlined,
@@ -189,7 +191,7 @@ class OperationalControlScreen extends StatelessWidget {
                       ),
                     if (appUser.canManageQualityMonitoring)
                       OutlinedButton.icon(
-                        onPressed: onQuality,
+                        onPressed: onQualityMonitoring,
                         icon: const Icon(Icons.visibility_outlined),
                         label: const Text('Monitor cycles'),
                       ),
@@ -217,7 +219,7 @@ class OperationalControlScreen extends StatelessWidget {
       if (qualityWarningsUnavailable && appUser.canViewQuality)
         (label: 'Quality warnings', onTap: onQuality),
       if (qualityMonitoringUnavailable && appUser.canViewQuality)
-        (label: 'Cycle monitoring', onTap: onQuality),
+        (label: 'Cycle monitoring', onTap: onQualityMonitoring),
       if (inspectionFindingsUnavailable)
         (label: 'Inspection findings', onTap: onInspections),
     ];
@@ -246,20 +248,6 @@ class OperationalControlScreen extends StatelessWidget {
             '${qualityWarningCount == 1 ? 'warning remains' : 'warnings remain'} open',
         detail:
             'Review affected charges, evidence and any pending closure requests.',
-        actionLabel: 'Open quality',
-        onTap: onQuality,
-      );
-    }
-    if (qualityMonitoringCount > 0 && appUser.canViewQuality) {
-      return _ControlSignal(
-        icon: Icons.monitor_heart_outlined,
-        color: BafColors.instrument,
-        eyebrow: 'ACTIVE QUALITY MONITORING',
-        title:
-            '$qualityMonitoringCount cycle monitoring '
-            '${qualityMonitoringCount == 1 ? 'request remains' : 'requests remain'} active',
-        detail:
-            'Review the selected Bases, Grades, cycles and charge coverage.',
         actionLabel: 'Open quality',
         onTap: onQuality,
       );
@@ -317,6 +305,20 @@ class OperationalControlScreen extends StatelessWidget {
         detail: 'Check acknowledgement, compliance and closure ownership.',
         actionLabel: 'Open directives',
         onTap: onDirectives,
+      );
+    }
+    if (qualityMonitoringCount > 0 && appUser.canViewQuality) {
+      return _ControlSignal(
+        icon: Icons.monitor_heart_outlined,
+        color: BafColors.instrument,
+        eyebrow: 'ACTIVE QUALITY MONITORING',
+        title:
+            '$qualityMonitoringCount cycle monitoring '
+            '${qualityMonitoringCount == 1 ? 'request remains' : 'requests remain'} active',
+        detail:
+            'Review the selected Bases, Grades, cycles and charge coverage.',
+        actionLabel: 'Open monitoring',
+        onTap: onQualityMonitoring,
       );
     }
     return _ControlSignal(

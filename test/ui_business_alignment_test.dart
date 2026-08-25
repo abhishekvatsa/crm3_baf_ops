@@ -13,12 +13,14 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/workflow
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/complete_job_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/job_module_detail_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/planned_job_detail_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/maintenance_intelligence_provider.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/widgets/action_mini_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -106,6 +108,22 @@ JobModuleInstance _openModule() {
     ..updatedAt = timestamp
     ..isSynced = true;
 }
+
+ComponentAction _burnerAction() => ComponentAction(
+  id: 'burner-action-3',
+  asset: 'Furnace 03',
+  component: 'Burner 3',
+  actionType: ActionType.replacement,
+  replacement: ReplacementType.repaired,
+  createdAt: DateTime.utc(2026, 7, 31, 18, 20),
+  updatedAt: DateTime.utc(2026, 7, 31, 18, 45),
+  performedBy: 'Instrumentation Supervisor',
+  attendanceSessionId: 'burner_execution-ui-alignment_3',
+  burnerPosition: 3,
+  burnerActionCode: 'flameAdjustment',
+  burnerOutcome: 'restored',
+  burnerMicroampReading: 4.125,
+);
 
 List<JobDiaryEntry> _diaryEntries(int count) {
   return List<JobDiaryEntry>.generate(count, (index) {
@@ -404,6 +422,85 @@ void main() {
       expect(find.text('Complete Job'), findsNothing);
       expect(find.text('Legacy execution summary'), findsNothing);
       expect(find.text('Checklist responses'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final location in <String>['execution', 'module']) {
+      testWidgets(
+        'planned $location dossier retains complete burner intervention evidence',
+        (tester) async {
+          final action = _burnerAction();
+          final execution =
+              _governedExecution()
+                ..isCompleted = true
+                ..completedAt = DateTime.utc(2026, 7, 31, 19)
+                ..completedByName = 'Shift Supervisor'
+                ..updatedAt = DateTime.utc(2026, 7, 31, 19);
+          final module = _openModule()..status = JobModuleStatus.accepted;
+          if (location == 'execution') {
+            execution.actionsJson = ComponentAction.encode([action]);
+          } else {
+            module.actionsJson = ComponentAction.encode([action]);
+          }
+
+          await _pumpDetail(
+            tester,
+            actor: _actor(AppRole.operations),
+            size: const Size(360, 800),
+            execution: execution,
+            moduleRepository: _StaticJobModuleRepository([module]),
+          );
+
+          await tester.scrollUntilVisible(
+            find.text('Attendance reference'),
+            220,
+            scrollable: find.byType(Scrollable).first,
+          );
+
+          for (final evidence in <String>[
+            'Replacement',
+            'Repaired',
+            'Action time',
+            'Last corrected',
+            'Burner action',
+            'Flame Adjustment',
+            'Burner outcome',
+            'Restored',
+            'Flame signal',
+            '4.125 \u00B5A',
+            'Attendance reference',
+            'burner_execution-ui-alignment_3',
+          ]) {
+            expect(find.text(evidence, skipOffstage: false), findsWidgets);
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('live action cards show burner and replacement evidence', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: ActionMiniCard(action: _burnerAction()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Replacement'), findsOneWidget);
+      expect(find.text('Repaired'), findsOneWidget);
+      expect(find.text('Burner 3'), findsOneWidget);
+      expect(find.text('Flame Adjustment'), findsOneWidget);
+      expect(find.text('Restored'), findsOneWidget);
+      expect(find.text('4.125 \u00B5A'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
