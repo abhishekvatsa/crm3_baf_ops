@@ -143,7 +143,10 @@ function nonNegativeInteger(value: unknown, field: string): number {
   return value as number;
 }
 
-function deviceStateId(uid: string, installationId: string): string {
+export function deviceRecoveryStateDocumentId(
+  uid: string,
+  installationId: string,
+): string {
   return createHash("sha256")
     .update(`${uid}:${installationId}`, "utf8")
     .digest("hex");
@@ -370,7 +373,7 @@ export async function userCanResumeClaimedDeviceRecovery(args: {
     }
 
     const stateSnapshot = await args.db.collection(DEVICE_REQUESTS)
-      .doc(deviceStateId(actorUid, installationId))
+      .doc(deviceRecoveryStateDocumentId(actorUid, installationId))
       .get();
     if (!stateSnapshot.exists) return false;
     const state = validatePendingState(
@@ -472,7 +475,7 @@ async function listInstallations(
   for (const installation of eligibleSnapshots) {
     const data = installation.data() as JsonMap;
     const stateSnapshot = await args.db.collection(DEVICE_REQUESTS)
-      .doc(deviceStateId(targetUid, installation.id))
+      .doc(deviceRecoveryStateDocumentId(targetUid, installation.id))
       .get();
     const state = stateSnapshot.data() as JsonMap | undefined;
     const result: JsonMap = {
@@ -528,7 +531,7 @@ async function requestReset(
     );
   }
   const stateRef = args.db.collection(DEVICE_REQUESTS)
-    .doc(deviceStateId(targetUid, installationId));
+    .doc(deviceRecoveryStateDocumentId(targetUid, installationId));
   const receiptRef = args.db.collection(DEVICE_RECEIPTS).doc(requestId);
   const timestamp = args.timestampFromDate(now);
   const expires = args.timestampFromDate(
@@ -684,7 +687,7 @@ async function pollReset(
     );
     const stateSnapshot = await transaction.get(
       args.db.collection(DEVICE_REQUESTS)
-        .doc(deviceStateId(actorUid, installationId)),
+        .doc(deviceRecoveryStateDocumentId(actorUid, installationId)),
     );
     const registrationCurrent = installation.exists &&
       canonicalInstallation(installation.data());
@@ -783,7 +786,7 @@ async function claimReset(
     "installationId",
   );
   const stateRef = args.db.collection(DEVICE_REQUESTS)
-    .doc(deviceStateId(actorUid, installationId));
+    .doc(deviceRecoveryStateDocumentId(actorUid, installationId));
   const receiptRef = args.db.collection(DEVICE_RECEIPTS).doc(requestId);
   const auditRef = args.db.collection("audit_logs")
     .doc(`server_authority_device_recovery_${requestId}_claimed`);
@@ -951,7 +954,7 @@ async function finishReset(
     );
   }
   const stateRef = args.db.collection(DEVICE_REQUESTS)
-    .doc(deviceStateId(actorUid, installationId));
+    .doc(deviceRecoveryStateDocumentId(actorUid, installationId));
   const timestamp = args.timestampFromDate(now);
   const status = failed ? "failed" : "completed";
 
@@ -1095,7 +1098,7 @@ async function cancelReset(
   );
   const reason = requiredText(args.data.reason, "reason", 500);
   const stateRef = args.db.collection(DEVICE_REQUESTS)
-    .doc(deviceStateId(targetUid, installationId));
+    .doc(deviceRecoveryStateDocumentId(targetUid, installationId));
   const timestamp = args.timestampFromDate(now);
 
   await args.db.runTransaction(async (transaction) => {

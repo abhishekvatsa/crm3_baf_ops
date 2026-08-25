@@ -310,7 +310,7 @@ export async function getTokenLookupForInstallation(
 /**
  * FCM error codes that mean the token is permanently dead and should be
  * cleared from the user record. Transient errors (quota, unavailable) are
- * NOT in this list — we retry those next time naturally.
+ * reported separately so an exact single-device caller can retry safely.
  *
  * See: https://firebase.google.com/docs/cloud-messaging/manage-tokens
  */
@@ -320,10 +320,18 @@ export const FCM_DEAD_TOKEN_CODES: ReadonlyArray<string> = [
   "messaging/invalid-argument",
 ];
 
+export const FCM_RETRYABLE_ERROR_CODES: ReadonlyArray<string> = [
+  "messaging/device-message-rate-exceeded",
+  "messaging/internal-error",
+  "messaging/message-rate-exceeded",
+  "messaging/server-unavailable",
+];
+
 export interface SendOutcome {
   attempted: number;
   succeeded: number;
   failed: number;
+  retryableFailures: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }
@@ -382,6 +390,7 @@ export async function sendNotification(args: {
       attempted: 0,
       succeeded: 0,
       failed: 0,
+      retryableFailures: 0,
       staleTokensCleared: 0,
       unknownAgencies,
     };
@@ -389,6 +398,7 @@ export async function sendNotification(args: {
 
   let succeeded = 0;
   let failed = 0;
+  let retryableFailures = 0;
   const staleTokens: string[] = [];
 
   for (let i = 0; i < dedupedTokens.length; i += 500) {
@@ -412,6 +422,9 @@ export async function sendNotification(args: {
       const code = resp.error?.code;
       if (code != null && FCM_DEAD_TOKEN_CODES.includes(code)) {
         staleTokens.push(batch[idx]);
+      }
+      if (code != null && FCM_RETRYABLE_ERROR_CODES.includes(code)) {
+        retryableFailures += 1;
       }
     });
   }
@@ -455,6 +468,7 @@ export async function sendNotification(args: {
     attempted: dedupedTokens.length,
     succeeded,
     failed,
+    retryableFailures,
     staleTokensCleared: cleared,
     unknownAgencies,
   };

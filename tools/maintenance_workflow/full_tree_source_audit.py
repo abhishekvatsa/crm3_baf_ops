@@ -228,6 +228,7 @@ def main() -> int:
         and "workflow_notification_receipts" in trigger
         and 'status: "completed"' in notification_receipt
         and 'status: "failedBeforeDispatch"' in notification_receipt
+        and 'status: "retryableDeliveryFailed"' in notification_receipt
         and 'status: "deliveryUncertain"' in notification_receipt
         and "acquireReceiptLease" not in trigger,
         "concurrent retries replay completion; ambiguous dispatch is quarantined",

@@ -2,6 +2,7 @@ const {
   NOTIFICATION_RECEIPT_COLLECTION,
   NOTIFICATION_RECEIPT_SCHEMA_VERSION,
   NotificationReceiptIntegrityError,
+  NotificationRetryableDeliveryError,
   executeIdempotentNotificationEvent,
   notificationEventReceiptId,
 } = require("../lib/notificationEventReceipt");
@@ -91,6 +92,7 @@ const outcome = {
   attempted: 2,
   succeeded: 2,
   failed: 0,
+  retryableFailures: 0,
   staleTokensCleared: 0,
   unknownAgencies: [],
 };
@@ -159,6 +161,47 @@ describe("notification event receipts", () => {
       notificationEventReceiptId(identity.triggerName, identity.cloudEventId),
     );
     expect(receipt).toMatchObject({
+      status: "completed",
+      attemptCount: 2,
+      lastError: null,
+      requiresAdjudication: false,
+    });
+  });
+
+  test("known zero-delivery transient failure is safely reacquired", async () => {
+    const h = harness({attemptIds: ["attempt-1", "attempt-2"]});
+    const retryableFailure = {
+      attempted: 1,
+      succeeded: 0,
+      failed: 1,
+      retryableFailures: 1,
+      staleTokensCleared: 0,
+      unknownAgencies: [],
+    };
+    const dispatch = jest.fn()
+      .mockResolvedValueOnce(retryableFailure)
+      .mockResolvedValueOnce(outcome);
+    const retryKnownFailure = (_plan, result) =>
+      result.succeeded === 0 && result.retryableFailures > 0;
+
+    await expect(execute(h.runtime, {dispatch, retryKnownFailure}))
+      .rejects.toBeInstanceOf(NotificationRetryableDeliveryError);
+    const receiptId = notificationEventReceiptId(
+      identity.triggerName,
+      identity.cloudEventId,
+    );
+    expect(h.get(NOTIFICATION_RECEIPT_COLLECTION, receiptId)).toMatchObject({
+      status: "retryableDeliveryFailed",
+      attemptCount: 1,
+      succeededCount: 0,
+      retryableFailureCount: 1,
+      requiresAdjudication: false,
+    });
+
+    await expect(execute(h.runtime, {dispatch, retryKnownFailure}))
+      .resolves.toMatchObject({kind: "completed"});
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(h.get(NOTIFICATION_RECEIPT_COLLECTION, receiptId)).toMatchObject({
       status: "completed",
       attemptCount: 2,
       lastError: null,

@@ -715,6 +715,7 @@ function logOutcome(
     attempted: number;
     succeeded: number;
     failed: number;
+    retryableFailures: number;
     staleTokensCleared: number;
     unknownAgencies: ReadonlyArray<string>;
   },

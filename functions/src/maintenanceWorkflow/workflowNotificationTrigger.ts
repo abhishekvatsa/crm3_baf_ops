@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {deviceRecoveryStateDocumentId} from "../deviceRecoveryMutation";
 import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
 import {
   executeIdempotentNotificationEvent,
@@ -22,6 +23,15 @@ import type {
 import {workflowRecipientRoles} from "./workflowNotificationPolicy";
 
 const REGION = "asia-south1";
+
+function timestampMillis(value: unknown): number | null {
+  const candidate = value as {toMillis?: () => number} | null;
+  if (candidate == null || typeof candidate.toMillis !== "function") {
+    return null;
+  }
+  const millis = candidate.toMillis();
+  return Number.isSafeInteger(millis) && millis >= 0 ? millis : null;
+}
 
 function notificationDb(
   db: admin.firestore.Firestore,
@@ -100,6 +110,27 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
                 typeof recovery.targetUid !== "string" ||
                 typeof recovery.installationId !== "string") {
               logger.error("Device recovery notification receipt is invalid", {
+                eventId: sourceEventId,
+                requestId,
+              });
+              return null;
+            }
+            const stateSnapshot = await db
+              .collection("device_recovery_requests")
+              .doc(deviceRecoveryStateDocumentId(
+                recovery.targetUid,
+                recovery.installationId,
+              ))
+              .get();
+            const state = stateSnapshot.data();
+            const expiresAtMillis = timestampMillis(state?.expiresAt);
+            if (!stateSnapshot.exists || state?.schemaVersion !== 1 ||
+                state.requestId !== requestId ||
+                state.targetUid !== recovery.targetUid ||
+                state.installationId !== recovery.installationId ||
+                state.status !== "pending" || expiresAtMillis == null ||
+                expiresAtMillis <= Date.now()) {
+              logger.info("Device recovery notification is no longer active", {
                 eventId: sourceEventId,
                 requestId,
               });
@@ -187,6 +218,12 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
           body: plan.body,
           data: plan.notificationData as Readonly<Record<string, string>>,
         }),
+        retryKnownFailure: (_plan, outcome) =>
+          data.eventType === "deviceRecovery.requested" &&
+          outcome.attempted === 1 &&
+          outcome.succeeded === 0 &&
+          outcome.failed === 1 &&
+          outcome.retryableFailures === 1,
       });
 
       if (result.kind === "completed") {

@@ -376,8 +376,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 169
-    and counts.get("SUCCESSOR_MODIFIED") == 241
+    and counts.get("BYTE_IDENTICAL") == 168
+    and counts.get("SUCCESSOR_MODIFIED") == 242
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -8655,6 +8655,7 @@ check(
     and "notification-event-receipt-v1\\0" in r05_receipt_source
     and "notification_event_receipts" in r05_receipt_source
     and "failedBeforeDispatch" in r05_receipt_source
+    and "retryableDeliveryFailed" in r05_receipt_source
     and "deliveryUncertain" in r05_receipt_source
     and "notification-event-receipt-attempt-mismatch" in r05_receipt_source
     and "notification-event-receipt-state-malformed" in r05_receipt_source
@@ -10882,8 +10883,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 169
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 241
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 168
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 242
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

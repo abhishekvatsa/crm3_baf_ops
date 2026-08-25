@@ -6,6 +6,7 @@ const {
   buildTicketLaneAddedNotification,
   buildTicketResolvedNotification,
   FCM_DEAD_TOKEN_CODES,
+  FCM_RETRYABLE_ERROR_CODES,
   getTokenLookupForInstallation,
   getTokenLookupsForUser,
   getTokenLookupsForRoles,
@@ -721,7 +722,13 @@ describe('sendNotification', () => {
       recipients: [{uid: 'u1', fcmToken: 't1'}, {uid: 'u2', fcmToken: 't2'}],
       title: 'T', body: 'B',
     });
-    expect(outcome).toMatchObject({attempted: 2, succeeded: 2, failed: 0, staleTokensCleared: 0});
+    expect(outcome).toMatchObject({
+      attempted: 2,
+      succeeded: 2,
+      failed: 0,
+      retryableFailures: 0,
+      staleTokensCleared: 0,
+    });
   });
 
   test('clears fcmToken on user with not-registered error', async () => {
@@ -837,6 +844,7 @@ describe('sendNotification', () => {
       title: 'T', body: 'B',
     });
     expect(outcome.failed).toBe(2);
+    expect(outcome.retryableFailures).toBe(2);
     expect(outcome.staleTokensCleared).toBe(0);
     expect(users.u1.fcmToken).toBe('t1');
     expect(users.u2.fcmToken).toBe('t2');
@@ -966,6 +974,23 @@ describe('sendNotification', () => {
         'messaging/registration-token-not-registered',
         'messaging/invalid-registration-token',
         'messaging/invalid-argument',
+      ]),
+    );
+  });
+
+  test('FCM_RETRYABLE_ERROR_CODES contains only known transient classes', () => {
+    expect(FCM_RETRYABLE_ERROR_CODES).toEqual([
+      'messaging/device-message-rate-exceeded',
+      'messaging/internal-error',
+      'messaging/message-rate-exceeded',
+      'messaging/server-unavailable',
+    ]);
+    expect(FCM_RETRYABLE_ERROR_CODES).not.toEqual(
+      expect.arrayContaining([
+        'messaging/quota-exceeded',
+        'messaging/registration-token-not-registered',
+        'messaging/unavailable',
+        'messaging/unknown-error',
       ]),
     );
   });

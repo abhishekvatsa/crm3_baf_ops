@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -265,6 +266,21 @@ Future<bool> isRetainedIsarRecoveryBackup(String path) async {
 
 const _deviceRecoveryJournalDirectoryName =
     'CRM3_BAF_Ops_Device_Recovery_Journals';
+const _deviceRecoveryStorageChannel = MethodChannel(
+  'in.co.sail.bsl.crm3.bafops/recovery_storage',
+);
+
+class _DeviceRecoveryJournalPaths {
+  const _DeviceRecoveryJournalPaths({
+    required this.journalDirectory,
+    required this.target,
+    required this.pending,
+  });
+
+  final Directory journalDirectory;
+  final File target;
+  final File pending;
+}
 
 String _deviceRecoveryJournalFileName(String requestId) {
   if (requestId.isEmpty ||
@@ -275,19 +291,68 @@ String _deviceRecoveryJournalFileName(String requestId) {
   return '$requestId.json';
 }
 
-Future<File> _deviceRecoveryJournalFile(String requestId) async {
+Future<void> _syncRecoveryJournalDirectory(Directory directory) async {
+  if (!Platform.isAndroid) {
+    throw const FileSystemException(
+      'Crash-durable device recovery is currently supported only on Android.',
+    );
+  }
+  final synchronized = await _deviceRecoveryStorageChannel.invokeMethod<bool>(
+    'syncDirectory',
+    <String, Object?>{'directoryPath': directory.path},
+  );
+  if (synchronized != true) {
+    throw FileSystemException(
+      'Recovery-journal directory synchronization was not confirmed.',
+      directory.path,
+    );
+  }
+}
+
+Future<_DeviceRecoveryJournalPaths> _deviceRecoveryJournalPaths(
+  String requestId, {
+  required bool createDirectory,
+}) async {
   final documents = await _documentsDirectory();
   final directory = Directory(
     '${documents.path}/$_deviceRecoveryJournalDirectoryName',
   );
-  await directory.create(recursive: true);
-  return File('${directory.path}/${_deviceRecoveryJournalFileName(requestId)}');
+  if (createDirectory && !await directory.exists()) {
+    await directory.create(recursive: true);
+    await _syncRecoveryJournalDirectory(documents);
+  }
+  final target = File(
+    '${directory.path}/${_deviceRecoveryJournalFileName(requestId)}',
+  );
+  return _DeviceRecoveryJournalPaths(
+    journalDirectory: directory,
+    target: target,
+    pending: File('${target.path}.pending'),
+  );
 }
 
 Future<String?> readCrashDurableIsarRecoveryJournal(String requestId) async {
-  final file = await _deviceRecoveryJournalFile(requestId);
-  if (!await file.exists()) return null;
-  return file.readAsString();
+  final paths = await _deviceRecoveryJournalPaths(
+    requestId,
+    createDirectory: false,
+  );
+  if (await paths.target.exists()) return paths.target.readAsString();
+  if (!await paths.pending.exists()) return null;
+
+  final serialized = await paths.pending.readAsString();
+  if (serialized.isEmpty) {
+    throw const FormatException(
+      'Pending device-recovery journal cannot be empty.',
+    );
+  }
+  await paths.pending.rename(paths.target.path);
+  await _syncRecoveryJournalDirectory(paths.journalDirectory);
+  if (await paths.target.readAsString() != serialized) {
+    throw const FileSystemException(
+      'Recovered device-recovery journal readback failed.',
+    );
+  }
+  return serialized;
 }
 
 Future<void> writeCrashDurableIsarRecoveryJournal(
@@ -297,8 +362,12 @@ Future<void> writeCrashDurableIsarRecoveryJournal(
   if (serialized.isEmpty) {
     throw const FormatException('Device-recovery journal cannot be empty.');
   }
-  final target = await _deviceRecoveryJournalFile(requestId);
-  final pending = File('${target.path}.pending');
+  final paths = await _deviceRecoveryJournalPaths(
+    requestId,
+    createDirectory: true,
+  );
+  final target = paths.target;
+  final pending = paths.pending;
   try {
     if (await pending.exists()) await pending.delete();
     await pending.writeAsString(serialized, flush: true);
@@ -308,6 +377,7 @@ Future<void> writeCrashDurableIsarRecoveryJournal(
       );
     }
     await pending.rename(target.path);
+    await _syncRecoveryJournalDirectory(paths.journalDirectory);
     if (await target.readAsString() != serialized) {
       throw const FileSystemException(
         'Device-recovery journal replacement verification failed.',

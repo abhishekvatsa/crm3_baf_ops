@@ -1137,6 +1137,38 @@ void main() {
       });
     },
   );
+
+  test(
+    'Android journal commit syncs directory metadata and recovers rename',
+    () {
+      final ioSource =
+          File(
+            'lib/core/services/isar_production_recovery_io.dart',
+          ).readAsStringSync();
+      final androidSource =
+          File(
+            'android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/'
+            'MainActivity.kt',
+          ).readAsStringSync();
+
+      expect(ioSource, contains("writeAsString(serialized, flush: true)"));
+      expect(
+        ioSource,
+        contains('await paths.pending.rename(paths.target.path)'),
+      );
+      expect(
+        ioSource,
+        contains('await _syncRecoveryJournalDirectory(paths.journalDirectory)'),
+      );
+      expect(
+        ioSource,
+        contains('if (!await paths.pending.exists()) return null'),
+      );
+      expect(androidSource, contains('OsConstants.O_RDONLY'));
+      expect(androidSource, contains('Os.fsync(descriptor)'));
+      expect(androidSource, contains('applicationInfo.dataDir'));
+    },
+  );
 }
 
 DeviceLocalRecoveryResetService _service(
