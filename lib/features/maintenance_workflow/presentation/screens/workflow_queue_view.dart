@@ -6,6 +6,7 @@ import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/compliance_request_record.dart';
 import '../../data/job_lane_record.dart';
+import '../../domain/compliance_visibility_policy.dart';
 import '../../providers/workflow_providers.dart';
 import 'compliance_detail_screen.dart';
 import 'compliance_inbox_screen.dart';
@@ -77,10 +78,7 @@ class WorkflowQueueView extends ConsumerWidget {
               (record) =>
                   !record.isDeleted &&
                   !_terminalComplianceStates.contains(record.statusKey) &&
-                  (actor.canAcknowledgeOrWorkMaintenanceLane(
-                        record.targetLaneKey,
-                      ) ||
-                      record.raisedByUid == actor.uid) &&
+                  canUserSeeComplianceRequest(record, actor) &&
                   _complianceMatches(record, needle),
             )
             .toList()
@@ -91,114 +89,146 @@ class WorkflowQueueView extends ConsumerWidget {
             return due != 0 ? due : b.updatedAt.compareTo(a.updatedAt);
           });
 
-    return ListView(
-      key: const ValueKey('workflow-queue-view'),
-      padding: EdgeInsets.fromLTRB(
-        BafSpacing.lg,
-        BafSpacing.sm,
-        BafSpacing.lg,
-        bottomPadding,
-      ),
-      children: [
-        const Text(
-          'Workflow queue',
-          style: TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
+    return RefreshIndicator(
+      onRefresh: () => _refreshWorkflowQueue(context, ref),
+      child: ListView(
+        key: const ValueKey('workflow-queue-view'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          BafSpacing.lg,
+          BafSpacing.sm,
+          BafSpacing.lg,
+          bottomPadding,
+        ),
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Workflow queue',
+                  style: TextStyle(
+                    color: BafColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Refresh workflow obligations',
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: () => _refreshWorkflowQueue(context, ref),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: BafSpacing.sm),
-        Wrap(
-          spacing: BafSpacing.xs,
-          runSpacing: BafSpacing.xs,
-          children: [
-            StatusBadge(
-              label: '${lanes.length} lanes',
-              color: BafColors.planned,
-            ),
-            StatusBadge(
-              label: '${compliance.length} obligations',
-              color: BafColors.warning,
-            ),
-          ],
-        ),
-        const SizedBox(height: BafSpacing.md),
-        Wrap(
-          spacing: BafSpacing.sm,
-          runSpacing: BafSpacing.sm,
-          children: [
-            OutlinedButton.icon(
-              onPressed:
-                  () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const WorkflowHubScreen(),
-                    ),
-                  ),
-              icon: const Icon(Icons.account_tree_outlined),
-              label: const Text('Workflow overview'),
-            ),
-            OutlinedButton.icon(
-              onPressed:
-                  () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ComplianceInboxScreen(),
-                    ),
-                  ),
-              icon: const Icon(Icons.inbox_outlined),
-              label: const Text('Compliance inbox'),
-            ),
-            OutlinedButton.icon(
-              onPressed:
-                  () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const EquipmentStatusBoard(),
-                    ),
-                  ),
-              icon: const Icon(Icons.precision_manufacturing_outlined),
-              label: const Text('Equipment'),
-            ),
-          ],
-        ),
-        const SizedBox(height: BafSpacing.lg),
-        if (lanes.isEmpty && compliance.isEmpty)
-          const _WorkflowQueueEmpty()
-        else ...[
-          if (lanes.isNotEmpty) ...[
-            const _QueueSectionTitle('Lane assignments'),
-            ...lanes.map(
-              (lane) => _LaneQueueTile(
-                lane: lane,
-                onTap:
+          const SizedBox(height: BafSpacing.sm),
+          Wrap(
+            spacing: BafSpacing.xs,
+            runSpacing: BafSpacing.xs,
+            children: [
+              StatusBadge(
+                label: '${lanes.length} lanes',
+                color: BafColors.planned,
+              ),
+              StatusBadge(
+                label: '${compliance.length} obligations',
+                color: BafColors.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.md),
+          Wrap(
+            spacing: BafSpacing.sm,
+            runSpacing: BafSpacing.sm,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
                     () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder:
-                            (_) => WorkflowHubScreen(
-                              initialWorkflowId: lane.workflowFirestoreId,
-                            ),
+                        builder: (_) => const WorkflowHubScreen(),
                       ),
                     ),
+                icon: const Icon(Icons.account_tree_outlined),
+                label: const Text('Workflow overview'),
               ),
-            ),
-          ],
-          if (compliance.isNotEmpty) ...[
-            if (lanes.isNotEmpty) const SizedBox(height: BafSpacing.lg),
-            const _QueueSectionTitle('Compliance obligations'),
-            ...compliance.map(
-              (record) => _ComplianceQueueTile(
-                record: record,
-                onTap:
+              OutlinedButton.icon(
+                onPressed:
                     () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => ComplianceDetailScreen(record: record),
+                        builder: (_) => const ComplianceInboxScreen(),
                       ),
                     ),
+                icon: const Icon(Icons.inbox_outlined),
+                label: const Text('Compliance inbox'),
               ),
-            ),
+              OutlinedButton.icon(
+                onPressed:
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const EquipmentStatusBoard(),
+                      ),
+                    ),
+                icon: const Icon(Icons.precision_manufacturing_outlined),
+                label: const Text('Equipment'),
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          if (lanes.isEmpty && compliance.isEmpty)
+            const _WorkflowQueueEmpty()
+          else ...[
+            if (lanes.isNotEmpty) ...[
+              const _QueueSectionTitle('Lane assignments'),
+              ...lanes.map(
+                (lane) => _LaneQueueTile(
+                  lane: lane,
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder:
+                              (_) => WorkflowHubScreen(
+                                initialWorkflowId: lane.workflowFirestoreId,
+                              ),
+                        ),
+                      ),
+                ),
+              ),
+            ],
+            if (compliance.isNotEmpty) ...[
+              if (lanes.isNotEmpty) const SizedBox(height: BafSpacing.lg),
+              const _QueueSectionTitle('Compliance obligations'),
+              ...compliance.map(
+                (record) => _ComplianceQueueTile(
+                  record: record,
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder:
+                              (_) => ComplianceDetailScreen(record: record),
+                        ),
+                      ),
+                ),
+              ),
+            ],
           ],
         ],
-      ],
+      ),
     );
+  }
+
+  Future<void> _refreshWorkflowQueue(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    try {
+      await ref.read(workflowProjectionRefreshProvider)();
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not refresh workflow obligations: $error'),
+        ),
+      );
+    }
   }
 }
 
@@ -275,18 +305,21 @@ class _LaneQueueTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(
-        Icons.account_tree_outlined,
-        color: BafColors.planned,
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(
+          Icons.account_tree_outlined,
+          color: BafColors.planned,
+        ),
+        title: Text('${_laneLabel(lane.laneKey)} lane'),
+        subtitle: Text(
+          '${lane.assetTypeKey.toUpperCase()} ${lane.assetNumber} · ${lane.statusKey}',
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
       ),
-      title: Text('${_laneLabel(lane.laneKey)} lane'),
-      subtitle: Text(
-        '${lane.assetTypeKey.toUpperCase()} ${lane.assetNumber} · ${lane.statusKey}',
-      ),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
     );
   }
 }
@@ -299,21 +332,26 @@ class _ComplianceQueueTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        record.becameDueAt == null
-            ? Icons.assignment_outlined
-            : Icons.warning_amber_rounded,
-        color:
-            record.becameDueAt == null ? BafColors.planned : BafColors.warning,
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          record.becameDueAt == null
+              ? Icons.assignment_outlined
+              : Icons.warning_amber_rounded,
+          color:
+              record.becameDueAt == null
+                  ? BafColors.planned
+                  : BafColors.warning,
+        ),
+        title: Text(record.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          '${_laneLabel(record.targetLaneKey)} · ${record.statusKey}',
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
       ),
-      title: Text(record.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        '${_laneLabel(record.targetLaneKey)} · ${record.statusKey}',
-      ),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
     );
   }
 }

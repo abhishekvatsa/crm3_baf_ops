@@ -10,7 +10,10 @@ import '../../../features/maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../maintenance_workflow/data/compliance_request_record.dart';
+import '../../maintenance_workflow/data/job_lane_record.dart';
 import '../../maintenance_workflow/presentation/screens/workflow_queue_view.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import 'create_template_screen.dart';
 import 'open_executions_view.dart';
 import 'published_template_assignment_screen.dart';
@@ -27,6 +30,7 @@ class TemplatesScreen extends ConsumerStatefulWidget {
 
 class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
   _PlannedWorkView _selectedView = _PlannedWorkView.openJobs;
+  bool _viewExplicitlyChosen = false;
   String _query = '';
 
   @override
@@ -43,10 +47,42 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
             ? ref.watch(activeTemplatesProvider)
             : const AsyncData<List<JobTemplate>>(<JobTemplate>[]);
     final executionsAsync = ref.watch(openExecutionsProvider);
-    final selectedView =
+    final lanesAsync =
+        appUser?.isApproved == true
+            ? ref.watch(workflowAllLanesProvider)
+            : const AsyncData<List<JobLaneRecord>>(<JobLaneRecord>[]);
+    final complianceAsync =
+        appUser?.isApproved == true
+            ? ref.watch(workflowAllComplianceProvider)
+            : const AsyncData<List<ComplianceRequestRecord>>(
+              <ComplianceRequestRecord>[],
+            );
+    final workflowAttention =
+        appUser == null
+            ? const WorkflowAttentionSummary(
+              activeLaneCount: 0,
+              activeComplianceCount: 0,
+            )
+            : summarizeWorkflowAttention(
+              actor: appUser,
+              lanes: lanesAsync.value ?? const <JobLaneRecord>[],
+              compliance:
+                  complianceAsync.value ?? const <ComplianceRequestRecord>[],
+            );
+    final requestedView =
         !canSeeTemplates && _selectedView == _PlannedWorkView.templates
             ? _PlannedWorkView.openJobs
             : _selectedView;
+    final selectedView =
+        !_viewExplicitlyChosen &&
+                requestedView == _PlannedWorkView.openJobs &&
+                appUser?.isOperations == true &&
+                !canAssignJob &&
+                executionsAsync.hasValue &&
+                executionsAsync.value!.isEmpty &&
+                workflowAttention.total > 0
+            ? _PlannedWorkView.workflow
+            : requestedView;
     final filteredExecutions = _filterExecutions(
       executionsAsync.value ?? const <JobExecution>[],
       _query,
@@ -78,13 +114,17 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                   _PlannedWorkSelector(
                     selectedView: selectedView,
                     openJobCount: executionsAsync.value?.length,
+                    workflowCount: workflowAttention.total,
                     templateCount: templatesAsync.value?.length,
                     canSeeTemplates: canSeeTemplates,
                     query: _query,
                     onQueryChanged: (value) => setState(() => _query = value),
                     onChanged: (view) {
-                      if (view == _selectedView) return;
-                      setState(() => _selectedView = view);
+                      if (view == selectedView) return;
+                      setState(() {
+                        _viewExplicitlyChosen = true;
+                        _selectedView = view;
+                      });
                     },
                   ),
                   Expanded(
@@ -238,6 +278,7 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
 class _PlannedWorkSelector extends StatelessWidget {
   final _PlannedWorkView selectedView;
   final int? openJobCount;
+  final int? workflowCount;
   final int? templateCount;
   final bool canSeeTemplates;
   final String query;
@@ -247,6 +288,7 @@ class _PlannedWorkSelector extends StatelessWidget {
   const _PlannedWorkSelector({
     required this.selectedView,
     required this.openJobCount,
+    required this.workflowCount,
     required this.templateCount,
     required this.canSeeTemplates,
     required this.query,
@@ -284,9 +326,17 @@ class _PlannedWorkSelector extends StatelessWidget {
                   value: _PlannedWorkView.openJobs,
                   label: Text('Jobs'),
                 ),
-                const ButtonSegment<_PlannedWorkView>(
+                ButtonSegment<_PlannedWorkView>(
                   value: _PlannedWorkView.workflow,
-                  label: Text('Workflow'),
+                  label: Badge.count(
+                    count: workflowCount ?? 0,
+                    isLabelVisible: (workflowCount ?? 0) > 0,
+                    backgroundColor: BafColors.warning,
+                    child: const Padding(
+                      padding: EdgeInsets.only(right: 4),
+                      child: Text('Workflow'),
+                    ),
+                  ),
                 ),
                 if (canSeeTemplates)
                   const ButtonSegment<_PlannedWorkView>(
@@ -314,6 +364,7 @@ class _PlannedWorkSelector extends StatelessWidget {
           const SizedBox(height: BafSpacing.xs),
           Text(
             '${openJobCount ?? 0} open jobs'
+            ' · ${workflowCount ?? 0} workflow actions'
             '${canSeeTemplates ? ' · ${templateCount ?? 0} templates' : ''}',
             style: const TextStyle(
               color: BafColors.textSecondary,

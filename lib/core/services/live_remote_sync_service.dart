@@ -4,13 +4,17 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart'
-    show debugPrint, debugPrintStack, kIsWeb;
+    show debugPrint, debugPrintStack, kIsWeb, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart' hide Query;
 
 import '../../features/auth/data/user_model.dart';
 import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/data/remote_maintenance_reader.dart';
+import '../../features/maintenance_workflow/data/compliance_request_record.dart';
+import '../../features/maintenance_workflow/data/job_lane_record.dart';
+import '../../features/maintenance_workflow/data/workflow_aggregate_record.dart';
+import '../../features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart';
 import 'app_logger.dart';
 import 'sync_remote_freshness_policy.dart';
 
@@ -32,12 +36,27 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
 // It listens to selected Firestore queries and mirrors safe remote changes
 // into local Isar so existing Isar-backed providers update immediately.
 //
-// Current rollout scope: open, non-deleted maintenance tickets, scoped by
-// the signed-in actor wherever that can be done without changing UI authority.
-// Supervisory/Admin/SI users receive all open tickets. Non-broad actors receive
-// a smaller live mirror: their own raised tickets, their discipline-routed
-// tickets, and critical tickets when their role is senior/discipline authority.
-// Full SyncCoordinator/GlobalPullService remains the source of convergence.
+// Current rollout scope: open, non-deleted maintenance tickets plus active
+// workflow aggregates, lane assignments and compliance obligations. Tickets
+// are scoped by actor; workflow projections already have approved-user read
+// authority and are filtered by the existing role policy before display. Full
+// SyncCoordinator/GlobalPullService remains the source of convergence.
+
+const _activeWorkflowStatuses = <String>[
+  'pendingLaneClassification',
+  'assigned',
+  'partiallyAcknowledged',
+  'fullyAcknowledged',
+  'inProgress',
+  'awaitingCompliance',
+  'readyForClosure',
+];
+const _activeLaneStatuses = <String>['pending', 'acknowledged'];
+const _activeComplianceStatuses = <String>[
+  'raised',
+  'acknowledged',
+  'complied',
+];
 
 enum LiveRemoteSyncConnectionState {
   disabled,
@@ -261,6 +280,12 @@ class LiveRemoteSyncService {
   final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
   _maintenanceSubs =
       <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
+  final Set<_LiveRemoteMirrorKind> _reconciledProjectionKinds =
+      <_LiveRemoteMirrorKind>{};
+  final Map<_LiveRemoteMirrorKind, Timer> _projectionReconciliationRetries =
+      <_LiveRemoteMirrorKind, Timer>{};
+  final Map<_LiveRemoteMirrorKind, int> _projectionReconciliationFailures =
+      <_LiveRemoteMirrorKind, int>{};
 
   LiveMaintenanceMirrorScope? _maintenanceScope;
   bool _maintenanceStarted = false;
@@ -404,7 +429,10 @@ class LiveRemoteSyncService {
       return;
     }
 
-    final listenerSpecs = _maintenanceListenerSpecs(scope);
+    final listenerSpecs = <_LiveRemoteListenerSpec>[
+      ..._maintenanceListenerSpecs(scope),
+      ..._workflowProjectionListenerSpecs(),
+    ];
     if (listenerSpecs.isEmpty) {
       _setHealth(
         _health.copyWith(
@@ -440,45 +468,50 @@ class LiveRemoteSyncService {
     );
 
     for (final spec in listenerSpecs) {
-      final sub = spec.query.snapshots().listen(
-        _handleMaintenanceSnapshot,
-        onError: (Object error, StackTrace stackTrace) {
-          debugPrint(
-            '⚠️ Live maintenance listener failed (${spec.label}): $error',
-          );
-          debugPrintStack(stackTrace: stackTrace);
-          AppLogger.warning(
-            'Live maintenance listener failed',
-            error: error,
-            stackTrace: stackTrace,
-            context: {
-              'app_area': 'live_remote_sync',
-              'live_query': spec.label,
-              'live_scope': scope.label,
+      final sub = spec.query
+          .snapshots(
+            includeMetadataChanges:
+                spec.kind != _LiveRemoteMirrorKind.maintenanceTicket,
+          )
+          .listen(
+            (snapshot) => _handleLiveSnapshot(spec.kind, snapshot),
+            onError: (Object error, StackTrace stackTrace) {
+              debugPrint(
+                '⚠️ Live maintenance listener failed (${spec.label}): $error',
+              );
+              debugPrintStack(stackTrace: stackTrace);
+              AppLogger.warning(
+                'Live maintenance listener failed',
+                error: error,
+                stackTrace: stackTrace,
+                context: {
+                  'app_area': 'live_remote_sync',
+                  'live_query': spec.label,
+                  'live_scope': scope.label,
+                },
+              );
+              _setHealth(
+                _health.copyWith(
+                  maintenanceState: LiveRemoteSyncConnectionState.error,
+                  lastError: '$error',
+                ),
+              );
+            },
+            onDone: () {
+              if (_pausedForLifecycle) return;
+              _setHealth(
+                _health.copyWith(
+                  maintenanceState: LiveRemoteSyncConnectionState.disconnected,
+                  listenerCount: 0,
+                ),
+              );
             },
           );
-          _setHealth(
-            _health.copyWith(
-              maintenanceState: LiveRemoteSyncConnectionState.error,
-              lastError: '$error',
-            ),
-          );
-        },
-        onDone: () {
-          if (_pausedForLifecycle) return;
-          _setHealth(
-            _health.copyWith(
-              maintenanceState: LiveRemoteSyncConnectionState.disconnected,
-              listenerCount: 0,
-            ),
-          );
-        },
-      );
       _maintenanceSubs.add(sub);
     }
   }
 
-  List<_MaintenanceListenerSpec> _maintenanceListenerSpecs(
+  List<_LiveRemoteListenerSpec> _maintenanceListenerSpecs(
     LiveMaintenanceMirrorScope scope,
   ) {
     final base = FirebaseFirestore.instance
@@ -487,16 +520,21 @@ class LiveRemoteSyncService {
         .where('isResolved', isEqualTo: false);
 
     if (scope.listenToAllOpenTickets) {
-      return <_MaintenanceListenerSpec>[
-        _MaintenanceListenerSpec(label: 'all_open', query: base),
+      return <_LiveRemoteListenerSpec>[
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.maintenanceTicket,
+          label: 'all_open',
+          query: base,
+        ),
       ];
     }
 
-    final specs = <_MaintenanceListenerSpec>[];
+    final specs = <_LiveRemoteListenerSpec>[];
 
     if (scope.includeOwnLoggedTickets && scope.actorUid.trim().isNotEmpty) {
       specs.add(
-        _MaintenanceListenerSpec(
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.maintenanceTicket,
           label: 'own_logged',
           query: base.where('loggedByUid', isEqualTo: scope.actorUid),
         ),
@@ -504,12 +542,14 @@ class LiveRemoteSyncService {
     }
 
     for (final routedTo in scope.routedTo) {
-      specs.addAll(<_MaintenanceListenerSpec>[
-        _MaintenanceListenerSpec(
+      specs.addAll(<_LiveRemoteListenerSpec>[
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.maintenanceTicket,
           label: 'lane_${routedTo.name}',
           query: base.where('issueAssignedLanes', arrayContains: routedTo.name),
         ),
-        _MaintenanceListenerSpec(
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.maintenanceTicket,
           label: 'legacy_routed_${routedTo.name}',
           query: base.where('routedTo', isEqualTo: routedTo.name),
         ),
@@ -518,7 +558,8 @@ class LiveRemoteSyncService {
 
     if (scope.includeCriticalTickets) {
       specs.add(
-        _MaintenanceListenerSpec(
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.maintenanceTicket,
           label: 'critical',
           query: base.where('isCritical', isEqualTo: true),
         ),
@@ -528,12 +569,43 @@ class LiveRemoteSyncService {
     return specs;
   }
 
+  List<_LiveRemoteListenerSpec> _workflowProjectionListenerSpecs() =>
+      <_LiveRemoteListenerSpec>[
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.workflow,
+          label: 'active_workflows',
+          query: FirebaseFirestore.instance
+              .collection('maintenance_workflows')
+              .where('status', whereIn: _activeWorkflowStatuses),
+        ),
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.lane,
+          label: 'active_lanes',
+          query: FirebaseFirestore.instance
+              .collection('job_lanes')
+              .where('status', whereIn: _activeLaneStatuses),
+        ),
+        _LiveRemoteListenerSpec(
+          kind: _LiveRemoteMirrorKind.compliance,
+          label: 'active_compliance',
+          query: FirebaseFirestore.instance
+              .collection('compliance_requests')
+              .where('status', whereIn: _activeComplianceStatuses),
+        ),
+      ];
+
   void _cancelMaintenanceSubscriptions() {
     final subs =
         List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>.from(
           _maintenanceSubs,
         );
     _maintenanceSubs.clear();
+    _reconciledProjectionKinds.clear();
+    for (final retry in _projectionReconciliationRetries.values) {
+      retry.cancel();
+    }
+    _projectionReconciliationRetries.clear();
+    _projectionReconciliationFailures.clear();
 
     for (final sub in subs) {
       unawaited(sub.cancel());
@@ -569,6 +641,354 @@ class LiveRemoteSyncService {
           break;
       }
     }
+  }
+
+  Future<void> _reconcileActiveWorkflowProjections(
+    _LiveRemoteMirrorKind kind,
+    Set<String> activeRemoteIds,
+  ) async {
+    try {
+      final staleIds = <String>[];
+      switch (kind) {
+        case _LiveRemoteMirrorKind.workflow:
+          final rows = await _isar.workflowAggregateRecords.where().findAll();
+          staleIds.addAll(
+            rows
+                .where(
+                  (row) =>
+                      _activeWorkflowStatuses.contains(row.statusKey) &&
+                      !activeRemoteIds.contains(row.firestoreId),
+                )
+                .map((row) => row.firestoreId),
+          );
+          break;
+        case _LiveRemoteMirrorKind.lane:
+          final rows = await _isar.jobLaneRecords.where().findAll();
+          staleIds.addAll(
+            rows
+                .where(
+                  (row) =>
+                      row.isSynced &&
+                      row.firestoreId != null &&
+                      _activeLaneStatuses.contains(row.statusKey) &&
+                      !activeRemoteIds.contains(row.firestoreId),
+                )
+                .map((row) => row.firestoreId!),
+          );
+          break;
+        case _LiveRemoteMirrorKind.compliance:
+          final rows = await _isar.complianceRequestRecords.where().findAll();
+          staleIds.addAll(
+            rows
+                .where(
+                  (row) =>
+                      row.isSynced &&
+                      row.firestoreId != null &&
+                      _activeComplianceStatuses.contains(row.statusKey) &&
+                      !activeRemoteIds.contains(row.firestoreId),
+                )
+                .map((row) => row.firestoreId!),
+          );
+          break;
+        case _LiveRemoteMirrorKind.maintenanceTicket:
+          return;
+      }
+
+      final collectionName = switch (kind) {
+        _LiveRemoteMirrorKind.workflow => 'maintenance_workflows',
+        _LiveRemoteMirrorKind.lane => 'job_lanes',
+        _LiveRemoteMirrorKind.compliance => 'compliance_requests',
+        _LiveRemoteMirrorKind.maintenanceTicket =>
+          throw StateError(
+            'Maintenance tickets use their dedicated reconciler.',
+          ),
+      };
+      for (final documentId in staleIds) {
+        await _applyRemovedWorkflowProjectionDoc(
+          kind,
+          FirebaseFirestore.instance.collection(collectionName).doc(documentId),
+          propagateFailure: true,
+        );
+      }
+      _projectionReconciliationFailures.remove(kind);
+      _projectionReconciliationRetries.remove(kind)?.cancel();
+    } catch (error, stackTrace) {
+      _reconciledProjectionKinds.remove(kind);
+      _recordWorkflowProjectionError(
+        kind: kind,
+        documentId: '*',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _scheduleWorkflowProjectionReconciliationRetry(kind, activeRemoteIds);
+    }
+  }
+
+  void _scheduleWorkflowProjectionReconciliationRetry(
+    _LiveRemoteMirrorKind kind,
+    Set<String> activeRemoteIds,
+  ) {
+    if (!_maintenanceStarted || _pausedForLifecycle) return;
+
+    final failures = (_projectionReconciliationFailures[kind] ?? 0) + 1;
+    _projectionReconciliationFailures[kind] = failures;
+    final delay = liveWorkflowProjectionReconciliationRetryDelay(failures);
+    if (delay == null) return;
+
+    _projectionReconciliationRetries.remove(kind)?.cancel();
+    _projectionReconciliationRetries[kind] = Timer(delay, () {
+      _projectionReconciliationRetries.remove(kind);
+      if (!_maintenanceStarted ||
+          _pausedForLifecycle ||
+          !_reconciledProjectionKinds.add(kind)) {
+        return;
+      }
+      unawaited(_reconcileActiveWorkflowProjections(kind, activeRemoteIds));
+    });
+  }
+
+  void _handleLiveSnapshot(
+    _LiveRemoteMirrorKind kind,
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    if (kind == _LiveRemoteMirrorKind.maintenanceTicket) {
+      _handleMaintenanceSnapshot(snapshot);
+      return;
+    }
+
+    _setHealth(
+      _health.copyWith(
+        maintenanceState: LiveRemoteSyncConnectionState.listening,
+        lastEventAt: DateTime.now(),
+        clearLastError: true,
+      ),
+    );
+
+    for (final change in snapshot.docChanges) {
+      switch (change.type) {
+        case DocumentChangeType.added:
+        case DocumentChangeType.modified:
+          unawaited(_applyWorkflowProjectionDoc(kind, change.doc));
+          break;
+        case DocumentChangeType.removed:
+          unawaited(
+            _applyRemovedWorkflowProjectionDoc(kind, change.doc.reference),
+          );
+          break;
+      }
+    }
+
+    if (!snapshot.metadata.isFromCache &&
+        !snapshot.metadata.hasPendingWrites &&
+        _reconciledProjectionKinds.add(kind)) {
+      unawaited(
+        _reconcileActiveWorkflowProjections(
+          kind,
+          snapshot.docs.map((doc) => doc.id).toSet(),
+        ),
+      );
+    }
+  }
+
+  Future<void> _applyRemovedWorkflowProjectionDoc(
+    _LiveRemoteMirrorKind kind,
+    DocumentReference<Map<String, dynamic>> reference, {
+    bool propagateFailure = false,
+  }) async {
+    try {
+      final doc = await reference.get(const GetOptions(source: Source.server));
+      if (doc.exists) {
+        await _applyWorkflowProjectionDoc(
+          kind,
+          doc,
+          propagateFailure: propagateFailure,
+        );
+      } else {
+        await _removeWorkflowProjection(kind, reference.id);
+      }
+    } catch (error, stackTrace) {
+      if (propagateFailure) rethrow;
+      _recordWorkflowProjectionError(
+        kind: kind,
+        documentId: reference.id,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _applyWorkflowProjectionDoc(
+    _LiveRemoteMirrorKind kind,
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    bool propagateFailure = false,
+  }) async {
+    final data = doc.data();
+    if (data == null || doc.metadata.hasPendingWrites) return;
+
+    try {
+      var applied = false;
+      await _isar.writeTxn(() async {
+        switch (kind) {
+          case _LiveRemoteMirrorKind.workflow:
+            final remote = workflowAggregateRecordFromFirestoreData(
+              documentId: doc.id,
+              data: data,
+            );
+            final local =
+                await _isar.workflowAggregateRecords
+                    .filter()
+                    .firestoreIdEqualTo(doc.id)
+                    .findFirst();
+            if (!shouldApplyLiveWorkflowProjection(
+              localVersion: local?.version,
+              localUpdatedAt: local?.updatedAt,
+              remoteVersion: remote.version,
+              remoteUpdatedAt: remote.updatedAt,
+            )) {
+              return;
+            }
+            if (local != null) remote.id = local.id;
+            await _isar.workflowAggregateRecords.put(remote);
+            applied = true;
+            break;
+          case _LiveRemoteMirrorKind.lane:
+            final remote = jobLaneRecordFromFirestoreData(
+              documentId: doc.id,
+              data: data,
+            );
+            final local =
+                await _isar.jobLaneRecords
+                    .filter()
+                    .firestoreIdEqualTo(doc.id)
+                    .findFirst();
+            if (!shouldApplyLiveWorkflowProjection(
+              localVersion: local?.version,
+              localUpdatedAt: local?.updatedAt,
+              localIsSynced: local?.isSynced,
+              remoteVersion: remote.version,
+              remoteUpdatedAt: remote.updatedAt,
+            )) {
+              return;
+            }
+            if (local != null) remote.id = local.id;
+            await _isar.jobLaneRecords.put(remote);
+            applied = true;
+            break;
+          case _LiveRemoteMirrorKind.compliance:
+            final remote = complianceRequestRecordFromFirestoreData(
+              documentId: doc.id,
+              data: data,
+            );
+            final local =
+                await _isar.complianceRequestRecords
+                    .filter()
+                    .firestoreIdEqualTo(doc.id)
+                    .findFirst();
+            if (!shouldApplyLiveWorkflowProjection(
+              localVersion: local?.version,
+              localUpdatedAt: local?.updatedAt,
+              localIsSynced: local?.isSynced,
+              remoteVersion: remote.version,
+              remoteUpdatedAt: remote.updatedAt,
+            )) {
+              return;
+            }
+            if (local != null) remote.id = local.id;
+            await _isar.complianceRequestRecords.put(remote);
+            applied = true;
+            break;
+          case _LiveRemoteMirrorKind.maintenanceTicket:
+            throw StateError(
+              'Maintenance tickets use their dedicated applier.',
+            );
+        }
+      });
+
+      if (applied) {
+        _setHealth(
+          _health.copyWith(
+            maintenanceState: LiveRemoteSyncConnectionState.listening,
+            lastAppliedAt: DateTime.now(),
+            appliedCount: _health.appliedCount + 1,
+            clearLastError: true,
+          ),
+        );
+      }
+    } catch (error, stackTrace) {
+      if (propagateFailure) rethrow;
+      _recordWorkflowProjectionError(
+        kind: kind,
+        documentId: doc.id,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _removeWorkflowProjection(
+    _LiveRemoteMirrorKind kind,
+    String documentId,
+  ) async {
+    await _isar.writeTxn(() async {
+      switch (kind) {
+        case _LiveRemoteMirrorKind.workflow:
+          final local =
+              await _isar.workflowAggregateRecords
+                  .filter()
+                  .firestoreIdEqualTo(documentId)
+                  .findFirst();
+          if (local != null) {
+            await _isar.workflowAggregateRecords.delete(local.id);
+          }
+          break;
+        case _LiveRemoteMirrorKind.lane:
+          final local =
+              await _isar.jobLaneRecords
+                  .filter()
+                  .firestoreIdEqualTo(documentId)
+                  .findFirst();
+          if (local != null && local.isSynced) {
+            await _isar.jobLaneRecords.delete(local.id);
+          }
+          break;
+        case _LiveRemoteMirrorKind.compliance:
+          final local =
+              await _isar.complianceRequestRecords
+                  .filter()
+                  .firestoreIdEqualTo(documentId)
+                  .findFirst();
+          if (local != null && local.isSynced) {
+            await _isar.complianceRequestRecords.delete(local.id);
+          }
+          break;
+        case _LiveRemoteMirrorKind.maintenanceTicket:
+          break;
+      }
+    });
+  }
+
+  void _recordWorkflowProjectionError({
+    required _LiveRemoteMirrorKind kind,
+    required String documentId,
+    required Object error,
+    required StackTrace stackTrace,
+  }) {
+    AppLogger.warning(
+      'Failed to apply live workflow projection',
+      error: error,
+      stackTrace: stackTrace,
+      context: {
+        'app_area': 'live_remote_sync',
+        'entity_type': kind.name,
+        'document_id': documentId,
+      },
+    );
+    _setHealth(
+      _health.copyWith(
+        maintenanceState: LiveRemoteSyncConnectionState.error,
+        lastError: '$error',
+      ),
+    );
   }
 
   Future<void> _applyRemovedMaintenanceDoc(
@@ -782,11 +1202,48 @@ class LiveRemoteSyncService {
   }
 }
 
-class _MaintenanceListenerSpec {
+class _LiveRemoteListenerSpec {
+  final _LiveRemoteMirrorKind kind;
   final String label;
   final Query<Map<String, dynamic>> query;
 
-  const _MaintenanceListenerSpec({required this.label, required this.query});
+  const _LiveRemoteListenerSpec({
+    required this.kind,
+    required this.label,
+    required this.query,
+  });
 }
 
 enum _RemoteApplyDecision { apply, skip, skipLocalUnsynced }
+
+enum _LiveRemoteMirrorKind { maintenanceTicket, workflow, lane, compliance }
+
+@visibleForTesting
+Duration? liveWorkflowProjectionReconciliationRetryDelay(int failureCount) {
+  const delays = <Duration>[
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+  ];
+  if (failureCount < 1 || failureCount > delays.length) return null;
+  return delays[failureCount - 1];
+}
+
+@visibleForTesting
+bool shouldApplyLiveWorkflowProjection({
+  required int? localVersion,
+  required DateTime? localUpdatedAt,
+  bool? localIsSynced,
+  required int remoteVersion,
+  required DateTime remoteUpdatedAt,
+}) {
+  if (localVersion == null || localUpdatedAt == null) return true;
+  if (localIsSynced == false) return false;
+  return SyncRemoteFreshnessPolicy.isRemoteNewer(
+    localVersion: localVersion,
+    localUpdatedAt: localUpdatedAt,
+    remoteVersion: remoteVersion,
+    remoteUpdatedAt: remoteUpdatedAt,
+  );
+}
