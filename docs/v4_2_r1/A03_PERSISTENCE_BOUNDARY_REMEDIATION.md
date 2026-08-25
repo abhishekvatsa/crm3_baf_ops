@@ -48,10 +48,13 @@ loading, error, revocation, sign-out, or UID change clears that in-memory
 trust, while a confirmed same-actor query remains usable offline. The current
 actor-scoped compliance lookup now obtains each record through a server-only
 point read and permits offline fallback only from an exact record proved during
-the same continuous approved-actor session. The current manifest therefore
-covers 509 operations and 1,615 sites across 49 surfaces
-with digest
-`F476035296F5FC83CABDDB169C4E25AEE804407AAAF5418115E8924BF1AEE274`;
+the same continuous approved-actor session. The cross-device workflow-freshness
+correction adds bounded active workflow, lane, and compliance listeners under
+the existing live-sync service surface; server-confirmed stale-projection
+reconciliation preserves unsynchronized local work and introduces no
+presentation-owned persistence. The current manifest therefore covers
+515 operations and 1,672 sites across the same 49 surfaces with digest
+`1E630352A14814D7CA067419F825B965D888B3ED9C73A2D2DAB703200DF9E838`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

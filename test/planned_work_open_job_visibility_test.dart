@@ -1,6 +1,9 @@
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/job_lane_record.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/templates_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/planned_maintenance_provider.dart';
@@ -32,6 +35,12 @@ void main() {
             openExecutionsProvider.overrideWith(
               (ref) =>
                   Stream<List<JobExecution>>.value(<JobExecution>[execution]),
+            ),
+            workflowAllLanesProvider.overrideWith(
+              (ref) => Stream<List<JobLaneRecord>>.value(const []),
+            ),
+            workflowAllComplianceProvider.overrideWith(
+              (ref) => Stream<List<ComplianceRequestRecord>>.value(const []),
             ),
           ],
           child: MaterialApp(
@@ -87,6 +96,12 @@ void main() {
               _governedOpenExecution(),
             ]),
           ),
+          workflowAllLanesProvider.overrideWith(
+            (ref) => Stream<List<JobLaneRecord>>.value(const []),
+          ),
+          workflowAllComplianceProvider.overrideWith(
+            (ref) => Stream<List<ComplianceRequestRecord>>.value(const []),
+          ),
         ],
         child: const MaterialApp(home: Scaffold(body: TemplatesScreen())),
       ),
@@ -124,6 +139,12 @@ void main() {
             ),
             openExecutionsProvider.overrideWith(
               (ref) => Stream<List<JobExecution>>.value(const <JobExecution>[]),
+            ),
+            workflowAllLanesProvider.overrideWith(
+              (ref) => Stream<List<JobLaneRecord>>.value(const []),
+            ),
+            workflowAllComplianceProvider.overrideWith(
+              (ref) => Stream<List<ComplianceRequestRecord>>.value(const []),
             ),
           ],
           child: const MaterialApp(home: Scaffold(body: TemplatesScreen())),

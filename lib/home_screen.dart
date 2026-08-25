@@ -193,31 +193,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
         final directiveCount = directiveCountAsync.value ?? 0;
-        final pendingLaneAcknowledgements =
-            workflowLanesAsync?.value
-                ?.where(
-                  (lane) =>
-                      lane.statusKey == 'pending' &&
-                      appUser.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey),
-                )
-                .length ??
-            0;
-        final dueCompliance =
-            workflowComplianceAsync?.value
-                ?.where(
-                  (request) =>
-                      request.becameDueAt != null &&
-                      request.statusKey != 'confirmedClosed' &&
-                      request.statusKey != 'superseded' &&
-                      request.statusKey != 'cancelled' &&
-                      appUser.canAcknowledgeOrWorkMaintenanceLane(
-                        request.targetLaneKey,
-                      ),
-                )
-                .length ??
-            0;
         final workflowAttentionCount =
-            pendingLaneAcknowledgements + dueCompliance;
+            summarizeWorkflowAttention(
+              actor: appUser,
+              lanes: workflowLanesAsync?.value ?? const [],
+              compliance: workflowComplianceAsync?.value ?? const [],
+            ).total;
         final openOperationalEventCount =
             operationalEventsAsync.value
                 ?.where((event) => event.isOpen)

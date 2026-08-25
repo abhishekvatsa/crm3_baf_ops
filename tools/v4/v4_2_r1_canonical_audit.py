@@ -9728,7 +9728,7 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "00B91C2AAA8D25B0DE669A6B02BE6DAB15DB4FAF765825A10D2264C225248A77"
+        == "1E630352A14814D7CA067419F825B965D888B3ED9C73A2D2DAB703200DF9E838"
     and len(a03_surfaces) == 49
     and len({surface.get("path") for surface in a03_surfaces}) == 49
     and a03_presentation_persistence == []
@@ -9752,7 +9752,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "509 operations" in a03_remediation
+    and "515 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(

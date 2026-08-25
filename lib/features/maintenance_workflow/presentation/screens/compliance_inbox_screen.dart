@@ -79,6 +79,13 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
           icon: Icons.inbox_outlined,
           accent: BafColors.directives,
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh obligations',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _refreshObligations,
+          ),
+        ],
       ),
       body: BafContentFrame(
         maxWidth: 960,
@@ -148,11 +155,13 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
                       message: 'No actionable obligations in this view.',
                       icon: Icons.task_alt_rounded,
                       color: BafColors.success,
+                      primaryLabel: 'Refresh obligations',
+                      primaryIcon: Icons.refresh_rounded,
+                      onPrimary: _refreshObligations,
                     );
                   }
                   return RefreshIndicator(
-                    onRefresh:
-                        () => ref.read(workflowPullServiceProvider).pull(),
+                    onRefresh: _refreshObligations,
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: visible.length,
@@ -169,6 +178,17 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _refreshObligations() async {
+    try {
+      await ref.read(workflowProjectionRefreshProvider)();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not refresh obligations: $error')),
+      );
+    }
   }
 
   bool _isActionable(ComplianceRequestRecord row) =>

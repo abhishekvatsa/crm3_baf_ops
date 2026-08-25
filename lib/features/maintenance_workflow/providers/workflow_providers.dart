@@ -11,6 +11,7 @@ import '../data/equipment_status_record.dart';
 import '../data/job_lane_record.dart';
 import '../data/workflow_aggregate_record.dart';
 import '../data/workflow_event_record.dart';
+import '../domain/compliance_visibility_policy.dart';
 import '../domain/workflow_command_contract.dart';
 import '../domain/workflow_models.dart';
 import '../repositories/firestore_workflow_read_repository.dart';
@@ -49,6 +50,22 @@ final workflowPullServiceProvider = Provider<WorkflowPullService>((ref) {
     remote: ref.read(firestoreWorkflowReadRepositoryProvider),
     local: ref.read(workflowRepositoryProvider),
   );
+});
+
+final workflowProjectionRefreshProvider = Provider<Future<void> Function()>((
+  ref,
+) {
+  Future<void>? inFlight;
+  return () {
+    final current = inFlight;
+    if (current != null) return current;
+
+    final refresh = ref
+        .read(workflowPullServiceProvider)
+        .pull()
+        .then<void>((_) {});
+    return inFlight = refresh.whenComplete(() => inFlight = null);
+  };
 });
 
 final workflowUncertainRetryServiceProvider =
@@ -112,6 +129,58 @@ final workflowAllComplianceProvider =
     StreamProvider<List<ComplianceRequestRecord>>((ref) {
       return ref.watch(workflowRepositoryProvider).watchAllCompliance();
     });
+
+final class WorkflowAttentionSummary {
+  final int activeLaneCount;
+  final int activeComplianceCount;
+
+  const WorkflowAttentionSummary({
+    required this.activeLaneCount,
+    required this.activeComplianceCount,
+  });
+
+  int get total => activeLaneCount + activeComplianceCount;
+}
+
+WorkflowAttentionSummary summarizeWorkflowAttention({
+  required AppUser actor,
+  required Iterable<JobLaneRecord> lanes,
+  required Iterable<ComplianceRequestRecord> compliance,
+}) {
+  if (!actor.isApproved) {
+    return const WorkflowAttentionSummary(
+      activeLaneCount: 0,
+      activeComplianceCount: 0,
+    );
+  }
+
+  final activeLaneCount =
+      lanes
+          .where(
+            (lane) =>
+                !lane.isDeleted &&
+                (lane.statusKey == 'pending' ||
+                    lane.statusKey == 'acknowledged') &&
+                actor.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey),
+          )
+          .length;
+  final activeComplianceCount =
+      compliance
+          .where(
+            (request) =>
+                !request.isDeleted &&
+                (request.statusKey == 'raised' ||
+                    request.statusKey == 'acknowledged' ||
+                    request.statusKey == 'complied') &&
+                canUserSeeComplianceRequest(request, actor),
+          )
+          .length;
+
+  return WorkflowAttentionSummary(
+    activeLaneCount: activeLaneCount,
+    activeComplianceCount: activeComplianceCount,
+  );
+}
 
 typedef WorkflowComplianceRecordScope =
     ({String actorUid, String complianceId});
