@@ -82,6 +82,13 @@ void main() {
           (policy['finalization'] as Map).cast<String, dynamic>();
       final priorFinalization =
           (finalization['priorCompletedBuild'] as Map).cast<String, dynamic>();
+      final pendingConstruction =
+          finalization['status'] == 'pending-source-authorized';
+      final finalizedAuthority =
+          pendingConstruction ? priorFinalization : finalization;
+      final candidateBuildNumber = release['buildNumber'] as int;
+      final finalizedBuildNumber =
+          finalizedAuthority['buildNumber'] as int? ?? candidateBuildNumber;
       final firestoreAuthority =
           (finalization['exactFirestoreRulesIndexesLiveReadback'] as Map)
               .cast<String, dynamic>();
@@ -95,7 +102,7 @@ void main() {
               .where((entry) => entry['buildNumber'] == artifact['buildNumber'])
               .single;
       final receipt = _readObject(
-        finalization['completionReceiptFile'] as String,
+        finalizedAuthority['completionReceiptFile'] as String,
       );
       final receiptRelease =
           (receipt['release'] as Map).cast<String, dynamic>();
@@ -109,11 +116,12 @@ void main() {
         'release/evidence/build15-firestore-rules-readback-hold.json',
       );
       final nextApproval = _readObject(
-        'release/approvals/build-number-15-successor-approval.json',
+        (policy['versionPolicy'] as Map)['sourceDocumentFile'] as String,
       );
       final nextEnvironment = _readObject(
-        'release/approvals/'
-        'public-repository-environment-reviewer-approval-build-15.json',
+        ((policy['github'] as Map)['environmentReviewControl']
+                as Map)['approvalReceiptFile']
+            as String,
       );
       final requiredSource =
           (nextApproval['requiredSource'] as Map).cast<String, dynamic>();
@@ -145,38 +153,56 @@ void main() {
       expect(state['schemaVersion'], 2);
       expect(
         state['status'],
-        'BUILD15_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS',
+        pendingConstruction
+            ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_BACKEND_READY_'
+                'AWAITING_SIGNED_CONSTRUCTION'
+            : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                'AWAITING_DEVICE_AND_PILOT_DECISIONS',
       );
       expect(currentSource['reference'], 'refs/heads/main');
       expect(currentSource['packageVersion'], _packageVersion());
       expect(
         currentSource['relationshipToLatestFinalizedArtifact'],
-        'BUILD15_SOURCE_CONTAINS_FINALIZED_BUILD15',
+        pendingConstruction
+            ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_OF_'
+                'FINALIZED_BUILD$finalizedBuildNumber'
+            : 'BUILD${candidateBuildNumber}_SOURCE_CONTAINS_'
+                'FINALIZED_BUILD$finalizedBuildNumber',
       );
       expect(currentSource['sourceAndCiAuthority'], isTrue);
-      expect(currentSource['artifactConstructionAuthority'], isFalse);
+      expect(
+        currentSource['artifactConstructionAuthority'],
+        pendingConstruction,
+      );
       expect(currentSource['deploymentAuthority'], isFalse);
       expect(currentSource['distributionAuthority'], isFalse);
       expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
 
-      expect(artifact['buildNumber'], release['buildNumber']);
+      expect(artifact['buildNumber'], finalizedBuildNumber);
       expect(
         artifact['buildNumber'],
         latestFinalizedLedgerEntry['buildNumber'],
       );
       expect(artifact['buildNumber'], receiptRelease['buildNumber']);
-      expect(artifact['version'], '1.0.0-rc.5+15');
-      expect(artifact['sourceCommit'], finalization['sourceCommit']);
+      expect(
+        artifact['version'],
+        '${latestFinalizedLedgerEntry['versionName']}+$finalizedBuildNumber',
+      );
+      expect(artifact['sourceCommit'], finalizedAuthority['sourceCommit']);
       expect(release['buildNumber'], latestLedgerEntry['buildNumber']);
       expect(
         latestLedgerEntry['status'],
-        'remote-consumed-artifact-built-finalized-non-distributable',
+        pendingConstruction
+            ? 'source-reserved-awaiting-remote-consumption'
+            : 'remote-consumed-artifact-built-finalized-non-distributable',
       );
-      expect(latestLedgerEntry['githubRunId'], finalization['githubRunId']);
-      expect(
-        latestLedgerEntry['governedPackageSha256'],
-        finalization['governedPackageSha256'],
-      );
+      if (!pendingConstruction) {
+        expect(latestLedgerEntry['githubRunId'], finalization['githubRunId']);
+        expect(
+          latestLedgerEntry['governedPackageSha256'],
+          finalization['governedPackageSha256'],
+        );
+      }
       final artifactIsAncestor = Process.runSync('git', <String>[
         'merge-base',
         '--is-ancestor',
@@ -191,11 +217,11 @@ void main() {
       expect(artifact['status'], 'COMPLETED_NON_DISTRIBUTABLE');
       expect(
         artifact['completionReceiptFile'],
-        finalization['completionReceiptFile'],
+        finalizedAuthority['completionReceiptFile'],
       );
       expect(
         artifact['completionReceiptSha256'],
-        finalization['completionReceiptSha256'],
+        finalizedAuthority['completionReceiptSha256'],
       );
       expect(
         _sha256(artifact['completionReceiptFile'] as String),
@@ -317,7 +343,7 @@ void main() {
         priorFinalization['completionReceiptSha256'],
       );
       expect(nextApproval['approved'], isTrue);
-      expect(nextApprovalBuild['buildNumber'], 15);
+      expect(nextApprovalBuild['buildNumber'], candidateBuildNumber);
       expect(nextApproval['distributionApproved'], isFalse);
       expect(nextEnvironment['approved'], isTrue);
       expect(environmentScope['buildNumber'], nextApprovalBuild['buildNumber']);
@@ -336,18 +362,34 @@ void main() {
       expect(pilot['appliesToCurrentSource'], isFalse);
       expect(pilot['appliesToBuild14'], isFalse);
       expect(pilot['appliesToBuild15'], isFalse);
-      expect(next['minimumBuildNumber'], (release['buildNumber'] as int) + 1);
-      expect(next['status'], 'AWAITING_FRESH_GOVERNED_BUILD16_APPROVAL');
-      expect(next.containsKey('sourceApprovalFile'), isFalse);
-      expect(next.containsKey('signingEnvironmentApprovalFile'), isFalse);
+      expect(
+        next['minimumBuildNumber'],
+        candidateBuildNumber + (pendingConstruction ? 0 : 1),
+      );
+      expect(
+        next['status'],
+        pendingConstruction
+            ? 'SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD${candidateBuildNumber}_'
+                'CONSTRUCTION'
+            : 'AWAITING_FRESH_GOVERNED_BUILD${candidateBuildNumber + 1}_'
+                'APPROVAL',
+      );
+      expect(next.containsKey('sourceApprovalFile'), pendingConstruction);
+      expect(
+        next.containsKey('signingEnvironmentApprovalFile'),
+        pendingConstruction,
+      );
       expect(next['constructionRequiresFreshGovernedApproval'], isTrue);
       expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
       expect(next['pilotPromotionRequiresSeparateDecision'], isTrue);
-      expect(state['localStore']['schemaVersion'], 7);
+      expect(state['localStore']['schemaVersion'], 8);
       expect(state['appCheck']['mutatingCallableSourceDefault'], isFalse);
 
       final readme = File('README.md').readAsStringSync();
-      expect(readme, contains('Build 15 (`1.0.0-rc.5+15`)'));
+      expect(
+        readme,
+        contains('Build $candidateBuildNumber (`${_packageVersion()}`)'),
+      );
       expect(readme, isNot(contains('Build 12 is source authorized')));
     },
   );
