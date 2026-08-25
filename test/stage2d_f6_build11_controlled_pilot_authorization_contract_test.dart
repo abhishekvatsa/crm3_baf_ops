@@ -172,7 +172,6 @@ void main() {
       everyElement(isFalse),
     );
     expect(policy['knownOpenGates'], <String>[
-      'BUILD15_PRODUCTION_SIGNED_FINALIZATION',
       'BUILD15_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
       'BUILD15_EXPLICIT_PILOT_PROMOTION',
     ]);

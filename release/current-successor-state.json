@@ -2,26 +2,26 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-25",
   "asOfDate": "2026-08-25",
-  "status": "BUILD15_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+  "status": "BUILD15_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.5+15",
-      "relationshipToLatestFinalizedArtifact": "BUILD15_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD14",
+      "relationshipToLatestFinalizedArtifact": "BUILD15_SOURCE_CONTAINS_FINALIZED_BUILD15",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": true,
+      "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true
     },
     "latestFinalizedArtifact": {
-      "buildNumber": 14,
-      "version": "1.0.0-rc.4+14",
-      "sourceCommit": "f0d51819bfa4c81ad73b5d7f83675fa8b6a07b11",
+      "buildNumber": 15,
+      "version": "1.0.0-rc.5+15",
+      "sourceCommit": "9fcf65883265947cfd3def7de7bdc13bda7eff16",
       "status": "COMPLETED_NON_DISTRIBUTABLE",
-      "completionReceiptFile": "release/evidence/build-14-finalization-closure.json",
-      "completionReceiptSha256": "E1C714FCEF7F23798E49A797E6F4ADCA7D2A7D57BFFD0F9B7C0B62A50B801DED",
-      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD14",
+      "completionReceiptFile": "release/evidence/build-15-finalization-closure.json",
+      "completionReceiptSha256": "EEE3017F554A5A326FBD7B2C20EF6100C8CFECCAD56D28C3EAFB0CB0ACAE33DD",
+      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD15",
       "pilotPromotion": "NOT_AUTHORIZED",
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
@@ -43,10 +43,8 @@
       "appliesToBuild15": false
     },
     "nextCandidate": {
-      "minimumBuildNumber": 15,
-      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD15_CONSTRUCTION",
-      "sourceApprovalFile": "release/approvals/build-number-15-successor-approval.json",
-      "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-15.json",
+      "minimumBuildNumber": 16,
+      "status": "AWAITING_FRESH_GOVERNED_BUILD16_APPROVAL",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
@@ -64,7 +62,7 @@
   "authoritativeSources": [
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
-    "release/evidence/build-14-finalization-closure.json",
+    "release/evidence/build-15-finalization-closure.json",
     "release/evidence/pr290-backend-deployment-closure.json",
     "release/evidence/build15-firestore-rules-indexes-live-readback.json",
     "release/approvals/build-number-15-successor-approval.json",
