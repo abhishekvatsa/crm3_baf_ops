@@ -221,6 +221,11 @@ class SyncRejection {
   String? errorCode;
   late String message;
 
+  /// Authenticated user whose rejected write produced this evidence.
+  /// Legacy rows remain null and cannot be self-discarded.
+  @Index()
+  String? originatingUid;
+
   @Index()
   DateTime firstSeenAt = DateTime.now();
 
@@ -251,12 +256,14 @@ class SyncRejection {
     required String message,
     String? errorCode,
     String? firestoreId,
+    String? originatingUid,
     required bool isLikelyPermanent,
     DateTime? at,
   }) {
     this.message = message;
     this.errorCode = errorCode;
     this.firestoreId = firestoreId ?? this.firestoreId;
+    this.originatingUid ??= originatingUid;
     this.isLikelyPermanent = isLikelyPermanent;
     lastSeenAt = at ?? DateTime.now();
     attemptCount += 1;

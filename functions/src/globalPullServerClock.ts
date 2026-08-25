@@ -229,6 +229,8 @@ export async function beginGlobalPullRunWithDb(args: {
 }
 
 interface WriteDocumentLike {
+  get?(): Promise<ReadSnapshotLike>;
+  update?(data: GlobalPullJsonMap): Promise<unknown>;
   set(data: GlobalPullJsonMap, options?: {merge: boolean}): Promise<unknown>;
 }
 
@@ -248,6 +250,7 @@ export type GlobalPullStampAction =
   | "ignored-stamp-only"
   | "stamped"
   | "restored-tombstone"
+  | "authorized-permanent-delete"
   | "ignored-empty";
 
 function withoutServerStamp(
@@ -275,6 +278,10 @@ export async function applyGlobalPullServerClock(args: {
   collectionId: string;
   change: GlobalPullWriteChangeLike;
   serverTimestamp: () => unknown;
+  authorizePermanentDelete?: (
+    collectionId: string,
+    before: GlobalPullJsonMap,
+  ) => Promise<boolean>;
 }): Promise<GlobalPullStampAction> {
   if (!GLOBAL_PULL_COLLECTION_SET.has(args.collectionId)) {
     return "ignored-collection";
@@ -291,14 +298,32 @@ export async function applyGlobalPullServerClock(args: {
     if (!shouldStampGlobalPullWrite(before, after)) {
       return "ignored-stamp-only";
     }
-    await args.change.after.ref.set(
-      {[GLOBAL_PULL_SERVER_UPDATED_AT_FIELD]: args.serverTimestamp()},
-      {merge: true},
-    );
+    const stamp = {[GLOBAL_PULL_SERVER_UPDATED_AT_FIELD]: args.serverTimestamp()};
+    if (args.change.after.ref.update != null) {
+      try {
+        await args.change.after.ref.update(stamp);
+        return "stamped";
+      } catch (error) {
+        const code = (error as {code?: unknown})?.code;
+        if (code === 5 || code === "not-found") return "ignored-empty";
+        throw error;
+      }
+    }
+    // Event delivery may lag behind a later authorized purge. Never let an old
+    // stamp-only event recreate a document that no longer exists.
+    if (args.change.after.ref.get != null) {
+      const current = await args.change.after.ref.get();
+      if (!current.exists) return "ignored-empty";
+    }
+    await args.change.after.ref.set(stamp, {merge: true});
     return "stamped";
   }
 
   if (before == null) return "ignored-empty";
+  if (args.authorizePermanentDelete != null &&
+      await args.authorizePermanentDelete(args.collectionId, before)) {
+    return "authorized-permanent-delete";
+  }
   const timestamp = args.serverTimestamp();
   await args.change.before.ref.set(
     {

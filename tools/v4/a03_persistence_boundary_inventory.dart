@@ -130,6 +130,7 @@ void _writePolicyTemplate(
   List<Map<String, Object?>> operations,
   String inventoryDigest,
 ) {
+  final existingRegressionTests = _readExistingRegressionTests();
   final byPath = <String, List<Map<String, Object?>>>{};
   for (final operation in operations) {
     byPath.putIfAbsent(operation['path']! as String, () => []).add(operation);
@@ -147,9 +148,9 @@ void _writePolicyTemplate(
           'profile': _profileFor(entry.key, modes),
           'allowedStores': stores.toList()..sort(),
           'allowedModes': modes.toList()..sort(),
-          'regressionTests': <String>[
-            'test/a03_persistence_boundary_contract_test.dart',
-          ],
+          'regressionTests':
+              existingRegressionTests[entry.key] ??
+              <String>['test/a03_persistence_boundary_contract_test.dart'],
         };
       })
       .toList(growable: false);
@@ -229,6 +230,26 @@ void _writePolicyTemplate(
   _manifestFile.writeAsStringSync(
     '${const JsonEncoder.withIndent('  ').convert(manifest)}\n',
   );
+}
+
+Map<String, List<String>> _readExistingRegressionTests() {
+  if (!_manifestFile.existsSync()) return const <String, List<String>>{};
+
+  final decoded = jsonDecode(_manifestFile.readAsStringSync());
+  if (decoded is! Map || decoded['surfaces'] is! List) {
+    throw const FormatException(
+      'Existing A-03 manifest must contain a surfaces array.',
+    );
+  }
+
+  final result = <String, List<String>>{};
+  for (final value in decoded['surfaces'] as List) {
+    if (value is! Map || value['path'] is! String) continue;
+    final tests = value['regressionTests'];
+    if (tests is! List || tests.any((test) => test is! String)) continue;
+    result[value['path'] as String] = tests.cast<String>().toList();
+  }
+  return result;
 }
 
 String _profileFor(String path, Set<String> modes) {

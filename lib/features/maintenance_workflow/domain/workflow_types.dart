@@ -107,6 +107,7 @@ enum WorkflowCommandType {
   correctMaintenanceTicket,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  purgePilotBusinessRecord,
 }
 
 enum WorkflowCommandDeliveryState {

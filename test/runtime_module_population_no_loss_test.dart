@@ -248,6 +248,7 @@ void main() {
           firestoreAbnormality: unused.abnormality,
           knowledgeRepo: unused.knowledge,
           auditRepository: unused.audit,
+          rejectionOwnerUidLookup: () => 'operator-1',
         );
 
         await sync.syncJobModulesForTest();
@@ -260,6 +261,7 @@ void main() {
         final rejections = await isar.syncRejections.where().findAll();
         expect(rejections, hasLength(1));
         expect(rejections.single.entityType, 'job_module');
+        expect(rejections.single.originatingUid, 'operator-1');
         expect(rejections.single.firestoreId, 'runtime_dirty_1');
         expect(rejections.single.errorCode, 'failed-precondition');
         expect(rejections.single.isLikelyPermanent, isTrue);
@@ -319,6 +321,7 @@ void main() {
           firestoreAbnormality: unused.abnormality,
           knowledgeRepo: unused.knowledge,
           auditRepository: unused.audit,
+          rejectionOwnerUidLookup: () => 'operator-1',
         );
 
         await sync.syncJobModulesForTest();
@@ -364,6 +367,7 @@ void main() {
           firestoreAbnormality: unused.abnormality,
           knowledgeRepo: unused.knowledge,
           auditRepository: unused.audit,
+          rejectionOwnerUidLookup: () => 'operator-1',
         );
 
         await sync.syncJobModulesForTest();

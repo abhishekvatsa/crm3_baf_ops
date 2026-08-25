@@ -487,9 +487,8 @@ class MaintenanceRecord {
   }
 
   // ── Operational Criticality ───────────────────────────────────────────────
-  // Operator-selected safety flag. Critical raised issues are pushed immediately
-  // and highlighted on receiving devices. Normal raised issues are queued for
-  // the 5-minute issue sync SLA.
+  // Operator-selected safety flag. Critical issues are highlighted on receiving
+  // devices; every governed issue mutation is pushed immediately.
   @Index()
   bool isCritical = false;
 

@@ -108,6 +108,12 @@ function workflowTransactionAdapter(
       refForPath(path),
       value as unknown as JsonMap,
     ),
+    delete: () => {
+      throw new ClosureValidationError(
+        "internal",
+        "Maintenance completion preparation does not permit document deletion.",
+      );
+    },
   };
 }
 

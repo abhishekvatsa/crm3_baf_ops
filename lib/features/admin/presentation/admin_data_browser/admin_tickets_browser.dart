@@ -19,6 +19,7 @@ import '../../providers/admin_stream_providers.dart';
 import '../../utils/admin_ticket_helpers.dart';
 import 'admin_data_browser_shared.dart';
 import 'admin_delete_reason_dialog.dart';
+import 'admin_pilot_purge.dart';
 
 // ============================================================================
 // TICKETS BROWSER (with search, governed correction, delete, and timeline invalidation)
@@ -568,6 +569,15 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                 tooltip: 'Mark deleted',
                 icon: const Icon(Icons.delete, color: BafColors.danger),
                 onPressed: () => _confirmDelete(ticket),
+              )
+            else if (ticket.firestoreId != null)
+              IconButton(
+                tooltip: 'Permanently remove pilot record',
+                icon: const Icon(
+                  Icons.delete_forever_rounded,
+                  color: BafColors.danger,
+                ),
+                onPressed: () => _purgePermanently(ticket),
               ),
           ],
         ),
@@ -626,6 +636,20 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       if (!mounted) return;
       showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);
     }
+  }
+
+  Future<void> _purgePermanently(MaintenanceRecord ticket) async {
+    final id = ticket.firestoreId;
+    if (id == null) return;
+    await purgePilotBusinessRecord(
+      context: context,
+      ref: ref,
+      collectionId: 'maintenance_records',
+      documentId: id,
+      expectedVersion: ticket.version,
+      recordLabel:
+          '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber}: ${ticket.description}',
+    );
   }
 
   Future<void> _confirmDelete(MaintenanceRecord ticket) async {

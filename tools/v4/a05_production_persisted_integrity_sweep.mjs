@@ -153,6 +153,7 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   audit_logs: 'DART_RECONCILIATION_REQUIRED',
   published_template_assignment_requests: 'SERVER_CONTROL_RECORD',
   maintenance_workflow_command_receipts: 'SERVER_CONTROL_RECORD',
+  pilot_record_purge_receipts: 'SERVER_CONTROL_RECORD',
   user_authority_mutation_receipts: 'SERVER_CONTROL_RECORD',
   charge_abnormality_mutation_receipts: 'SERVER_CONTROL_RECORD',
   quality_warnings: 'DART_RECONCILIATION_REQUIRED',

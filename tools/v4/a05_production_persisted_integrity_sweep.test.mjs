@@ -652,6 +652,7 @@ test('successor business collections have exact app or server authority', () => 
     'maintenance_classification_audits',
     'maintenance_completion_sources',
     'maintenance_plan_audits',
+    'pilot_record_purge_receipts',
   ];
   for (const collection of appDecoded) {
     assert.equal(
@@ -1047,6 +1048,7 @@ test('server-only receipts are counted without becoming app decoder evidence', (
       runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
       callable_abuse_controls: [{id: 'rate-limit-id', data: {}}],
       maintenance_burner_closures: [{id: 'burner-ticket-id', data: {}}],
+      pilot_record_purge_receipts: [{id: 'purge-receipt-id', data: {}}],
       quality_mutation_receipts: [{id: 'quality-receipt-id', data: {}}],
     },
     roots: [
@@ -1054,6 +1056,7 @@ test('server-only receipts are counted without becoming app decoder evidence', (
       'runtime_contracts',
       'callable_abuse_controls',
       'maintenance_burner_closures',
+      'pilot_record_purge_receipts',
       'quality_mutation_receipts',
     ],
   });
@@ -1065,6 +1068,10 @@ test('server-only receipts are counted without becoming app decoder evidence', (
   );
   assert.equal(
     result.collectionDispositions.maintenance_burner_closures,
+    'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
+  );
+  assert.equal(
+    result.collectionDispositions.pilot_record_purge_receipts,
     'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
   );
   assert.equal(

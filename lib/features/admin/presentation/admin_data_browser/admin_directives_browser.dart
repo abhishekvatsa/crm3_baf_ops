@@ -14,6 +14,7 @@ import '../../../maintenance/data/maintenance_model.dart';
 import '../../providers/admin_stream_providers.dart';
 import 'admin_data_browser_shared.dart';
 import 'admin_delete_reason_dialog.dart';
+import 'admin_pilot_purge.dart';
 import 'admin_edit_directive_dialog.dart';
 
 // ============================================================================
@@ -259,8 +260,18 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                   ),
                   onPressed: () => _confirmDelete(d),
                 )
-              else
+              else ...[
                 const MiniChip(label: 'DELETED', color: BafColors.admin),
+                if (d.firestoreId != null)
+                  IconButton(
+                    tooltip: 'Permanently remove pilot record',
+                    icon: const Icon(
+                      Icons.delete_forever_rounded,
+                      color: BafColors.danger,
+                    ),
+                    onPressed: () => _purgePermanently(d),
+                  ),
+              ],
             ],
           ),
         ],
@@ -358,6 +369,19 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       if (!mounted) return;
       showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);
     }
+  }
+
+  Future<void> _purgePermanently(OperationalDirective directive) async {
+    final id = directive.firestoreId;
+    if (id == null) return;
+    await purgePilotBusinessRecord(
+      context: context,
+      ref: ref,
+      collectionId: 'directives',
+      documentId: id,
+      expectedVersion: directive.version,
+      recordLabel: directive.title,
+    );
   }
 
   Future<void> _confirmDelete(OperationalDirective directive) async {

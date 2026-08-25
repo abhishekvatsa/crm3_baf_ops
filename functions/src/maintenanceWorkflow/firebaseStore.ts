@@ -76,6 +76,10 @@ class FirebaseTransactionAdapter implements WorkflowTransaction {
   update(path: string, data: JsonMap): void {
     this.transaction.update(this.db.doc(path), toFirestoreData(data) as admin.firestore.UpdateData<admin.firestore.DocumentData>);
   }
+
+  delete(path: string): void {
+    this.transaction.delete(this.db.doc(path));
+  }
 }
 
 export class FirebaseWorkflowStore implements WorkflowStore {

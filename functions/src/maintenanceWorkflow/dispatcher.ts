@@ -73,6 +73,10 @@ import {
   verifyInspectionFinding,
 } from "./inspectionEvidenceHandlers";
 import {recordHistoricalMaintenance} from "./historicalMaintenanceHandlers";
+import {
+  purgePilotBusinessRecord,
+  verifyPilotPurgeReplay,
+} from "../pilotRecordPurge";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
@@ -127,6 +131,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   correctMaintenanceTicket,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  purgePilotBusinessRecord,
 };
 
 export class MaintenanceWorkflowCommandService {
@@ -177,6 +182,18 @@ export class MaintenanceWorkflowCommandService {
       if (replay != null) {
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
+        await verifyPilotPurgeReplay({
+          command,
+          actorUid: actor.uid,
+          receipt: replay,
+          receiptReader: async (path) => {
+            const evidence = await tx.get(path);
+            return {
+              exists: evidence.exists,
+              data: evidence.data,
+            };
+          },
+        });
         return replay;
       }
       const authorityScope = await resolveFreshWorkflowAuthorityScope(

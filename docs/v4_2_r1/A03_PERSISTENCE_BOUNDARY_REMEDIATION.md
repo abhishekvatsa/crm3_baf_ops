@@ -52,9 +52,15 @@ the same continuous approved-actor session. The cross-device workflow-freshness
 correction adds bounded active workflow, lane, and compliance listeners under
 the existing live-sync service surface; server-confirmed stale-projection
 reconciliation preserves unsynchronized local work and introduces no
-presentation-owned persistence. The current manifest therefore covers
-515 operations and 1,672 sites across the same 49 surfaces with digest
-`1E630352A14814D7CA067419F825B965D888B3ED9C73A2D2DAB703200DF9E838`;
+presentation-owned persistence. Immediate cross-business synchronization now
+classifies pending-write observation, bounded strict remote mirrors, and
+account-owned local recovery under three explicit service surfaces. The
+recovery service also owns exact, Admin-receipted local tombstone removal;
+presentation still owns no persistence. The manifest refresh preserves every
+previously registered feature regression instead of replacing named coverage
+with a generic test. The current manifest therefore covers 532 operations and
+1,852 sites across 52 surfaces with digest
+`901BF237E8CE96768C135D30E9AAC09E21185AF915303AD2A8547D2AD33BA0AF`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

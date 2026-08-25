@@ -177,6 +177,28 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('closed lanes retain their exact completion time and actor', (
+    tester,
+  ) async {
+    final lane =
+        _lane(status: 'closed')
+          ..closedAt = DateTime(2026, 8, 25, 14, 35)
+          ..closedByName = 'Electrical Supervisor';
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: WorkflowLaneStrip(lanes: [lane]))),
+    );
+
+    expect(
+      find.text('Closed 25 Aug 2026, 14:35 by Electrical Supervisor'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('workflow-lane-closure-elec-1')),
+      findsOneWidget,
+    );
+  });
 }
 
 JobLaneRecord _lane({String status = 'acknowledged'}) {

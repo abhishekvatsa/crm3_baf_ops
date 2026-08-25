@@ -2,9 +2,19 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar/isar.dart';
 
+import '../../features/abnormalities/data/abnormality_model.dart';
+import '../../features/directives/data/operational_directive_model.dart';
+import '../../features/maintenance/data/maintenance_model.dart';
+import '../../features/planned_maintenance/data/baf_knowledge_model.dart';
+import '../../features/planned_maintenance/data/job_diary_model.dart';
+import '../../features/planned_maintenance/data/job_module_model.dart';
+import '../../features/planned_maintenance/data/job_template_model.dart';
+import '../../features/planned_maintenance/data/template_governance_model.dart';
 import 'sync_coordinator.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -12,14 +22,10 @@ import 'sync_coordinator.dart';
 // ─────────────────────────────────────────────────────────────
 //
 // Policy:
-// - Critical writes call SyncCoordinator directly with force:true.
-// - Normal raised issues attempt an immediate forced sync from the write path.
-// - The five-minute normal-issue timer is a retry/catch-up safety net if that
-//   immediate attempt fails, is interrupted, or misses connectivity.
-// - General app consistency runs every twenty minutes while an approved user
-//   is in the app.
-// - App resume performs a lightweight catch-up if the last automatic attempt
-//   is old enough.
+// - Every unsynced business collection wakes the coordinator immediately.
+// - Incoming approved-user state is received by bounded live Firestore mirrors.
+// - Reconnect and app resume immediately reconcile any interrupted work.
+// - Durable permanent rejections remain held until reviewed or safely removed.
 //
 // This service never writes data itself. It only asks the central
 // SyncCoordinator to run push → pull.
@@ -66,46 +72,46 @@ class AutoSyncHealth {
   }) {
     return AutoSyncHealth(
       isStarted: isStarted ?? this.isStarted,
-      automaticSyncRunning:
-      automaticSyncRunning ?? this.automaticSyncRunning,
+      automaticSyncRunning: automaticSyncRunning ?? this.automaticSyncRunning,
       normalIssueSyncPending:
-      normalIssueSyncPending ?? this.normalIssueSyncPending,
-      nextNormalIssueSyncAt: clearNextNormalIssueSyncAt
-          ? null
-          : (nextNormalIssueSyncAt ?? this.nextNormalIssueSyncAt),
-      nextGeneralSyncAt: clearNextGeneralSyncAt
-          ? null
-          : (nextGeneralSyncAt ?? this.nextGeneralSyncAt),
+          normalIssueSyncPending ?? this.normalIssueSyncPending,
+      nextNormalIssueSyncAt:
+          clearNextNormalIssueSyncAt
+              ? null
+              : (nextNormalIssueSyncAt ?? this.nextNormalIssueSyncAt),
+      nextGeneralSyncAt:
+          clearNextGeneralSyncAt
+              ? null
+              : (nextGeneralSyncAt ?? this.nextGeneralSyncAt),
       lastAutomaticAttemptAt:
-      lastAutomaticAttemptAt ?? this.lastAutomaticAttemptAt,
+          lastAutomaticAttemptAt ?? this.lastAutomaticAttemptAt,
       lastAutomaticCompletedAt:
-      lastAutomaticCompletedAt ?? this.lastAutomaticCompletedAt,
+          lastAutomaticCompletedAt ?? this.lastAutomaticCompletedAt,
       lastAutomaticReason: lastAutomaticReason ?? this.lastAutomaticReason,
-      lastAutomaticOutcome:
-      lastAutomaticOutcome ?? this.lastAutomaticOutcome,
-      lastTicketQueueReason: clearLastTicketQueueReason
-          ? null
-          : (lastTicketQueueReason ?? this.lastTicketQueueReason),
+      lastAutomaticOutcome: lastAutomaticOutcome ?? this.lastAutomaticOutcome,
+      lastTicketQueueReason:
+          clearLastTicketQueueReason
+              ? null
+              : (lastTicketQueueReason ?? this.lastTicketQueueReason),
     );
   }
 }
 
 final autoSyncHealthProvider = StateProvider<AutoSyncHealth>(
-      (ref) => const AutoSyncHealth(),
+  (ref) => const AutoSyncHealth(),
 );
 
 class AutoSyncService with WidgetsBindingObserver {
   final Ref _ref;
 
-  Timer? _generalTimer;
-  Timer? _normalIssueTimer;
+  final List<StreamSubscription<void>> _pendingWriteSubscriptions =
+      <StreamSubscription<void>>[];
 
   bool _started = false;
   bool _resumeSyncRunning = false;
-
-  static const Duration generalInterval = Duration(minutes: 20);
-  static const Duration normalIssueDelay = Duration(minutes: 5);
-  static const Duration resumeMinGap = Duration(minutes: 5);
+  bool _pendingWakeScheduled = false;
+  Timer? _failureRetryTimer;
+  int _consecutiveTransientFailures = 0;
 
   AutoSyncService(this._ref);
 
@@ -115,18 +121,8 @@ class AutoSyncService with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addObserver(this);
 
-    final now = DateTime.now();
-    _setHealth(
-      _health.copyWith(
-        isStarted: true,
-        nextGeneralSyncAt: now.add(generalInterval),
-      ),
-    );
-
-    _generalTimer?.cancel();
-    _generalTimer = Timer.periodic(generalInterval, (_) {
-      unawaited(_runAutomaticSync(reason: 'periodic_20min'));
-    });
+    _setHealth(_health.copyWith(isStarted: true, clearNextGeneralSyncAt: true));
+    _startPendingWriteListeners();
   }
 
   void stop() {
@@ -134,10 +130,12 @@ class AutoSyncService with WidgetsBindingObserver {
 
     _started = false;
     WidgetsBinding.instance.removeObserver(this);
-    _generalTimer?.cancel();
-    _generalTimer = null;
-    _normalIssueTimer?.cancel();
-    _normalIssueTimer = null;
+    for (final subscription in _pendingWriteSubscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _pendingWriteSubscriptions.clear();
+    _pendingWakeScheduled = false;
+    _clearFailureRetry();
 
     _setHealth(
       _health.copyWith(
@@ -151,40 +149,17 @@ class AutoSyncService with WidgetsBindingObserver {
     );
   }
 
-  /// Called after a non-critical maintenance issue is raised. The write path
-  /// should also attempt an immediate forced sync. This timer is a retry /
-  /// catch-up safety net that guarantees another push/pull attempt within five
-  /// minutes if the immediate send fails or is interrupted. Manual sync still
-  /// overrides this and can clear the queue earlier.
-  void scheduleTicketSyncWithinFiveMinutes({String reason = 'normal_ticket'}) {
-    final nextRun = DateTime.now().add(normalIssueDelay);
-
-    _normalIssueTimer?.cancel();
-    _normalIssueTimer = Timer(normalIssueDelay, () {
-      _normalIssueTimer = null;
-      _setHealth(
-        _health.copyWith(
-          normalIssueSyncPending: false,
-          clearNextNormalIssueSyncAt: true,
-        ),
-      );
-      unawaited(_runAutomaticSync(reason: '${reason}_5min'));
-    });
-
+  void markImmediateTicketSyncRequested({String reason = 'ticket_changed'}) {
     _setHealth(
       _health.copyWith(
         normalIssueSyncPending: true,
-        nextNormalIssueSyncAt: nextRun,
+        clearNextNormalIssueSyncAt: true,
         lastTicketQueueReason: reason,
       ),
     );
   }
 
-  /// Called after a successful manual sync. Manual sync sends pending normal
-  /// tickets earlier, so the unattended 5-minute timer can be cancelled.
   void clearPendingTicketSync({String reason = 'manual_sync'}) {
-    _normalIssueTimer?.cancel();
-    _normalIssueTimer = null;
     _setHealth(
       _health.copyWith(
         normalIssueSyncPending: false,
@@ -194,7 +169,16 @@ class AutoSyncService with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _runAutomaticSync({required String reason}) async {
+  Future<void> _runAutomaticSync({
+    required String reason,
+    bool continuingFailureRetry = false,
+  }) async {
+    if (!_started || _ref.read(syncLocalRecoveryActiveProvider)) {
+      return;
+    }
+    if (!continuingFailureRetry) {
+      _clearFailureRetry();
+    }
     final now = DateTime.now();
 
     _setHealth(
@@ -207,7 +191,7 @@ class AutoSyncService with WidgetsBindingObserver {
 
     final outcome = await _ref
         .read(syncCoordinatorProvider)
-        .runFullSyncWithResult(reason: reason, force: false);
+        .runFullSyncWithResult(reason: reason, force: true);
 
     final finishedAt = DateTime.now();
     _setHealth(
@@ -216,20 +200,65 @@ class AutoSyncService with WidgetsBindingObserver {
         lastAutomaticCompletedAt: outcome.isDeferred ? null : finishedAt,
         lastAutomaticReason: reason,
         lastAutomaticOutcome: outcome,
-        nextGeneralSyncAt: finishedAt.add(generalInterval),
+        normalIssueSyncPending:
+            outcome.isSuccessful ? false : _health.normalIssueSyncPending,
+        clearNextGeneralSyncAt: true,
+        clearNextNormalIssueSyncAt: true,
       ),
     );
+
+    if (outcome.isSuccessful) {
+      _clearFailureRetry();
+    } else if (outcome.isFailure && _lastFailureMayBeTransient) {
+      _scheduleFailureRetry();
+    }
+  }
+
+  bool get _lastFailureMayBeTransient {
+    final health = _ref.read(syncRunHealthProvider);
+    if (health.failureDetails.isEmpty) {
+      return true;
+    }
+    return health.failureDetailOverflowCount > 0 ||
+        health.failureDetails.any((detail) => !detail.isLikelyPermanent);
+  }
+
+  void _scheduleFailureRetry() {
+    if (!_started || _ref.read(syncLocalRecoveryActiveProvider)) {
+      return;
+    }
+    _consecutiveTransientFailures += 1;
+    final delay = automaticSyncFailureRetryDelay(_consecutiveTransientFailures);
+    if (delay == null) {
+      return;
+    }
+
+    _failureRetryTimer?.cancel();
+    _failureRetryTimer = Timer(delay, () {
+      _failureRetryTimer = null;
+      if (!_started || _ref.read(syncLocalRecoveryActiveProvider)) {
+        return;
+      }
+      unawaited(
+        _runAutomaticSync(
+          reason: 'transient_failure_retry',
+          continuingFailureRetry: true,
+        ),
+      );
+    });
+  }
+
+  void _clearFailureRetry() {
+    _failureRetryTimer?.cancel();
+    _failureRetryTimer = null;
+    _consecutiveTransientFailures = 0;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_started || state != AppLifecycleState.resumed) return;
 
-    final now = DateTime.now();
-    final last = _health.lastAutomaticAttemptAt;
-
     if (_resumeSyncRunning) return;
-    if (last != null && now.difference(last) < resumeMinGap) return;
 
     _resumeSyncRunning = true;
     unawaited(
@@ -237,6 +266,90 @@ class AutoSyncService with WidgetsBindingObserver {
         _resumeSyncRunning = false;
       }),
     );
+  }
+
+  void _startPendingWriteListeners() {
+    if (kIsWeb) return;
+    final database = Isar.getInstance();
+    if (database == null) return;
+
+    _watchPending(
+      'maintenance_ticket',
+      database.maintenanceRecords.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'job_template',
+      database.jobTemplates.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'job_execution',
+      database.jobExecutions.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'job_diary_entry',
+      database.jobDiaryEntrys.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'job_module',
+      database.jobModuleInstances.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'directive',
+      database.operationalDirectives.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'abnormality_type',
+      database.abnormalityTypes.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'charge_abnormality',
+      database.chargeAbnormalitys.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'template_package',
+      database.templatePackages.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'template_version',
+      database.templateVersions.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'template_publish_audit',
+      database.templatePublishAudits.filter().isSyncedEqualTo(false),
+    );
+    _watchPending(
+      'baf_knowledge_row',
+      database.bafKnowledgeRows.filter().isSyncedEqualTo(false),
+    );
+  }
+
+  void _watchPending<T>(
+    String entityType,
+    QueryBuilder<T, T, QAfterFilterCondition> query,
+  ) {
+    _pendingWriteSubscriptions.add(
+      query.watchLazy().listen((_) {
+        unawaited(_wakeIfPending(entityType, query));
+      }),
+    );
+  }
+
+  Future<void> _wakeIfPending<T>(
+    String entityType,
+    QueryBuilder<T, T, QAfterFilterCondition> query,
+  ) async {
+    if (!_started ||
+        _pendingWakeScheduled ||
+        _ref.read(syncLocalRecoveryActiveProvider) ||
+        await query.count() == 0) {
+      return;
+    }
+    _pendingWakeScheduled = true;
+    scheduleMicrotask(() {
+      _pendingWakeScheduled = false;
+      if (!_started || _ref.read(syncLocalRecoveryActiveProvider)) return;
+      unawaited(_runAutomaticSync(reason: 'local_${entityType}_changed'));
+    });
   }
 
   AutoSyncHealth get _health => _ref.read(autoSyncHealthProvider);
@@ -253,3 +366,17 @@ final autoSyncServiceProvider = Provider<AutoSyncService>((ref) {
   ref.onDispose(service.dispose);
   return service;
 });
+
+@visibleForTesting
+Duration? automaticSyncFailureRetryDelay(int failureCount) {
+  const delays = <Duration>[
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+  ];
+  if (failureCount < 1 || failureCount > delays.length) {
+    return null;
+  }
+  return delays[failureCount - 1];
+}

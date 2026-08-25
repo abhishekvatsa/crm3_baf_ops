@@ -2941,23 +2941,28 @@ const SyncRejectionSchema = CollectionSchema(
       name: r'message',
       type: IsarType.string,
     ),
-    r'resolutionNotes': PropertySchema(
+    r'originatingUid': PropertySchema(
       id: 10,
+      name: r'originatingUid',
+      type: IsarType.string,
+    ),
+    r'resolutionNotes': PropertySchema(
+      id: 11,
       name: r'resolutionNotes',
       type: IsarType.string,
     ),
     r'resolvedAt': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'resolvedAt',
       type: IsarType.dateTime,
     ),
     r'resolvedByName': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'resolvedByName',
       type: IsarType.string,
     ),
     r'resolvedByUid': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'resolvedByUid',
       type: IsarType.string,
     )
@@ -2989,6 +2994,19 @@ const SyncRejectionSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'entityId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'originatingUid': IndexSchema(
+      id: 1416198761860305116,
+      name: r'originatingUid',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'originatingUid',
           type: IndexType.hash,
           caseSensitive: true,
         )
@@ -3064,6 +3082,12 @@ int _syncRejectionEstimateSize(
   }
   bytesCount += 3 + object.message.length * 3;
   {
+    final value = object.originatingUid;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.resolutionNotes;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -3100,10 +3124,11 @@ void _syncRejectionSerialize(
   writer.writeBool(offsets[7], object.isResolved);
   writer.writeDateTime(offsets[8], object.lastSeenAt);
   writer.writeString(offsets[9], object.message);
-  writer.writeString(offsets[10], object.resolutionNotes);
-  writer.writeDateTime(offsets[11], object.resolvedAt);
-  writer.writeString(offsets[12], object.resolvedByName);
-  writer.writeString(offsets[13], object.resolvedByUid);
+  writer.writeString(offsets[10], object.originatingUid);
+  writer.writeString(offsets[11], object.resolutionNotes);
+  writer.writeDateTime(offsets[12], object.resolvedAt);
+  writer.writeString(offsets[13], object.resolvedByName);
+  writer.writeString(offsets[14], object.resolvedByUid);
 }
 
 SyncRejection _syncRejectionDeserialize(
@@ -3124,10 +3149,11 @@ SyncRejection _syncRejectionDeserialize(
   object.isResolved = reader.readBool(offsets[7]);
   object.lastSeenAt = reader.readDateTime(offsets[8]);
   object.message = reader.readString(offsets[9]);
-  object.resolutionNotes = reader.readStringOrNull(offsets[10]);
-  object.resolvedAt = reader.readDateTimeOrNull(offsets[11]);
-  object.resolvedByName = reader.readStringOrNull(offsets[12]);
-  object.resolvedByUid = reader.readStringOrNull(offsets[13]);
+  object.originatingUid = reader.readStringOrNull(offsets[10]);
+  object.resolutionNotes = reader.readStringOrNull(offsets[11]);
+  object.resolvedAt = reader.readDateTimeOrNull(offsets[12]);
+  object.resolvedByName = reader.readStringOrNull(offsets[13]);
+  object.resolvedByUid = reader.readStringOrNull(offsets[14]);
   return object;
 }
 
@@ -3161,10 +3187,12 @@ P _syncRejectionDeserializeProp<P>(
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 12:
       return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -3372,6 +3400,73 @@ extension SyncRejectionQueryWhere
               indexName: r'entityId',
               lower: [],
               upper: [entityId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterWhereClause>
+      originatingUidIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'originatingUid',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterWhereClause>
+      originatingUidIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'originatingUid',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterWhereClause>
+      originatingUidEqualTo(String? originatingUid) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'originatingUid',
+        value: [originatingUid],
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterWhereClause>
+      originatingUidNotEqualTo(String? originatingUid) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'originatingUid',
+              lower: [],
+              upper: [originatingUid],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'originatingUid',
+              lower: [originatingUid],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'originatingUid',
+              lower: [originatingUid],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'originatingUid',
+              lower: [],
+              upper: [originatingUid],
               includeUpper: false,
             ));
       }
@@ -4571,6 +4666,160 @@ extension SyncRejectionQueryFilter
   }
 
   QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'originatingUid',
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'originatingUid',
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'originatingUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'originatingUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'originatingUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'originatingUid',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'originatingUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'originatingUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'originatingUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'originatingUid',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'originatingUid',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
+      originatingUidIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'originatingUid',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterFilterCondition>
       resolutionNotesIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -5247,6 +5496,20 @@ extension SyncRejectionQuerySortBy
   }
 
   QueryBuilder<SyncRejection, SyncRejection, QAfterSortBy>
+      sortByOriginatingUid() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'originatingUid', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterSortBy>
+      sortByOriginatingUidDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'originatingUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterSortBy>
       sortByResolutionNotes() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolutionNotes', Sort.asc);
@@ -5448,6 +5711,20 @@ extension SyncRejectionQuerySortThenBy
   }
 
   QueryBuilder<SyncRejection, SyncRejection, QAfterSortBy>
+      thenByOriginatingUid() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'originatingUid', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterSortBy>
+      thenByOriginatingUidDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'originatingUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QAfterSortBy>
       thenByResolutionNotes() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolutionNotes', Sort.asc);
@@ -5574,6 +5851,14 @@ extension SyncRejectionQueryWhereDistinct
   }
 
   QueryBuilder<SyncRejection, SyncRejection, QDistinct>
+      distinctByOriginatingUid({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'originatingUid',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SyncRejection, SyncRejection, QDistinct>
       distinctByResolutionNotes({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'resolutionNotes',
@@ -5671,6 +5956,13 @@ extension SyncRejectionQueryProperty
   QueryBuilder<SyncRejection, String, QQueryOperations> messageProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'message');
+    });
+  }
+
+  QueryBuilder<SyncRejection, String?, QQueryOperations>
+      originatingUidProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'originatingUid');
     });
   }
 

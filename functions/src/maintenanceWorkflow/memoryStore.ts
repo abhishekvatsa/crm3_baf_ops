@@ -61,6 +61,13 @@ class MemoryTransaction implements WorkflowTransaction {
       this.docs.set(path, {...prior, ...clone(data)});
     });
   }
+
+  delete(path: string): void {
+    this.writesStarted = true;
+    this.writes.push(() => {
+      if (!this.docs.delete(path)) throw new Error(`not-found:${path}`);
+    });
+  }
 }
 
 export class MemoryWorkflowStore implements WorkflowStore {

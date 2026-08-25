@@ -18,6 +18,7 @@ export interface WorkflowTransaction {
   create(path: string, data: JsonMap): void;
   set(path: string, data: JsonMap, merge?: boolean): void;
   update(path: string, data: JsonMap): void;
+  delete(path: string): void;
 }
 
 export interface WorkflowStore {

@@ -376,8 +376,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 172
-    and counts.get("SUCCESSOR_MODIFIED") == 238
+    and counts.get("BYTE_IDENTICAL") == 171
+    and counts.get("SUCCESSOR_MODIFIED") == 239
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -2979,11 +2979,12 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 7" in isar_migration
+    and "currentSchemaVersion = 8" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
     and "v5SchemaFingerprint" in isar_migration
     and "6: _addOperationalEventIssueLinkProjection" in isar_migration
     and "7: _addMaintenanceReopenEvidenceFields" in isar_migration
+    and "8: _addSyncRejectionOriginatingUid" in isar_migration
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
@@ -3048,10 +3049,10 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v7" in isar_fixture_test
-    and "populated v3 compliance request migrates through v7"
+    and "repository-proven populated v1 migrates to v8" in isar_fixture_test
+    and "populated v3 compliance request migrates through v8"
         in isar_fixture_test
-    and "populated v6 maintenance ticket migrates to v7"
+    and "populated v6 maintenance ticket migrates to v8"
         in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
@@ -9728,9 +9729,9 @@ check(
     a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "1E630352A14814D7CA067419F825B965D888B3ED9C73A2D2DAB703200DF9E838"
-    and len(a03_surfaces) == 49
-    and len({surface.get("path") for surface in a03_surfaces}) == 49
+        == "901BF237E8CE96768C135D30E9AAC09E21185AF915303AD2A8547D2AD33BA0AF"
+    and len(a03_surfaces) == 52
+    and len({surface.get("path") for surface in a03_surfaces}) == 52
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -9752,7 +9753,7 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "515 operations" in a03_remediation
+    and "532 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(
@@ -9767,7 +9768,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 71
     and a04_inventory_report.get("inventoryDigest")
-    == "6A29B8F556294169B2FE8A123993FD15BF5A7B6D5A9EBC249F5274CE5D498F33"
+    == "30671D10AAFC7C6EE70A5D785FDC6BD17C92D6A8EDEE384D0FC82450345B5F49"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -10085,7 +10086,7 @@ check(
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
     and a05_decoder_inventory_report.get("surfaceCount") == 71
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 45
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 47
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 48
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 35
     and a05_decoder_inventory_report.get("riskCandidateCount") == 373
@@ -10094,11 +10095,13 @@ check(
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
     and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 71
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 45
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 47
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
     and "A05_COLLECTION_REGISTRY" in a05_production_sweep
+    and "pilot_record_purge_receipts: 'SERVER_CONTROL_RECORD'"
+        in a05_production_sweep
     and "cloudMutationCapability: 'NONE'" in a05_production_sweep
     and "DART_RECONCILIATION_REQUIRED" in a05_production_sweep
     and "unregistered-root-collection" in a05_production_sweep
@@ -10680,8 +10683,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 172
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 238
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 171
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 239
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

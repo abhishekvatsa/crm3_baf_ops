@@ -590,14 +590,10 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
   }
 
   FocusNode? _focusedEditorForVisibleKeyboard() {
-    final view = View.maybeOf(context);
     final primaryFocus = FocusManager.instance.primaryFocus;
     final focusedEditor =
         primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>();
-    if (view == null ||
-        view.viewInsets.bottom <= 0 ||
-        primaryFocus == null ||
-        focusedEditor == null) {
+    if (primaryFocus == null || focusedEditor == null) {
       return null;
     }
 
@@ -1216,6 +1212,18 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ref.listenManual<bool>(syncLocalRecoveryActiveProvider, (previous, active) {
+      final liveService = _liveRemoteSyncService;
+      if (liveService == null) {
+        return;
+      }
+      if (active) {
+        liveService.pauseForLifecycle(reason: 'local_recovery');
+      } else if (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        liveService.resumeAfterLifecyclePause();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -1243,7 +1251,9 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
     }
 
     if (state == AppLifecycleState.resumed) {
-      liveService.resumeAfterLifecyclePause();
+      if (!ref.read(syncLocalRecoveryActiveProvider)) {
+        liveService.resumeAfterLifecyclePause();
+      }
       return;
     }
 
@@ -1260,9 +1270,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   }
 
   @override
-  Widget build(BuildContext context) {
-    return const HomeScreen();
-  }
+  Widget build(BuildContext context) => const HomeScreen();
 
   void _startInitialSyncOnce() {
     if (_syncStarted || ref.read(syncOnceProvider)) {
