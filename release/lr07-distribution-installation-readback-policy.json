@@ -72,6 +72,11 @@
       "sha256": "E1C714FCEF7F23798E49A797E6F4ADCA7D2A7D57BFFD0F9B7C0B62A50B801DED"
     },
     {
+      "path": "release/evidence/build-15-finalization-closure.json",
+      "bytes": 4252,
+      "sha256": "EEE3017F554A5A326FBD7B2C20EF6100C8CFECCAD56D28C3EAFB0CB0ACAE33DD"
+    },
+    {
       "path": "release/evidence/build-12-closure-custody-reconciliation.json",
       "bytes": 2462,
       "sha256": "C12D43C0D32DD1F9FEFCB5E5CF32CA50215292B0DE602C3439F88011FEAD8C5D"
@@ -238,6 +243,20 @@
       "governedPackageSha256": "496D990749A0658D73AEE4D908451424B185137F04EDFCA8B1C932195D994F2F",
       "authorityReceiptPath": "release/evidence/build-14-finalization-closure.json",
       "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
+    },
+    {
+      "buildNumber": 15,
+      "id": 9547514373,
+      "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.5-b15-9fcf65883265947cfd3def7de7bdc13bda7eff16-run-32802565268",
+      "sizeBytes": 155336019,
+      "digest": "sha256:8e65f9b429e2b933eaaed847aafdd63de5f76e0c9054949886ce57a77cec7d27",
+      "workflowRunId": 32802565268,
+      "headSha": "9fcf65883265947cfd3def7de7bdc13bda7eff16",
+      "ledgerDisposition": "successful-build-finalized-non-distributable",
+      "dualCustodyCompleted": true,
+      "governedPackageSha256": "9574B2C42263A9CD60DED9C1F6E17B4509B4E17B9E7673B8D5E900846D27A570",
+      "authorityReceiptPath": "release/evidence/build-15-finalization-closure.json",
+      "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {
@@ -253,9 +272,9 @@
   },
   "executionAuthority": {
     "artifactDeletionRequiresExplicitOwnerApproval": true,
-    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9475994815",
+    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9547514373",
     "requiredPresentArtifactIds": [
-      9475994815
+      9547514373
     ],
     "deleteOnlyExactArtifactIds": true,
     "workflowRunsAndLogsPreserved": true,

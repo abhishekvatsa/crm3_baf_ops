@@ -1200,7 +1200,7 @@ void main() {
     });
 
     test(
-      'build 15 authorization preserves build 14 completion and build 10 failure',
+      'build 15 finalization preserves build 14 completion and build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
@@ -1217,6 +1217,9 @@ void main() {
             jsonDecode(
                   read(build14Finalization['completionReceiptFile'] as String),
                 )
+                as Map<String, dynamic>;
+        final build15Receipt =
+            jsonDecode(read(finalization['completionReceiptFile'] as String))
                 as Map<String, dynamic>;
         final receipt =
             jsonDecode(
@@ -1253,6 +1256,21 @@ void main() {
             build14Receipt['runtimeAdjudication'] as Map<String, dynamic>;
         final build14Boundary =
             build14Receipt['releaseBoundary'] as Map<String, dynamic>;
+        final build15Source =
+            build15Receipt['sourceAuthority'] as Map<String, dynamic>;
+        final build15Ci = build15Receipt['workflow'] as Map<String, dynamic>;
+        final build15Artifact =
+            build15Receipt['githubArtifact'] as Map<String, dynamic>;
+        final build15Package =
+            build15Receipt['governedPackage'] as Map<String, dynamic>;
+        final build15Remote =
+            build15Receipt['remoteAuthority'] as Map<String, dynamic>;
+        final build15Custody =
+            build15Receipt['dualCustody'] as Map<String, dynamic>;
+        final build15Runtime =
+            build15Receipt['runtimeAdjudication'] as Map<String, dynamic>;
+        final build15Boundary =
+            build15Receipt['releaseBoundary'] as Map<String, dynamic>;
         final sourceAuthority =
             receipt['sourceAuthority'] as Map<String, dynamic>;
         final workflow = receipt['workflow'] as Map<String, dynamic>;
@@ -1282,9 +1300,9 @@ void main() {
         final programmeBoundary =
             backendEvidence['programmeBoundary'] as Map<String, dynamic>;
 
-        expect(finalization['status'], 'pending-source-authorized');
-        expect(finalization['dualCustodyCompleted'], isFalse);
-        expect(finalization.containsKey('runtimeValidationPassed'), isFalse);
+        expect(finalization['status'], 'completed-non-distributable');
+        expect(finalization['dualCustodyCompleted'], isTrue);
+        expect(finalization['runtimeValidationPassed'], isFalse);
         expect(finalization['controlledPilotApproved'], isFalse);
         final failedAttempt =
             (finalization['historicalFailedAttempts'] as List)
@@ -1366,6 +1384,43 @@ void main() {
         expect(build14Runtime['runtimeValidationPassed'], isFalse);
         expect(build14Boundary['controlledPilotApproved'], isFalse);
         expect(build14Boundary['distributionPerformed'], isFalse);
+        expect(build15Receipt['schemaVersion'], 1);
+        expect(build15Receipt['status'], 'passed-non-distributable');
+        expect(
+          build15Source['commit'],
+          '9fcf65883265947cfd3def7de7bdc13bda7eff16',
+        );
+        expect(
+          build15Source['tree'],
+          '125d3547a2048a7b8417774a982d1cc31566e25f',
+        );
+        expect(build15Source['pullRequestNumber'], 292);
+        expect(build15Ci['runId'], 32802565268);
+        expect(build15Ci['conclusion'], 'success');
+        expect(build15Ci['secretValuesInspected'], isFalse);
+        expect(build15Artifact['id'], 9547514373);
+        expect(
+          build15Package['sha256'],
+          '9574B2C42263A9CD60DED9C1F6E17B4509B4E17B9E7673B8D5E900846D27A570',
+        );
+        expect(
+          build15Package['apkSha256'],
+          '56B90F5C19C1EA28721595F628882A235F5E313C74E2F2347C7381CC28DA0C5F',
+        );
+        expect(build15Package['independentVerificationCompleted'], isTrue);
+        expect(
+          build15Remote['builtTagObjectSha'],
+          'c52280a28e11dcdad821d795f900211f5545e2a0',
+        );
+        expect(build15Custody['distinctVolumes'], isTrue);
+        expect(build15Custody['allFileHashesMatched'], isTrue);
+        expect(
+          build15Runtime['status'],
+          'not-adjudicated-by-build-finalization',
+        );
+        expect(build15Runtime['runtimeValidationPassed'], isFalse);
+        expect(build15Boundary['controlledPilotApproved'], isFalse);
+        expect(build15Boundary['distributionPerformed'], isFalse);
         expect(receipt['schemaVersion'], 1);
         expect(receipt['status'], 'passed-non-distributable');
         expect(
