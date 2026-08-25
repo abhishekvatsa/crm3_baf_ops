@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "exact-source-function-fleet-deployment-closure",
+  "decision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+  "recordedAtUtc": "2026-08-25T01:12:20Z",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "sourceAuthority": {
+    "commit": "2c979435c3b977f040efb2cab05c3021cfe7cfb5",
+    "tree": "f65092336cb54fa4c92e981a5c36a63a9acd3916",
+    "pullRequestNumber": 290,
+    "postMergeReleaseGateRunId": 32794776668,
+    "postMergeReleaseGateConclusion": "success"
+  },
+  "deployment": {
+    "campaign": "function-fleet-runtime-identity",
+    "functionCount": 15,
+    "callableCount": 9,
+    "eventAndProtocolTriggerCount": 5,
+    "schedulerCount": 1,
+    "executeMaintenanceWorkflowCommandUpdated": true,
+    "allFunctionsExactSourceVerified": true,
+    "finalRuntimeIdentityReadbackPassed": true,
+    "finalIamDependencyReadbackPassed": true,
+    "schedulerBacklogZeroVerified": true,
+    "existingIamPreservationEnforced": true
+  },
+  "privacySafeExternalEvidence": {
+    "folderName": "CRM3_BUILD15_BACKEND_CAMPAIGN_20260825_0625_2c97943",
+    "receipts": [
+      {"file": "01-preflight.json", "sha256": "E3F4F77D48AB55D669326D9B110E6C52800D109A5BA6EC8C5673C80B6BD11950"},
+      {"file": "02-provisioned.json", "sha256": "9DECFAB9BAF3866E556FFADCC21591DFC6087445C1A37DB9069797A542ECDF15"},
+      {"file": "03-callables.json", "sha256": "04469171D55A3E824F3F16D036AA65842B4066B50844D93F16B107A6C4FD9B6D"},
+      {"file": "04-events.json", "sha256": "163FACF03D4E69E369BCF6FC72424D6798949326F5572D9A7405ADC33AB16B46"},
+      {"file": "05-scheduler-preflight.json", "sha256": "DBBCCE49E602FE591E27F9330842C405AF2126D17C009E1BE4DA157A2695C388"},
+      {"file": "06-fleet.json", "sha256": "7097486941C8D7790B17B3DCF4B8449318FEE13248EBF8DBA9E96E4DA622F32A"},
+      {"file": "07-lr03-lr06-prefinal.json", "sha256": "915EBDA1DDF3F59D03BB5E4ADE393BB658C22B6D85CFE4A10296EEACE4091C60"},
+      {"file": "08-final.json", "sha256": "DA11310AB422B01B400D12B2CAB6555A3D485F6C83CC3BC25DBDA83D5C5BD172"},
+      {"file": "09-lr03-lr06-final.json", "sha256": "D8D2E34F0061415FE3A8C8A8664E2A82178838FD6F4CC888BC579C9B0B47D0B7"}
+    ]
+  },
+  "controlBoundary": {
+    "temporaryProjectLevelInvokerRolesAbsent": true,
+    "serviceAccountsMutated": false,
+    "iamMutated": false,
+    "appCheckActivationPerformed": false,
+    "appCheckGovernedDeferralPreserved": true,
+    "firestoreRulesChangedByCampaign": false,
+    "firestoreIndexesChangedByCampaign": false,
+    "productionBusinessDataMutated": false,
+    "distributionPerformed": false
+  }
+}

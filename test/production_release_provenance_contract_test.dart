@@ -164,6 +164,17 @@ void main() {
       expect(text, contains('bundletoolUrl must use HTTPS'));
       expect(text, contains('unrestrictedPlantReleaseApproved'));
       expect(text, contains('-LedgerSelectionSelfTest'));
+      expect(text, contains('exactFunctionFleetDeploymentPullRequest'));
+      expect(text, contains('exactFirestoreRulesSha256'));
+      expect(text, contains('exactFirestoreIndexCount'));
+      expect(text, contains('exactFirestoreIndexSetSha256'));
+      expect(text, contains('--source-index-set firestore.indexes.json'));
+      expect(
+        text,
+        contains(
+          'Exact successor Firestore Rules/index readback differs from approval.',
+        ),
+      );
       expect(
         text,
         contains('Production release manifest runtime self-test failed.'),

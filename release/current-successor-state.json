@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-23",
-  "asOfDate": "2026-08-23",
-  "status": "POST_BUILD14_SOURCE_BUILD14_FINALIZED_BUILD11_PILOT_ONLY",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-25",
+  "asOfDate": "2026-08-25",
+  "status": "POST_BUILD14_BACKEND_DEPLOYED_BUILD15_FIRESTORE_RULES_HOLD",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
@@ -26,12 +26,13 @@
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
     "deployedBackend": {
-      "functionFleetEvidenceFile": "release/evidence/pr265-backend-deployment-closure.json",
-      "functionFleetSourceCommit": "e565c4d4fccf9556c90b72bda396786875c3ddd9",
+      "functionFleetEvidenceFile": "release/evidence/pr290-backend-deployment-closure.json",
+      "functionFleetSourceCommit": "2c979435c3b977f040efb2cab05c3021cfe7cfb5",
       "rulesAndIndexesEvidenceFile": "release/evidence/build14-firestore-rules-indexes-live-readback.json",
       "rulesAndIndexesSourceCommit": "a9882c23afe1daf458e66f7c07e6095d19a60b99",
-      "currentSourceFunctionDeployment": "NOT_PROVED_AFTER_BUILD14",
-      "currentSourceRulesAndIndexesDeployment": "NOT_CLAIMED_BY_THIS_INDEX"
+      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "currentSourceRulesAndIndexesDeployment": "HOLD_RULES_BYTE_MISMATCH_ALL_65_INDEXES_READY",
+      "currentSourceRulesAndIndexesHoldEvidenceFile": "release/evidence/build15-firestore-rules-readback-hold.json"
     },
     "controlledPilot": {
       "buildNumber": 11,
@@ -43,7 +44,9 @@
     },
     "nextCandidate": {
       "minimumBuildNumber": 15,
-      "status": "UNRESERVED",
+      "status": "OWNER_APPROVED_AWAITING_EXACT_FIRESTORE_RULES_READBACK",
+      "sourceApprovalFile": "release/approvals/build-number-15-successor-approval.json",
+      "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-15.json",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
@@ -62,6 +65,8 @@
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
     "release/evidence/build-14-finalization-closure.json",
+    "release/evidence/pr290-backend-deployment-closure.json",
+    "release/evidence/build15-firestore-rules-readback-hold.json",
     "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
   ]
 }

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "firestore-rules-indexes-release-readiness-hold",
+  "decision": "HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK",
+  "recordedAtUtc": "2026-08-25T00:50:50.561Z",
+  "projectId": "crm3-baf-ops-b8638",
+  "sourceAuthority": {
+    "branch": "main",
+    "commit": "2c979435c3b977f040efb2cab05c3021cfe7cfb5",
+    "tree": "f65092336cb54fa4c92e981a5c36a63a9acd3916",
+    "governedWorktreeClean": true
+  },
+  "firestoreRules": {
+    "sourceByteCount": 176999,
+    "activeByteCount": 168258,
+    "sourceSha256": "42A2039D958A1EA691DE20D89027B5CDA0FF5DC9EE09B0654EBEF9C619CF7621",
+    "activeSha256": "309B79AA7D773E7A92202C966F98FEA60F50DA76D84E383ECA662448A2C00F73",
+    "byteExact": false
+  },
+  "firestoreIndexes": {
+    "sourceCount": 65,
+    "deployedCount": 65,
+    "readyCount": 65,
+    "normalizedSetSha256": "870D0DAF3E88042E56FE5FCBAD1B36EAB52A4847D160604AB3E511D64A76857B",
+    "sourceMatchesDeployment": true,
+    "allIndexesReady": true
+  },
+  "failedChecks": [
+    "rulesByteExact"
+  ],
+  "externalObservation": {
+    "fileName": "CRM3_BUILD15_FIRESTORE_POSTINDEX_OBSERVATION_20260825_0620.json",
+    "fileSha256": "15D7EC501CD56E2AF3636C15D4491FE2A5C3689651E6CC80B0F163A488A79B92",
+    "receiptSha256": "5a1d730194406ae17a885d0b6851293ad58a9fe1556863d4f6713dd666fdfa75",
+    "mode": "OBSERVE"
+  },
+  "releaseBoundary": {
+    "build15ConstructionAuthorizedByThisEvidence": false,
+    "productionRulesDeploymentApprovedByThisEvidence": false,
+    "pilotPromotionApproved": false,
+    "businessDataMutated": false,
+    "iamMutated": false
+  }
+}

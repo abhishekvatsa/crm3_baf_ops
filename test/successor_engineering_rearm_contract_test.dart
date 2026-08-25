@@ -89,11 +89,44 @@ void main() {
       );
       final receiptRelease =
           (receipt['release'] as Map).cast<String, dynamic>();
+      final liveBackend = _readObject(
+        deployed['functionFleetEvidenceFile'] as String,
+      );
+      final rulesHold = _readObject(
+        deployed['currentSourceRulesAndIndexesHoldEvidenceFile'] as String,
+      );
+      final nextApproval = _readObject(next['sourceApprovalFile'] as String);
+      final nextEnvironment = _readObject(
+        next['signingEnvironmentApprovalFile'] as String,
+      );
+      final requiredSource =
+          (nextApproval['requiredSource'] as Map).cast<String, dynamic>();
+      final nextApprovalBuild =
+          (nextApproval['nextBuild'] as Map).cast<String, dynamic>();
+      final backendAuthority =
+          (liveBackend['sourceAuthority'] as Map).cast<String, dynamic>();
+      final backendDeployment =
+          (liveBackend['deployment'] as Map).cast<String, dynamic>();
+      final backendBoundary =
+          (liveBackend['controlBoundary'] as Map).cast<String, dynamic>();
+      final holdRules =
+          (rulesHold['firestoreRules'] as Map).cast<String, dynamic>();
+      final holdIndexes =
+          (rulesHold['firestoreIndexes'] as Map).cast<String, dynamic>();
+      final holdBoundary =
+          (rulesHold['releaseBoundary'] as Map).cast<String, dynamic>();
+      final predecessor =
+          (requiredSource['predecessorFinalizationReceipt'] as Map)
+              .cast<String, dynamic>();
+      final environmentScope =
+          (nextEnvironment['scope'] as Map).cast<String, dynamic>();
+      final environmentEvidence =
+          (nextEnvironment['liveStateEvidence'] as Map).cast<String, dynamic>();
 
       expect(state['schemaVersion'], 2);
       expect(
         state['status'],
-        'POST_BUILD14_SOURCE_BUILD14_FINALIZED_BUILD11_PILOT_ONLY',
+        'POST_BUILD14_BACKEND_DEPLOYED_BUILD15_FIRESTORE_RULES_HOLD',
       );
       expect(currentSource['reference'], 'refs/heads/main');
       expect(currentSource['packageVersion'], _packageVersion());
@@ -144,11 +177,107 @@ void main() {
 
       expect(
         deployed['functionFleetEvidenceFile'],
-        finalization['exactFunctionFleetDeploymentReceiptFile'],
+        requiredSource['exactFunctionFleetDeploymentReceiptFile'],
+      );
+      expect(
+        deployed['functionFleetEvidenceFile'],
+        isNot(finalization['exactFunctionFleetDeploymentReceiptFile']),
+      );
+      expect(
+        _sha256(deployed['functionFleetEvidenceFile'] as String),
+        requiredSource['exactFunctionFleetDeploymentReceiptSha256'],
       );
       expect(
         deployed['currentSourceFunctionDeployment'],
-        'NOT_PROVED_AFTER_BUILD14',
+        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK',
+      );
+      expect(
+        deployed['currentSourceRulesAndIndexesDeployment'],
+        'HOLD_RULES_BYTE_MISMATCH_ALL_65_INDEXES_READY',
+      );
+      expect(
+        liveBackend['decision'],
+        deployed['currentSourceFunctionDeployment'],
+      );
+      expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
+      expect(
+        backendAuthority['commit'],
+        (nextApproval['sourceBaseline'] as Map)['commit'],
+      );
+      expect(
+        backendAuthority['pullRequestNumber'],
+        requiredSource['exactFunctionFleetDeploymentPullRequest'],
+      );
+      expect(backendDeployment['functionCount'], 15);
+      expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
+      expect(backendDeployment['existingIamPreservationEnforced'], isTrue);
+      expect(backendBoundary['iamMutated'], isFalse);
+      expect(backendBoundary['productionBusinessDataMutated'], isFalse);
+      expect(backendBoundary['distributionPerformed'], isFalse);
+      expect(
+        _objects(
+          (liveBackend['privacySafeExternalEvidence'] as Map)['receipts'],
+        ),
+        hasLength(9),
+      );
+      expect(
+        rulesHold['decision'],
+        'HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK',
+      );
+      expect(holdRules['sourceSha256'], _sha256('firestore.rules'));
+      expect(
+        holdRules['sourceSha256'],
+        requiredSource['exactFirestoreRulesSha256'],
+      );
+      expect(holdRules['activeSha256'], isNot(holdRules['sourceSha256']));
+      expect(holdRules['byteExact'], isFalse);
+      expect(
+        holdIndexes['sourceCount'],
+        requiredSource['exactFirestoreIndexCount'],
+      );
+      expect(holdIndexes['deployedCount'], holdIndexes['sourceCount']);
+      expect(holdIndexes['readyCount'], holdIndexes['sourceCount']);
+      expect(holdIndexes['allIndexesReady'], isTrue);
+      expect(
+        holdIndexes['normalizedSetSha256'],
+        requiredSource['exactFirestoreIndexSetSha256'],
+      );
+      final sourceIndexProbe = Process.runSync('node', <String>[
+        'tools/release/collectFirestoreRulesIndexesReadback.js',
+        '--source-index-set',
+        'firestore.indexes.json',
+      ]);
+      expect(sourceIndexProbe.exitCode, 0);
+      final sourceIndexBinding =
+          (jsonDecode(sourceIndexProbe.stdout as String) as Map)
+              .cast<String, dynamic>();
+      expect(sourceIndexBinding['count'], holdIndexes['sourceCount']);
+      expect(
+        sourceIndexBinding['indexSetSha256'],
+        requiredSource['exactFirestoreIndexSetSha256'],
+      );
+      expect(
+        holdBoundary['build15ConstructionAuthorizedByThisEvidence'],
+        isFalse,
+      );
+      expect(
+        holdBoundary['productionRulesDeploymentApprovedByThisEvidence'],
+        isFalse,
+      );
+      expect(holdBoundary['pilotPromotionApproved'], isFalse);
+      expect(predecessor['buildNumber'], artifact['buildNumber']);
+      expect(predecessor['file'], artifact['completionReceiptFile']);
+      expect(predecessor['sha256'], artifact['completionReceiptSha256']);
+      expect(nextApproval['approved'], isTrue);
+      expect(nextApprovalBuild['buildNumber'], 15);
+      expect(nextApproval['distributionApproved'], isFalse);
+      expect(nextEnvironment['approved'], isTrue);
+      expect(environmentScope['buildNumber'], nextApprovalBuild['buildNumber']);
+      expect(environmentEvidence['requiredReviewerRulePresent'], isTrue);
+      expect(environmentEvidence['secretValuesInspected'], isFalse);
+      expect(
+        (environmentEvidence['requiredReviewer'] as Map)['login'],
+        'abhishekvatsa',
       );
       expect(pilot['buildNumber'], promotion['buildNumber']);
       expect(
@@ -159,7 +288,10 @@ void main() {
       expect(pilot['appliesToCurrentSource'], isFalse);
       expect(pilot['appliesToBuild14'], isFalse);
       expect(next['minimumBuildNumber'], (release['buildNumber'] as int) + 1);
-      expect(next['status'], 'UNRESERVED');
+      expect(
+        next['status'],
+        'OWNER_APPROVED_AWAITING_EXACT_FIRESTORE_RULES_READBACK',
+      );
       expect(next['constructionRequiresFreshGovernedApproval'], isTrue);
       expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
       expect(next['pilotPromotionRequiresSeparateDecision'], isTrue);

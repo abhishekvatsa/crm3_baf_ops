@@ -199,6 +199,14 @@ function setDigest(values) {
   return sha256(canonicalJson(values));
 }
 
+function sourceIndexSetBinding(indexes) {
+  if (!Array.isArray(indexes) || indexes.length === 0) {
+    fail("The source Firestore index inventory must be a nonempty array.");
+  }
+  const normalized = normalizedIndexSet(indexes);
+  return {count: normalized.length, indexSetSha256: setDigest(normalized)};
+}
+
 function summarizeRules({projectId, release, ruleset, repositoryRules}) {
   const matchingFiles = (ruleset?.source?.files ?? []).filter(
     (file) => file?.name === "firestore.rules",
@@ -415,7 +423,16 @@ async function collectLiveState(options) {
 }
 
 async function main() {
-  const options = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === "--source-index-set") {
+    if (argv.length !== 2) {
+      fail("--source-index-set requires exactly one source index file.");
+    }
+    const source = JSON.parse(fs.readFileSync(path.resolve(argv[1]), "utf8"));
+    process.stdout.write(`${JSON.stringify(sourceIndexSetBinding(source.indexes))}\n`);
+    return;
+  }
+  const options = parseArgs(argv);
   if (isPathInside(options.repositoryRoot, options.outputPath)) {
     fail("The append-only readback output must be outside the repository.");
   }
@@ -462,6 +479,7 @@ module.exports = {
   normalizedIndexSet,
   parseArgs,
   sha256,
+  sourceIndexSetBinding,
   summarizeIndexes,
   summarizeRules,
 };
