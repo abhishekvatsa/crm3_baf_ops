@@ -80,20 +80,33 @@ void main() {
       final release = (policy['release'] as Map).cast<String, dynamic>();
       final finalization =
           (policy['finalization'] as Map).cast<String, dynamic>();
+      final priorFinalization =
+          (finalization['priorCompletedBuild'] as Map).cast<String, dynamic>();
+      final firestoreAuthority =
+          (finalization['exactFirestoreRulesIndexesLiveReadback'] as Map)
+              .cast<String, dynamic>();
       final promotion =
           (policy['postBuildPromotion'] as Map).cast<String, dynamic>();
       final ledger = _readObject('release/build-number-ledger.json');
-      final latestLedgerEntry = _objects(ledger['entries']).last;
+      final ledgerEntries = _objects(ledger['entries']);
+      final latestLedgerEntry = ledgerEntries.last;
+      final latestFinalizedLedgerEntry =
+          ledgerEntries
+              .where((entry) => entry['buildNumber'] == artifact['buildNumber'])
+              .single;
       final receipt = _readObject(
-        finalization['completionReceiptFile'] as String,
+        priorFinalization['completionReceiptFile'] as String,
       );
       final receiptRelease =
           (receipt['release'] as Map).cast<String, dynamic>();
       final liveBackend = _readObject(
         deployed['functionFleetEvidenceFile'] as String,
       );
-      final rulesHold = _readObject(
-        deployed['currentSourceRulesAndIndexesHoldEvidenceFile'] as String,
+      final rulesReadback = _readObject(
+        deployed['rulesAndIndexesEvidenceFile'] as String,
+      );
+      final historicalRulesHold = _readObject(
+        'release/evidence/build15-firestore-rules-readback-hold.json',
       );
       final nextApproval = _readObject(next['sourceApprovalFile'] as String);
       final nextEnvironment = _readObject(
@@ -109,12 +122,15 @@ void main() {
           (liveBackend['deployment'] as Map).cast<String, dynamic>();
       final backendBoundary =
           (liveBackend['controlBoundary'] as Map).cast<String, dynamic>();
-      final holdRules =
-          (rulesHold['firestoreRules'] as Map).cast<String, dynamic>();
-      final holdIndexes =
-          (rulesHold['firestoreIndexes'] as Map).cast<String, dynamic>();
-      final holdBoundary =
-          (rulesHold['releaseBoundary'] as Map).cast<String, dynamic>();
+      final rulesReadbackOutputs =
+          (rulesReadback['outputs'] as Map).cast<String, dynamic>();
+      final verifiedRules =
+          (rulesReadbackOutputs['rules'] as Map).cast<String, dynamic>();
+      final verifiedIndexes =
+          (rulesReadbackOutputs['indexes'] as Map).cast<String, dynamic>();
+      final historicalHoldBoundary =
+          (historicalRulesHold['releaseBoundary'] as Map)
+              .cast<String, dynamic>();
       final predecessor =
           (requiredSource['predecessorFinalizationReceipt'] as Map)
               .cast<String, dynamic>();
@@ -126,28 +142,35 @@ void main() {
       expect(state['schemaVersion'], 2);
       expect(
         state['status'],
-        'POST_BUILD14_BACKEND_DEPLOYED_BUILD15_FIRESTORE_RULES_HOLD',
+        'BUILD15_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION',
       );
       expect(currentSource['reference'], 'refs/heads/main');
       expect(currentSource['packageVersion'], _packageVersion());
       expect(
         currentSource['relationshipToLatestFinalizedArtifact'],
-        'DESCENDANT_SOURCE_NOT_CONTAINED_IN_BUILD14',
+        'BUILD15_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD14',
       );
       expect(currentSource['sourceAndCiAuthority'], isTrue);
-      expect(currentSource['artifactConstructionAuthority'], isFalse);
+      expect(currentSource['artifactConstructionAuthority'], isTrue);
       expect(currentSource['deploymentAuthority'], isFalse);
       expect(currentSource['distributionAuthority'], isFalse);
       expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
 
-      expect(artifact['buildNumber'], release['buildNumber']);
-      expect(artifact['buildNumber'], latestLedgerEntry['buildNumber']);
-      expect(artifact['buildNumber'], receiptRelease['buildNumber']);
+      expect(artifact['buildNumber'], priorFinalization['buildNumber']);
       expect(
-        artifact['version'],
-        '${release['versionName']}+${release['buildNumber']}',
+        artifact['buildNumber'],
+        latestFinalizedLedgerEntry['buildNumber'],
       );
-      expect(artifact['sourceCommit'], finalization['sourceCommit']);
+      expect(artifact['buildNumber'], receiptRelease['buildNumber']);
+      expect(artifact['version'], '1.0.0-rc.4+14');
+      expect(artifact['sourceCommit'], priorFinalization['sourceCommit']);
+      expect(release['buildNumber'], latestLedgerEntry['buildNumber']);
+      expect(
+        latestLedgerEntry['status'],
+        'source-reserved-awaiting-remote-consumption',
+      );
+      expect(latestLedgerEntry.containsKey('githubRunId'), isFalse);
+      expect(latestLedgerEntry.containsKey('governedPackageSha256'), isFalse);
       final artifactIsAncestor = Process.runSync('git', <String>[
         'merge-base',
         '--is-ancestor',
@@ -162,11 +185,11 @@ void main() {
       expect(artifact['status'], 'COMPLETED_NON_DISTRIBUTABLE');
       expect(
         artifact['completionReceiptFile'],
-        finalization['completionReceiptFile'],
+        priorFinalization['completionReceiptFile'],
       );
       expect(
         artifact['completionReceiptSha256'],
-        finalization['completionReceiptSha256'],
+        priorFinalization['completionReceiptSha256'],
       );
       expect(
         _sha256(artifact['completionReceiptFile'] as String),
@@ -181,7 +204,7 @@ void main() {
       );
       expect(
         deployed['functionFleetEvidenceFile'],
-        isNot(finalization['exactFunctionFleetDeploymentReceiptFile']),
+        finalization['exactFunctionFleetDeploymentReceiptFile'],
       );
       expect(
         _sha256(deployed['functionFleetEvidenceFile'] as String),
@@ -193,7 +216,7 @@ void main() {
       );
       expect(
         deployed['currentSourceRulesAndIndexesDeployment'],
-        'HOLD_RULES_BYTE_MISMATCH_ALL_65_INDEXES_READY',
+        'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
       );
       expect(
         liveBackend['decision'],
@@ -221,25 +244,37 @@ void main() {
         hasLength(9),
       );
       expect(
-        rulesHold['decision'],
-        'HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK',
+        rulesReadback['decision'],
+        'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
       );
-      expect(holdRules['sourceSha256'], _sha256('firestore.rules'));
       expect(
-        holdRules['sourceSha256'],
+        firestoreAuthority['receiptFile'],
+        deployed['rulesAndIndexesEvidenceFile'],
+      );
+      expect(
+        _sha256(deployed['rulesAndIndexesEvidenceFile'] as String),
+        firestoreAuthority['receiptFileSha256'],
+      );
+      expect(
+        rulesReadback['receiptSha256'],
+        firestoreAuthority['receiptCanonicalSha256'],
+      );
+      expect(verifiedRules['sourceSha256'], _sha256('firestore.rules'));
+      expect(
+        verifiedRules['sourceSha256'],
         requiredSource['exactFirestoreRulesSha256'],
       );
-      expect(holdRules['activeSha256'], isNot(holdRules['sourceSha256']));
-      expect(holdRules['byteExact'], isFalse);
+      expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
+      expect(verifiedRules['byteExact'], isTrue);
       expect(
-        holdIndexes['sourceCount'],
+        verifiedIndexes['sourceCount'],
         requiredSource['exactFirestoreIndexCount'],
       );
-      expect(holdIndexes['deployedCount'], holdIndexes['sourceCount']);
-      expect(holdIndexes['readyCount'], holdIndexes['sourceCount']);
-      expect(holdIndexes['allIndexesReady'], isTrue);
+      expect(verifiedIndexes['apiCount'], verifiedIndexes['sourceCount']);
+      expect(verifiedIndexes['apiReadyCount'], verifiedIndexes['sourceCount']);
+      expect(verifiedIndexes['allApiIndexesReady'], isTrue);
       expect(
-        holdIndexes['normalizedSetSha256'],
+        verifiedIndexes['sourceSetSha256'],
         requiredSource['exactFirestoreIndexSetSha256'],
       );
       final sourceIndexProbe = Process.runSync('node', <String>[
@@ -251,20 +286,24 @@ void main() {
       final sourceIndexBinding =
           (jsonDecode(sourceIndexProbe.stdout as String) as Map)
               .cast<String, dynamic>();
-      expect(sourceIndexBinding['count'], holdIndexes['sourceCount']);
+      expect(sourceIndexBinding['count'], verifiedIndexes['sourceCount']);
       expect(
         sourceIndexBinding['indexSetSha256'],
         requiredSource['exactFirestoreIndexSetSha256'],
       );
       expect(
-        holdBoundary['build15ConstructionAuthorizedByThisEvidence'],
+        historicalRulesHold['decision'],
+        'HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK',
+      );
+      expect(
+        historicalHoldBoundary['build15ConstructionAuthorizedByThisEvidence'],
         isFalse,
       );
       expect(
-        holdBoundary['productionRulesDeploymentApprovedByThisEvidence'],
+        historicalHoldBoundary['productionRulesDeploymentApprovedByThisEvidence'],
         isFalse,
       );
-      expect(holdBoundary['pilotPromotionApproved'], isFalse);
+      expect(historicalHoldBoundary['pilotPromotionApproved'], isFalse);
       expect(predecessor['buildNumber'], artifact['buildNumber']);
       expect(predecessor['file'], artifact['completionReceiptFile']);
       expect(predecessor['sha256'], artifact['completionReceiptSha256']);
@@ -287,10 +326,11 @@ void main() {
       expect(pilot['handoutPerformed'], isFalse);
       expect(pilot['appliesToCurrentSource'], isFalse);
       expect(pilot['appliesToBuild14'], isFalse);
-      expect(next['minimumBuildNumber'], (release['buildNumber'] as int) + 1);
+      expect(pilot['appliesToBuild15'], isFalse);
+      expect(next['minimumBuildNumber'], release['buildNumber']);
       expect(
         next['status'],
-        'OWNER_APPROVED_AWAITING_EXACT_FIRESTORE_RULES_READBACK',
+        'SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD15_CONSTRUCTION',
       );
       expect(next['constructionRequiresFreshGovernedApproval'], isTrue);
       expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
@@ -300,7 +340,7 @@ void main() {
 
       final readme = File('README.md').readAsStringSync();
       expect(readme, contains('Build 14 (`1.0.0-rc.4+14`)'));
-      expect(readme, contains('Build 15 or higher'));
+      expect(readme, contains('Build 15 (`1.0.0-rc.5+15`)'));
       expect(readme, isNot(contains('Build 12 is source authorized')));
     },
   );
