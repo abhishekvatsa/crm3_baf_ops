@@ -18,8 +18,10 @@ conflated:
 Current `main` contains capabilities merged after the latest finalized
 artifact. Build 14 (`1.0.0-rc.4+14`) was production signed and finalized into
 dual custody, but it remains non-distributable and has not been promoted for
-pilot use. Source merged after its artifact commit is source-and-CI work only;
-it is not contained in Build 14 and cannot reuse Build 14's package identity.
+pilot use. Build 15 (`1.0.0-rc.5+15`) is separately source-authorized after
+exact production Functions, Firestore Rules and index readback; it has not yet
+been signed, finalized, device-proved or approved for distribution. Build 14's
+completed package identity remains consumed and cannot be reused.
 
 Authoritative status sources:
 
@@ -33,8 +35,8 @@ Authoritative status sources:
 The sealed Build 11 decision remains exact to that artifact and roster. A
 separate source-and-CI successor campaign was re-armed on 16 August 2026 for
 audit remediation, remaining business capability and UI/UX redesign. Any new
-artifact requires a fresh governed reservation at Build 15 or higher, exact
-signed-device validation and a separate pilot decision. Unrestricted
+artifact requires its own governed reservation, exact signed-device validation
+and a separate pilot decision. Unrestricted
 distribution remains prohibited, and App Check/Play Integrity activation
 remains a governed decision.
 

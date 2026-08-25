@@ -1200,21 +1200,23 @@ void main() {
     });
 
     test(
-      'build 14 finalization preserves build 13 completion and build 10 failure',
+      'build 15 authorization preserves build 14 completion and build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
                 as Map<String, dynamic>;
         final finalization = policy['finalization'] as Map<String, dynamic>;
-        final build13Finalization =
+        final build14Finalization =
             finalization['priorCompletedBuild'] as Map<String, dynamic>;
         final build13Receipt =
             jsonDecode(
-                  read(build13Finalization['completionReceiptFile'] as String),
+                  read('release/evidence/build-13-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
         final build14Receipt =
-            jsonDecode(read(finalization['completionReceiptFile'] as String))
+            jsonDecode(
+                  read(build14Finalization['completionReceiptFile'] as String),
+                )
                 as Map<String, dynamic>;
         final receipt =
             jsonDecode(
@@ -1280,9 +1282,9 @@ void main() {
         final programmeBoundary =
             backendEvidence['programmeBoundary'] as Map<String, dynamic>;
 
-        expect(finalization['status'], 'completed-non-distributable');
-        expect(finalization['dualCustodyCompleted'], isTrue);
-        expect(finalization['runtimeValidationPassed'], isFalse);
+        expect(finalization['status'], 'pending-source-authorized');
+        expect(finalization['dualCustodyCompleted'], isFalse);
+        expect(finalization.containsKey('runtimeValidationPassed'), isFalse);
         expect(finalization['controlledPilotApproved'], isFalse);
         final failedAttempt =
             (finalization['historicalFailedAttempts'] as List)
@@ -1297,13 +1299,13 @@ void main() {
           failedAttempt['evidenceSha256'],
           'E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58',
         );
-        expect(build13Finalization['buildNumber'], 13);
-        expect(build13Finalization['status'], 'completed-non-distributable');
-        expect(build13Finalization['dualCustodyCompleted'], isTrue);
-        expect(build13Finalization['runtimeValidationPassed'], isFalse);
+        expect(build14Finalization['buildNumber'], 14);
+        expect(build14Finalization['status'], 'completed-non-distributable');
+        expect(build14Finalization['dualCustodyCompleted'], isTrue);
+        expect(build14Finalization['runtimeValidationPassed'], isFalse);
         expect(
-          build13Finalization['completionReceiptSha256'],
-          '63E6B0D21FC369F96C9F621E85FBE59F62B1B726B24CDA5A0D45C371504ABEE7',
+          build14Finalization['completionReceiptSha256'],
+          'E1C714FCEF7F23798E49A797E6F4ADCA7D2A7D57BFFD0F9B7C0B62A50B801DED',
         );
         expect(build13Receipt['schemaVersion'], 1);
         expect(build13Receipt['status'], 'passed-non-distributable');
@@ -1455,12 +1457,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.4\+14$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.5\+15$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.4-b14"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.5-b15"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/14"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/15"'),
       );
       expect(policy, contains('"approved": true'));
       expect(
