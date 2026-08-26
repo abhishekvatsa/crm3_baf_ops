@@ -91,8 +91,9 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
             bottom: 92,
             child: SafeArea(
               top: false,
-              child: Tooltip(
-                message: 'Critical safety alarms',
+              child: Semantics(
+                label: 'Critical safety alarms',
+                button: true,
                 child: FloatingActionButton.small(
                   heroTag: 'global-critical-alarm-launcher',
                   backgroundColor: BafColors.danger,
@@ -141,6 +142,9 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
     final ringing = alarms.where((alarm) => alarm.isRinging).toList();
     final ringingIds = ringing.map((alarm) => alarm.id).toSet();
     final platform = ref.read(criticalAlarmPlatformServiceProvider);
+    // The verified server set also clears tagged FCM notifications created
+    // while this Dart process was not running.
+    unawaited(platform.reconcileActiveNotifications(ringingIds));
     for (final alarm in ringing) {
       if (_notifiedRingingIds.add(alarm.id)) {
         unawaited(platform.showActiveNotification(alarm));

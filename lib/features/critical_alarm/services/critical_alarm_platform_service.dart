@@ -76,6 +76,21 @@ class CriticalAlarmPlatformService {
     }
   }
 
+  Future<int> reconcileActiveNotifications(Set<String> ringingAlarmIds) async {
+    if (kIsWeb) return 0;
+    final orderedIds = ringingAlarmIds.toList()..sort();
+    try {
+      return await _channel.invokeMethod<int>('reconcileActiveNotifications', {
+            'ringingAlarmIds': orderedIds,
+          }) ??
+          0;
+    } on PlatformException {
+      return 0;
+    } on MissingPluginException {
+      return 0;
+    }
+  }
+
   Future<void> openDialer(String dialValue) async {
     if (kIsWeb) {
       throw PlatformException(

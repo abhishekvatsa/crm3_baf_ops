@@ -148,6 +148,54 @@ class MainActivity : FlutterActivity() {
                     )
                     result.success(null)
                 }
+                "reconcileActiveNotifications" -> {
+                    val rawIds = call.argument<List<*>>("ringingAlarmIds")
+                    val ringingAlarmIds = rawIds?.mapNotNull { value ->
+                        (value as? String)?.trim()?.takeIf { alarmId ->
+                            alarmId.isNotEmpty() &&
+                                alarmId.length <= 160 &&
+                                alarmId != "." &&
+                                alarmId != ".." &&
+                                !alarmId.contains("/")
+                        }
+                    }
+                    if (rawIds == null || rawIds.size > 500 ||
+                        ringingAlarmIds == null || ringingAlarmIds.size != rawIds.size ||
+                        ringingAlarmIds.toSet().size != ringingAlarmIds.size
+                    ) {
+                        result.error(
+                            "critical-alarm-active-set-invalid",
+                            "The verified active alarm set is invalid.",
+                            null,
+                        )
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val manager = notificationManager()
+                        var cancelled = 0
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val ringingTags = ringingAlarmIds
+                                .map(::notificationTag)
+                                .toSet()
+                            for (notification in manager.activeNotifications) {
+                                val tag = notification.tag ?: continue
+                                if (tag.startsWith(CRITICAL_NOTIFICATION_TAG_PREFIX) &&
+                                    !ringingTags.contains(tag)
+                                ) {
+                                    manager.cancel(tag, notification.id)
+                                    cancelled += 1
+                                }
+                            }
+                        }
+                        result.success(cancelled)
+                    } catch (error: Exception) {
+                        result.error(
+                            "critical-alarm-reconciliation-failed",
+                            error.message ?: "Critical alarm notifications could not be reconciled.",
+                            null,
+                        )
+                    }
+                }
                 "openDialer" -> {
                     val dialValue = call.argument<String>("dialValue")?.trim()
                     if (dialValue == null || !DIAL_VALUE.matches(dialValue)) {
@@ -258,7 +306,8 @@ class MainActivity : FlutterActivity() {
 
     private fun notificationId(alarmId: String): Int = alarmId.hashCode() and Int.MAX_VALUE
 
-    private fun notificationTag(alarmId: String): String = "critical-alarm-$alarmId"
+    private fun notificationTag(alarmId: String): String =
+        "$CRITICAL_NOTIFICATION_TAG_PREFIX$alarmId"
 
     private companion object {
         const val RECOVERY_STORAGE_CHANNEL =
@@ -268,6 +317,7 @@ class MainActivity : FlutterActivity() {
         const val CRITICAL_NOTIFICATION_CHANNEL_ID = "crm3_critical_safety"
         const val CRITICAL_NOTIFICATION_ID = 0
         const val CRITICAL_ALARM_ID_EXTRA = "criticalAlarmId"
+        const val CRITICAL_NOTIFICATION_TAG_PREFIX = "critical-alarm-"
         val DIAL_VALUE = Regex("^\\+?\\d{2,15}$")
     }
 }

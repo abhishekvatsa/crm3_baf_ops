@@ -72,33 +72,45 @@ void main() {
     },
   );
 
-  test('sends exact notification, cancellation and dialler requests', () async {
-    final calls = <MethodCall>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(_channel, (call) async {
-          calls.add(call);
-          return call.method == 'showActiveNotification' ? true : null;
-        });
+  test(
+    'sends exact notification, reconciliation, cancellation and dialler requests',
+    () async {
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            calls.add(call);
+            return call.method == 'showActiveNotification' ? true : null;
+          });
 
-    const service = CriticalAlarmPlatformService();
-    expect(await service.showActiveNotification(_alarm()), isTrue);
-    await service.cancelNotification('alarm-1');
-    await service.openDialer('+916572200000');
+      const service = CriticalAlarmPlatformService();
+      expect(await service.showActiveNotification(_alarm()), isTrue);
+      expect(
+        await service.reconcileActiveNotifications({'alarm-2', 'alarm-1'}),
+        0,
+      );
+      await service.cancelNotification('alarm-1');
+      await service.openDialer('+916572200000');
 
-    expect(calls.map((call) => call.method), [
-      'showActiveNotification',
-      'cancelNotification',
-      'openDialer',
-    ]);
-    expect(
-      (calls.first.arguments as Map<Object?, Object?>)['alarmId'],
-      'alarm-1',
-    );
-    expect(
-      (calls.last.arguments as Map<Object?, Object?>)['dialValue'],
-      '+916572200000',
-    );
-  });
+      expect(calls.map((call) => call.method), [
+        'showActiveNotification',
+        'reconcileActiveNotifications',
+        'cancelNotification',
+        'openDialer',
+      ]);
+      expect(
+        (calls.first.arguments as Map<Object?, Object?>)['alarmId'],
+        'alarm-1',
+      );
+      expect((calls[1].arguments as Map<Object?, Object?>)['ringingAlarmIds'], [
+        'alarm-1',
+        'alarm-2',
+      ]);
+      expect(
+        (calls.last.arguments as Map<Object?, Object?>)['dialValue'],
+        '+916572200000',
+      );
+    },
+  );
 
   test(
     'Android keys notification replacement and cancellation by exact alarm tag',
@@ -109,6 +121,8 @@ void main() {
           ).readAsStringSync();
       expect(source, contains('notificationTag(alarmId)'));
       expect(source, contains('CRITICAL_NOTIFICATION_ID'));
+      expect(source, contains('manager.activeNotifications'));
+      expect(source, contains('CRITICAL_NOTIFICATION_TAG_PREFIX'));
       expect(source, contains('crm3://critical-alarm/'));
       expect(
         source,
