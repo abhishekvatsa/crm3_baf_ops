@@ -89,6 +89,59 @@ function Get-Utf8CrlfSha256 {
   }
 }
 
+function Get-GitTreeObjectId {
+  param(
+    [Parameter(Mandatory)][string]$Commit,
+    [Parameter(Mandatory)][string]$Path
+  )
+
+  $treeOutput = @(
+    git rev-parse --verify ("{0}:{1}" -f $Commit, $Path)
+  )
+  if ($LASTEXITCODE -ne 0 -or $treeOutput.Count -ne 1) {
+    throw "Unable to resolve Git tree for $Commit`:$Path."
+  }
+
+  $tree = $treeOutput[0].Trim().ToLowerInvariant()
+  if ($tree -notmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+    throw "Invalid Git tree identity for $Commit`:$Path."
+  }
+  $tree
+}
+
+function Get-FunctionFleetDeploymentStatus {
+  param(
+    [Parameter(Mandatory)][string]$DeployedTree,
+    [Parameter(Mandatory)][string]$CurrentTree
+  )
+
+  $treePattern = '^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$'
+  if ($DeployedTree -notmatch $treePattern -or
+      $CurrentTree -notmatch $treePattern) {
+    throw 'Function fleet tree identity is invalid.'
+  }
+  if ($DeployedTree.ToLowerInvariant() -ceq
+      $CurrentTree.ToLowerInvariant()) {
+    return 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
+  }
+  'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+}
+
+function Test-FunctionFleetDeploymentStatusClassifier {
+  $exactTree = 'a' * 40
+  $changedTree = 'b' * 40
+  if ((Get-FunctionFleetDeploymentStatus `
+        -DeployedTree $exactTree `
+        -CurrentTree $exactTree) -ne
+      'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
+      (Get-FunctionFleetDeploymentStatus `
+        -DeployedTree $exactTree `
+        -CurrentTree $changedTree) -ne
+      'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT') {
+    throw 'Function deployment-state classifier self-test failed.'
+  }
+}
+
 function Get-YamlRunBlocks {
   param([Parameter(Mandatory)][string]$Source)
 
@@ -136,6 +189,7 @@ function Get-YamlRunBlocks {
 }
 
 Set-Location (Resolve-Path -LiteralPath $RepositoryRoot)
+Test-FunctionFleetDeploymentStatusClassifier
 & pwsh -NoProfile -ExecutionPolicy Bypass `
   -File tools/release/Test-ProductionReleaseManifest.ps1 `
   -LedgerSelectionSelfTest
@@ -715,6 +769,17 @@ if ([string]$functionFleetDeploymentReceipt.decision -ne
       $false) {
   throw 'Exact Function fleet deployment receipt is incomplete.'
 }
+$deployedFunctionsTree = Get-GitTreeObjectId `
+  -Commit ([string]$functionFleetDeploymentReceipt.sourceAuthority.commit) `
+  -Path 'functions'
+$currentFunctionsTree = Get-GitTreeObjectId -Commit 'HEAD' -Path 'functions'
+$expectedCurrentSourceFunctionDeployment =
+  Get-FunctionFleetDeploymentStatus `
+    -DeployedTree $deployedFunctionsTree `
+    -CurrentTree $currentFunctionsTree
+$functionsMatchDeployed =
+  $expectedCurrentSourceFunctionDeployment -eq
+    'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
 $firestoreReadbackAuthority =
   $policy.finalization.exactFirestoreRulesIndexesLiveReadback
 $firestoreReadbackPath = [string]$firestoreReadbackAuthority.receiptFile
@@ -862,13 +927,16 @@ if ($null -ne $requiredRulesShaProperty) {
   } else {
     'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   }
-  $expectedBackendDeploymentStatus = if ($firestoreMatchesDeployed) {
+  $backendMatchesDeployed =
+    $functionsMatchDeployed -and $firestoreMatchesDeployed
+  $expectedBackendDeploymentStatus = if ($backendMatchesDeployed) {
     'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
   } else {
     'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   }
   $expectedArtifactConstructionAuthority =
-    [string]$policy.finalization.status -eq 'pending-source-authorized'
+    [string]$policy.finalization.status -eq 'pending-source-authorized' -and
+      $backendMatchesDeployed
   if ($currentSuccessorState.schemaVersion -lt 2 -or
       [string]$currentSourceAuthority.reference -ne 'refs/heads/main' -or
       $currentSourceAuthority.sourceAndCiAuthority -ne $true -or
@@ -901,7 +969,7 @@ if ($null -ne $requiredRulesShaProperty) {
         'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
       [string]$currentDeployedBackendAuthority.
         currentSourceFunctionDeployment -ne
-        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
+        $expectedCurrentSourceFunctionDeployment -or
       [string]$currentDeployedBackendAuthority.rulesAndIndexesEvidenceFile -ne
         $firestoreReadbackPath -or
       [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne
@@ -913,7 +981,7 @@ if ($null -ne $requiredRulesShaProperty) {
         $expectedCurrentSourceDeployment -or
       $currentDeployedBackendAuthority.productionBackendRuntimeAuthorized -ne
         $true) {
-    throw 'Current source Firestore Rules/index authority differs from source state.'
+    throw 'Current source backend authority differs from source state.'
   }
 }
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition

@@ -171,6 +171,13 @@ void main() {
       expect(text, contains('--source-index-set firestore.indexes.json'));
       expect(text, contains('release/current-successor-state.json'));
       expect(text, contains('firestoreRulesAndIndexes'));
+      expect(text, contains('Get-GitTreeObjectId'));
+      expect(text, contains('Get-FunctionFleetDeploymentStatus'));
+      expect(text, contains('Test-FunctionFleetDeploymentStatusClassifier'));
+      expect(text, contains(r"-Path 'functions'"));
+      expect(text, contains(r'$expectedCurrentSourceFunctionDeployment'));
+      expect(text, contains(r'$functionsMatchDeployed'));
+      expect(text, contains(r'$backendMatchesDeployed'));
       expect(
         text,
         contains(
@@ -185,9 +192,7 @@ void main() {
       );
       expect(
         text,
-        contains(
-          'Current source Firestore Rules/index authority differs from source state.',
-        ),
+        contains('Current source backend authority differs from source state.'),
       );
       expect(
         text,
