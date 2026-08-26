@@ -58,8 +58,13 @@ the sole eligible recovery platform until an equally durable implementation is
 present elsewhere. Before any deletion is authorized, the Android bridge
 synchronizes the retained snapshot file and each directory entry in its
 application-private path, while a failed durability confirmation blocks the
-reset. The current inventories again report no unclassified file, catch site,
-timestamp call, direct parser or stale policy.
+reset. On Android restart, sign-out now probes for an active crash-durable
+request journal, and listener startup reserves session exit before its first
+server poll. The reservation is released only after a successful no-request
+check or after the returned request has acquired retained recovery protection;
+an unreadable journal state remains fail-closed. The current inventories again
+report no unclassified file, catch site, timestamp call, direct parser or stale
+policy.
 
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not

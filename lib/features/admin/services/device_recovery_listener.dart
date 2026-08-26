@@ -66,6 +66,11 @@ class DeviceRecoveryListener {
         (actor.isApproved && claimedRecoveryOnly)) {
       return;
     }
+    try {
+      _recoverySessionGuard.requireRecoveryCheck();
+    } on LocalRecoverySessionEndingException {
+      return;
+    }
     if (_actor?.uid != actor.uid ||
         _claimedRecoveryOnly != claimedRecoveryOnly) {
       stop();
@@ -156,11 +161,14 @@ class DeviceRecoveryListener {
       if (request == null) {
         _releaseClaimProtection();
         _clearRecoveryRetry();
+        _recoverySessionGuard.completeRecoveryCheck();
         return;
       }
       activeRequest = request;
       claimAcknowledged = request.status == 'in_progress';
       _trackRecoveryRequest(request.requestId);
+      _holdClaimProtection();
+      _recoverySessionGuard.completeRecoveryCheck();
 
       await _coordinator.runWithSyncPaused<void>(
         reason: 'admin_authorized_device_reset',
@@ -172,7 +180,6 @@ class DeviceRecoveryListener {
               reasonCode: 'device-recovery-session-changed',
             );
           }
-          _holdClaimProtection();
           await _commands.claimReset(
             actor: actor,
             request: request,

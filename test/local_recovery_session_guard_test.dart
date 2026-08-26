@@ -4,29 +4,68 @@ import 'package:crm3_baf_ops/core/services/local_recovery_session_guard.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('an active protected reset blocks session exit until terminal', () {
-    final guard =
-        LocalRecoverySessionGuard()
-          ..beginRecovery()
-          ..beginRecovery();
+  test('active startup journal blocks session exit until examined', () async {
+    final guard = LocalRecoverySessionGuard(
+      startupRecoveryProbe: () async => true,
+    );
 
-    expect(
-      guard.beginSessionEnd,
+    await expectLater(
+      guard.beginSessionEnd(),
       throwsA(isA<LocalRecoverySignOutBlockedException>()),
     );
 
-    guard.endRecovery();
-    expect(
-      guard.beginSessionEnd,
-      throwsA(isA<LocalRecoverySignOutBlockedException>()),
-    );
-    guard.endRecovery();
-    expect(guard.beginSessionEnd, returnsNormally);
+    guard.completeRecoveryCheck();
+    await guard.beginSessionEnd();
     guard.endSessionEnd();
   });
 
-  test('a reserved session exit prevents a new reset claim race', () {
-    final guard = LocalRecoverySessionGuard()..beginSessionEnd();
+  test('absence of a startup journal permits ordinary session exit', () async {
+    final guard = LocalRecoverySessionGuard(
+      startupRecoveryProbe: () async => false,
+    );
+
+    await guard.beginSessionEnd();
+    guard.endSessionEnd();
+  });
+
+  test('unreadable startup journal state fails closed', () async {
+    final guard = LocalRecoverySessionGuard(
+      startupRecoveryProbe: () async => throw StateError('storage unreadable'),
+    );
+
+    await expectLater(
+      guard.beginSessionEnd(),
+      throwsA(isA<LocalRecoverySignOutBlockedException>()),
+    );
+  });
+
+  test(
+    'an active protected reset blocks session exit until terminal',
+    () async {
+      final guard =
+          LocalRecoverySessionGuard()
+            ..beginRecovery()
+            ..beginRecovery();
+
+      await expectLater(
+        guard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+
+      guard.endRecovery();
+      await expectLater(
+        guard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+      guard.endRecovery();
+      await guard.beginSessionEnd();
+      guard.endSessionEnd();
+    },
+  );
+
+  test('a reserved session exit prevents a new reset claim race', () async {
+    final guard = LocalRecoverySessionGuard();
+    await guard.beginSessionEnd();
 
     expect(
       guard.beginRecovery,
@@ -54,12 +93,22 @@ void main() {
         signOutStart,
       );
       final signOut = auth.substring(signOutStart, signOutEnd);
-      expect(signOut.indexOf('.beginSessionEnd()'), greaterThanOrEqualTo(0));
+      expect(
+        signOut.indexOf('await _recoverySessionGuard.beginSessionEnd()'),
+        greaterThanOrEqualTo(0),
+      );
       expect(
         signOut.indexOf('.beginSessionEnd()'),
         lessThan(signOut.indexOf('await _performSignOut()')),
       );
       expect(signOut, contains('.endSessionEnd()'));
+
+      final guardSource =
+          File(
+            'lib/core/services/local_recovery_session_guard.dart',
+          ).readAsStringSync();
+      expect(guardSource, contains('startupRecoveryProbe:'));
+      expect(guardSource, contains('hasActiveCrashDurableIsarRecoveryJournal'));
 
       final recoveryStart = coordinator.indexOf(
         'Future<T> runWithSyncPaused<T>',

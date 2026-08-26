@@ -111,6 +111,10 @@ Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
 
 Future<bool> isRetainedIsarRecoveryBackup(String path) async => false;
 
+bool get crashDurableIsarRecoveryJournalSupported => false;
+
+Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async => false;
+
 Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(
   String path,
 ) async => null;

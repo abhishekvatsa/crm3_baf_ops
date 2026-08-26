@@ -273,6 +273,7 @@ Future<bool> isRetainedIsarRecoveryBackup(String path) async {
 
 const _deviceRecoveryJournalDirectoryName =
     'CRM3_BAF_Ops_Device_Recovery_Journals';
+bool get crashDurableIsarRecoveryJournalSupported => Platform.isAndroid;
 const _deviceRecoveryStorageChannel = MethodChannel(
   'in.co.sail.bsl.crm3.bafops/recovery_storage',
 );
@@ -296,6 +297,23 @@ String _deviceRecoveryJournalFileName(String requestId) {
     throw const FormatException('Invalid device-recovery request ID.');
   }
   return '$requestId.json';
+}
+
+Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async {
+  if (!crashDurableIsarRecoveryJournalSupported) return false;
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  if (!await directory.exists()) return false;
+  await for (final entity in directory.list(followLinks: false)) {
+    if (entity is! File) continue;
+    final name = entity.uri.pathSegments.last;
+    if (name.endsWith('.json') || name.endsWith('.json.pending')) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Future<void> _syncRecoveryStorageEntity({

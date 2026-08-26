@@ -317,7 +317,7 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    _recoverySessionGuard.beginSessionEnd();
+    await _recoverySessionGuard.beginSessionEnd();
     try {
       await _performSignOut();
     } finally {

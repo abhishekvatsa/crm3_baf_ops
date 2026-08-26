@@ -17,6 +17,36 @@ const _request = '33333333-3333-4333-8333-333333333333';
 const _replacement = '44444444-4444-4444-8444-444444444444';
 
 void main() {
+  test('listener blocks sign-out before its startup poll completes', () async {
+    final firstPoll = Completer<Map<String, dynamic>>();
+    final commands = DeviceRecoveryCommandService(
+      authenticatedUidLookup: () => 'operator-1',
+      invoke: (payload) async {
+        if (payload['operation'] == deviceRecoveryPollOperation) {
+          return firstPoll.future;
+        }
+        throw StateError('Unexpected request: ${payload['operation']}');
+      },
+    );
+    final scope = _listenerScope(commands: commands, reset: _LocalResetProbe());
+    addTearDown(scope.dispose);
+
+    scope.listener.start(_operator());
+    await Future<void>.delayed(Duration.zero);
+
+    await expectLater(
+      scope.recoverySessionGuard.beginSessionEnd(),
+      throwsA(isA<LocalRecoverySignOutBlockedException>()),
+    );
+
+    firstPoll.complete(_pollResponse(null));
+    await _waitFor(
+      () => !scope.recoverySessionGuard.isRecoveryProtectionActive,
+    );
+    await scope.recoverySessionGuard.beginSessionEnd();
+    scope.recoverySessionGuard.endSessionEnd();
+  });
+
   test(
     'recovery notification received during a poll is checked afterward',
     () async {
@@ -540,14 +570,14 @@ void main() {
     await firstCompletion.future.timeout(const Duration(seconds: 2));
     await Future<void>.delayed(Duration.zero);
 
-    expect(
-      scope.recoverySessionGuard.beginSessionEnd,
+    await expectLater(
+      scope.recoverySessionGuard.beginSessionEnd(),
       throwsA(isA<LocalRecoverySignOutBlockedException>()),
     );
 
     await completed.future.timeout(const Duration(seconds: 2));
     await Future<void>.delayed(Duration.zero);
-    expect(scope.recoverySessionGuard.beginSessionEnd, returnsNormally);
+    await scope.recoverySessionGuard.beginSessionEnd();
     scope.recoverySessionGuard.endSessionEnd();
   });
 
@@ -579,13 +609,13 @@ void main() {
     scope.listener.start(_operator());
     await firstCompletion.future.timeout(const Duration(seconds: 2));
     await Future<void>.delayed(Duration.zero);
-    expect(
-      scope.recoverySessionGuard.beginSessionEnd,
+    await expectLater(
+      scope.recoverySessionGuard.beginSessionEnd(),
       throwsA(isA<LocalRecoverySignOutBlockedException>()),
     );
 
     scope.listener.dispose();
-    expect(scope.recoverySessionGuard.beginSessionEnd, returnsNormally);
+    await scope.recoverySessionGuard.beginSessionEnd();
     scope.recoverySessionGuard.endSessionEnd();
   });
 
@@ -617,7 +647,7 @@ void main() {
       await rejected.future.timeout(const Duration(seconds: 2));
       await Future<void>.delayed(Duration.zero);
 
-      expect(scope.recoverySessionGuard.beginSessionEnd, returnsNormally);
+      await scope.recoverySessionGuard.beginSessionEnd();
       scope.recoverySessionGuard.endSessionEnd();
     },
   );
