@@ -29,26 +29,47 @@ final criticalAlarmPlatformServiceProvider =
     );
 
 final criticalAlarmFeedProvider = StreamProvider<List<CriticalAlarm>>((ref) {
-  final user = ref.watch(currentAppUserProvider).asData?.value;
-  if (user == null || !user.isApproved) {
-    return Stream.value(const <CriticalAlarm>[]);
-  }
-  return ref.watch(criticalAlarmRepositoryProvider).watchAlarms();
+  return ref
+      .watch(currentAppUserProvider)
+      .when(
+        data: (user) {
+          if (user == null || !user.isApproved) {
+            return Stream.value(const <CriticalAlarm>[]);
+          }
+          return ref.watch(criticalAlarmRepositoryProvider).watchAlarms();
+        },
+        loading: () => const Stream<List<CriticalAlarm>>.empty(),
+        error: Stream<List<CriticalAlarm>>.error,
+      );
 });
 
 final activeCriticalAlarmsProvider = StreamProvider<List<CriticalAlarm>>((ref) {
-  final user = ref.watch(currentAppUserProvider).asData?.value;
-  if (user == null || !user.isApproved) {
-    return Stream.value(const <CriticalAlarm>[]);
-  }
-  return ref.watch(criticalAlarmRepositoryProvider).watchActiveAlarms();
+  return ref
+      .watch(currentAppUserProvider)
+      .when(
+        data: (user) {
+          if (user == null || !user.isApproved) {
+            return Stream.value(const <CriticalAlarm>[]);
+          }
+          return ref.watch(criticalAlarmRepositoryProvider).watchActiveAlarms();
+        },
+        loading: () => const Stream<List<CriticalAlarm>>.empty(),
+        error: Stream<List<CriticalAlarm>>.error,
+      );
 });
 
 final criticalAlarmContactsProvider =
     StreamProvider<List<CriticalAlarmContact>>((ref) {
-      final user = ref.watch(currentAppUserProvider).asData?.value;
-      if (user == null || !user.isApproved) {
-        return Stream.value(const <CriticalAlarmContact>[]);
-      }
-      return ref.watch(criticalAlarmRepositoryProvider).watchContacts();
+      return ref
+          .watch(currentAppUserProvider)
+          .when(
+            data: (user) {
+              if (user == null || !user.isApproved) {
+                return Stream.value(const <CriticalAlarmContact>[]);
+              }
+              return ref.watch(criticalAlarmRepositoryProvider).watchContacts();
+            },
+            loading: () => const Stream<List<CriticalAlarmContact>>.empty(),
+            error: Stream<List<CriticalAlarmContact>>.error,
+          );
     });

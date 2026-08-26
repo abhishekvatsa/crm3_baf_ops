@@ -2,7 +2,7 @@ import {LANE_POLICY} from "./policy.generated";
 import type {SendOutcome} from "../notifications";
 
 export const isNotifiableCriticalAlarmStatus = (status: unknown): boolean =>
-  status === "raised" || status === "supportConfirmed";
+  status === "raised";
 
 export const samePersistedNotificationInstant = (
   left: unknown,

@@ -7,6 +7,7 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../domain/critical_alarm_models.dart';
 import '../providers/critical_alarm_providers.dart';
+import '../services/critical_alarm_platform_service.dart';
 import 'critical_alarm_screen.dart';
 
 class CriticalAlarmHost extends ConsumerStatefulWidget {
@@ -25,6 +26,8 @@ class CriticalAlarmHost extends ConsumerStatefulWidget {
 
 class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
   final Set<String> _notifiedRingingIds = <String>{};
+  final Set<String> _notificationAttemptsInFlight = <String>{};
+  Set<String> _latestRingingIds = const <String>{};
   StreamSubscription<String>? _openedAlarmSubscription;
   late final ProviderSubscription<AsyncValue<List<CriticalAlarm>>>
   _alarmFeedSubscription;
@@ -141,19 +144,39 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
   void _reconcileNotifications(List<CriticalAlarm> alarms) {
     final ringing = alarms.where((alarm) => alarm.isRinging).toList();
     final ringingIds = ringing.map((alarm) => alarm.id).toSet();
+    _latestRingingIds = ringingIds;
     final platform = ref.read(criticalAlarmPlatformServiceProvider);
     // The verified server set also clears tagged FCM notifications created
     // while this Dart process was not running.
     unawaited(platform.reconcileActiveNotifications(ringingIds));
     for (final alarm in ringing) {
-      if (_notifiedRingingIds.add(alarm.id)) {
-        unawaited(platform.showActiveNotification(alarm));
+      if (!_notifiedRingingIds.contains(alarm.id) &&
+          _notificationAttemptsInFlight.add(alarm.id)) {
+        unawaited(_showAndTrackNotification(platform, alarm));
       }
     }
     final noLongerRinging = _notifiedRingingIds.difference(ringingIds).toList();
     for (final alarmId in noLongerRinging) {
       _notifiedRingingIds.remove(alarmId);
       unawaited(platform.cancelNotification(alarmId));
+    }
+  }
+
+  Future<void> _showAndTrackNotification(
+    CriticalAlarmPlatformService platform,
+    CriticalAlarm alarm,
+  ) async {
+    var shown = false;
+    try {
+      shown = await platform.showActiveNotification(alarm);
+    } finally {
+      _notificationAttemptsInFlight.remove(alarm.id);
+    }
+    if (!mounted || !shown) return;
+    if (_latestRingingIds.contains(alarm.id)) {
+      _notifiedRingingIds.add(alarm.id);
+    } else {
+      await platform.cancelNotification(alarm.id);
     }
   }
 }

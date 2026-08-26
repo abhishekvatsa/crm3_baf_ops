@@ -55,9 +55,9 @@ describe('workflow notification routing', () => {
     expect(workflowRecipientRoles('lane.escalated', 'inst', 3)).toEqual(['admin']);
   });
 
-  test('support confirmation cannot suppress a pending alarm notification', () => {
+  test('a delayed raised event cannot restart ringing after support confirmation', () => {
     expect(isNotifiableCriticalAlarmStatus('raised')).toBe(true);
-    expect(isNotifiableCriticalAlarmStatus('supportConfirmed')).toBe(true);
+    expect(isNotifiableCriticalAlarmStatus('supportConfirmed')).toBe(false);
     expect(isNotifiableCriticalAlarmStatus('resolved')).toBe(false);
     expect(isNotifiableCriticalAlarmStatus('withdrawnInError')).toBe(false);
   });
