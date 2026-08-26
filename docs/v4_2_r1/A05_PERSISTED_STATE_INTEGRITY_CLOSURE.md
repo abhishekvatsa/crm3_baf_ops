@@ -81,8 +81,12 @@ server revalidates the exact state identity, canonical completion or failure
 fields, administrator receipt, original claim audit and matching final audit.
 Missing or inconsistent terminal proof therefore retains the local journal and
 sign-out protection instead of stranding or silently releasing it. The current
-inventories again report no unclassified file, catch site, timestamp call,
-direct parser or stale policy.
+phone-registration wait is also bounded: if registration remains unavailable,
+the startup reservation is released only after a fresh local probe proves that
+no active recovery journal exists. Active or unreadable journal state remains
+fail-closed and is retried on a later listener check, including app resume. The
+current inventories again report no unclassified file, catch site, timestamp
+call, direct parser or stale policy.
 
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not

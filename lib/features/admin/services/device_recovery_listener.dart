@@ -35,6 +35,9 @@ class DeviceRecoveryListener {
     Stream<RemoteMessage>? foregroundMessages,
     DeviceRecoveryTerminalJournalMarker? terminalJournalMarker,
     DeviceRecoveryInactiveJournalRetirer? inactiveJournalRetirer,
+    LocalRecoveryJournalProbe? activeJournalProbe,
+    Duration registrationRetryDelay = const Duration(seconds: 2),
+    int maxRegistrationRetries = 3,
     Duration recoveryRetryDelay = const Duration(seconds: 1),
     int maxRecoveryRetries = 5,
   }) : _commands = commands,
@@ -51,6 +54,10 @@ class DeviceRecoveryListener {
        _inactiveJournalRetirer =
            inactiveJournalRetirer ??
            markInactiveCrashDurableIsarRecoveryJournalsTerminal,
+       _activeJournalProbe =
+           activeJournalProbe ?? hasActiveCrashDurableIsarRecoveryJournal,
+       _registrationRetryDelay = registrationRetryDelay,
+       _maxRegistrationRetries = maxRegistrationRetries,
        _recoveryRetryDelay = recoveryRetryDelay,
        _maxRecoveryRetries = maxRecoveryRetries;
 
@@ -63,6 +70,9 @@ class DeviceRecoveryListener {
   final Stream<RemoteMessage>? _foregroundMessages;
   final DeviceRecoveryTerminalJournalMarker _terminalJournalMarker;
   final DeviceRecoveryInactiveJournalRetirer _inactiveJournalRetirer;
+  final LocalRecoveryJournalProbe _activeJournalProbe;
+  final Duration _registrationRetryDelay;
+  final int _maxRegistrationRetries;
   final Duration _recoveryRetryDelay;
   final int _maxRecoveryRetries;
 
@@ -162,7 +172,19 @@ class DeviceRecoveryListener {
       final installationId = await _installationIdReader();
       if (!_isCurrent(actor, generation)) return;
       if (installationId == null) {
-        _scheduleRegistrationRetry();
+        if (_scheduleRegistrationRetry()) return;
+        final activeJournal = await _activeJournalProbe();
+        if (!_isCurrent(actor, generation)) return;
+        if (!activeJournal) {
+          _recoverySessionGuard.completeRecoveryCheck();
+          AppLogger.breadcrumb(
+            'Device recovery startup check completed without registration',
+            context: const {
+              'app_area': 'device_recovery',
+              'recovery_reason': 'no_registration_no_active_journal',
+            },
+          );
+        }
         return;
       }
       if (expectedInstallationId != null &&
@@ -171,6 +193,7 @@ class DeviceRecoveryListener {
       }
       _registrationRetry?.cancel();
       _registrationRetry = null;
+      _registrationRetries = 0;
       final request = await _commands.pollPending(
         actor: actor,
         installationId: installationId,
@@ -390,13 +413,15 @@ class DeviceRecoveryListener {
     _pendingRecoveryRequestId = null;
   }
 
-  void _scheduleRegistrationRetry() {
-    if (_registrationRetries >= 3 || _registrationRetry != null) return;
+  bool _scheduleRegistrationRetry() {
+    if (_registrationRetry != null) return true;
+    if (_registrationRetries >= _maxRegistrationRetries) return false;
     _registrationRetries++;
-    _registrationRetry = Timer(const Duration(seconds: 2), () {
+    _registrationRetry = Timer(_registrationRetryDelay, () {
       _registrationRetry = null;
       unawaited(checkNow(reason: 'device_registration_ready'));
     });
+    return true;
   }
 }
 

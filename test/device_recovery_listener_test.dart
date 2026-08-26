@@ -48,6 +48,112 @@ void main() {
   });
 
   test(
+    'missing registration releases startup check only without an active journal',
+    () async {
+      var pollCalls = 0;
+      var installationReads = 0;
+      var journalProbes = 0;
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (_) async {
+          pollCalls++;
+          return _pollResponse(null);
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        installationIdReader: () async {
+          installationReads++;
+          return null;
+        },
+        activeJournalProbe: () async {
+          journalProbes++;
+          return false;
+        },
+        registrationRetryDelay: const Duration(milliseconds: 1),
+        maxRegistrationRetries: 1,
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await _waitFor(
+        () => !scope.recoverySessionGuard.isRecoveryProtectionActive,
+      );
+
+      expect(installationReads, 2);
+      expect(journalProbes, 1);
+      expect(pollCalls, 0);
+      await scope.recoverySessionGuard.beginSessionEnd();
+      scope.recoverySessionGuard.endSessionEnd();
+    },
+  );
+
+  test(
+    'missing registration retains protection for an active journal',
+    () async {
+      final probed = Completer<void>();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (_) async => _pollResponse(null),
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        installationIdReader: () async => null,
+        activeJournalProbe: () async {
+          probed.complete();
+          return true;
+        },
+        maxRegistrationRetries: 0,
+        maxRecoveryRetries: 0,
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await probed.future.timeout(const Duration(seconds: 2));
+
+      expect(scope.recoverySessionGuard.isRecoveryProtectionActive, isTrue);
+      await expectLater(
+        scope.recoverySessionGuard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+    },
+  );
+
+  test(
+    'missing registration retains protection when the journal probe fails',
+    () async {
+      final probed = Completer<void>();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (_) async => _pollResponse(null),
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        installationIdReader: () async => null,
+        activeJournalProbe: () async {
+          probed.complete();
+          throw const FormatException('unreadable recovery journal');
+        },
+        maxRegistrationRetries: 0,
+        maxRecoveryRetries: 0,
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await probed.future.timeout(const Duration(seconds: 2));
+
+      expect(scope.recoverySessionGuard.isRecoveryProtectionActive, isTrue);
+      await expectLater(
+        scope.recoverySessionGuard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+    },
+  );
+
+  test(
     'terminal journal is retained before sign-out protection ends',
     () async {
       final markerEntered = Completer<void>();
@@ -930,8 +1036,12 @@ void main() {
 _ListenerScope _listenerScope({
   required DeviceRecoveryCommandService commands,
   required _LocalResetProbe reset,
+  Future<String?> Function()? installationIdReader,
   DeviceRecoveryTerminalJournalMarker? terminalJournalMarker,
   DeviceRecoveryInactiveJournalRetirer? inactiveJournalRetirer,
+  LocalRecoveryJournalProbe? activeJournalProbe,
+  Duration registrationRetryDelay = const Duration(seconds: 2),
+  int maxRegistrationRetries = 3,
   Duration recoveryRetryDelay = const Duration(seconds: 1),
   int maxRecoveryRetries = 5,
 }) {
@@ -944,10 +1054,13 @@ _ListenerScope _listenerScope({
       coordinator: coordinator,
       recoverySessionGuard: recoverySessionGuard,
       ref: ref,
-      installationIdReader: () async => _installation,
+      installationIdReader: installationIdReader ?? () async => _installation,
       foregroundMessages: const Stream<RemoteMessage>.empty(),
       terminalJournalMarker: terminalJournalMarker,
       inactiveJournalRetirer: inactiveJournalRetirer,
+      activeJournalProbe: activeJournalProbe,
+      registrationRetryDelay: registrationRetryDelay,
+      maxRegistrationRetries: maxRegistrationRetries,
       recoveryRetryDelay: recoveryRetryDelay,
       maxRecoveryRetries: maxRecoveryRetries,
     );
