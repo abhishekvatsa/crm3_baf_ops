@@ -56,11 +56,14 @@ presentation-owned persistence. Immediate cross-business synchronization now
 classifies pending-write observation, bounded strict remote mirrors, and
 account-owned local recovery under three explicit service surfaces. The
 recovery service also owns exact, Admin-receipted local tombstone removal;
-presentation still owns no persistence. The manifest refresh preserves every
-previously registered feature regression instead of replacing named coverage
-with a generic test. The current manifest therefore covers 532 operations and
-1,855 sites across 52 surfaces with digest
-`CC5A25125847AB1C6C13A33CB8EF4F52169A5AB0227EEDBE448C41A3ABA82D1C`;
+presentation still owns no persistence. Exact-device administrator recovery adds
+one separately classified, regression-covered service that backs up and clears
+only the authorized installation's local store before its fresh synchronization;
+the administrator screen never owns database access. The manifest refresh
+preserves every previously registered feature regression instead of replacing
+named coverage with a generic test. The current manifest therefore covers
+533 operations and 1,857 sites across 53 surfaces with digest
+`2FFD0AE8EA9EC1541F256A8233FFF4D6CDAA4304A6F2807BF809AC5C6479C399`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

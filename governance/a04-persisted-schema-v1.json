@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "30671D10AAFC7C6EE70A5D785FDC6BD17C92D6A8EDEE384D0FC82450345B5F49",
+  "inventoryDigest": "CAC2244AA0280A03AB9DB74EE4C6FBE47C326EED9BDE13301CD2B3EA47683729",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "B5947772ED3510EF6F15A6655CA29A0CA6F820CE287AFE603E782F909B4C855B",
+  "a05ManifestSha256": "32598ECE801D0307021D30264E0A4947F7ADFFF0CB491AEE3218236297B8DD09",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -966,6 +966,24 @@
       "malformedDisposition": "show repair notice and preserve exact recovery bytes",
       "compatibility": "none for malformed envelope; valid saved authoring payloads may contain empty draft collections",
       "regression": "test/a05_template_composer_integrity_test.dart"
+    },
+    {
+      "id": "crash-durable-recovery-journal-index",
+      "file": "lib/core/services/isar_production_recovery_io.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "same-user and same-installation restart recovery reconciliation after authoritative single-state poll readback, including receipt-, claim-audit- and final-audit-proved terminal null",
+      "malformedDisposition": "fail closed while retaining the active journal and sign-out protection",
+      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, terminal null requires canonical state plus exact receipt/claim/final audits, and retained terminal evidence remains inactive only after its directory entry is re-synced before a registration-unavailable startup check releases sign-out",
+      "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
+    },
+    {
+      "id": "device-recovery-journal",
+      "file": "lib/features/admin/services/device_local_recovery_reset_service.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "administrator-authorized exact-device local reset resumption",
+      "malformedDisposition": "fail closed without replacing the retained backup or clearing additional local state",
+      "compatibility": "absent journal only before the first protected backup; no partial or cross-request journal compatibility",
+      "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
     },
     {
       "id": "frequent-issue-definition-record",

@@ -160,6 +160,9 @@ export const NOTIFICATION_INSTALLATIONS_COLLECTION =
 export const NOTIFICATION_INSTALLATION_SCHEMA_VERSION = 1;
 export const MAX_NOTIFICATION_INSTALLATIONS_PER_USER = 8;
 
+const NOTIFICATION_INSTALLATION_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 const NOTIFICATION_PLATFORMS = new Set([
   "android",
   "ios",
@@ -281,12 +284,33 @@ export async function getTokenLookupsForUser(
   return tokenLookupsForApprovedUser(db, uid, authority.data);
 }
 
+export async function getTokenLookupForInstallation(
+  db: FirestoreLike,
+  uid: string,
+  installationId: string,
+): Promise<UserTokenLookup[]> {
+  if (!NOTIFICATION_INSTALLATION_ID.test(installationId)) return [];
+  const user = await db.collection("users").doc(uid).get();
+  if (!user.exists || canonicalApprovedUserAuthority(user.data()) == null) {
+    return [];
+  }
+  const installation = await db
+    .collection("users")
+    .doc(uid)
+    .collection(NOTIFICATION_INSTALLATIONS_COLLECTION)
+    .doc(installationId)
+    .get();
+  if (!installation.exists) return [];
+  const token = canonicalInstallationToken(installation.data());
+  return token == null ? [] : [{uid, fcmToken: token, installationId}];
+}
+
 // ─── Send + stale-token cleanup ──────────────────────────────────────────────
 
 /**
  * FCM error codes that mean the token is permanently dead and should be
  * cleared from the user record. Transient errors (quota, unavailable) are
- * NOT in this list — we retry those next time naturally.
+ * reported separately so an exact single-device caller can retry safely.
  *
  * See: https://firebase.google.com/docs/cloud-messaging/manage-tokens
  */
@@ -296,10 +320,18 @@ export const FCM_DEAD_TOKEN_CODES: ReadonlyArray<string> = [
   "messaging/invalid-argument",
 ];
 
+export const FCM_RETRYABLE_ERROR_CODES: ReadonlyArray<string> = [
+  "messaging/device-message-rate-exceeded",
+  "messaging/internal-error",
+  "messaging/message-rate-exceeded",
+  "messaging/server-unavailable",
+];
+
 export interface SendOutcome {
   attempted: number;
   succeeded: number;
   failed: number;
+  retryableFailures: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }
@@ -358,6 +390,7 @@ export async function sendNotification(args: {
       attempted: 0,
       succeeded: 0,
       failed: 0,
+      retryableFailures: 0,
       staleTokensCleared: 0,
       unknownAgencies,
     };
@@ -365,6 +398,7 @@ export async function sendNotification(args: {
 
   let succeeded = 0;
   let failed = 0;
+  let retryableFailures = 0;
   const staleTokens: string[] = [];
 
   for (let i = 0; i < dedupedTokens.length; i += 500) {
@@ -388,6 +422,9 @@ export async function sendNotification(args: {
       const code = resp.error?.code;
       if (code != null && FCM_DEAD_TOKEN_CODES.includes(code)) {
         staleTokens.push(batch[idx]);
+      }
+      if (code != null && FCM_RETRYABLE_ERROR_CODES.includes(code)) {
+        retryableFailures += 1;
       }
     });
   }
@@ -431,6 +468,7 @@ export async function sendNotification(args: {
     attempted: dedupedTokens.length,
     succeeded,
     failed,
+    retryableFailures,
     staleTokensCleared: cleared,
     unknownAgencies,
   };

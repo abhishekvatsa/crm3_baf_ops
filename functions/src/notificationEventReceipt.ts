@@ -11,6 +11,7 @@ export type NotificationReceiptStatus =
   | "completed"
   | "suppressed"
   | "failedBeforeDispatch"
+  | "retryableDeliveryFailed"
   | "deliveryUncertain";
 
 export interface ReceiptSnapshotLike {
@@ -46,6 +47,7 @@ export interface NotificationDeliveryOutcome {
   attempted: number;
   succeeded: number;
   failed: number;
+  retryableFailures: number;
   staleTokensCleared: number;
   unknownAgencies: ReadonlyArray<string>;
 }
@@ -97,6 +99,15 @@ export class NotificationReceiptIntegrityError extends Error {
   }
 }
 
+export class NotificationRetryableDeliveryError extends Error {
+  readonly code = "notification-delivery-retryable-failure";
+
+  constructor() {
+    super("Notification delivery failed with a known retryable outcome.");
+    this.name = "NotificationRetryableDeliveryError";
+  }
+}
+
 interface ReceiptIdentity {
   triggerName: string;
   cloudEventId: string;
@@ -124,6 +135,7 @@ const RECEIPT_STATUSES = new Set<NotificationReceiptStatus>([
   "completed",
   "suppressed",
   "failedBeforeDispatch",
+  "retryableDeliveryFailed",
   "deliveryUncertain",
 ]);
 
@@ -370,6 +382,10 @@ export async function executeIdempotentNotificationEvent<T>(args: {
   sourceDocumentPath: string;
   prepare(): Promise<T | null>;
   dispatch(plan: T): Promise<NotificationDeliveryOutcome>;
+  retryKnownFailure?(
+    plan: T,
+    outcome: NotificationDeliveryOutcome,
+  ): boolean;
 }): Promise<NotificationEventExecutionResult> {
   const identity: ReceiptIdentity = {
     triggerName: args.triggerName,
@@ -453,6 +469,23 @@ export async function executeIdempotentNotificationEvent<T>(args: {
     throw error;
   }
 
+  if (args.retryKnownFailure?.(plan, outcome) === true) {
+    await transition("dispatching", {
+      status: "retryableDeliveryFailed",
+      leaseExpiresAtEpochMs: null,
+      retryableDeliveryFailedAt: args.runtime.serverTimestamp(),
+      recipientCount: outcome.attempted,
+      succeededCount: outcome.succeeded,
+      failedCount: outcome.failed,
+      retryableFailureCount: outcome.retryableFailures,
+      staleTokensCleared: outcome.staleTokensCleared,
+      unknownAgencies: [...outcome.unknownAgencies],
+      lastError: "Known retryable delivery failure.",
+      requiresAdjudication: false,
+    });
+    throw new NotificationRetryableDeliveryError();
+  }
+
   try {
     await transition("dispatching", {
       status: "completed",
@@ -461,6 +494,7 @@ export async function executeIdempotentNotificationEvent<T>(args: {
       recipientCount: outcome.attempted,
       succeededCount: outcome.succeeded,
       failedCount: outcome.failed,
+      retryableFailureCount: outcome.retryableFailures,
       staleTokensCleared: outcome.staleTokensCleared,
       unknownAgencies: [...outcome.unknownAgencies],
       lastError: null,

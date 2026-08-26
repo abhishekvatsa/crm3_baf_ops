@@ -8,6 +8,7 @@ import '../../../features/audit/presentation/audit_timeline_screen.dart';
 import '../../../core/widgets/sync_status_indicator.dart';
 import 'user_management_screen.dart';
 import 'local_diagnostics_screen.dart';
+import 'device_recovery_screen.dart';
 import 'admin_data_browser/admin_tickets_browser.dart';
 import 'admin_data_browser/admin_directives_browser.dart';
 import 'admin_data_browser/admin_templates_browser.dart';
@@ -52,6 +53,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
     final Widget screen = switch (tool) {
       _AdminSupportTool.syncConflicts => const SyncConflictReviewScreen(),
       _AdminSupportTool.localDiagnostics => const LocalDiagnosticsScreen(),
+      _AdminSupportTool.deviceRecovery => const DeviceRecoveryScreen(),
       _AdminSupportTool.templatePublisher => const TemplatePublisherScreen(),
     };
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
@@ -121,6 +123,13 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                                   label: 'Local diagnostics',
                                 ),
                               ),
+                              const PopupMenuItem(
+                                value: _AdminSupportTool.deviceRecovery,
+                                child: _AdminSupportMenuItem(
+                                  icon: Icons.phonelink_erase_rounded,
+                                  label: 'Device recovery',
+                                ),
+                              ),
                               if (appUser.canManageTemplateGovernance)
                                 const PopupMenuItem(
                                   value: _AdminSupportTool.templatePublisher,
@@ -147,6 +156,14 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                         onPressed:
                             () => _openSupportTool(
                               _AdminSupportTool.localDiagnostics,
+                            ),
+                      ),
+                      IconButton(
+                        tooltip: 'Recover an approved user phone',
+                        icon: const Icon(Icons.phonelink_erase_rounded),
+                        onPressed:
+                            () => _openSupportTool(
+                              _AdminSupportTool.deviceRecovery,
                             ),
                       ),
                       if (appUser.canManageTemplateGovernance)
@@ -209,7 +226,12 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
   }
 }
 
-enum _AdminSupportTool { syncConflicts, localDiagnostics, templatePublisher }
+enum _AdminSupportTool {
+  syncConflicts,
+  localDiagnostics,
+  deviceRecovery,
+  templatePublisher,
+}
 
 class _AdminSupportMenuItem extends StatelessWidget {
   const _AdminSupportMenuItem({required this.icon, required this.label});

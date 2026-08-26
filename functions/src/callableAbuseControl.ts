@@ -591,7 +591,7 @@ export async function executeAuthorizedMutationWithAbuseControl<T>(args: {
   db: CallableAbuseFirestoreLike;
   actorUid: string | null;
   callableName: MutatingCallableName;
-  authorize: (userData: JsonMap) => boolean;
+  authorize: (userData: JsonMap) => boolean | Promise<boolean>;
   execute: () => Promise<T>;
   now?: () => Date;
 }): Promise<T> {
@@ -610,7 +610,7 @@ export async function executeAuthorizedMutationWithAbuseControl<T>(args: {
     .doc(actorUid)
     .get();
   const actorData = actorSnapshot.exists ? actorSnapshot.data() ?? {} : {};
-  if (!args.authorize(actorData)) {
+  if (!await args.authorize(actorData)) {
     throw boundaryError(
       "permission-denied",
       "This account is not authorized for the requested mutation.",

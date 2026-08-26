@@ -15,6 +15,9 @@ const {
 const {
   mutateOperationalEventIssueLinkWithDb,
 } = require('../lib/operationalEventIssueLinkMutation');
+const {
+  mutateDeviceRecoveryWithDb,
+} = require('../lib/deviceRecoveryMutation');
 
 jest.setTimeout(60000);
 
@@ -170,6 +173,16 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   }
 
+  async function invokeDeviceRecovery(data, authUid) {
+    return mutateDeviceRecoveryWithDb({
+      db,
+      authUid,
+      data,
+      now: () => new Date('2026-08-13T12:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+  }
+
   function assetRequest({requestId, assetInstanceId, assetNumber, name}) {
     return {
       requestId,
@@ -260,6 +273,217 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
 
   afterAll(async () => {
     if (app) await app.delete();
+  });
+
+  test('admin recovery targets one non-admin phone with reserved audit custody', async () => {
+    const selectedInstallation = '41414141-4141-4141-8141-414141414141';
+    const otherInstallation = '42424242-4242-4242-8242-424242424242';
+    const requestId = '43434343-4343-4343-8343-434343434343';
+    const webInstallation = '45454545-4545-4545-8545-454545454545';
+    const iosInstallation = '47474747-4747-4747-8747-474747474747';
+    const updatedAt = admin.firestore.Timestamp.fromDate(
+      new Date('2026-08-13T11:30:00.000Z'),
+    );
+    const target = db.collection('users').doc('ops-1');
+    await Promise.all([
+      target.collection('notification_installations')
+        .doc(selectedInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-selected-token',
+          platform: 'android',
+          updatedAt,
+        }),
+      target.collection('notification_installations')
+        .doc(otherInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-other-token',
+          platform: 'android',
+          updatedAt,
+        }),
+      target.collection('notification_installations')
+        .doc(webInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-web-token',
+          platform: 'web',
+          updatedAt,
+        }),
+      target.collection('notification_installations')
+        .doc(iosInstallation)
+        .set({
+          schemaVersion: 1,
+          token: 'private-ios-token',
+          platform: 'ios',
+          updatedAt,
+        }),
+      ...Array.from({length: 9}, (_, index) => {
+        const suffix = String(index + 1).padStart(12, '0');
+        return target.collection('notification_installations')
+          .doc(`aaaaaaaa-aaaa-4aaa-8aaa-${suffix}`)
+          .set({
+            schemaVersion: 1,
+            token: `private-newer-web-token-${index}`,
+            platform: 'web',
+            updatedAt: admin.firestore.Timestamp.fromDate(
+              new Date(`2026-08-13T11:4${index}:00.000Z`),
+            ),
+          });
+      }),
+      ...Array.from({length: 9}, (_, index) => {
+        const suffix = String(index + 1).padStart(12, '0');
+        return target.collection('notification_installations')
+          .doc(`bbbbbbbb-bbbb-4bbb-8bbb-${suffix}`)
+          .set({
+            schemaVersion: 1,
+            token: `private-older-supported-token-${index}`,
+            platform: 'android',
+            updatedAt: admin.firestore.Timestamp.fromDate(
+              new Date(`2026-08-13T10:0${index}:00.000Z`),
+            ),
+          });
+      }),
+    ]);
+
+    const inventory = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_LIST',
+      targetUid: 'ops-1',
+    }, 'admin-1');
+    expect(inventory.installations).toHaveLength(8);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .toContain(selectedInstallation);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .toContain(otherInstallation);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .not.toContain('bbbbbbbb-bbbb-4bbb-8bbb-000000000001');
+    expect(JSON.stringify(inventory)).not.toContain('private-selected-token');
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .not.toContain(webInstallation);
+    expect(inventory.installations.map(({installationId}) => installationId))
+      .not.toContain(iosInstallation);
+
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId: '46464646-4646-4646-8646-464646464646',
+      targetUid: 'ops-1',
+      installationId: webInstallation,
+      reason: 'Web clients cannot perform a protected local Isar reset.',
+    }, 'admin-1')).rejects.toMatchObject({code: 'not-found'});
+
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId: '48484848-4848-4848-8848-484848484848',
+      targetUid: 'ops-1',
+      installationId: iosInstallation,
+      reason: 'iOS lacks the governed crash-durable local reset bridge.',
+    }, 'admin-1')).rejects.toMatchObject({code: 'not-found'});
+
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+      reason: 'Safely remove stale pilot records from the selected phone.',
+    }, 'ops-1')).rejects.toMatchObject({code: 'permission-denied'});
+
+    const request = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_REQUEST',
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+      reason: 'Safely remove stale pilot records from the selected phone.',
+    }, 'admin-1');
+    expect(request).toMatchObject({status: 'pending', notificationQueued: true});
+    const event = (await db.collection('maintenance_workflow_events')
+      .doc(`device_recovery_${requestId}`).get()).data();
+    expect(event.payload).toEqual({deviceRecoveryRequestId: requestId});
+    expect(JSON.stringify(event)).not.toContain('ops-1');
+    expect(JSON.stringify(event)).not.toContain('private-selected-token');
+
+    const wrongPhone = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: otherInstallation,
+    }, 'ops-1');
+    expect(wrongPhone.request).toBeNull();
+
+    const selectedPhone = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1');
+    expect(selectedPhone.request).toMatchObject({
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+    });
+
+    const claim = await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CLAIM',
+      requestId,
+      installationId: selectedInstallation,
+    }, 'ops-1');
+    expect(claim).toMatchObject({status: 'in_progress', targetUid: 'ops-1'});
+    await expect(invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CANCEL',
+      requestId,
+      targetUid: 'ops-1',
+      installationId: selectedInstallation,
+      reason: 'Cancellation cannot race the already claimed phone reset.',
+    }, 'admin-1')).rejects.toMatchObject({code: 'failed-precondition'});
+
+    await target.update({isApproved: false});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({request: {status: 'in_progress'}});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CLAIM',
+      requestId,
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({
+      status: 'in_progress',
+      idempotentReplay: true,
+    });
+    await target.collection('notification_installations')
+      .doc(selectedInstallation).delete();
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({request: {status: 'in_progress'}});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_CLAIM',
+      requestId,
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({
+      status: 'in_progress',
+      idempotentReplay: true,
+    });
+
+    const completionRequest = {
+      operation: 'DEVICE_RECOVERY_COMPLETE',
+      requestId,
+      installationId: selectedInstallation,
+      backupFileCount: 2,
+      clearedCursorCount: 3,
+      backedUpUnsyncedRows: 1,
+    };
+    const completion = await invokeDeviceRecovery(completionRequest, 'ops-1');
+    expect(completion).toMatchObject({
+      status: 'completed',
+      idempotentReplay: false,
+    });
+    expect(await invokeDeviceRecovery(completionRequest, 'ops-1'))
+      .toMatchObject({status: 'completed', idempotentReplay: true});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({request: null});
+    const audits = await db.collection('audit_logs').get();
+    expect(audits.docs.map((snapshot) => snapshot.id).sort()).toEqual([
+      `server_authority_device_recovery_${requestId}_claimed`,
+      `server_authority_device_recovery_${requestId}_completed`,
+      `server_authority_device_recovery_${requestId}_requested`,
+    ]);
   });
 
   test('creates a reusable definition and exact replay returns the same evidence', async () => {

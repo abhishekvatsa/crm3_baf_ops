@@ -63,6 +63,7 @@ import 'core/services/sync_coordinator.dart';
 import 'core/theme/baf_design_system.dart';
 import 'core/widgets/brand/brand_widgets.dart';
 import 'features/reports/providers/operations_report_provider.dart';
+import 'features/admin/services/device_recovery_listener.dart';
 
 // ── UI ───────────────────────────────────────────────────────
 import 'home_screen.dart';
@@ -1086,10 +1087,79 @@ class AuthGate extends ConsumerWidget {
     }
 
     if (!user.isApproved) {
-      return const PendingApprovalScreen();
+      return _PendingApprovalRecoveryGate(appUser: user);
     }
 
     return _StartupSyncGate(appUser: user);
+  }
+}
+
+class _PendingApprovalRecoveryGate extends ConsumerStatefulWidget {
+  const _PendingApprovalRecoveryGate({required this.appUser});
+
+  final AppUser appUser;
+
+  @override
+  ConsumerState<_PendingApprovalRecoveryGate> createState() =>
+      _PendingApprovalRecoveryGateState();
+}
+
+class _PendingApprovalRecoveryGateState
+    extends ConsumerState<_PendingApprovalRecoveryGate>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startRestrictedRecovery();
+  }
+
+  @override
+  void didUpdateWidget(_PendingApprovalRecoveryGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.appUser.uid != widget.appUser.uid ||
+        oldWidget.appUser.isApproved != widget.appUser.isApproved) {
+      _startRestrictedRecovery();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !kIsWeb) {
+      unawaited(
+        ref
+            .read(deviceRecoveryListenerProvider)
+            .checkNow(reason: 'pending_approval_resumed'),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (!kIsWeb) {
+      ref.read(deviceRecoveryListenerProvider).stop();
+    }
+    super.dispose();
+  }
+
+  void _startRestrictedRecovery() {
+    if (kIsWeb || widget.appUser.isApproved) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.appUser.isApproved) {
+        return;
+      }
+      ref
+          .read(deviceRecoveryListenerProvider)
+          .start(widget.appUser, claimedRecoveryOnly: true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const PendingApprovalScreen();
   }
 }
 
@@ -1236,6 +1306,11 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   @override
   void didUpdateWidget(_StartupSyncGate oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!kIsWeb &&
+        (oldWidget.appUser.uid != widget.appUser.uid ||
+            oldWidget.appUser.isApproved != widget.appUser.isApproved)) {
+      ref.read(deviceRecoveryListenerProvider).start(widget.appUser);
+    }
     final oldScope = LiveMaintenanceMirrorScope.forUser(oldWidget.appUser);
     final newScope = LiveMaintenanceMirrorScope.forUser(widget.appUser);
     if (oldScope.scopeKey != newScope.scopeKey) {
@@ -1245,6 +1320,13 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !kIsWeb) {
+      unawaited(
+        ref
+            .read(deviceRecoveryListenerProvider)
+            .checkNow(reason: 'app_resumed'),
+      );
+    }
     final liveService = _liveRemoteSyncService;
     if (liveService == null) {
       return;
@@ -1264,6 +1346,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     ref.read(autoSyncServiceProvider).stop();
+    if (!kIsWeb) ref.read(deviceRecoveryListenerProvider).stop();
     _liveRemoteSyncService?.dispose();
     _liveRemoteSyncService = null;
     super.dispose();
@@ -1325,6 +1408,9 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
           return;
         }
         ref.read(autoSyncServiceProvider).start();
+        if (!kIsWeb) {
+          ref.read(deviceRecoveryListenerProvider).start(widget.appUser);
+        }
 
         _startOrUpdateLiveMaintenanceMirror();
       } catch (e, st) {

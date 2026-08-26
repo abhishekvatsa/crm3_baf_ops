@@ -1,7 +1,11 @@
 // FILE: lib/core/services/isar_production_recovery_io.dart
 
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+import 'package:flutter/services.dart';
+import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
 class IsarRecoveryFileEntry {
@@ -40,6 +44,16 @@ class IsarRecoveryPackageResult {
     required this.copiedFileCount,
     required this.warnings,
     required this.files,
+  });
+}
+
+class IsarRecoveryBackupEvidence {
+  final int byteCount;
+  final String sha256;
+
+  const IsarRecoveryBackupEvidence({
+    required this.byteCount,
+    required this.sha256,
   });
 }
 
@@ -89,9 +103,9 @@ String _stamp() {
 
 String _safeReason(String reason) {
   final cleaned = reason.trim().toLowerCase().replaceAll(
-        RegExp(r'[^a-z0-9_\-]+'),
-        '_',
-      );
+    RegExp(r'[^a-z0-9_\-]+'),
+    '_',
+  );
   return cleaned.isEmpty ? 'recovery' : cleaned;
 }
 
@@ -171,6 +185,377 @@ Future<IsarRecoveryPackageResult> createIsarRecoveryPackage({
   );
 }
 
+Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
+  required Isar database,
+  required String diagnosticsText,
+  required String reason,
+  String? manifestJsonText,
+}) async {
+  final sourcePath = database.path;
+  if (sourcePath == null) {
+    throw UnsupportedError(
+      'The active Isar database does not expose a local store path.',
+    );
+  }
+
+  final recoveryDir = await _newRecoveryDirectory(reason);
+  final report = File('${recoveryDir.path}/recovery_report.txt');
+  await report.writeAsString(
+    _recoveryReportHeader(reason) + diagnosticsText,
+    flush: true,
+  );
+
+  String? manifestJsonPath;
+  if (manifestJsonText != null && manifestJsonText.trim().isNotEmpty) {
+    final manifest = File('${recoveryDir.path}/recovery_manifest.json');
+    await manifest.writeAsString(manifestJsonText, flush: true);
+    manifestJsonPath = manifest.path;
+  }
+
+  final backupDir = Directory('${recoveryDir.path}/raw_isar_backup');
+  await backupDir.create(recursive: true);
+  final snapshot = File('${backupDir.path}/${database.name}.isar');
+  await database.copyToFile(snapshot.path);
+  if (!await snapshot.exists() || await snapshot.length() == 0) {
+    throw StateError('The consistent Isar backup was not retained.');
+  }
+
+  final copied = <IsarRecoveryFileEntry>[
+    IsarRecoveryFileEntry(
+      sourcePath: sourcePath,
+      targetPath: snapshot.path,
+      status: 'copied',
+    ),
+  ];
+  await _appendFileList(
+    report,
+    copied,
+    title: 'Transactionally consistent Isar database backup',
+  );
+  // The snapshot bytes and every new parent entry must survive before return.
+  await _syncRecoveryFile(snapshot);
+  await _syncRecoveryDirectory(backupDir);
+  await _syncRecoveryDirectory(recoveryDir);
+  final diagnosticsRoot = recoveryDir.parent;
+  await _syncRecoveryDirectory(diagnosticsRoot);
+  await _syncRecoveryDirectory(diagnosticsRoot.parent);
+
+  return IsarRecoveryPackageResult(
+    directoryPath: recoveryDir.path,
+    reportPath: report.path,
+    manifestJsonPath: manifestJsonPath,
+    rawBackupDirectoryPath: backupDir.path,
+    copiedFileCount: copied.length,
+    warnings: const <String>[],
+    files: copied,
+  );
+}
+
+Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(
+  String path,
+) async {
+  final file = File(path);
+  final before = await file.stat();
+  if (before.type != FileSystemEntityType.file || before.size <= 0) return null;
+  final digest = await sha256.bind(file.openRead()).first;
+  final after = await file.stat();
+  if (after.type != FileSystemEntityType.file || after.size != before.size) {
+    return null;
+  }
+  return IsarRecoveryBackupEvidence(
+    byteCount: after.size,
+    sha256: digest.toString(),
+  );
+}
+
+Future<bool> isRetainedIsarRecoveryBackup(String path) async {
+  return await readIsarRecoveryBackupEvidence(path) != null;
+}
+
+const _deviceRecoveryJournalDirectoryName =
+    'CRM3_BAF_Ops_Device_Recovery_Journals';
+bool get crashDurableIsarRecoveryJournalSupported => Platform.isAndroid;
+const _deviceRecoveryStorageChannel = MethodChannel(
+  'in.co.sail.bsl.crm3.bafops/recovery_storage',
+);
+
+class _DeviceRecoveryJournalPaths {
+  const _DeviceRecoveryJournalPaths({
+    required this.journalDirectory,
+    required this.target,
+    required this.pending,
+  });
+
+  final Directory journalDirectory;
+  final File target;
+  final File pending;
+}
+
+String _deviceRecoveryJournalFileName(String requestId) {
+  if (requestId.isEmpty ||
+      requestId.length > 128 ||
+      !RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(requestId)) {
+    throw const FormatException('Invalid device-recovery request ID.');
+  }
+  return '$requestId.json';
+}
+
+Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async {
+  if (!crashDurableIsarRecoveryJournalSupported) return false;
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  if (!await directory.exists()) return false;
+  await for (final entity in directory.list(followLinks: false)) {
+    if (entity is! File) continue;
+    final name = entity.uri.pathSegments.last;
+    if (name.endsWith('.json') || name.endsWith('.json.pending')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Future<void> syncRetainedCrashDurableIsarRecoveryJournalEvidence() async {
+  if (!crashDurableIsarRecoveryJournalSupported) return;
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  if (!await directory.exists()) return;
+  await for (final entity in directory.list(followLinks: false)) {
+    if (entity is! File) continue;
+    if (_isTerminalRecoveryJournalName(entity.uri.pathSegments.last)) {
+      await _syncRecoveryDirectory(directory);
+      return;
+    }
+  }
+}
+
+Future<void> markCrashDurableIsarRecoveryJournalTerminal(
+  String requestId,
+) async {
+  if (!crashDurableIsarRecoveryJournalSupported) return;
+  final paths = await _deviceRecoveryJournalPaths(
+    requestId,
+    createDirectory: false,
+  );
+  var changed = false;
+  for (final source in <File>[paths.target, paths.pending]) {
+    if (!await source.exists()) continue;
+    final terminal = File('${source.path}.terminal');
+    if (await terminal.exists()) {
+      final sourceEvidence = await readIsarRecoveryBackupEvidence(source.path);
+      final terminalEvidence = await readIsarRecoveryBackupEvidence(
+        terminal.path,
+      );
+      if (sourceEvidence == null ||
+          terminalEvidence == null ||
+          sourceEvidence.byteCount != terminalEvidence.byteCount ||
+          sourceEvidence.sha256 != terminalEvidence.sha256) {
+        throw const FileSystemException(
+          'Retained terminal recovery-journal evidence differs.',
+        );
+      }
+      await source.delete();
+    } else {
+      await source.rename(terminal.path);
+    }
+    changed = true;
+  }
+  if (changed) await _syncRecoveryDirectory(paths.journalDirectory);
+}
+
+Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
+  required String targetUid,
+  required String installationId,
+  required String? activeRequestId,
+}) async {
+  if (!crashDurableIsarRecoveryJournalSupported) return 0;
+  if (targetUid.isEmpty || installationId.isEmpty) {
+    throw const FormatException('Recovery journal identity is required.');
+  }
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  if (!await directory.exists()) return 0;
+
+  final requestIds = <String>{};
+  var terminalEvidenceNeedsDirectorySync = false;
+  await for (final entity in directory.list(followLinks: false)) {
+    if (entity is! File) continue;
+    final name = entity.uri.pathSegments.last;
+    if (_isTerminalRecoveryJournalName(name)) {
+      terminalEvidenceNeedsDirectorySync = true;
+      continue;
+    }
+    final requestId = _activeRecoveryJournalRequestId(name);
+    if (requestId == null) continue;
+    final decoded = jsonDecode(await entity.readAsString());
+    if (requestId.isEmpty ||
+        decoded is! Map ||
+        decoded['requestId'] != requestId ||
+        decoded['targetUid'] is! String ||
+        decoded['installationId'] is! String) {
+      throw const FormatException(
+        'Active recovery-journal identity is malformed.',
+      );
+    }
+    if (decoded['targetUid'] != targetUid ||
+        decoded['installationId'] != installationId) {
+      throw const FormatException(
+        'Active recovery-journal identity does not match the current session.',
+      );
+    }
+    if (requestId != activeRequestId) requestIds.add(requestId);
+  }
+  for (final requestId in requestIds) {
+    await markCrashDurableIsarRecoveryJournalTerminal(requestId);
+  }
+  if (terminalEvidenceNeedsDirectorySync) {
+    await syncRetainedCrashDurableIsarRecoveryJournalEvidence();
+  }
+  return requestIds.length;
+}
+
+String? _activeRecoveryJournalRequestId(String name) {
+  const pendingSuffix = '.json.pending';
+  const targetSuffix = '.json';
+  if (name.endsWith(pendingSuffix)) {
+    return name.substring(0, name.length - pendingSuffix.length);
+  }
+  if (name.endsWith(targetSuffix)) {
+    return name.substring(0, name.length - targetSuffix.length);
+  }
+  return null;
+}
+
+bool _isTerminalRecoveryJournalName(String name) {
+  const pendingSuffix = '.json.pending.terminal';
+  const targetSuffix = '.json.terminal';
+  return (name.endsWith(pendingSuffix) && name.length > pendingSuffix.length) ||
+      (name.endsWith(targetSuffix) && name.length > targetSuffix.length);
+}
+
+Future<void> _syncRecoveryStorageEntity({
+  required String method,
+  required String argumentName,
+  required String path,
+  required String entityLabel,
+}) async {
+  if (!Platform.isAndroid) {
+    throw const FileSystemException(
+      'Crash-durable device recovery is currently supported only on Android.',
+    );
+  }
+  final synchronized = await _deviceRecoveryStorageChannel.invokeMethod<bool>(
+    method,
+    <String, Object?>{argumentName: path},
+  );
+  if (synchronized != true) {
+    throw FileSystemException(
+      'Recovery $entityLabel synchronization was not confirmed.',
+      path,
+    );
+  }
+}
+
+Future<void> _syncRecoveryFile(File file) => _syncRecoveryStorageEntity(
+  method: 'syncFile',
+  argumentName: 'filePath',
+  path: file.path,
+  entityLabel: 'file',
+);
+
+Future<void> _syncRecoveryDirectory(Directory directory) =>
+    _syncRecoveryStorageEntity(
+      method: 'syncDirectory',
+      argumentName: 'directoryPath',
+      path: directory.path,
+      entityLabel: 'directory',
+    );
+
+Future<_DeviceRecoveryJournalPaths> _deviceRecoveryJournalPaths(
+  String requestId, {
+  required bool createDirectory,
+}) async {
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  if (createDirectory && !await directory.exists()) {
+    await directory.create(recursive: true);
+    await _syncRecoveryDirectory(documents);
+  }
+  final target = File(
+    '${directory.path}/${_deviceRecoveryJournalFileName(requestId)}',
+  );
+  return _DeviceRecoveryJournalPaths(
+    journalDirectory: directory,
+    target: target,
+    pending: File('${target.path}.pending'),
+  );
+}
+
+Future<String?> readCrashDurableIsarRecoveryJournal(String requestId) async {
+  final paths = await _deviceRecoveryJournalPaths(
+    requestId,
+    createDirectory: false,
+  );
+  if (await paths.target.exists()) return paths.target.readAsString();
+  if (!await paths.pending.exists()) return null;
+
+  final serialized = await paths.pending.readAsString();
+  if (serialized.isEmpty) {
+    throw const FormatException(
+      'Pending device-recovery journal cannot be empty.',
+    );
+  }
+  await paths.pending.rename(paths.target.path);
+  await _syncRecoveryDirectory(paths.journalDirectory);
+  if (await paths.target.readAsString() != serialized) {
+    throw const FileSystemException(
+      'Recovered device-recovery journal readback failed.',
+    );
+  }
+  return serialized;
+}
+
+Future<void> writeCrashDurableIsarRecoveryJournal(
+  String requestId,
+  String serialized,
+) async {
+  if (serialized.isEmpty) {
+    throw const FormatException('Device-recovery journal cannot be empty.');
+  }
+  final paths = await _deviceRecoveryJournalPaths(
+    requestId,
+    createDirectory: true,
+  );
+  final target = paths.target;
+  final pending = paths.pending;
+  try {
+    if (await pending.exists()) await pending.delete();
+    await pending.writeAsString(serialized, flush: true);
+    if (await pending.readAsString() != serialized) {
+      throw const FileSystemException(
+        'Device-recovery journal write verification failed.',
+      );
+    }
+    await pending.rename(target.path);
+    await _syncRecoveryDirectory(paths.journalDirectory);
+    if (await target.readAsString() != serialized) {
+      throw const FileSystemException(
+        'Device-recovery journal replacement verification failed.',
+      );
+    }
+  } finally {
+    if (await pending.exists()) await pending.delete();
+  }
+}
+
 Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
   required String reason,
   required String diagnosticsText,
@@ -182,11 +567,14 @@ Future<IsarControlledRebuildResult> rebuildLocalDatabaseAfterBackup({
     reason: reason,
   );
 
-  final movedAsideDir = Directory('${package.directoryPath}/moved_aside_isar_store');
+  final movedAsideDir = Directory(
+    '${package.directoryPath}/moved_aside_isar_store',
+  );
   await movedAsideDir.create(recursive: true);
   final moved = await _moveLikelyIsarFiles(movedAsideDir);
   final warnings = <String>[...package.warnings];
-  final failedMoves = moved.where((entry) => entry.status == 'move_failed').toList();
+  final failedMoves =
+      moved.where((entry) => entry.status == 'move_failed').toList();
   if (failedMoves.isNotEmpty) {
     warnings.add(
       'One or more Isar files could not be moved aside. Local rebuild was not completed; the existing files were left in place.',
@@ -238,17 +626,22 @@ Future<void> _appendFileList(
   List<String> warnings = const <String>[],
   String title = 'Raw Isar file backup',
 }) async {
-  final buffer = StringBuffer()
-    ..writeln('')
-    ..writeln(title)
-    ..writeln('fileCount: ${files.length}');
+  final buffer =
+      StringBuffer()
+        ..writeln('')
+        ..writeln(title)
+        ..writeln('fileCount: ${files.length}');
   for (final warning in warnings) {
     buffer.writeln('warning: $warning');
   }
   for (final file in files) {
     buffer.writeln(file.toLine());
   }
-  await report.writeAsString(buffer.toString(), mode: FileMode.append, flush: true);
+  await report.writeAsString(
+    buffer.toString(),
+    mode: FileMode.append,
+    flush: true,
+  );
 }
 
 Future<List<FileSystemEntity>> _likelyIsarFiles() async {
@@ -260,9 +653,10 @@ Future<List<FileSystemEntity>> _likelyIsarFiles() async {
 
 bool _isLikelyIsarStoreEntity(FileSystemEntity entity) {
   if (entity is! File) return false;
-  final name = entity.uri.pathSegments.isEmpty
-      ? entity.path.split(Platform.pathSeparator).last
-      : entity.uri.pathSegments.last;
+  final name =
+      entity.uri.pathSegments.isEmpty
+          ? entity.path.split(Platform.pathSeparator).last
+          : entity.uri.pathSegments.last;
   return name == 'default.isar' ||
       name == 'default.isar.lock' ||
       name.startsWith('default.isar.') ||
@@ -271,13 +665,16 @@ bool _isLikelyIsarStoreEntity(FileSystemEntity entity) {
       name.endsWith('.isar.tmp');
 }
 
-Future<List<IsarRecoveryFileEntry>> _copyLikelyIsarFiles(Directory targetDir) async {
+Future<List<IsarRecoveryFileEntry>> _copyLikelyIsarFiles(
+  Directory targetDir,
+) async {
   final entries = await _likelyIsarFiles();
   final results = <IsarRecoveryFileEntry>[];
   for (final entity in entries) {
-    final name = entity.uri.pathSegments.isEmpty
-        ? entity.path.split(Platform.pathSeparator).last
-        : entity.uri.pathSegments.last;
+    final name =
+        entity.uri.pathSegments.isEmpty
+            ? entity.path.split(Platform.pathSeparator).last
+            : entity.uri.pathSegments.last;
     final target = File('${targetDir.path}/$name');
     try {
       await (entity as File).copy(target.path);
@@ -302,13 +699,16 @@ Future<List<IsarRecoveryFileEntry>> _copyLikelyIsarFiles(Directory targetDir) as
   return results;
 }
 
-Future<List<IsarRecoveryFileEntry>> _moveLikelyIsarFiles(Directory targetDir) async {
+Future<List<IsarRecoveryFileEntry>> _moveLikelyIsarFiles(
+  Directory targetDir,
+) async {
   final entries = await _likelyIsarFiles();
   final results = <IsarRecoveryFileEntry>[];
   for (final entity in entries) {
-    final name = entity.uri.pathSegments.isEmpty
-        ? entity.path.split(Platform.pathSeparator).last
-        : entity.uri.pathSegments.last;
+    final name =
+        entity.uri.pathSegments.isEmpty
+            ? entity.path.split(Platform.pathSeparator).last
+            : entity.uri.pathSegments.last;
     final target = File('${targetDir.path}/$name');
     try {
       await entity.rename(target.path);

@@ -163,6 +163,8 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   operational_event_receipts: 'SERVER_CONTROL_RECORD',
   workflow_notification_receipts: 'SERVER_CONTROL_RECORD',
   notification_event_receipts: 'SERVER_CONTROL_RECORD',
+  device_recovery_requests: 'SERVER_CONTROL_RECORD',
+  device_recovery_receipts: 'SERVER_CONTROL_RECORD',
   callable_abuse_controls: 'SERVER_CONTROL_RECORD',
 });
 

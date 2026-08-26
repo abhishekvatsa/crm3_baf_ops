@@ -6,6 +6,8 @@ const {
   buildTicketLaneAddedNotification,
   buildTicketResolvedNotification,
   FCM_DEAD_TOKEN_CODES,
+  FCM_RETRYABLE_ERROR_CODES,
+  getTokenLookupForInstallation,
   getTokenLookupsForUser,
   getTokenLookupsForRoles,
   MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
@@ -625,6 +627,88 @@ describe('getTokenLookupsForRoles', () => {
     ]);
     expect(await getTokenLookupsForUser(db, 'pending')).toEqual([]);
   });
+
+  test('exact installation lookup is not hidden by the generic newest-eight cap', async () => {
+    const selected = '11111111-1111-4111-8111-111111111111';
+    const newer = Object.fromEntries(
+      Array.from({length: 8}, (_, index) => [
+        `22222222-2222-4222-8222-22222222222${index}`,
+        {
+          schemaVersion: 1,
+          token: `newer-token-${index}`,
+          platform: 'web',
+          updatedAt: fakeTimestamp(
+            `2026-08-05T${String(index).padStart(2, '0')}:00:00Z`,
+          ),
+        },
+      ]),
+    );
+    const {db} = buildFirestoreDouble(
+      {u1: {isApproved: true, roles: ['operations']}},
+      {
+        u1: {
+          [selected]: {
+            schemaVersion: 1,
+            token: 'selected-phone-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T00:00:00Z'),
+          },
+          ...newer,
+        },
+      },
+    );
+
+    expect(await getTokenLookupsForUser(db, 'u1')).not.toContainEqual({
+      uid: 'u1',
+      fcmToken: 'selected-phone-token',
+      installationId: selected,
+    });
+    expect(await getTokenLookupForInstallation(db, 'u1', selected)).toEqual([
+      {
+        uid: 'u1',
+        fcmToken: 'selected-phone-token',
+        installationId: selected,
+      },
+    ]);
+  });
+
+  test('exact installation lookup remains authority and shape constrained', async () => {
+    const installation = '11111111-1111-4111-8111-111111111111';
+    const {db} = buildFirestoreDouble(
+      {
+        approved: {isApproved: true, roles: ['operations']},
+        pending: {isApproved: false, roles: ['operations']},
+      },
+      {
+        approved: {
+          [installation]: {
+            schemaVersion: 1,
+            token: '',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T00:00:00Z'),
+          },
+        },
+        pending: {
+          [installation]: {
+            schemaVersion: 1,
+            token: 'pending-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T00:00:00Z'),
+          },
+        },
+      },
+    );
+
+    expect(
+      await getTokenLookupForInstallation(db, 'approved', installation),
+    ).toEqual([]);
+    expect(
+      await getTokenLookupForInstallation(db, 'pending', installation),
+    ).toEqual([]);
+    expect(
+      await getTokenLookupForInstallation(db, 'approved', 'not-a-uuid'),
+    ).toEqual([]);
+  });
 });
 
 // ─── sendNotification + V2 cleanup behaviour ─────────────────────────────────
@@ -638,7 +722,13 @@ describe('sendNotification', () => {
       recipients: [{uid: 'u1', fcmToken: 't1'}, {uid: 'u2', fcmToken: 't2'}],
       title: 'T', body: 'B',
     });
-    expect(outcome).toMatchObject({attempted: 2, succeeded: 2, failed: 0, staleTokensCleared: 0});
+    expect(outcome).toMatchObject({
+      attempted: 2,
+      succeeded: 2,
+      failed: 0,
+      retryableFailures: 0,
+      staleTokensCleared: 0,
+    });
   });
 
   test('clears fcmToken on user with not-registered error', async () => {
@@ -754,6 +844,7 @@ describe('sendNotification', () => {
       title: 'T', body: 'B',
     });
     expect(outcome.failed).toBe(2);
+    expect(outcome.retryableFailures).toBe(2);
     expect(outcome.staleTokensCleared).toBe(0);
     expect(users.u1.fcmToken).toBe('t1');
     expect(users.u2.fcmToken).toBe('t2');
@@ -883,6 +974,23 @@ describe('sendNotification', () => {
         'messaging/registration-token-not-registered',
         'messaging/invalid-registration-token',
         'messaging/invalid-argument',
+      ]),
+    );
+  });
+
+  test('FCM_RETRYABLE_ERROR_CODES contains only known transient classes', () => {
+    expect(FCM_RETRYABLE_ERROR_CODES).toEqual([
+      'messaging/device-message-rate-exceeded',
+      'messaging/internal-error',
+      'messaging/message-rate-exceeded',
+      'messaging/server-unavailable',
+    ]);
+    expect(FCM_RETRYABLE_ERROR_CODES).not.toEqual(
+      expect.arrayContaining([
+        'messaging/quota-exceeded',
+        'messaging/registration-token-not-registered',
+        'messaging/unavailable',
+        'messaging/unknown-error',
       ]),
     );
   });

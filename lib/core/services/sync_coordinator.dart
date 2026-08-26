@@ -10,6 +10,7 @@ import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import 'app_logger.dart';
 import 'global_pull_service.dart';
+import 'local_recovery_session_guard.dart';
 import 'sync_service.dart';
 
 enum SyncRequestOutcome { succeeded, failed, queued, throttled }
@@ -161,6 +162,7 @@ class SyncCoordinator {
   final Ref _ref;
   final SyncService _sync;
   final GlobalPullService _pull;
+  final LocalRecoverySessionGuard _recoverySessionGuard;
 
   bool _running = false;
   bool _initialized = false;
@@ -176,7 +178,12 @@ class SyncCoordinator {
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
-  SyncCoordinator(this._ref, this._sync, this._pull) {
+  SyncCoordinator(
+    this._ref,
+    this._sync,
+    this._pull,
+    this._recoverySessionGuard,
+  ) {
     _initConnectivityListener();
   }
 
@@ -210,15 +217,17 @@ class SyncCoordinator {
   Future<T> runWithSyncPaused<T>({
     required Future<T> Function() operation,
     String reason = 'local_recovery',
+    bool resumeSyncAfterRecovery = true,
   }) async {
     if (_localRecoveryActive) {
       throw StateError('Local synchronization recovery is already running.');
     }
 
+    _recoverySessionGuard.beginRecovery();
     _localRecoveryActive = true;
-    _ref.read(syncLocalRecoveryActiveProvider.notifier).state = true;
 
     try {
+      _ref.read(syncLocalRecoveryActiveProvider.notifier).state = true;
       final activeRun = _activeRunCompletion;
       if (activeRun != null) {
         await activeRun.future;
@@ -226,21 +235,27 @@ class SyncCoordinator {
       return await operation();
     } finally {
       _localRecoveryActive = false;
-      _ref.read(syncLocalRecoveryActiveProvider.notifier).state = false;
+      try {
+        _ref.read(syncLocalRecoveryActiveProvider.notifier).state = false;
 
-      final followUp = _takeQueuedFollowUp();
-      if (followUp != null) {
-        _clearPendingFollowUpHealth();
+        final followUp = _takeQueuedFollowUp();
+        if (followUp != null) {
+          _clearPendingFollowUpHealth();
+        }
+        if (resumeSyncAfterRecovery) {
+          unawaited(
+            _runFullSync(
+              reason: '${followUp?.reason ?? reason} (recovery refresh)',
+              force: true,
+              queuedFollowUp: true,
+              recheckPermanentRejections:
+                  followUp?.recheckPermanentRejections ?? false,
+            ),
+          );
+        }
+      } finally {
+        _recoverySessionGuard.endRecovery();
       }
-      unawaited(
-        _runFullSync(
-          reason: '${followUp?.reason ?? reason} (recovery refresh)',
-          force: true,
-          queuedFollowUp: true,
-          recheckPermanentRejections:
-              followUp?.recheckPermanentRejections ?? false,
-        ),
-      );
     }
   }
 
@@ -715,6 +730,7 @@ final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
     ref,
     ref.read(syncServiceProvider),
     ref.read(pullServiceProvider),
+    ref.read(localRecoverySessionGuardProvider),
   );
 
   ref.onDispose(() => coordinator.dispose());

@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-25",
   "asOfDate": "2026-08-25",
-  "status": "BUILD16_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
+  "status": "BUILD16_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
@@ -12,7 +12,17 @@
       "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
-      "sameBuildNumberReuseProhibited": true
+      "sameBuildNumberReuseProhibited": true,
+      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "productionRuntimeUseAuthorized": false,
+      "firestoreRulesAndIndexes": {
+        "rulesSha256": "42A2039D958A1EA691DE20D89027B5CDA0FF5DC9EE09B0654EBEF9C619CF7621",
+        "indexCount": 66,
+        "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+        "relationshipToDeployedBackend": "RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+        "productionDeploymentPerformed": false,
+        "productionRuntimeUseAuthorized": false
+      }
     },
     "latestFinalizedArtifact": {
       "buildNumber": 16,
@@ -32,8 +42,10 @@
       "functionFleetSourceCommit": "4cecd7fb0ee5dd661bae9cac035460892e7a63a7",
       "rulesAndIndexesEvidenceFile": "release/evidence/build16-firestore-rules-indexes-live-readback.json",
       "rulesAndIndexesSourceCommit": "4cecd7fb0ee5dd661bae9cac035460892e7a63a7",
-      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
-      "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+      "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "currentSourceRulesAndIndexesDeployment": "SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
     },
     "controlledPilot": {
       "buildNumber": 11,

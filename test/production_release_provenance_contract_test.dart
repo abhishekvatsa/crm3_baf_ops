@@ -169,10 +169,22 @@ void main() {
       expect(text, contains('exactFirestoreIndexCount'));
       expect(text, contains('exactFirestoreIndexSetSha256'));
       expect(text, contains('--source-index-set firestore.indexes.json'));
+      expect(text, contains('release/current-successor-state.json'));
+      expect(text, contains('firestoreRulesAndIndexes'));
+      expect(
+        text,
+        contains('SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'),
+      );
       expect(
         text,
         contains(
-          'Exact successor Firestore Rules/index readback differs from approval.',
+          'Exact finalized Firestore Rules/index readback differs from approval.',
+        ),
+      );
+      expect(
+        text,
+        contains(
+          'Current source Firestore Rules/index authority differs from source state.',
         ),
       );
       expect(

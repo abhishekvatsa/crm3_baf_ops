@@ -89,6 +89,10 @@ void main() {
       lessThan(workflow.indexOf('getTokenLookupsForRoles(')),
     );
     expect(workflow, contains('workflow_notification_receipts'));
+    expect(workflow, contains('deviceRecoveryStateDocumentId'));
+    expect(workflow, contains('state.status !== "pending"'));
+    expect(workflow, contains('retryKnownFailure:'));
+    expect(workflow, contains('outcome.retryableFailures === 1'));
     expect(workflow, contains('return null;'));
   });
 
@@ -100,6 +104,7 @@ void main() {
       'notification-event-receipt-v1\\0',
       'notification_event_receipts',
       'failedBeforeDispatch',
+      'retryableDeliveryFailed',
       'deliveryUncertain',
       'notification-event-receipt-attempt-mismatch',
       'notification-event-receipt-attempt-exhausted',
@@ -162,6 +167,7 @@ void main() {
     expect(decision, contains('This is not an exactly-once delivery claim.'));
     expect(decision, contains('structured error-level signal'));
     expect(decision, contains('operator-queryable marker'));
+    expect(decision, contains('exact single-device'));
     expect(
       decision,
       contains('A reporting failure cannot reopen or resend the event.'),

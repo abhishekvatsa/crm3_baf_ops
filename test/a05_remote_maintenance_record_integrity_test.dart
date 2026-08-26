@@ -180,6 +180,51 @@ void main() {
         );
         expect(record.issueLanePlan.completedLanes, isEmpty);
 
+        final acknowledgedLegacyClosure =
+            _validRecord()
+              ..['status'] = 'closedWithoutResolution'
+              ..['isResolved'] = true
+              ..['endDate'] = '2026-08-12T11:00:00Z'
+              ..['closedByUid'] = 'admin-1'
+              ..['closedByName'] = 'Admin One'
+              ..['issueClosureSchemaVersion'] = 1
+              ..['issueClosureDisposition'] = 'stillRelevant'
+              ..['issueClosureReason'] =
+                  'The operating cycle ended while engineering follow-up remained open.'
+              ..['acknowledgedByUid'] = 'mechanical-1'
+              ..['acknowledgedByName'] = 'Mechanical One'
+              ..['acknowledgedAt'] = '2026-08-12T10:20:00Z';
+
+        expect(
+          () => readRemoteMaintenanceRecord(
+            acknowledgedLegacyClosure,
+            documentId: 'ticket-1',
+          ),
+          throwsA(
+            isA<PersistedDataFormatException>().having(
+              (error) => error.fieldName,
+              'fieldName',
+              'acknowledgedByUid',
+            ),
+          ),
+        );
+
+        final repairedClosure = readRemoteMaintenanceRecord(
+          acknowledgedLegacyClosure..addAll(<String, dynamic>{
+            'issueLaneSchemaVersion': 1,
+            'issueLaneRevision': 1,
+            'issueAssignedLanes': <String>['mechanical'],
+            'issueAcknowledgedLanes': <String>['mechanical'],
+            'issueCompletedLanes': <String>[],
+          }),
+          documentId: 'ticket-1',
+        );
+
+        expect(repairedClosure.issueLanePlan.acknowledgedLanes, <String>[
+          'mechanical',
+        ]);
+        expect(repairedClosure.issueLanePlan.completedLanes, isEmpty);
+
         expect(
           () => readRemoteMaintenanceRecord(
             _validRecord()

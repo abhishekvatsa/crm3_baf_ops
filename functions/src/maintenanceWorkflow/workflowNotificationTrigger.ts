@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {deviceRecoveryStateDocumentId} from "../deviceRecoveryMutation";
 import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
 import {
   executeIdempotentNotificationEvent,
@@ -10,6 +11,7 @@ import type {
   NotificationReceiptRuntime,
 } from "../notificationEventReceipt";
 import {
+  getTokenLookupForInstallation,
   getTokenLookupsForRoles,
   sendNotification,
 } from "../notifications";
@@ -21,6 +23,15 @@ import type {
 import {workflowRecipientRoles} from "./workflowNotificationPolicy";
 
 const REGION = "asia-south1";
+
+function timestampMillis(value: unknown): number | null {
+  const candidate = value as {toMillis?: () => number} | null;
+  if (candidate == null || typeof candidate.toMillis !== "function") {
+    return null;
+  }
+  const millis = candidate.toMillis();
+  return Number.isSafeInteger(millis) && millis >= 0 ? millis : null;
+}
 
 function notificationDb(
   db: admin.firestore.Firestore,
@@ -84,6 +95,66 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
           const escalationTier = typeof payload.escalationTier === "number"
             ? payload.escalationTier
             : null;
+          if (eventType === "deviceRecovery.requested") {
+            const requestId = typeof payload.deviceRecoveryRequestId === "string" ?
+              payload.deviceRecoveryRequestId : "";
+            if (requestId.length === 0 || aggregateId !== requestId ||
+                sourceEventId !== `device_recovery_${requestId}`) return null;
+            const receipt = await db.collection("device_recovery_receipts")
+              .doc(requestId)
+              .get();
+            const recovery = receipt.data();
+            if (!receipt.exists || recovery?.schemaVersion !== 1 ||
+                recovery.requestId !== requestId ||
+                recovery.actorUid !== data.actorUid ||
+                typeof recovery.targetUid !== "string" ||
+                typeof recovery.installationId !== "string") {
+              logger.error("Device recovery notification receipt is invalid", {
+                eventId: sourceEventId,
+                requestId,
+              });
+              return null;
+            }
+            const stateSnapshot = await db
+              .collection("device_recovery_requests")
+              .doc(deviceRecoveryStateDocumentId(
+                recovery.targetUid,
+                recovery.installationId,
+              ))
+              .get();
+            const state = stateSnapshot.data();
+            const expiresAtMillis = timestampMillis(state?.expiresAt);
+            if (!stateSnapshot.exists || state?.schemaVersion !== 1 ||
+                state.requestId !== requestId ||
+                state.targetUid !== recovery.targetUid ||
+                state.installationId !== recovery.installationId ||
+                state.status !== "pending" || expiresAtMillis == null ||
+                expiresAtMillis <= Date.now()) {
+              logger.info("Device recovery notification is no longer active", {
+                eventId: sourceEventId,
+                requestId,
+              });
+              return null;
+            }
+            const recipients = await getTokenLookupForInstallation(
+              notificationDb(db),
+              recovery.targetUid,
+              recovery.installationId,
+            );
+            return {
+              recipients,
+              roles: ["target-installation"],
+              title: "Administrator requested a device refresh",
+              body: "Open CRM-III BAF Ops to back up and refresh this phone.",
+              notificationData: {
+                destinationType: "admin_device_reset",
+                aggregateId: requestId,
+                requestId,
+                installationId: recovery.installationId,
+                eventId: sourceEventId,
+              },
+            };
+          }
           const roles = workflowRecipientRoles(
             eventType,
             laneKey,
@@ -145,8 +216,14 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
           recipients: plan.recipients,
           title: plan.title,
           body: plan.body,
-          data: plan.notificationData,
+          data: plan.notificationData as Readonly<Record<string, string>>,
         }),
+        retryKnownFailure: (_plan, outcome) =>
+          data.eventType === "deviceRecovery.requested" &&
+          outcome.attempted === 1 &&
+          outcome.succeeded === 0 &&
+          outcome.failed === 1 &&
+          outcome.retryableFailures === 1,
       });
 
       if (result.kind === "completed") {

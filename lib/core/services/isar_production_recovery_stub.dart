@@ -1,5 +1,7 @@
 // FILE: lib/core/services/isar_production_recovery_stub.dart
 
+import 'package:isar/isar.dart';
+
 class IsarRecoveryFileEntry {
   final String sourcePath;
   final String targetPath;
@@ -31,6 +33,16 @@ class IsarRecoveryPackageResult {
     required this.copiedFileCount,
     required this.warnings,
     required this.files,
+  });
+}
+
+class IsarRecoveryBackupEvidence {
+  final int byteCount;
+  final String sha256;
+
+  const IsarRecoveryBackupEvidence({
+    required this.byteCount,
+    required this.sha256,
   });
 }
 
@@ -83,6 +95,54 @@ Future<IsarRecoveryPackageResult> createIsarRecoveryPackage({
 }) async {
   throw UnsupportedError(
     'Isar recovery package creation is not available on this platform.',
+  );
+}
+
+Future<IsarRecoveryPackageResult> createConsistentIsarRecoveryPackage({
+  required Isar database,
+  required String diagnosticsText,
+  required String reason,
+  String? manifestJsonText,
+}) async {
+  throw UnsupportedError(
+    'Consistent Isar recovery backups are not available on this platform.',
+  );
+}
+
+Future<bool> isRetainedIsarRecoveryBackup(String path) async => false;
+
+bool get crashDurableIsarRecoveryJournalSupported => false;
+
+Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async => false;
+
+Future<void> syncRetainedCrashDurableIsarRecoveryJournalEvidence() async {}
+
+Future<void> markCrashDurableIsarRecoveryJournalTerminal(
+  String requestId,
+) async {}
+
+Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
+  required String targetUid,
+  required String installationId,
+  required String? activeRequestId,
+}) async => 0;
+
+Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(
+  String path,
+) async => null;
+
+Future<String?> readCrashDurableIsarRecoveryJournal(String requestId) async {
+  throw UnsupportedError(
+    'Crash-durable Isar recovery journals are not available on this platform.',
+  );
+}
+
+Future<void> writeCrashDurableIsarRecoveryJournal(
+  String requestId,
+  String serialized,
+) async {
+  throw UnsupportedError(
+    'Crash-durable Isar recovery journals are not available on this platform.',
   );
 }
 

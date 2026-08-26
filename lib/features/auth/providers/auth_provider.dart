@@ -14,6 +14,7 @@ import '../services/notification_installation_registry.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../../core/providers/sync_providers.dart';
 import '../../../core/services/app_logger.dart';
+import '../../../core/services/local_recovery_session_guard.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
   return FirebaseAuth.instance;
@@ -249,8 +250,13 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final Ref _ref;
   final NotificationInstallationRegistry _notificationRegistry;
+  final LocalRecoverySessionGuard _recoverySessionGuard;
 
-  AuthService(this._ref, this._notificationRegistry);
+  AuthService(
+    this._ref,
+    this._notificationRegistry,
+    this._recoverySessionGuard,
+  );
 
   Future<void> signInWithGoogle() async {
     final googleUser = await _googleSignIn.signIn();
@@ -311,6 +317,15 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    await _recoverySessionGuard.beginSessionEnd();
+    try {
+      await _performSignOut();
+    } finally {
+      _recoverySessionGuard.endSessionEnd();
+    }
+  }
+
+  Future<void> _performSignOut() async {
     unawaited(AppLogger.clearUserContext());
 
     final user = _auth.currentUser;
@@ -399,6 +414,9 @@ class AuthService {
 }
 
 final authServiceProvider = Provider<AuthService>(
-  (ref) =>
-      AuthService(ref, ref.watch(notificationInstallationRegistryProvider)),
+  (ref) => AuthService(
+    ref,
+    ref.watch(notificationInstallationRegistryProvider),
+    ref.watch(localRecoverySessionGuardProvider),
+  ),
 );

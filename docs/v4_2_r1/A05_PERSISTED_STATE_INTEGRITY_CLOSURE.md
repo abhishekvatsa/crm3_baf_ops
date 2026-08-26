@@ -49,6 +49,46 @@ metadata is retained as opaque evidence during a governed merge. The current
 inventories report no unclassified file, catch site, timestamp call, direct
 parser or stale policy.
 
+The 25 August 2026 exact-device recovery re-arm, including its restart journal
+index, brings the current inventory to 73 decoder surfaces, 48 decoder catch
+sites, 69 timestamp readers and 387
+risk candidates. The pre-clear journal is request-, user- and
+installation-bound; malformed or incomplete journal evidence blocks further
+local deletion and preserves the original retained Isar snapshot. Android is
+the sole eligible recovery platform until an equally durable implementation is
+present elsewhere. Before any deletion is authorized, the Android bridge
+synchronizes the retained snapshot file and each directory entry in its
+application-private path, while a failed durability confirmation blocks the
+reset. On Android restart, sign-out now probes for an active crash-durable
+request journal, and listener startup reserves session exit before its first
+server poll. The reservation is released only after a successful no-request
+check or after the returned request has acquired retained recovery protection;
+an unreadable journal state remains fail-closed. After the server accepts a
+terminal receipt, the durable journal is atomically renamed and retained as
+terminal evidence before sign-out protection ends. A later successful
+no-request poll performs the same identity-bound retirement for the narrow
+server-commit/local-rename crash window, so historical terminal evidence does
+not block an offline sign-out on every future restart. That poll also re-syncs
+an already renamed terminal entry before releasing protection, covering a
+rename-success/directory-sync-failure restart. Any active journal owned by a
+different user or installation remains a blocking inconsistency rather than
+being silently ignored. Journal validation runs before both the no-request and
+request-returned branches: the exact returned request remains active, while
+older same-phone journals are retired only because the server's single-state
+contract proves that they are no longer pending or in progress. A revoked or
+deregistered phone may receive the terminal no-request result only after the
+server revalidates the exact state identity, canonical completion or failure
+fields, administrator receipt, original claim audit and matching final audit.
+Missing or inconsistent terminal proof therefore retains the local journal and
+sign-out protection instead of stranding or silently releasing it. The current
+phone-registration wait is also bounded: if registration remains unavailable,
+the listener first re-syncs any visible retained terminal-journal directory
+entry, then releases the startup reservation only after a fresh local probe
+proves that no active recovery journal exists. Terminal sync failure, active or
+unreadable journal state remains fail-closed and is retried on a later listener
+check, including app resume. The current inventories again report no
+unclassified file, catch site, timestamp call, direct parser or stale policy.
+
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not
 manufactured. Maintenance and workflow synchronization quarantine or reject

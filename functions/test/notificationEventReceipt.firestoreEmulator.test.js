@@ -19,6 +19,7 @@ const outcome = {
   attempted: 1,
   succeeded: 1,
   failed: 0,
+  retryableFailures: 0,
   staleTokensCleared: 0,
   unknownAgencies: [],
 };
@@ -44,7 +45,12 @@ describeWithEmulator("R-05 notification event receipts", () => {
     };
   }
 
-  function execute(eventId, dispatch, prepare = async () => ({ready: true})) {
+  function execute(
+    eventId,
+    dispatch,
+    prepare = async () => ({ready: true}),
+    retryKnownFailure,
+  ) {
     return executeIdempotentNotificationEvent({
       runtime: runtime(),
       triggerName: "onTicketCreated",
@@ -52,6 +58,7 @@ describeWithEmulator("R-05 notification event receipts", () => {
       sourceDocumentPath: "maintenance_records/ticket-1",
       prepare,
       dispatch,
+      retryKnownFailure,
     });
   }
 
@@ -130,6 +137,51 @@ describeWithEmulator("R-05 notification event receipts", () => {
       status: "deliveryUncertain",
       attemptCount: 1,
       requiresAdjudication: true,
+    });
+  });
+
+  test("known zero-success transient delivery can retry transactionally", async () => {
+    const transient = {
+      ...outcome,
+      succeeded: 0,
+      failed: 1,
+      retryableFailures: 1,
+    };
+    const dispatch = jest.fn()
+      .mockResolvedValueOnce(transient)
+      .mockResolvedValueOnce(outcome);
+    const retryKnownFailure = (_plan, result) =>
+      result.succeeded === 0 && result.retryableFailures === 1;
+
+    await expect(execute(
+      "cloud-known-failure",
+      dispatch,
+      undefined,
+      retryKnownFailure,
+    )).rejects.toMatchObject({
+      code: "notification-delivery-retryable-failure",
+    });
+    await expect(execute(
+      "cloud-known-failure",
+      dispatch,
+      undefined,
+      retryKnownFailure,
+    )).resolves.toMatchObject({kind: "completed"});
+
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    const receipt = await db
+      .collection(NOTIFICATION_RECEIPT_COLLECTION)
+      .doc(notificationEventReceiptId(
+        "onTicketCreated",
+        "cloud-known-failure",
+      ))
+      .get();
+    expect(receipt.data()).toMatchObject({
+      status: "completed",
+      attemptCount: 2,
+      succeededCount: 1,
+      retryableFailureCount: 0,
+      requiresAdjudication: false,
     });
   });
 });

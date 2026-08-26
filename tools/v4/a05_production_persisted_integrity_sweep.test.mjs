@@ -653,6 +653,8 @@ test('successor business collections have exact app or server authority', () => 
     'maintenance_completion_sources',
     'maintenance_plan_audits',
     'pilot_record_purge_receipts',
+    'device_recovery_requests',
+    'device_recovery_receipts',
   ];
   for (const collection of appDecoded) {
     assert.equal(
@@ -1050,6 +1052,8 @@ test('server-only receipts are counted without becoming app decoder evidence', (
       maintenance_burner_closures: [{id: 'burner-ticket-id', data: {}}],
       pilot_record_purge_receipts: [{id: 'purge-receipt-id', data: {}}],
       quality_mutation_receipts: [{id: 'quality-receipt-id', data: {}}],
+      device_recovery_requests: [{id: 'device-state-id', data: {}}],
+      device_recovery_receipts: [{id: 'device-receipt-id', data: {}}],
     },
     roots: [
       'users',
@@ -1058,6 +1062,8 @@ test('server-only receipts are counted without becoming app decoder evidence', (
       'maintenance_burner_closures',
       'pilot_record_purge_receipts',
       'quality_mutation_receipts',
+      'device_recovery_requests',
+      'device_recovery_receipts',
     ],
   });
   assert.equal(result.decision, A05_DECISIONS.pass);
@@ -1076,6 +1082,14 @@ test('server-only receipts are counted without becoming app decoder evidence', (
   );
   assert.equal(
     result.collectionDispositions.quality_mutation_receipts,
+    'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
+  );
+  assert.equal(
+    result.collectionDispositions.device_recovery_requests,
+    'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
+  );
+  assert.equal(
+    result.collectionDispositions.device_recovery_receipts,
     'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
   );
 });

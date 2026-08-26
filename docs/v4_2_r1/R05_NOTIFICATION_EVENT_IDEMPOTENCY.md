@@ -48,6 +48,7 @@ preparing
   -> failedBeforeDispatch -> retry may reacquire
   -> suppressed           -> replay skips
   -> dispatching
+       -> retryableDeliveryFailed -> retry may reacquire
        -> completed        -> replay skips
        -> deliveryUncertain -> replay skips
 ```
@@ -62,12 +63,21 @@ This is deliberate: Firestore and FCM do not share an atomic transaction, so a
 timeout or crash after dispatch begins cannot prove whether a message reached
 FCM.
 
-This is not an exactly-once delivery claim. It is an at-most-one automatic
-dispatch policy with retryable pre-dispatch preparation. The narrow opposite
-risk is notification loss if a process stops after committing `dispatching`
-but before invoking FCM. Such a receipt requires governed operational
-adjudication; automatic resend is prohibited because it could duplicate a
-message that FCM already accepted.
+There is one narrower, outcome-proved exception. For an exact single-device
+recovery notification, FCM can return a per-message transient failure while
+also proving that zero messages succeeded. That result moves the receipt to
+`retryableDeliveryFailed` and throws so the Firestore trigger retry can
+reacquire it. The path is unavailable to fan-out notifications, to partial
+success, and to exceptions where the dispatch outcome is unknown.
+
+This is not an exactly-once delivery claim. Successful and outcome-ambiguous
+dispatches are never repeated automatically. Pre-dispatch preparation may
+retry, and an exact-device attempt may retry only after FCM returns a positively
+classified transient per-message result proving zero successes. The narrow
+opposite risk is notification loss if a process stops after committing
+`dispatching` but before invoking FCM. Such a receipt requires governed
+operational adjudication; automatic resend is prohibited because it could
+duplicate a message that FCM already accepted.
 
 Entering `dispatching` durably sets `requiresAdjudication: true`; completion
 clears it. A process stop therefore leaves an operator-queryable marker even

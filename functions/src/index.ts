@@ -136,6 +136,14 @@ import type {
   OperationalEventIssueLinkMutationResult,
 } from "./operationalEventIssueLinkMutation";
 import {
+  DeviceRecoveryMutationError,
+  isDeviceRecoveryOperation,
+  mutateDeviceRecoveryWithDb,
+  userCanMutateDeviceRecovery,
+  userCanResumeClaimedDeviceRecovery,
+} from "./deviceRecoveryMutation";
+import type {DeviceRecoveryMutationResult} from "./deviceRecoveryMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketLaneAddedNotification,
@@ -185,7 +193,8 @@ async function executeAuthorizedMutation<T>(args: {
   db: admin.firestore.Firestore;
   authUid: string | null;
   callableName: MutatingCallableName;
-  authorize: (userData: {[key: string]: unknown}) => boolean;
+  authorize: (userData: {[key: string]: unknown}) =>
+    boolean | Promise<boolean>;
   execute: () => Promise<T>;
 }): Promise<T> {
   try {
@@ -595,12 +604,23 @@ export const mutateAssetHierarchy = onCall(
         AssetOperationalConditionMutationResult |
         BurnerConditionRoundMutationResult |
         OperationalEventMutationResult |
-        OperationalEventIssueLinkMutationResult
+        OperationalEventIssueLinkMutationResult |
+        DeviceRecoveryMutationResult
       >({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
         authorize: (userData) =>
+          isDeviceRecoveryOperation(request.data?.operation) ?
+            userCanMutateDeviceRecovery(
+              userData,
+              request.data.operation,
+            ) || userCanResumeClaimedDeviceRecovery({
+              db,
+              actorUid: request.auth?.uid ?? null,
+              actorData: userData,
+              data: request.data ?? {},
+            }) :
           isBurnerConditionRoundOperation(request.data?.operation) ?
             userCanRecordBurnerConditionRound(userData) :
           isOperationalEventIssueLinkOperation(request.data?.operation) ?
@@ -614,6 +634,14 @@ export const mutateAssetHierarchy = onCall(
             ) :
             userCanMutateAssetHierarchy(userData),
         execute: () => {
+          if (isDeviceRecoveryOperation(request.data?.operation)) {
+            return mutateDeviceRecoveryWithDb({
+              db,
+              authUid: request.auth?.uid ?? null,
+              data: request.data ?? {},
+              timestampFromDate: admin.firestore.Timestamp.fromDate,
+            });
+          }
           const args = {
             db: db as unknown as AssetHierarchyMutationFirestoreLike,
             authUid: request.auth?.uid ?? null,
@@ -643,6 +671,9 @@ export const mutateAssetHierarchy = onCall(
     } catch (error) {
       if (error instanceof HttpsError) throw error;
       if (error instanceof AssetHierarchyMutationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      if (error instanceof DeviceRecoveryMutationError) {
         throw new HttpsError(error.code, error.message, error.details);
       }
       logger.error("mutateAssetHierarchy failed", error);
@@ -684,6 +715,7 @@ function logOutcome(
     attempted: number;
     succeeded: number;
     failed: number;
+    retryableFailures: number;
     staleTokensCleared: number;
     unknownAgencies: ReadonlyArray<string>;
   },

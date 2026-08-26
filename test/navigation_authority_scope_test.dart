@@ -63,6 +63,27 @@ void main() {
     expect(profileValue, greaterThan(profileError));
   });
 
+  test(
+    'revoked account stays on the approval screen during claimed recovery',
+    () {
+      final source = File('lib/main.dart').readAsStringSync();
+      final gateStart = source.indexOf('class _PendingApprovalRecoveryGate ');
+      final gateEnd = source.indexOf(
+        'class _ProfileBootstrapScreen ',
+        gateStart,
+      );
+
+      expect(gateStart, greaterThanOrEqualTo(0));
+      expect(gateEnd, greaterThan(gateStart));
+      final gate = source.substring(gateStart, gateEnd);
+      expect(source, contains('_PendingApprovalRecoveryGate(appUser: user)'));
+      expect(gate, contains('claimedRecoveryOnly: true'));
+      expect(gate, contains('return const PendingApprovalScreen()'));
+      expect(gate, isNot(contains('_StartupSyncGate')));
+      expect(gate, isNot(contains('HomeScreen')));
+    },
+  );
+
   test('approved scope is role-order stable and identity bound', () {
     final first = NavigationAuthorityScope.fromProfile(
       authenticatedUid: 'operator-1',
