@@ -150,6 +150,7 @@ void main() {
 
     test('policy binds remote issuance and exact sealed-pilot promotion', () {
       final text = read('tools/release/Test-ProductionReleasePolicy.ps1');
+      final canonicalAudit = read('tools/v4/v4_2_r1_canonical_audit.py');
 
       expect(text, contains("schemaVersion -ne 3"));
       expect(text, contains('remoteReservationTag'));
@@ -171,6 +172,28 @@ void main() {
       expect(text, contains('--source-index-set firestore.indexes.json'));
       expect(text, contains('release/current-successor-state.json'));
       expect(text, contains('firestoreRulesAndIndexes'));
+      expect(text, contains('Get-GitTreeObjectId'));
+      expect(text, contains('Get-FunctionFleetDeploymentStatus'));
+      expect(text, contains('Test-FunctionFleetDeploymentStatusClassifier'));
+      expect(text, contains(r"-Path 'functions'"));
+      expect(text, contains(r'$expectedCurrentSourceFunctionDeployment'));
+      expect(text, contains(r'$functionsMatchDeployed'));
+      expect(text, contains(r'$backendMatchesDeployed'));
+      expect(canonicalAudit, contains('git_tree_object_id'));
+      expect(canonicalAudit, contains('function_fleet_deployment_status'));
+      expect(canonicalAudit, contains('expected_current_function_deployment'));
+      expect(canonicalAudit, contains('functions_match_deployed'));
+      expect(canonicalAudit, contains('backend_matches_deployed'));
+      expect(
+        canonicalAudit,
+        contains(
+          'BUILD17_SOURCE_AUTHORIZED_BACKEND_PENDING_GOVERNED_DEPLOYMENT',
+        ),
+      );
+      expect(
+        canonicalAudit,
+        contains('SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'),
+      );
       expect(
         text,
         contains(
@@ -185,9 +208,7 @@ void main() {
       );
       expect(
         text,
-        contains(
-          'Current source Firestore Rules/index authority differs from source state.',
-        ),
+        contains('Current source backend authority differs from source state.'),
       );
       expect(
         text,
@@ -1214,14 +1235,23 @@ void main() {
     });
 
     test(
-      'build 16 preserves builds 14-15 and the historical build 10 failure',
+      'build 17 preserves builds 14-16 and the historical build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
                 as Map<String, dynamic>;
         final finalization = policy['finalization'] as Map<String, dynamic>;
-        final build15Finalization =
+        final build16Finalization =
             finalization['priorCompletedBuild'] as Map<String, dynamic>;
+        final build16Approval =
+            jsonDecode(
+                  read(
+                    'release/approvals/build-number-16-successor-approval.json',
+                  ),
+                )
+                as Map<String, dynamic>;
+        final build15Finalization =
+            build16Approval['preservedCompletedBuild'] as Map<String, dynamic>;
         final build15Approval =
             jsonDecode(
                   read(
@@ -1244,6 +1274,11 @@ void main() {
         final build15Receipt =
             jsonDecode(
                   read(build15Finalization['completionReceiptFile'] as String),
+                )
+                as Map<String, dynamic>;
+        final build16Receipt =
+            jsonDecode(
+                  read(build16Finalization['completionReceiptFile'] as String),
                 )
                 as Map<String, dynamic>;
         final receipt =
@@ -1296,6 +1331,21 @@ void main() {
             build15Receipt['runtimeAdjudication'] as Map<String, dynamic>;
         final build15Boundary =
             build15Receipt['releaseBoundary'] as Map<String, dynamic>;
+        final build16Source =
+            build16Receipt['sourceAuthority'] as Map<String, dynamic>;
+        final build16Ci = build16Receipt['workflow'] as Map<String, dynamic>;
+        final build16Artifact =
+            build16Receipt['githubArtifact'] as Map<String, dynamic>;
+        final build16Package =
+            build16Receipt['governedPackage'] as Map<String, dynamic>;
+        final build16Remote =
+            build16Receipt['remoteAuthority'] as Map<String, dynamic>;
+        final build16Custody =
+            build16Receipt['dualCustody'] as Map<String, dynamic>;
+        final build16Runtime =
+            build16Receipt['runtimeAdjudication'] as Map<String, dynamic>;
+        final build16Boundary =
+            build16Receipt['releaseBoundary'] as Map<String, dynamic>;
         final sourceAuthority =
             receipt['sourceAuthority'] as Map<String, dynamic>;
         final workflow = receipt['workflow'] as Map<String, dynamic>;
@@ -1334,6 +1384,13 @@ void main() {
               : 'completed-non-distributable',
         );
         expect(finalization['dualCustodyCompleted'], !pendingConstruction);
+        expect(build16Finalization['buildNumber'], 16);
+        expect(build16Finalization['dualCustodyCompleted'], isTrue);
+        expect(build16Finalization['runtimeValidationPassed'], isFalse);
+        expect(
+          build16Finalization['completionReceiptSha256'],
+          '86750F0BFB7E2C880ADC62880B82AA53AD3A2CB8BE00B6B6651D5F6B504D7E6F',
+        );
         expect(build15Finalization['buildNumber'], 15);
         expect(build15Finalization['dualCustodyCompleted'], isTrue);
         expect(build15Finalization['runtimeValidationPassed'], isFalse);
@@ -1455,6 +1512,35 @@ void main() {
         expect(build15Runtime['runtimeValidationPassed'], isFalse);
         expect(build15Boundary['controlledPilotApproved'], isFalse);
         expect(build15Boundary['distributionPerformed'], isFalse);
+        expect(build16Receipt['schemaVersion'], 1);
+        expect(build16Receipt['status'], 'passed-non-distributable');
+        expect(
+          build16Source['commit'],
+          '9c77309787ab401b99ea9736b685f6f601d8087e',
+        );
+        expect(build16Source['pullRequestNumber'], 296);
+        expect(build16Ci['runId'], 32855930817);
+        expect(build16Ci['conclusion'], 'success');
+        expect(build16Ci['secretValuesInspected'], isFalse);
+        expect(build16Artifact['id'], 9567065107);
+        expect(
+          build16Package['sha256'],
+          '8C0B71CF37347B540CB26FAE19567D329D22B2C9562E7A84E2A70E937FDFA76E',
+        );
+        expect(build16Package['independentVerificationCompleted'], isTrue);
+        expect(
+          build16Remote['builtTagObjectSha'],
+          'd47a75298fcf4becd289e08b85e16dd2e7b2438c',
+        );
+        expect(build16Custody['distinctVolumes'], isTrue);
+        expect(build16Custody['allFileHashesMatched'], isTrue);
+        expect(
+          build16Runtime['status'],
+          'not-adjudicated-by-build-finalization',
+        );
+        expect(build16Runtime['runtimeValidationPassed'], isFalse);
+        expect(build16Boundary['controlledPilotApproved'], isFalse);
+        expect(build16Boundary['distributionPerformed'], isFalse);
         expect(receipt['schemaVersion'], 1);
         expect(receipt['status'], 'passed-non-distributable');
         expect(
@@ -1546,12 +1632,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.6\+16$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.7\+17$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.6-b16"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.7-b17"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/16"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/17"'),
       );
       expect(policy, contains('"approved": true'));
       expect(

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "firestore-rules-indexes-live-readback",
+  "mode": "STRICT",
+  "projectId": "crm3-baf-ops-b8638",
+  "source": {
+    "before": {
+      "branch": "main",
+      "commit": "1cb7d68f9642fec0eb68fc9f64891a16aef31478",
+      "tree": "d2cc4ecddcf92b7833b4b93f2aa28e9a8231fa05",
+      "originMain": "1cb7d68f9642fec0eb68fc9f64891a16aef31478",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    },
+    "after": {
+      "branch": "main",
+      "commit": "1cb7d68f9642fec0eb68fc9f64891a16aef31478",
+      "tree": "d2cc4ecddcf92b7833b4b93f2aa28e9a8231fa05",
+      "originMain": "1cb7d68f9642fec0eb68fc9f64891a16aef31478",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    }
+  },
+  "commands": [
+    {
+      "kind": "LOCAL_READ",
+      "command": "git status/rev-parse"
+    },
+    {
+      "kind": "HTTPS_GET",
+      "endpoint": "/projects/crm3-baf-ops-b8638/releases/cloud.firestore"
+    },
+    {
+      "kind": "HTTPS_GET",
+      "endpoint": "/projects/{project}/rulesets/{ruleset}"
+    },
+    {
+      "kind": "CLI_READ",
+      "command": "firebase firestore:indexes --project crm3-baf-ops-b8638 --json"
+    },
+    {
+      "kind": "HTTPS_GET",
+      "endpoint": "/projects/crm3-baf-ops-b8638/databases/(default)/collectionGroups/-/indexes",
+      "paginated": true
+    }
+  ],
+  "outputs": {
+    "rules": {
+      "releaseName": "projects/crm3-baf-ops-b8638/releases/cloud.firestore",
+      "expectedReleaseName": "projects/crm3-baf-ops-b8638/releases/cloud.firestore",
+      "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/8e0b13b6-222c-458d-b486-856879b5fd2a",
+      "rulesetCreateTime": "2026-08-26T13:38:03.964415Z",
+      "rulesFileMatchCount": 1,
+      "sourceByteCount": 177685,
+      "activeByteCount": 177685,
+      "sourceSha256": "68BB2B5D481A947DD72478B8B5B22000DC72D209FAAF8447AA98B1F1A9C82EDE",
+      "activeSha256": "68BB2B5D481A947DD72478B8B5B22000DC72D209FAAF8447AA98B1F1A9C82EDE",
+      "byteExact": true
+    },
+    "indexes": {
+      "sourceFileSha256": "1EF571A6714418EE559D99F8F68EB88290503D38EAB3F9C1C50F8168D31A0A78",
+      "sourceCount": 66,
+      "cliCount": 66,
+      "apiCount": 66,
+      "apiReadyCount": 66,
+      "apiStateCounts": {
+        "READY": 66
+      },
+      "sourceSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "cliSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "apiSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "cliMatchesSource": true,
+      "apiMatchesSource": true,
+      "apiMatchesCli": true,
+      "sourceFieldOverrideCount": 0,
+      "cliFieldOverrideCount": 0,
+      "sourceFieldOverrideSha256": "4F53CDA18C2BAA0C0354BB5F9A3ECBE5ED12AB4D8E11BA873C2F11161202B945",
+      "cliFieldOverrideSha256": "4F53CDA18C2BAA0C0354BB5F9A3ECBE5ED12AB4D8E11BA873C2F11161202B945",
+      "fieldOverridesMatchSource": true,
+      "allApiIndexesReady": true
+    }
+  },
+  "checks": {
+    "productionProjectExact": true,
+    "sourceBranchMain": true,
+    "sourceCommitMatchesOriginMain": true,
+    "sourceBindingStable": true,
+    "governedSourceClean": true,
+    "activeRulesReleaseExact": true,
+    "activeRulesetIdentified": true,
+    "rulesFileUnique": true,
+    "rulesByteExact": true,
+    "sourceIndexesPresent": true,
+    "indexCountsExact": true,
+    "cliIndexesMatchSource": true,
+    "apiIndexesMatchSource": true,
+    "apiIndexesMatchCli": true,
+    "apiIndexesReady": true,
+    "fieldOverridesMatchSource": true
+  },
+  "mutationBoundary": {
+    "firestoreRulesDeployed": false,
+    "firestoreIndexesDeployed": false,
+    "firestoreDocumentsRead": false,
+    "firestoreDocumentsWritten": false,
+    "functionsMutated": false,
+    "iamMutated": false,
+    "appCheckMutated": false,
+    "businessDataMutated": false
+  },
+  "privacyBoundary": {
+    "rulesContentRetained": false,
+    "indexDefinitionsRetained": false,
+    "accountIdentityRetained": false,
+    "sourceMaterialRepresentedByHashesAndCountsOnly": true
+  },
+  "failedChecks": [],
+  "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+  "capturedAtUtc": "2026-08-26T13:48:56.388Z",
+  "receiptSha256": "d3a7f99574ca511836f872141571b514fc4805c73090b542877c82fc66be47df"
+}
