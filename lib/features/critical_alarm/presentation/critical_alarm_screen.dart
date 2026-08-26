@@ -523,7 +523,7 @@ class _AlarmCard extends ConsumerWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (alarm.detailsPending && _canEditDetails)
+                  if (alarm.isActive && alarm.detailsPending && _canEditDetails)
                     OutlinedButton.icon(
                       onPressed: () => _provideDetails(context, ref),
                       icon: const Icon(Icons.edit_note_outlined),
@@ -545,7 +545,7 @@ class _AlarmCard extends ConsumerWidget {
                       icon: const Icon(Icons.task_alt),
                       label: const Text('Resolve'),
                     ),
-                  if (_canEditDetails)
+                  if (alarm.isActive && _canEditDetails)
                     TextButton.icon(
                       onPressed: () => _withdraw(context, ref),
                       icon: const Icon(Icons.cancel_outlined),

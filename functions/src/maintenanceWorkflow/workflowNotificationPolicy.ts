@@ -4,6 +4,9 @@ import type {SendOutcome} from "../notifications";
 export const isNotifiableCriticalAlarmStatus = (status: unknown): boolean =>
   status === "raised";
 
+export const isCriticalAlarmEventType = (eventType: unknown): boolean =>
+  typeof eventType === "string" && eventType.startsWith("criticalAlarm.");
+
 export const samePersistedNotificationInstant = (
   left: unknown,
   right: unknown,

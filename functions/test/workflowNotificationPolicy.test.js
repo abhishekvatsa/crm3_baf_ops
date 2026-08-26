@@ -1,4 +1,5 @@
 const {
+  isCriticalAlarmEventType,
   isNotifiableCriticalAlarmStatus,
   samePersistedNotificationInstant,
   shouldRetryKnownWorkflowNotificationFailure,
@@ -60,6 +61,15 @@ describe('workflow notification routing', () => {
     expect(isNotifiableCriticalAlarmStatus('supportConfirmed')).toBe(false);
     expect(isNotifiableCriticalAlarmStatus('resolved')).toBe(false);
     expect(isNotifiableCriticalAlarmStatus('withdrawnInError')).toBe(false);
+  });
+
+  test('non-raise critical-alarm events never enter generic maintenance routing', () => {
+    expect(isCriticalAlarmEventType('criticalAlarm.raised')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.detailsProvided')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.supportConfirmed')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.resolved')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.withdrawnInError')).toBe(true);
+    expect(isCriticalAlarmEventType('lane.closed')).toBe(false);
   });
 
   test('critical notification evidence compares Firestore instants by value', () => {

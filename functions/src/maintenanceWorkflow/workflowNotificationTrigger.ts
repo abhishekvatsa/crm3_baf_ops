@@ -22,6 +22,7 @@ import type {
   SendOutcome,
 } from "../notifications";
 import {
+  isCriticalAlarmEventType,
   isNotifiableCriticalAlarmStatus,
   samePersistedNotificationInstant,
   shouldRetryKnownWorkflowNotificationFailure,
@@ -222,6 +223,7 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
               androidNotificationTag: `critical-alarm-${alarmId}`,
             };
           }
+          if (isCriticalAlarmEventType(eventType)) return null;
           const roles = workflowRecipientRoles(
             eventType,
             laneKey,

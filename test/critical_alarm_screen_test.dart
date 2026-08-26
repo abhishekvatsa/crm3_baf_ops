@@ -263,6 +263,8 @@ void main() {
 
     expect(find.text('Resolved by Admin One'), findsOneWidget);
     expect(find.text('Area isolated and verified safe.'), findsOneWidget);
+    expect(find.text('Raised in error'), findsNothing);
+    expect(find.text('Add details'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
