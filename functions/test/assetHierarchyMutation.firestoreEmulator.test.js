@@ -474,6 +474,10 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
     expect(await invokeDeviceRecovery(completionRequest, 'ops-1'))
       .toMatchObject({status: 'completed', idempotentReplay: true});
+    expect(await invokeDeviceRecovery({
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: selectedInstallation,
+    }, 'ops-1')).toMatchObject({request: null});
     const audits = await db.collection('audit_logs').get();
     expect(audits.docs.map((snapshot) => snapshot.id).sort()).toEqual([
       `server_authority_device_recovery_${requestId}_claimed`,

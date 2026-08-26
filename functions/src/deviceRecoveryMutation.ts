@@ -141,6 +141,36 @@ function nonNegativeInteger(value: unknown, field: string): number {
   return value as number;
 }
 
+function isTerminalRecoveryStatus(
+  value: unknown,
+): value is "completed" | "failed" {
+  return value === "completed" || value === "failed";
+}
+
+function validateTerminalRecoveryState(state: JsonMap): void {
+  const boundedCount = (value: unknown): value is number =>
+    Number.isSafeInteger(value) && (value as number) >= 0 &&
+    (value as number) <= 1_000_000;
+  const invalid = state.status === "completed" ?
+    !boundedCount(state.backupFileCount) || state.backupFileCount === 0 ||
+      !boundedCount(state.clearedCursorCount) ||
+      !boundedCount(state.backedUpUnsyncedRows) :
+    typeof state.failureCode !== "string" ||
+      state.failureCode.trim() !== state.failureCode ||
+      state.failureCode.length === 0 || state.failureCode.length > 80;
+  if (invalid) {
+    throw new DeviceRecoveryMutationError(
+      "data-loss",
+      "The terminal device-recovery state is malformed.",
+      {reasonCode: "device-recovery-terminal-state-invalid"},
+    );
+  }
+  toIso(
+    state.status === "completed" ? state.completedAt : state.failedAt,
+    state.status === "completed" ? "completedAt" : "failedAt",
+  );
+}
+
 export function deviceRecoveryStateDocumentId(
   uid: string,
   installationId: string,
@@ -384,17 +414,24 @@ export async function userCanResumeClaimedDeviceRecovery(args: {
     const status = state.status;
     const terminalStatus = operation === "DEVICE_RECOVERY_COMPLETE" ?
       "completed" : operation === "DEVICE_RECOVERY_FAIL" ? "failed" : null;
+    const terminalPoll = operation === "DEVICE_RECOVERY_POLL" &&
+      isTerminalRecoveryStatus(status);
     if (status !== "in_progress" &&
+        !terminalPoll &&
         (terminalStatus == null || status !== terminalStatus)) {
       return false;
     }
-    if (status === "completed" &&
+    if (terminalPoll) validateTerminalRecoveryState(state);
+    if (operation === "DEVICE_RECOVERY_COMPLETE" && status === "completed" &&
         (state.backupFileCount !== backupFileCount ||
           state.clearedCursorCount !== clearedCursorCount ||
           state.backedUpUnsyncedRows !== backedUpUnsyncedRows)) {
       return false;
     }
-    if (status === "failed" && state.failureCode !== failureCode) return false;
+    if (operation === "DEVICE_RECOVERY_FAIL" && status === "failed" &&
+        state.failureCode !== failureCode) {
+      return false;
+    }
 
     const claimedRequestId = state.requestId as string;
     const [receipt, claimAudit] = await Promise.all([
@@ -705,17 +742,20 @@ async function pollReset(
       actorUid,
       installationId,
     );
-    if (!registrationCurrent && state.status !== "in_progress") {
+    const terminalState = isTerminalRecoveryStatus(state.status);
+    const claimedState = state.status === "in_progress" || terminalState;
+    if (!registrationCurrent && !claimedState) {
       throw new DeviceRecoveryMutationError(
         "failed-precondition",
         "The current phone no longer has a valid device registration.",
         {reasonCode: "device-recovery-installation-not-current"},
       );
     }
-    if (!actor.approved && state.status !== "in_progress") {
+    if (!actor.approved && !claimedState) {
       throw rejectedRevokedRecovery();
     }
-    if ((state.status !== "pending" && state.status !== "in_progress") ||
+    if ((state.status !== "pending" && state.status !== "in_progress" &&
+          !terminalState) ||
         (state.status === "pending" &&
           new Date(toIso(state.expiresAt, "expiresAt")).getTime() <=
             now.getTime())) {
@@ -737,6 +777,8 @@ async function pollReset(
     );
     const evidence = receipt.data() as JsonMap | undefined;
     if (!receipt.exists || evidence == null ||
+        evidence.schemaVersion !== 1 ||
+        evidence.requestId !== state.requestId ||
         evidence.actorUid !== state.requestedByUid ||
         evidence.targetUid !== actorUid ||
         evidence.installationId !== installationId ||
@@ -747,7 +789,7 @@ async function pollReset(
         {reasonCode: "device-recovery-receipt-invalid"},
       );
     }
-    if (!actor.approved || !registrationCurrent) {
+    if (!actor.approved || !registrationCurrent || terminalState) {
       const claimAudit = await transaction.get(
         args.db.collection("audit_logs")
           .doc(`server_authority_device_recovery_${state.requestId}_claimed`),
@@ -760,6 +802,28 @@ async function pollReset(
           )) {
         throw rejectedRevokedRecovery();
       }
+    }
+    if (terminalState) {
+      validateTerminalRecoveryState(state);
+      const finalAudit = await transaction.get(
+        args.db.collection("audit_logs")
+          .doc(
+            `server_authority_device_recovery_${state.requestId}_${state.status}`,
+          ),
+      );
+      if (!finalAudit.exists ||
+          !exactRecoveryAudit(
+            finalAudit.data(),
+            state.requestId as string,
+            actorUid,
+          )) {
+        throw new DeviceRecoveryMutationError(
+          "data-loss",
+          "The terminal device-recovery audit is missing or inconsistent.",
+          {reasonCode: "device-recovery-terminal-audit-invalid"},
+        );
+      }
+      return null;
     }
     return publicRequest(state);
   });

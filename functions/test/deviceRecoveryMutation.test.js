@@ -553,6 +553,21 @@ describe('governed remote device recovery', () => {
     expect(await mutateDeviceRecoveryWithDb(
       args(fixture.db, TARGET, completion),
     )).toMatchObject({status: 'completed', idempotentReplay: true});
+    const terminalPoll = {
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: INSTALLATION,
+    };
+    expect(await userCanResumeClaimedDeviceRecovery({
+      db: fixture.db,
+      actorUid: TARGET,
+      actorData: user('Operator One', ['operations'], false),
+      data: terminalPoll,
+    })).toBe(true);
+    expect(await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      terminalPoll,
+    ))).toMatchObject({request: null});
   });
 
   test.each([true, false])(
@@ -611,6 +626,12 @@ describe('governed remote device recovery', () => {
         completion,
       ))).toMatchObject({status: 'completed', idempotentReplay: true});
 
+      expect(await mutateDeviceRecoveryWithDb(args(
+        fixture.db,
+        TARGET,
+        poll,
+      ))).toMatchObject({request: null});
+
       if (!approved) {
         expect(await userCanResumeClaimedDeviceRecovery({
           db: fixture.db,
@@ -654,6 +675,21 @@ describe('governed remote device recovery', () => {
       TARGET,
       failure,
     ))).toMatchObject({status: 'failed', idempotentReplay: true});
+    const terminalPoll = {
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: INSTALLATION,
+    };
+    expect(await userCanResumeClaimedDeviceRecovery({
+      db: fixture.db,
+      actorUid: TARGET,
+      actorData: revoked,
+      data: terminalPoll,
+    })).toBe(true);
+    expect(await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      terminalPoll,
+    ))).toMatchObject({request: null});
   });
 
   test('unclaimed reset remains blocked after installation removal', async () => {
@@ -782,7 +818,66 @@ describe('governed remote device recovery', () => {
       ...completion,
       backedUpUnsyncedRows: 4,
     })).toBe(false);
-    expect(await authorize(poll)).toBe(false);
+    expect(await authorize(poll)).toBe(true);
+    expect(await mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      poll,
+    ))).toMatchObject({request: null});
+  });
+
+  test('terminal poll fails closed unless every claim proof remains exact', async () => {
+    const fixture = fakeDb(seed());
+    await mutateDeviceRecoveryWithDb(args(fixture.db, ADMIN, requestData()));
+    await mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, claimData()));
+    const revoked = user('Operator One', ['operations'], false);
+    fixture.store.set(`users/${TARGET}`, revoked);
+    const completion = {
+      operation: 'DEVICE_RECOVERY_COMPLETE',
+      requestId: REQUEST,
+      installationId: INSTALLATION,
+      backupFileCount: 1,
+      clearedCursorCount: 2,
+      backedUpUnsyncedRows: 3,
+    };
+    await mutateDeviceRecoveryWithDb(args(fixture.db, TARGET, completion));
+    const poll = {
+      operation: 'DEVICE_RECOVERY_POLL',
+      installationId: INSTALLATION,
+    };
+    const authorizePoll = () => userCanResumeClaimedDeviceRecovery({
+      db: fixture.db,
+      actorUid: TARGET,
+      actorData: revoked,
+      data: poll,
+    });
+    const finalAuditPath =
+      `audit_logs/server_authority_device_recovery_${REQUEST}_completed`;
+    const finalAudit = fixture.store.get(finalAuditPath);
+
+    fixture.store.delete(finalAuditPath);
+    expect(await authorizePoll()).toBe(false);
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      poll,
+    ))).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'device-recovery-terminal-audit-invalid'},
+    });
+
+    fixture.store.set(finalAuditPath, finalAudit);
+    const state = fixture.store.get(statePath());
+    fixture.store.set(statePath(), {...state, backupFileCount: 0});
+    expect(await authorizePoll()).toBe(false);
+    await expect(mutateDeviceRecoveryWithDb(args(
+      fixture.db,
+      TARGET,
+      poll,
+    ))).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'device-recovery-terminal-state-invalid'},
+    });
   });
 
   test('a claimed revoked target can report and replay a safe recovery failure', async () => {

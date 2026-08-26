@@ -75,7 +75,12 @@ different user or installation remains a blocking inconsistency rather than
 being silently ignored. Journal validation runs before both the no-request and
 request-returned branches: the exact returned request remains active, while
 older same-phone journals are retired only because the server's single-state
-contract proves that they are no longer pending or in progress. The current
+contract proves that they are no longer pending or in progress. A revoked or
+deregistered phone may receive the terminal no-request result only after the
+server revalidates the exact state identity, canonical completion or failure
+fields, administrator receipt, original claim audit and matching final audit.
+Missing or inconsistent terminal proof therefore retains the local journal and
+sign-out protection instead of stranding or silently releasing it. The current
 inventories again report no unclassified file, catch site, timestamp call,
 direct parser or stale policy.
 

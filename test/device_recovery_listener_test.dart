@@ -401,6 +401,51 @@ void main() {
   );
 
   test(
+    'revoked terminal poll retires its journal without ordinary sync',
+    () async {
+      final retired = Completer<void>();
+      final reset = _LocalResetProbe();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          expect(payload['operation'], deviceRecoveryPollOperation);
+          return _pollResponse(null);
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: reset,
+        inactiveJournalRetirer: ({
+          required targetUid,
+          required installationId,
+          required activeRequestId,
+        }) async {
+          expect(targetUid, 'operator-1');
+          expect(installationId, _installation);
+          expect(activeRequestId, isNull);
+          retired.complete();
+          return 1;
+        },
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(
+        _operator(approved: false),
+        claimedRecoveryOnly: true,
+      );
+      await retired.future.timeout(const Duration(seconds: 2));
+      await _waitFor(
+        () => !scope.recoverySessionGuard.isRecoveryProtectionActive,
+      );
+
+      expect(reset.requests, isEmpty);
+      expect(scope.coordinator.followUpModes, isEmpty);
+      await scope.recoverySessionGuard.beginSessionEnd();
+      scope.recoverySessionGuard.endSessionEnd();
+    },
+  );
+
+  test(
     'claimed reset retries completion after a temporary connection failure',
     () async {
       final calls = <Map<String, Object?>>[];

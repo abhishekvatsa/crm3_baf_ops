@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "EEBFEA41CD3A39D47D46CF24DB5B94E67962587F7751F87CBE5FA91CF743230F",
+  "inventoryDigest": "252A7A18BE8DD0E2B76140F4AFF3E0ED39B8635A6599D3162F226EB3AD05CD16",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "02053BD2BAD0DDC7D5EA91A9B328A513A0DE2D5846711B56BCD607B9B6E967F6",
+  "a05ManifestSha256": "9F0348189AAAADA527096F2600B3ED9081268C0C04586059EB0D6FF00D498E11",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -971,9 +971,9 @@
       "id": "crash-durable-recovery-journal-index",
       "file": "lib/core/services/isar_production_recovery_io.dart",
       "classification": "LOCAL_CONTROL_STATE",
-      "authorityBoundary": "same-user and same-installation restart recovery reconciliation after authoritative single-state poll readback",
+      "authorityBoundary": "same-user and same-installation restart recovery reconciliation after authoritative single-state poll readback, including receipt-, claim-audit- and final-audit-proved terminal null",
       "malformedDisposition": "fail closed while retaining the active journal and sign-out protection",
-      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, and terminal evidence remains inactive",
+      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, terminal null requires canonical state plus exact receipt/claim/final audits, and retained terminal evidence remains inactive",
       "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
     },
     {
