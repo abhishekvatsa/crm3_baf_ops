@@ -122,6 +122,7 @@ Future<void> markCrashDurableIsarRecoveryJournalTerminal(
 Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
   required String targetUid,
   required String installationId,
+  required String? activeRequestId,
 }) async => 0;
 
 Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(

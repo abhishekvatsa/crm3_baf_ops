@@ -72,8 +72,12 @@ not block an offline sign-out on every future restart. That poll also re-syncs
 an already renamed terminal entry before releasing protection, covering a
 rename-success/directory-sync-failure restart. Any active journal owned by a
 different user or installation remains a blocking inconsistency rather than
-being silently ignored. The current inventories again report no unclassified
-file, catch site, timestamp call, direct parser or stale policy.
+being silently ignored. Journal validation runs before both the no-request and
+request-returned branches: the exact returned request remains active, while
+older same-phone journals are retired only because the server's single-state
+contract proves that they are no longer pending or in progress. The current
+inventories again report no unclassified file, catch site, timestamp call,
+direct parser or stale policy.
 
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not

@@ -354,6 +354,7 @@ Future<void> markCrashDurableIsarRecoveryJournalTerminal(
 Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
   required String targetUid,
   required String installationId,
+  required String? activeRequestId,
 }) async {
   if (!crashDurableIsarRecoveryJournalSupported) return 0;
   if (targetUid.isEmpty || installationId.isEmpty) {
@@ -392,7 +393,7 @@ Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
         'Active recovery-journal identity does not match the current session.',
       );
     }
-    requestIds.add(requestId);
+    if (requestId != activeRequestId) requestIds.add(requestId);
   }
   for (final requestId in requestIds) {
     await markCrashDurableIsarRecoveryJournalTerminal(requestId);

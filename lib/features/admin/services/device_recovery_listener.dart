@@ -21,6 +21,7 @@ typedef DeviceRecoveryInactiveJournalRetirer =
     Future<int> Function({
       required String targetUid,
       required String installationId,
+      required String? activeRequestId,
     });
 
 class DeviceRecoveryListener {
@@ -176,12 +177,13 @@ class DeviceRecoveryListener {
         claimedRecoveryOnly: claimedRecoveryOnly,
       );
       if (!_isCurrent(actor, generation)) return;
+      await _inactiveJournalRetirer(
+        targetUid: actor.uid,
+        installationId: installationId,
+        activeRequestId: request?.requestId,
+      );
+      if (!_isCurrent(actor, generation)) return;
       if (request == null) {
-        await _inactiveJournalRetirer(
-          targetUid: actor.uid,
-          installationId: installationId,
-        );
-        if (!_isCurrent(actor, generation)) return;
         _releaseClaimProtection();
         _clearRecoveryRetry();
         _recoverySessionGuard.completeRecoveryCheck();

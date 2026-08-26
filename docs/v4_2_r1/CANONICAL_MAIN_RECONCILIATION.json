@@ -918,17 +918,17 @@
     {
       "path": "lib/core/services/isar_production_recovery_io.dart",
       "canonicalSha256": "62CE96285C80B629A52D404BCC4903466E2A597DA91DBF602262A8AEA1F5CA3C",
-      "candidateSha256": "5984B0DC2ABA985F60D74E50FA3B30A2F217B0180089C6A450E67C9C91A43137",
+      "candidateSha256": "316454C72F790442696DBD8F2A4B9044823E14C4A1720E203D71C79CEEEA5578",
       "canonicalBytes": 10402,
-      "candidateBytes": 22154,
+      "candidateBytes": 22224,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/isar_production_recovery_stub.dart",
       "canonicalSha256": "1EC506BC93283F5EBD8F653F34C4CA1FA53434529E4840BC68921D11CCE31AA0",
-      "candidateSha256": "91DAAA4D4513BEB2170E8EAE9FAA7D0E07DB720A050118930C004F5EF85561D6",
+      "candidateSha256": "8F3555914388024BF0385325B9FE73A7A045306027ABC9C499616B0D913F0CB1",
       "canonicalBytes": 2506,
-      "candidateBytes": 3982,
+      "candidateBytes": 4018,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3086,7 +3086,7 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "7A646D61CECB03B961F6E6F196C237FD43DB20568EC2F7FB9C656C87AB7FFB33",
+      "candidateSha256": "867E43D794C743FDA6ECC527590A69C05E5C4B9C711C956FF5A1B641FD575B7C",
       "canonicalBytes": 18375,
       "candidateBytes": 40327,
       "disposition": "SUCCESSOR_MODIFIED"

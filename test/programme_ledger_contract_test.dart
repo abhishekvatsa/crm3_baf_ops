@@ -760,7 +760,7 @@ void main() {
     expect(a04Manifest['findingId'], 'A-04');
     expect(
       a04Manifest['inventoryDigest'],
-      '2DB3C7C8031C3B5E494D1F68324E95A2F7C5798DD9802D0B085D034DA795FF12',
+      'EEBFEA41CD3A39D47D46CF24DB5B94E67962587F7751F87CBE5FA91CF743230F',
     );
     expect(_objects(a04Manifest['fields']), hasLength(53));
     expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(73));

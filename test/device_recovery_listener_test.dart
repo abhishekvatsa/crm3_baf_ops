@@ -53,6 +53,7 @@ void main() {
       final markerEntered = Completer<void>();
       final releaseMarker = Completer<void>();
       final markedRequests = <String>[];
+      String? preservedRequestId;
       final commands = DeviceRecoveryCommandService(
         authenticatedUidLookup: () => 'operator-1',
         invoke: (payload) async {
@@ -76,6 +77,16 @@ void main() {
           markerEntered.complete();
           await releaseMarker.future;
         },
+        inactiveJournalRetirer: ({
+          required targetUid,
+          required installationId,
+          required activeRequestId,
+        }) async {
+          expect(targetUid, 'operator-1');
+          expect(installationId, _installation);
+          preservedRequestId = activeRequestId;
+          return 0;
+        },
       );
       addTearDown(scope.dispose);
 
@@ -87,6 +98,7 @@ void main() {
         throwsA(isA<LocalRecoverySignOutBlockedException>()),
       );
       expect(markedRequests, <String>[_request]);
+      expect(preservedRequestId, _request);
 
       releaseMarker.complete();
       await _waitFor(
@@ -102,6 +114,7 @@ void main() {
     () async {
       var pollAttempts = 0;
       var terminalAttempts = 0;
+      var journalValidationAttempts = 0;
       final inactiveRetired = Completer<void>();
       final commands = DeviceRecoveryCommandService(
         authenticatedUidLookup: () => 'operator-1',
@@ -132,9 +145,13 @@ void main() {
         inactiveJournalRetirer: ({
           required targetUid,
           required installationId,
+          required activeRequestId,
         }) async {
           expect(targetUid, 'operator-1');
           expect(installationId, _installation);
+          journalValidationAttempts++;
+          if (activeRequestId == _request) return 0;
+          expect(activeRequestId, isNull);
           inactiveRetired.complete();
           return 1;
         },
@@ -149,6 +166,7 @@ void main() {
 
       expect(pollAttempts, 2);
       expect(terminalAttempts, 1);
+      expect(journalValidationAttempts, 2);
       await scope.recoverySessionGuard.beginSessionEnd();
       scope.recoverySessionGuard.endSessionEnd();
     },
@@ -174,9 +192,11 @@ void main() {
         inactiveJournalRetirer: ({
           required targetUid,
           required installationId,
+          required activeRequestId,
         }) async {
           expect(targetUid, 'operator-1');
           expect(installationId, _installation);
+          expect(activeRequestId, isNull);
           retireAttempted.complete();
           throw const FormatException('cross-identity active journal');
         },
@@ -186,6 +206,50 @@ void main() {
       scope.listener.start(_operator());
       await retireAttempted.future.timeout(const Duration(seconds: 2));
 
+      expect(scope.recoverySessionGuard.isRecoveryProtectionActive, isTrue);
+      await expectLater(
+        scope.recoverySessionGuard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+    },
+  );
+
+  test(
+    'returned request cannot bypass active journal identity validation',
+    () async {
+      final validationAttempted = Completer<void>();
+      final reset = _LocalResetProbe();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          if (payload['operation'] == deviceRecoveryPollOperation) {
+            return _pollResponse(_replacement);
+          }
+          throw StateError('Unexpected request: ${payload['operation']}');
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: reset,
+        maxRecoveryRetries: 0,
+        inactiveJournalRetirer: ({
+          required targetUid,
+          required installationId,
+          required activeRequestId,
+        }) async {
+          expect(targetUid, 'operator-1');
+          expect(installationId, _installation);
+          expect(activeRequestId, _replacement);
+          validationAttempted.complete();
+          throw const FormatException('cross-identity active journal');
+        },
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await validationAttempted.future.timeout(const Duration(seconds: 2));
+
+      expect(reset.requests, isEmpty);
       expect(scope.recoverySessionGuard.isRecoveryProtectionActive, isTrue);
       await expectLater(
         scope.recoverySessionGuard.beginSessionEnd(),

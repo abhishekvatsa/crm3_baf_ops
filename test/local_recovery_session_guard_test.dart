@@ -77,80 +77,92 @@ void main() {
     guard.endRecovery();
   });
 
-  test(
-    'auth and recovery wiring acquires the interlock before either race',
-    () {
-      final auth =
-          File(
-            'lib/features/auth/providers/auth_provider.dart',
-          ).readAsStringSync();
-      final coordinator =
-          File('lib/core/services/sync_coordinator.dart').readAsStringSync();
+  test('auth and recovery wiring acquires the interlock before either race', () {
+    final auth =
+        File(
+          'lib/features/auth/providers/auth_provider.dart',
+        ).readAsStringSync();
+    final coordinator =
+        File('lib/core/services/sync_coordinator.dart').readAsStringSync();
 
-      final signOutStart = auth.indexOf('Future<void> signOut()');
-      final signOutEnd = auth.indexOf(
-        'Future<void> _performSignOut()',
-        signOutStart,
-      );
-      final signOut = auth.substring(signOutStart, signOutEnd);
-      expect(
-        signOut.indexOf('await _recoverySessionGuard.beginSessionEnd()'),
-        greaterThanOrEqualTo(0),
-      );
-      expect(
-        signOut.indexOf('.beginSessionEnd()'),
-        lessThan(signOut.indexOf('await _performSignOut()')),
-      );
-      expect(signOut, contains('.endSessionEnd()'));
+    final signOutStart = auth.indexOf('Future<void> signOut()');
+    final signOutEnd = auth.indexOf(
+      'Future<void> _performSignOut()',
+      signOutStart,
+    );
+    final signOut = auth.substring(signOutStart, signOutEnd);
+    expect(
+      signOut.indexOf('await _recoverySessionGuard.beginSessionEnd()'),
+      greaterThanOrEqualTo(0),
+    );
+    expect(
+      signOut.indexOf('.beginSessionEnd()'),
+      lessThan(signOut.indexOf('await _performSignOut()')),
+    );
+    expect(signOut, contains('.endSessionEnd()'));
 
-      final guardSource =
-          File(
-            'lib/core/services/local_recovery_session_guard.dart',
-          ).readAsStringSync();
-      final recoveryIoSource =
-          File(
-            'lib/core/services/isar_production_recovery_io.dart',
-          ).readAsStringSync();
-      expect(guardSource, contains('startupRecoveryProbe:'));
-      expect(guardSource, contains('hasActiveCrashDurableIsarRecoveryJournal'));
-      expect(
-        recoveryIoSource,
-        contains('markCrashDurableIsarRecoveryJournalTerminal'),
-      );
-      expect(recoveryIoSource, contains("File('\${source.path}.terminal')"));
-      expect(
-        recoveryIoSource,
-        contains('await _syncRecoveryDirectory(paths.journalDirectory)'),
-      );
-      expect(
-        recoveryIoSource,
-        contains('terminalEvidenceNeedsDirectorySync'),
-      );
-      expect(
-        recoveryIoSource,
-        contains('await _syncRecoveryDirectory(directory)'),
-      );
-      expect(
-        recoveryIoSource,
-        contains(
-          'Active recovery-journal identity does not match the current session.',
-        ),
-      );
+    final guardSource =
+        File(
+          'lib/core/services/local_recovery_session_guard.dart',
+        ).readAsStringSync();
+    final recoveryIoSource =
+        File(
+          'lib/core/services/isar_production_recovery_io.dart',
+        ).readAsStringSync();
+    final recoveryListenerSource =
+        File(
+          'lib/features/admin/services/device_recovery_listener.dart',
+        ).readAsStringSync();
+    expect(guardSource, contains('startupRecoveryProbe:'));
+    expect(guardSource, contains('hasActiveCrashDurableIsarRecoveryJournal'));
+    expect(
+      recoveryIoSource,
+      contains('markCrashDurableIsarRecoveryJournalTerminal'),
+    );
+    expect(recoveryIoSource, contains("File('\${source.path}.terminal')"));
+    expect(
+      recoveryIoSource,
+      contains('await _syncRecoveryDirectory(paths.journalDirectory)'),
+    );
+    expect(recoveryIoSource, contains('terminalEvidenceNeedsDirectorySync'));
+    expect(
+      recoveryIoSource,
+      contains('await _syncRecoveryDirectory(directory)'),
+    );
+    expect(
+      recoveryIoSource,
+      contains(
+        'Active recovery-journal identity does not match the current session.',
+      ),
+    );
+    expect(
+      recoveryIoSource,
+      contains('if (requestId != activeRequestId) requestIds.add(requestId)'),
+    );
+    final journalValidation = recoveryListenerSource.indexOf(
+      'await _inactiveJournalRetirer(',
+    );
+    expect(journalValidation, greaterThanOrEqualTo(0));
+    expect(
+      journalValidation,
+      lessThan(recoveryListenerSource.indexOf('if (request == null)')),
+    );
+    expect(
+      recoveryListenerSource,
+      contains('activeRequestId: request?.requestId'),
+    );
 
-      final recoveryStart = coordinator.indexOf(
-        'Future<T> runWithSyncPaused<T>',
-      );
-      final recoveryEnd = coordinator.indexOf(
-        'Future<SyncRequestOutcome> _runFullSync',
-        recoveryStart,
-      );
-      final recovery = coordinator.substring(recoveryStart, recoveryEnd);
-      expect(recovery.indexOf('.beginRecovery()'), greaterThanOrEqualTo(0));
-      expect(
-        recovery.indexOf('.beginRecovery()'),
-        lessThan(recovery.indexOf('return await operation()')),
-      );
-      expect(recovery, contains('.endRecovery()'));
-    },
-  );
+    final recoveryStart = coordinator.indexOf('Future<T> runWithSyncPaused<T>');
+    final recoveryEnd = coordinator.indexOf(
+      'Future<SyncRequestOutcome> _runFullSync',
+      recoveryStart,
+    );
+    final recovery = coordinator.substring(recoveryStart, recoveryEnd);
+    expect(recovery.indexOf('.beginRecovery()'), greaterThanOrEqualTo(0));
+    expect(
+      recovery.indexOf('.beginRecovery()'),
+      lessThan(recovery.indexOf('return await operation()')),
+    );
+    expect(recovery, contains('.endRecovery()'));
+  });
 }
