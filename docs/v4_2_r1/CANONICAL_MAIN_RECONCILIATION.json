@@ -174,9 +174,9 @@
     {
       "path": "android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt",
       "canonicalSha256": "13EF2CB6369D96B29194023BAF145167337A107D5044A6635FF3799A61D9377A",
-      "candidateSha256": "552A089BBA6674F0E766E1201FB4FCA277A4E069875DDB7F46D1DEC2FDD93C1A",
+      "candidateSha256": "4A792DCEAC8BDC9F60CEF8742817FE41BAA9A51BB84F780185B73640AEF057E4",
       "canonicalBytes": 130,
-      "candidateBytes": 13857,
+      "candidateBytes": 13908,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -530,9 +530,9 @@
     {
       "path": "functions/src/notifications.ts",
       "canonicalSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
-      "candidateSha256": "8074AD05D81A7D84F5F500C68AE6F429E4A3B9EACA9C1CEA0F47070E5206CB18",
+      "candidateSha256": "F1ECF7A7623DA5680E42CB7777535597809501349125453C0F9FA6938D59A301",
       "canonicalBytes": 15314,
-      "candidateBytes": 23663,
+      "candidateBytes": 24284,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -610,9 +610,9 @@
     {
       "path": "functions/test/notifications.test.js",
       "canonicalSha256": "7B27BE26533F60BAF001759FA8182D326AA347DA74EE1EC78F2434083904C378",
-      "candidateSha256": "D408CCBB78FB22F54A4A87C011F4539462CCCD24A32397A8C788AA1FE54E05EC",
+      "candidateSha256": "F4D039F5D2E5B8240190F480D5AC050B198C3588E44C6E252150A1921CEBE0DF",
       "canonicalBytes": 17292,
-      "candidateBytes": 35510,
+      "candidateBytes": 37762,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

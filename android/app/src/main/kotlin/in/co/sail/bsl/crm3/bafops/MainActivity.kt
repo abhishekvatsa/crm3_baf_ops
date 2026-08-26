@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
@@ -242,7 +243,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun notificationManager(): NotificationManager =
-        getSystemService(NotificationManager::class.java)
+        getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private fun ensureCriticalAlarmChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return

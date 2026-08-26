@@ -124,6 +124,11 @@ void main() {
       expect(source, contains('manager.activeNotifications'));
       expect(source, contains('CRITICAL_NOTIFICATION_TAG_PREFIX'));
       expect(source, contains('areNotificationsEnabled()'));
+      expect(source, contains('getSystemService(Context.NOTIFICATION_SERVICE)'));
+      expect(
+        source,
+        isNot(contains('getSystemService(NotificationManager::class.java)')),
+      );
       expect(source, contains('crm3://critical-alarm/'));
       expect(
         source,

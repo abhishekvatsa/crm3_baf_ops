@@ -155,6 +155,32 @@ export interface UserTokenLookup {
   installationId?: string;
 }
 
+export interface NotificationTokenGroup {
+  fcmToken: string;
+  registrations: ReadonlyArray<UserTokenLookup>;
+}
+
+export function groupNotificationRecipientsByToken(
+  recipients: ReadonlyArray<UserTokenLookup>,
+): NotificationTokenGroup[] {
+  const tokenToRegistrations = new Map<string, UserTokenLookup[]>();
+  for (const recipient of recipients) {
+    const registrations = tokenToRegistrations.get(recipient.fcmToken);
+    if (registrations == null) {
+      tokenToRegistrations.set(recipient.fcmToken, [recipient]);
+      continue;
+    }
+    const alreadyPresent = registrations.some((registration) =>
+      registration.uid === recipient.uid &&
+      registration.installationId === recipient.installationId
+    );
+    if (!alreadyPresent) registrations.push(recipient);
+  }
+  return [...tokenToRegistrations.entries()].map(
+    ([fcmToken, registrations]) => ({fcmToken, registrations}),
+  );
+}
+
 export const NOTIFICATION_INSTALLATIONS_COLLECTION =
   "notification_installations";
 export const NOTIFICATION_INSTALLATION_SCHEMA_VERSION = 1;
@@ -393,21 +419,9 @@ export async function sendNotification(args: {
   // can exist on multiple user records (shared tablets are common in
   // shift work), and we want to clear it from all of them — not just
   // the first one we saw.
-  const tokenToRegistrations = new Map<string, UserTokenLookup[]>();
-  for (const r of recipients) {
-    const existing = tokenToRegistrations.get(r.fcmToken);
-    if (existing == null) {
-      tokenToRegistrations.set(r.fcmToken, [r]);
-      continue;
-    }
-    const alreadyPresent = existing.some((registration) =>
-      registration.uid === r.uid &&
-      registration.installationId === r.installationId
-    );
-    if (!alreadyPresent) {
-      existing.push(r);
-    }
-  }
+  const tokenGroups = groupNotificationRecipientsByToken(recipients);
+  const tokenToRegistrations = new Map(tokenGroups.map((group) =>
+    [group.fcmToken, [...group.registrations]] as const));
   const dedupedTokens = [...tokenToRegistrations.keys()];
   if (dedupedTokens.length === 0) {
     return {

@@ -8672,7 +8672,8 @@ check(
     and "workflow_notification_receipts" in r05_workflow_source
     and "processCriticalAlarmRaisedNotification" in r05_workflow_source
     and "criticalAlarmRecipientCloudEventId(" in r05_workflow_source
-    and "recipients: [recipient]" in r05_workflow_source
+    and "groupNotificationRecipientsByToken" in r05_workflow_source
+    and "recipients: recipientGroup.registrations" in r05_workflow_source
     and "Promise.allSettled" in r05_workflow_source
     and "shouldRetryCriticalAlarmRecipientFailure" in r05_workflow_source
     and r05_workflow_source.index("executeIdempotentNotificationEvent({")

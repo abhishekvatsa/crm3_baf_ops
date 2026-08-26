@@ -15,6 +15,7 @@ import {
   getTokenLookupForInstallation,
   getTokenLookupsForApprovedUsers,
   getTokenLookupsForRoles,
+  groupNotificationRecipientsByToken,
   sendNotification,
 } from "../notifications";
 import type {
@@ -70,18 +71,6 @@ interface CriticalAlarmNotificationPlan {
   androidNotificationTag: string;
 }
 
-function dedupeCriticalAlarmRecipients(
-  recipients: ReadonlyArray<UserTokenLookup>,
-): UserTokenLookup[] {
-  const byToken = new Map<string, UserTokenLookup>();
-  for (const recipient of recipients) {
-    if (!byToken.has(recipient.fcmToken)) {
-      byToken.set(recipient.fcmToken, recipient);
-    }
-  }
-  return [...byToken.values()];
-}
-
 function criticalAlarmRecipientCloudEventId(
   cloudEventId: string,
   fcmToken: string,
@@ -127,9 +116,7 @@ async function prepareCriticalAlarmNotification(args: {
     return null;
   }
 
-  const recipients = dedupeCriticalAlarmRecipients(
-    await getTokenLookupsForApprovedUsers(notificationDb(db)),
-  );
+  const recipients = await getTokenLookupsForApprovedUsers(notificationDb(db));
   const typeName = typeof alarm.alarmTypeName === "string" ?
     alarm.alarmTypeName : "Critical safety alarm";
   const criticality = alarm.criticalityKey === "highest" ?
@@ -175,23 +162,24 @@ async function processCriticalAlarmRaisedNotification(args: {
 
   const plan = await prepareCriticalAlarmNotification({db, data, sourceEventId});
   if (plan == null) return;
+  const recipientGroups = groupNotificationRecipientsByToken(plan.recipients);
 
   const failures: unknown[] = [];
   let completed = 0;
   let skipped = 0;
-  for (let offset = 0; offset < plan.recipients.length; offset += 25) {
-    const batch = plan.recipients.slice(offset, offset + 25);
-    const outcomes = await Promise.allSettled(batch.map(async (recipient) => {
+  for (let offset = 0; offset < recipientGroups.length; offset += 25) {
+    const batch = recipientGroups.slice(offset, offset + 25);
+    const outcomes = await Promise.allSettled(batch.map(async (recipientGroup) => {
       const recipientPlan: CriticalAlarmNotificationPlan = {
         ...plan,
-        recipients: [recipient],
+        recipients: recipientGroup.registrations,
       };
       return executeIdempotentNotificationEvent({
         runtime: notificationRuntime(db),
         triggerName: "onCriticalAlarmRecipientNotification",
         cloudEventId: criticalAlarmRecipientCloudEventId(
           cloudEventId,
-          recipient.fcmToken,
+          recipientGroup.fcmToken,
         ),
         sourceDocumentPath: `maintenance_workflow_events/${sourceEventId}`,
         prepare: async () => recipientPlan,
@@ -222,7 +210,8 @@ async function processCriticalAlarmRaisedNotification(args: {
 
   logger.info("Critical alarm recipient notifications processed", {
     eventId: sourceEventId,
-    recipientCount: plan.recipients.length,
+    recipientCount: recipientGroups.length,
+    registrationCount: plan.recipients.length,
     completedCount: completed,
     skippedCount: skipped,
     failedCount: failures.length,

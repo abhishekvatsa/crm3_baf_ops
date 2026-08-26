@@ -93,14 +93,24 @@ void main() {
     expect(workflow, contains('state.status !== "pending"'));
     expect(workflow, contains('retryKnownFailure:'));
     expect(workflow, contains('shouldRetryKnownWorkflowNotificationFailure('));
+    expect(workflow, contains('criticalAlarmRecipientCloudEventId('));
+    expect(workflow, contains('groupNotificationRecipientsByToken'));
+    expect(workflow, contains('recipients: recipientGroup.registrations'));
+    expect(workflow, contains('Promise.allSettled'));
+    expect(workflow, contains('shouldRetryCriticalAlarmRecipientFailure(outcome)'));
     final notificationPolicy = File(
       'functions/src/maintenanceWorkflow/workflowNotificationPolicy.ts',
     ).readAsStringSync();
+    expect(
+      notificationPolicy,
+      contains('export const shouldRetryCriticalAlarmRecipientFailure'),
+    );
     expect(notificationPolicy, contains('outcome.attempted === 1'));
+    expect(notificationPolicy, contains('outcome.failed === 1'));
     expect(notificationPolicy, contains('outcome.retryableFailures === 1'));
     expect(
       notificationPolicy,
-      contains('outcome.retryableFailures === outcome.attempted'),
+      isNot(contains('outcome.retryableFailures === outcome.attempted')),
     );
     expect(workflow, contains('return null;'));
   });

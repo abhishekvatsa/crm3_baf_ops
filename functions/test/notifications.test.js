@@ -11,6 +11,7 @@ const {
   getTokenLookupsForApprovedUsers,
   getTokenLookupsForUser,
   getTokenLookupsForRoles,
+  groupNotificationRecipientsByToken,
   MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
   sendNotification,
 } = require('../lib/notifications');
@@ -731,6 +732,76 @@ describe('getTokenLookupsForRoles', () => {
 // ─── sendNotification + V2 cleanup behaviour ─────────────────────────────────
 
 describe('sendNotification', () => {
+  test('groups a shared token without discarding any registration', () => {
+    const groups = groupNotificationRecipientsByToken([
+      {uid: 'u1', fcmToken: 'shared', installationId: 'phone-a'},
+      {uid: 'u2', fcmToken: 'shared', installationId: 'phone-b'},
+      {uid: 'u1', fcmToken: 'shared', installationId: 'phone-a'},
+      {uid: 'u3', fcmToken: 'unique'},
+    ]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups.find((group) => group.fcmToken === 'shared').registrations)
+      .toEqual([
+        {uid: 'u1', fcmToken: 'shared', installationId: 'phone-a'},
+        {uid: 'u2', fcmToken: 'shared', installationId: 'phone-b'},
+      ]);
+  });
+
+  test('clears every installation registration sharing one dead token', async () => {
+    const {db, installations, docDeletes} = buildFirestoreDouble(
+      {
+        u1: {isApproved: true, roles: ['operations']},
+        u2: {isApproved: true, roles: ['operations']},
+      },
+      {
+        u1: {
+          phone: {
+            schemaVersion: 1,
+            token: 'shared-dead-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-26T01:00:00Z'),
+          },
+        },
+        u2: {
+          tablet: {
+            schemaVersion: 1,
+            token: 'shared-dead-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-26T02:00:00Z'),
+          },
+        },
+      },
+    );
+    const messaging = buildFakeFcm([{
+      success: false,
+      error: {code: 'messaging/registration-token-not-registered'},
+    }]);
+
+    const outcome = await sendNotification({
+      db,
+      messaging,
+      recipients: [
+        {uid: 'u1', fcmToken: 'shared-dead-token', installationId: 'phone'},
+        {uid: 'u2', fcmToken: 'shared-dead-token', installationId: 'tablet'},
+      ],
+      title: 'T',
+      body: 'B',
+    });
+
+    expect(outcome).toMatchObject({
+      attempted: 1,
+      failed: 1,
+      staleTokensCleared: 2,
+    });
+    expect(installations.u1.phone).toBeUndefined();
+    expect(installations.u2.tablet).toBeUndefined();
+    expect(docDeletes).toEqual([
+      'users/u1/notification_installations/phone',
+      'users/u2/notification_installations/tablet',
+    ]);
+  });
+
   test('counts successes and failures', async () => {
     const {db} = buildFirestoreDouble({u1: {fcmToken: 't1'}, u2: {fcmToken: 't2'}});
     const messaging = buildFakeFcm([{success: true}, {success: true}]);
