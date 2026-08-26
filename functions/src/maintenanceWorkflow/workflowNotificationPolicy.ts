@@ -1,4 +1,43 @@
 import {LANE_POLICY} from "./policy.generated";
+import type {SendOutcome} from "../notifications";
+
+export const isNotifiableCriticalAlarmStatus = (status: unknown): boolean =>
+  status === "raised" || status === "supportConfirmed";
+
+export const samePersistedNotificationInstant = (
+  left: unknown,
+  right: unknown,
+): boolean => {
+  const millis = (value: unknown): number | null => {
+    const candidate = value as {toMillis?: unknown} | null;
+    if (candidate == null || typeof candidate.toMillis !== "function") {
+      return null;
+    }
+    try {
+      const parsed = (candidate.toMillis as () => unknown)();
+      return Number.isSafeInteger(parsed) && (parsed as number) >= 0 ?
+        parsed as number : null;
+    } catch {
+      return null;
+    }
+  };
+  const leftMillis = millis(left);
+  return leftMillis != null && leftMillis === millis(right);
+};
+
+export const shouldRetryKnownWorkflowNotificationFailure = (
+  eventType: unknown,
+  outcome: SendOutcome,
+): boolean => {
+  if (eventType === "deviceRecovery.requested") {
+    return outcome.attempted === 1 && outcome.succeeded === 0 &&
+      outcome.failed === 1 && outcome.retryableFailures === 1;
+  }
+  if (eventType !== "criticalAlarm.raised") return false;
+  return outcome.attempted > 0 && outcome.succeeded === 0 &&
+    outcome.failed === outcome.attempted &&
+    outcome.retryableFailures === outcome.attempted;
+};
 
 const escalationRoles = (
   laneKey: string | null,

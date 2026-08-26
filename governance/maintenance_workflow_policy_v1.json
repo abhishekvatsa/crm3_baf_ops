@@ -1,8 +1,40 @@
 {
-  "schemaVersion": 2,
-  "policyId": "crm3-maintenance-workflow-v2",
-  "effectiveDate": "2026-07-21",
+  "schemaVersion": 3,
+  "policyId": "crm3-maintenance-workflow-v3",
+  "effectiveDate": "2026-08-26",
   "onlineOnlyLifecycleCommands": true,
+  "criticalAlarmDefinitions": [
+    {
+      "key": "fire",
+      "name": "Fire",
+      "criticalityKey": "highest",
+      "criticalityRank": 1
+    },
+    {
+      "key": "majorGasLeakage",
+      "name": "Major gas leakage",
+      "criticalityKey": "highest",
+      "criticalityRank": 1
+    },
+    {
+      "key": "blast",
+      "name": "Blast",
+      "criticalityKey": "highest",
+      "criticalityRank": 1
+    },
+    {
+      "key": "nitrogenFailure",
+      "name": "Nitrogen failure",
+      "criticalityKey": "critical",
+      "criticalityRank": 2
+    },
+    {
+      "key": "hotWellPumpFailure",
+      "name": "Hot well pump failure",
+      "criticalityKey": "critical",
+      "criticalityRank": 2
+    }
+  ],
   "laneSetFinalizerRoles": [
     "admin",
     "si",
@@ -428,6 +460,17 @@
       "si",
       "contractSupervisor",
       "shiftSupervisor"
+    ],
+    "confirmCriticalAlarmSupport": [
+      "admin",
+      "si"
+    ],
+    "resolveCriticalAlarm": [
+      "admin",
+      "si"
+    ],
+    "manageCriticalAlarmContacts": [
+      "admin"
     ]
   }
 }

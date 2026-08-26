@@ -87,6 +87,7 @@ export const finalizeLaneSet: CommandHandler = async ({tx, command, context}) =>
   }
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);
   const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const equipmentIdentity = equipmentIdentityFromWorkflow(workflow);
   if (workflow.status !== "pendingLaneClassification") {
     throw new WorkflowError("failed-precondition", "Workflow is not pending lane classification.");
   }
@@ -159,6 +160,8 @@ export const finalizeLaneSet: CommandHandler = async ({tx, command, context}) =>
     tx.create(lanePath(command.aggregateId, key, 1), {
       workflowId: command.aggregateId,
       jobExecutionId: executionId,
+      assetTypeKey: equipmentIdentity.assetTypeKey,
+      assetNumber: equipmentIdentity.assetNumber,
       laneKey: key,
       status: "pending",
       activationGeneration: 1,
@@ -295,6 +298,7 @@ export const addLane: CommandHandler = async ({tx, command, context}) => {
   const reason = cleanText(command.payload.reason, "reason");
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);
   const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const equipmentIdentity = equipmentIdentityFromWorkflow(workflow);
   const lanes = await laneDocs(tx, command.aggregateId);
   const active = lanes.find((lane) =>
     lane.laneKey === key && lane.status !== "removed" && lane.status !== "terminated",
@@ -316,6 +320,8 @@ export const addLane: CommandHandler = async ({tx, command, context}) => {
   const newLane: LaneDoc = {
     workflowId: command.aggregateId,
     jobExecutionId: executionId,
+    assetTypeKey: equipmentIdentity.assetTypeKey,
+    assetNumber: equipmentIdentity.assetNumber,
     laneKey: key,
     status: "pending",
     activationGeneration: generation,
@@ -513,6 +519,7 @@ export const terminateLane: CommandHandler = async ({tx, command, context}) => {
     : laneKey(command.payload.replacementLaneKey, "replacementLaneKey");
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);
   const version = assertExpectedVersion(workflow, command.expectedVersion);
+  const equipmentIdentity = equipmentIdentityFromWorkflow(workflow);
   const lanes = await laneDocs(tx, command.aggregateId);
   const lane = lanes.find((candidate) =>
     candidate.laneKey === key && candidate.status !== "removed" && candidate.status !== "terminated",
@@ -588,6 +595,8 @@ export const terminateLane: CommandHandler = async ({tx, command, context}) => {
     : {
       workflowId: command.aggregateId,
       jobExecutionId: executionId,
+      assetTypeKey: equipmentIdentity.assetTypeKey,
+      assetNumber: equipmentIdentity.assetNumber,
       laneKey: replacement,
       status: "pending",
       activationGeneration: generation,

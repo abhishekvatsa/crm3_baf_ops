@@ -273,7 +273,7 @@ void main() {
       );
       expect(
         deployed['currentSourceRulesAndIndexesDeployment'],
-        'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+        'SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
       );
       expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
       expect(
@@ -320,14 +320,17 @@ void main() {
         deployed['rulesAndIndexesSourceCommit'],
         rulesReadbackBefore['commit'],
       );
-      expect(verifiedRules['sourceSha256'], _sha256('firestore.rules'));
       expect(
         verifiedRules['sourceSha256'],
         requiredSource['exactFirestoreRulesSha256'],
       );
       expect(
         currentFirestoreSource['rulesSha256'],
-        verifiedRules['sourceSha256'],
+        _sha256('firestore.rules'),
+      );
+      expect(
+        currentFirestoreSource['rulesSha256'],
+        isNot(verifiedRules['sourceSha256']),
       );
       expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
       expect(verifiedRules['byteExact'], isTrue);
@@ -358,7 +361,7 @@ void main() {
       );
       expect(
         currentFirestoreSource['relationshipToDeployedBackend'],
-        'RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+        'RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
       );
       expect(
         currentFirestoreSource['indexSetSha256'],

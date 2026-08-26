@@ -1,6 +1,9 @@
 const {
   workflowActorFromUserDataForTest,
 } = require('../lib/maintenanceWorkflow/callable');
+const {
+  isSupportedWorkflowCommandType,
+} = require('../lib/maintenanceWorkflow/dispatcher');
 
 describe('maintenance workflow callable user authority', () => {
   test('accepts only canonical isApproved plus supported role list', () => {
@@ -35,5 +38,22 @@ describe('maintenance workflow callable user authority', () => {
     }, 'user-2', 'Token Name');
     expect(actor.name).toBe('Token Name');
     expect([...actor.roles]).toEqual(['operations']);
+  });
+
+  test.each([
+    'raiseCriticalAlarm',
+    'provideCriticalAlarmDetails',
+    'confirmCriticalAlarmSupport',
+    'resolveCriticalAlarm',
+    'withdrawCriticalAlarmInError',
+    'upsertCriticalAlarmContact',
+    'setCriticalAlarmContactStatus',
+  ])('admits the implemented critical-alarm command %s', (commandType) => {
+    expect(isSupportedWorkflowCommandType(commandType)).toBe(true);
+  });
+
+  test('does not admit a command without a registered handler', () => {
+    expect(isSupportedWorkflowCommandType('inventedCriticalAlarmCommand'))
+      .toBe(false);
   });
 });

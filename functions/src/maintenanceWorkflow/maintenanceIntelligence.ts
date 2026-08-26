@@ -2,6 +2,7 @@ import {createHash} from "crypto";
 import {WorkflowError} from "./errors";
 import {WorkflowTransaction} from "./store";
 import {Actor, JsonMap, LaneKey} from "./types";
+import {persistedInstantText} from "./utils";
 
 export interface MaintenanceResetCounter {
   readonly key: string;
@@ -416,8 +417,9 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
   };
   const dueStates = classification.resetCounters.flatMap((counter, index) => {
     const current = dueSnapshots[index].data;
-    const currentAt = typeof current?.lastCompletionAt === "string" ?
-      Date.parse(current.lastCompletionAt) : Number.NaN;
+    const currentAtText = persistedInstantText(current?.lastCompletionAt);
+    const currentAt = currentAtText == null ?
+      Number.NaN : Date.parse(currentAtText);
     if (Number.isFinite(currentAt) && currentAt > Date.parse(completedAt)) return [];
     const path = duePaths[index];
     return [{
@@ -440,6 +442,7 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
         lastCompletionSourceType: args.sourceType,
         lastCompletionSourceId: args.executionId,
         lastMaintenanceClassCode: classification.code,
+        classificationPending: false,
         updatedAt: args.recordedAt,
       },
     }];

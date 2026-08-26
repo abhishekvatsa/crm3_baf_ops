@@ -1,7 +1,10 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {CallableRequest, HttpsError, onCall} from "firebase-functions/v2/https";
-import {MaintenanceWorkflowCommandService} from "./dispatcher";
+import {
+  isSupportedWorkflowCommandType,
+  MaintenanceWorkflowCommandService,
+} from "./dispatcher";
 import {WorkflowError} from "./errors";
 import {FirebaseWorkflowStore} from "./firebaseStore";
 import {MUTATING_CALLABLE_SECURITY_OPTIONS} from "../callableSecurityConfig";
@@ -20,45 +23,14 @@ import {
   JsonMap,
   RoleKey,
   WorkflowCommand,
-  WorkflowCommandType,
 } from "./types";
 
 const CALLABLE_REGION = "asia-south1";
-const commandTypes = new Set<WorkflowCommandType>([
-  "createLegacyWorkflowJob",
-  "startIssueCoordination",
-  "upsertFrequentIssueDefinition", "setFrequentIssueDefinitionStatus",
-  "upsertMaintenanceClassDefinition", "setMaintenanceClassDefinitionStatus",
-  "classifyMaintenanceExecution", "classifyMaintenanceTicket",
-  "recordHistoricalMaintenance",
-  "upsertMaintenancePlan", "setMaintenancePlanStatus",
-  "completeMaintenancePlan",
-  "upsertInspectionDefinition", "setInspectionDefinitionStatus",
-  "createInspectionCampaign", "setInspectionCampaignStatus",
-  "addInspectionCampaignTargets", "setInspectionTargetDisposition",
-  "recordInspectionObservation", "linkInspectionObservationIssue",
-  "verifyInspectionFinding", "adjudicateInspectionFinding",
-  "finalizeLaneSet", "acknowledgeLane", "addLane", "removeLane",
-  "terminateLane", "closeLane", "cancelWorkflow", "raiseCompliance",
-  "acknowledgeCompliance", "confirmConditionAndReactivate",
-  "markComplianceComplied", "returnComplianceForCorrection",
-  "confirmComplianceClosed", "proposeCounterCondition",
-  "decideCounterCondition", "prepareRedLane", "reopenWorkflowModule", "finalizeJob", "deployEquipment",
-  "reconcileEquipment",
-  "createMaintenanceTicket", "acknowledgeMaintenanceTicket",
-  "completeMaintenanceTicketLane", "reconfigureMaintenanceTicketLanes",
-  "resolveMaintenanceTicket", "closeMaintenanceTicketWithoutResolution",
-  "reopenMaintenanceTicket",
-  "correctMaintenanceTicket",
-  "releaseFurnaceStuckup", "adjudicateFurnaceStuckup",
-  "purgePilotBusinessRecord",
-]);
-
 const parseCommand = (raw: unknown): WorkflowCommand => {
   const data = (raw ?? {}) as Record<string, unknown>;
   if (typeof data.commandId !== "string" ||
       typeof data.commandType !== "string" ||
-      !commandTypes.has(data.commandType as WorkflowCommandType) ||
+      !isSupportedWorkflowCommandType(data.commandType) ||
       typeof data.aggregateId !== "string" ||
       typeof data.expectedVersion !== "number" ||
       !Number.isSafeInteger(data.expectedVersion) ||
@@ -68,7 +40,7 @@ const parseCommand = (raw: unknown): WorkflowCommand => {
   }
   return {
     commandId: data.commandId.trim(),
-    commandType: data.commandType as WorkflowCommandType,
+    commandType: data.commandType,
     aggregateId: data.aggregateId.trim(),
     expectedVersion: data.expectedVersion,
     payload: data.payload as JsonMap,

@@ -16,10 +16,10 @@
       "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
-        "rulesSha256": "42A2039D958A1EA691DE20D89027B5CDA0FF5DC9EE09B0654EBEF9C619CF7621",
+        "rulesSha256": "68BB2B5D481A947DD72478B8B5B22000DC72D209FAAF8447AA98B1F1A9C82EDE",
         "indexCount": 66,
         "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
-        "relationshipToDeployedBackend": "RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+        "relationshipToDeployedBackend": "RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
         "productionDeploymentPerformed": false,
         "productionRuntimeUseAuthorized": false
       }
@@ -45,7 +45,7 @@
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
-      "currentSourceRulesAndIndexesDeployment": "SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+      "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
     },
     "controlledPilot": {
       "buildNumber": 11,

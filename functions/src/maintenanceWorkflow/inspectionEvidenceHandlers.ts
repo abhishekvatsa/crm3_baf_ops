@@ -10,7 +10,13 @@ import {
   setInspectionTargetDisposition as applyInspectionTargetDisposition,
 } from "./inspectionPopulation";
 import {JsonMap, RoleKey} from "./types";
-import {cleanText, intValue, iso, stableJson} from "./utils";
+import {
+  cleanText,
+  intValue,
+  iso,
+  persistedInstantText,
+  stableJson,
+} from "./utils";
 
 const campaignPath = (id: string): string => `inspection_campaigns/${id}`;
 const campaignAuditPath = (id: string): string => `inspection_campaign_audits/${id}`;
@@ -414,10 +420,16 @@ export const verifyInspectionFinding: CommandHandler = async ({
       "Prior inspection verification evidence is incomplete.",
     );
   }
+  const latestObservedAt = persistedInstantText(
+    finding.data.latestObservedAt,
+  );
+  const observedAt = persistedInstantText(observation.data.observedAt);
+  const firstObservedAt = persistedInstantText(finding.data.firstObservedAt);
   if (finding.data.targetKey !== observation.data.targetKey ||
       finding.data.currentObservationId !== observationId ||
-      String(finding.data.latestObservedAt) !== String(observation.data.observedAt) ||
-      String(observation.data.observedAt) <= String(finding.data.firstObservedAt)) {
+      latestObservedAt == null || observedAt == null || firstObservedAt == null ||
+      latestObservedAt !== observedAt ||
+      Date.parse(observedAt) <= Date.parse(firstObservedAt)) {
     throw new WorkflowError(
       "failed-precondition",
       "Verification must use the current latest observation of the same governed target.",

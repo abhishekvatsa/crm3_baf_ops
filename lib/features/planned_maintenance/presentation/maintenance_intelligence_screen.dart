@@ -172,13 +172,17 @@ class _DueStateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color =
-        state.isOverdue
+        state.classificationPending
+            ? BafColors.warning
+            : state.isOverdue
             ? BafColors.danger
             : state.isDueSoon
             ? BafColors.warning
             : BafColors.success;
     final status =
-        state.nextDueAt == null
+        state.classificationPending
+            ? 'Classification pending'
+            : state.nextDueAt == null
             ? 'Monitoring only'
             : state.isOverdue
             ? '${state.daysUntilDue!.abs()} days overdue'

@@ -78,7 +78,7 @@ export interface FcmMessage {
   data?: Readonly<Record<string, string>>;
   android?: {
     priority?: "high" | "normal";
-    notification?: {sound?: string; channelId?: string};
+    notification?: {sound?: string; channelId?: string; tag?: string};
   };
 }
 
@@ -273,6 +273,28 @@ export async function getTokenLookupsForRoles(
   ))).flat();
 }
 
+/** Returns every bounded installation belonging to an approved user. */
+export async function getTokenLookupsForApprovedUsers(
+  db: FirestoreLike,
+): Promise<UserTokenLookup[]> {
+  const snapshot = await db
+    .collection("users")
+    .where("isApproved", "==", true)
+    .get();
+  const eligible: Array<{
+    uid: string;
+    authorityData: Record<string, unknown>;
+  }> = [];
+  snapshot.forEach((doc) => {
+    const authority = canonicalApprovedUserAuthority(doc.data());
+    if (authority == null) return;
+    eligible.push({uid: doc.id, authorityData: authority.data});
+  });
+  return (await Promise.all(eligible.map(({uid, authorityData}) =>
+    tokenLookupsForApprovedUser(db, uid, authorityData)
+  ))).flat();
+}
+
 export async function getTokenLookupsForUser(
   db: FirestoreLike,
   uid: string,
@@ -351,6 +373,7 @@ export async function sendNotification(args: {
   body: string;
   unknownAgencies?: ReadonlyArray<string>;
   androidChannelId?: string;
+  androidNotificationTag?: string;
   data?: Readonly<Record<string, string>>;
 }): Promise<SendOutcome> {
   const {
@@ -361,6 +384,7 @@ export async function sendNotification(args: {
     body,
     unknownAgencies = [],
     androidChannelId = "crm3_baf_ops",
+    androidNotificationTag,
     data,
   } = args;
 
@@ -409,7 +433,13 @@ export async function sendNotification(args: {
       ...(data == null ? {} : {data}),
       android: {
         priority: "high",
-        notification: {sound: "default", channelId: androidChannelId},
+        notification: {
+          sound: "default",
+          channelId: androidChannelId,
+          ...(androidNotificationTag == null ? {} : {
+            tag: androidNotificationTag,
+          }),
+        },
       },
     }));
 

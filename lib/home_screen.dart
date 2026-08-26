@@ -46,6 +46,8 @@ import 'features/maintenance_workflow/presentation/screens/compliance_notificati
 import 'features/maintenance_workflow/presentation/screens/equipment_status_board.dart';
 import 'features/maintenance_workflow/presentation/screens/workflow_hub_screen.dart';
 import 'features/maintenance_workflow/providers/workflow_providers.dart';
+import 'features/critical_alarm/presentation/critical_alarm_screen.dart';
+import 'features/critical_alarm/providers/critical_alarm_providers.dart';
 
 import 'features/auth/data/user_model.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -108,6 +110,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               reason: 'notification_opened',
               expectedInstallationId: message.data['installationId'],
             ),
+      );
+      return;
+    }
+    if (message.data['destinationType'] == 'critical_alarm') {
+      final alarmId = message.data['alarmId']?.trim();
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CriticalAlarmScreen(initialAlarmId: alarmId),
+        ),
       );
       return;
     }
@@ -201,6 +213,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final inspectionFindingsAsync = ref.watch(
           allInspectionFindingsProvider,
         );
+        final criticalAlarmsAsync = ref.watch(activeCriticalAlarmsProvider);
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
@@ -246,6 +259,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
                 .length ??
             0;
+        final activeCriticalAlarmCount = criticalAlarmsAsync.value?.length ?? 0;
+        final criticalAlarmsUnavailable = criticalAlarmsAsync.value == null;
         final operationalEventsUnavailable =
             operationalEventsAsync.value == null;
         final qualityWarningsUnavailable = qualityWarningsAsync.value == null;
@@ -263,7 +278,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             qualityWarningsUnavailable ||
             qualityMonitoringUnavailable ||
             maintenanceDueStatesAsync.value == null ||
-            inspectionFindingsAsync.value == null;
+            inspectionFindingsAsync.value == null ||
+            criticalAlarmsUnavailable;
 
         final tabs = _buildTabs(
           appUser: appUser,
@@ -276,6 +292,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           activeQualityMonitoringCount: activeQualityMonitoringCount,
           overdueMaintenanceCount: overdueMaintenanceCount,
           activeInspectionFindingCount: activeInspectionFindingCount,
+          activeCriticalAlarmCount: activeCriticalAlarmCount,
           operationalEventsUnavailable: operationalEventsUnavailable,
           qualityWarningsUnavailable: qualityWarningsUnavailable,
           qualityMonitoringUnavailable: qualityMonitoringUnavailable,
@@ -284,6 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               workflowLanesAsync?.value == null ||
               workflowComplianceAsync?.value == null,
           inspectionFindingsUnavailable: inspectionFindingsAsync.value == null,
+          criticalAlarmsUnavailable: criticalAlarmsUnavailable,
           attentionDataUnavailable: attentionDataUnavailable,
           plantOverview: plantOverviewAsync,
         );
@@ -400,12 +418,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int activeQualityMonitoringCount,
     required int overdueMaintenanceCount,
     required int activeInspectionFindingCount,
+    required int activeCriticalAlarmCount,
     required bool operationalEventsUnavailable,
     required bool qualityWarningsUnavailable,
     required bool qualityMonitoringUnavailable,
     required bool directiveDataUnavailable,
     required bool workflowDataUnavailable,
     required bool inspectionFindingsUnavailable,
+    required bool criticalAlarmsUnavailable,
     required bool attentionDataUnavailable,
     required AsyncValue<PlantAssetOverview> plantOverview,
   }) {
@@ -424,10 +444,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               activeQualityMonitoringCount: activeQualityMonitoringCount,
               overdueMaintenanceCount: overdueMaintenanceCount,
               activeInspectionFindingCount: activeInspectionFindingCount,
+              activeCriticalAlarmCount: activeCriticalAlarmCount,
               operationalEventsUnavailable: operationalEventsUnavailable,
               qualityWarningsUnavailable: qualityWarningsUnavailable,
               qualityMonitoringUnavailable: qualityMonitoringUnavailable,
               attentionDataUnavailable: attentionDataUnavailable,
+              criticalAlarmsUnavailable: criticalAlarmsUnavailable,
               plantOverview: plantOverview,
               onProfileTap: () => _showProfileSheet(context, ref, appUser),
               onRaiseIssue: () => _openMaintenanceForm(context),
@@ -454,6 +476,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const MaintenanceIntelligenceScreen()),
               onInspectionProgrammes:
                   () => _push(context, const InspectionProgrammesScreen()),
+              onCriticalAlarms:
+                  () => _push(context, const CriticalAlarmScreen()),
               onManualSync: () => _retryAttentionData(context, appUser),
             ),
         destination: const NavigationDestination(
@@ -515,12 +539,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               qualityWarningCount: openQualityWarningCount,
               qualityMonitoringCount: activeQualityMonitoringCount,
               inspectionFindingCount: activeInspectionFindingCount,
+              criticalAlarmCount: activeCriticalAlarmCount,
               directiveDataUnavailable: directiveDataUnavailable,
               workflowDataUnavailable: workflowDataUnavailable,
               operationalEventsUnavailable: operationalEventsUnavailable,
               qualityWarningsUnavailable: qualityWarningsUnavailable,
               qualityMonitoringUnavailable: qualityMonitoringUnavailable,
               inspectionFindingsUnavailable: inspectionFindingsUnavailable,
+              criticalAlarmsUnavailable: criticalAlarmsUnavailable,
               onDirectives: () => _push(context, const DirectivesScreen()),
               onWorkflow: () => setState(() => _currentIndex = 2),
               onOperationalEvents:
@@ -532,6 +558,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onInspections:
                   () => _push(context, const InspectionProgrammesScreen()),
+              onCriticalAlarms:
+                  () => _push(context, const CriticalAlarmScreen()),
             ),
         destination: NavigationDestination(
           icon: Badge(
@@ -540,10 +568,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     openOperationalEventCount +
                     openQualityWarningCount +
                     activeQualityMonitoringCount +
-                    activeInspectionFindingCount >
+                    activeInspectionFindingCount +
+                    activeCriticalAlarmCount >
                 0,
             label: Text(
-              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount}',
+              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount + activeCriticalAlarmCount}',
             ),
             child: const Icon(Icons.radar_outlined),
           ),
@@ -553,10 +582,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     openOperationalEventCount +
                     openQualityWarningCount +
                     activeQualityMonitoringCount +
-                    activeInspectionFindingCount >
+                    activeInspectionFindingCount +
+                    activeCriticalAlarmCount >
                 0,
             label: Text(
-              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount}',
+              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount + activeCriticalAlarmCount}',
             ),
             child: const Icon(Icons.radar_rounded),
           ),
@@ -666,6 +696,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.invalidate(qualityWarningsProvider);
     ref.invalidate(maintenanceDueStatesProvider);
     ref.invalidate(allInspectionFindingsProvider);
+    ref.invalidate(activeCriticalAlarmsProvider);
     unawaited(_runManualSync(context));
   }
 
@@ -838,10 +869,12 @@ class _DashboardHome extends StatelessWidget {
   final int activeQualityMonitoringCount;
   final int overdueMaintenanceCount;
   final int activeInspectionFindingCount;
+  final int activeCriticalAlarmCount;
   final bool operationalEventsUnavailable;
   final bool qualityWarningsUnavailable;
   final bool qualityMonitoringUnavailable;
   final bool attentionDataUnavailable;
+  final bool criticalAlarmsUnavailable;
   final AsyncValue<PlantAssetOverview> plantOverview;
   final VoidCallback onProfileTap;
   final VoidCallback onRaiseIssue;
@@ -858,6 +891,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onControl;
   final VoidCallback onMaintenanceRhythm;
   final VoidCallback onInspectionProgrammes;
+  final VoidCallback onCriticalAlarms;
   final VoidCallback onManualSync;
 
   const _DashboardHome({
@@ -871,10 +905,12 @@ class _DashboardHome extends StatelessWidget {
     required this.activeQualityMonitoringCount,
     required this.overdueMaintenanceCount,
     required this.activeInspectionFindingCount,
+    required this.activeCriticalAlarmCount,
     required this.operationalEventsUnavailable,
     required this.qualityWarningsUnavailable,
     required this.qualityMonitoringUnavailable,
     required this.attentionDataUnavailable,
+    required this.criticalAlarmsUnavailable,
     required this.plantOverview,
     required this.onProfileTap,
     required this.onRaiseIssue,
@@ -891,6 +927,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onControl,
     required this.onMaintenanceRhythm,
     required this.onInspectionProgrammes,
+    required this.onCriticalAlarms,
     required this.onManualSync,
   });
 
@@ -905,7 +942,8 @@ class _DashboardHome extends StatelessWidget {
         openQualityWarningCount +
         activeQualityMonitoringCount +
         overdueMaintenanceCount +
-        activeInspectionFindingCount;
+        activeInspectionFindingCount +
+        activeCriticalAlarmCount;
 
     return SafeArea(
       bottom: false,
@@ -927,6 +965,15 @@ class _DashboardHome extends StatelessWidget {
                 syncIndicator: _CompactSyncPill(onManualSync: onManualSync),
                 onProfileTap: onProfileTap,
               ),
+              if (activeCriticalAlarmCount > 0 ||
+                  criticalAlarmsUnavailable) ...[
+                const SizedBox(height: BafSpacing.sm),
+                _CriticalAlarmHomeStrip(
+                  count: activeCriticalAlarmCount,
+                  unavailable: criticalAlarmsUnavailable,
+                  onTap: onCriticalAlarms,
+                ),
+              ],
               const SizedBox(height: BafSpacing.md),
               HomeCommandBar(
                 onRaiseIssue: onRaiseIssue,
@@ -1045,6 +1092,54 @@ class _DashboardHome extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CriticalAlarmHomeStrip extends StatelessWidget {
+  const _CriticalAlarmHomeStrip({
+    required this.count,
+    required this.unavailable,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool unavailable;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color:
+        unavailable
+            ? BafColors.warning.withValues(alpha: 0.13)
+            : BafColors.danger.withValues(alpha: 0.1),
+    borderRadius: BorderRadius.circular(BafRadius.medium),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(BafSpacing.md),
+        child: Row(
+          children: [
+            Icon(
+              unavailable
+                  ? Icons.cloud_off_outlined
+                  : Icons.notification_important,
+              color: unavailable ? BafColors.warning : BafColors.danger,
+            ),
+            const SizedBox(width: BafSpacing.sm),
+            Expanded(
+              child: Text(
+                unavailable
+                    ? 'Live critical-alarm state is not verified'
+                    : '$count active critical ${count == 1 ? 'alarm' : 'alarms'}',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _HomeSectionHeader extends StatelessWidget {

@@ -3816,6 +3816,12 @@ build16_firestore_readback_path = (
 build16_firestore_readback = data(
     "release/evidence/build16-firestore-rules-indexes-live-readback.json"
 )
+current_successor_state = data("release/current-successor-state.json")
+current_successor_planes = current_successor_state.get("authorityPlanes", {})
+current_source_firestore = current_successor_planes.get("currentSource", {}).get(
+    "firestoreRulesAndIndexes", {}
+)
+current_deployed_backend = current_successor_planes.get("deployedBackend", {})
 build12_custody_reconciliation_path = (
     ROOT
     / "release/evidence/build-12-closure-custody-reconciliation.json"
@@ -5240,7 +5246,7 @@ current_firestore_authority = combined_policy.get("finalization", {}).get(
     "exactFirestoreRulesIndexesLiveReadback", {}
 )
 check(
-    "Build 16 Firestore Rules and indexes are exact at the deployed baseline",
+    "Build 16 Firestore deployment remains exact while source successors stay pending",
     current_firestore_authority.get("verified") is True
     and sha(build14_firestore_readback_path)
         == "7E1D7ACC72ED094A03691D1AEB5D59AC9E576D3DFE6B6CE595B355DD71595B8D"
@@ -5295,7 +5301,6 @@ check(
         == build16_approval.get("requiredSource", {}).get(
             "exactFirestoreRulesSha256"
         )
-        == sha(ROOT / "firestore.rules")
     and build16_firestore_readback.get("outputs", {}).get("rules", {}).get(
         "activeSha256"
     )
@@ -5345,6 +5350,18 @@ check(
     and current_firestore_authority.get("allIndexesReady") is True
     and current_firestore_authority.get("redundantDeploymentPerformed")
         is False
+    and current_source_firestore.get("rulesSha256")
+        == sha(ROOT / "firestore.rules")
+    and current_source_firestore.get("rulesSha256")
+        != current_firestore_authority.get("rulesSha256")
+    and current_source_firestore.get("relationshipToDeployedBackend")
+        == "RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+    and current_source_firestore.get("productionDeploymentPerformed") is False
+    and current_source_firestore.get("productionRuntimeUseAuthorized") is False
+    and current_deployed_backend.get("rulesAndIndexesEvidenceFile")
+        == "release/evidence/build16-firestore-rules-indexes-live-readback.json"
+    and current_deployed_backend.get("currentSourceRulesAndIndexesDeployment")
+        == "SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
     and all(
         value is False
         for value in build16_firestore_readback.get(
@@ -9746,6 +9763,17 @@ if sys.platform == "win32" and dart_executable:
         # case-sensitively before appending ".exe" on Windows.
         dart_executable = str(located_dart.with_suffix(".exe"))
 if dart_executable:
+    a03_inventory_process = subprocess.run(
+        [
+            dart_executable,
+            "run",
+            str(ROOT / "tools/v4/a03_persistence_boundary_inventory.dart"),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "DART_SUPPRESS_ANALYTICS": "true"},
+    )
     a04_inventory_process = subprocess.run(
         [
             dart_executable,
@@ -9758,12 +9786,25 @@ if dart_executable:
         env={**os.environ, "DART_SUPPRESS_ANALYTICS": "true"},
     )
 else:
+    a03_inventory_process = subprocess.CompletedProcess(
+        args=["dart", "run", "tools/v4/a03_persistence_boundary_inventory.dart"],
+        returncode=127,
+        stdout="",
+        stderr="Dart SDK executable was not found.",
+    )
     a04_inventory_process = subprocess.CompletedProcess(
         args=["dart", "run", "tools/v4/a04_persisted_schema_inventory.dart"],
         returncode=127,
         stdout="",
         stderr="Dart SDK executable was not found.",
     )
+try:
+    a03_json_start = a03_inventory_process.stdout.index("{")
+    a03_inventory_report = json.loads(
+        a03_inventory_process.stdout[a03_json_start:]
+    )
+except (ValueError, json.JSONDecodeError):
+    a03_inventory_report = {}
 try:
     a04_json_start = a04_inventory_process.stdout.index("{")
     a04_inventory_report = json.loads(
@@ -9926,12 +9967,20 @@ check(
 )
 check(
     "A-03 persistence boundaries are completely classified and presentation-clean",
-    a03_manifest.get("schemaVersion") == 1
+    a03_inventory_process.returncode == 0
+    and a03_inventory_report.get("result") == "PASS"
+    and a03_inventory_report.get("findingId") == "A-03"
+    and a03_inventory_report.get("failures") == []
+    and a03_inventory_report.get("operationCount") == 537
+    and a03_inventory_report.get("siteCount") == 1865
+    and a03_inventory_report.get("inventoryDigest")
+        == "BE3F4E7FD499D3E395E5AFEDE29756B2E760227C1A6236637EB25DAD5019F1A2"
+    and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
-        == "2FFD0AE8EA9EC1541F256A8233FFF4D6CDAA4304A6F2807BF809AC5C6479C399"
-    and len(a03_surfaces) == 53
-    and len({surface.get("path") for surface in a03_surfaces}) == 53
+        == a03_inventory_report.get("inventoryDigest")
+    and len(a03_surfaces) == 55
+    and len({surface.get("path") for surface in a03_surfaces}) == 55
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -9953,8 +10002,18 @@ check(
         if len(surface.get("allowedStores", [])) > 1
     )
     and "Status: CLOSED" in a03_remediation
-    and "533 operations" in a03_remediation
+    and f"{a03_inventory_report.get('operationCount')} operations"
+        in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
+    (
+        f"returncode={a03_inventory_process.returncode} "
+        f"result={a03_inventory_report.get('result')} "
+        f"operations={a03_inventory_report.get('operationCount')} "
+        f"sites={a03_inventory_report.get('siteCount')} "
+        f"surfaces={len(a03_surfaces)} "
+        f"digest={a03_inventory_report.get('inventoryDigest')} "
+        f"stderr={a03_inventory_process.stderr.strip()}"
+    ),
 )
 check(
     "A-04 persisted schemas are completely classified and source-enforced",
@@ -9966,16 +10025,18 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 73
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 74
     and a04_inventory_report.get("inventoryDigest")
-    == "CAC2244AA0280A03AB9DB74EE4C6FBE47C326EED9BDE13301CD2B3EA47683729"
+        == "098A89070E57C7849AFB6B2A687E4F6EC1C6C83C81B95AB4F8E1E3CF23D91807"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
     and len(a04_fields) == 53
     and len({field.get("id") for field in a04_fields}) == 53
-    and len(a04_inherited_decoders) == 73
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 73
+    and a04_manifest.get("inventoryDigest")
+        == a04_inventory_report.get("inventoryDigest")
+    and len(a04_inherited_decoders) == 74
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 74
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -10243,10 +10304,10 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 69
-    and a05_timestamp_inventory_report.get("directCallCount") == 165
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 97
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 66
+    and a05_timestamp_inventory_report.get("readerCount") == 71
+    and a05_timestamp_inventory_report.get("directCallCount") == 174
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 102
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 70
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
@@ -10260,7 +10321,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 69
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 71
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -10285,16 +10346,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 73
+    and a05_decoder_inventory_report.get("surfaceCount") == 74
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 48
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 48
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 49
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 37
     and a05_decoder_inventory_report.get("riskCandidateCount") == 387
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 73
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 74
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 48
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool

@@ -67,6 +67,9 @@ export type WorkflowAuthorityCapability =
   | "inspection.observe" | "inspectionIssue.link"
   | "inspectionFinding.adjudicate"
   | "integrity.supervise" | "integrity.adjudicate"
+  | "criticalAlarm.raise" | "criticalAlarm.details"
+  | "criticalAlarm.support" | "criticalAlarm.resolve"
+  | "criticalAlarm.withdraw" | "criticalAlarm.contacts.manage"
   | "pilotRecord.purge";
 
 export interface WorkflowAuthorityScope extends JsonMap {
@@ -102,6 +105,10 @@ export type WorkflowCommandType =
   | "reopenMaintenanceTicket"
   | "correctMaintenanceTicket"
   | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup"
+  | "raiseCriticalAlarm" | "provideCriticalAlarmDetails"
+  | "confirmCriticalAlarmSupport" | "resolveCriticalAlarm"
+  | "withdrawCriticalAlarmInError"
+  | "upsertCriticalAlarmContact" | "setCriticalAlarmContactStatus"
   | "purgePilotBusinessRecord";
 
 export interface WorkflowCommandReceipt {

@@ -2,7 +2,7 @@ import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
 import {JsonMap, RoleKey} from "./types";
-import {cleanText, iso, stableJson} from "./utils";
+import {cleanText, iso, persistedInstantText, stableJson} from "./utils";
 import {
   buildInspectionTargetPopulation,
   inspectionPopulationCounts,
@@ -1155,8 +1155,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       performedByName: context.actor.name,
     });
   }
-  const priorLatest = typeof campaign.data.latestObservationAt === "string" ?
-    campaign.data.latestObservationAt : null;
+  const priorLatest = persistedInstantText(campaign.data.latestObservationAt);
   tx.update(campaignPath(campaignId), {
     version: nextVersion,
     observationCount: Number(campaign.data.observationCount ?? 0) + 1,

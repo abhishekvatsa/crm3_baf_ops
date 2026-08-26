@@ -1,4 +1,7 @@
 const {
+  isNotifiableCriticalAlarmStatus,
+  samePersistedNotificationInstant,
+  shouldRetryKnownWorkflowNotificationFailure,
   workflowRecipientRoles,
 } = require('../lib/maintenanceWorkflow/workflowNotificationPolicy');
 const {
@@ -50,6 +53,51 @@ describe('workflow notification routing', () => {
       new Set(['shiftSupervisor', 'si']),
     );
     expect(workflowRecipientRoles('lane.escalated', 'inst', 3)).toEqual(['admin']);
+  });
+
+  test('support confirmation cannot suppress a pending alarm notification', () => {
+    expect(isNotifiableCriticalAlarmStatus('raised')).toBe(true);
+    expect(isNotifiableCriticalAlarmStatus('supportConfirmed')).toBe(true);
+    expect(isNotifiableCriticalAlarmStatus('resolved')).toBe(false);
+    expect(isNotifiableCriticalAlarmStatus('withdrawnInError')).toBe(false);
+  });
+
+  test('critical notification evidence compares Firestore instants by value', () => {
+    const first = {toMillis: () => 1787731200000};
+    const same = {toMillis: () => 1787731200000};
+    const later = {toMillis: () => 1787731200001};
+    expect(first).not.toBe(same);
+    expect(samePersistedNotificationInstant(first, same)).toBe(true);
+    expect(samePersistedNotificationInstant(first, later)).toBe(false);
+    expect(samePersistedNotificationInstant(first, '2026-08-26T08:00:00.000Z'))
+      .toBe(false);
+    expect(samePersistedNotificationInstant(
+      first,
+      {toMillis: () => Number.NaN},
+    )).toBe(false);
+  });
+
+  test('critical fan-out retries only when every attempted delivery failed retryably', () => {
+    const allRetryable = {
+      attempted: 3,
+      succeeded: 0,
+      failed: 3,
+      retryableFailures: 3,
+      staleTokensCleared: 0,
+      unknownAgencies: [],
+    };
+    expect(shouldRetryKnownWorkflowNotificationFailure(
+      'criticalAlarm.raised',
+      allRetryable,
+    )).toBe(true);
+    expect(shouldRetryKnownWorkflowNotificationFailure(
+      'criticalAlarm.raised',
+      {...allRetryable, succeeded: 1, failed: 2, retryableFailures: 2},
+    )).toBe(false);
+    expect(shouldRetryKnownWorkflowNotificationFailure(
+      'criticalAlarm.raised',
+      {...allRetryable, attempted: 0, failed: 0, retryableFailures: 0},
+    )).toBe(false);
   });
 
 });

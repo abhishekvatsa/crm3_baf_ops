@@ -7,6 +7,14 @@ const {
 
 const at = (value) => new Date(value);
 
+const persistedTimestamp = (value) => {
+  const millis = Date.parse(value);
+  return {
+    _seconds: Math.floor(millis / 1000),
+    _nanoseconds: (millis % 1000) * 1000000,
+  };
+};
+
 function seedActor(store, uid, roles) {
   store.seed(`users/${uid}`, {isApproved: true, roles, name: uid});
   return {uid, name: uid};
@@ -433,6 +441,21 @@ describe('cross-asset inspection campaigns', () => {
     await service.execute(observation(), {
       actor: observer,
       serverNow: at('2026-08-21T05:10:00Z'),
+    });
+    const campaign = store.read(
+      'inspection_campaigns/campaign-furnace-pt-august',
+    );
+    store.seed('inspection_campaigns/campaign-furnace-pt-august', {
+      ...campaign,
+      latestObservationAt: persistedTimestamp(campaign.latestObservationAt),
+    });
+    const finding = store.read(
+      'inspection_findings/inspection-finding-observation-1',
+    );
+    store.seed('inspection_findings/inspection-finding-observation-1', {
+      ...finding,
+      firstObservedAt: persistedTimestamp(finding.firstObservedAt),
+      latestObservedAt: persistedTimestamp(finding.latestObservedAt),
     });
     await service.execute(observation({
       commandId: 'correction-1',

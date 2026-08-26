@@ -92,7 +92,16 @@ void main() {
     expect(workflow, contains('deviceRecoveryStateDocumentId'));
     expect(workflow, contains('state.status !== "pending"'));
     expect(workflow, contains('retryKnownFailure:'));
-    expect(workflow, contains('outcome.retryableFailures === 1'));
+    expect(workflow, contains('shouldRetryKnownWorkflowNotificationFailure('));
+    final notificationPolicy = File(
+      'functions/src/maintenanceWorkflow/workflowNotificationPolicy.ts',
+    ).readAsStringSync();
+    expect(notificationPolicy, contains('outcome.attempted === 1'));
+    expect(notificationPolicy, contains('outcome.retryableFailures === 1'));
+    expect(
+      notificationPolicy,
+      contains('outcome.retryableFailures === outcome.attempted'),
+    );
     expect(workflow, contains('return null;'));
   });
 

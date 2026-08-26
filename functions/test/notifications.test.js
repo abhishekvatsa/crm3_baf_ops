@@ -8,6 +8,7 @@ const {
   FCM_DEAD_TOKEN_CODES,
   FCM_RETRYABLE_ERROR_CODES,
   getTokenLookupForInstallation,
+  getTokenLookupsForApprovedUsers,
   getTokenLookupsForUser,
   getTokenLookupsForRoles,
   MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
@@ -438,6 +439,22 @@ describe('buildTicketLaneAddedNotification', () => {
 // ─── getTokenLookupsForRoles ─────────────────────────────────────────────────
 
 describe('getTokenLookupsForRoles', () => {
+  test('critical fan-out reaches every canonical approved user, regardless of role', async () => {
+    const {db} = buildFirestoreDouble({
+      ops: {isApproved: true, roles: ['operations'], fcmToken: 'ops-token'},
+      mech: {isApproved: true, roles: ['seniorMechanical'], fcmToken: 'mech-token'},
+      admin: {isApproved: true, roles: ['admin'], fcmToken: 'admin-token'},
+      pending: {isApproved: false, roles: ['admin'], fcmToken: 'pending-token'},
+      malformed: {isApproved: true, roles: ['unsupported'], fcmToken: 'bad-token'},
+    });
+    const result = await getTokenLookupsForApprovedUsers(db);
+    expect(result.map((entry) => entry.uid).sort()).toEqual([
+      'admin',
+      'mech',
+      'ops',
+    ]);
+  });
+
   test('returns approved users with matching roles and a token', async () => {
     const {db} = buildFirestoreDouble({
       u1: {isApproved: true, roles: ['seniorMechanical'], fcmToken: 'tok1'},
@@ -950,6 +967,40 @@ describe('sendNotification', () => {
     });
     expect(messagesSent).toHaveLength(1);
     expect(messagesSent[0].data).toEqual(data);
+  });
+
+  test('uses the dedicated high-priority critical-safety channel and alarm tag', async () => {
+    const {db} = buildFirestoreDouble({});
+    let messagesSent = null;
+    const messaging = {
+      sendEach: async (messages) => {
+        messagesSent = messages;
+        return {
+          successCount: messages.length,
+          failureCount: 0,
+          responses: messages.map(() => ({success: true})),
+        };
+      },
+    };
+    await sendNotification({
+      db,
+      messaging,
+      recipients: [{uid: 'ops-1', fcmToken: 'phone-token'}],
+      title: 'HIGHEST: Fire',
+      body: 'BAF shop - follow the plant emergency procedure.',
+      androidChannelId: 'crm3_critical_safety',
+      androidNotificationTag: 'critical-alarm-alarm-1',
+      data: {destinationType: 'critical_alarm', alarmId: 'alarm-1'},
+    });
+    expect(messagesSent).toHaveLength(1);
+    expect(messagesSent[0].android).toEqual({
+      priority: 'high',
+      notification: {
+        sound: 'default',
+        channelId: 'crm3_critical_safety',
+        tag: 'critical-alarm-alarm-1',
+      },
+    });
   });
 
   test('empty recipients short-circuits without calling FCM', async () => {

@@ -12,6 +12,7 @@ import type {
 } from "../notificationEventReceipt";
 import {
   getTokenLookupForInstallation,
+  getTokenLookupsForApprovedUsers,
   getTokenLookupsForRoles,
   sendNotification,
 } from "../notifications";
@@ -20,7 +21,12 @@ import type {
   MessagingLike,
   SendOutcome,
 } from "../notifications";
-import {workflowRecipientRoles} from "./workflowNotificationPolicy";
+import {
+  isNotifiableCriticalAlarmStatus,
+  samePersistedNotificationInstant,
+  shouldRetryKnownWorkflowNotificationFailure,
+  workflowRecipientRoles,
+} from "./workflowNotificationPolicy";
 
 const REGION = "asia-south1";
 
@@ -155,6 +161,67 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
               },
             };
           }
+          if (eventType === "criticalAlarm.raised") {
+            const alarmId = typeof payload.alarmId === "string" ?
+              payload.alarmId : "";
+            if (alarmId.length === 0 || aggregateId !== alarmId) return null;
+            const snapshot = await db.collection("critical_alarms")
+              .doc(alarmId)
+              .get();
+            const alarm = snapshot.data();
+            if (!snapshot.exists || alarm?.schemaVersion !== 1 ||
+                alarm.alarmId !== alarmId ||
+                !isNotifiableCriticalAlarmStatus(alarm.status) ||
+                !Number.isSafeInteger(alarm.version) || alarm.version < 1 ||
+                alarm.raisedByUid !== data.actorUid ||
+                alarm.raisedByName !== data.actorName ||
+                !samePersistedNotificationInstant(
+                  alarm.raisedAt,
+                  data.occurredAt,
+                ) ||
+                !samePersistedNotificationInstant(
+                  alarm.createdAt,
+                  data.occurredAt,
+                ) ||
+                alarm.alarmTypeKey !== payload.alarmTypeKey ||
+                alarm.alarmTypeName !== payload.alarmTypeName ||
+                alarm.criticalityKey !== payload.criticalityKey ||
+                alarm.criticalityRank !== payload.criticalityRank ||
+                alarm.location !== payload.location) {
+              logger.warn("Critical alarm notification is stale or invalid", {
+                eventId: sourceEventId,
+                alarmId,
+              });
+              return null;
+            }
+            const recipients = await getTokenLookupsForApprovedUsers(
+              notificationDb(db),
+            );
+            const typeName = typeof alarm.alarmTypeName === "string" ?
+              alarm.alarmTypeName : "Critical safety alarm";
+            const criticality = alarm.criticalityKey === "highest" ?
+              "HIGHEST" : "CRITICAL";
+            const location = typeof alarm.location === "string" ?
+              alarm.location : "Location not recorded";
+            const raiser = typeof alarm.raisedByName === "string" ?
+              alarm.raisedByName : "Approved user";
+            return {
+              recipients,
+              roles: ["all-approved-users"],
+              title: `${criticality}: ${typeName}`,
+              body: `${location} - raised by ${raiser}. Follow the plant emergency procedure.`,
+              notificationData: {
+                destinationType: "critical_alarm",
+                aggregateId: alarmId,
+                alarmId,
+                alarmTypeKey: String(alarm.alarmTypeKey),
+                criticalityKey: String(alarm.criticalityKey),
+                eventId: sourceEventId,
+              },
+              androidChannelId: "crm3_critical_safety",
+              androidNotificationTag: `critical-alarm-${alarmId}`,
+            };
+          }
           const roles = workflowRecipientRoles(
             eventType,
             laneKey,
@@ -216,14 +283,18 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
           recipients: plan.recipients,
           title: plan.title,
           body: plan.body,
-          data: plan.notificationData as Readonly<Record<string, string>>,
+          data: plan.notificationData as unknown as Readonly<Record<string, string>>,
+          androidChannelId: typeof plan.androidChannelId === "string" ?
+            plan.androidChannelId : undefined,
+          androidNotificationTag:
+            typeof plan.androidNotificationTag === "string" ?
+              plan.androidNotificationTag : undefined,
         }),
         retryKnownFailure: (_plan, outcome) =>
-          data.eventType === "deviceRecovery.requested" &&
-          outcome.attempted === 1 &&
-          outcome.succeeded === 0 &&
-          outcome.failed === 1 &&
-          outcome.retryableFailures === 1,
+          shouldRetryKnownWorkflowNotificationFailure(
+            data.eventType,
+            outcome,
+          ),
       });
 
       if (result.kind === "completed") {

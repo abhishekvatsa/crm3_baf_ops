@@ -64,6 +64,7 @@ import 'core/theme/baf_design_system.dart';
 import 'core/widgets/brand/brand_widgets.dart';
 import 'features/reports/providers/operations_report_provider.dart';
 import 'features/admin/services/device_recovery_listener.dart';
+import 'features/critical_alarm/presentation/critical_alarm_host.dart';
 
 // ── UI ───────────────────────────────────────────────────────
 import 'home_screen.dart';
@@ -567,6 +568,7 @@ class _KeyboardPredictiveBackEntry extends PopEntry<Object?> {
 class _CrmBafAppState extends ConsumerState<CrmBafApp>
     with WidgetsBindingObserver {
   final _navigatorObserver = _KeyboardBackNavigatorObserver();
+  final _navigatorKey = GlobalKey<NavigatorState>();
   StartupFailure? _startupFailure;
   bool _isRetryingLocalDatabaseOpen = false;
   bool _isBackingUpLocalDatabase = false;
@@ -932,7 +934,15 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
       title: BafBrand.productName,
       debugShowCheckedModeBanner: false,
       theme: BafAppTheme.light,
+      navigatorKey: _navigatorKey,
       navigatorObservers: <NavigatorObserver>[_navigatorObserver],
+      builder: (context, child) {
+        final app = child ?? const SizedBox.shrink();
+        if (_startupFailure != null) {
+          return app;
+        }
+        return CriticalAlarmHost(navigatorKey: _navigatorKey, child: app);
+      },
       home: _buildStartupHome(),
     );
   }
