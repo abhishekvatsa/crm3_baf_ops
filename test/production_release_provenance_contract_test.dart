@@ -150,6 +150,7 @@ void main() {
 
     test('policy binds remote issuance and exact sealed-pilot promotion', () {
       final text = read('tools/release/Test-ProductionReleasePolicy.ps1');
+      final canonicalAudit = read('tools/v4/v4_2_r1_canonical_audit.py');
 
       expect(text, contains("schemaVersion -ne 3"));
       expect(text, contains('remoteReservationTag'));
@@ -178,6 +179,21 @@ void main() {
       expect(text, contains(r'$expectedCurrentSourceFunctionDeployment'));
       expect(text, contains(r'$functionsMatchDeployed'));
       expect(text, contains(r'$backendMatchesDeployed'));
+      expect(canonicalAudit, contains('git_tree_object_id'));
+      expect(canonicalAudit, contains('function_fleet_deployment_status'));
+      expect(canonicalAudit, contains('expected_current_function_deployment'));
+      expect(canonicalAudit, contains('functions_match_deployed'));
+      expect(canonicalAudit, contains('backend_matches_deployed'));
+      expect(
+        canonicalAudit,
+        contains(
+          'BUILD17_SOURCE_AUTHORIZED_BACKEND_PENDING_GOVERNED_DEPLOYMENT',
+        ),
+      );
+      expect(
+        canonicalAudit,
+        contains('SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'),
+      );
       expect(
         text,
         contains(

@@ -58,6 +58,45 @@ def data(rel: str):
     return json.loads(text(rel))
 
 
+def git_tree_object_id(commit: str, path: str) -> str | None:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{commit}:{path}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    value = result.stdout.strip().lower()
+    if result.returncode != 0 or re.fullmatch(
+        r"(?:[0-9a-f]{40}|[0-9a-f]{64})",
+        value,
+    ) is None:
+        return None
+    return value
+
+
+def function_fleet_deployment_status(
+    deployed_tree: str | None,
+    current_tree: str | None,
+) -> str:
+    if (
+        deployed_tree is not None
+        and current_tree is not None
+        and deployed_tree == current_tree
+    ):
+        return "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
+    return "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+
+
+if (
+    function_fleet_deployment_status("a" * 40, "a" * 40)
+    != "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
+    or function_fleet_deployment_status("a" * 40, "b" * 40)
+    != "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+):
+    raise RuntimeError("Function deployment-state classifier self-test failed")
+
+
 def check(name: str, condition: bool, detail: str = "") -> None:
     (PASS if condition else FAIL).append((name, detail))
     print(f"{'PASS' if condition else 'FAIL'} | {name}" + (f" | {detail}" if detail else ""))
@@ -4035,6 +4074,96 @@ build17_pending = (
     combined_policy.get("finalization", {}).get("status")
     == "pending-source-authorized"
 )
+current_firestore_authority = combined_policy.get("finalization", {}).get(
+    "exactFirestoreRulesIndexesLiveReadback", {}
+)
+deployed_functions_tree = git_tree_object_id(
+    str(current_deployed_backend.get("functionFleetSourceCommit", "")),
+    "functions",
+)
+current_functions_tree = git_tree_object_id("HEAD", "functions")
+expected_current_function_deployment = function_fleet_deployment_status(
+    deployed_functions_tree,
+    current_functions_tree,
+)
+functions_match_deployed = (
+    expected_current_function_deployment
+    == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
+)
+source_index_process = subprocess.run(
+    [
+        "node",
+        "tools/release/collectFirestoreRulesIndexesReadback.js",
+        "--source-index-set",
+        "firestore.indexes.json",
+    ],
+    cwd=ROOT,
+    capture_output=True,
+    text=True,
+    check=False,
+)
+try:
+    source_index_binding = (
+        json.loads(source_index_process.stdout)
+        if source_index_process.returncode == 0
+        else {}
+    )
+except json.JSONDecodeError:
+    source_index_binding = {}
+current_rules_sha = sha(ROOT / "firestore.rules")
+current_index_count = source_index_binding.get("count")
+current_index_set_sha = source_index_binding.get("indexSetSha256")
+rules_changed = current_rules_sha != current_firestore_authority.get("rulesSha256")
+indexes_changed = (
+    current_index_count != current_firestore_authority.get("indexCount")
+    or current_index_set_sha
+    != current_firestore_authority.get("indexSetSha256")
+)
+firestore_matches_deployed = not rules_changed and not indexes_changed
+if firestore_matches_deployed:
+    expected_current_firestore_relationship = (
+        "EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED"
+    )
+    expected_current_firestore_deployment = (
+        "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+    )
+elif rules_changed and indexes_changed:
+    expected_current_firestore_relationship = (
+        "RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+    )
+    expected_current_firestore_deployment = (
+        "SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+    )
+elif rules_changed:
+    expected_current_firestore_relationship = (
+        "RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+    )
+    expected_current_firestore_deployment = (
+        "SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+    )
+else:
+    expected_current_firestore_relationship = (
+        "RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+    )
+    expected_current_firestore_deployment = (
+        "SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+    )
+backend_matches_deployed = functions_match_deployed and firestore_matches_deployed
+expected_current_backend_status = (
+    "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED"
+    if backend_matches_deployed
+    else "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
+)
+expected_successor_state_status = (
+    "BUILD17_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION"
+    if backend_matches_deployed
+    else "BUILD17_SOURCE_AUTHORIZED_BACKEND_PENDING_GOVERNED_DEPLOYMENT"
+)
+expected_next_candidate_status = (
+    "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD17_CONSTRUCTION"
+    if backend_matches_deployed
+    else "SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT"
+)
 check(
     "Builds 6-17 are preserved and Build 17 finalization remains governed",
     sha(build6_approval_path)
@@ -5347,21 +5476,26 @@ check(
     and "remoteBuiltTagObject" not in build17_entry
     and "githubRunId" not in build17_entry
     and current_successor_state.get("status")
-        == "BUILD17_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION"
+        == expected_successor_state_status
     and current_successor_planes.get("currentSource", {}).get("packageVersion")
         == "1.0.0-rc.7+17"
+    and current_successor_planes.get("currentSource", {}).get(
+        "artifactConstructionAuthority"
+    ) is backend_matches_deployed
+    and current_successor_planes.get("currentSource", {}).get(
+        "productionRuntimeUseAuthorized"
+    ) is False
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "buildNumber"
     ) == 16
     and current_successor_planes.get("nextCandidate", {}).get(
         "minimumBuildNumber"
-    ) == 17,
-)
-current_firestore_authority = combined_policy.get("finalization", {}).get(
-    "exactFirestoreRulesIndexesLiveReadback", {}
+    ) == 17
+    and current_successor_planes.get("nextCandidate", {}).get("status")
+        == expected_next_candidate_status,
 )
 check(
-    "Build 17 source is bound to the exact deployed Firestore and Function fleet",
+    "Build 17 source is bound to deployed receipts with drift-sensitive status",
     current_firestore_authority.get("verified") is True
     and sha(build14_firestore_readback_path)
         == "7E1D7ACC72ED094A03691D1AEB5D59AC9E576D3DFE6B6CE595B355DD71595B8D"
@@ -5469,17 +5603,22 @@ check(
     and current_firestore_authority.get("allIndexesReady") is True
     and current_firestore_authority.get("redundantDeploymentPerformed")
         is False
-    and current_source_firestore.get("rulesSha256")
-        == sha(ROOT / "firestore.rules")
-    and current_source_firestore.get("rulesSha256")
-        == current_firestore_authority.get("rulesSha256")
+    and deployed_functions_tree is not None
+    and current_functions_tree is not None
+    and source_index_process.returncode == 0
+    and current_source_firestore.get("rulesSha256") == current_rules_sha
+    and current_source_firestore.get("indexCount") == current_index_count
+    and current_source_firestore.get("indexSetSha256")
+        == current_index_set_sha
     and current_source_firestore.get("relationshipToDeployedBackend")
-        == "EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED"
-    and current_source_firestore.get("productionDeploymentPerformed") is True
-    and current_source_firestore.get("productionRuntimeUseAuthorized") is True
+        == expected_current_firestore_relationship
+    and current_source_firestore.get("productionDeploymentPerformed")
+        is firestore_matches_deployed
+    and current_source_firestore.get("productionRuntimeUseAuthorized")
+        is firestore_matches_deployed
     and current_successor_planes.get("currentSource", {}).get(
         "backendDeploymentStatus"
-    ) == "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED"
+    ) == expected_current_backend_status
     and current_deployed_backend.get("functionFleetEvidenceFile")
         == "release/evidence/pr299-backend-deployment-closure.json"
     and current_deployed_backend.get("functionFleetSourceCommit")
@@ -5487,11 +5626,11 @@ check(
     and current_deployed_backend.get("functionFleetReadbackDecision")
         == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
     and current_deployed_backend.get("currentSourceFunctionDeployment")
-        == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
+        == expected_current_function_deployment
     and current_deployed_backend.get("rulesAndIndexesEvidenceFile")
         == "release/evidence/build17-firestore-rules-indexes-live-readback.json"
     and current_deployed_backend.get("currentSourceRulesAndIndexesDeployment")
-        == "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+        == expected_current_firestore_deployment
     and current_deployed_backend.get("productionBackendRuntimeAuthorized") is True
     and all(
         value is False
@@ -5507,6 +5646,10 @@ check(
                 "BUILD17_EXPLICIT_PILOT_PROMOTION",
             ]
         ),
+    (
+        f"functions={'exact' if functions_match_deployed else 'pending'} "
+        f"firestore={'exact' if firestore_matches_deployed else 'pending'}"
+    ),
 )
 check(
     "Build 8 backend is ready and its one physical sync retry stays bounded",
