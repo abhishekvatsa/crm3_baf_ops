@@ -74,6 +74,71 @@ function emptyDocuments() {
   );
 }
 
+function criticalAlarmDocuments() {
+  return {
+    critical_alarms: [{
+      id: 'alarm-1',
+      data: {
+        schemaVersion: 1,
+        alarmId: 'alarm-1',
+        alarmTypeKey: 'fire',
+        alarmTypeName: 'Fire',
+        criticalityKey: 'highest',
+        criticalityRank: 1,
+        status: 'raised',
+        version: 1,
+        location: 'BAF shop north bay',
+        assetTypeKey: null,
+        assetNumber: null,
+        details: null,
+        detailsPending: true,
+        raisedByUid: 'operator-1',
+        raisedByName: 'Operator One',
+        raisedAt: ts,
+        detailsProvidedByUid: null,
+        detailsProvidedByName: null,
+        detailsProvidedAt: null,
+        supportBasis: null,
+        supportNote: null,
+        supportConfirmedByUid: null,
+        supportConfirmedByName: null,
+        supportConfirmedAt: null,
+        resolutionSummary: null,
+        resolvedByUid: null,
+        resolvedByName: null,
+        resolvedAt: null,
+        withdrawalReason: null,
+        withdrawnByUid: null,
+        withdrawnByName: null,
+        withdrawnAt: null,
+        createdAt: ts,
+        updatedAt: ts,
+      },
+    }],
+    critical_alarm_contacts: [{
+      id: 'fire-room',
+      data: {
+        schemaVersion: 1,
+        contactId: 'fire-room',
+        version: 1,
+        status: 'active',
+        label: 'Fire control room',
+        contactKind: 'landline',
+        dialValue: '+916572200000',
+        alarmTypeKeys: ['fire'],
+        priority: 1,
+        notes: null,
+        createdAt: ts,
+        createdByUid: 'admin-1',
+        createdByName: 'Admin One',
+        updatedAt: ts,
+        updatedByUid: 'admin-1',
+        updatedByName: 'Admin One',
+      },
+    }],
+  };
+}
+
 function burnerConditionRoundDocuments() {
   const roundId = '33333333-3333-4333-8333-333333333333';
   return {
@@ -624,6 +689,8 @@ test('successor business collections have exact app or server authority', () => 
   const appDecoded = [
     'asset_availability_current',
     'asset_condition_declarations',
+    'critical_alarm_contacts',
+    'critical_alarms',
     'frequent_issue_definitions',
     'furnace_stuckup_cases',
     'inspection_campaigns',
@@ -638,6 +705,8 @@ test('successor business collections have exact app or server authority', () => 
   const serverOnly = [
     'asset_availability_constraints',
     'asset_condition_evidence',
+    'critical_alarm_audits',
+    'critical_alarm_contact_audits',
     'frequent_issue_definition_audits',
     'historical_maintenance_audits',
     'historical_maintenance_records',
@@ -671,6 +740,8 @@ test('every successor app collection reaches a strict Dart decoder', async () =>
   const successorCollections = [
     'asset_availability_current',
     'asset_condition_declarations',
+    'critical_alarm_contacts',
+    'critical_alarms',
     'frequent_issue_definitions',
     'furnace_stuckup_cases',
     'inspection_campaigns',
@@ -868,6 +939,45 @@ test('actual Dart readers reconcile valid audit and maintenance records in memor
       (finding) => finding.collection !== 'audit_logs' &&
         finding.collection !== 'maintenance_records',
     ),
+  );
+});
+
+test('actual Dart readers reconcile critical alarms and exact contacts', async () => {
+  const criticalSafety = criticalAlarmDocuments();
+  const documents = {
+    ...emptyDocuments(),
+    users: [{id: 'u1', data: user()}],
+    runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
+    ...criticalSafety,
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+
+  assert.equal(reconciliation.length, 2);
+  assert.ok(reconciliation.every((result) => result.result === 'PASS'));
+  assert.equal(JSON.stringify(reconciliation).includes('alarm-1'), false);
+  assert.equal(JSON.stringify(reconciliation).includes('fire-room'), false);
+
+  const result = classify({
+    documents,
+    roots: [
+      'users',
+      'runtime_contracts',
+      'critical_alarm_contacts',
+      'critical_alarms',
+    ],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.pass);
+  assert.equal(
+    result.collectionDispositions.critical_alarm_contacts,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+  assert.equal(
+    result.collectionDispositions.critical_alarms,
+    'DART_STRICT_RECONCILIATION_PASS',
   );
 });
 
