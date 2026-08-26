@@ -187,12 +187,12 @@ void main() {
       expect(
         canonicalAudit,
         contains(
-          'BUILD17_SOURCE_AUTHORIZED_BACKEND_PENDING_GOVERNED_DEPLOYMENT',
+          'BUILD17_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_',
         ),
       );
       expect(
         canonicalAudit,
-        contains('SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'),
+        contains('AWAITING_FRESH_GOVERNED_BUILD18_APPROVAL'),
       );
       expect(
         text,
