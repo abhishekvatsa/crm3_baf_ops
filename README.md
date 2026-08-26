@@ -15,16 +15,13 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` source-authorizes Build 17 (`1.0.0-rc.7+17`) after exact
+Current `main` records finalized Build 17 (`1.0.0-rc.7+17`) after exact
 production deployment and strict live readback of the current Function fleet,
-Firestore Rules and all 66 indexes. Its signed package has not yet been
-constructed. Build 16 remains independently finalized, signed, verified and in
-dual custody; its physical-device fresh-install smoke reached the branded
-sign-in screen, while authenticated business flows and preservation of an
-existing installation remain unadjudicated for that artifact. Neither consumed
-package identity may be reused. Build 17 still requires governed signed
-construction, exact device/business-flow validation and a separate
-controlled-pilot decision before any distribution.
+Firestore Rules and all 66 indexes, production signing, independent package
+verification and dual custody. Build 16 remains independently finalized, and
+neither consumed package identity may be reused. Exact Build 17 device
+migration and authenticated business-flow validation remain unadjudicated. A
+separate controlled-pilot decision is still required before any distribution.
 
 Authoritative status sources:
 

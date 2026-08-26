@@ -40,8 +40,8 @@ String _gitTreeObjectId(String commit, String path) {
 
 String _functionDeploymentStatus(String deployedTree, String currentTree) =>
     deployedTree == currentTree
-    ? 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
-    : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
+        ? 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
+        : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
 
 String _firestoreRelationship({
   required bool rulesChanged,
@@ -100,17 +100,11 @@ void main() {
       'RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
     );
     expect(
-      _firestoreDeploymentStatus(
-        rulesChanged: true,
-        indexesChanged: false,
-      ),
+      _firestoreDeploymentStatus(rulesChanged: true, indexesChanged: false),
       'SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
     );
     expect(
-      _firestoreDeploymentStatus(
-        rulesChanged: false,
-        indexesChanged: true,
-      ),
+      _firestoreDeploymentStatus(rulesChanged: false, indexesChanged: true),
       'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
     );
     expect(
@@ -272,8 +266,7 @@ void main() {
           (jsonDecode(sourceIndexProbe.stdout as String) as Map)
               .cast<String, dynamic>();
       final currentRulesSha = _sha256('firestore.rules');
-      final rulesChanged =
-          currentRulesSha != firestoreAuthority['rulesSha256'];
+      final rulesChanged = currentRulesSha != firestoreAuthority['rulesSha256'];
       final indexesChanged =
           sourceIndexBinding['count'] != firestoreAuthority['indexCount'] ||
           sourceIndexBinding['indexSetSha256'] !=
@@ -289,19 +282,23 @@ void main() {
         rulesChanged: rulesChanged,
         indexesChanged: indexesChanged,
       );
-      final expectedBackendStatus = backendMatchesDeployed
-          ? 'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
-          : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
+      final expectedBackendStatus =
+          backendMatchesDeployed
+              ? 'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
+              : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
 
       expect(state['schemaVersion'], 2);
       expect(
         state['status'],
         pendingConstruction
             ? backendMatchesDeployed
-                  ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
-                      'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
-                  : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
-                      'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
+                ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
+                    'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
+                : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
+                    'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
+            : backendMatchesDeployed
+            ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                'AWAITING_DEVICE_AND_PILOT_DECISIONS'
             : 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
                 'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_'
                 'PILOT_DECISIONS',
@@ -324,10 +321,7 @@ void main() {
       expect(currentSource['deploymentAuthority'], isFalse);
       expect(currentSource['distributionAuthority'], isFalse);
       expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
-      expect(
-        currentSource['backendDeploymentStatus'],
-        expectedBackendStatus,
-      );
+      expect(currentSource['backendDeploymentStatus'], expectedBackendStatus);
       expect(currentSource['productionRuntimeUseAuthorized'], isFalse);
 
       expect(artifact['buildNumber'], finalizedBuildNumber);
@@ -463,10 +457,7 @@ void main() {
         verifiedRules['sourceSha256'],
         requiredSource['exactFirestoreRulesSha256'],
       );
-      expect(
-        currentFirestoreSource['rulesSha256'],
-        currentRulesSha,
-      );
+      expect(currentFirestoreSource['rulesSha256'], currentRulesSha);
       expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
       expect(verifiedRules['byteExact'], isTrue);
       expect(
@@ -546,9 +537,9 @@ void main() {
         next['status'],
         pendingConstruction
             ? backendMatchesDeployed
-                  ? 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
-                      'BUILD${candidateBuildNumber}_CONSTRUCTION'
-                  : 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
+                ? 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
+                    'BUILD${candidateBuildNumber}_CONSTRUCTION'
+                : 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
             : 'AWAITING_FRESH_GOVERNED_BUILD${candidateBuildNumber + 1}_'
                 'APPROVAL',
       );
@@ -579,14 +570,14 @@ void main() {
         (policy['finalization'] as Map).cast<String, dynamic>();
     final build16Authority =
         (finalization['priorCompletedBuild'] as Map).cast<String, dynamic>();
-    final artifact =
+    final latestArtifact =
         ((state['authorityPlanes'] as Map)['latestFinalizedArtifact'] as Map)
             .cast<String, dynamic>();
     final receipt = _readObject(
-      artifact['completionReceiptFile'] as String,
+      build16Authority['completionReceiptFile'] as String,
     );
     final smoke = _readObject(
-      artifact['installationSmokeReceiptFile'] as String,
+      'release/evidence/build-16-device-installation-smoke.json',
     );
     final governedPackage =
         (receipt['governedPackage'] as Map).cast<String, dynamic>();
@@ -594,25 +585,17 @@ void main() {
     final emulator = (smoke['emulator'] as Map).cast<String, dynamic>();
     final boundary = (smoke['boundary'] as Map).cast<String, dynamic>();
 
-    expect(finalization['status'], 'pending-source-authorized');
+    expect(finalization['status'], 'completed-non-distributable');
     expect(build16Authority['status'], 'completed-non-distributable');
-    expect(artifact['buildNumber'], 16);
+    expect(latestArtifact['buildNumber'], 17);
     expect(build16Authority['buildNumber'], 16);
     expect(
-      artifact['completionReceiptFile'],
-      build16Authority['completionReceiptFile'],
-    );
-    expect(
-      artifact['completionReceiptSha256'],
+      _sha256(build16Authority['completionReceiptFile'] as String),
       build16Authority['completionReceiptSha256'],
     );
     expect(
-      artifact['installationSmokeReceiptFile'],
-      'release/evidence/build-16-device-installation-smoke.json',
-    );
-    expect(
-      _sha256(artifact['installationSmokeReceiptFile'] as String),
-      artifact['installationSmokeReceiptSha256'],
+      _sha256('release/evidence/build-16-device-installation-smoke.json'),
+      'FBAAFB5EBFC68F630C5576D41362EC50F4A502FADE65511A98A7F279BCD63BB0',
     );
     expect(smoke['status'], 'passed-to-authentication-boundary');
     expect(
