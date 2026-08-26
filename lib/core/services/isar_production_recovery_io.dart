@@ -366,9 +366,14 @@ Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
   if (!await directory.exists()) return 0;
 
   final requestIds = <String>{};
+  var terminalEvidenceNeedsDirectorySync = false;
   await for (final entity in directory.list(followLinks: false)) {
     if (entity is! File) continue;
     final name = entity.uri.pathSegments.last;
+    if (_isTerminalRecoveryJournalName(name)) {
+      terminalEvidenceNeedsDirectorySync = true;
+      continue;
+    }
     final requestId = _activeRecoveryJournalRequestId(name);
     if (requestId == null) continue;
     final decoded = jsonDecode(await entity.readAsString());
@@ -381,13 +386,19 @@ Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
         'Active recovery-journal identity is malformed.',
       );
     }
-    if (decoded['targetUid'] == targetUid &&
-        decoded['installationId'] == installationId) {
-      requestIds.add(requestId);
+    if (decoded['targetUid'] != targetUid ||
+        decoded['installationId'] != installationId) {
+      throw const FormatException(
+        'Active recovery-journal identity does not match the current session.',
+      );
     }
+    requestIds.add(requestId);
   }
   for (final requestId in requestIds) {
     await markCrashDurableIsarRecoveryJournalTerminal(requestId);
+  }
+  if (terminalEvidenceNeedsDirectorySync) {
+    await _syncRecoveryDirectory(directory);
   }
   return requestIds.length;
 }
@@ -402,6 +413,13 @@ String? _activeRecoveryJournalRequestId(String name) {
     return name.substring(0, name.length - targetSuffix.length);
   }
   return null;
+}
+
+bool _isTerminalRecoveryJournalName(String name) {
+  const pendingSuffix = '.json.pending.terminal';
+  const targetSuffix = '.json.terminal';
+  return (name.endsWith(pendingSuffix) && name.length > pendingSuffix.length) ||
+      (name.endsWith(targetSuffix) && name.length > targetSuffix.length);
 }
 
 Future<void> _syncRecoveryStorageEntity({

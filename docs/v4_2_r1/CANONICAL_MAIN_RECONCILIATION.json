@@ -918,9 +918,9 @@
     {
       "path": "lib/core/services/isar_production_recovery_io.dart",
       "canonicalSha256": "62CE96285C80B629A52D404BCC4903466E2A597DA91DBF602262A8AEA1F5CA3C",
-      "candidateSha256": "C235D238206C9555BA797A929EE4FD3E9CC6C8789534C49BFB49FA4D2F3EA5E8",
+      "candidateSha256": "5984B0DC2ABA985F60D74E50FA3B30A2F217B0180089C6A450E67C9C91A43137",
       "canonicalBytes": 10402,
-      "candidateBytes": 21470,
+      "candidateBytes": 22154,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

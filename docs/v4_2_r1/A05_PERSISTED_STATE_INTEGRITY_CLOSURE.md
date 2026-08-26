@@ -68,9 +68,12 @@ terminal receipt, the durable journal is atomically renamed and retained as
 terminal evidence before sign-out protection ends. A later successful
 no-request poll performs the same identity-bound retirement for the narrow
 server-commit/local-rename crash window, so historical terminal evidence does
-not block an offline sign-out on every future restart. The current inventories
-again report no unclassified file, catch site, timestamp call, direct parser or
-stale policy.
+not block an offline sign-out on every future restart. That poll also re-syncs
+an already renamed terminal entry before releasing protection, covering a
+rename-success/directory-sync-failure restart. Any active journal owned by a
+different user or installation remains a blocking inconsistency rather than
+being silently ignored. The current inventories again report no unclassified
+file, catch site, timestamp call, direct parser or stale policy.
 
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not

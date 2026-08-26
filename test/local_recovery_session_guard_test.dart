@@ -122,6 +122,20 @@ void main() {
         recoveryIoSource,
         contains('await _syncRecoveryDirectory(paths.journalDirectory)'),
       );
+      expect(
+        recoveryIoSource,
+        contains('terminalEvidenceNeedsDirectorySync'),
+      );
+      expect(
+        recoveryIoSource,
+        contains('await _syncRecoveryDirectory(directory)'),
+      );
+      expect(
+        recoveryIoSource,
+        contains(
+          'Active recovery-journal identity does not match the current session.',
+        ),
+      );
 
       final recoveryStart = coordinator.indexOf(
         'Future<T> runWithSyncPaused<T>',

@@ -155,6 +155,46 @@ void main() {
   );
 
   test(
+    'journal identity mismatch keeps startup and sign-out protection active',
+    () async {
+      final retireAttempted = Completer<void>();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          if (payload['operation'] == deviceRecoveryPollOperation) {
+            return _pollResponse(null);
+          }
+          throw StateError('Unexpected request: ${payload['operation']}');
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        maxRecoveryRetries: 0,
+        inactiveJournalRetirer: ({
+          required targetUid,
+          required installationId,
+        }) async {
+          expect(targetUid, 'operator-1');
+          expect(installationId, _installation);
+          retireAttempted.complete();
+          throw const FormatException('cross-identity active journal');
+        },
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await retireAttempted.future.timeout(const Duration(seconds: 2));
+
+      expect(scope.recoverySessionGuard.isRecoveryProtectionActive, isTrue);
+      await expectLater(
+        scope.recoverySessionGuard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+    },
+  );
+
+  test(
     'recovery notification received during a poll is checked afterward',
     () async {
       final calls = <Map<String, Object?>>[];
