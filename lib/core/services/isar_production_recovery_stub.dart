@@ -115,6 +115,8 @@ bool get crashDurableIsarRecoveryJournalSupported => false;
 
 Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async => false;
 
+Future<void> syncRetainedCrashDurableIsarRecoveryJournalEvidence() async {}
+
 Future<void> markCrashDurableIsarRecoveryJournalTerminal(
   String requestId,
 ) async {}

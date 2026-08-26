@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "252A7A18BE8DD0E2B76140F4AFF3E0ED39B8635A6599D3162F226EB3AD05CD16",
+  "inventoryDigest": "CAC2244AA0280A03AB9DB74EE4C6FBE47C326EED9BDE13301CD2B3EA47683729",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "9F0348189AAAADA527096F2600B3ED9081268C0C04586059EB0D6FF00D498E11",
+  "a05ManifestSha256": "32598ECE801D0307021D30264E0A4947F7ADFFF0CB491AEE3218236297B8DD09",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -973,7 +973,7 @@
       "classification": "LOCAL_CONTROL_STATE",
       "authorityBoundary": "same-user and same-installation restart recovery reconciliation after authoritative single-state poll readback, including receipt-, claim-audit- and final-audit-proved terminal null",
       "malformedDisposition": "fail closed while retaining the active journal and sign-out protection",
-      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, terminal null requires canonical state plus exact receipt/claim/final audits, and retained terminal evidence remains inactive",
+      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, terminal null requires canonical state plus exact receipt/claim/final audits, and retained terminal evidence remains inactive only after its directory entry is re-synced before a registration-unavailable startup check releases sign-out",
       "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
     },
     {

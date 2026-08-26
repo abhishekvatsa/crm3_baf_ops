@@ -1145,15 +1145,16 @@
       "markers": [
         "Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({",
         "final decoded = jsonDecode(await entity.readAsString());",
-        "Future<void> markCrashDurableIsarRecoveryJournalTerminal("
+        "Future<void> markCrashDurableIsarRecoveryJournalTerminal(",
+        "Future<void> syncRetainedCrashDurableIsarRecoveryJournalEvidence() async {"
       ],
       "classification": "LOCAL_CONTROL_STATE",
       "owner": "device-recovery",
       "authorityBoundary": "same-user and same-installation restart recovery reconciliation after authoritative single-state poll readback, including receipt-, claim-audit- and final-audit-proved terminal null",
       "malformedDisposition": "fail closed while retaining the active journal and sign-out protection",
-      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, terminal null requires canonical state plus exact receipt/claim/final audits, and retained terminal evidence remains inactive",
+      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, terminal null requires canonical state plus exact receipt/claim/final audits, and retained terminal evidence remains inactive only after its directory entry is re-synced before a registration-unavailable startup check releases sign-out",
       "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "malformed or cross-device journal identity is ignored, a returned request bypasses complete active-journal validation, the exact current request is retired, a claimed terminal state cannot reconcile after revocation, terminal null is accepted without exact server proof, or terminal evidence still blocks a later session",
+      "reArmCondition": "malformed or cross-device journal identity is ignored, a returned request bypasses complete active-journal validation, the exact current request is retired, a claimed terminal state cannot reconcile after revocation, terminal null is accepted without exact server proof, a registration-unavailable startup check releases sign-out before retained terminal directory evidence is re-synced, or terminal evidence still blocks a later session",
       "riskFingerprint": "b48b221263932ebfadc17db41697f89b595425480ce98a4f90cf526eb435f9bb"
     }
   ],

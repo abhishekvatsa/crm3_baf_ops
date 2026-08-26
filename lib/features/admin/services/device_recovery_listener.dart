@@ -23,6 +23,7 @@ typedef DeviceRecoveryInactiveJournalRetirer =
       required String installationId,
       required String? activeRequestId,
     });
+typedef DeviceRecoveryTerminalJournalSynchronizer = Future<void> Function();
 
 class DeviceRecoveryListener {
   DeviceRecoveryListener({
@@ -35,6 +36,7 @@ class DeviceRecoveryListener {
     Stream<RemoteMessage>? foregroundMessages,
     DeviceRecoveryTerminalJournalMarker? terminalJournalMarker,
     DeviceRecoveryInactiveJournalRetirer? inactiveJournalRetirer,
+    DeviceRecoveryTerminalJournalSynchronizer? terminalJournalSynchronizer,
     LocalRecoveryJournalProbe? activeJournalProbe,
     Duration registrationRetryDelay = const Duration(seconds: 2),
     int maxRegistrationRetries = 3,
@@ -54,6 +56,9 @@ class DeviceRecoveryListener {
        _inactiveJournalRetirer =
            inactiveJournalRetirer ??
            markInactiveCrashDurableIsarRecoveryJournalsTerminal,
+       _terminalJournalSynchronizer =
+           terminalJournalSynchronizer ??
+           syncRetainedCrashDurableIsarRecoveryJournalEvidence,
        _activeJournalProbe =
            activeJournalProbe ?? hasActiveCrashDurableIsarRecoveryJournal,
        _registrationRetryDelay = registrationRetryDelay,
@@ -70,6 +75,7 @@ class DeviceRecoveryListener {
   final Stream<RemoteMessage>? _foregroundMessages;
   final DeviceRecoveryTerminalJournalMarker _terminalJournalMarker;
   final DeviceRecoveryInactiveJournalRetirer _inactiveJournalRetirer;
+  final DeviceRecoveryTerminalJournalSynchronizer _terminalJournalSynchronizer;
   final LocalRecoveryJournalProbe _activeJournalProbe;
   final Duration _registrationRetryDelay;
   final int _maxRegistrationRetries;
@@ -173,6 +179,8 @@ class DeviceRecoveryListener {
       if (!_isCurrent(actor, generation)) return;
       if (installationId == null) {
         if (_scheduleRegistrationRetry()) return;
+        await _terminalJournalSynchronizer();
+        if (!_isCurrent(actor, generation)) return;
         final activeJournal = await _activeJournalProbe();
         if (!_isCurrent(actor, generation)) return;
         if (!activeJournal) {

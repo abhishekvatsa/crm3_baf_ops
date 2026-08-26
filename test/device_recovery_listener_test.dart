@@ -53,6 +53,7 @@ void main() {
       var pollCalls = 0;
       var installationReads = 0;
       var journalProbes = 0;
+      final recoveryChecks = <String>[];
       final commands = DeviceRecoveryCommandService(
         authenticatedUidLookup: () => 'operator-1',
         invoke: (_) async {
@@ -69,7 +70,11 @@ void main() {
         },
         activeJournalProbe: () async {
           journalProbes++;
+          recoveryChecks.add('active-probe');
           return false;
+        },
+        terminalJournalSynchronizer: () async {
+          recoveryChecks.add('terminal-sync');
         },
         registrationRetryDelay: const Duration(milliseconds: 1),
         maxRegistrationRetries: 1,
@@ -84,6 +89,7 @@ void main() {
       expect(installationReads, 2);
       expect(journalProbes, 1);
       expect(pollCalls, 0);
+      expect(recoveryChecks, <String>['terminal-sync', 'active-probe']);
       await scope.recoverySessionGuard.beginSessionEnd();
       scope.recoverySessionGuard.endSessionEnd();
     },
@@ -101,6 +107,7 @@ void main() {
         commands: commands,
         reset: _LocalResetProbe(),
         installationIdReader: () async => null,
+        terminalJournalSynchronizer: () async {},
         activeJournalProbe: () async {
           probed.complete();
           return true;
@@ -133,6 +140,7 @@ void main() {
         commands: commands,
         reset: _LocalResetProbe(),
         installationIdReader: () async => null,
+        terminalJournalSynchronizer: () async {},
         activeJournalProbe: () async {
           probed.complete();
           throw const FormatException('unreadable recovery journal');
@@ -145,6 +153,44 @@ void main() {
       scope.listener.start(_operator());
       await probed.future.timeout(const Duration(seconds: 2));
 
+      expect(scope.recoverySessionGuard.isRecoveryProtectionActive, isTrue);
+      await expectLater(
+        scope.recoverySessionGuard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+    },
+  );
+
+  test(
+    'missing registration retains protection when terminal evidence cannot sync',
+    () async {
+      final syncAttempted = Completer<void>();
+      var activeJournalProbes = 0;
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (_) async => _pollResponse(null),
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        installationIdReader: () async => null,
+        terminalJournalSynchronizer: () async {
+          syncAttempted.complete();
+          throw StateError('terminal directory sync failed');
+        },
+        activeJournalProbe: () async {
+          activeJournalProbes++;
+          return false;
+        },
+        maxRegistrationRetries: 0,
+        maxRecoveryRetries: 0,
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await syncAttempted.future.timeout(const Duration(seconds: 2));
+
+      expect(activeJournalProbes, 0);
       expect(scope.recoverySessionGuard.isRecoveryProtectionActive, isTrue);
       await expectLater(
         scope.recoverySessionGuard.beginSessionEnd(),
@@ -1039,6 +1085,7 @@ _ListenerScope _listenerScope({
   Future<String?> Function()? installationIdReader,
   DeviceRecoveryTerminalJournalMarker? terminalJournalMarker,
   DeviceRecoveryInactiveJournalRetirer? inactiveJournalRetirer,
+  DeviceRecoveryTerminalJournalSynchronizer? terminalJournalSynchronizer,
   LocalRecoveryJournalProbe? activeJournalProbe,
   Duration registrationRetryDelay = const Duration(seconds: 2),
   int maxRegistrationRetries = 3,
@@ -1058,6 +1105,7 @@ _ListenerScope _listenerScope({
       foregroundMessages: const Stream<RemoteMessage>.empty(),
       terminalJournalMarker: terminalJournalMarker,
       inactiveJournalRetirer: inactiveJournalRetirer,
+      terminalJournalSynchronizer: terminalJournalSynchronizer,
       activeJournalProbe: activeJournalProbe,
       registrationRetryDelay: registrationRetryDelay,
       maxRegistrationRetries: maxRegistrationRetries,

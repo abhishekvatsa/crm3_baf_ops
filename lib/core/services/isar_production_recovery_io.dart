@@ -317,6 +317,22 @@ Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async {
   return false;
 }
 
+Future<void> syncRetainedCrashDurableIsarRecoveryJournalEvidence() async {
+  if (!crashDurableIsarRecoveryJournalSupported) return;
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  if (!await directory.exists()) return;
+  await for (final entity in directory.list(followLinks: false)) {
+    if (entity is! File) continue;
+    if (_isTerminalRecoveryJournalName(entity.uri.pathSegments.last)) {
+      await _syncRecoveryDirectory(directory);
+      return;
+    }
+  }
+}
+
 Future<void> markCrashDurableIsarRecoveryJournalTerminal(
   String requestId,
 ) async {
@@ -399,7 +415,7 @@ Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
     await markCrashDurableIsarRecoveryJournalTerminal(requestId);
   }
   if (terminalEvidenceNeedsDirectorySync) {
-    await _syncRecoveryDirectory(directory);
+    await syncRetainedCrashDurableIsarRecoveryJournalEvidence();
   }
   return requestIds.length;
 }

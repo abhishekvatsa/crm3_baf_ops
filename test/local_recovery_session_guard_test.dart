@@ -131,6 +131,18 @@ void main() {
     );
     expect(
       recoveryIoSource,
+      contains('syncRetainedCrashDurableIsarRecoveryJournalEvidence'),
+    );
+    final terminalSync = recoveryListenerSource.indexOf(
+      'await _terminalJournalSynchronizer()',
+    );
+    final activeProbe = recoveryListenerSource.indexOf(
+      'await _activeJournalProbe()',
+    );
+    expect(terminalSync, greaterThanOrEqualTo(0));
+    expect(activeProbe, greaterThan(terminalSync));
+    expect(
+      recoveryIoSource,
       contains(
         'Active recovery-journal identity does not match the current session.',
       ),
