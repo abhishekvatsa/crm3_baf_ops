@@ -1123,6 +1123,22 @@
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "id": "critical-alarm-records",
+      "file": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
+      "markers": [
+        "factory CriticalAlarm.fromFirestore",
+        "factory CriticalAlarmContact.fromFirestore"
+      ],
+      "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
+      "owner": "critical-safety",
+      "authorityBoundary": "server-governed alarm lifecycle and exact hazard-specific emergency contact directory",
+      "malformedDisposition": "fail closed before malformed severity, lifecycle, actor, chronology, dial target, or hazard mapping reaches safety coordination",
+      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact contact audit fields",
+      "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js",
+      "reArmCondition": "alarm or contact fields are defaulted, spoofed, partly populated, weakly parsed, or accepted outside the governed hazard catalogue",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "id": "device-recovery-journal",
       "file": "lib/features/admin/services/device_local_recovery_reset_service.dart",
       "markers": [

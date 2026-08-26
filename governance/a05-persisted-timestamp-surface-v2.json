@@ -820,6 +820,30 @@
       "reArmCondition": "any maintenance-plan target-window timestamp schema change"
     },
     {
+      "id": "critical-alarm-record",
+      "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
+      "readerMarker": "factory CriticalAlarm.fromFirestore",
+      "requiredFields": ["raisedAt", "createdAt", "updatedAt"],
+      "optionalFields": ["detailsProvidedAt", "supportConfirmedAt", "resolvedAt", "withdrawnAt"],
+      "owner": "critical-safety",
+      "purpose": "restore exact critical-alarm detail, support, resolution, withdrawal, and server chronology",
+      "authorityBoundary": "remote-critical-alarm-record",
+      "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js",
+      "reArmCondition": "any critical-alarm lifecycle timestamp schema or complete-evidence requirement changes"
+    },
+    {
+      "id": "critical-alarm-contact-record",
+      "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
+      "readerMarker": "factory CriticalAlarmContact.fromFirestore",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "critical-safety",
+      "purpose": "restore the governed creation and latest revision chronology for one hazard-specific contact",
+      "authorityBoundary": "remote-critical-alarm-contact-record",
+      "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js",
+      "reArmCondition": "any critical-alarm contact audit timestamp schema changes"
+    },
+    {
       "id": "maintenance-lifecycle-replay-receipt",
       "readerFile": "lib/core/services/sync_service.tickets_templates.dart",
       "readerMarker": "Future<_MaintenanceLifecycleReplayReceipt>\n  _applyMaintenanceLifecycleReplayStep(",

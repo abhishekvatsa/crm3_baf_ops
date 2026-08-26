@@ -481,4 +481,360 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       details: {reasonCode: 'maintenance-ticket-replay-audit-invalid'},
     });
   });
+
+  test('critical alarm lifecycle and replay commit as one Firestore transaction', async () => {
+    const raise = {
+      commandId: 'critical-fire-raise',
+      commandType: 'raiseCriticalAlarm',
+      aggregateId: 'critical-fire-1',
+      expectedVersion: 0,
+      payload: {
+        alarmTypeKey: 'fire',
+        location: 'Annealing shop north bay',
+        assetTypeKey: 'furnace',
+        assetNumber: 7,
+        initialDetails: 'Visible flame reported beside Furnace 07.',
+      },
+    };
+    const first = await service.execute(raise, {
+      actor,
+      serverNow: new Date('2026-08-26T08:00:00.000Z'),
+    });
+    const replay = await service.execute(raise, {
+      actor,
+      serverNow: new Date('2026-08-26T08:01:00.000Z'),
+    });
+    expect(replay).toEqual(first);
+
+    await service.execute({
+      commandId: 'critical-fire-support',
+      commandType: 'confirmCriticalAlarmSupport',
+      aggregateId: 'critical-fire-1',
+      expectedVersion: 1,
+      payload: {
+        basis: 'supportDispatched',
+        responderNote: 'Fire response support dispatched to the north bay.',
+        details: null,
+      },
+    }, {
+      actor,
+      serverNow: new Date('2026-08-26T08:02:00.000Z'),
+    });
+    await service.execute({
+      commandId: 'critical-fire-resolve',
+      commandType: 'resolveCriticalAlarm',
+      aggregateId: 'critical-fire-1',
+      expectedVersion: 2,
+      payload: {
+        resolutionSummary: 'Area isolated and Fire and Safety confirmed safe state.',
+      },
+    }, {
+      actor,
+      serverNow: new Date('2026-08-26T08:05:00.000Z'),
+    });
+
+    const [alarm, raiseAudit, raiseEvent, raiseReceipt] = await Promise.all([
+      db.collection('critical_alarms').doc('critical-fire-1').get(),
+      db.collection('critical_alarm_audits').doc('critical-fire-raise').get(),
+      db.collection('maintenance_workflow_events').doc('critical-fire-raise').get(),
+      db.collection('maintenance_workflow_command_receipts')
+        .doc('critical-fire-raise').get(),
+    ]);
+    expect(alarm.data()).toMatchObject({
+      alarmTypeKey: 'fire',
+      criticalityKey: 'highest',
+      status: 'resolved',
+      version: 3,
+      assetTypeKey: 'furnace',
+      assetNumber: 7,
+    });
+    expect(raiseAudit.data()).toMatchObject({
+      operation: 'raise',
+      aggregateId: 'critical-fire-1',
+      performedByUid: actor.uid,
+    });
+    expect(raiseEvent.data()).toMatchObject({
+      eventType: 'criticalAlarm.raised',
+      aggregateId: 'critical-fire-1',
+      actorUid: actor.uid,
+    });
+    expect(raiseReceipt.data()).toMatchObject({
+      commandType: 'raiseCriticalAlarm',
+      aggregateVersion: 1,
+    });
+  });
+
+  test('critical alarm detail, withdrawal, and contact lifecycles survive Firestore timestamp decoding', async () => {
+    const raise = {
+      commandId: 'critical-nitrogen-raise',
+      commandType: 'raiseCriticalAlarm',
+      aggregateId: 'critical-nitrogen-1',
+      expectedVersion: 0,
+      payload: {
+        alarmTypeKey: 'nitrogenFailure',
+        location: 'Nitrogen header beside Base 201',
+        assetTypeKey: 'base',
+        assetNumber: 201,
+        initialDetails: null,
+      },
+    };
+    await service.execute(raise, {
+      actor,
+      serverNow: new Date('2026-08-26T09:00:00.000Z'),
+    });
+    const details = {
+      commandId: 'critical-nitrogen-details',
+      commandType: 'provideCriticalAlarmDetails',
+      aggregateId: 'critical-nitrogen-1',
+      expectedVersion: 1,
+      payload: {
+        details: 'Nitrogen header pressure fell below the operating limit.',
+      },
+    };
+    const firstDetails = await service.execute(details, {
+      actor,
+      serverNow: new Date('2026-08-26T09:01:00.000Z'),
+    });
+    expect(await service.execute(details, {
+      actor,
+      serverNow: new Date('2026-08-26T09:02:00.000Z'),
+    })).toEqual(firstDetails);
+
+    const withdraw = {
+      commandId: 'critical-nitrogen-withdraw',
+      commandType: 'withdrawCriticalAlarmInError',
+      aggregateId: 'critical-nitrogen-1',
+      expectedVersion: 2,
+      payload: {reason: 'Instrument calibration error confirmed at the header.'},
+    };
+    const firstWithdrawal = await service.execute(withdraw, {
+      actor,
+      serverNow: new Date('2026-08-26T09:03:00.000Z'),
+    });
+    expect(await service.execute(withdraw, {
+      actor,
+      serverNow: new Date('2026-08-26T09:04:00.000Z'),
+    })).toEqual(firstWithdrawal);
+
+    const createContact = {
+      commandId: 'critical-contact-create',
+      commandType: 'upsertCriticalAlarmContact',
+      aggregateId: 'nitrogen-control-room',
+      expectedVersion: 0,
+      payload: {
+        contact: {
+          schemaVersion: 1,
+          label: 'Nitrogen control room',
+          contactKind: 'plantExtension',
+          dialValue: '4210',
+          alarmTypeKeys: ['nitrogenFailure'],
+          priority: 1,
+          notes: null,
+        },
+        reason: 'Initial governed nitrogen contact',
+      },
+    };
+    const firstContact = await service.execute(createContact, {
+      actor,
+      serverNow: new Date('2026-08-26T09:05:00.000Z'),
+    });
+    expect(await service.execute(createContact, {
+      actor,
+      serverNow: new Date('2026-08-26T09:06:00.000Z'),
+    })).toEqual(firstContact);
+
+    const updateContact = {
+      commandId: 'critical-contact-update',
+      commandType: 'upsertCriticalAlarmContact',
+      aggregateId: 'nitrogen-control-room',
+      expectedVersion: 1,
+      payload: {
+        contact: {
+          schemaVersion: 1,
+          label: 'Nitrogen emergency desk',
+          contactKind: 'plantExtension',
+          dialValue: '4211',
+          alarmTypeKeys: ['nitrogenFailure'],
+          priority: 1,
+          notes: 'Primary nitrogen-failure contact.',
+        },
+        reason: 'Verified emergency desk extension',
+      },
+    };
+    const firstUpdate = await service.execute(updateContact, {
+      actor,
+      serverNow: new Date('2026-08-26T09:07:00.000Z'),
+    });
+    expect(await service.execute(updateContact, {
+      actor,
+      serverNow: new Date('2026-08-26T09:08:00.000Z'),
+    })).toEqual(firstUpdate);
+
+    const retire = {
+      commandId: 'critical-contact-retire',
+      commandType: 'setCriticalAlarmContactStatus',
+      aggregateId: 'nitrogen-control-room',
+      expectedVersion: 2,
+      payload: {status: 'retired', reason: 'Extension temporarily unavailable'},
+    };
+    const firstRetire = await service.execute(retire, {
+      actor,
+      serverNow: new Date('2026-08-26T09:09:00.000Z'),
+    });
+    expect(await service.execute(retire, {
+      actor,
+      serverNow: new Date('2026-08-26T09:10:00.000Z'),
+    })).toEqual(firstRetire);
+
+    const [alarm, contact, detailAudit, contactAudit] = await Promise.all([
+      db.collection('critical_alarms').doc('critical-nitrogen-1').get(),
+      db.collection('critical_alarm_contacts').doc('nitrogen-control-room').get(),
+      db.collection('critical_alarm_audits').doc('critical-nitrogen-details').get(),
+      db.collection('critical_alarm_contact_audits').doc('critical-contact-update').get(),
+    ]);
+    expect(alarm.data()).toMatchObject({
+      status: 'withdrawnInError',
+      detailsPending: false,
+      version: 3,
+    });
+    expect(alarm.data().detailsProvidedAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(contact.data()).toMatchObject({
+      status: 'retired',
+      version: 3,
+      dialValue: '4211',
+    });
+    expect(contact.data().createdAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(detailAudit.data().performedAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(contactAudit.data().performedAt).toBeInstanceOf(admin.firestore.Timestamp);
+  });
+
+  test('completed maintenance classification correction consumes native Firestore timestamps', async () => {
+    await Promise.all([
+      db.collection('asset_classes').doc('class-furnace').set({
+        schemaVersion: 1,
+        assetClassId: 'class-furnace',
+        status: 'active',
+        legacyAssetTypeKey: 'furnace',
+      }),
+      db.collection('asset_instances').doc('furnace-7').set({
+        schemaVersion: 1,
+        assetInstanceId: 'furnace-7',
+        assetClassId: 'class-furnace',
+        assetNumber: 7,
+        name: 'Furnace 07',
+        version: 3,
+        status: 'active',
+        isDeleted: false,
+      }),
+      db.collection('job_executions').doc('classified-execution-7').set({
+        firestoreId: 'classified-execution-7',
+        assetType: 'furnace',
+        assetNumber: 7,
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-7',
+        assetInstanceVersion: 3,
+        assetInstanceName: 'Furnace 07',
+        workflowSchemaVersion: 1,
+        isCompleted: true,
+        isCancelled: false,
+        isDeleted: false,
+        completedAt: admin.firestore.Timestamp.fromDate(
+          new Date('2026-08-01T04:00:00.000Z'),
+        ),
+        completedByUid: actor.uid,
+        completedByName: actor.name,
+        metadataJson: '{}',
+        version: 3,
+      }),
+    ]);
+    const classDefinition = (resetCounters, title) => ({
+      schemaVersion: 1,
+      code: 'FURNACE_MID',
+      title,
+      description: 'Governed Furnace maintenance classification.',
+      assetTypeKeys: ['furnace'],
+      assetClassIds: [],
+      principalLaneKey: 'mech',
+      resetCounters,
+    });
+    await service.execute({
+      commandId: 'native-class-create',
+      commandType: 'upsertMaintenanceClassDefinition',
+      aggregateId: 'native-class-furnace-mid',
+      expectedVersion: 0,
+      payload: {
+        definition: classDefinition([
+          {
+            key: 'FURNACE_ANY',
+            label: 'Furnace any maintenance',
+            thresholdDays: 30,
+          },
+          {
+            key: 'FURNACE_MID',
+            label: 'Furnace Mid maintenance',
+            thresholdDays: null,
+          },
+        ], 'Furnace Mid Maintenance'),
+        reason: 'Create native timestamp classification test policy.',
+      },
+    }, {actor, serverNow: new Date('2026-08-26T10:00:00.000Z')});
+
+    const classify = (commandId, expectedVersion, definitionVersion) => ({
+      commandId,
+      commandType: 'classifyMaintenanceExecution',
+      aggregateId: 'classified-execution-7',
+      expectedVersion,
+      payload: {
+        definitionId: 'native-class-furnace-mid',
+        definitionVersion,
+        reason: 'Classify completed work using governed maintenance scope.',
+      },
+    });
+    await service.execute(classify('native-classify-1', 3, 1), {
+      actor,
+      serverNow: new Date('2026-08-26T10:01:00.000Z'),
+    });
+    await service.execute({
+      commandId: 'native-class-update',
+      commandType: 'upsertMaintenanceClassDefinition',
+      aggregateId: 'native-class-furnace-mid',
+      expectedVersion: 1,
+      payload: {
+        definition: classDefinition([
+          {
+            key: 'FURNACE_ANY',
+            label: 'Furnace any maintenance',
+            thresholdDays: 30,
+          },
+        ], 'Furnace General Maintenance'),
+        reason: 'Remove the retired Mid counter from this classification.',
+      },
+    }, {actor, serverNow: new Date('2026-08-26T10:02:00.000Z')});
+    await service.execute(classify('native-classify-2', 4, 2), {
+      actor,
+      serverNow: new Date('2026-08-26T10:03:00.000Z'),
+    });
+
+    const sources = await db.collection('maintenance_completion_sources').get();
+    expect(sources.size).toBe(1);
+    expect(sources.docs[0].data().completedAt).toBeInstanceOf(
+      admin.firestore.Timestamp,
+    );
+    const dueStates = await db.collection('maintenance_due_states').get();
+    const byCounter = Object.fromEntries(
+      dueStates.docs.map((doc) => [doc.data().counterKey, doc.data()]),
+    );
+    expect(byCounter.FURNACE_ANY).toMatchObject({
+      classificationPending: false,
+      lastMaintenanceClassCode: 'FURNACE_MID',
+    });
+    expect(byCounter.FURNACE_ANY.lastCompletionAt).toBeInstanceOf(
+      admin.firestore.Timestamp,
+    );
+    expect(byCounter.FURNACE_MID).toMatchObject({
+      classificationPending: true,
+      lastCompletionAt: null,
+      nextDueAt: null,
+    });
+  });
 });

@@ -60,10 +60,15 @@ presentation still owns no persistence. Exact-device administrator recovery adds
 one separately classified, regression-covered service that backs up and clears
 only the authorized installation's local store before its fresh synchronization;
 the administrator screen never owns database access. The manifest refresh
-preserves every previously registered feature regression instead of replacing
-named coverage with a generic test. The current manifest therefore covers
-533 operations and 1,857 sites across 53 surfaces with digest
-`2FFD0AE8EA9EC1541F256A8233FFF4D6CDAA4304A6F2807BF809AC5C6479C399`;
+also classifies the critical-alarm repository and provider as remote-read-only
+surfaces. Alarm lifecycle commands remain online-only callable operations and
+alarm state is deliberately never persisted to Isar; the unbounded active feed
+is separate from the bounded recent-history feed so historical volume cannot
+displace an active emergency. It preserves every previously registered feature
+regression instead of replacing named coverage with a generic test. The current
+manifest therefore covers
+537 operations and 1,865 sites across 55 surfaces with digest
+`BE3F4E7FD499D3E395E5AFEDE29756B2E760227C1A6236637EB25DAD5019F1A2`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

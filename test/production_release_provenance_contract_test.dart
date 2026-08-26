@@ -173,7 +173,9 @@ void main() {
       expect(text, contains('firestoreRulesAndIndexes'));
       expect(
         text,
-        contains('SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'),
+        contains(
+          'SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+        ),
       );
       expect(
         text,

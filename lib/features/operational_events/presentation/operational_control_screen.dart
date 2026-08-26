@@ -16,12 +16,14 @@ class OperationalControlScreen extends StatelessWidget {
     required this.qualityWarningCount,
     required this.qualityMonitoringCount,
     required this.inspectionFindingCount,
+    required this.criticalAlarmCount,
     required this.directiveDataUnavailable,
     required this.workflowDataUnavailable,
     required this.operationalEventsUnavailable,
     required this.qualityWarningsUnavailable,
     required this.qualityMonitoringUnavailable,
     required this.inspectionFindingsUnavailable,
+    required this.criticalAlarmsUnavailable,
     required this.onDirectives,
     required this.onWorkflow,
     required this.onOperationalEvents,
@@ -29,6 +31,7 @@ class OperationalControlScreen extends StatelessWidget {
     required this.onQualityMonitoring,
     required this.onAbnormalities,
     required this.onInspections,
+    required this.onCriticalAlarms,
   });
 
   final AppUser appUser;
@@ -38,12 +41,14 @@ class OperationalControlScreen extends StatelessWidget {
   final int qualityWarningCount;
   final int qualityMonitoringCount;
   final int inspectionFindingCount;
+  final int criticalAlarmCount;
   final bool directiveDataUnavailable;
   final bool workflowDataUnavailable;
   final bool operationalEventsUnavailable;
   final bool qualityWarningsUnavailable;
   final bool qualityMonitoringUnavailable;
   final bool inspectionFindingsUnavailable;
+  final bool criticalAlarmsUnavailable;
   final VoidCallback onDirectives;
   final VoidCallback onWorkflow;
   final VoidCallback onOperationalEvents;
@@ -51,11 +56,20 @@ class OperationalControlScreen extends StatelessWidget {
   final VoidCallback onQualityMonitoring;
   final VoidCallback onAbnormalities;
   final VoidCallback onInspections;
+  final VoidCallback onCriticalAlarms;
 
   @override
   Widget build(BuildContext context) {
     final signal = _leadingSignal();
     final domains = <_ControlDomain>[
+      _ControlDomain(
+        icon: Icons.notification_important_outlined,
+        color: BafColors.danger,
+        title: 'Critical safety alarms',
+        value: criticalAlarmsUnavailable ? '--' : '$criticalAlarmCount',
+        detail: 'Live CRM3 coordination alarms and approved contacts',
+        onTap: onCriticalAlarms,
+      ),
       _ControlDomain(
         icon: Icons.assignment_late_outlined,
         color: BafColors.directives,
@@ -177,6 +191,14 @@ class OperationalControlScreen extends StatelessWidget {
                   spacing: BafSpacing.sm,
                   runSpacing: BafSpacing.sm,
                   children: [
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: BafColors.danger,
+                      ),
+                      onPressed: onCriticalAlarms,
+                      icon: const Icon(Icons.notification_important_outlined),
+                      label: const Text('Safety alarm'),
+                    ),
                     if (appUser.canRecordOperationalEvent)
                       FilledButton.icon(
                         onPressed: onOperationalEvents,
@@ -222,6 +244,8 @@ class OperationalControlScreen extends StatelessWidget {
         (label: 'Cycle monitoring', onTap: onQualityMonitoring),
       if (inspectionFindingsUnavailable)
         (label: 'Inspection findings', onTap: onInspections),
+      if (criticalAlarmsUnavailable)
+        (label: 'Critical alarms', onTap: onCriticalAlarms),
     ];
     if (unavailableQueues.isNotEmpty) {
       return _ControlSignal(
@@ -236,6 +260,19 @@ class OperationalControlScreen extends StatelessWidget {
             'Refresh or open the affected queue before treating the control picture as complete.',
         actionLabel: 'Open affected queue',
         onTap: unavailableQueues.first.onTap,
+      );
+    }
+    if (criticalAlarmCount > 0) {
+      return _ControlSignal(
+        icon: Icons.notification_important,
+        color: BafColors.danger,
+        eyebrow: 'CRITICAL SAFETY',
+        title:
+            '$criticalAlarmCount active ${criticalAlarmCount == 1 ? 'alarm requires' : 'alarms require'} immediate attention',
+        detail:
+            'Open the live record, follow the plant emergency procedure and coordinate confirmed support.',
+        actionLabel: 'Open alarms',
+        onTap: onCriticalAlarms,
       );
     }
     if (qualityWarningCount > 0 && appUser.canViewQuality) {

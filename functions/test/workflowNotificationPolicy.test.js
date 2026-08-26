@@ -1,4 +1,9 @@
 const {
+  isCriticalAlarmEventType,
+  isNotifiableCriticalAlarmStatus,
+  samePersistedNotificationInstant,
+  shouldRetryCriticalAlarmRecipientFailure,
+  shouldRetryKnownWorkflowNotificationFailure,
   workflowRecipientRoles,
 } = require('../lib/maintenanceWorkflow/workflowNotificationPolicy');
 const {
@@ -50,6 +55,62 @@ describe('workflow notification routing', () => {
       new Set(['shiftSupervisor', 'si']),
     );
     expect(workflowRecipientRoles('lane.escalated', 'inst', 3)).toEqual(['admin']);
+  });
+
+  test('a delayed raised event cannot restart ringing after support confirmation', () => {
+    expect(isNotifiableCriticalAlarmStatus('raised')).toBe(true);
+    expect(isNotifiableCriticalAlarmStatus('supportConfirmed')).toBe(false);
+    expect(isNotifiableCriticalAlarmStatus('resolved')).toBe(false);
+    expect(isNotifiableCriticalAlarmStatus('withdrawnInError')).toBe(false);
+  });
+
+  test('non-raise critical-alarm events never enter generic maintenance routing', () => {
+    expect(isCriticalAlarmEventType('criticalAlarm.raised')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.detailsProvided')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.supportConfirmed')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.resolved')).toBe(true);
+    expect(isCriticalAlarmEventType('criticalAlarm.withdrawnInError')).toBe(true);
+    expect(isCriticalAlarmEventType('lane.closed')).toBe(false);
+  });
+
+  test('critical notification evidence compares Firestore instants by value', () => {
+    const first = {toMillis: () => 1787731200000};
+    const same = {toMillis: () => 1787731200000};
+    const later = {toMillis: () => 1787731200001};
+    expect(first).not.toBe(same);
+    expect(samePersistedNotificationInstant(first, same)).toBe(true);
+    expect(samePersistedNotificationInstant(first, later)).toBe(false);
+    expect(samePersistedNotificationInstant(first, '2026-08-26T08:00:00.000Z'))
+      .toBe(false);
+    expect(samePersistedNotificationInstant(
+      first,
+      {toMillis: () => Number.NaN},
+    )).toBe(false);
+  });
+
+  test('critical alarm retries an exact failed recipient delivery', () => {
+    const retryableRecipient = {
+      attempted: 1,
+      succeeded: 0,
+      failed: 1,
+      retryableFailures: 1,
+      staleTokensCleared: 0,
+      unknownAgencies: [],
+    };
+    expect(shouldRetryCriticalAlarmRecipientFailure(retryableRecipient))
+      .toBe(true);
+    expect(shouldRetryCriticalAlarmRecipientFailure({
+      ...retryableRecipient,
+      succeeded: 1,
+      failed: 0,
+      retryableFailures: 0,
+    })).toBe(false);
+    expect(shouldRetryCriticalAlarmRecipientFailure({
+      ...retryableRecipient,
+      attempted: 2,
+      failed: 2,
+      retryableFailures: 2,
+    })).toBe(false);
   });
 
 });

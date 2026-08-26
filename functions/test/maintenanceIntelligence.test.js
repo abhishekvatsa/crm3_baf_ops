@@ -7,6 +7,14 @@ const {
 
 const now = new Date('2026-08-21T08:00:00.000Z');
 
+function persistedTimestamp(value) {
+  const millis = Date.parse(value);
+  return {
+    _seconds: Math.floor(millis / 1000),
+    _nanoseconds: (millis % 1000) * 1000000,
+  };
+}
+
 function seedActor(store, uid, roles) {
   store.seed(`users/${uid}`, {isApproved: true, roles, name: uid});
   return {uid, name: uid};
@@ -257,6 +265,7 @@ describe('classified maintenance completion and planning', () => {
       lastCompletionAt: '2026-08-01T04:00:00.000Z',
       nextDueAt: '2026-08-31T04:00:00.000Z',
       lastMaintenanceClassCode: 'FURNACE_MID',
+      classificationPending: false,
     });
   });
 
@@ -290,6 +299,26 @@ describe('classified maintenance completion and planning', () => {
       'class-2',
     ), {actor: admin, serverNow: new Date('2026-08-21T08:10:00.000Z')});
 
+    const execution = store.read('job_executions/execution-7');
+    store.seed('job_executions/execution-7', {
+      ...execution,
+      completedAt: persistedTimestamp(execution.completedAt),
+    });
+    for (const [path, source] of store.entries().filter(([path]) =>
+      path.startsWith('maintenance_completion_sources/'))) {
+      store.seed(path, {
+        ...source,
+        completedAt: persistedTimestamp(source.completedAt),
+      });
+    }
+    for (const [path, due] of store.entries().filter(([path]) =>
+      path.startsWith('maintenance_due_states/'))) {
+      store.seed(path, {
+        ...due,
+        lastCompletionAt: persistedTimestamp(due.lastCompletionAt),
+      });
+    }
+
     const receipt = await service.execute(classify(4, 2, 'classify-2'), {
       actor: admin,
       serverNow: new Date('2026-08-21T08:20:00.000Z'),
@@ -304,6 +333,13 @@ describe('classified maintenance completion and planning', () => {
       .map(([, data]) => data)
       .find((row) => row.counterKey === 'FURNACE_MID');
     expect(midDue).toMatchObject({
+      schemaVersion: 1,
+      assetIdentityKey: 'furnace:7',
+      assetTypeKey: 'furnace',
+      assetNumber: 7,
+      counterKey: 'FURNACE_MID',
+      counterLabel: 'Furnace Mid maintenance',
+      thresholdDays: null,
       lastCompletionAt: null,
       classificationPending: true,
     });
@@ -623,7 +659,9 @@ describe('classified maintenance completion and planning', () => {
     const admin = seedActor(store, 'admin-1', ['admin']);
     const service = new MaintenanceWorkflowCommandService(store);
     await service.execute(upsertClass(), {actor: admin, serverNow: now});
-    store.seed('maintenance_records/ticket-furnace-7', resolvedFurnaceTicket());
+    store.seed('maintenance_records/ticket-furnace-7', resolvedFurnaceTicket({
+      endDate: persistedTimestamp('2026-08-21T01:00:00.000Z'),
+    }));
 
     const receipt = await service.execute({
       commandId: 'classify-ticket-1',

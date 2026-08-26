@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "CAC2244AA0280A03AB9DB74EE4C6FBE47C326EED9BDE13301CD2B3EA47683729",
+  "inventoryDigest": "098A89070E57C7849AFB6B2A687E4F6EC1C6C83C81B95AB4F8E1E3CF23D91807",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "32598ECE801D0307021D30264E0A4947F7ADFFF0CB491AEE3218236297B8DD09",
+  "a05ManifestSha256": "7A0CE14D542F2137A4FEF32897AD29387135E140104042E94355588114E1DD2F",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -975,6 +975,15 @@
       "malformedDisposition": "fail closed while retaining the active journal and sign-out protection",
       "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; the exact returned request remains active, same-device predecessors become retained terminal evidence, terminal null requires canonical state plus exact receipt/claim/final audits, and retained terminal evidence remains inactive only after its directory entry is re-synced before a registration-unavailable startup check releases sign-out",
       "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
+    },
+    {
+      "id": "critical-alarm-records",
+      "file": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
+      "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
+      "authorityBoundary": "server-governed alarm lifecycle and exact hazard-specific emergency contact directory",
+      "malformedDisposition": "fail closed before malformed severity, lifecycle, actor, chronology, dial target, or hazard mapping reaches safety coordination",
+      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact contact audit fields",
+      "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js"
     },
     {
       "id": "device-recovery-journal",

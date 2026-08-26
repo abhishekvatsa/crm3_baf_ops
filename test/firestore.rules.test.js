@@ -5140,6 +5140,46 @@ describe("governed dynamic asset hierarchy", () => {
     }
   });
 
+  test("critical alarms and exact contacts are approved-readable and server-write-only", async () => {
+    await seedUser("si1", ["si"]);
+    await seedUser("alarmPending", ["operations"], false);
+    for (const path of [
+      "critical_alarms/alarm-1",
+      "critical_alarm_contacts/contact-1",
+    ]) {
+      await seedDoc(path, {schemaVersion: 1, identity: path});
+      await assertSucceeds(getDoc(doc(dbAs("ops1"), path)));
+      await assertFails(getDoc(doc(dbAs("alarmPending"), path)));
+      await assertFails(updateDoc(doc(dbAs("admin1"), path), {
+        clientRewrite: true,
+      }));
+      await assertFails(deleteDoc(doc(dbAs("admin1"), path)));
+    }
+    await seedDoc("critical_alarm_audits/audit-1", {schemaVersion: 1});
+    await seedDoc("critical_alarm_contact_audits/audit-2", {schemaVersion: 1});
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "critical_alarm_audits/audit-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("si1"), "critical_alarm_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("ops1"), "critical_alarm_audits/audit-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "critical_alarm_contact_audits/audit-2"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("si1"), "critical_alarm_contact_audits/audit-2"))
+    );
+    await assertFails(
+      deleteDoc(doc(dbAs("admin1"), "critical_alarm_audits/audit-1"))
+    );
+    await assertFails(
+      deleteDoc(doc(dbAs("admin1"), "critical_alarm_contact_audits/audit-2"))
+    );
+  });
+
   test("inspection programmes are approved-readable and server-write-only", async () => {
     await seedUser("si1", ["si"]);
     await seedUser("inspectionPending", ["seniorInstrumentation"], false);

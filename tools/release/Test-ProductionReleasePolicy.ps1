@@ -839,6 +839,24 @@ if ($null -ne $requiredRulesShaProperty) {
     [int64]$currentSourceFirestoreAuthority.indexCount
   $currentIndexSetSha =
     [string]$currentSourceFirestoreAuthority.indexSetSha256
+  $rulesChanged = $currentRulesSha -ne $requiredRulesSha
+  $indexesChanged =
+    $currentIndexCount -ne $requiredIndexCount -or
+    $currentIndexSetSha -ne $requiredIndexSetSha
+  $expectedCurrentSourceRelationship = if ($rulesChanged -and $indexesChanged) {
+    'RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+  } elseif ($rulesChanged) {
+    'RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+  } else {
+    'RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+  }
+  $expectedCurrentSourceDeployment = if ($rulesChanged -and $indexesChanged) {
+    'SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+  } elseif ($rulesChanged) {
+    'SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+  } else {
+    'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+  }
   if ($currentSuccessorState.schemaVersion -lt 2 -or
       [string]$currentSourceAuthority.reference -ne 'refs/heads/main' -or
       $currentSourceAuthority.sourceAndCiAuthority -ne $true -or
@@ -851,16 +869,14 @@ if ($null -ne $requiredRulesShaProperty) {
       $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexCount -le 0 -or
-      $currentRulesSha -ne $requiredRulesSha -or
-      ($currentIndexCount -eq $requiredIndexCount -and
-        $currentIndexSetSha -eq $requiredIndexSetSha) -or
+      (-not $rulesChanged -and -not $indexesChanged) -or
       (Get-Sha256 'firestore.rules') -ne
         $currentRulesSha.ToUpperInvariant() -or
       [int64]$sourceIndexBinding.count -ne $currentIndexCount -or
       [string]$sourceIndexBinding.indexSetSha256 -ne $currentIndexSetSha -or
       [string]$currentSourceFirestoreAuthority.
         relationshipToDeployedBackend -ne
-        'RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT' -or
+        $expectedCurrentSourceRelationship -or
       $currentSourceFirestoreAuthority.productionDeploymentPerformed -ne
         $false -or
       $currentSourceFirestoreAuthority.productionRuntimeUseAuthorized -ne
@@ -873,7 +889,7 @@ if ($null -ne $requiredRulesShaProperty) {
         [string]$firestoreReadback.source.before.commit -or
       [string]$currentDeployedBackendAuthority.
         currentSourceRulesAndIndexesDeployment -ne
-        'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT') {
+        $expectedCurrentSourceDeployment) {
     throw 'Current source Firestore Rules/index authority differs from source state.'
   }
 }

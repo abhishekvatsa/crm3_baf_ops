@@ -7,7 +7,7 @@ import {
   WorkflowCommand,
   WorkflowCommandReceipt,
 } from "./types";
-import {cleanText, iso, stableJson} from "./utils";
+import {cleanText, iso, persistedInstantText, stableJson} from "./utils";
 
 const CAUSES = new Set([
   "innerCoverBulging",
@@ -366,6 +366,9 @@ export const adjudicateFurnaceStuckup = async ({
     let firstConfirmedAt = timestamp;
     if (declaration.exists) {
       const data = declaration.data;
+      const persistedFirstConfirmedAt = persistedInstantText(
+        data?.firstConfirmedAt,
+      );
       if (data == null || data.schemaVersion !== 1 ||
           data.declarationId !== declarationId ||
           data.conditionType !== "innerCoverBulged" ||
@@ -375,7 +378,7 @@ export const adjudicateFurnaceStuckup = async ({
           data.state !== "confirmed" ||
           !Number.isSafeInteger(data.evidenceCount) ||
           (data.evidenceCount as number) < 1 ||
-          typeof data.firstConfirmedAt !== "string") {
+          persistedFirstConfirmedAt == null) {
         throw new WorkflowError(
           "failed-precondition",
           "The existing Inner Cover condition declaration is malformed.",
@@ -384,7 +387,7 @@ export const adjudicateFurnaceStuckup = async ({
       }
       declarationVersion = requiredVersion(data.version, "declaration.version") + 1;
       evidenceCount = (data.evidenceCount as number) + 1;
-      firstConfirmedAt = data.firstConfirmedAt as string;
+      firstConfirmedAt = persistedFirstConfirmedAt;
     }
     const declarationData: JsonMap = {
       schemaVersion: 1,

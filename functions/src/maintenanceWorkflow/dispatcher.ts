@@ -77,6 +77,16 @@ import {
   purgePilotBusinessRecord,
   verifyPilotPurgeReplay,
 } from "../pilotRecordPurge";
+import {
+  confirmCriticalAlarmSupport,
+  provideCriticalAlarmDetails,
+  raiseCriticalAlarm,
+  resolveCriticalAlarm,
+  setCriticalAlarmContactStatus,
+  upsertCriticalAlarmContact,
+  verifyCriticalAlarmReplay,
+  withdrawCriticalAlarmInError,
+} from "./criticalAlarmHandlers";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
@@ -131,8 +141,22 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   correctMaintenanceTicket,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  raiseCriticalAlarm,
+  provideCriticalAlarmDetails,
+  confirmCriticalAlarmSupport,
+  resolveCriticalAlarm,
+  withdrawCriticalAlarmInError,
+  upsertCriticalAlarmContact,
+  setCriticalAlarmContactStatus,
   purgePilotBusinessRecord,
 };
+
+export const isSupportedWorkflowCommandType = (
+  value: string,
+): value is WorkflowCommandType => Object.prototype.hasOwnProperty.call(
+  handlers,
+  value,
+);
 
 export class MaintenanceWorkflowCommandService {
   constructor(private readonly store: WorkflowStore) {}
@@ -182,6 +206,7 @@ export class MaintenanceWorkflowCommandService {
       if (replay != null) {
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
+        await verifyCriticalAlarmReplay({tx, command, actor, receipt: replay});
         await verifyPilotPurgeReplay({
           command,
           actorUid: actor.uid,

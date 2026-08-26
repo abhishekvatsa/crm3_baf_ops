@@ -166,17 +166,17 @@
     {
       "path": "android/app/src/main/AndroidManifest.xml",
       "canonicalSha256": "746DDF5CE95480F3EFEB72EC08880B7674BDB89DE0E6404F88BC5178DBF82FA8",
-      "candidateSha256": "4C5ACBB76A4A234C53CA07F30FCF88571F0C378C97218431D1C09C08DA65D910",
+      "candidateSha256": "05BC3A2E4DB89E1235FC5AD7E10273137CE6C36F7B24897A2E5D955F8EB22334",
       "canonicalBytes": 2203,
-      "candidateBytes": 3132,
+      "candidateBytes": 3275,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt",
       "canonicalSha256": "13EF2CB6369D96B29194023BAF145167337A107D5044A6635FF3799A61D9377A",
-      "candidateSha256": "81AFACF9A0E8E5BE2CC1EA2168471BB8F5A3204FFB2E22088DCA2826929D0CB0",
+      "candidateSha256": "4A792DCEAC8BDC9F60CEF8742817FE41BAA9A51BB84F780185B73640AEF057E4",
       "canonicalBytes": 130,
-      "candidateBytes": 3313,
+      "candidateBytes": 13908,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -466,9 +466,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "42A2039D958A1EA691DE20D89027B5CDA0FF5DC9EE09B0654EBEF9C619CF7621",
+      "candidateSha256": "68BB2B5D481A947DD72478B8B5B22000DC72D209FAAF8447AA98B1F1A9C82EDE",
       "canonicalBytes": 111981,
-      "candidateBytes": 176999,
+      "candidateBytes": 177685,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -530,9 +530,9 @@
     {
       "path": "functions/src/notifications.ts",
       "canonicalSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
-      "candidateSha256": "5361EC582BE0ECEBBA5BBDAD4A7B12E3E03225E7668FFF0E6885FD0999CFCEDC",
+      "candidateSha256": "F1ECF7A7623DA5680E42CB7777535597809501349125453C0F9FA6938D59A301",
       "canonicalBytes": 15314,
-      "candidateBytes": 22723,
+      "candidateBytes": 24284,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -610,9 +610,9 @@
     {
       "path": "functions/test/notifications.test.js",
       "canonicalSha256": "7B27BE26533F60BAF001759FA8182D326AA347DA74EE1EC78F2434083904C378",
-      "candidateSha256": "F59BADD56E253638E0A843272B5CF946219445198967CB43EFFBB45D11E7F13F",
+      "candidateSha256": "F4D039F5D2E5B8240190F480D5AC050B198C3588E44C6E252150A1921CEBE0DF",
       "canonicalBytes": 17292,
-      "candidateBytes": 33652,
+      "candidateBytes": 37762,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1198,9 +1198,9 @@
     {
       "path": "lib/features/admin/presentation/admin_data_browser.dart",
       "canonicalSha256": "860890DA19D8A09D08B78B684EF00316574282D8C54B01174D816BC9DCC745D4",
-      "candidateSha256": "5737D6843B36258E8CDD5757F9E909EF8C0823EB234D1E7042F57678648075AC",
+      "candidateSha256": "740F15F6DEF3AEF746DEE2C3973A2E574D5ABB6E286968E8C5D2B734C53335D3",
       "canonicalBytes": 7966,
-      "candidateBytes": 12344,
+      "candidateBytes": 12549,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2362,17 +2362,17 @@
     {
       "path": "lib/home_screen.dart",
       "canonicalSha256": "6360AB08D54707F01C3893CD65928CC86292CC24DF3B760829A4B66F5EDC909A",
-      "candidateSha256": "CA0448352C660E394384297D5086DC7860005BBAE34A9171B42F5FFCDDEBDE5F",
+      "candidateSha256": "3CB1A31FA2F87CDD084C07447066312E1C96F05C6C2FD705E0DA0779C566196D",
       "canonicalBytes": 37389,
-      "candidateBytes": 90634,
+      "candidateBytes": 94351,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/main.dart",
       "canonicalSha256": "6DE20D01D9D00FAA761B6231101DD873CDB9A442194FAB2691E7B34809B87A97",
-      "candidateSha256": "DAF3C8C1813B54F5D23BF02977B53612B7D0ED0A7C49BD522F72856454475975",
+      "candidateSha256": "6D0DF7A0050167A850AF377E273F51C83272721A73CC8046D9E10365DA378D7A",
       "canonicalBytes": 41433,
-      "candidateBytes": 56572,
+      "candidateBytes": 56975,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2730,9 +2730,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "5E7AD4E16E325D5C563C486844104B38D170D7612EE6A32CB0046D30AA47BCF6",
+      "candidateSha256": "4DBF38A7AFE84B3D45E2570982F3A02DE496E57A145BA485F18C0538722BC71D",
       "canonicalBytes": 78841,
-      "candidateBytes": 159328,
+      "candidateBytes": 160866,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3078,15 +3078,15 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "A32DAB0EA392609A0A119A43AC64ED937F783F8AA7A96E3294E0BDB265C27377",
+      "candidateSha256": "0D5480683F457AF0C6D9651628B3FE38FD0CD2B732FCEC866100B12375B45555",
       "canonicalBytes": 7635,
-      "candidateBytes": 65328,
+      "candidateBytes": 65359,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "007FAE777E2A2ADC6899ED25067E0028CB993CD3D45B10E5B3EDFDD7D530C94A",
+      "candidateSha256": "A87E9DA5F778596368B9BDA10C2BD53E81D772B52311FAD49B58F554EA89ABBC",
       "canonicalBytes": 18375,
       "candidateBytes": 40327,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -3382,9 +3382,9 @@
     {
       "path": "tools/release/Test-ProductionReleasePolicy.ps1",
       "canonicalSha256": "6A7A51C91BCF2276ACEE8FE48AEC70783808F687E6539B600273178CD8FDF7D6",
-      "candidateSha256": "F335F3BE71CB65D0ABB1EE902E78D8968D33AA576C1A95C40806F17377842AE4",
+      "candidateSha256": "93B6C99C323A14655C299ABDF28F8DF9E20B80230AB222C4715E0F7CDC45DF92",
       "canonicalBytes": 15649,
-      "candidateBytes": 93199,
+      "candidateBytes": 93829,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

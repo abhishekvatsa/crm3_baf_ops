@@ -3,6 +3,14 @@ const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
 
 const at = (value) => new Date(value);
 
+const persistedTimestamp = (value) => {
+  const millis = Date.parse(value);
+  return {
+    _seconds: Math.floor(millis / 1000),
+    _nanoseconds: (millis % 1000) * 1000000,
+  };
+};
+
 const seedActor = (store, uid, roles) => {
   store.seed(`users/${uid}`, {isApproved: true, roles, name: uid});
   return {uid, name: uid};
@@ -268,6 +276,49 @@ describe('Furnace stuck-up governed lifecycle', () => {
     )).toMatchObject({
       caseId: 'stuckup-case-1',
       evidenceType: 'confirmedFurnaceStuckupCause',
+    });
+
+    const declarationPath =
+      'asset_condition_declarations/inner_cover_bulged_inner-gr26';
+    const declaration = store.read(declarationPath);
+    store.seed(declarationPath, {
+      ...declaration,
+      firstConfirmedAt: persistedTimestamp(declaration.firstConfirmedAt),
+      latestEvidenceAt: persistedTimestamp(declaration.latestEvidenceAt),
+      updatedAt: persistedTimestamp(declaration.updatedAt),
+    });
+    await service.execute(createCommand('stuckup-case-2'), {
+      actor: operations,
+      serverNow: at('2026-08-20T07:00:00Z'),
+    });
+    await service.execute({
+      commandId: 'release-stuckup-2',
+      commandType: 'releaseFurnaceStuckup',
+      aggregateId: 'stuckup-case-2',
+      expectedVersion: 1,
+      payload: {releaseNotes: 'The second obstruction was safely released.'},
+    }, {
+      actor: supervisor,
+      serverNow: at('2026-08-20T07:15:00Z'),
+    });
+    await service.execute({
+      commandId: 'adjudicate-stuckup-2',
+      commandType: 'adjudicateFurnaceStuckup',
+      aggregateId: 'stuckup-case-2',
+      expectedVersion: 2,
+      payload: {
+        confirmedCause: 'innerCoverBulging',
+        adjudicationNotes: 'SI confirmed recurring bulging after safe release.',
+      },
+    }, {
+      actor: si,
+      serverNow: at('2026-08-20T07:30:00Z'),
+    });
+    expect(store.read(declarationPath)).toMatchObject({
+      evidenceCount: 2,
+      version: 2,
+      firstConfirmedAt: '2026-08-20T06:00:00.000Z',
+      latestCaseId: 'stuckup-case-2',
     });
   });
 

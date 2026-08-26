@@ -74,3 +74,38 @@ export const isPersistedInstant = (value: unknown): boolean => {
     (candidate._nanoseconds as number) >= 0 &&
     (candidate._nanoseconds as number) < 1_000_000_000;
 };
+
+export const persistedInstantText = (value: unknown): string | null => {
+  const canonical = (date: Date): string | null =>
+    Number.isFinite(date.getTime()) ? date.toISOString() : null;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    const text = canonical(parsed);
+    return text === value ? text : null;
+  }
+  if (value instanceof Date) return canonical(value);
+  if (value == null || typeof value !== "object") return null;
+  const candidate = value as {
+    toDate?: unknown;
+    _seconds?: unknown;
+    _nanoseconds?: unknown;
+  };
+  if (typeof candidate.toDate === "function") {
+    try {
+      const date = (candidate.toDate as () => Date)();
+      return date instanceof Date ? canonical(date) : null;
+    } catch {
+      return null;
+    }
+  }
+  if (!Number.isSafeInteger(candidate._seconds) ||
+      (candidate._seconds as number) < FIRESTORE_MIN_SECONDS ||
+      (candidate._seconds as number) > FIRESTORE_MAX_SECONDS ||
+      !Number.isSafeInteger(candidate._nanoseconds) ||
+      (candidate._nanoseconds as number) < 0 ||
+      (candidate._nanoseconds as number) >= 1_000_000_000) return null;
+  return canonical(new Date(
+    (candidate._seconds as number) * 1000 +
+      Math.floor((candidate._nanoseconds as number) / 1_000_000),
+  ));
+};

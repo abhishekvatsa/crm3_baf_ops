@@ -28,6 +28,7 @@ import {
 } from "./types";
 import {cleanText, laneKey} from "./utils";
 import {ticketLanePlan, ticketRouteLane} from "./ticketLanePlan";
+import {COMMAND_AUTHORITY_ROLES} from "./policy.generated";
 
 const AUTHORITY_SCOPE_SCHEMA_VERSION = 1 as const;
 
@@ -77,6 +78,13 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   adjudicateInspectionFinding: "inspectionFinding.adjudicate",
   releaseFurnaceStuckup: "integrity.supervise",
   adjudicateFurnaceStuckup: "integrity.adjudicate",
+  raiseCriticalAlarm: "criticalAlarm.raise",
+  provideCriticalAlarmDetails: "criticalAlarm.details",
+  confirmCriticalAlarmSupport: "criticalAlarm.support",
+  resolveCriticalAlarm: "criticalAlarm.resolve",
+  withdrawCriticalAlarmInError: "criticalAlarm.withdraw",
+  upsertCriticalAlarmContact: "criticalAlarm.contacts.manage",
+  setCriticalAlarmContactStatus: "criticalAlarm.contacts.manage",
   purgePilotBusinessRecord: "pilotRecord.purge",
 };
 
@@ -117,8 +125,19 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "inspectionFinding.adjudicate",
   "integrity.supervise",
   "integrity.adjudicate",
+  "criticalAlarm.raise",
+  "criticalAlarm.details",
+  "criticalAlarm.support",
+  "criticalAlarm.resolve",
+  "criticalAlarm.withdraw",
+  "criticalAlarm.contacts.manage",
   "pilotRecord.purge",
 ]);
+
+const hasPolicyRole = (actor: Actor, key: string): boolean =>
+  (COMMAND_AUTHORITY_ROLES[key] ?? []).some((role) =>
+    actor.roles.has(role as RoleKey),
+  );
 
 const laneScope = (
   capability: "lane.acknowledge" | "lane.work" | "lane.close" |
@@ -275,6 +294,19 @@ export const assertWorkflowAuthorityScope = (
     return;
   case "integrity.adjudicate":
     if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "criticalAlarm.raise":
+  case "criticalAlarm.details":
+  case "criticalAlarm.withdraw":
+    return;
+  case "criticalAlarm.support":
+    if (!hasPolicyRole(actor, "confirmCriticalAlarmSupport")) denied();
+    return;
+  case "criticalAlarm.resolve":
+    if (!hasPolicyRole(actor, "resolveCriticalAlarm")) denied();
+    return;
+  case "criticalAlarm.contacts.manage":
+    if (!hasPolicyRole(actor, "manageCriticalAlarmContacts")) denied();
     return;
   case "laneSet.finalize":
     if (!mayFinalizeLaneSet(actor)) denied();

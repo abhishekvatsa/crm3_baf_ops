@@ -35,6 +35,14 @@ rejects unowned or directly invoked FCM dispatch, and requires every send to
 remain inside the coordinator's `dispatch` callback. Aliased imports remain
 discoverable.
 
+Critical-alarm fan-out is additionally split into one governed receipt per
+deduplicated device token. The delegated dispatcher is named in the same
+source policy, must be called exactly once by the owning trigger with the
+original CloudEvent ID, and derives each child identity from that ID plus a
+one-way token digest. The AST inventory rejects an undeclared helper, a second
+owner, a raw or ungoverned send, a missing identity derivation, or a send that
+escapes the child receipt's `dispatch` callback.
+
 The receipt document ID is SHA-256 over a versioned namespace, the exported
 trigger name and the immutable CloudEvent ID. The receipt also stores and
 validates the trigger name, CloudEvent ID and source-document path. A schema
@@ -64,11 +72,15 @@ timeout or crash after dispatch begins cannot prove whether a message reached
 FCM.
 
 There is one narrower, outcome-proved exception. For an exact single-device
-recovery notification, FCM can return a per-message transient failure while
-also proving that zero messages succeeded. That result moves the receipt to
+delivery, FCM can return a per-message transient failure while also proving
+that zero messages succeeded. That result moves the receipt to
 `retryableDeliveryFailed` and throws so the Firestore trigger retry can
-reacquire it. The path is unavailable to fan-out notifications, to partial
-success, and to exceptions where the dispatch outcome is unknown.
+reacquire it. Device-recovery messages are already single-device. Critical
+alarms obtain the same property by assigning each deduplicated device token a
+separate receipt before dispatch. A mixed fan-out therefore retries only its
+failed child receipts; completed recipients are skipped. The path remains
+unavailable to aggregate partial-success retries and to exceptions where the
+dispatch outcome is unknown.
 
 This is not an exactly-once delivery claim. Successful and outcome-ambiguous
 dispatches are never repeated automatically. Pre-dispatch preparation may

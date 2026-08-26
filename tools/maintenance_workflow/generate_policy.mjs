@@ -90,6 +90,9 @@ function renderTs() {
   const moduleLaneMap = policy.moduleDisciplineLaneMap ?? {};
   const moduleWorkRoles = policy.moduleDisciplineWorkRoles ?? {};
   const moduleSubmitRoles = policy.moduleDisciplineSubmitRoles ?? moduleWorkRoles;
+  const criticalAlarmDefinitions = Object.fromEntries(
+    (policy.criticalAlarmDefinitions ?? []).map((definition) => [definition.key, definition]),
+  );
   return `// GENERATED FILE. Source: governance/maintenance_workflow_policy_v1.json\n` +
     `// Do not edit manually.\n` +
     `export const WORKFLOW_POLICY_SCHEMA_VERSION = ${policy.schemaVersion} as const;\n` +
@@ -98,6 +101,7 @@ function renderTs() {
     `export const LANE_SET_FINALIZER_ROLES = ${JSON.stringify(policy.laneSetFinalizerRoles)} as const;\n` +
     `export const MODULE_LIFECYCLE_MODERATOR_ROLES = ${JSON.stringify(policy.moduleLifecycleModeratorRoles ?? [])} as const;\n` +
     `export const COMMAND_AUTHORITY_ROLES = Object.freeze(${JSON.stringify(policy.commandAuthorityRoles ?? {})}) as Readonly<Record<string, readonly string[]>>;\n` +
+    `export const CRITICAL_ALARM_DEFINITIONS = Object.freeze(${JSON.stringify(criticalAlarmDefinitions)}) as Readonly<Record<string, Readonly<{key:string;name:string;criticalityKey:"highest"|"critical";criticalityRank:number}>>>;\n` +
     `export const WORKFLOW_ROLE_UNIVERSE = ${JSON.stringify(roleUniverse)} as const;\n` +
     `export const RED_APPLICABLE_ASSET_TYPES = new Set(${JSON.stringify(policy.redApplicableAssetTypes)});\n` +
     `export const STAND_PREPARATION_ASSET_TYPES = new Set(${JSON.stringify(policy.standPreparationAssetTypes)});\n` +
@@ -121,6 +125,12 @@ function renderDart() {
     `      delegated: ${lane.delegated === true},\n` +
     `      delegationBasis: ${lane.delegationBasis == null ? 'null' : dartQ(lane.delegationBasis)},\n` +
     `    ),`).join('\n');
+  const alarmRows = (policy.criticalAlarmDefinitions ?? []).map((definition) =>
+    `    ${dartQ(definition.key)}: CriticalAlarmDefinitionGenerated(\n` +
+    `      key: ${dartQ(definition.key)}, name: ${dartQ(definition.name)},\n` +
+    `      criticalityKey: ${dartQ(definition.criticalityKey)}, criticalityRank: ${definition.criticalityRank},\n` +
+    `    ),`,
+  ).join('\n');
   return `// GENERATED FILE. Source: governance/maintenance_workflow_policy_v1.json\n` +
     `// Do not edit manually.\n` +
     `abstract final class WorkflowPolicyGenerated {\n` +
@@ -130,6 +140,7 @@ function renderDart() {
     `  static const Set<String> laneSetFinalizerRoles = ${dartSet(policy.laneSetFinalizerRoles)};\n` +
     `  static const Set<String> moduleLifecycleModeratorRoles = ${dartSet(policy.moduleLifecycleModeratorRoles ?? [])};\n` +
     `  static const Map<String, Set<String>> commandAuthorityRoles = <String, Set<String>>{\n${Object.entries(policy.commandAuthorityRoles ?? {}).map(([key, value]) => `    ${dartQ(key)}: ${dartSet(value)},`).join('\n')}\n  };\n` +
+    `  static const Map<String, CriticalAlarmDefinitionGenerated> criticalAlarmDefinitions = <String, CriticalAlarmDefinitionGenerated>{\n${alarmRows}\n  };\n` +
     `  static const Set<String> workflowRoleUniverse = ${dartSet(roleUniverse)};\n` +
     `  static const Set<String> redApplicableAssetTypes = ${dartSet(policy.redApplicableAssetTypes)};\n` +
     `  static const Set<String> standPreparationAssetTypes = ${dartSet(policy.standPreparationAssetTypes)};\n` +
@@ -147,6 +158,10 @@ function renderDart() {
     `  final Set<String> acknowledgementRoles;\n  final Set<String> workRoles;\n` +
     `  final Set<String> closureRoles;\n  final bool delegated;\n  final String? delegationBasis;\n` +
     `  const WorkflowLanePolicyGenerated({required this.key, required this.code, required this.name, required this.acknowledgementRoles, required this.workRoles, required this.closureRoles, required this.delegated, required this.delegationBasis});\n` +
+    `}\n\n` +
+    `class CriticalAlarmDefinitionGenerated {\n` +
+    `  final String key;\n  final String name;\n  final String criticalityKey;\n  final int criticalityRank;\n` +
+    `  const CriticalAlarmDefinitionGenerated({required this.key, required this.name, required this.criticalityKey, required this.criticalityRank});\n` +
     `}\n`;
 }
 

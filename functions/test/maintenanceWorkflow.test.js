@@ -642,6 +642,10 @@ describe('maintenance workflow command integration', () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store);
     const service = serviceFor(store);
     await service.execute({commandId: 'emd-finalise', commandType: 'finalizeLaneSet', aggregateId: 'wf1', expectedVersion: 0, payload: {laneKeys: ['emd']}}, {actor: admin, serverNow: at('2026-07-20T01:00:00Z')});
+    expect(store.read('job_lanes/wf1_emd_1')).toMatchObject({
+      assetTypeKey: 'furnace',
+      assetNumber: 7,
+    });
     await service.execute({commandId: 'emd-ack', commandType: 'acknowledgeLane', aggregateId: 'wf1', expectedVersion: 1, payload: {laneKey: 'emd'}}, {actor: admin, serverNow: at('2026-07-20T01:01:00Z')});
     expect(store.read('maintenance_workflow_events/emd-ack')).toMatchObject({representedLaneKey: 'emd', actorUid: 'admin-1'});
   });
@@ -1897,6 +1901,27 @@ describe('maintenance workflow command integration', () => {
     });
     expect(store.read('job_executions/wf-derived-lanes-exec').assignedAgencies)
       .toEqual(expect.arrayContaining(['mechanical', 'electrical', 'shared']));
+    for (const laneKey of ['mech', 'elec', 'shared']) {
+      expect(store.read(`job_lanes/wf-derived-lanes_${laneKey}_1`))
+        .toMatchObject({assetTypeKey: 'base', assetNumber: 21});
+    }
+  });
+
+  test('a lane added during execution retains the parent asset identity', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-added-lane', 'inProgress', 2, 'furnace', 6);
+    const service = serviceFor(store);
+    await service.execute({
+      commandId: 'add-electrical-lane', commandType: 'addLane',
+      aggregateId: 'wf-added-lane', expectedVersion: 2,
+      payload: {laneKey: 'elec', reason: 'Electrical support is now required'},
+    }, {actor: admin, serverNow: at('2026-07-20T19:02:00Z')});
+    expect(store.read('job_lanes/wf-added-lane_elec_1')).toMatchObject({
+      workflowId: 'wf-added-lane',
+      assetTypeKey: 'furnace',
+      assetNumber: 6,
+      status: 'pending',
+    });
   });
 
   test('a lane with canonical modules cannot be removed', async () => {
@@ -1960,7 +1985,10 @@ describe('maintenance workflow command integration', () => {
     }, {actor: admin, serverNow: at('2026-07-20T19:20:00Z')});
     expect(receipt.result).toMatchObject({replacementLaneKey: 'mech', replacementGeneration: 2, remappedModuleCount: 1});
     expect(store.read('job_lanes/wf-remap-lane_mech_1').status).toBe('terminated');
-    expect(store.read('job_lanes/wf-remap-lane_mech_2')).toMatchObject({status: 'pending', activationGeneration: 2});
+    expect(store.read('job_lanes/wf-remap-lane_mech_2')).toMatchObject({
+      status: 'pending', activationGeneration: 2,
+      assetTypeKey: 'base', assetNumber: 23,
+    });
     expect(store.read('job_modules/module-remapped')).toMatchObject({
       laneKey: 'mech', laneActivationGeneration: 2,
       workflowLaneFirestoreId: 'wf-remap-lane_mech_2',

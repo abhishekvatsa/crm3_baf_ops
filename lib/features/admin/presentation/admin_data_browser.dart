@@ -15,6 +15,7 @@ import 'admin_data_browser/admin_templates_browser.dart';
 import 'admin_data_browser/admin_executions_browser.dart';
 import 'admin_data_browser/admin_abnormalities_tab.dart';
 import 'admin_data_browser/admin_asset_hierarchy_tab.dart';
+import '../../critical_alarm/presentation/critical_alarm_contacts_panel.dart';
 
 // ============================================================================
 // MAIN ADMIN DATA BROWSER (Tab Bar)
@@ -35,7 +36,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
     _tabController.addListener(() {
       if (_tabController.index != _selectedTab) {
         setState(() => _selectedTab = _tabController.index);
@@ -190,6 +191,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                 Tab(text: 'Executions'),
                 Tab(text: 'Abnormalities'),
                 Tab(text: 'Asset hierarchy'),
+                Tab(text: 'Safety contacts'),
                 Tab(text: 'Users'),
               ],
             ),
@@ -214,6 +216,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                     const ExecutionsBrowser(),
                     const AbnormalitiesAdminTab(),
                     AssetHierarchyAdminTab(actor: appUser),
+                    const CriticalAlarmContactsPanel(administrationMode: true),
                     const UsersTab(),
                   ],
                 ),

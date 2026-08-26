@@ -1,8 +1,8 @@
 // GENERATED FILE. Source: governance/maintenance_workflow_policy_v1.json
 // Do not edit manually.
 abstract final class WorkflowPolicyGenerated {
-  static const int schemaVersion = 2;
-  static const String policyId = 'crm3-maintenance-workflow-v2';
+  static const int schemaVersion = 3;
+  static const String policyId = 'crm3-maintenance-workflow-v3';
   static const bool onlineOnlyLifecycleCommands = true;
   static const Set<String> laneSetFinalizerRoles = <String>{'admin', 'si', 'contractSupervisor'};
   static const Set<String> moduleLifecycleModeratorRoles = <String>{'admin', 'si', 'contractSupervisor', 'shiftSupervisor'};
@@ -17,6 +17,31 @@ abstract final class WorkflowPolicyGenerated {
     'prepareRedLane': <String>{'admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorElectrical', 'seniorMechanical', 'seniorInstrumentation', 'seniorRefractory'},
     'reopenWorkflowModule': <String>{'admin', 'si', 'contractSupervisor', 'shiftSupervisor'},
     'raiseComplianceCoordination': <String>{'admin', 'si', 'contractSupervisor', 'shiftSupervisor'},
+    'confirmCriticalAlarmSupport': <String>{'admin', 'si'},
+    'resolveCriticalAlarm': <String>{'admin', 'si'},
+    'manageCriticalAlarmContacts': <String>{'admin'},
+  };
+  static const Map<String, CriticalAlarmDefinitionGenerated> criticalAlarmDefinitions = <String, CriticalAlarmDefinitionGenerated>{
+    'fire': CriticalAlarmDefinitionGenerated(
+      key: 'fire', name: 'Fire',
+      criticalityKey: 'highest', criticalityRank: 1,
+    ),
+    'majorGasLeakage': CriticalAlarmDefinitionGenerated(
+      key: 'majorGasLeakage', name: 'Major gas leakage',
+      criticalityKey: 'highest', criticalityRank: 1,
+    ),
+    'blast': CriticalAlarmDefinitionGenerated(
+      key: 'blast', name: 'Blast',
+      criticalityKey: 'highest', criticalityRank: 1,
+    ),
+    'nitrogenFailure': CriticalAlarmDefinitionGenerated(
+      key: 'nitrogenFailure', name: 'Nitrogen failure',
+      criticalityKey: 'critical', criticalityRank: 2,
+    ),
+    'hotWellPumpFailure': CriticalAlarmDefinitionGenerated(
+      key: 'hotWellPumpFailure', name: 'Hot well pump failure',
+      criticalityKey: 'critical', criticalityRank: 2,
+    ),
   };
   static const Set<String> workflowRoleUniverse = <String>{'admin', 'si', 'contractSupervisor', 'seniorElectrical', 'seniorMechanical', 'seniorInstrumentation', 'operations', 'shiftSupervisor', 'refractory', 'seniorRefractory'};
   static const Set<String> redApplicableAssetTypes = <String>{'base', 'furnace'};
@@ -134,4 +159,12 @@ class WorkflowLanePolicyGenerated {
   final bool delegated;
   final String? delegationBasis;
   const WorkflowLanePolicyGenerated({required this.key, required this.code, required this.name, required this.acknowledgementRoles, required this.workRoles, required this.closureRoles, required this.delegated, required this.delegationBasis});
+}
+
+class CriticalAlarmDefinitionGenerated {
+  final String key;
+  final String name;
+  final String criticalityKey;
+  final int criticalityRank;
+  const CriticalAlarmDefinitionGenerated({required this.key, required this.name, required this.criticalityKey, required this.criticalityRank});
 }

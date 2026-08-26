@@ -78,7 +78,7 @@ export interface FcmMessage {
   data?: Readonly<Record<string, string>>;
   android?: {
     priority?: "high" | "normal";
-    notification?: {sound?: string; channelId?: string};
+    notification?: {sound?: string; channelId?: string; tag?: string};
   };
 }
 
@@ -153,6 +153,32 @@ export interface UserTokenLookup {
   uid: string;
   fcmToken: string;
   installationId?: string;
+}
+
+export interface NotificationTokenGroup {
+  fcmToken: string;
+  registrations: ReadonlyArray<UserTokenLookup>;
+}
+
+export function groupNotificationRecipientsByToken(
+  recipients: ReadonlyArray<UserTokenLookup>,
+): NotificationTokenGroup[] {
+  const tokenToRegistrations = new Map<string, UserTokenLookup[]>();
+  for (const recipient of recipients) {
+    const registrations = tokenToRegistrations.get(recipient.fcmToken);
+    if (registrations == null) {
+      tokenToRegistrations.set(recipient.fcmToken, [recipient]);
+      continue;
+    }
+    const alreadyPresent = registrations.some((registration) =>
+      registration.uid === recipient.uid &&
+      registration.installationId === recipient.installationId
+    );
+    if (!alreadyPresent) registrations.push(recipient);
+  }
+  return [...tokenToRegistrations.entries()].map(
+    ([fcmToken, registrations]) => ({fcmToken, registrations}),
+  );
 }
 
 export const NOTIFICATION_INSTALLATIONS_COLLECTION =
@@ -273,6 +299,28 @@ export async function getTokenLookupsForRoles(
   ))).flat();
 }
 
+/** Returns every bounded installation belonging to an approved user. */
+export async function getTokenLookupsForApprovedUsers(
+  db: FirestoreLike,
+): Promise<UserTokenLookup[]> {
+  const snapshot = await db
+    .collection("users")
+    .where("isApproved", "==", true)
+    .get();
+  const eligible: Array<{
+    uid: string;
+    authorityData: Record<string, unknown>;
+  }> = [];
+  snapshot.forEach((doc) => {
+    const authority = canonicalApprovedUserAuthority(doc.data());
+    if (authority == null) return;
+    eligible.push({uid: doc.id, authorityData: authority.data});
+  });
+  return (await Promise.all(eligible.map(({uid, authorityData}) =>
+    tokenLookupsForApprovedUser(db, uid, authorityData)
+  ))).flat();
+}
+
 export async function getTokenLookupsForUser(
   db: FirestoreLike,
   uid: string,
@@ -351,6 +399,7 @@ export async function sendNotification(args: {
   body: string;
   unknownAgencies?: ReadonlyArray<string>;
   androidChannelId?: string;
+  androidNotificationTag?: string;
   data?: Readonly<Record<string, string>>;
 }): Promise<SendOutcome> {
   const {
@@ -361,6 +410,7 @@ export async function sendNotification(args: {
     body,
     unknownAgencies = [],
     androidChannelId = "crm3_baf_ops",
+    androidNotificationTag,
     data,
   } = args;
 
@@ -369,21 +419,9 @@ export async function sendNotification(args: {
   // can exist on multiple user records (shared tablets are common in
   // shift work), and we want to clear it from all of them — not just
   // the first one we saw.
-  const tokenToRegistrations = new Map<string, UserTokenLookup[]>();
-  for (const r of recipients) {
-    const existing = tokenToRegistrations.get(r.fcmToken);
-    if (existing == null) {
-      tokenToRegistrations.set(r.fcmToken, [r]);
-      continue;
-    }
-    const alreadyPresent = existing.some((registration) =>
-      registration.uid === r.uid &&
-      registration.installationId === r.installationId
-    );
-    if (!alreadyPresent) {
-      existing.push(r);
-    }
-  }
+  const tokenGroups = groupNotificationRecipientsByToken(recipients);
+  const tokenToRegistrations = new Map(tokenGroups.map((group) =>
+    [group.fcmToken, [...group.registrations]] as const));
   const dedupedTokens = [...tokenToRegistrations.keys()];
   if (dedupedTokens.length === 0) {
     return {
@@ -409,7 +447,13 @@ export async function sendNotification(args: {
       ...(data == null ? {} : {data}),
       android: {
         priority: "high",
-        notification: {sound: "default", channelId: androidChannelId},
+        notification: {
+          sound: "default",
+          channelId: androidChannelId,
+          ...(androidNotificationTag == null ? {} : {
+            tag: androidNotificationTag,
+          }),
+        },
       },
     }));
 

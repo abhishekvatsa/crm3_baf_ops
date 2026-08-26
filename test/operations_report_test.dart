@@ -1822,6 +1822,7 @@ void main() {
       lastCompletionAt: nextDueAt.subtract(const Duration(days: 30)),
       nextDueAt: nextDueAt,
       lastMaintenanceClassCode: 'RM',
+      classificationPending: false,
     );
 
     final report = buildOperationsReport(

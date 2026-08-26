@@ -206,6 +206,26 @@ function sortedIdentities(items) {
     .sort();
 }
 
+function isDirectCloudEventId(expression) {
+  const candidate = expression == null ? null : unwrapped(expression);
+  return ts.isPropertyAccessExpression(candidate) &&
+    ts.isIdentifier(candidate.expression) &&
+    candidate.expression.text === "event" &&
+    candidate.name.text === "id";
+}
+
+function topLevelFunction(program, sourceRoot, sourcePath, name) {
+  for (const sourceFile of program.getSourceFiles()) {
+    if (relativeSourcePath(sourceRoot, sourceFile) !== sourcePath) continue;
+    for (const statement of sourceFile.statements) {
+      if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) {
+        return statement;
+      }
+    }
+  }
+  return null;
+}
+
 export function auditNotificationTriggerInventory({
   tsconfigPath = path.join(functionsRoot, "tsconfig.json"),
   sourceRoot = path.join(functionsRoot, "src"),
@@ -219,10 +239,11 @@ export function auditNotificationTriggerInventory({
   const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
   const coordinatorName = policy.receiptCoordinator;
   const expected = policy.notificationTriggers;
+  const delegated = policy.delegatedReceiptDispatchers ?? [];
   if (policy.schemaVersion !== 1 ||
       coordinatorName !== "executeIdempotentNotificationEvent" ||
       policy.receiptCollection !== "notification_event_receipts" ||
-      !Array.isArray(expected)) {
+      !Array.isArray(expected) || !Array.isArray(delegated)) {
     throw new Error("R-05 notification trigger policy is malformed");
   }
 
@@ -240,6 +261,66 @@ export function auditNotificationTriggerInventory({
         sortedIdentities(triggers),
       )} expected=${JSON.stringify(sortedIdentities(expected))}`,
     );
+  }
+
+  for (const entry of delegated) {
+    const name = entry?.name;
+    const triggerName = entry?.triggerName;
+    const sourcePath = entry?.sourcePath;
+    const cloudEventIdDeriver = entry?.cloudEventIdDeriver;
+    if ([name, triggerName, sourcePath, cloudEventIdDeriver].some(
+      (value) => typeof value !== "string" || value.length === 0,
+    )) {
+      errors.push("delegated-notification-dispatch-policy-malformed");
+      continue;
+    }
+    const trigger = triggers.find((candidate) =>
+      candidate.name === triggerName && candidate.sourcePath === sourcePath);
+    const helper = topLevelFunction(program, sourceRoot, sourcePath, name);
+    if (trigger == null || helper == null) {
+      errors.push(`delegated-notification-dispatch-missing helper=${name}`);
+      continue;
+    }
+
+    const triggerCalls = callsWithin(trigger.call, name);
+    const allCalls = allSourceCalls(program, sourceRoot, new Set([name]));
+    if (triggerCalls.length !== 1 || allCalls.length !== 1 ||
+        triggerCalls[0] !== allCalls[0]) {
+      errors.push(`delegated-notification-dispatch-owner-invalid helper=${name}`);
+      continue;
+    }
+    const helperArgs = unwrapped(triggerCalls[0].arguments[0]);
+    const sourceEventId = property(helperArgs, "cloudEventId");
+    if (sourceEventId == null || !ts.isPropertyAssignment(sourceEventId) ||
+        !isDirectCloudEventId(sourceEventId.initializer)) {
+      errors.push(`delegated-notification-cloud-event-missing helper=${name}`);
+    }
+
+    const coordinatorCalls = callsWithin(helper, coordinatorName);
+    const helperSendCalls = callsWithinNames(helper, dispatchNames);
+    if (coordinatorCalls.length !== 1 || helperSendCalls.length === 0) {
+      errors.push(`delegated-notification-receipt-missing helper=${name}`);
+      continue;
+    }
+    const coordinatorArgs = unwrapped(coordinatorCalls[0].arguments[0]);
+    const derivedEventId = property(coordinatorArgs, "cloudEventId");
+    const derivedExpression = derivedEventId != null &&
+        ts.isPropertyAssignment(derivedEventId) ?
+      unwrapped(derivedEventId.initializer) : null;
+    if (!ts.isCallExpression(derivedExpression) ||
+        calledName(derivedExpression) !== cloudEventIdDeriver) {
+      errors.push(`delegated-notification-identity-deriver-missing helper=${name}`);
+    }
+    const dispatchProperty = property(coordinatorArgs, "dispatch");
+    const receiptSendCalls = new Set(
+      dispatchProperty == null ? [] :
+        callsWithinNames(dispatchProperty, dispatchNames),
+    );
+    if (!helperSendCalls.every((call) => receiptSendCalls.has(call))) {
+      errors.push(`delegated-notification-dispatch-outside-receipt helper=${name}`);
+      continue;
+    }
+    helperSendCalls.forEach((call) => ownedSendCalls.add(call));
   }
 
   const allSendCalls = allSourceCalls(program, sourceRoot, dispatchNames);
@@ -269,10 +350,7 @@ export function auditNotificationTriggerInventory({
     const eventIdExpression = eventId != null && ts.isPropertyAssignment(eventId)
       ? unwrapped(eventId.initializer)
       : null;
-    if (!ts.isPropertyAccessExpression(eventIdExpression) ||
-        !ts.isIdentifier(eventIdExpression.expression) ||
-        eventIdExpression.expression.text !== "event" ||
-        eventIdExpression.name.text !== "id") {
+    if (!isDirectCloudEventId(eventIdExpression)) {
       errors.push(`notification-cloud-event-identity-missing trigger=${trigger.name}`);
     }
     const dispatchProperty = property(args, "dispatch");

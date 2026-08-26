@@ -8,8 +8,10 @@ const {
   FCM_DEAD_TOKEN_CODES,
   FCM_RETRYABLE_ERROR_CODES,
   getTokenLookupForInstallation,
+  getTokenLookupsForApprovedUsers,
   getTokenLookupsForUser,
   getTokenLookupsForRoles,
+  groupNotificationRecipientsByToken,
   MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
   sendNotification,
 } = require('../lib/notifications');
@@ -438,6 +440,22 @@ describe('buildTicketLaneAddedNotification', () => {
 // ─── getTokenLookupsForRoles ─────────────────────────────────────────────────
 
 describe('getTokenLookupsForRoles', () => {
+  test('critical fan-out reaches every canonical approved user, regardless of role', async () => {
+    const {db} = buildFirestoreDouble({
+      ops: {isApproved: true, roles: ['operations'], fcmToken: 'ops-token'},
+      mech: {isApproved: true, roles: ['seniorMechanical'], fcmToken: 'mech-token'},
+      admin: {isApproved: true, roles: ['admin'], fcmToken: 'admin-token'},
+      pending: {isApproved: false, roles: ['admin'], fcmToken: 'pending-token'},
+      malformed: {isApproved: true, roles: ['unsupported'], fcmToken: 'bad-token'},
+    });
+    const result = await getTokenLookupsForApprovedUsers(db);
+    expect(result.map((entry) => entry.uid).sort()).toEqual([
+      'admin',
+      'mech',
+      'ops',
+    ]);
+  });
+
   test('returns approved users with matching roles and a token', async () => {
     const {db} = buildFirestoreDouble({
       u1: {isApproved: true, roles: ['seniorMechanical'], fcmToken: 'tok1'},
@@ -714,6 +732,76 @@ describe('getTokenLookupsForRoles', () => {
 // ─── sendNotification + V2 cleanup behaviour ─────────────────────────────────
 
 describe('sendNotification', () => {
+  test('groups a shared token without discarding any registration', () => {
+    const groups = groupNotificationRecipientsByToken([
+      {uid: 'u1', fcmToken: 'shared', installationId: 'phone-a'},
+      {uid: 'u2', fcmToken: 'shared', installationId: 'phone-b'},
+      {uid: 'u1', fcmToken: 'shared', installationId: 'phone-a'},
+      {uid: 'u3', fcmToken: 'unique'},
+    ]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups.find((group) => group.fcmToken === 'shared').registrations)
+      .toEqual([
+        {uid: 'u1', fcmToken: 'shared', installationId: 'phone-a'},
+        {uid: 'u2', fcmToken: 'shared', installationId: 'phone-b'},
+      ]);
+  });
+
+  test('clears every installation registration sharing one dead token', async () => {
+    const {db, installations, docDeletes} = buildFirestoreDouble(
+      {
+        u1: {isApproved: true, roles: ['operations']},
+        u2: {isApproved: true, roles: ['operations']},
+      },
+      {
+        u1: {
+          phone: {
+            schemaVersion: 1,
+            token: 'shared-dead-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-26T01:00:00Z'),
+          },
+        },
+        u2: {
+          tablet: {
+            schemaVersion: 1,
+            token: 'shared-dead-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-26T02:00:00Z'),
+          },
+        },
+      },
+    );
+    const messaging = buildFakeFcm([{
+      success: false,
+      error: {code: 'messaging/registration-token-not-registered'},
+    }]);
+
+    const outcome = await sendNotification({
+      db,
+      messaging,
+      recipients: [
+        {uid: 'u1', fcmToken: 'shared-dead-token', installationId: 'phone'},
+        {uid: 'u2', fcmToken: 'shared-dead-token', installationId: 'tablet'},
+      ],
+      title: 'T',
+      body: 'B',
+    });
+
+    expect(outcome).toMatchObject({
+      attempted: 1,
+      failed: 1,
+      staleTokensCleared: 2,
+    });
+    expect(installations.u1.phone).toBeUndefined();
+    expect(installations.u2.tablet).toBeUndefined();
+    expect(docDeletes).toEqual([
+      'users/u1/notification_installations/phone',
+      'users/u2/notification_installations/tablet',
+    ]);
+  });
+
   test('counts successes and failures', async () => {
     const {db} = buildFirestoreDouble({u1: {fcmToken: 't1'}, u2: {fcmToken: 't2'}});
     const messaging = buildFakeFcm([{success: true}, {success: true}]);
@@ -950,6 +1038,40 @@ describe('sendNotification', () => {
     });
     expect(messagesSent).toHaveLength(1);
     expect(messagesSent[0].data).toEqual(data);
+  });
+
+  test('uses the dedicated high-priority critical-safety channel and alarm tag', async () => {
+    const {db} = buildFirestoreDouble({});
+    let messagesSent = null;
+    const messaging = {
+      sendEach: async (messages) => {
+        messagesSent = messages;
+        return {
+          successCount: messages.length,
+          failureCount: 0,
+          responses: messages.map(() => ({success: true})),
+        };
+      },
+    };
+    await sendNotification({
+      db,
+      messaging,
+      recipients: [{uid: 'ops-1', fcmToken: 'phone-token'}],
+      title: 'HIGHEST: Fire',
+      body: 'BAF shop - follow the plant emergency procedure.',
+      androidChannelId: 'crm3_critical_safety',
+      androidNotificationTag: 'critical-alarm-alarm-1',
+      data: {destinationType: 'critical_alarm', alarmId: 'alarm-1'},
+    });
+    expect(messagesSent).toHaveLength(1);
+    expect(messagesSent[0].android).toEqual({
+      priority: 'high',
+      notification: {
+        sound: 'default',
+        channelId: 'crm3_critical_safety',
+        tag: 'critical-alarm-alarm-1',
+      },
+    });
   });
 
   test('empty recipients short-circuits without calling FCM', async () => {

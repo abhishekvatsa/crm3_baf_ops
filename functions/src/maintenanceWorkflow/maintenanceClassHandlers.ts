@@ -14,7 +14,7 @@ import {
 } from "./maintenanceIntelligence";
 import {executionPath, maintenancePath} from "./paths";
 import {JsonMap, LaneKey} from "./types";
-import {cleanText, iso, stableJson} from "./utils";
+import {cleanText, iso, persistedInstantText, stableJson} from "./utils";
 
 const definitionPath = (id: string): string =>
   `maintenance_class_definitions/${id}`;
@@ -405,23 +405,44 @@ const dueProjectionFromSource = (
   counterKey: string,
   sources: readonly {readonly path: string; readonly data: JsonMap}[],
   now: string,
+  fallback: {
+    readonly assetIdentityKey: string;
+    readonly assetTypeKey: string;
+    readonly assetNumber: number | null;
+    readonly assetClassId: string | null;
+    readonly assetInstanceId: string | null;
+    readonly assetDisplayName: string | null;
+    readonly counterLabel: string;
+    readonly thresholdDays: number | null;
+  },
 ): JsonMap => {
   const candidates = sources
-    .filter((source) => Array.isArray(source.data.resetCounterKeys) &&
-      (source.data.resetCounterKeys as unknown[]).includes(counterKey) &&
-      typeof source.data.completedAt === "string")
+    .flatMap((source) => {
+      const completedAt = persistedInstantText(source.data.completedAt);
+      return Array.isArray(source.data.resetCounterKeys) &&
+        (source.data.resetCounterKeys as unknown[]).includes(counterKey) &&
+        completedAt != null ? [{...source, completedAt}] : [];
+    })
     .sort((left, right) => {
-      const byTime = Date.parse(String(right.data.completedAt)) -
-        Date.parse(String(left.data.completedAt));
+      const byTime = Date.parse(right.completedAt) - Date.parse(left.completedAt);
       if (byTime !== 0) return byTime;
       return Number(right.data.sourceRevision ?? 0) - Number(left.data.sourceRevision ?? 0);
     });
-  const latest = candidates[0]?.data;
-  if (latest == null) {
+  const latestCandidate = candidates[0];
+  const latest = latestCandidate?.data;
+  if (latest == null || latestCandidate == null) {
     return {
       schemaVersion: 1,
       dueStateId: path.split("/").at(-1)!,
+      assetIdentityKey: fallback.assetIdentityKey,
+      assetTypeKey: fallback.assetTypeKey,
+      assetNumber: fallback.assetNumber,
+      assetClassId: fallback.assetClassId,
+      assetInstanceId: fallback.assetInstanceId,
+      assetDisplayName: fallback.assetDisplayName,
       counterKey,
+      counterLabel: fallback.counterLabel,
+      thresholdDays: fallback.thresholdDays,
       lastCompletionAt: null,
       nextDueAt: null,
       lastCompletionEventId: null,
@@ -434,7 +455,7 @@ const dueProjectionFromSource = (
   }
   const classification = parseFrozenMaintenanceClass(latest.maintenanceClass);
   const counter = classification.resetCounters.find((item) => item.key === counterKey)!;
-  const completedAt = new Date(String(latest.completedAt)).toISOString();
+  const completedAt = latestCandidate.completedAt;
   const nextDue = counter.thresholdDays == null ? null : (() => {
     const date = new Date(completedAt);
     date.setUTCDate(date.getUTCDate() + counter.thresholdDays!);
@@ -566,8 +587,7 @@ export const classifyMaintenanceExecution: CommandHandler = async ({
   let completionPlan = null;
   let existingSources: readonly {readonly path: string; readonly data: JsonMap}[] = [];
   if (completed) {
-    const completedAt = typeof execution.data.completedAt === "string" ?
-      execution.data.completedAt : null;
+    const completedAt = persistedInstantText(execution.data.completedAt);
     if (completedAt == null || Number.isNaN(Date.parse(completedAt))) {
       throw new WorkflowError(
         "failed-precondition",
@@ -629,7 +649,19 @@ export const classifyMaintenanceExecution: CommandHandler = async ({
     ]);
     for (const counterKey of affectedCounters) {
       const path = dueStatePath(identity.assetIdentityKey, counterKey);
-      tx.set(path, dueProjectionFromSource(path, counterKey, sources, now), true);
+      const counter = classification.resetCounters.find((item) =>
+        item.key === counterKey) ?? previous.resetCounters.find((item) =>
+        item.key === counterKey)!;
+      tx.set(path, dueProjectionFromSource(path, counterKey, sources, now, {
+        assetIdentityKey: identity.assetIdentityKey,
+        assetTypeKey: identity.assetTypeKey,
+        assetNumber: identity.assetNumber,
+        assetClassId: identity.assetClassId,
+        assetInstanceId: identity.assetInstanceId,
+        assetDisplayName: null,
+        counterLabel: counter.label,
+        thresholdDays: counter.thresholdDays,
+      }), true);
     }
   }
   return {
@@ -762,10 +794,7 @@ export const classifyMaintenanceTicket: CommandHandler = async ({
       "Maintenance-classification audit evidence already exists without this receipt.",
     );
   }
-  const completedDate = typeof ticket.data.endDate === "string" ?
-    new Date(ticket.data.endDate) : null;
-  const completedAt = completedDate != null && !Number.isNaN(completedDate.getTime()) ?
-    completedDate.toISOString() : null;
+  const completedAt = persistedInstantText(ticket.data.endDate);
   const now = iso(context.serverNow);
   if (completedAt == null || Number.isNaN(Date.parse(completedAt))) {
     throw new WorkflowError(
@@ -855,7 +884,19 @@ export const classifyMaintenanceTicket: CommandHandler = async ({
     ]);
     for (const counterKey of affectedCounters) {
       const path = dueStatePath(identity.assetIdentityKey, counterKey);
-      tx.set(path, dueProjectionFromSource(path, counterKey, sources, now), true);
+      const counter = classification.resetCounters.find((item) =>
+        item.key === counterKey) ?? previous.resetCounters.find((item) =>
+        item.key === counterKey)!;
+      tx.set(path, dueProjectionFromSource(path, counterKey, sources, now, {
+        assetIdentityKey: identity.assetIdentityKey,
+        assetTypeKey: identity.assetTypeKey,
+        assetNumber: identity.assetNumber,
+        assetClassId: identity.assetClassId,
+        assetInstanceId: identity.assetInstanceId,
+        assetDisplayName: null,
+        counterLabel: counter.label,
+        thresholdDays: counter.thresholdDays,
+      }), true);
     }
   }
   return {

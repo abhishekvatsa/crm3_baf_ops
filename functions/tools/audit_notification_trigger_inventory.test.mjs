@@ -10,7 +10,7 @@ import {
 
 function fixture(context, source, triggers = [
   {name: "knownNotification", sourcePath: "src/index.ts"},
-]) {
+], delegatedReceiptDispatchers = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crm3-notifications-"));
   context.after(() => fs.rmSync(root, {recursive: true, force: true}));
   const src = path.join(root, "src");
@@ -28,6 +28,7 @@ function fixture(context, source, triggers = [
     schemaVersion: 1,
     receiptCoordinator: "executeIdempotentNotificationEvent",
     receiptCollection: "notification_event_receipts",
+    delegatedReceiptDispatchers,
     notificationTriggers: triggers,
   }));
   return {
@@ -105,6 +106,80 @@ test("FCM dispatch cannot sit outside the receipt dispatch callback", (context) 
   assert.ok(result.errors.includes(
     "notification-dispatch-outside-receipt-boundary trigger=knownNotification",
   ));
+});
+
+test("an explicitly owned per-recipient dispatcher remains receipt-bound", (context) => {
+  const delegated = [{
+    name: "deliverRecipients",
+    triggerName: "knownNotification",
+    sourcePath: "src/index.ts",
+    cloudEventIdDeriver: "recipientEventId",
+  }];
+  const options = fixture(context, [
+    declarations,
+    "function recipientEventId(eventId: string, token: string) {",
+    "  return `${eventId}:${token}`;",
+    "}",
+    "async function deliverRecipients(args: any) {",
+    "  return executeIdempotentNotificationEvent({",
+    "    cloudEventId: recipientEventId(args.cloudEventId, 'token'),",
+    "    prepare: async () => ({ready: true}),",
+    "    dispatch: async () => sendNotification({}),",
+    "  });",
+    "}",
+    "export const knownNotification = onDocumentCreated(",
+    "  {document: 'items/{id}', retry: true},",
+    "  async (event: any) => {",
+    "    await deliverRecipients({cloudEventId: event.id});",
+    "    return executeIdempotentNotificationEvent({",
+    "      cloudEventId: event.id,",
+    "      prepare: async () => ({ready: true}),",
+    "      dispatch: async () => sendNotification({}),",
+    "    });",
+    "  },",
+    ");",
+  ].join("\n"), undefined, delegated);
+  const result = auditNotificationTriggerInventory(options);
+  assert.deepEqual(result.errors, []);
+});
+
+test("a delegated dispatcher cannot escape its receipt or raw-copy event identity", (context) => {
+  const delegated = [{
+    name: "deliverRecipients",
+    triggerName: "knownNotification",
+    sourcePath: "src/index.ts",
+    cloudEventIdDeriver: "recipientEventId",
+  }];
+  const options = fixture(context, [
+    declarations,
+    "async function deliverRecipients(args: any) {",
+    "  await executeIdempotentNotificationEvent({",
+    "    cloudEventId: args.cloudEventId,",
+    "    prepare: async () => ({ready: true}),",
+    "    dispatch: async () => ({attempted: 0}),",
+    "  });",
+    "  return sendNotification({});",
+    "}",
+    "export const knownNotification = onDocumentCreated(",
+    "  {document: 'items/{id}', retry: true},",
+    "  async (event: any) => {",
+    "    await deliverRecipients({cloudEventId: event.id});",
+    "    return executeIdempotentNotificationEvent({",
+    "      cloudEventId: event.id,",
+    "      prepare: async () => ({ready: true}),",
+    "      dispatch: async () => sendNotification({}),",
+    "    });",
+    "  },",
+    ");",
+  ].join("\n"), undefined, delegated);
+  const result = auditNotificationTriggerInventory(options);
+  assert.ok(result.errors.includes(
+    "delegated-notification-identity-deriver-missing helper=deliverRecipients",
+  ));
+  assert.ok(result.errors.includes(
+    "delegated-notification-dispatch-outside-receipt helper=deliverRecipients",
+  ));
+  assert.ok(result.errors.includes("unowned-notification-dispatch-call"));
 });
 
 test("unowned helper and direct Admin FCM dispatches fail closed", (context) => {

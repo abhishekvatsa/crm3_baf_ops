@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
@@ -12,15 +13,25 @@ import type {
 } from "../notificationEventReceipt";
 import {
   getTokenLookupForInstallation,
+  getTokenLookupsForApprovedUsers,
   getTokenLookupsForRoles,
+  groupNotificationRecipientsByToken,
   sendNotification,
 } from "../notifications";
 import type {
   FirestoreLike as NotificationFirestoreLike,
   MessagingLike,
   SendOutcome,
+  UserTokenLookup,
 } from "../notifications";
-import {workflowRecipientRoles} from "./workflowNotificationPolicy";
+import {
+  isCriticalAlarmEventType,
+  isNotifiableCriticalAlarmStatus,
+  samePersistedNotificationInstant,
+  shouldRetryCriticalAlarmRecipientFailure,
+  shouldRetryKnownWorkflowNotificationFailure,
+  workflowRecipientRoles,
+} from "./workflowNotificationPolicy";
 
 const REGION = "asia-south1";
 
@@ -51,6 +62,163 @@ function notificationRuntime(
   };
 }
 
+interface CriticalAlarmNotificationPlan {
+  recipients: ReadonlyArray<UserTokenLookup>;
+  title: string;
+  body: string;
+  notificationData: Readonly<Record<string, string>>;
+  androidChannelId: string;
+  androidNotificationTag: string;
+}
+
+function criticalAlarmRecipientCloudEventId(
+  cloudEventId: string,
+  fcmToken: string,
+): string {
+  const recipientDigest = createHash("sha256")
+    .update("critical-alarm-recipient-v1\0")
+    .update(fcmToken)
+    .digest("hex");
+  return `${cloudEventId}:recipient:${recipientDigest}`;
+}
+
+async function prepareCriticalAlarmNotification(args: {
+  db: admin.firestore.Firestore;
+  data: admin.firestore.DocumentData;
+  sourceEventId: string;
+}): Promise<CriticalAlarmNotificationPlan | null> {
+  const {db, data, sourceEventId} = args;
+  const aggregateId = String(data.aggregateId ?? "");
+  const payload = data.payload != null && typeof data.payload === "object" ?
+    data.payload as Record<string, unknown> : {};
+  const alarmId = typeof payload.alarmId === "string" ? payload.alarmId : "";
+  if (alarmId.length === 0 || aggregateId !== alarmId) return null;
+
+  const snapshot = await db.collection("critical_alarms").doc(alarmId).get();
+  const alarm = snapshot.data();
+  if (!snapshot.exists || alarm?.schemaVersion !== 1 ||
+      alarm.alarmId !== alarmId ||
+      !isNotifiableCriticalAlarmStatus(alarm.status) ||
+      !Number.isSafeInteger(alarm.version) || alarm.version < 1 ||
+      alarm.raisedByUid !== data.actorUid ||
+      alarm.raisedByName !== data.actorName ||
+      !samePersistedNotificationInstant(alarm.raisedAt, data.occurredAt) ||
+      !samePersistedNotificationInstant(alarm.createdAt, data.occurredAt) ||
+      alarm.alarmTypeKey !== payload.alarmTypeKey ||
+      alarm.alarmTypeName !== payload.alarmTypeName ||
+      alarm.criticalityKey !== payload.criticalityKey ||
+      alarm.criticalityRank !== payload.criticalityRank ||
+      alarm.location !== payload.location) {
+    logger.warn("Critical alarm notification is stale or invalid", {
+      eventId: sourceEventId,
+      alarmId,
+    });
+    return null;
+  }
+
+  const recipients = await getTokenLookupsForApprovedUsers(notificationDb(db));
+  const typeName = typeof alarm.alarmTypeName === "string" ?
+    alarm.alarmTypeName : "Critical safety alarm";
+  const criticality = alarm.criticalityKey === "highest" ?
+    "HIGHEST" : "CRITICAL";
+  const location = typeof alarm.location === "string" ?
+    alarm.location : "Location not recorded";
+  const raiser = typeof alarm.raisedByName === "string" ?
+    alarm.raisedByName : "Approved user";
+  return {
+    recipients,
+    title: `${criticality}: ${typeName}`,
+    body: `${location} - raised by ${raiser}. Follow the plant emergency procedure.`,
+    notificationData: {
+      destinationType: "critical_alarm",
+      aggregateId: alarmId,
+      alarmId,
+      alarmTypeKey: String(alarm.alarmTypeKey),
+      criticalityKey: String(alarm.criticalityKey),
+      eventId: sourceEventId,
+    },
+    androidChannelId: "crm3_critical_safety",
+    androidNotificationTag: `critical-alarm-${alarmId}`,
+  };
+}
+
+async function processCriticalAlarmRaisedNotification(args: {
+  db: admin.firestore.Firestore;
+  data: admin.firestore.DocumentData;
+  sourceEventId: string;
+  cloudEventId: string;
+}): Promise<void> {
+  const {db, data, sourceEventId, cloudEventId} = args;
+  const legacyReceipt = await db.collection("workflow_notification_receipts")
+    .doc(sourceEventId)
+    .get();
+  if (legacyReceipt.exists) {
+    logger.warn("Legacy workflow notification receipt quarantined", {
+      eventId: sourceEventId,
+      cloudEventId,
+    });
+    return;
+  }
+
+  const plan = await prepareCriticalAlarmNotification({db, data, sourceEventId});
+  if (plan == null) return;
+  const recipientGroups = groupNotificationRecipientsByToken(plan.recipients);
+
+  const failures: unknown[] = [];
+  let completed = 0;
+  let skipped = 0;
+  for (let offset = 0; offset < recipientGroups.length; offset += 25) {
+    const batch = recipientGroups.slice(offset, offset + 25);
+    const outcomes = await Promise.allSettled(batch.map(async (recipientGroup) => {
+      const recipientPlan: CriticalAlarmNotificationPlan = {
+        ...plan,
+        recipients: recipientGroup.registrations,
+      };
+      return executeIdempotentNotificationEvent({
+        runtime: notificationRuntime(db),
+        triggerName: "onCriticalAlarmRecipientNotification",
+        cloudEventId: criticalAlarmRecipientCloudEventId(
+          cloudEventId,
+          recipientGroup.fcmToken,
+        ),
+        sourceDocumentPath: `maintenance_workflow_events/${sourceEventId}`,
+        prepare: async () => recipientPlan,
+        dispatch: (prepared): Promise<SendOutcome> => sendNotification({
+          db: notificationDb(db),
+          messaging: admin.messaging() as unknown as MessagingLike,
+          recipients: prepared.recipients,
+          title: prepared.title,
+          body: prepared.body,
+          data: prepared.notificationData,
+          androidChannelId: prepared.androidChannelId,
+          androidNotificationTag: prepared.androidNotificationTag,
+        }),
+        retryKnownFailure: (_prepared, outcome) =>
+          shouldRetryCriticalAlarmRecipientFailure(outcome),
+      });
+    }));
+    for (const outcome of outcomes) {
+      if (outcome.status === "rejected") {
+        failures.push(outcome.reason);
+      } else if (outcome.value.kind === "completed") {
+        completed += 1;
+      } else {
+        skipped += 1;
+      }
+    }
+  }
+
+  logger.info("Critical alarm recipient notifications processed", {
+    eventId: sourceEventId,
+    recipientCount: recipientGroups.length,
+    registrationCount: plan.recipients.length,
+    completedCount: completed,
+    skippedCount: skipped,
+    failedCount: failures.length,
+  });
+  if (failures.length > 0) throw failures[0];
+}
+
 export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
   {
     document: "maintenance_workflow_events/{eventId}",
@@ -66,6 +234,15 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
     const sourceEventId = event.params.eventId as string;
     const db = admin.firestore();
     try {
+      if (data.eventType === "criticalAlarm.raised") {
+        await processCriticalAlarmRaisedNotification({
+          db,
+          data,
+          sourceEventId,
+          cloudEventId: event.id,
+        });
+        return;
+      }
       const result = await executeIdempotentNotificationEvent({
         runtime: notificationRuntime(db),
         triggerName: "onMaintenanceWorkflowEventCreated",
@@ -155,6 +332,7 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
               },
             };
           }
+          if (isCriticalAlarmEventType(eventType)) return null;
           const roles = workflowRecipientRoles(
             eventType,
             laneKey,
@@ -216,14 +394,13 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
           recipients: plan.recipients,
           title: plan.title,
           body: plan.body,
-          data: plan.notificationData as Readonly<Record<string, string>>,
+          data: plan.notificationData as unknown as Readonly<Record<string, string>>,
         }),
         retryKnownFailure: (_plan, outcome) =>
-          data.eventType === "deviceRecovery.requested" &&
-          outcome.attempted === 1 &&
-          outcome.succeeded === 0 &&
-          outcome.failed === 1 &&
-          outcome.retryableFailures === 1,
+          shouldRetryKnownWorkflowNotificationFailure(
+            data.eventType,
+            outcome,
+          ),
       });
 
       if (result.kind === "completed") {

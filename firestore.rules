@@ -3954,6 +3954,28 @@ service cloud.firestore {
       allow read, create, update, delete: if false;
     }
 
+    // Critical safety alarms are read live and never enter the local pull
+    // cache. Every mutation is performed by the governed workflow callable.
+    match /critical_alarms/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /critical_alarm_contacts/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /critical_alarm_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
+    match /critical_alarm_contact_audits/{docId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     // ─────────────────────────────────────────────
     // 🔧 MAINTENANCE RECORDS
     // ─────────────────────────────────────────────

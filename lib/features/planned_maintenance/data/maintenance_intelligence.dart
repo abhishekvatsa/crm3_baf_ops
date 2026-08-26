@@ -284,6 +284,7 @@ class MaintenanceDueState {
     required this.lastCompletionAt,
     required this.nextDueAt,
     required this.lastMaintenanceClassCode,
+    required this.classificationPending,
   });
 
   final String id;
@@ -299,6 +300,7 @@ class MaintenanceDueState {
   final DateTime? lastCompletionAt;
   final DateTime? nextDueAt;
   final String? lastMaintenanceClassCode;
+  final bool classificationPending;
 
   int? get daysSinceCompletion =>
       lastCompletionAt == null
@@ -315,6 +317,30 @@ class MaintenanceDueState {
     String documentId,
   ) {
     final source = 'maintenance_due_states/$documentId';
+    if (readRequiredPersistedInt(
+          map['schemaVersion'],
+          field: 'schemaVersion',
+          source: source,
+        ) !=
+        1) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail: 'unsupported maintenance due-state schema',
+      );
+    }
+    final dueStateId = readRequiredPersistedString(
+      map['dueStateId'],
+      field: 'dueStateId',
+      source: source,
+    );
+    if (dueStateId != documentId) {
+      throw PersistedDataFormatException(
+        field: 'dueStateId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
     final assetTypeKey = readRequiredPersistedString(
       map['assetTypeKey'],
       field: 'assetTypeKey',
@@ -345,6 +371,19 @@ class MaintenanceDueState {
         detail: 'serial identity is allowed only for an exact Inner Cover',
       );
     }
+    final thresholdDays = readOptionalPersistedInt(
+      map['thresholdDays'],
+      field: 'thresholdDays',
+      source: source,
+      minimum: 1,
+    );
+    if (thresholdDays != null && thresholdDays > 3650) {
+      throw PersistedDataFormatException(
+        field: 'thresholdDays',
+        source: source,
+        detail: 'must not exceed 3650',
+      );
+    }
     return MaintenanceDueState(
       id: documentId,
       assetIdentityKey: readRequiredPersistedString(
@@ -371,7 +410,7 @@ class MaintenanceDueState {
         field: 'counterLabel',
         source: source,
       ),
-      thresholdDays: map['thresholdDays'] as int?,
+      thresholdDays: thresholdDays,
       lastCompletionAt: readOptionalPersistedDateTime(
         map['lastCompletionAt'],
         field: 'lastCompletionAt',
@@ -387,6 +426,17 @@ class MaintenanceDueState {
         field: 'lastMaintenanceClassCode',
         source: source,
       ),
+      // Full due-state rows written before policy v3 predate this marker and
+      // are canonically non-pending. Sparse legacy rows still fail above on
+      // their missing asset/counter identity.
+      classificationPending:
+          map.containsKey('classificationPending')
+              ? readRequiredPersistedBool(
+                map['classificationPending'],
+                field: 'classificationPending',
+                source: source,
+              )
+              : false,
     );
   }
 }

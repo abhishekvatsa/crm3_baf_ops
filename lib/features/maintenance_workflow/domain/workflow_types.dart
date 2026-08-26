@@ -107,6 +107,13 @@ enum WorkflowCommandType {
   correctMaintenanceTicket,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  raiseCriticalAlarm,
+  provideCriticalAlarmDetails,
+  confirmCriticalAlarmSupport,
+  resolveCriticalAlarm,
+  withdrawCriticalAlarmInError,
+  upsertCriticalAlarmContact,
+  setCriticalAlarmContactStatus,
   purgePilotBusinessRecord,
 }
 
