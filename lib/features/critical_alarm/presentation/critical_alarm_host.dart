@@ -24,10 +24,14 @@ class CriticalAlarmHost extends ConsumerStatefulWidget {
   ConsumerState<CriticalAlarmHost> createState() => _CriticalAlarmHostState();
 }
 
-class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
+class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
+    with WidgetsBindingObserver {
   final Set<String> _notifiedRingingIds = <String>{};
   final Set<String> _notificationAttemptsInFlight = <String>{};
   Set<String> _latestRingingIds = const <String>{};
+  Map<String, CriticalAlarm> _latestRingingAlarms =
+      const <String, CriticalAlarm>{};
+  bool _liveAlarmStateVerified = false;
   StreamSubscription<String>? _openedAlarmSubscription;
   late final ProviderSubscription<AsyncValue<List<CriticalAlarm>>>
   _alarmFeedSubscription;
@@ -36,6 +40,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final platform = ref.read(criticalAlarmPlatformServiceProvider);
     _openedAlarmSubscription = platform.openedAlarmIds.listen(
       _queueOpenedAlarm,
@@ -43,7 +48,15 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
     _alarmFeedSubscription = ref.listenManual<AsyncValue<List<CriticalAlarm>>>(
       activeCriticalAlarmsProvider,
       (previous, next) {
-        next.whenData(_reconcileNotifications);
+        final verified = next.asData;
+        if (verified == null) {
+          _liveAlarmStateVerified = false;
+          _latestRingingIds = const <String>{};
+          _latestRingingAlarms = const <String, CriticalAlarm>{};
+          return;
+        }
+        _liveAlarmStateVerified = true;
+        _reconcileNotifications(verified.value);
       },
       fireImmediately: true,
     );
@@ -56,9 +69,20 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_openedAlarmSubscription?.cancel());
     _alarmFeedSubscription.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !_liveAlarmStateVerified) return;
+    final platform = ref.read(criticalAlarmPlatformServiceProvider);
+    unawaited(platform.reconcileActiveNotifications(_latestRingingIds));
+    for (final alarm in _latestRingingAlarms.values) {
+      _attemptNotification(platform, alarm);
+    }
   }
 
   @override
@@ -145,20 +169,28 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost> {
     final ringing = alarms.where((alarm) => alarm.isRinging).toList();
     final ringingIds = ringing.map((alarm) => alarm.id).toSet();
     _latestRingingIds = ringingIds;
+    _latestRingingAlarms = {for (final alarm in ringing) alarm.id: alarm};
     final platform = ref.read(criticalAlarmPlatformServiceProvider);
     // The verified server set also clears tagged FCM notifications created
     // while this Dart process was not running.
     unawaited(platform.reconcileActiveNotifications(ringingIds));
     for (final alarm in ringing) {
-      if (!_notifiedRingingIds.contains(alarm.id) &&
-          _notificationAttemptsInFlight.add(alarm.id)) {
-        unawaited(_showAndTrackNotification(platform, alarm));
-      }
+      _attemptNotification(platform, alarm);
     }
     final noLongerRinging = _notifiedRingingIds.difference(ringingIds).toList();
     for (final alarmId in noLongerRinging) {
       _notifiedRingingIds.remove(alarmId);
       unawaited(platform.cancelNotification(alarmId));
+    }
+  }
+
+  void _attemptNotification(
+    CriticalAlarmPlatformService platform,
+    CriticalAlarm alarm,
+  ) {
+    if (!_notifiedRingingIds.contains(alarm.id) &&
+        _notificationAttemptsInFlight.add(alarm.id)) {
+      unawaited(_showAndTrackNotification(platform, alarm));
     }
   }
 

@@ -122,6 +122,12 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
                     try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+                            !notificationManager().areNotificationsEnabled()
+                        ) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
                         showCriticalAlarmNotification(alarmId, title, body)
                         result.success(true)
                     } catch (error: Exception) {

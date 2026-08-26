@@ -123,6 +123,7 @@ void main() {
       expect(source, contains('CRITICAL_NOTIFICATION_ID'));
       expect(source, contains('manager.activeNotifications'));
       expect(source, contains('CRITICAL_NOTIFICATION_TAG_PREFIX'));
+      expect(source, contains('areNotificationsEnabled()'));
       expect(source, contains('crm3://critical-alarm/'));
       expect(
         source,

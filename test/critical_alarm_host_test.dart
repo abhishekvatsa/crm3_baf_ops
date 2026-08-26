@@ -184,49 +184,49 @@ void main() {
     },
   );
 
-  testWidgets(
-    'failed native notification is retried on the next live snapshot',
-    (tester) async {
-      final alarmFeed = StreamController<List<CriticalAlarm>>();
-      addTearDown(alarmFeed.close);
-      var showAttempts = 0;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(_channel, (call) async {
-            if (call.method == 'showActiveNotification') {
-              showAttempts += 1;
-              return showAttempts > 1;
-            }
-            if (call.method == 'reconcileActiveNotifications') return 0;
-            return null;
-          });
-      final navigatorKey = GlobalKey<NavigatorState>();
+  testWidgets('failed native notification is retried after settings resume', (
+    tester,
+  ) async {
+    final alarmFeed = StreamController<List<CriticalAlarm>>();
+    addTearDown(alarmFeed.close);
+    var showAttempts = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, (call) async {
+          if (call.method == 'showActiveNotification') {
+            showAttempts += 1;
+            return showAttempts > 1;
+          }
+          if (call.method == 'reconcileActiveNotifications') return 0;
+          return null;
+        });
+    final navigatorKey = GlobalKey<NavigatorState>();
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
-            activeCriticalAlarmsProvider.overrideWith((_) => alarmFeed.stream),
-          ],
-          child: MaterialApp(
-            navigatorKey: navigatorKey,
-            builder:
-                (context, child) => CriticalAlarmHost(
-                  navigatorKey: navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
-                ),
-            home: const Scaffold(body: Text('Operations')),
-          ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+          activeCriticalAlarmsProvider.overrideWith((_) => alarmFeed.stream),
+        ],
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          builder:
+              (context, child) => CriticalAlarmHost(
+                navigatorKey: navigatorKey,
+                child: child ?? const SizedBox.shrink(),
+              ),
+          home: const Scaffold(body: Text('Operations')),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      alarmFeed.add([_raisedAlarm()]);
-      await tester.pumpAndSettle();
-      expect(showAttempts, 1);
+    alarmFeed.add([_raisedAlarm()]);
+    await tester.pumpAndSettle();
+    expect(showAttempts, 1);
 
-      alarmFeed.add([_raisedAlarm()]);
-      await tester.pumpAndSettle();
-      expect(showAttempts, 2);
-    },
-  );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(showAttempts, 2);
+  });
 }

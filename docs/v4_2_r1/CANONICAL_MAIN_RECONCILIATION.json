@@ -174,9 +174,9 @@
     {
       "path": "android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt",
       "canonicalSha256": "13EF2CB6369D96B29194023BAF145167337A107D5044A6635FF3799A61D9377A",
-      "candidateSha256": "2D789BC1033A3344F66467310E8E6EB3F38DAD97C59C37FE5ED25A5D38AFC897",
+      "candidateSha256": "552A089BBA6674F0E766E1201FB4FCA277A4E069875DDB7F46D1DEC2FDD93C1A",
       "canonicalBytes": 130,
-      "candidateBytes": 13542,
+      "candidateBytes": 13857,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
