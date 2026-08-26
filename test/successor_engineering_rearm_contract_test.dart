@@ -187,7 +187,7 @@ void main() {
       expect(currentSource['sameBuildNumberReuseProhibited'], isTrue);
       expect(
         currentSource['backendDeploymentStatus'],
-        'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+        'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED',
       );
       expect(currentSource['productionRuntimeUseAuthorized'], isFalse);
 
@@ -269,11 +269,11 @@ void main() {
       );
       expect(
         deployed['currentSourceFunctionDeployment'],
-        'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK',
       );
       expect(
         deployed['currentSourceRulesAndIndexesDeployment'],
-        'SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+        'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
       );
       expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
       expect(
@@ -330,7 +330,7 @@ void main() {
       );
       expect(
         currentFirestoreSource['rulesSha256'],
-        isNot(verifiedRules['sourceSha256']),
+        verifiedRules['sourceSha256'],
       );
       expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
       expect(verifiedRules['byteExact'], isTrue);
@@ -361,14 +361,14 @@ void main() {
       );
       expect(
         currentFirestoreSource['relationshipToDeployedBackend'],
-        'RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
+        'EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED',
       );
       expect(
         currentFirestoreSource['indexSetSha256'],
-        isNot(verifiedIndexes['sourceSetSha256']),
+        verifiedIndexes['sourceSetSha256'],
       );
-      expect(currentFirestoreSource['productionDeploymentPerformed'], isFalse);
-      expect(currentFirestoreSource['productionRuntimeUseAuthorized'], isFalse);
+      expect(currentFirestoreSource['productionDeploymentPerformed'], isTrue);
+      expect(currentFirestoreSource['productionRuntimeUseAuthorized'], isTrue);
       expect(
         historicalRulesHold['decision'],
         'HOLD_BUILD15_EXACT_FIRESTORE_RULES_READBACK',
@@ -408,6 +408,8 @@ void main() {
       expect(pilot['appliesToCurrentSource'], isFalse);
       expect(pilot['appliesToBuild14'], isFalse);
       expect(pilot['appliesToBuild15'], isFalse);
+      expect(pilot['appliesToBuild16'], isFalse);
+      expect(pilot['appliesToBuild17'], isFalse);
       expect(
         next['minimumBuildNumber'],
         candidateBuildNumber + (pendingConstruction ? 0 : 1),
@@ -445,14 +447,16 @@ void main() {
     final policy = _readObject('release/production-release-policy.json');
     final finalization =
         (policy['finalization'] as Map).cast<String, dynamic>();
+    final build16Authority =
+        (finalization['priorCompletedBuild'] as Map).cast<String, dynamic>();
     final artifact =
         ((state['authorityPlanes'] as Map)['latestFinalizedArtifact'] as Map)
             .cast<String, dynamic>();
     final receipt = _readObject(
-      finalization['completionReceiptFile'] as String,
+      artifact['completionReceiptFile'] as String,
     );
     final smoke = _readObject(
-      finalization['installationSmokeReceiptFile'] as String,
+      artifact['installationSmokeReceiptFile'] as String,
     );
     final governedPackage =
         (receipt['governedPackage'] as Map).cast<String, dynamic>();
@@ -460,19 +464,25 @@ void main() {
     final emulator = (smoke['emulator'] as Map).cast<String, dynamic>();
     final boundary = (smoke['boundary'] as Map).cast<String, dynamic>();
 
-    expect(finalization['status'], 'completed-non-distributable');
+    expect(finalization['status'], 'pending-source-authorized');
+    expect(build16Authority['status'], 'completed-non-distributable');
     expect(artifact['buildNumber'], 16);
+    expect(build16Authority['buildNumber'], 16);
+    expect(
+      artifact['completionReceiptFile'],
+      build16Authority['completionReceiptFile'],
+    );
+    expect(
+      artifact['completionReceiptSha256'],
+      build16Authority['completionReceiptSha256'],
+    );
     expect(
       artifact['installationSmokeReceiptFile'],
-      finalization['installationSmokeReceiptFile'],
+      'release/evidence/build-16-device-installation-smoke.json',
     );
     expect(
-      _sha256(finalization['installationSmokeReceiptFile'] as String),
-      finalization['installationSmokeReceiptSha256'],
-    );
-    expect(
+      _sha256(artifact['installationSmokeReceiptFile'] as String),
       artifact['installationSmokeReceiptSha256'],
-      finalization['installationSmokeReceiptSha256'],
     );
     expect(smoke['status'], 'passed-to-authentication-boundary');
     expect(
@@ -492,7 +502,7 @@ void main() {
     expect(emulator['applicationUninstalled'], isFalse);
     expect(emulator['applicationDataCleared'], isFalse);
     expect(boundary.values, everyElement(isFalse));
-    expect(finalization['runtimeValidationPassed'], isFalse);
+    expect(build16Authority['runtimeValidationPassed'], isFalse);
     expect(finalization['controlledPilotApproved'], isFalse);
   });
 

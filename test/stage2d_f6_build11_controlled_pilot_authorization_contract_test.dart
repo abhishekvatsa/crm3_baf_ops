@@ -35,7 +35,7 @@ String _receiptSeal(Map<String, dynamic> receipt) {
 }
 
 void main() {
-  test('Build 11 closure remains exact while Build 15 gates stay separate', () {
+  test('Build 11 closure remains exact while current build gates stay separate', () {
     const evidencePath =
         'release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json';
     final evidence = _object(jsonDecode(File(evidencePath).readAsStringSync()));

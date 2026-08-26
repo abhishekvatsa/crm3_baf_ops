@@ -731,7 +731,7 @@ $firestoreReadback = Get-Content -LiteralPath $firestoreReadbackPath -Raw |
   ConvertFrom-Json
 & node tools/release/collectProductionGlobalPullBackend.js `
   --verify-receipt $firestoreReadbackPath `
-  --label 'Build 14 Firestore Rules/index live readback' | Out-Null
+  --label "Build $([int64]$versionSource.nextBuild.buildNumber) Firestore Rules/index live readback" | Out-Null
 if ($LASTEXITCODE -ne 0) {
   throw 'Exact Firestore Rules/index canonical receipt seal is invalid.'
 }
@@ -843,33 +843,45 @@ if ($null -ne $requiredRulesShaProperty) {
   $indexesChanged =
     $currentIndexCount -ne $requiredIndexCount -or
     $currentIndexSetSha -ne $requiredIndexSetSha
-  $expectedCurrentSourceRelationship = if ($rulesChanged -and $indexesChanged) {
+  $firestoreMatchesDeployed = -not $rulesChanged -and -not $indexesChanged
+  $expectedCurrentSourceRelationship = if ($firestoreMatchesDeployed) {
+    'EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED'
+  } elseif ($rulesChanged -and $indexesChanged) {
     'RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   } elseif ($rulesChanged) {
     'RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   } else {
     'RULES_MATCH_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   }
-  $expectedCurrentSourceDeployment = if ($rulesChanged -and $indexesChanged) {
+  $expectedCurrentSourceDeployment = if ($firestoreMatchesDeployed) {
+    'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK'
+  } elseif ($rulesChanged -and $indexesChanged) {
     'SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   } elseif ($rulesChanged) {
     'SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   } else {
     'SOURCE_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   }
+  $expectedBackendDeploymentStatus = if ($firestoreMatchesDeployed) {
+    'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
+  } else {
+    'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
+  }
+  $expectedArtifactConstructionAuthority =
+    [string]$policy.finalization.status -eq 'pending-source-authorized'
   if ($currentSuccessorState.schemaVersion -lt 2 -or
       [string]$currentSourceAuthority.reference -ne 'refs/heads/main' -or
       $currentSourceAuthority.sourceAndCiAuthority -ne $true -or
-      $currentSourceAuthority.artifactConstructionAuthority -ne $false -or
+      $currentSourceAuthority.artifactConstructionAuthority -ne
+        $expectedArtifactConstructionAuthority -or
       $currentSourceAuthority.deploymentAuthority -ne $false -or
       $currentSourceAuthority.distributionAuthority -ne $false -or
       [string]$currentSourceAuthority.backendDeploymentStatus -ne
-        'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT' -or
+        $expectedBackendDeploymentStatus -or
       $currentSourceAuthority.productionRuntimeUseAuthorized -ne $false -or
       $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexCount -le 0 -or
-      (-not $rulesChanged -and -not $indexesChanged) -or
       (Get-Sha256 'firestore.rules') -ne
         $currentRulesSha.ToUpperInvariant() -or
       [int64]$sourceIndexBinding.count -ne $currentIndexCount -or
@@ -878,9 +890,18 @@ if ($null -ne $requiredRulesShaProperty) {
         relationshipToDeployedBackend -ne
         $expectedCurrentSourceRelationship -or
       $currentSourceFirestoreAuthority.productionDeploymentPerformed -ne
-        $false -or
+        $firestoreMatchesDeployed -or
       $currentSourceFirestoreAuthority.productionRuntimeUseAuthorized -ne
-        $false -or
+        $firestoreMatchesDeployed -or
+      [string]$currentDeployedBackendAuthority.functionFleetEvidenceFile -ne
+        $functionFleetDeploymentReceiptPath -or
+      [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -ne
+        [string]$versionSource.sourceBaseline.commit -or
+      [string]$currentDeployedBackendAuthority.functionFleetReadbackDecision -ne
+        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
+      [string]$currentDeployedBackendAuthority.
+        currentSourceFunctionDeployment -ne
+        'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
       [string]$currentDeployedBackendAuthority.rulesAndIndexesEvidenceFile -ne
         $firestoreReadbackPath -or
       [string]$currentDeployedBackendAuthority.rulesAndIndexesSourceCommit -ne
@@ -889,7 +910,9 @@ if ($null -ne $requiredRulesShaProperty) {
         [string]$firestoreReadback.source.before.commit -or
       [string]$currentDeployedBackendAuthority.
         currentSourceRulesAndIndexesDeployment -ne
-        $expectedCurrentSourceDeployment) {
+        $expectedCurrentSourceDeployment -or
+      $currentDeployedBackendAuthority.productionBackendRuntimeAuthorized -ne
+        $true) {
     throw 'Current source Firestore Rules/index authority differs from source state.'
   }
 }
