@@ -48,6 +48,113 @@ void main() {
   });
 
   test(
+    'terminal journal is retained before sign-out protection ends',
+    () async {
+      final markerEntered = Completer<void>();
+      final releaseMarker = Completer<void>();
+      final markedRequests = <String>[];
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              return _pollResponse(_request, status: 'in_progress');
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              return _finishResponse(_request, 'completed');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        terminalJournalMarker: (requestId) async {
+          markedRequests.add(requestId);
+          markerEntered.complete();
+          await releaseMarker.future;
+        },
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await markerEntered.future.timeout(const Duration(seconds: 2));
+
+      await expectLater(
+        scope.recoverySessionGuard.beginSessionEnd(),
+        throwsA(isA<LocalRecoverySignOutBlockedException>()),
+      );
+      expect(markedRequests, <String>[_request]);
+
+      releaseMarker.complete();
+      await _waitFor(
+        () => !scope.recoverySessionGuard.isRecoveryProtectionActive,
+      );
+      await scope.recoverySessionGuard.beginSessionEnd();
+      scope.recoverySessionGuard.endSessionEnd();
+    },
+  );
+
+  test(
+    'no-request retry retires a journal after server completion won the race',
+    () async {
+      var pollAttempts = 0;
+      var terminalAttempts = 0;
+      final inactiveRetired = Completer<void>();
+      final commands = DeviceRecoveryCommandService(
+        authenticatedUidLookup: () => 'operator-1',
+        invoke: (payload) async {
+          switch (payload['operation']) {
+            case deviceRecoveryPollOperation:
+              pollAttempts++;
+              return pollAttempts == 1
+                  ? _pollResponse(_request, status: 'in_progress')
+                  : _pollResponse(null);
+            case deviceRecoveryClaimOperation:
+              return _claimResponse(_request);
+            case deviceRecoveryCompleteOperation:
+              return _finishResponse(_request, 'completed');
+            default:
+              throw StateError('Unexpected request: ${payload['operation']}');
+          }
+        },
+      );
+      final scope = _listenerScope(
+        commands: commands,
+        reset: _LocalResetProbe(),
+        recoveryRetryDelay: const Duration(milliseconds: 1),
+        terminalJournalMarker: (_) async {
+          terminalAttempts++;
+          throw StateError('terminal rename interrupted');
+        },
+        inactiveJournalRetirer: ({
+          required targetUid,
+          required installationId,
+        }) async {
+          expect(targetUid, 'operator-1');
+          expect(installationId, _installation);
+          inactiveRetired.complete();
+          return 1;
+        },
+      );
+      addTearDown(scope.dispose);
+
+      scope.listener.start(_operator());
+      await inactiveRetired.future.timeout(const Duration(seconds: 2));
+      await _waitFor(
+        () => !scope.recoverySessionGuard.isRecoveryProtectionActive,
+      );
+
+      expect(pollAttempts, 2);
+      expect(terminalAttempts, 1);
+      await scope.recoverySessionGuard.beginSessionEnd();
+      scope.recoverySessionGuard.endSessionEnd();
+    },
+  );
+
+  test(
     'recovery notification received during a poll is checked afterward',
     () async {
       final calls = <Map<String, Object?>>[];
@@ -674,6 +781,8 @@ void main() {
 _ListenerScope _listenerScope({
   required DeviceRecoveryCommandService commands,
   required _LocalResetProbe reset,
+  DeviceRecoveryTerminalJournalMarker? terminalJournalMarker,
+  DeviceRecoveryInactiveJournalRetirer? inactiveJournalRetirer,
   Duration recoveryRetryDelay = const Duration(seconds: 1),
   int maxRecoveryRetries = 5,
 }) {
@@ -688,6 +797,8 @@ _ListenerScope _listenerScope({
       ref: ref,
       installationIdReader: () async => _installation,
       foregroundMessages: const Stream<RemoteMessage>.empty(),
+      terminalJournalMarker: terminalJournalMarker,
+      inactiveJournalRetirer: inactiveJournalRetirer,
       recoveryRetryDelay: recoveryRetryDelay,
       maxRecoveryRetries: maxRecoveryRetries,
     );

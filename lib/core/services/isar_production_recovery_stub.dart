@@ -115,6 +115,15 @@ bool get crashDurableIsarRecoveryJournalSupported => false;
 
 Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async => false;
 
+Future<void> markCrashDurableIsarRecoveryJournalTerminal(
+  String requestId,
+) async {}
+
+Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
+  required String targetUid,
+  required String installationId,
+}) async => 0;
+
 Future<IsarRecoveryBackupEvidence?> readIsarRecoveryBackupEvidence(
   String path,
 ) async => null;

@@ -1,5 +1,6 @@
 // FILE: lib/core/services/isar_production_recovery_io.dart
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -314,6 +315,93 @@ Future<bool> hasActiveCrashDurableIsarRecoveryJournal() async {
     }
   }
   return false;
+}
+
+Future<void> markCrashDurableIsarRecoveryJournalTerminal(
+  String requestId,
+) async {
+  if (!crashDurableIsarRecoveryJournalSupported) return;
+  final paths = await _deviceRecoveryJournalPaths(
+    requestId,
+    createDirectory: false,
+  );
+  var changed = false;
+  for (final source in <File>[paths.target, paths.pending]) {
+    if (!await source.exists()) continue;
+    final terminal = File('${source.path}.terminal');
+    if (await terminal.exists()) {
+      final sourceEvidence = await readIsarRecoveryBackupEvidence(source.path);
+      final terminalEvidence = await readIsarRecoveryBackupEvidence(
+        terminal.path,
+      );
+      if (sourceEvidence == null ||
+          terminalEvidence == null ||
+          sourceEvidence.byteCount != terminalEvidence.byteCount ||
+          sourceEvidence.sha256 != terminalEvidence.sha256) {
+        throw const FileSystemException(
+          'Retained terminal recovery-journal evidence differs.',
+        );
+      }
+      await source.delete();
+    } else {
+      await source.rename(terminal.path);
+    }
+    changed = true;
+  }
+  if (changed) await _syncRecoveryDirectory(paths.journalDirectory);
+}
+
+Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({
+  required String targetUid,
+  required String installationId,
+}) async {
+  if (!crashDurableIsarRecoveryJournalSupported) return 0;
+  if (targetUid.isEmpty || installationId.isEmpty) {
+    throw const FormatException('Recovery journal identity is required.');
+  }
+  final documents = await _documentsDirectory();
+  final directory = Directory(
+    '${documents.path}/$_deviceRecoveryJournalDirectoryName',
+  );
+  if (!await directory.exists()) return 0;
+
+  final requestIds = <String>{};
+  await for (final entity in directory.list(followLinks: false)) {
+    if (entity is! File) continue;
+    final name = entity.uri.pathSegments.last;
+    final requestId = _activeRecoveryJournalRequestId(name);
+    if (requestId == null) continue;
+    final decoded = jsonDecode(await entity.readAsString());
+    if (requestId.isEmpty ||
+        decoded is! Map ||
+        decoded['requestId'] != requestId ||
+        decoded['targetUid'] is! String ||
+        decoded['installationId'] is! String) {
+      throw const FormatException(
+        'Active recovery-journal identity is malformed.',
+      );
+    }
+    if (decoded['targetUid'] == targetUid &&
+        decoded['installationId'] == installationId) {
+      requestIds.add(requestId);
+    }
+  }
+  for (final requestId in requestIds) {
+    await markCrashDurableIsarRecoveryJournalTerminal(requestId);
+  }
+  return requestIds.length;
+}
+
+String? _activeRecoveryJournalRequestId(String name) {
+  const pendingSuffix = '.json.pending';
+  const targetSuffix = '.json';
+  if (name.endsWith(pendingSuffix)) {
+    return name.substring(0, name.length - pendingSuffix.length);
+  }
+  if (name.endsWith(targetSuffix)) {
+    return name.substring(0, name.length - targetSuffix.length);
+  }
+  return null;
 }
 
 Future<void> _syncRecoveryStorageEntity({

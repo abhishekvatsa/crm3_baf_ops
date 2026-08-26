@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/app_logger.dart';
+import '../../../core/services/isar_production_recovery.dart';
 import '../../../core/services/local_recovery_session_guard.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/services/sync_service.dart';
@@ -13,6 +14,14 @@ import '../../auth/data/user_model.dart';
 import '../../auth/services/notification_installation_registry.dart';
 import 'device_local_recovery_reset_service.dart';
 import 'device_recovery_command_service.dart';
+
+typedef DeviceRecoveryTerminalJournalMarker =
+    Future<void> Function(String requestId);
+typedef DeviceRecoveryInactiveJournalRetirer =
+    Future<int> Function({
+      required String targetUid,
+      required String installationId,
+    });
 
 class DeviceRecoveryListener {
   DeviceRecoveryListener({
@@ -23,6 +32,8 @@ class DeviceRecoveryListener {
     required Ref ref,
     Future<String?> Function()? installationIdReader,
     Stream<RemoteMessage>? foregroundMessages,
+    DeviceRecoveryTerminalJournalMarker? terminalJournalMarker,
+    DeviceRecoveryInactiveJournalRetirer? inactiveJournalRetirer,
     Duration recoveryRetryDelay = const Duration(seconds: 1),
     int maxRecoveryRetries = 5,
   }) : _commands = commands,
@@ -34,6 +45,11 @@ class DeviceRecoveryListener {
            installationIdReader ??
            SharedPreferencesNotificationInstallationIdStore().read,
        _foregroundMessages = foregroundMessages,
+       _terminalJournalMarker =
+           terminalJournalMarker ?? markCrashDurableIsarRecoveryJournalTerminal,
+       _inactiveJournalRetirer =
+           inactiveJournalRetirer ??
+           markInactiveCrashDurableIsarRecoveryJournalsTerminal,
        _recoveryRetryDelay = recoveryRetryDelay,
        _maxRecoveryRetries = maxRecoveryRetries;
 
@@ -44,6 +60,8 @@ class DeviceRecoveryListener {
   final Ref _ref;
   final Future<String?> Function() _installationIdReader;
   final Stream<RemoteMessage>? _foregroundMessages;
+  final DeviceRecoveryTerminalJournalMarker _terminalJournalMarker;
+  final DeviceRecoveryInactiveJournalRetirer _inactiveJournalRetirer;
   final Duration _recoveryRetryDelay;
   final int _maxRecoveryRetries;
 
@@ -159,6 +177,11 @@ class DeviceRecoveryListener {
       );
       if (!_isCurrent(actor, generation)) return;
       if (request == null) {
+        await _inactiveJournalRetirer(
+          targetUid: actor.uid,
+          installationId: installationId,
+        );
+        if (!_isCurrent(actor, generation)) return;
         _releaseClaimProtection();
         _clearRecoveryRetry();
         _recoverySessionGuard.completeRecoveryCheck();
@@ -205,6 +228,7 @@ class DeviceRecoveryListener {
             backedUpUnsyncedRows: result.backedUpUnsyncedRows,
             claimedRecoveryOnly: claimedRecoveryOnly,
           );
+          await _terminalJournalMarker(request.requestId);
           _releaseClaimProtection();
           _clearRecoveryRetry();
           _ref.invalidate(syncPendingCountsProvider);
@@ -285,6 +309,7 @@ class DeviceRecoveryListener {
         failureCode: error.reasonCode,
         claimedRecoveryOnly: claimedRecoveryOnly,
       );
+      await _terminalJournalMarker(request.requestId);
       return true;
     } catch (reportError, stackTrace) {
       AppLogger.warning(

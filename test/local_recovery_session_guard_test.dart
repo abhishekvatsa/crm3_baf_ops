@@ -107,8 +107,21 @@ void main() {
           File(
             'lib/core/services/local_recovery_session_guard.dart',
           ).readAsStringSync();
+      final recoveryIoSource =
+          File(
+            'lib/core/services/isar_production_recovery_io.dart',
+          ).readAsStringSync();
       expect(guardSource, contains('startupRecoveryProbe:'));
       expect(guardSource, contains('hasActiveCrashDurableIsarRecoveryJournal'));
+      expect(
+        recoveryIoSource,
+        contains('markCrashDurableIsarRecoveryJournalTerminal'),
+      );
+      expect(recoveryIoSource, contains("File('\${source.path}.terminal')"));
+      expect(
+        recoveryIoSource,
+        contains('await _syncRecoveryDirectory(paths.journalDirectory)'),
+      );
 
       final recoveryStart = coordinator.indexOf(
         'Future<T> runWithSyncPaused<T>',

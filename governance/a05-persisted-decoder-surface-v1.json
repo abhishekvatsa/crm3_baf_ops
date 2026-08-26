@@ -1138,6 +1138,23 @@
       "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "journal identity or evidence is defaulted, a malformed journal authorizes deletion, or an interrupted reset replaces its original backup",
       "riskFingerprint": "c67280899f893271e6c25a0ceb5c649f046e1d7479f6133d29af2de9c7cd826e"
+    },
+    {
+      "id": "crash-durable-recovery-journal-index",
+      "file": "lib/core/services/isar_production_recovery_io.dart",
+      "markers": [
+        "Future<int> markInactiveCrashDurableIsarRecoveryJournalsTerminal({",
+        "final decoded = jsonDecode(await entity.readAsString());",
+        "Future<void> markCrashDurableIsarRecoveryJournalTerminal("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "device-recovery",
+      "authorityBoundary": "same-user and same-installation restart recovery reconciliation after authoritative no-request readback",
+      "malformedDisposition": "fail closed while retaining the active journal and sign-out protection",
+      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; terminal evidence remains retained but inactive",
+      "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed or cross-device journal identity is ignored, an active journal is retired without authoritative no-request readback, or terminal evidence still blocks a later session",
+      "riskFingerprint": "b48b221263932ebfadc17db41697f89b595425480ce98a4f90cf526eb435f9bb"
     }
   ],
   "catchSites": [

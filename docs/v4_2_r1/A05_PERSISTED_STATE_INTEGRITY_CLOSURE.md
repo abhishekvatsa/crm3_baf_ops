@@ -49,8 +49,9 @@ metadata is retained as opaque evidence during a governed merge. The current
 inventories report no unclassified file, catch site, timestamp call, direct
 parser or stale policy.
 
-The 25 August 2026 exact-device recovery re-arm brings the current inventory
-to 72 decoder surfaces, 48 decoder catch sites, 69 timestamp readers and 380
+The 25 August 2026 exact-device recovery re-arm, including its restart journal
+index, brings the current inventory to 73 decoder surfaces, 48 decoder catch
+sites, 69 timestamp readers and 387
 risk candidates. The pre-clear journal is request-, user- and
 installation-bound; malformed or incomplete journal evidence blocks further
 local deletion and preserves the original retained Isar snapshot. Android is
@@ -62,9 +63,14 @@ reset. On Android restart, sign-out now probes for an active crash-durable
 request journal, and listener startup reserves session exit before its first
 server poll. The reservation is released only after a successful no-request
 check or after the returned request has acquired retained recovery protection;
-an unreadable journal state remains fail-closed. The current inventories again
-report no unclassified file, catch site, timestamp call, direct parser or stale
-policy.
+an unreadable journal state remains fail-closed. After the server accepts a
+terminal receipt, the durable journal is atomically renamed and retained as
+terminal evidence before sign-out protection ends. A later successful
+no-request poll performs the same identity-bound retirement for the narrow
+server-commit/local-rename crash window, so historical terminal evidence does
+not block an offline sign-out on every future restart. The current inventories
+again report no unclassified file, catch site, timestamp call, direct parser or
+stale policy.
 
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not

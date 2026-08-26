@@ -9966,16 +9966,16 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 72
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 73
     and a04_inventory_report.get("inventoryDigest")
-    == "B2FFF4BAF7C5F5D16240E0465C36D1A9A50F4672B57CFB64A30FD8D2A39216CC"
+    == "2DB3C7C8031C3B5E494D1F68324E95A2F7C5798DD9802D0B085D034DA795FF12"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
     and len(a04_fields) == 53
     and len({field.get("id") for field in a04_fields}) == 53
-    and len(a04_inherited_decoders) == 72
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 72
+    and len(a04_inherited_decoders) == 73
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 73
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -10285,16 +10285,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 72
+    and a05_decoder_inventory_report.get("surfaceCount") == 73
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 48
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 48
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 36
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 382
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 37
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 387
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 72
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 73
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 48
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool

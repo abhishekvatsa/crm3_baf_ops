@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "B2FFF4BAF7C5F5D16240E0465C36D1A9A50F4672B57CFB64A30FD8D2A39216CC",
+  "inventoryDigest": "2DB3C7C8031C3B5E494D1F68324E95A2F7C5798DD9802D0B085D034DA795FF12",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "C3E48A30930663BE10853627DD7F13C448308EFC3AE3CD59101BEFE6366904FC",
+  "a05ManifestSha256": "0CE09512BAD69C9CA817D3E5CA5C55726CB457D9DD5ACAFD754E25E63F8F8D68",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -966,6 +966,15 @@
       "malformedDisposition": "show repair notice and preserve exact recovery bytes",
       "compatibility": "none for malformed envelope; valid saved authoring payloads may contain empty draft collections",
       "regression": "test/a05_template_composer_integrity_test.dart"
+    },
+    {
+      "id": "crash-durable-recovery-journal-index",
+      "file": "lib/core/services/isar_production_recovery_io.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "same-user and same-installation restart recovery reconciliation after authoritative no-request readback",
+      "malformedDisposition": "fail closed while retaining the active journal and sign-out protection",
+      "compatibility": "only active .json and .json.pending journals with exact request, user, and installation identity; terminal evidence remains retained but inactive",
+      "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
     },
     {
       "id": "device-recovery-journal",
