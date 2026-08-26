@@ -2,6 +2,7 @@ const {
   isCriticalAlarmEventType,
   isNotifiableCriticalAlarmStatus,
   samePersistedNotificationInstant,
+  shouldRetryCriticalAlarmRecipientFailure,
   shouldRetryKnownWorkflowNotificationFailure,
   workflowRecipientRoles,
 } = require('../lib/maintenanceWorkflow/workflowNotificationPolicy');
@@ -87,27 +88,29 @@ describe('workflow notification routing', () => {
     )).toBe(false);
   });
 
-  test('critical fan-out retries only when every attempted delivery failed retryably', () => {
-    const allRetryable = {
-      attempted: 3,
+  test('critical alarm retries an exact failed recipient delivery', () => {
+    const retryableRecipient = {
+      attempted: 1,
       succeeded: 0,
-      failed: 3,
-      retryableFailures: 3,
+      failed: 1,
+      retryableFailures: 1,
       staleTokensCleared: 0,
       unknownAgencies: [],
     };
-    expect(shouldRetryKnownWorkflowNotificationFailure(
-      'criticalAlarm.raised',
-      allRetryable,
-    )).toBe(true);
-    expect(shouldRetryKnownWorkflowNotificationFailure(
-      'criticalAlarm.raised',
-      {...allRetryable, succeeded: 1, failed: 2, retryableFailures: 2},
-    )).toBe(false);
-    expect(shouldRetryKnownWorkflowNotificationFailure(
-      'criticalAlarm.raised',
-      {...allRetryable, attempted: 0, failed: 0, retryableFailures: 0},
-    )).toBe(false);
+    expect(shouldRetryCriticalAlarmRecipientFailure(retryableRecipient))
+      .toBe(true);
+    expect(shouldRetryCriticalAlarmRecipientFailure({
+      ...retryableRecipient,
+      succeeded: 1,
+      failed: 0,
+      retryableFailures: 0,
+    })).toBe(false);
+    expect(shouldRetryCriticalAlarmRecipientFailure({
+      ...retryableRecipient,
+      attempted: 2,
+      failed: 2,
+      retryableFailures: 2,
+    })).toBe(false);
   });
 
 });

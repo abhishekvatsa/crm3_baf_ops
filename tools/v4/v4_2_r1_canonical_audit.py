@@ -8627,6 +8627,9 @@ r05_inventory_audit = text(
 r05_inventory_test = text(
     "functions/tools/audit_notification_trigger_inventory.test.mjs"
 )
+r05_delegated_dispatchers = r05_inventory_policy.get(
+    "delegatedReceiptDispatchers", []
+)
 r05_trigger_names = (
     "onTicketCreated",
     "onTicketResolved",
@@ -8663,10 +8666,15 @@ check(
     )
     and r05_workflow_source.count(
         "executeIdempotentNotificationEvent({"
-    ) == 1
+    ) == 2
     and "retry: true" in r05_workflow_source
     and "cloudEventId: event.id" in r05_workflow_source
     and "workflow_notification_receipts" in r05_workflow_source
+    and "processCriticalAlarmRaisedNotification" in r05_workflow_source
+    and "criticalAlarmRecipientCloudEventId(" in r05_workflow_source
+    and "recipients: [recipient]" in r05_workflow_source
+    and "Promise.allSettled" in r05_workflow_source
+    and "shouldRetryCriticalAlarmRecipientFailure" in r05_workflow_source
     and r05_workflow_source.index("executeIdempotentNotificationEvent({")
         < r05_workflow_source.index("getTokenLookupsForRoles(")
     and "notification-event-receipt-v1\\0" in r05_receipt_source
@@ -8704,6 +8712,13 @@ check(
         == "executeIdempotentNotificationEvent"
     and r05_inventory_policy.get("receiptCollection")
         == "notification_event_receipts"
+    and r05_delegated_dispatchers == [{
+        "name": "processCriticalAlarmRaisedNotification",
+        "triggerName": "onMaintenanceWorkflowEventCreated",
+        "sourcePath":
+            "src/maintenanceWorkflow/workflowNotificationTrigger.ts",
+        "cloudEventIdDeriver": "criticalAlarmRecipientCloudEventId",
+    }]
     and sorted(
         trigger.get("name")
         for trigger in r05_inventory_policy.get("notificationTriggers", [])
@@ -8715,7 +8730,13 @@ check(
         in r05_inventory_audit
     and "notification-dispatch-outside-receipt-boundary"
         in r05_inventory_audit
+    and "delegated-notification-dispatch-outside-receipt"
+        in r05_inventory_audit
+    and "delegated-notification-cloud-event-missing"
+        in r05_inventory_audit
     and "a newly added notification trigger is discovered"
+        in r05_inventory_test
+    and "an explicitly owned per-recipient dispatcher remains receipt-bound"
         in r05_inventory_test
     and "an aliased notification dispatcher remains discoverable"
         in r05_inventory_test

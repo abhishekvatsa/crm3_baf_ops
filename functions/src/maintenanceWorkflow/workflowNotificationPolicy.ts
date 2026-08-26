@@ -36,11 +36,14 @@ export const shouldRetryKnownWorkflowNotificationFailure = (
     return outcome.attempted === 1 && outcome.succeeded === 0 &&
       outcome.failed === 1 && outcome.retryableFailures === 1;
   }
-  if (eventType !== "criticalAlarm.raised") return false;
-  return outcome.attempted > 0 && outcome.succeeded === 0 &&
-    outcome.failed === outcome.attempted &&
-    outcome.retryableFailures === outcome.attempted;
+  return false;
 };
+
+export const shouldRetryCriticalAlarmRecipientFailure = (
+  outcome: SendOutcome,
+): boolean =>
+  outcome.attempted === 1 && outcome.succeeded === 0 &&
+  outcome.failed === 1 && outcome.retryableFailures === 1;
 
 const escalationRoles = (
   laneKey: string | null,
