@@ -333,6 +333,15 @@ abstract class DirectiveRepository {
     String? remarks,
     bool wasUnacknowledged = false,
   });
+  Future<void> adoptServerDirectiveClosure({
+    required String firestoreId,
+    required int expectedBeforeVersion,
+    required int committedVersion,
+    required AppUser actor,
+    required DateTime closedAt,
+    required bool wasUnacknowledged,
+    String? remarks,
+  });
 
   // Sync helpers
   Future<List<OperationalDirective>> getUnsyncedDirectives();

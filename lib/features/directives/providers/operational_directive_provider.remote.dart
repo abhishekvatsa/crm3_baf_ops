@@ -311,6 +311,31 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
   }
 
   @override
+  Future<void> adoptServerDirectiveClosure({
+    required String firestoreId,
+    required int expectedBeforeVersion,
+    required int committedVersion,
+    required AppUser actor,
+    required DateTime closedAt,
+    required bool wasUnacknowledged,
+    String? remarks,
+  }) async {
+    final current = await getByFirestoreId(firestoreId);
+    if (current == null ||
+        !current.isClosed ||
+        current.isActive ||
+        current.version != committedVersion ||
+        current.closedByUid != actor.uid ||
+        current.closedAt?.toUtc() != closedAt.toUtc() ||
+        current.closedWithoutAcknowledgement != wasUnacknowledged ||
+        (remarks != null && current.remarks != remarks.trim())) {
+      throw StateError(
+        'The server directive closure could not be read back exactly.',
+      );
+    }
+  }
+
+  @override
   Future<List<OperationalDirective>> getUnsyncedDirectives() async => [];
 
   @override

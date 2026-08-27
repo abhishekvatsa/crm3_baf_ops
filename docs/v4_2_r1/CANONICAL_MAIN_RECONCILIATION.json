@@ -466,9 +466,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "63E02917E52E32C4E56D6FD6B8AE5F9D2F5ABBE0E1FBC76690FD80CC896EDD7B",
+      "candidateSha256": "BDC3458CC65E4E14F3EAF1B4E3AC08EF00839F183EA6A16EF144CDCB2B826DC5",
       "canonicalBytes": 111981,
-      "candidateBytes": 178217,
+      "candidateBytes": 179364,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -522,9 +522,9 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "C2435001D06CAF3DA47AD15609A4720B4178C2A501789800E00CDDAE77B1F336",
+      "candidateSha256": "40B13D8829F468B2BD477A0C971B2073768A8FA892751778BC0720D9A3467F19",
       "canonicalBytes": 9674,
-      "candidateBytes": 28561,
+      "candidateBytes": 29455,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1486,17 +1486,17 @@
     {
       "path": "lib/features/directives/presentation/directives_screen.dart",
       "canonicalSha256": "1DE00DE31466A4C5AA1E4BE033B2E321CB08D8668D208D9F8CA9F26CFCF778E2",
-      "candidateSha256": "863FD8876306C877C278DE4D8115500C032FAFE325E09CD18AC9DC98C0CF6BED",
+      "candidateSha256": "2C01F258595D722A6334F058FA4BC51380A873966347DEDD36A4961A1BBAB7DE",
       "canonicalBytes": 28531,
-      "candidateBytes": 38003,
+      "candidateBytes": 39463,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/directives/providers/operational_directive_provider.dart",
       "canonicalSha256": "3FABB196E495ACEBF304CA5E644E278E47AD5364770F6BEE5F3635F59EBECC08",
-      "candidateSha256": "B4C3B562B84A480FDBC4C2890EFBEAB2FAB075202DB840547F2D6C411B0572E4",
+      "candidateSha256": "E1CD4E8395CAC61855BE863BB699D1455E00B5D33DC7481EC1A2455FB1A3E79E",
       "canonicalBytes": 51726,
-      "candidateBytes": 18500,
+      "candidateBytes": 18777,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2730,9 +2730,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "8500EDD1BE9117B9CBC73B21598F7770EEB608B4B7900B0753E9D48BFC6D42E7",
+      "candidateSha256": "70F40CA4DDD4FBB1B125E22EC634741A3E8427769E9303BA29E0999AC81365A2",
       "canonicalBytes": 78841,
-      "candidateBytes": 162824,
+      "candidateBytes": 166438,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3086,7 +3086,7 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "F66611A1C41435E7F2D296C8BDB07E0F089FB4891AFD0912B6FDCC055D67D605",
+      "candidateSha256": "2CD70E392DDF88A1AB7B25433ACB3021F695263EC646CEBE9F363C2536088169",
       "canonicalBytes": 18375,
       "candidateBytes": 40327,
       "disposition": "SUCCESSOR_MODIFIED"

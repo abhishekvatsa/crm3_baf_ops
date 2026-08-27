@@ -987,6 +987,13 @@ service cloud.firestore {
         || data.get('issuedByUid', '') == request.auth.uid;
     }
 
+    function isGovernedBurnerRoundDirective(data) {
+      return data.get('firestoreId', null) is string
+        && data.get('firestoreId', '').matches(
+          '^burner_round_red_hot_[A-Za-z0-9_-]+$'
+        );
+    }
+
     function directiveAllowedFields() {
       return [
         'firestoreId',
@@ -1090,10 +1097,11 @@ service cloud.firestore {
       return hasUserDoc()
         ? (validApprovedUserAuthority(userDoc().data)
           ? (validBurnerRedHotDirectiveCreate(docId)
-            || validDirectiveCreateForRoles(
-              docId,
-              userDoc().data.get('roles', [])
-            ))
+            || (!isGovernedBurnerRoundDirective(request.resource.data)
+              && validDirectiveCreateForRoles(
+                docId,
+                userDoc().data.get('roles', [])
+              )))
           : false)
         : false;
     }
@@ -1120,6 +1128,23 @@ service cloud.firestore {
         && roles.hasAny([resource.data.get('directedTo', null)])
         && request.resource.data.get('closedByUid', null) == null
         && request.resource.data.get('closedAt', null) == null;
+    }
+
+    function validGovernedBurnerDirectiveAcknowledgeForRoles(roles) {
+      return validDirectiveAcknowledgeForRoles(roles)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'isActive',
+          'acknowledgedByUid',
+          'acknowledgedByName',
+          'acknowledgedAt',
+          'closedByUid',
+          'closedByName',
+          'closedAt',
+          'closedWithoutAcknowledgement',
+          'updatedAt',
+          'version'
+        ]);
     }
 
     function validDirectiveCloseForRoles(roles) {
@@ -1157,7 +1182,12 @@ service cloud.firestore {
     }
 
     function validDirectiveUpdateForRoles(roles) {
-      return roles.hasAny(['admin'])
+      return request.resource.data.get('firestoreId', null) !=
+          resource.data.get('firestoreId', null)
+        ? false
+        : isGovernedBurnerRoundDirective(resource.data)
+        ? validGovernedBurnerDirectiveAcknowledgeForRoles(roles)
+        : roles.hasAny(['admin'])
         ? (request.resource.data.get('isDeleted', false) == true
           && resource.data.get('isDeleted', false) == false
           ? validDirectiveAdminDeleteForRoles(roles)
@@ -3883,6 +3913,10 @@ service cloud.firestore {
     match /burner_condition_rounds/{docId} {
       allow read: if isApprovedUser();
       allow write: if false;
+    }
+
+    match /burner_condition_current/{docId} {
+      allow read, write: if false;
     }
 
     match /burner_block_lifecycle_events/{docId} {

@@ -79,6 +79,20 @@ Map<String, dynamic> resultMap() => <String, dynamic>{
   'idempotentReplay': false,
 };
 
+Map<String, dynamic> complianceResultMap() => <String, dynamic>{
+  'ok': true,
+  'requestId': requestId,
+  'operation': burnerDirectiveComplianceOperation,
+  'roundId': requestId,
+  'assetClassId': 'furnace-class',
+  'assetInstanceId': 'furnace-2',
+  'closedDirectiveId': 'burner_round_red_hot_source-round',
+  'closedDirectiveVersion': 4,
+  'newDirectiveId': null,
+  'committedAt': DateTime.utc(2026, 8, 16, 18, 30),
+  'idempotentReplay': false,
+};
+
 void main() {
   test('strict decoder retains complete eight-position round evidence', () {
     final round = BurnerConditionRound.fromMap(roundMap(), 'round-1');
@@ -271,6 +285,65 @@ void main() {
         throwsA(isA<PersistedDataFormatException>()),
       );
     }
+  });
+
+  test('compliance result retains the exact server closure receipt', () {
+    final result = BurnerDirectiveComplianceResult.fromCallableData(
+      complianceResultMap(),
+      expectedRequestId: requestId,
+      expectedAssetClassId: 'furnace-class',
+      expectedAssetInstanceId: 'furnace-2',
+      expectedDirectiveId: 'burner_round_red_hot_source-round',
+    );
+
+    expect(result.roundId, requestId);
+    expect(result.closedDirectiveVersion, 4);
+    expect(result.newDirectiveId, isNull);
+    expect(result.committedAt, DateTime.utc(2026, 8, 16, 18, 30));
+  });
+
+  test(
+    'compliance result rejects mismatched directive or successor evidence',
+    () {
+      for (final malformed in <Map<String, dynamic>>[
+        complianceResultMap()..['closedDirectiveId'] = 'different-directive',
+        complianceResultMap()
+          ..['newDirectiveId'] = 'burner_round_red_hot_different-round',
+        complianceResultMap()..['closedDirectiveVersion'] = 1,
+      ]) {
+        expect(
+          () => BurnerDirectiveComplianceResult.fromCallableData(
+            malformed,
+            expectedRequestId: requestId,
+            expectedAssetClassId: 'furnace-class',
+            expectedAssetInstanceId: 'furnace-2',
+            expectedDirectiveId: 'burner_round_red_hot_source-round',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
+    },
+  );
+
+  test('compliance receipt survives retry-identity cleanup failure', () async {
+    final committed = BurnerDirectiveComplianceResult.fromCallableData(
+      complianceResultMap(),
+      expectedRequestId: requestId,
+      expectedAssetClassId: 'furnace-class',
+      expectedAssetInstanceId: 'furnace-2',
+      expectedDirectiveId: 'burner_round_red_hot_source-round',
+    );
+
+    final result = await finalizeBurnerDirectiveComplianceResult(
+      result: committed,
+      clearPendingIdentity: () async {
+        throw StateError('local storage unavailable');
+      },
+    );
+
+    expect(result.roundId, committed.roundId);
+    expect(result.closedDirectiveVersion, committed.closedDirectiveVersion);
+    expect(result.retryIdentityCleanupPending, isTrue);
   });
 
   test('committed round survives local retry cleanup failure', () async {

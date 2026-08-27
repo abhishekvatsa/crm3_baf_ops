@@ -28,7 +28,7 @@ original and supplemental backup evidence, are separately classified without
 adding a persisted dynamic field. Text-file authority is
 canonicalized to LF before hashing so the same tracked content has one digest
 on Windows and Linux. Its current stable digest is
-`B859104559C13BF93F101C20B3BA1F1BA2B38FDCB049C5E46DEBCD9D94305DBC`.
+`67DD2A8481532EAF7A406CFB585713297CBCE56C3647BFF859D62C5B996EBEEF`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing

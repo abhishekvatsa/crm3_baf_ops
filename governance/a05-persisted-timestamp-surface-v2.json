@@ -676,6 +676,18 @@
       "reArmCondition": "any burner-condition round callable receipt timestamp change"
     },
     {
+      "id": "burner-directive-compliance-command-response",
+      "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
+      "readerMarker": "factory BurnerDirectiveComplianceResult.fromCallableData",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "verify the canonical server commit instant before adopting an atomic burner compliance and directive-closure receipt",
+      "authorityBoundary": "remote-burner-directive-compliance-command-response",
+      "regression": "test/burner_condition_round_test.dart; test/directive_server_closure_adoption_test.dart; functions/test/burnerDirectiveComplianceMutation.test.js",
+      "reArmCondition": "any burner compliance callable receipt timestamp change"
+    },
+    {
       "id": "asset-availability-record",
       "readerFile": "lib/features/assets/data/asset_availability_record.dart",
       "readerMarker": "factory AssetAvailabilityRecord.fromMap",

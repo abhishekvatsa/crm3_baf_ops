@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "F76E958A60090419A49BBD2F573F8E8B30DE34CD471D9F8626F11749A7CF26F1",
+  "inventoryDigest": "67DD2A8481532EAF7A406CFB585713297CBCE56C3647BFF859D62C5B996EBEEF",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "B472CB8554D21911053669D073279D33BA1B1B176BCE321C5A7DE947A5BA8B58",
+  "a05ManifestSha256": "7ECBAC7D6B01CD9EE4287619E334DCEC3EEB3683B96EC437DC5FCFD9A6A2AB07",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -881,10 +881,10 @@
       "id": "burner-condition-round-command-result",
       "file": "lib/features/assets/services/burner_condition_round_service.dart",
       "classification": "SERVER_COMMAND_RECEIPT",
-      "authorityBoundary": "governed burner-condition round result, asset identity, replay, directive, and commit-time evidence",
-      "malformedDisposition": "translate malformed callable evidence to data-loss and never report round capture success",
-      "compatibility": "none for request, round, operation, asset, directive, replay, or commit-time evidence",
-      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js"
+      "authorityBoundary": "governed burner-condition round and directive-compliance results, asset identity, replay, directive, and commit-time evidence",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report round capture or directive closure success",
+      "compatibility": "none for request, round, operation, asset, directive, version, replay, or commit-time evidence",
+      "regression": "test/burner_condition_round_test.dart; test/directive_server_closure_adoption_test.dart; functions/test/burnerConditionRoundMutation.test.js; functions/test/burnerDirectiveComplianceMutation.test.js"
     },
     {
       "id": "burner-condition-round-pending-identity",

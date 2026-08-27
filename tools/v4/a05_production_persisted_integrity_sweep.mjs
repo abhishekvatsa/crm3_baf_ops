@@ -110,6 +110,7 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   asset_operational_condition_audits: 'SERVER_CONTROL_RECORD',
   asset_operational_condition_receipts: 'SERVER_CONTROL_RECORD',
   burner_condition_round_receipts: 'SERVER_CONTROL_RECORD',
+  burner_condition_current: 'SERVER_CONTROL_RECORD',
   governed_migration_audits: 'SERVER_CONTROL_RECORD',
   governed_migration_contracts: 'SERVER_CONTROL_RECORD',
   frequent_issue_definitions: 'DART_RECONCILIATION_REQUIRED',

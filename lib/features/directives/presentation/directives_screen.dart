@@ -656,6 +656,8 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       return;
     }
     setState(() => _isClosing = true);
+    var governedClosureCommitted = false;
+    var retryIdentityCleanupPending = false;
 
     try {
       final closureRemarks =
@@ -669,22 +671,44 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         throw Exception('Directive is missing its sync identifier.');
       }
 
-      final conditionRecorded =
-          burnerBinding == null
-              ? false
-              : await _recordBurnerDirectiveCompliance(
-                directive: directive,
-                binding: burnerBinding,
-                dispositions: closure.burnerDispositions,
-                actor: appUser,
-              );
-
-      await repo.closeDirective(
-        id,
-        actor: appUser,
-        remarks: closureRemarks,
-        wasUnacknowledged: directive.status != DirectiveStatus.acknowledged,
-      );
+      final conditionRecorded = burnerBinding != null;
+      if (burnerBinding == null) {
+        await repo.closeDirective(
+          id,
+          actor: appUser,
+          remarks: closureRemarks,
+          wasUnacknowledged: directive.status != DirectiveStatus.acknowledged,
+        );
+      } else {
+        final firestoreId = directive.firestoreId;
+        if (firestoreId == null) {
+          throw const BurnerConditionRoundException(
+            'Synchronize this directive before recording Burner/UV compliance.',
+            code: 'failed-precondition',
+          );
+        }
+        final result = await _completeBurnerDirectiveCompliance(
+          directive: directive,
+          binding: burnerBinding,
+          dispositions: closure.burnerDispositions,
+          actor: appUser,
+          closureRemarks: closureRemarks,
+        );
+        governedClosureCommitted = true;
+        await repo.adoptServerDirectiveClosure(
+          firestoreId: firestoreId,
+          expectedBeforeVersion: directive.version,
+          committedVersion: result.closedDirectiveVersion,
+          actor: appUser,
+          closedAt: result.committedAt,
+          wasUnacknowledged: directive.status != DirectiveStatus.acknowledged,
+          remarks: closureRemarks,
+        );
+        final finalized = await ref
+            .read(burnerConditionRoundServiceProvider)
+            .finalizeDirectiveCompliance(result: result, actorUid: appUser.uid);
+        retryIdentityCleanupPending = finalized.retryIdentityCleanupPending;
+      }
 
       final outcome =
           kIsWeb
@@ -699,7 +723,9 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       final (message, color) = switch (outcome) {
         SyncRequestOutcome.succeeded => (
           conditionRecorded
-              ? 'Burner condition updated; directive closed and synchronized.'
+              ? retryIdentityCleanupPending
+                  ? 'Burner condition updated and directive closed. Retry cleanup remains queued on this device.'
+                  : 'Burner condition updated; directive closed and synchronized.'
               : 'Directive closed and synchronized.',
           BafColors.sync,
         ),
@@ -716,7 +742,12 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
     } catch (e) {
       if (!mounted) return;
 
-      _showDirectiveSnack('Failed to close directive: $e', BafColors.danger);
+      _showDirectiveSnack(
+        governedClosureCommitted
+            ? 'The server closed this burner directive, but this device could not adopt the exact readback. Refresh or run Sync before retrying: $e'
+            : 'Failed to close directive: $e',
+        BafColors.danger,
+      );
     } finally {
       if (mounted) {
         setState(() => _isClosing = false);
@@ -724,11 +755,12 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
     }
   }
 
-  Future<bool> _recordBurnerDirectiveCompliance({
+  Future<BurnerDirectiveComplianceResult> _completeBurnerDirectiveCompliance({
     required OperationalDirective directive,
     required BurnerRedHotDirectiveBinding binding,
     required Map<int, BurnerDirectiveComplianceDisposition> dispositions,
     required AppUser actor,
+    String? closureRemarks,
   }) async {
     if (!actor.canRecordBurnerConditionRound) {
       throw const BurnerConditionRoundException(
@@ -793,26 +825,26 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         code: 'data-loss',
       );
     }
-    final projection = projectBurnerDirectiveCompliance(
-      current: current,
-      binding: binding,
-      dispositions: dispositions,
-    );
-    if (!projection.changed) return false;
-    await ref
+    final directiveId = directive.firestoreId;
+    if (directiveId == null) {
+      throw const BurnerConditionRoundException(
+        'The burner directive has no server identity.',
+        code: 'failed-precondition',
+      );
+    }
+    final result = await ref
         .read(burnerConditionRoundServiceProvider)
-        .record(
+        .completeDirective(
           furnace: furnace,
-          observations: projection.observations,
-          draftSealRedHotObserved: current.draftSealRedHotObserved,
-          hotAirAtDraftSealObserved: current.hotAirAtDraftSealObserved,
-          uvObservations: projection.uvObservations,
+          current: current,
+          directiveId: directiveId,
+          expectedDirectiveVersion: directive.version,
+          dispositions: dispositions,
           actor: actor,
-          roundNote:
-              'I&A compliance for directive ${directive.firestoreId ?? directive.id}.',
+          closureRemarks: closureRemarks,
         );
     ref.invalidate(latestBurnerConditionRoundsProvider(actor.uid));
-    return true;
+    return result;
   }
 
   void _showDirectiveSnack(String message, Color color) {

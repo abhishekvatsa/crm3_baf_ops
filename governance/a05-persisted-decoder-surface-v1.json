@@ -870,16 +870,18 @@
       "file": "lib/features/assets/services/burner_condition_round_service.dart",
       "markers": [
         "factory BurnerConditionRoundResult.fromMap",
-        "Future<BurnerConditionRoundResult> record"
+        "Future<BurnerConditionRoundResult> record",
+        "factory BurnerDirectiveComplianceResult.fromCallableData",
+        "Future<BurnerDirectiveComplianceResult> completeDirective"
       ],
       "classification": "SERVER_COMMAND_RECEIPT",
       "owner": "furnace-reliability",
-      "authorityBoundary": "governed burner-condition round result, asset identity, replay, directive, and commit-time evidence",
-      "malformedDisposition": "translate malformed callable evidence to data-loss and never report round capture success",
-      "compatibility": "none for request, round, operation, asset, directive, replay, or commit-time evidence",
-      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js",
-      "reArmCondition": "malformed response fields are coerced or accepted as a successful burner-condition round",
-      "riskFingerprint": "f6bb8c2ff5e2917159c0e24d563e52b1178e40e5d1737f12bf5528c68e5917c3"
+      "authorityBoundary": "governed burner-condition round and directive-compliance results, asset identity, replay, directive, and commit-time evidence",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report round capture or directive closure success",
+      "compatibility": "none for request, round, operation, asset, directive, version, replay, or commit-time evidence",
+      "regression": "test/burner_condition_round_test.dart; test/directive_server_closure_adoption_test.dart; functions/test/burnerConditionRoundMutation.test.js; functions/test/burnerDirectiveComplianceMutation.test.js",
+      "reArmCondition": "malformed response fields are coerced or accepted as a successful burner-condition round or directive closure",
+      "riskFingerprint": "3c4409cff5c532fe1e15a4c00debe8030f7c3efe4b747b8ae45f05618bc33096"
     },
     {
       "id": "burner-condition-round-pending-identity",
@@ -1699,6 +1701,19 @@
       "malformedDisposition": "throw a data-loss command error and do not report round capture success",
       "regression": "test/burner_condition_round_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "transport or response-format failure becomes a successful burner-condition round"
+    },
+    {
+      "id": "burner-directive-compliance-transport-translation",
+      "file": "lib/features/assets/services/burner_condition_round_service.dart",
+      "siteFingerprint": "93db8878f34d6beb60faeef5af6ec4399717fcdd6c890a96e775743a14f54a33",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "translate callable transport failures while preserving strict burner-compliance response-format failure",
+      "authorityBoundary": "atomic burner-condition round and directive-closure mutation response",
+      "mutability": "remote mutation already governed by the server; no local directive closure is manufactured",
+      "dataScope": "burner-compliance callable response and Firebase transport error",
+      "malformedDisposition": "throw a data-loss command error and do not report directive closure success",
+      "regression": "test/burner_condition_round_test.dart; test/directive_server_closure_adoption_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "transport or response-format failure becomes a successful burner directive closure"
     },
     {
       "id": "backend-release-identity-response-translation",

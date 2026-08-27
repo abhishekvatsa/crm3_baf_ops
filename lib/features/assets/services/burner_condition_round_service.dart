@@ -11,6 +11,7 @@ import 'burner_condition_round_idempotency_store.dart';
 
 const burnerConditionRoundCallableName = 'mutateAssetHierarchy';
 const burnerConditionRoundCallableRegion = 'asia-south1';
+const burnerDirectiveComplianceOperation = 'COMPLETE_BURNER_RED_HOT_DIRECTIVE';
 
 class BurnerConditionRoundException implements Exception {
   const BurnerConditionRoundException(this.message, {this.code});
@@ -132,6 +133,132 @@ class BurnerConditionRoundResult {
       roundId: expectedRequestId,
       assetInstanceId: expectedAssetInstanceId,
       directiveId: directiveId,
+      committedAt: readRequiredPersistedDateTime(
+        map['committedAt'],
+        field: 'committedAt',
+        source: source,
+      ),
+      idempotentReplay: readRequiredPersistedBool(
+        map['idempotentReplay'],
+        field: 'idempotentReplay',
+        source: source,
+      ),
+    );
+  }
+}
+
+class BurnerDirectiveComplianceResult {
+  const BurnerDirectiveComplianceResult({
+    required this.roundId,
+    required this.assetInstanceId,
+    required this.closedDirectiveId,
+    required this.closedDirectiveVersion,
+    required this.committedAt,
+    required this.idempotentReplay,
+    this.newDirectiveId,
+    this.retryIdentityCleanupPending = false,
+  });
+
+  final String roundId;
+  final String assetInstanceId;
+  final String closedDirectiveId;
+  final int closedDirectiveVersion;
+  final String? newDirectiveId;
+  final DateTime committedAt;
+  final bool idempotentReplay;
+  final bool retryIdentityCleanupPending;
+
+  BurnerDirectiveComplianceResult withRetryIdentityCleanupPending() {
+    return BurnerDirectiveComplianceResult(
+      roundId: roundId,
+      assetInstanceId: assetInstanceId,
+      closedDirectiveId: closedDirectiveId,
+      closedDirectiveVersion: closedDirectiveVersion,
+      newDirectiveId: newDirectiveId,
+      committedAt: committedAt,
+      idempotentReplay: idempotentReplay,
+      retryIdentityCleanupPending: true,
+    );
+  }
+
+  factory BurnerDirectiveComplianceResult.fromCallableData(
+    Object? raw, {
+    required String expectedRequestId,
+    required String expectedAssetClassId,
+    required String expectedAssetInstanceId,
+    required String expectedDirectiveId,
+  }) {
+    if (raw is! Map) {
+      throw PersistedDataFormatException(
+        field: 'response',
+        source: '$burnerConditionRoundCallableName/$expectedRequestId',
+        detail: 'must be an object',
+      );
+    }
+    final map = <String, dynamic>{};
+    for (final entry in raw.entries) {
+      if (entry.key is! String) {
+        throw PersistedDataFormatException(
+          field: 'response',
+          source: '$burnerConditionRoundCallableName/$expectedRequestId',
+          detail: 'contains a non-string field name',
+        );
+      }
+      map[entry.key as String] = entry.value;
+    }
+    const expectedKeys = <String>{
+      'ok',
+      'requestId',
+      'operation',
+      'roundId',
+      'assetClassId',
+      'assetInstanceId',
+      'closedDirectiveId',
+      'closedDirectiveVersion',
+      'newDirectiveId',
+      'committedAt',
+      'idempotentReplay',
+    };
+    final source = '$burnerConditionRoundCallableName/$expectedRequestId';
+    if (map['ok'] != true ||
+        map.keys.toSet().length != expectedKeys.length ||
+        !map.keys.toSet().containsAll(expectedKeys) ||
+        map['requestId'] != expectedRequestId ||
+        map['roundId'] != expectedRequestId ||
+        map['operation'] != burnerDirectiveComplianceOperation ||
+        map['assetClassId'] != expectedAssetClassId ||
+        map['assetInstanceId'] != expectedAssetInstanceId ||
+        map['closedDirectiveId'] != expectedDirectiveId) {
+      throw PersistedDataFormatException(
+        field: 'responseIdentity',
+        source: source,
+        detail: 'request, round, operation, asset, or directive mismatch',
+      );
+    }
+    final newDirectiveId = readOptionalPersistedString(
+      map['newDirectiveId'],
+      field: 'newDirectiveId',
+      source: source,
+    );
+    if (newDirectiveId != null &&
+        newDirectiveId != 'burner_round_red_hot_$expectedRequestId') {
+      throw PersistedDataFormatException(
+        field: 'newDirectiveId',
+        source: source,
+        detail: 'does not match the deterministic successor directive',
+      );
+    }
+    return BurnerDirectiveComplianceResult(
+      roundId: expectedRequestId,
+      assetInstanceId: expectedAssetInstanceId,
+      closedDirectiveId: expectedDirectiveId,
+      closedDirectiveVersion: readRequiredPersistedInt(
+        map['closedDirectiveVersion'],
+        field: 'closedDirectiveVersion',
+        source: source,
+        minimum: 2,
+      ),
+      newDirectiveId: newDirectiveId,
       committedAt: readRequiredPersistedDateTime(
         map['committedAt'],
         field: 'committedAt',
@@ -269,6 +396,102 @@ class BurnerConditionRoundService {
     }
   }
 
+  Future<BurnerDirectiveComplianceResult> completeDirective({
+    required AssetInstanceRecord furnace,
+    required BurnerConditionRound current,
+    required String directiveId,
+    required int expectedDirectiveVersion,
+    required Map<int, BurnerDirectiveComplianceDisposition> dispositions,
+    required AppUser actor,
+    String? closureRemarks,
+  }) async {
+    if (!actor.canRecordBurnerConditionRound) {
+      throw const BurnerConditionRoundException(
+        'Your role cannot record the required Burner/UV compliance evidence.',
+        code: 'permission-denied',
+      );
+    }
+    final cleanedDirectiveId = directiveId.trim();
+    if (!cleanedDirectiveId.startsWith('burner_round_red_hot_') ||
+        expectedDirectiveVersion < 1 ||
+        current.assetClassId != furnace.assetClassId ||
+        current.assetInstanceId != furnace.id ||
+        dispositions.isEmpty ||
+        dispositions.keys.any((position) => position < 1 || position > 8)) {
+      throw const BurnerConditionRoundException(
+        'The Burner/UV compliance identity is incomplete or stale.',
+        code: 'failed-precondition',
+      );
+    }
+    final orderedDispositions =
+        dispositions.entries.toList()
+          ..sort((left, right) => left.key.compareTo(right.key));
+    final canonical = <String, dynamic>{
+      'operation': burnerDirectiveComplianceOperation,
+      'assetClassId': furnace.assetClassId,
+      'assetInstanceId': furnace.id,
+      'expectedAssetVersion': furnace.version,
+      'expectedCurrentRoundId': current.roundId,
+      'directiveId': cleanedDirectiveId,
+      'expectedDirectiveVersion': expectedDirectiveVersion,
+      'dispositions': <Map<String, dynamic>>[
+        for (final entry in orderedDispositions)
+          <String, dynamic>{
+            'position': entry.key,
+            'disposition': entry.value.name,
+          },
+      ],
+      'closureRemarks': _cleanOptionalText(closureRemarks),
+    };
+    final payloadFingerprint =
+        sha256.convert(utf8.encode(jsonEncode(canonical))).toString();
+    final pendingIdentity = await _resolvePendingIdentity(
+      actorUid: actor.uid,
+      payloadFingerprint: payloadFingerprint,
+    );
+    final requestId = pendingIdentity.requestId;
+    try {
+      final response = await _client
+          .httpsCallable(burnerConditionRoundCallableName)
+          .call<Object?>(<String, dynamic>{
+            'requestId': requestId,
+            ...canonical,
+          });
+      final result = BurnerDirectiveComplianceResult.fromCallableData(
+        response.data,
+        expectedRequestId: requestId,
+        expectedAssetClassId: furnace.assetClassId,
+        expectedAssetInstanceId: furnace.id,
+        expectedDirectiveId: cleanedDirectiveId,
+      );
+      return result;
+    } on FirebaseFunctionsException catch (error) {
+      throw BurnerConditionRoundException(
+        error.message ?? 'Burner directive compliance could not be completed.',
+        code: error.code,
+      );
+    } on PersistedDataFormatException catch (error) {
+      throw BurnerConditionRoundException(
+        'Burner-compliance response evidence is invalid: $error',
+        code: 'data-loss',
+      );
+    }
+  }
+
+  Future<BurnerDirectiveComplianceResult> finalizeDirectiveCompliance({
+    required BurnerDirectiveComplianceResult result,
+    required String actorUid,
+  }) {
+    return finalizeBurnerDirectiveComplianceResult(
+      result: result,
+      clearPendingIdentity:
+          () => _idempotencyStore.clearIfMatches(
+            actorUid: actorUid,
+            requestId: result.roundId,
+          ),
+    );
+  }
+
   Future<BurnerConditionRoundPendingIdentity> _resolvePendingIdentity({
     required String actorUid,
     required String payloadFingerprint,
@@ -289,6 +512,19 @@ class BurnerConditionRoundService {
         code: 'failed-precondition',
       );
     }
+  }
+}
+
+Future<BurnerDirectiveComplianceResult>
+finalizeBurnerDirectiveComplianceResult({
+  required BurnerDirectiveComplianceResult result,
+  required Future<void> Function() clearPendingIdentity,
+}) async {
+  try {
+    await clearPendingIdentity();
+    return result;
+  } catch (_) {
+    return result.withRetryIdentityCleanupPending();
   }
 }
 

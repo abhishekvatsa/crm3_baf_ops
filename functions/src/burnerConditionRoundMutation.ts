@@ -473,6 +473,22 @@ function directiveProjection(args: {
   };
 }
 
+function validateCurrentRoundProjection(
+  data: JsonMap,
+  request: ParsedRequest,
+): void {
+  if (data.schemaVersion !== 1 ||
+      data.assetInstanceId !== request.assetInstanceId ||
+      typeof data.roundId !== "string" || data.roundId.trim().length === 0 ||
+      data.observedAt == null) {
+    throw new AssetHierarchyMutationError(
+      "data-loss",
+      "The retained current burner-round projection is malformed.",
+      {reasonCode: "burner-condition-current-projection-malformed"},
+    );
+  }
+}
+
 function resultFromReceipt(
   request: ParsedRequest,
   actorUid: string,
@@ -682,6 +698,8 @@ export async function mutateBurnerConditionRoundWithDb(args: {
   const assetClassRef = db.collection("asset_classes").doc(request.assetClassId);
   const assetRef = db.collection("asset_instances").doc(request.assetInstanceId);
   const roundRef = db.collection("burner_condition_rounds").doc(request.requestId);
+  const currentRoundRef = db.collection("burner_condition_current")
+    .doc(request.assetInstanceId);
   const receiptRef = db.collection("burner_condition_round_receipts")
     .doc(request.requestId);
   const redHotPositions = redHotPositionsFor(request);
@@ -697,6 +715,10 @@ export async function mutateBurnerConditionRoundWithDb(args: {
 
   return db.runTransaction(async (rawTransaction) => {
     const transaction = rawTransaction as unknown as TransactionLike;
+    const actorData = actor(asSnapshot(
+      await transaction.get(actorRef),
+      "Burner-round actor lookup",
+    ));
     const receiptValue = asSnapshot(
       await transaction.get(receiptRef),
       "Burner-round receipt lookup",
@@ -705,14 +727,14 @@ export async function mutateBurnerConditionRoundWithDb(args: {
       await transaction.get(roundRef),
       "Burner-round evidence lookup",
     );
+    const currentRoundValue = asSnapshot(
+      await transaction.get(currentRoundRef),
+      "Current burner-round projection lookup",
+    );
     const directiveValue = directiveRef == null ? null : asSnapshot(
       await transaction.get(directiveRef),
       "Burner-round directive lookup",
     );
-    const actorData = actor(asSnapshot(
-      await transaction.get(actorRef),
-      "Burner-round actor lookup",
-    ));
 
     if (receiptValue.exists) {
       const receiptData = receiptValue.data() ?? {};
@@ -757,6 +779,12 @@ export async function mutateBurnerConditionRoundWithDb(args: {
         "data-loss",
         "Burner-round evidence exists without its request receipt.",
         {reasonCode: "burner-condition-round-orphan-evidence"},
+      );
+    }
+    if (currentRoundValue.exists) {
+      validateCurrentRoundProjection(
+        currentRoundValue.data() ?? {},
+        request,
       );
     }
 
@@ -832,6 +860,13 @@ export async function mutateBurnerConditionRoundWithDb(args: {
     };
 
     transaction.set(roundRef as unknown as DocumentRefLike, round);
+    transaction.set(currentRoundRef as unknown as DocumentRefLike, {
+      schemaVersion: 1,
+      assetInstanceId: request.assetInstanceId,
+      roundId: request.requestId,
+      observedAt: committedAt,
+      updatedAt: committedAt,
+    });
     if (directiveRef != null && directiveId != null) {
       transaction.set(
         directiveRef as unknown as DocumentRefLike,

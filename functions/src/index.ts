@@ -120,6 +120,15 @@ import type {
   BurnerConditionRoundMutationResult,
 } from "./burnerConditionRoundMutation";
 import {
+  isBurnerDirectiveComplianceOperation,
+  mutateBurnerDirectiveComplianceWithDb,
+  userCanCompleteBurnerDirective,
+} from "./burnerDirectiveComplianceMutation";
+import type {
+  BurnerDirectiveComplianceFirestoreLike,
+  BurnerDirectiveComplianceMutationResult,
+} from "./burnerDirectiveComplianceMutation";
+import {
   isOperationalEventOperation,
   mutateOperationalEventWithDb,
   userCanMutateOperationalEvent,
@@ -603,6 +612,7 @@ export const mutateAssetHierarchy = onCall(
         InnerCoverLifecycleMutationResult |
         AssetOperationalConditionMutationResult |
         BurnerConditionRoundMutationResult |
+        BurnerDirectiveComplianceMutationResult |
         OperationalEventMutationResult |
         OperationalEventIssueLinkMutationResult |
         DeviceRecoveryMutationResult
@@ -621,6 +631,8 @@ export const mutateAssetHierarchy = onCall(
               actorData: userData,
               data: request.data ?? {},
             }) :
+          isBurnerDirectiveComplianceOperation(request.data?.operation) ?
+            userCanCompleteBurnerDirective(userData) :
           isBurnerConditionRoundOperation(request.data?.operation) ?
             userCanRecordBurnerConditionRound(userData) :
           isOperationalEventIssueLinkOperation(request.data?.operation) ?
@@ -648,6 +660,14 @@ export const mutateAssetHierarchy = onCall(
             data: request.data ?? {},
             timestampFromDate: admin.firestore.Timestamp.fromDate,
           };
+          if (isBurnerDirectiveComplianceOperation(request.data?.operation)) {
+            return mutateBurnerDirectiveComplianceWithDb({
+              db: db as unknown as BurnerDirectiveComplianceFirestoreLike,
+              authUid: request.auth?.uid ?? null,
+              data: request.data ?? {},
+              timestampFromDate: admin.firestore.Timestamp.fromDate,
+            });
+          }
           if (isBurnerConditionRoundOperation(request.data?.operation)) {
             return mutateBurnerConditionRoundWithDb(args);
           }
