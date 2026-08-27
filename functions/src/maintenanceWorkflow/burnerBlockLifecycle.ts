@@ -108,7 +108,7 @@ const isBurnerBlockIdentity = (...values: unknown[]): boolean => {
 };
 
 const isBurnerBlockReplacement = (row: ActionRow): boolean =>
-  row.actionType === "replacement" &&
+  (row.actionType ?? row.action) === "replacement" &&
   isBurnerBlockIdentity(
     row.component,
     (row.assetHierarchyRef as ActionRow | null)?.nodeName,

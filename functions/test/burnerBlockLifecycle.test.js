@@ -183,6 +183,24 @@ describe('burner-block lifecycle projection', () => {
     });
   });
 
+  test('projects a supported legacy replacement action alias', async () => {
+    const store = seedStore();
+    const plan = await prepare(store, action({
+      actionType: undefined,
+      action: 'replacement',
+    }));
+    const event = store.entries().find(([entryPath]) =>
+      entryPath.startsWith('burner_block_lifecycle_events/'))[1];
+
+    expect(plan.events).toHaveLength(1);
+    expect(event).toMatchObject({
+      eventType: 'replacement',
+      assetInstanceId: IDS.asset,
+      burnerPosition: 3,
+      supplyMode: 'sailRed',
+    });
+  });
+
   test('current state retains the latest physical replacement across history', async () => {
     const store = seedStore();
     await prepare(store, action({
