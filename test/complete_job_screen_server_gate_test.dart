@@ -152,6 +152,28 @@ class _StaticJobModuleRepository implements JobModuleRepository {
   final List<JobModuleInstance> modules;
 
   @override
+  Future<List<JobModuleInstance>> getModulesForJob({
+    String? jobExecutionFirestoreId,
+    int? jobExecutionLocalId,
+    JobModuleDiscipline? discipline,
+    int? limit,
+    bool includeDeleted = false,
+  }) async {
+    var result =
+        includeDeleted
+            ? modules.toList()
+            : modules.where((module) => !module.isDeleted).toList();
+    if (discipline != null) {
+      result =
+          result.where((module) => module.discipline == discipline).toList();
+    }
+    if (limit != null && result.length > limit) {
+      result = result.take(limit).toList();
+    }
+    return result;
+  }
+
+  @override
   Stream<List<JobModuleInstance>> watchModulesForJob({
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
@@ -612,4 +634,37 @@ void main() {
     expect(find.textContaining('module_1'), findsOneWidget);
     expect(find.text('Failed to complete'), findsNothing);
   });
+
+  testWidgets(
+    'unsynced current-job module blocks final closure after preflight',
+    (tester) async {
+      final plannedRepo = _GateRejectingPlannedRepository();
+      final module = _acceptedModule()..isSynced = false;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream<AppUser?>.value(_supervisor()),
+            ),
+            plannedRepositoryProvider.overrideWithValue(plannedRepo),
+            jobModuleRepositoryProvider.overrideWithValue(
+              _StaticJobModuleRepository([module]),
+            ),
+          ],
+          child: MaterialApp(home: CompleteJobScreen(execution: _execution())),
+        ),
+      );
+
+      await _pumpFrames(tester);
+      await tester.tap(find.text('Mark Job Completed'));
+      await _pumpFrames(tester, frames: 12);
+
+      expect(plannedRepo.completionCalls, 0);
+      expect(
+        find.textContaining('module changes could not be synced'),
+        findsOneWidget,
+      );
+    },
+  );
 }

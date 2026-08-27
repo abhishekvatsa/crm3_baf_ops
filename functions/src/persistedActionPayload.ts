@@ -17,6 +17,7 @@ export type ComponentActionPayload = {
 
 const ACTION_TYPES = new Set(["issue", "repair", "replacement", "inspection"]);
 const REPLACEMENT_TYPES = new Set(["newPart", "repaired", "revised"]);
+const BURNER_BLOCK_SUPPLY_MODES = new Set(["sailRed", "purchased"]);
 const ACTION_SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const ACTION_STATUSES = new Set(["issue", "inProgress", "resolved"]);
 const PAYLOAD_SCHEMA_VERSION = 1;
@@ -27,7 +28,8 @@ const ACTION_FIELDS = new Set([
   "remarks", "templateFieldKey", "isAutoResolved", "status", "createdAt",
   "severity", "performedBy", "updatedAt", "version", "metadataJson",
   "attendanceSessionId", "burnerPosition", "burnerActionCode",
-  "burnerOutcome", "burnerMicroampReading",
+  "burnerOutcome", "burnerMicroampReading", "burnerBlockSupplyMode",
+  "burnerBlockSupplierName", "burnerBlockPurchaseOrderNumber",
 ]);
 
 const requiredText = (value: unknown, field: string): void => {
@@ -155,6 +157,11 @@ const assertAction = (
   );
   requiredEnum(action.severity, ACTION_SEVERITIES, `${field}.severity`);
   optionalEnum(action.replacement, REPLACEMENT_TYPES, `${field}.replacement`);
+  optionalEnum(
+    action.burnerBlockSupplyMode,
+    BURNER_BLOCK_SUPPLY_MODES,
+    `${field}.burnerBlockSupplyMode`,
+  );
   optionalEnum(action.status, ACTION_STATUSES, `${field}.status`);
 
   if (typeof action.isAutoResolved !== "boolean") {
@@ -209,8 +216,23 @@ const assertAction = (
     "attendanceSessionId",
     "burnerActionCode",
     "burnerOutcome",
+    "burnerBlockSupplierName",
+    "burnerBlockPurchaseOrderNumber",
   ]) {
     optionalText(action[optionalField], `${field}.${optionalField}`);
+  }
+  for (const provenanceField of [
+    "burnerBlockSupplierName",
+    "burnerBlockPurchaseOrderNumber",
+  ]) {
+    const value = action[provenanceField];
+    if (typeof value === "string" &&
+        (value.trim().length === 0 || value.trim().length > 160)) {
+      throw new PersistedActionPayloadError(
+        `${field}.${provenanceField}`,
+        "expected 1-160 characters or null",
+      );
+    }
   }
   if (action.updatedAt != null && !validInstant(action.updatedAt)) {
     throw new PersistedActionPayloadError(
@@ -272,14 +294,16 @@ const assertAction = (
       "expected finite number between 0 and 1000000",
     );
   }
-  const burnerEvidence = [
+  const burnerAttendanceEvidence = [
     action.attendanceSessionId,
-    action.burnerPosition,
     action.burnerActionCode,
     action.burnerOutcome,
     action.burnerMicroampReading,
   ];
-  if (burnerEvidence.some((entry) => entry != null) &&
+  const hasBurnerAttendanceEvidence = burnerAttendanceEvidence.some(
+    (entry) => entry != null,
+  );
+  if (hasBurnerAttendanceEvidence &&
       (action.attendanceSessionId == null || action.burnerPosition == null ||
         action.burnerActionCode == null || action.burnerOutcome == null)) {
     throw new PersistedActionPayloadError(
@@ -287,7 +311,61 @@ const assertAction = (
       "burner evidence is incomplete",
     );
   }
+  const hasBurnerBlockLifecycleEvidence = [
+    action.burnerBlockSupplyMode,
+    action.burnerBlockSupplierName,
+    action.burnerBlockPurchaseOrderNumber,
+  ].some((entry) => entry != null);
+  if (hasBurnerBlockLifecycleEvidence) {
+    if (action.burnerBlockSupplyMode == null ||
+        action.burnerPosition == null ||
+        normalizedActionType(rawActionType) !== "replacement" ||
+        action.replacement == null ||
+        action.status !== "resolved" ||
+        !isFurnaceBurnerBlockTarget(action)) {
+      throw new PersistedActionPayloadError(
+        `${field}.burnerBlockLifecycle`,
+        "requires a resolved, numbered governed Furnace burner-block replacement and replacement disposition",
+      );
+    }
+    if (action.burnerBlockSupplyMode !== "purchased" &&
+        (action.burnerBlockSupplierName != null ||
+          action.burnerBlockPurchaseOrderNumber != null)) {
+      throw new PersistedActionPayloadError(
+        `${field}.burnerBlockSupplyMode`,
+        "supplier and purchase-order evidence is only valid for purchased burner blocks",
+      );
+    }
+  }
+  if (action.burnerPosition != null &&
+      !hasBurnerAttendanceEvidence &&
+      !hasBurnerBlockLifecycleEvidence) {
+    throw new PersistedActionPayloadError(
+      `${field}.burnerPosition`,
+      "requires burner attendance or burner-block lifecycle evidence",
+    );
+  }
   return action;
+};
+
+const isFurnaceBurnerBlockTarget = (
+  action: Record<string, unknown>,
+): boolean => {
+  const reference = action.assetHierarchyRef;
+  if (reference == null || typeof reference !== "object" ||
+      Array.isArray(reference)) return false;
+  const raw = reference as Record<string, unknown>;
+  const classIdentity = `${String(raw.assetClassCode ?? "")} ` +
+    `${String(raw.assetClassName ?? "")}`;
+  if (!classIdentity.toLowerCase().includes("furnace")) return false;
+  const path = Array.isArray(raw.hierarchyPath) ? raw.hierarchyPath : [];
+  const targetIdentity = [
+    action.component,
+    raw.nodeName,
+    ...path,
+  ].map((value) => String(value ?? "")).join(" ").toLowerCase();
+  return targetIdentity.includes("burner block") ||
+    targetIdentity.includes("firing tube");
 };
 
 export const readComponentActionPayload = (

@@ -5,14 +5,18 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_registry_model.dart';
+import '../data/burner_block_condition_projection.dart';
+import '../data/burner_block_lifecycle_event.dart';
 import '../data/burner_condition_round.dart';
 import '../providers/asset_hierarchy_provider.dart';
+import '../providers/burner_block_lifecycle_provider.dart';
 import '../providers/burner_condition_round_provider.dart';
 import '../services/burner_condition_round_service.dart';
 
@@ -67,11 +71,19 @@ class _FurnaceComponentConditionAuditScreenState
     final latestAsync = ref.watch(
       latestBurnerConditionRoundsProvider(actor.uid),
     );
+    final lifecycleAsync = ref.watch(
+      burnerBlockLifecycleEventsProvider(actor.uid),
+    );
+    final lifecycleCurrentAsync = ref.watch(
+      burnerBlockLifecycleCurrentProvider(actor.uid),
+    );
     final ticketsAsync = ref.watch(openTicketsProvider);
     final loading = <AsyncValue<Object?>>[
       classesAsync,
       assetsAsync,
       latestAsync,
+      lifecycleAsync,
+      lifecycleCurrentAsync,
       ticketsAsync,
     ].any((value) => value.isLoading && !value.hasValue);
     final error =
@@ -79,6 +91,8 @@ class _FurnaceComponentConditionAuditScreenState
           classesAsync,
           assetsAsync,
           latestAsync,
+          lifecycleAsync,
+          lifecycleCurrentAsync,
           ticketsAsync,
         ].where((value) => value.hasError && !value.hasValue).firstOrNull;
     if (loading) {
@@ -94,6 +108,8 @@ class _FurnaceComponentConditionAuditScreenState
             ref.invalidate(assetClassesProvider);
             ref.invalidate(allAssetInstancesProvider);
             ref.invalidate(latestBurnerConditionRoundsProvider(actor.uid));
+            ref.invalidate(burnerBlockLifecycleEventsProvider(actor.uid));
+            ref.invalidate(burnerBlockLifecycleCurrentProvider(actor.uid));
             ref.invalidate(openTicketsProvider);
           },
         ),
@@ -130,27 +146,37 @@ class _FurnaceComponentConditionAuditScreenState
             (left, right) => left.assetNumber.compareTo(right.assetNumber),
           );
     final latest = latestAsync.value ?? const <String, BurnerConditionRound>{};
+    final lifecycleEvents =
+        lifecycleAsync.value ?? const <BurnerBlockLifecycleEvent>[];
+    final lifecycleCurrent =
+        lifecycleCurrentAsync.value ?? const <BurnerBlockLifecycleEvent>[];
+    final lifecycleProjectionEvidence = <BurnerBlockLifecycleEvent>[
+      ...lifecycleCurrent,
+      ...lifecycleEvents,
+    ];
     final tickets = ticketsAsync.value ?? const <MaintenanceRecord>[];
 
     try {
       for (final furnace in furnaces) {
         final round = latest[furnace.id];
-        final newerRedHot = _newerOpenIssueRedHotPositions(
+        final newerRedHot = _newerOpenIssueRedHotObservations(
           tickets: tickets,
           furnaceNumber: furnace.assetNumber,
           after: round?.observedAt,
         );
-        final sourceKey = <String>[
-          round?.roundId ?? 'none',
-          newerRedHot.join(','),
-        ].join('|');
+        final conditionProjection = projectBurnerBlockCondition(
+          round: round,
+          newerRedHotObservations: newerRedHot,
+          lifecycleEvents: lifecycleProjectionEvidence,
+          assetInstanceId: furnace.id,
+        );
         final current = _drafts[furnace.id];
         if (current == null ||
-            (!current.dirty && current.sourceKey != sourceKey)) {
+            (!current.dirty &&
+                current.sourceKey != conditionProjection.sourceKey)) {
           _drafts[furnace.id] = _FurnaceAuditDraft.fromSources(
             round: round,
-            newerRedHotPositions: newerRedHot,
-            sourceKey: sourceKey,
+            conditionProjection: conditionProjection,
           );
         }
       }
@@ -167,7 +193,7 @@ class _FurnaceComponentConditionAuditScreenState
     final dirtyCount =
         furnaces.where((furnace) => _drafts[furnace.id]?.dirty == true).length;
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(
@@ -185,6 +211,7 @@ class _FurnaceComponentConditionAuditScreenState
               Tab(text: 'UV melted'),
               Tab(text: 'UV missing'),
               Tab(text: 'UV hung'),
+              Tab(text: 'Block lifecycle'),
             ],
           ),
         ),
@@ -193,6 +220,7 @@ class _FurnaceComponentConditionAuditScreenState
             _AuditStatusBand(
               furnaceCount: furnaces.length,
               dirtyCount: dirtyCount,
+              replacementCount: lifecycleEvents.length,
             ),
             Expanded(
               child: TabBarView(
@@ -225,6 +253,7 @@ class _FurnaceComponentConditionAuditScreenState
                     condition: BurnerUvCondition.hanging,
                     onChanged: _markChanged,
                   ),
+                  _BurnerBlockLifecycleList(events: lifecycleEvents),
                 ],
               ),
             ),
@@ -350,14 +379,14 @@ class _FurnaceAuditDraft {
     required this.hotAirAtDraftSealObserved,
     required this.uvByPosition,
     required this.burnerObservations,
+    required this.replacementsByPosition,
   });
 
   factory _FurnaceAuditDraft.fromSources({
     required BurnerConditionRound? round,
-    required Set<int> newerRedHotPositions,
-    required String sourceKey,
+    required BurnerBlockConditionProjection conditionProjection,
   }) {
-    final redHot = <int>{...?round?.redHotPositions, ...newerRedHotPositions};
+    final redHot = conditionProjection.redHotPositions;
     final uv = <int, BurnerUvCondition>{
       for (var position = 1; position <= 8; position++)
         position: BurnerUvCondition.serviceable,
@@ -368,9 +397,9 @@ class _FurnaceAuditDraft {
     }
     final prior = round?.observations;
     return _FurnaceAuditDraft(
-      sourceKey: sourceKey,
-      sourceAt: round?.observedAt,
-      redHotPositions: redHot,
+      sourceKey: conditionProjection.sourceKey,
+      sourceAt: conditionProjection.latestEvidenceAt,
+      redHotPositions: Set<int>.of(redHot),
       draftSealRedHotObserved: round?.draftSealRedHotObserved ?? false,
       hotAirAtDraftSealObserved: round?.hotAirAtDraftSealObserved ?? false,
       uvByPosition: uv,
@@ -391,6 +420,9 @@ class _FurnaceAuditDraft {
                     : prior[position - 1].remarks,
           ),
       ],
+      replacementsByPosition: Map<int, BurnerBlockLifecycleEvent>.unmodifiable(
+        conditionProjection.replacementsByPosition,
+      ),
     );
   }
 
@@ -401,6 +433,7 @@ class _FurnaceAuditDraft {
   bool hotAirAtDraftSealObserved;
   final Map<int, BurnerUvCondition> uvByPosition;
   List<BurnerConditionObservation> burnerObservations;
+  final Map<int, BurnerBlockLifecycleEvent> replacementsByPosition;
   bool dirty = false;
 
   List<BurnerUvObservation> get uvObservations => <BurnerUvObservation>[
@@ -429,12 +462,12 @@ class _FurnaceAuditDraft {
   }
 }
 
-Set<int> _newerOpenIssueRedHotPositions({
+Map<int, DateTime> _newerOpenIssueRedHotObservations({
   required List<MaintenanceRecord> tickets,
   required int furnaceNumber,
   required DateTime? after,
 }) {
-  final positions = <int>{};
+  final positions = <int, DateTime>{};
   for (final ticket in tickets) {
     if (ticket.isDeleted ||
         ticket.isResolved ||
@@ -443,9 +476,13 @@ Set<int> _newerOpenIssueRedHotPositions({
         (after != null && !ticket.createdAt.isAfter(after))) {
       continue;
     }
-    positions.addAll(
-      ticket.burnerLockoutCase?.redHotPositions ?? const <int>[],
-    );
+    for (final position
+        in ticket.burnerLockoutCase?.redHotPositions ?? const <int>[]) {
+      final current = positions[position];
+      if (current == null || ticket.createdAt.isAfter(current)) {
+        positions[position] = ticket.createdAt;
+      }
+    }
   }
   return positions;
 }
@@ -454,10 +491,12 @@ class _AuditStatusBand extends StatelessWidget {
   const _AuditStatusBand({
     required this.furnaceCount,
     required this.dirtyCount,
+    required this.replacementCount,
   });
 
   final int furnaceCount;
   final int dirtyCount;
+  final int replacementCount;
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +514,8 @@ class _AuditStatusBand extends StatelessWidget {
           Expanded(
             child: Text(
               '$furnaceCount governed Furnaces · $dirtyCount changed. '
-              'A new audit supersedes earlier condition observations.',
+              '$replacementCount retained block replacement${replacementCount == 1 ? '' : 's'}. '
+              'Newer audits and work events supersede earlier condition evidence.',
               style: const TextStyle(fontSize: 12),
             ),
           ),
@@ -487,6 +527,150 @@ class _AuditStatusBand extends StatelessWidget {
 
 typedef _DraftChange =
     void Function(String assetId, void Function(_FurnaceAuditDraft) change);
+
+class _BurnerBlockLifecycleList extends StatelessWidget {
+  const _BurnerBlockLifecycleList({required this.events});
+
+  final List<BurnerBlockLifecycleEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    if (events.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(BafSpacing.xl),
+          child: Text(
+            'No completed burner-block replacement has been recorded yet.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: BafColors.textSecondary),
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(BafSpacing.lg),
+      itemCount: events.length,
+      separatorBuilder: (_, __) => const SizedBox(height: BafSpacing.sm),
+      itemBuilder: (context, index) {
+        final event = events[index];
+        final sourceLabel = switch (event.sourceType) {
+          BurnerBlockLifecycleSourceType.maintenanceIssue => 'Issue resolution',
+          BurnerBlockLifecycleSourceType.legacyPlannedJob =>
+            'Planned maintenance',
+          BurnerBlockLifecycleSourceType.workflowPlannedJob =>
+            'Governed planned maintenance',
+        };
+        return Container(
+          padding: const EdgeInsets.all(BafSpacing.md),
+          decoration: BoxDecoration(
+            color: BafColors.card,
+            border: Border.all(color: BafColors.border),
+            borderRadius: BorderRadius.circular(BafRadius.small),
+            boxShadow: BafShadows.subtle,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: BafColors.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(BafRadius.small),
+                    ),
+                    child: const Icon(
+                      Icons.handyman_outlined,
+                      color: BafColors.success,
+                    ),
+                  ),
+                  const SizedBox(width: BafSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Furnace ${event.assetNumber.toString().padLeft(2, '0')} · Burner ${event.burnerPosition}',
+                          style: const TextStyle(
+                            color: BafColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          DateFormat(
+                            'dd MMM yyyy, HH:mm',
+                          ).format(event.actionPerformedAt.toLocal()),
+                          style: const TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              Wrap(
+                spacing: BafSpacing.xs,
+                runSpacing: BafSpacing.xs,
+                children: [
+                  StatusBadge(
+                    label:
+                        event.supplyMode ==
+                                BurnerBlockLifecycleSupplyMode.sailRed
+                            ? 'SAIL-made by RED'
+                            : 'Purchased',
+                    color: BafColors.maintenance,
+                  ),
+                  StatusBadge(label: sourceLabel, color: BafColors.planned),
+                  StatusBadge(
+                    label: switch (event.replacementDisposition) {
+                      BurnerBlockReplacementDisposition.newPart => 'New part',
+                      BurnerBlockReplacementDisposition.repaired =>
+                        'Repaired part',
+                      BurnerBlockReplacementDisposition.revised =>
+                        'Revised part',
+                    },
+                    color: BafColors.assets,
+                  ),
+                ],
+              ),
+              if (event.supplierName != null ||
+                  event.purchaseOrderNumber != null) ...[
+                const SizedBox(height: BafSpacing.sm),
+                Text(
+                  <String>[
+                    if (event.supplierName != null)
+                      'Supplier: ${event.supplierName}',
+                    if (event.purchaseOrderNumber != null)
+                      'PO: ${event.purchaseOrderNumber}',
+                  ].join(' · '),
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: BafSpacing.xs),
+              Text(
+                'Mechanical installation · performed by ${event.performedByName} · closure recorded by ${event.completedByName} · ${DateFormat('dd MMM yyyy, HH:mm').format(event.completedAt.toLocal())} · ${event.hierarchyPath.join(' › ')}',
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
 class _BurnerBlockMatrix extends StatelessWidget {
   const _BurnerBlockMatrix({
@@ -507,10 +691,18 @@ class _BurnerBlockMatrix extends StatelessWidget {
     onConfirm: (furnace) => onChanged(furnace.id, (_) {}),
     cellBuilder: (furnace, draft, position) {
       final selected = draft.redHotPositions.contains(position);
+      final replacement = draft.replacementsByPosition[position];
       return _ConditionCell(
         selected: selected,
         color: BafColors.danger,
-        tooltip: selected ? 'Red hot observed' : 'No red-hot observation',
+        tooltip:
+            selected
+                ? 'Red hot observed'
+                : replacement == null
+                ? 'No red-hot observation'
+                : 'Cleared by ${replacement.supplyMode == BurnerBlockLifecycleSupplyMode.sailRed ? 'SAIL/RED-made' : 'purchased'} block replacement on ${DateFormat('dd MMM yyyy, HH:mm').format(replacement.actionPerformedAt.toLocal())}',
+        evidenceIcon:
+            !selected && replacement != null ? Icons.handyman_outlined : null,
         onChanged:
             furnace.serviceState == AssetServiceState.outOfService
                 ? null
@@ -777,23 +969,38 @@ class _ConditionCell extends StatelessWidget {
     required this.color,
     required this.tooltip,
     required this.onChanged,
+    this.evidenceIcon,
   });
 
   final bool selected;
   final Color color;
   final String tooltip;
   final ValueChanged<bool>? onChanged;
+  final IconData? evidenceIcon;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
       child: Center(
-        child: Checkbox(
-          value: selected,
-          activeColor: color,
-          onChanged:
-              onChanged == null ? null : (value) => onChanged!(value == true),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Checkbox(
+              value: selected,
+              activeColor: color,
+              onChanged:
+                  onChanged == null
+                      ? null
+                      : (value) => onChanged!(value == true),
+            ),
+            if (evidenceIcon != null)
+              Positioned(
+                right: -1,
+                bottom: -1,
+                child: Icon(evidenceIcon, size: 13, color: BafColors.success),
+              ),
+          ],
         ),
       ),
     );

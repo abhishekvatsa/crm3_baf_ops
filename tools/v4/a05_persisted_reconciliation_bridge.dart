@@ -7,6 +7,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_availability_record.dart
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/burner_block_lifecycle_event.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/assets/data/furnace_stuckup_record.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
@@ -30,8 +31,11 @@ const _supportedCollections = <String>{
   'asset_operational_conditions',
   'asset_tag_claims',
   'base_inner_cover_assignments',
+  'burner_block_lifecycle_events',
+  'burner_block_lifecycle_current',
   'burner_condition_rounds',
   'critical_alarm_contacts',
+  'critical_alarm_definitions',
   'critical_alarms',
   'frequent_issue_definitions',
   'furnace_stuckup_cases',
@@ -106,8 +110,14 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         AssetOperationalConditionRecord.fromMap(data, documentId);
       case 'burner_condition_rounds':
         BurnerConditionRound.fromMap(data, documentId);
+      case 'burner_block_lifecycle_events':
+        BurnerBlockLifecycleEvent.fromMap(data, documentId);
+      case 'burner_block_lifecycle_current':
+        BurnerBlockLifecycleEvent.fromCurrentMap(data, documentId);
       case 'critical_alarm_contacts':
         CriticalAlarmContact.fromFirestore(data, documentId);
+      case 'critical_alarm_definitions':
+        CriticalAlarmDefinition.fromFirestore(data, documentId);
       case 'critical_alarms':
         CriticalAlarm.fromFirestore(data, documentId);
       case 'frequent_issue_definitions':

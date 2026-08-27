@@ -76,6 +76,65 @@ function baseModule(executionId, overrides = {}) {
   };
 }
 
+function burnerBlockReplacementAction() {
+  return {
+    schemaVersion: 1,
+    id: 'legacy-burner-block-action-1',
+    asset: 'Furnace 7',
+    component: 'Burner blocks and firing tubes',
+    hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+    assetHierarchyRef: {
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: 'class-furnace',
+      assetClassCode: 'FR',
+      assetClassName: 'Furnace',
+      nodeId: 'node-burner-block',
+      nodeVersion: 2,
+      nodeName: 'Burner blocks and firing tubes',
+      assetInstanceId: 'asset-furnace-7',
+      assetInstanceVersion: 2,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'RED',
+      accountableRoleKeys: ['seniorRefractory'],
+      innerCoverAssociation: null,
+    },
+    system: 'Furnace',
+    subsystem: 'Refractory system',
+    subComponent: null,
+    tag: null,
+    instance: null,
+    actionType: 'replacement',
+    replacement: 'revised',
+    issue: 'Burner block required replacement.',
+    resolution: null,
+    remarks: null,
+    templateFieldKey: null,
+    isAutoResolved: true,
+    status: 'resolved',
+    createdAt: '2026-06-21T03:00:00.000Z',
+    severity: 'medium',
+    performedBy: 'Mechanical Technician',
+    updatedAt: null,
+    version: 1,
+    metadataJson: null,
+    attendanceSessionId: null,
+    burnerPosition: 4,
+    burnerActionCode: null,
+    burnerOutcome: null,
+    burnerMicroampReading: null,
+    burnerBlockSupplyMode: 'purchased',
+    burnerBlockSupplierName: 'Industrial Refractories Ltd',
+    burnerBlockPurchaseOrderNumber: 'PO-2026-500',
+  };
+}
+
 describeWithEmulator(
   'completePlannedJobWithDb with a real Firestore emulator transaction',
   () => {
@@ -361,6 +420,91 @@ describeWithEmulator(
         );
         expect(canonical.modulePopulationVersionAtCompletion).toBe(4);
         expect(after.audits).toHaveLength(1);
+      },
+    );
+
+    test(
+      'legacy planned-job module replacement creates burner-block lifecycle evidence',
+      async () => {
+        const executionId = 'integration_burner_block_lifecycle';
+        const uid = 'supervisor_burner_block';
+
+        await seedUser(uid);
+        await db.collection('asset_classes').doc('class-furnace').set({
+          schemaVersion: 1,
+          assetClassId: 'class-furnace',
+          code: 'FR',
+          name: 'Furnace',
+          legacyAssetTypeKey: 'furnace',
+          status: 'active',
+        });
+        await db.collection('asset_instances').doc('asset-furnace-7').set({
+          schemaVersion: 1,
+          assetInstanceId: 'asset-furnace-7',
+          assetClassId: 'class-furnace',
+          assetClassCode: 'FR',
+          assetClassName: 'Furnace',
+          assetNumber: 7,
+          name: 'Furnace 7',
+          status: 'active',
+          version: 2,
+        });
+        await db.collection('asset_hierarchy_nodes').doc('node-burner-block').set({
+          schemaVersion: 1,
+          nodeId: 'node-burner-block',
+          assetClassId: 'class-furnace',
+          name: 'Burner blocks and firing tubes',
+          hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+          nodeType: 'component',
+          status: 'active',
+          version: 2,
+        });
+        await seedExecution(executionId, {
+          assetType: 'furnace',
+          assetNumber: 7,
+          version: 6,
+        });
+        await seedModule(executionId, {
+          discipline: 'mechanical',
+          actionsJson: JSON.stringify([burnerBlockReplacementAction()]),
+        });
+
+        await completePlannedJobWithDb({
+          db,
+          authUid: uid,
+          data: {
+            executionId,
+            expectedCompletionVersion: 7,
+            teamsInvolved: ['mechanical'],
+          },
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+        });
+
+        const lifecycle = await db
+          .collection('burner_block_lifecycle_events')
+          .where('sourceId', '==', executionId)
+          .get();
+        const current = await db
+          .collection('burner_block_lifecycle_current')
+          .where('sourceId', '==', executionId)
+          .get();
+        expect(lifecycle.docs).toHaveLength(1);
+        expect(current.docs).toHaveLength(1);
+        expect(lifecycle.docs[0].data()).toMatchObject({
+          burnerPosition: 4,
+          supplyMode: 'purchased',
+          supplierName: 'Industrial Refractories Ltd',
+          purchaseOrderNumber: 'PO-2026-500',
+          sourceType: 'legacyPlannedJob',
+          sourceModuleId: `module_${executionId}`,
+          installationDiscipline: 'mechanical',
+          performedByName: 'Mechanical Technician',
+        });
+        expect(current.docs[0].data()).toMatchObject({
+          currentEventId: lifecycle.docs[0].id,
+          eventId: lifecycle.docs[0].id,
+          burnerPosition: 4,
+        });
       },
     );
 

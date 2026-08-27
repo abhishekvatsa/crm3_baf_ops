@@ -26,6 +26,10 @@ import {
   ticketLaneProjection,
   ticketLaneStatus,
 } from "./ticketLanePlan";
+import {
+  applyBurnerBlockLifecycleWritePlan,
+  prepareBurnerBlockLifecycleWritePlan,
+} from "./burnerBlockLifecycle";
 
 const ROUTES = new Set([
   "operations", "electrical", "mechanical", "instrumentation",
@@ -730,8 +734,9 @@ const requireFreshAssetReference = async (args: {
     );
   }
   const reference = record(parsed, "assetHierarchyRefJson");
-  const physicalReference = reference.schemaVersion === 3 &&
-    (reference.scope === "physicalAsset" ||
+  const physicalReference =
+    (reference.schemaVersion === 3 && reference.scope === "physicalAsset") ||
+    ([2, 3].includes(reference.schemaVersion as number) &&
       reference.scope === "installedComponent");
   const componentDefinitionReference = reference.schemaVersion === 4 &&
     reference.scope === "componentDefinitionOnAsset";
@@ -857,8 +862,7 @@ const requireFreshAssetReference = async (args: {
         node.status !== "active" ||
         node.version !== referencedNodeVersion ||
         !["component", "subcomponent"].includes(node.nodeType as string) ||
-        typeof node.name !== "string" ||
-        node.componentTag != null) {
+        typeof node.name !== "string") {
       throw new WorkflowError(
         "aborted",
         "The selected hierarchy component changed before the issue was created.",
@@ -882,10 +886,13 @@ const requireFreshAssetReference = async (args: {
       10,
       80,
     );
-    if (args.tag != null) {
+    const definitionTag = optionalStoredText(node, "componentTag", 160);
+    if (args.tag != null &&
+        (definitionTag == null ||
+          normalizeTag(args.tag) !== normalizeTag(definitionTag))) {
       throw new WorkflowError(
         "failed-precondition",
-        "An untagged hierarchy component cannot carry an equipment tag.",
+        "The equipment tag does not identify the selected hierarchy component on this asset.",
         {reasonCode: "maintenance-ticket-component-definition-tag-invalid"},
       );
     }
@@ -1097,9 +1104,8 @@ const savedClosureActionPayload = (
 };
 
 const isBurnerActionEvidence = (row: JsonMap): boolean =>
-  row.attendanceSessionId != null || row.burnerPosition != null ||
-  row.burnerActionCode != null || row.burnerOutcome != null ||
-  row.burnerMicroampReading != null;
+  row.attendanceSessionId != null || row.burnerActionCode != null ||
+  row.burnerOutcome != null || row.burnerMicroampReading != null;
 
 export const canonicalGovernedClosureActions = async (args: {
   tx: WorkflowTransaction;
@@ -1213,7 +1219,8 @@ export const canonicalGovernedClosureActions = async (args: {
       system: canonicalReference.assetClassName,
       subsystem: hierarchyPath.length > 1 ?
         hierarchyPath[hierarchyPath.length - 2] : null,
-      tag: canonicalReference.componentTag ?? null,
+      tag: canonicalReference.scope === "componentDefinitionOnAsset" ?
+        tag : canonicalReference.componentTag ?? null,
       performedBy: args.actor.name,
     });
   }
@@ -2679,6 +2686,17 @@ export const resolveMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-burner-resolution-incomplete"},
     );
   }
+  const burnerBlockLifecyclePlan = await prepareBurnerBlockLifecycleWritePlan({
+    tx,
+    sourceType: "maintenanceIssue",
+    sourceId: command.aggregateId,
+    assetType: ticket.assetType,
+    assetNumber: ticket.assetNumber,
+    actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
+    completedAt: endDate.toISOString(),
+    completedBy: context.actor,
+    executionLevelMechanicalEvidence: plan.assigned.includes("mechanical"),
+  });
 
   const nextPlan = {
     ...plan,
@@ -2728,6 +2746,7 @@ export const resolveMaintenanceTicket = async ({
     resultVersion: nextVersion,
   });
   tx.update(maintenancePath(command.aggregateId), update);
+  applyBurnerBlockLifecycleWritePlan(tx, burnerBlockLifecyclePlan);
   if (burner != null) {
     tx.set(`maintenance_burner_closures/${command.aggregateId}`, {
       firestoreId: command.aggregateId,

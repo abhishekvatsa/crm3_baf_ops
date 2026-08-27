@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "6AB18DFCD5EAD06D6E44FEE414A63F6C42CC838FC4AA207C0DAE0394B8C8DE12",
+  "inventoryDigest": "F76E958A60090419A49BBD2F573F8E8B30DE34CD471D9F8626F11749A7CF26F1",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "B7D8DE642E5B63176D730FE73544EEC9EBD37CE5129EB052466FAF0B6B19F5D1",
+  "a05ManifestSha256": "B472CB8554D21911053669D073279D33BA1B1B176BCE321C5A7DE947A5BA8B58",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -867,6 +867,15 @@
       "malformedDisposition": "fail closed",
       "compatibility": "declared historical aliases only",
       "regression": "test/a05_baf_knowledge_integrity_test.dart"
+    },
+    {
+      "id": "burner-block-lifecycle-record",
+      "file": "lib/features/assets/data/burner_block_lifecycle_event.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "append-only Furnace burner-block replacement evidence and its server-maintained per-position current-state projection",
+      "malformedDisposition": "fail closed before malformed lifecycle or current-projection evidence changes burner condition reporting",
+      "compatibility": "schema version 1 only; exact Furnace and burner identity, governed hierarchy, Mechanical installation, source provenance, chronology, and projection binding",
+      "regression": "test/planned_maintenance_burner_block_lifecycle_test.dart; functions/test/burnerBlockLifecycle.test.js"
     },
     {
       "id": "burner-condition-round-command-result",

@@ -218,6 +218,59 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         });
         return true;
       }
+      final route = _selectedAssetRoute();
+      if (route == null) {
+        throw const AssetHierarchyException(
+          'The selected asset class is no longer available.',
+        );
+      }
+      final nodes = await repository.watchNodes(route.issueClass.id).first;
+      if (!mounted || generation != _tagResolutionGeneration) return false;
+      final normalizedTag = normalizeAssetComponentTag(tag);
+      final hierarchyMatches = nodes
+          .where(
+            (node) =>
+                node.isActive &&
+                (node.nodeType == AssetHierarchyNodeType.component ||
+                    node.nodeType == AssetHierarchyNodeType.subcomponent) &&
+                node.componentTag != null &&
+                normalizeAssetComponentTag(node.componentTag!) == normalizedTag,
+          )
+          .toList(growable: false);
+      if (hierarchyMatches.length > 1) {
+        throw AssetHierarchyException(
+          'Tag $normalizedTag identifies more than one active hierarchy component. Ask an Admin to reconcile the hierarchy.',
+        );
+      }
+      if (hierarchyMatches.length == 1) {
+        final node = hierarchyMatches.single;
+        final reference = componentDefinitionReferenceForAsset(
+          asset: selectedAsset,
+          node: node,
+          definitionAssetClassId: route.issueClass.id,
+        );
+        setState(() {
+          _resolvedSystem = route.issueClass.name;
+          _resolvedSubsystem =
+              node.hierarchyPath.length > 1
+                  ? node.hierarchyPath[node.hierarchyPath.length - 2]
+                  : null;
+          _resolvedPath = List<String>.from(node.hierarchyPath);
+          _assetHierarchyReference = reference;
+          _selectedComponentNodeId = node.id;
+          _resolvedOwnership = <String>[
+            node.ownershipStatus.label,
+            if (node.ownerDiscipline != null) node.ownerDiscipline!,
+            if (node.accountableRoleKeys.isNotEmpty)
+              node.accountableRoleKeys.map(_roleLabelForReference).join(', '),
+          ].join(' · ');
+          _componentController.text = node.name;
+          _tagController.text = node.componentTag!;
+          _isAutoResolved = true;
+          _isGovernedTagResolution = true;
+        });
+        return true;
+      }
     } on AssetHierarchyException catch (error) {
       if (!mounted || generation != _tagResolutionGeneration) return false;
       _tagController.clear();
@@ -570,7 +623,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _selectedComponentNodeId = node.id;
         _assetHierarchyReference = reference;
         _componentController.text = node.name;
-        _tagController.clear();
+        _tagController.text = node.componentTag ?? '';
         _resolvedSystem = route.issueClass.name;
         _resolvedSubsystem =
             node.hierarchyPath.length > 1
@@ -1533,6 +1586,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   setState(() {
                     if (selected) {
                       _redHotBurnerPositions.add(position);
+                      _routedLanes.add(RoutedTo.mechanical);
                       _isCritical = true;
                     } else {
                       _redHotBurnerPositions.remove(position);
@@ -1832,9 +1886,11 @@ class _BurnerRouteNotice extends StatelessWidget {
           SizedBox(width: BafSpacing.sm),
           Expanded(
             child: Text(
-              'Burner lockout keeps I&A as its primary accountable lane. Add '
-              'Electrical or another lane here when joint attendance is '
-              'already known.',
+              'Burner lockout keeps I&A primary for UV, ignition and flame '
+              'supervision. Mechanical investigates the physical burner '
+              'block and installs replacements, so a red-hot block adds the '
+              'Mechanical lane automatically. RED manufacture or purchased '
+              'supply is captured as replacement provenance.',
               style: TextStyle(
                 color: BafColors.textPrimary,
                 height: 1.35,

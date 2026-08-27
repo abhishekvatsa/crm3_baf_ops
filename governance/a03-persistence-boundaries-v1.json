@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "3BE76B4E607EA4D1E57CFD2FCDDA7FEF9587F75122C109222F7EB5BE9E52AA1D",
+  "inventoryDigest": "EA6408AC22E0DDF12026C3860BF9DBA49B80BB0642C94D203B22857E424C83C6",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -267,6 +267,19 @@
     },
     {
       "path": "lib/features/assets/providers/asset_availability_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/assets/providers/burner_block_lifecycle_provider.dart",
       "profile": "read-provider",
       "allowedStores": [
         "firestore"

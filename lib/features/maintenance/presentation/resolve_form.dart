@@ -221,6 +221,16 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   }
 
   Future<void> _addAction() async {
+    final actor = ref.read(currentAppUserProvider).value;
+    if (actor == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Your approved user identity is not available.'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
     final reference = widget.ticket.assetHierarchyReference;
     final result = await showModalBottomSheet<ComponentAction>(
       context: context,
@@ -235,6 +245,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       builder:
           (_) => ActionBottomSheet(
             performedAt: _endTime,
+            performedBy: actor.name,
             target: GovernedActionContext(
               assetTypeKey: widget.ticket.assetType.name,
               assetNumber: widget.ticket.assetNumber,
@@ -244,7 +255,26 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
           ),
     );
     if (!mounted || result == null) return;
-    setState(() => _actions.add(result));
+    setState(() {
+      _actions.add(result);
+      if (result.burnerBlockSupplyMode != null) {
+        _teamsInvolved.add('mechanical');
+      }
+    });
+    if (result.burnerBlockSupplyMode != null &&
+        !(widget.ticket.issueLanePlanReadResult.value?.assignedLanes.contains(
+              'mechanical',
+            ) ??
+            false)) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A supervisor must add the Mechanical lane before this burner-block replacement can close the issue.',
+          ),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+    }
   }
 
   Future<void> _submit() async {

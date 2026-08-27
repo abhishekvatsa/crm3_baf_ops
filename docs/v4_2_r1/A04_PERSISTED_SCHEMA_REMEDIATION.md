@@ -18,7 +18,7 @@ The governed manifest `governance/a04-persisted-schema-v1.json` classifies 53
 fields: 47 JSON strings and six nested dynamic values. Three are registered
 extension bags. The current extension registry contains zero fields, so an
 unknown key cannot silently acquire authority or business meaning. The
-inventory now inherits all 72 strict A-05 decoder surfaces, including the
+inventory now inherits all 75 strict A-05 decoder surfaces, including the
 business-function tranche added on 21 August 2026 and the strict issue-lane
 topology plus strict asset-hierarchy and workflow command receipts added on
 23 August 2026, and the administrative issue-closure envelope added on 24

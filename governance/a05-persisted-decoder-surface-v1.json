@@ -850,6 +850,22 @@
       "riskFingerprint": "dbb8ebba1b7529823b5db5185a3518d844aef46b3747a5fe304ceee5db962ea9"
     },
     {
+      "id": "burner-block-lifecycle-record",
+      "file": "lib/features/assets/data/burner_block_lifecycle_event.dart",
+      "markers": [
+        "factory BurnerBlockLifecycleEvent.fromMap",
+        "factory BurnerBlockLifecycleEvent.fromCurrentMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "append-only Furnace burner-block replacement evidence and its server-maintained per-position current-state projection",
+      "malformedDisposition": "fail closed before malformed lifecycle or current-projection evidence changes burner condition reporting",
+      "compatibility": "schema version 1 only; exact Furnace and burner identity, governed hierarchy, Mechanical installation, source provenance, chronology, and projection binding",
+      "regression": "test/planned_maintenance_burner_block_lifecycle_test.dart; functions/test/burnerBlockLifecycle.test.js",
+      "reArmCondition": "event shape, current-projection identity, hierarchy, source, role, chronology, or version validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "id": "burner-condition-round-command-result",
       "file": "lib/features/assets/services/burner_condition_round_service.dart",
       "markers": [

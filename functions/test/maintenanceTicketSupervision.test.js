@@ -154,8 +154,46 @@ function seedFurnaceHierarchy(store) {
     version: 3,
     nodeType: 'component',
     name: 'Furnace shell',
-    componentTag: null,
+    componentTag: 'FSH-REF',
     hierarchyPath: ['Structure', 'Furnace shell'],
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Mechanical',
+    accountableRoleKeys: ['seniorMechanical'],
+  });
+  store.seed('asset_hierarchy_nodes/node-burner-block', {
+    schemaVersion: 1,
+    nodeId: 'node-burner-block',
+    assetClassId: 'class-furnace',
+    status: 'active',
+    version: 2,
+    nodeType: 'component',
+    name: 'Burner blocks and firing tubes',
+    componentTag: null,
+    hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'RED',
+    accountableRoleKeys: ['seniorRefractory'],
+  });
+}
+
+function seedInstalledFurnaceShell(store) {
+  store.seed('asset_component_instances/component-furnace-shell-7', {
+    schemaVersion: 1,
+    componentInstanceId: 'component-furnace-shell-7',
+    assetClassId: 'class-furnace',
+    assetClassCode: 'FR',
+    assetClassName: 'Furnace',
+    assetInstanceId: 'asset-furnace-7',
+    assetInstanceVersionAtMutation: 4,
+    assetNumber: 7,
+    assetInstanceName: 'Furnace 7',
+    definitionNodeId: 'node-furnace-shell',
+    definitionNodeVersion: 3,
+    definitionName: 'Furnace shell',
+    hierarchyPath: ['Structure', 'Furnace shell'],
+    componentTag: 'FR07-SHELL-01',
+    status: 'active',
+    version: 2,
     ownershipStatus: 'confirmed',
     ownerDiscipline: 'Mechanical',
     accountableRoleKeys: ['seniorMechanical'],
@@ -171,6 +209,20 @@ function furnaceShellReference(nodeVersion = 3) {
     assetInstanceVersion: 4,
     nodeId: 'node-furnace-shell',
     nodeVersion,
+  };
+}
+
+function installedFurnaceShellReference() {
+  return {
+    schemaVersion: 2,
+    scope: 'installedComponent',
+    assetClassId: 'class-furnace',
+    assetInstanceId: 'asset-furnace-7',
+    assetInstanceVersion: 4,
+    nodeId: 'node-furnace-shell',
+    nodeVersion: 3,
+    componentInstanceId: 'component-furnace-shell-7',
+    componentInstanceVersion: 2,
   };
 }
 
@@ -193,6 +245,44 @@ function hierarchyAction(overrides = {}) {
     version: 1,
     ...overrides,
   };
+}
+
+function burnerBlockReplacementAction(overrides = {}) {
+  return hierarchyAction({
+    id: 'burner-block-action-1',
+    asset: 'Furnace 7',
+    component: 'Burner blocks and firing tubes',
+    hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+    assetHierarchyRef: {
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: 'class-furnace',
+      assetClassCode: 'FR',
+      assetClassName: 'Furnace',
+      nodeId: 'node-burner-block',
+      nodeVersion: 2,
+      nodeName: 'Burner blocks and firing tubes',
+      assetInstanceId: 'asset-furnace-7',
+      assetInstanceVersion: 4,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'RED',
+      accountableRoleKeys: ['seniorRefractory'],
+      innerCoverAssociation: null,
+    },
+    actionType: 'replacement',
+    replacement: 'newPart',
+    burnerPosition: 3,
+    burnerBlockSupplyMode: 'purchased',
+    burnerBlockSupplierName: 'Industrial Refractories Ltd',
+    burnerBlockPurchaseOrderNumber: 'PO-2026-411',
+    ...overrides,
+  });
 }
 
 function createCommand({
@@ -348,6 +438,76 @@ describe('governed maintenance-ticket supervision', () => {
       hierarchyPath: ['Furnace', 'Furnace 7'],
       qualityImpactAssessment: 'notSuspected',
       createdAt: at.toISOString(),
+    });
+  });
+
+  test('binds a definition tag to the selected physical asset', async () => {
+    const seeded = createServiceFor(mechanical);
+    seedFurnaceHierarchy(seeded.store);
+    const command = createCommand({
+      commandId: 'create-definition-tag-ticket',
+      ticketId: 'definition-tag-ticket',
+      ticket: {
+        component: 'Furnace shell',
+        tag: 'fsh ref',
+        assetHierarchyRefJson: JSON.stringify(furnaceShellReference()),
+      },
+    });
+
+    await expect(seeded.service.execute(command, seeded.context)).resolves
+      .toMatchObject({aggregateVersion: 1});
+    expect(seeded.store.read('maintenance_records/definition-tag-ticket'))
+      .toMatchObject({
+        component: 'Furnace shell',
+        tag: 'FSH REF',
+        hierarchyPath: ['Structure', 'Furnace shell'],
+      });
+
+    const mismatch = createServiceFor(mechanical);
+    seedFurnaceHierarchy(mismatch.store);
+    await expect(mismatch.service.execute(createCommand({
+      commandId: 'create-wrong-definition-tag-ticket',
+      ticketId: 'wrong-definition-tag-ticket',
+      ticket: {
+        component: 'Furnace shell',
+        tag: 'TE00',
+        assetHierarchyRefJson: JSON.stringify(furnaceShellReference()),
+      },
+    }), mismatch.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-component-definition-tag-invalid',
+      },
+    });
+  });
+
+  test('accepts the client schema for an exact installed-component tag', async () => {
+    const seeded = createServiceFor(mechanical);
+    seedFurnaceHierarchy(seeded.store);
+    seedInstalledFurnaceShell(seeded.store);
+    const command = createCommand({
+      commandId: 'create-installed-tag-ticket',
+      ticketId: 'installed-tag-ticket',
+      ticket: {
+        component: 'Furnace shell',
+        tag: 'fr07 shell 01',
+        assetHierarchyRefJson: JSON.stringify(installedFurnaceShellReference()),
+      },
+    });
+
+    await expect(seeded.service.execute(command, seeded.context)).resolves
+      .toMatchObject({aggregateVersion: 1});
+    const created = seeded.store.read('maintenance_records/installed-tag-ticket');
+    expect(created).toMatchObject({
+      component: 'Furnace shell',
+      tag: 'FR07 SHELL 01',
+      hierarchyPath: ['Structure', 'Furnace shell'],
+    });
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      schemaVersion: 3,
+      scope: 'installedComponent',
+      componentInstanceId: 'component-furnace-shell-7',
+      componentTag: 'FR07-SHELL-01',
     });
   });
 
@@ -1484,6 +1644,76 @@ describe('governed maintenance-ticket supervision', () => {
         assetInstanceId: 'asset-furnace-7',
         assetInstanceVersion: 4,
       },
+    });
+  });
+
+  test('resolution preserves a verified hierarchy-definition tag', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      actionsJson: '[]',
+    });
+    seedFurnaceHierarchy(seeded.store);
+
+    await seeded.service.execute({
+      commandId: 'resolve-with-definition-tag',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'The tagged Furnace shell inspection was completed.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: JSON.stringify([hierarchyAction({tag: 'fsh ref'})]),
+        actionTargetContractVersion: 1,
+      },
+    }, seeded.context);
+
+    const [savedAction] = JSON.parse(
+      seeded.store.read('maintenance_records/ticket-1').actionsJson,
+    );
+    expect(savedAction).toMatchObject({
+      component: 'Furnace shell',
+      tag: 'fsh ref',
+      assetHierarchyRef: {
+        scope: 'componentDefinitionOnAsset',
+        nodeId: 'node-furnace-shell',
+        componentTag: null,
+      },
+    });
+  });
+
+  test('issue resolution projects burner-block replacement into lifecycle history', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      actionsJson: '[]',
+      routedTo: 'mechanical',
+    });
+    seedFurnaceHierarchy(seeded.store);
+
+    await seeded.service.execute({
+      commandId: 'resolve-with-burner-block-replacement',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Burner block replaced and furnace returned to service.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: JSON.stringify([burnerBlockReplacementAction()]),
+        actionTargetContractVersion: 1,
+      },
+    }, seeded.context);
+
+    const lifecycle = seeded.store.entries().find(([path]) =>
+      path.startsWith('burner_block_lifecycle_events/'));
+    expect(lifecycle?.[1]).toMatchObject({
+      assetInstanceId: 'asset-furnace-7',
+      burnerPosition: 3,
+      supplyMode: 'purchased',
+      supplierName: 'Industrial Refractories Ltd',
+      purchaseOrderNumber: 'PO-2026-411',
+      sourceType: 'maintenanceIssue',
+      sourceId: 'ticket-1',
     });
   });
 

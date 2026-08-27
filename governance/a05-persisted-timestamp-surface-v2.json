@@ -652,6 +652,18 @@
       "reArmCondition": "any burner-condition round timestamp schema change"
     },
     {
+      "id": "burner-block-lifecycle-record",
+      "readerFile": "lib/features/assets/data/burner_block_lifecycle_event.dart",
+      "readerMarker": "factory BurnerBlockLifecycleEvent.fromMap",
+      "requiredFields": ["actionPerformedAt", "completedAt", "recordedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "restore the immutable burner-block intervention, closure, and recording chronology used by lifecycle history and the current-state projection",
+      "authorityBoundary": "remote-burner-block-lifecycle-record",
+      "regression": "test/planned_maintenance_burner_block_lifecycle_test.dart",
+      "reArmCondition": "any burner-block lifecycle event or current-projection timestamp schema change"
+    },
+    {
       "id": "burner-condition-round-command-response",
       "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
       "readerMarker": "factory BurnerConditionRoundResult.fromMap",

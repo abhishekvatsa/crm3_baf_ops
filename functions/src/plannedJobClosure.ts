@@ -17,6 +17,10 @@ import {WorkflowTransaction} from "./maintenanceWorkflow/store";
 import {RoleKey} from "./maintenanceWorkflow/types";
 import {WorkflowError} from "./maintenanceWorkflow/errors";
 import {canonicalGovernedClosureActions} from "./maintenanceWorkflow/ticketHandlers";
+import {
+  applyBurnerBlockLifecycleWritePlan,
+  prepareBurnerBlockLifecycleWritePlan,
+} from "./maintenanceWorkflow/burnerBlockLifecycle";
 
 export type HttpsErrorCode =
   | "ok"
@@ -1057,7 +1061,7 @@ export async function completePlannedJobWithDb(params: {
       .where("jobExecutionFirestoreId", "==", executionId)
       .where("isDeleted", "==", false);
     const modulesSnap = asQuerySnapshot(await transaction.get(modulesQuery));
-    const modules = modulesSnap.docs.map((doc) => ({
+    const modules: JsonMap[] = modulesSnap.docs.map((doc) => ({
       ...(doc.data() ?? {}),
       firestoreId:
         typeof (doc.data() ?? {}).firestoreId === "string"
@@ -1116,6 +1120,29 @@ export async function completePlannedJobWithDb(params: {
       completedBy: completionActor,
       recordedAt: completedAt,
     });
+    const burnerBlockLifecyclePlan = await prepareBurnerBlockLifecycleWritePlan({
+      tx: maintenanceTx,
+      sourceType: "legacyPlannedJob",
+      sourceId: executionId,
+      assetType: beforeData.assetType,
+      assetNumber: beforeData.assetNumber,
+      actionSources: [
+        {
+          sourceModuleId: null,
+          actionsJson: actionsJson ?? beforeData.actionsJson,
+        },
+        ...modules.map((module) => ({
+          sourceModuleId:
+            typeof module.firestoreId === "string" ? module.firestoreId : null,
+          discipline: module.discipline,
+          actionsJson: module.actionsJson,
+          responsesJson: module.responsesJson,
+        })),
+      ],
+      completedAt,
+      completedBy: completionActor,
+      executionLevelMechanicalEvidence: teamsInvolved.includes("mechanical"),
+    });
     const attestation = buildClosureAttestation({
       executionFirestoreId: executionId,
       modules,
@@ -1156,6 +1183,7 @@ export async function completePlannedJobWithDb(params: {
 
     transaction.update(executionRef, updateData);
     applyMaintenanceCompletionWritePlan(maintenanceTx, maintenanceCompletionPlan);
+    applyBurnerBlockLifecycleWritePlan(maintenanceTx, burnerBlockLifecyclePlan);
 
     const afterData: JsonMap = {...beforeData, ...updateData, firestoreId: executionId};
     const auditRef = db

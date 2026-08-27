@@ -27,10 +27,16 @@ final class GovernedActionContext {
 }
 
 class ActionBottomSheet extends ConsumerStatefulWidget {
-  const ActionBottomSheet({super.key, required this.target, this.performedAt});
+  const ActionBottomSheet({
+    super.key,
+    required this.target,
+    this.performedAt,
+    this.performedBy,
+  });
 
   final GovernedActionContext target;
   final DateTime? performedAt;
+  final String? performedBy;
 
   @override
   ConsumerState<ActionBottomSheet> createState() => _ActionBottomSheetState();
@@ -40,6 +46,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
   final TextEditingController _tagController = TextEditingController();
   final TextEditingController _componentController = TextEditingController();
   final TextEditingController _issueController = TextEditingController();
+  final TextEditingController _supplierController = TextEditingController();
+  final TextEditingController _purchaseOrderController =
+      TextEditingController();
 
   String? asset;
   String? system;
@@ -61,6 +70,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
 
   ActionType _actionType = ActionType.issue;
   ActionStatus _status = ActionStatus.issue;
+  ReplacementType? _replacementType;
+  int? _burnerPosition;
+  BurnerBlockSupplyMode? _burnerBlockSupplyMode;
 
   @override
   void initState() {
@@ -73,6 +85,8 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     _tagController.dispose();
     _componentController.dispose();
     _issueController.dispose();
+    _supplierController.dispose();
+    _purchaseOrderController.dispose();
     super.dispose();
   }
 
@@ -169,6 +183,15 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     final reference = selection.reference;
     final node = selection.node;
     if (selection.unlisted || reference == null || node == null) return;
+    _applyDefinitionTarget(node: node, reference: reference);
+  }
+
+  void _applyDefinitionTarget({
+    required AssetHierarchyNode node,
+    required AssetHierarchyReference reference,
+    String? verifiedTag,
+    bool populateDefinitionTag = true,
+  }) {
     setState(() {
       _selectedNodeId = node.id;
       hierarchyReference = reference;
@@ -184,10 +207,27 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
         if (reference.ownerDiscipline != null) reference.ownerDiscipline!,
       ].join(' · ');
       _componentController.text = reference.nodeName;
-      _tagController.clear();
+      _tagController.text =
+          verifiedTag ?? (populateDefinitionTag ? node.componentTag ?? '' : '');
       _tagError = null;
       _isAutoResolved = true;
     });
+  }
+
+  bool _definitionTagMatches(String rawTag) {
+    final reference = hierarchyReference;
+    final selectedNodeId = _selectedNodeId;
+    if (reference?.scope !=
+            AssetHierarchyReferenceScope.componentDefinitionOnAsset ||
+        selectedNodeId == null) {
+      return false;
+    }
+    for (final node in _hierarchyNodes) {
+      if (node.id != selectedNodeId || node.componentTag == null) continue;
+      return normalizeAssetComponentTag(node.componentTag!) ==
+          normalizeAssetComponentTag(rawTag);
+    }
+    return false;
   }
 
   Future<void> _resolveTag(String rawTag) async {
@@ -195,6 +235,25 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     final tag = rawTag.trim();
 
     if (tag.isEmpty) {
+      final targetAsset = _assetRecord;
+      final selectedNode =
+          _hierarchyNodes
+              .where((node) => node.id == _selectedNodeId)
+              .singleOrNull;
+      if (targetAsset != null &&
+          selectedNode != null &&
+          hierarchyReference?.scope ==
+              AssetHierarchyReferenceScope.installedComponent) {
+        _applyDefinitionTarget(
+          node: selectedNode,
+          reference: componentDefinitionReferenceForAsset(
+            asset: targetAsset,
+            node: selectedNode,
+            definitionAssetClassId: _definitionAssetClassId,
+          ),
+          populateDefinitionTag: false,
+        );
+      }
       setState(() {
         _tagError = null;
         _resolvingTag = false;
@@ -217,9 +276,41 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       final component = await repository.findActiveInstalledComponentByTag(tag);
       if (!mounted || generation != _resolutionGeneration) return;
       if (component == null) {
-        throw AssetHierarchyException(
-          'Tag ${normalizeAssetComponentTag(tag)} is not registered.',
+        final normalizedTag = normalizeAssetComponentTag(tag);
+        final hierarchyMatches = _hierarchyNodes
+            .where(
+              (node) =>
+                  node.isActive &&
+                  (node.nodeType == AssetHierarchyNodeType.component ||
+                      node.nodeType == AssetHierarchyNodeType.subcomponent) &&
+                  node.componentTag != null &&
+                  normalizeAssetComponentTag(node.componentTag!) ==
+                      normalizedTag,
+            )
+            .toList(growable: false);
+        if (hierarchyMatches.length > 1) {
+          throw AssetHierarchyException(
+            'Tag $normalizedTag identifies more than one active hierarchy component. Ask an Admin to reconcile the hierarchy.',
+          );
+        }
+        if (hierarchyMatches.isEmpty) {
+          throw AssetHierarchyException(
+            'Tag $normalizedTag is not registered for ${targetAsset.name}.',
+          );
+        }
+        final node = hierarchyMatches.single;
+        final reference = componentDefinitionReferenceForAsset(
+          asset: targetAsset,
+          node: node,
+          definitionAssetClassId: _definitionAssetClassId,
         );
+        _applyDefinitionTarget(
+          node: node,
+          reference: reference,
+          verifiedTag: node.componentTag,
+        );
+        setState(() => _resolvingTag = false);
+        return;
       }
       if (component.assetClassId != targetAsset.assetClassId ||
           component.assetInstanceId != targetAsset.id ||
@@ -262,6 +353,11 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
 
   bool _canSave() {
     final tag = _tagController.text.trim();
+    final replacementReady =
+        _actionType != ActionType.replacement || _replacementType != null;
+    final burnerBlockReady =
+        !_isBurnerBlockReplacement ||
+        (_burnerPosition != null && _burnerBlockSupplyMode != null);
     return !_loadingTarget &&
         _targetLoadError == null &&
         !_resolvingTag &&
@@ -269,9 +365,17 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
         _componentController.text.trim().isNotEmpty &&
         asset != null &&
         hierarchyReference != null &&
+        replacementReady &&
+        burnerBlockReady &&
         (tag.isEmpty ||
-            hierarchyReference!.scope ==
-                AssetHierarchyReferenceScope.installedComponent);
+            (hierarchyReference!.scope ==
+                    AssetHierarchyReferenceScope.installedComponent &&
+                hierarchyReference!.componentTag != null &&
+                normalizeAssetComponentTag(tag) ==
+                    normalizeAssetComponentTag(
+                      hierarchyReference!.componentTag!,
+                    )) ||
+            _definitionTagMatches(tag));
   }
 
   void _save() {
@@ -309,10 +413,20 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       hierarchyPath: path,
       assetHierarchyRef: hierarchyReference,
       actionType: _actionType,
+      replacement:
+          _actionType == ActionType.replacement ? _replacementType : null,
       status: _status,
       issue: _issueController.text.trim(),
       isAutoResolved: _isAutoResolved,
       createdAt: widget.performedAt ?? DateTime.now(),
+      performedBy: widget.performedBy,
+      burnerPosition: _isBurnerBlockReplacement ? _burnerPosition : null,
+      burnerBlockSupplyMode:
+          _isBurnerBlockReplacement ? _burnerBlockSupplyMode : null,
+      burnerBlockSupplierName:
+          _isPurchasedBurnerBlock ? _supplierController.text.trim() : null,
+      burnerBlockPurchaseOrderNumber:
+          _isPurchasedBurnerBlock ? _purchaseOrderController.text.trim() : null,
     );
 
     Navigator.pop(context, action);
@@ -469,9 +583,138 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                     }).toList(),
                 onChanged: (val) {
                   if (val == null) return;
-                  setState(() => _actionType = val);
+                  setState(() {
+                    _actionType = val;
+                    if (val == ActionType.replacement) {
+                      _status = ActionStatus.resolved;
+                    }
+                    if (val != ActionType.replacement) {
+                      _replacementType = null;
+                      _burnerPosition = null;
+                      _burnerBlockSupplyMode = null;
+                      _supplierController.clear();
+                      _purchaseOrderController.clear();
+                    }
+                  });
                 },
               ),
+              if (_actionType == ActionType.replacement) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<ReplacementType>(
+                  initialValue: _replacementType,
+                  isExpanded: true,
+                  decoration: _inputDecoration(
+                    'Replacement disposition',
+                    icon: Icons.swap_horiz_rounded,
+                  ),
+                  hint: const Text('Select new, repaired or revised part'),
+                  items:
+                      ReplacementType.values
+                          .map(
+                            (type) => DropdownMenuItem<ReplacementType>(
+                              value: type,
+                              child: Text(_replacementTypeLabel(type)),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (value) {
+                    setState(() => _replacementType = value);
+                  },
+                ),
+              ],
+              if (_isBurnerBlockReplacement) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.instrument.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: BafColors.instrument.withValues(alpha: 0.24),
+                    ),
+                    borderRadius: BorderRadius.circular(BafRadius.small),
+                  ),
+                  child: const Text(
+                    'Burner blocks may be SAIL-made by RED or purchased, but physical installation is Mechanical. A completed replacement updates the numbered burner lifecycle and condition audit when the parent work is closed.',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  initialValue: _burnerPosition,
+                  isExpanded: true,
+                  decoration: _inputDecoration(
+                    'Burner position',
+                    icon: Icons.local_fire_department_outlined,
+                  ),
+                  hint: const Text('Select burner 1-8'),
+                  items: <DropdownMenuItem<int>>[
+                    for (var position = 1; position <= 8; position++)
+                      DropdownMenuItem<int>(
+                        value: position,
+                        child: Text('Burner $position'),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _burnerPosition = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<BurnerBlockSupplyMode>(
+                  initialValue: _burnerBlockSupplyMode,
+                  isExpanded: true,
+                  decoration: _inputDecoration(
+                    'Burner-block source',
+                    icon: Icons.factory_outlined,
+                  ),
+                  hint: const Text('Select SAIL/RED-made or purchased'),
+                  items: const <DropdownMenuItem<BurnerBlockSupplyMode>>[
+                    DropdownMenuItem<BurnerBlockSupplyMode>(
+                      value: BurnerBlockSupplyMode.sailRed,
+                      child: Text('SAIL-made by RED'),
+                    ),
+                    DropdownMenuItem<BurnerBlockSupplyMode>(
+                      value: BurnerBlockSupplyMode.purchased,
+                      child: Text('Purchased'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _burnerBlockSupplyMode = value;
+                      if (value != BurnerBlockSupplyMode.purchased) {
+                        _supplierController.clear();
+                        _purchaseOrderController.clear();
+                      }
+                    });
+                  },
+                ),
+                if (_isPurchasedBurnerBlock) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _supplierController,
+                    maxLength: 160,
+                    decoration: _inputDecoration(
+                      'Supplier name (optional)',
+                      icon: Icons.business_outlined,
+                    ).copyWith(counterText: ''),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _purchaseOrderController,
+                    maxLength: 160,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: _inputDecoration(
+                      'PO number (optional)',
+                      icon: Icons.receipt_long_outlined,
+                    ).copyWith(counterText: ''),
+                  ),
+                ],
+              ],
               const SizedBox(height: 12),
               DropdownButtonFormField<ActionStatus>(
                 initialValue: _status,
@@ -614,6 +857,37 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
         return 'Resolved';
     }
   }
+
+  String _replacementTypeLabel(ReplacementType type) {
+    switch (type) {
+      case ReplacementType.newPart:
+        return 'New part';
+      case ReplacementType.repaired:
+        return 'Repaired part';
+      case ReplacementType.revised:
+        return 'Revised / modified part';
+    }
+  }
+
+  bool get _isBurnerBlockReplacement {
+    if (_actionType != ActionType.replacement ||
+        widget.target.assetTypeKey != 'furnace') {
+      return false;
+    }
+    final reference = hierarchyReference;
+    if (reference == null) return false;
+    final identity =
+        <String>[
+          reference.nodeName,
+          ...reference.hierarchyPath,
+        ].join(' ').toLowerCase();
+    return identity.contains('burner block') ||
+        identity.contains('firing tube');
+  }
+
+  bool get _isPurchasedBurnerBlock =>
+      _isBurnerBlockReplacement &&
+      _burnerBlockSupplyMode == BurnerBlockSupplyMode.purchased;
 }
 
 class _ResolvedTagPanel extends StatelessWidget {

@@ -143,6 +143,28 @@ class ActionMiniCard extends StatelessWidget {
                             '${action.burnerMicroampReading!.toStringAsFixed(3)} \u00B5A',
                         color: BafColors.instrument,
                       ),
+                    if (action.burnerBlockSupplyMode != null)
+                      StatusBadge(
+                        label:
+                            action.burnerBlockSupplyMode ==
+                                    BurnerBlockSupplyMode.sailRed
+                                ? 'SAIL-made by RED'
+                                : 'Purchased block',
+                        color: BafColors.maintenance,
+                        icon: Icons.factory_outlined,
+                      ),
+                    if (action.burnerBlockSupplierName != null)
+                      StatusBadge(
+                        label: action.burnerBlockSupplierName!,
+                        color: BafColors.assets,
+                        icon: Icons.business_outlined,
+                      ),
+                    if (action.burnerBlockPurchaseOrderNumber != null)
+                      StatusBadge(
+                        label: 'PO ${action.burnerBlockPurchaseOrderNumber}',
+                        color: BafColors.assets,
+                        icon: Icons.receipt_long_outlined,
+                      ),
                     StatusBadge(
                       label: TimeOfDay.fromDateTime(
                         action.createdAt,

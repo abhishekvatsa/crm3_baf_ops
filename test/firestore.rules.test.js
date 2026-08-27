@@ -4940,6 +4940,14 @@ describe("governed dynamic asset hierarchy", () => {
       roundId: "round-1",
       observedAt: Timestamp.now(),
     });
+    await seedDoc("burner_block_lifecycle_events/event-1", {
+      eventId: "event-1",
+      completedAt: Timestamp.now(),
+    });
+    await seedDoc("burner_block_lifecycle_current/current-1", {
+      projectionId: "current-1",
+      currentEventId: "event-1",
+    });
     await seedDoc("inner_cover_profiles/cover-1", {
       innerCoverId: "cover-1",
     });
@@ -4964,6 +4972,12 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertSucceeds(
       getDoc(doc(opsDb, "burner_condition_rounds/round-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "burner_block_lifecycle_events/event-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "burner_block_lifecycle_current/current-1"))
     );
     await assertSucceeds(getDoc(doc(opsDb, "asset_tag_claims/tag-hash")));
     await assertFails(getDocs(collection(opsDb, "asset_tag_claims")));
@@ -5012,6 +5026,12 @@ describe("governed dynamic asset hierarchy", () => {
       }),
       setDoc(doc(adminDb, "burner_condition_rounds/round-1"), {
         roundId: "round-1",
+      }),
+      setDoc(doc(adminDb, "burner_block_lifecycle_events/event-1"), {
+        eventId: "event-1",
+      }),
+      setDoc(doc(adminDb, "burner_block_lifecycle_current/current-1"), {
+        projectionId: "current-1",
       }),
       setDoc(doc(adminDb, "burner_condition_round_receipts/request-1"), {
         requestId: "request-1",
@@ -5223,10 +5243,18 @@ describe("governed dynamic asset hierarchy", () => {
     }
   });
 
-  test("burner rounds are approved-readable, immutable, and receipts stay private", async () => {
+  test("burner rounds and block lifecycle are approved-readable and immutable", async () => {
     await seedDoc("burner_condition_rounds/round-1", {
       roundId: "round-1",
       observedAt: Timestamp.now(),
+    });
+    await seedDoc("burner_block_lifecycle_events/event-1", {
+      eventId: "event-1",
+      completedAt: Timestamp.now(),
+    });
+    await seedDoc("burner_block_lifecycle_current/current-1", {
+      projectionId: "current-1",
+      currentEventId: "event-1",
     });
     await seedDoc("burner_condition_round_receipts/request-1", {
       requestId: "request-1",
@@ -5234,9 +5262,25 @@ describe("governed dynamic asset hierarchy", () => {
     await assertSucceeds(
       getDoc(doc(dbAs("ops1"), "burner_condition_rounds/round-1"))
     );
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "burner_block_lifecycle_events/event-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "burner_block_lifecycle_current/current-1"))
+    );
     await assertFails(
       updateDoc(doc(dbAs("admin1"), "burner_condition_rounds/round-1"), {
         roundNote: "Client-side rewrite",
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "burner_block_lifecycle_events/event-1"), {
+        supplierName: "Client-side rewrite",
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "burner_block_lifecycle_current/current-1"), {
+        supplierName: "Client-side rewrite",
       })
     );
     await assertFails(
