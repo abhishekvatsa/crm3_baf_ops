@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "67DD2A8481532EAF7A406CFB585713297CBCE56C3647BFF859D62C5B996EBEEF",
+  "inventoryDigest": "B16D0DD047E50C8B09199CE0EB628A86994A54A6A5BE52D83BEFB84816C573F7",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "7ECBAC7D6B01CD9EE4287619E334DCEC3EEB3683B96EC437DC5FCFD9A6A2AB07",
+  "a05ManifestSha256": "E09C98105FE934A91D9B03E8BCD5CE7E699BDE50204DF17A7DEDCF60C4CFF937",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -899,9 +899,9 @@
       "id": "burner-condition-round-record",
       "file": "lib/features/assets/data/burner_condition_round.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
-      "malformedDisposition": "fail closed before malformed or internally inconsistent burner-round evidence enters reliability reporting",
-      "compatibility": "schema version 1 only; exactly eight ordered positions, exact derived position projections, and strict directive-source binding",
+      "authorityBoundary": "server-maintained current-round identity plus immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
+      "malformedDisposition": "fail closed before a malformed current pointer, missing or mismatched referenced round, or internally inconsistent burner-round evidence enters reliability reporting",
+      "compatibility": "round schemas 1 and 2 plus current-pointer schema 1; exactly eight ordered positions, exact derived position projections, strict directive-source binding, and exact pointer-to-round identity and chronology",
       "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js"
     },
     {

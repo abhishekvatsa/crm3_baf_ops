@@ -1122,12 +1122,17 @@ service cloud.firestore {
       return validDirectiveBaseUpdate()
         && resource.data.get('status', null) == 'open'
         && request.resource.data.get('status', null) == 'acknowledged'
+        && request.resource.data.get('isActive', false) == true
         && request.resource.data.get('acknowledgedByUid', null) == request.auth.uid
+        && request.resource.data.get('acknowledgedByName', null) is string
+        && request.resource.data.get('acknowledgedByName', '').size() > 0
         && request.resource.data.get('acknowledgedAt', null) != null
         && resource.data.get('directedTo', null) is string
         && roles.hasAny([resource.data.get('directedTo', null)])
         && request.resource.data.get('closedByUid', null) == null
-        && request.resource.data.get('closedAt', null) == null;
+        && request.resource.data.get('closedByName', null) == null
+        && request.resource.data.get('closedAt', null) == null
+        && request.resource.data.get('closedWithoutAcknowledgement', false) == false;
     }
 
     function validGovernedBurnerDirectiveAcknowledgeForRoles(roles) {
@@ -3916,7 +3921,8 @@ service cloud.firestore {
     }
 
     match /burner_condition_current/{docId} {
-      allow read, write: if false;
+      allow read: if isApprovedUser();
+      allow write: if false;
     }
 
     match /burner_block_lifecycle_events/{docId} {

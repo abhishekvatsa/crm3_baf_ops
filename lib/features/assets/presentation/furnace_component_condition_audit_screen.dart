@@ -68,9 +68,6 @@ class _FurnaceComponentConditionAuditScreenState
 
     final classesAsync = ref.watch(assetClassesProvider);
     final assetsAsync = ref.watch(allAssetInstancesProvider);
-    final latestAsync = ref.watch(
-      latestBurnerConditionRoundsProvider(actor.uid),
-    );
     final lifecycleAsync = ref.watch(
       burnerBlockLifecycleEventsProvider(actor.uid),
     );
@@ -81,7 +78,6 @@ class _FurnaceComponentConditionAuditScreenState
     final loading = <AsyncValue<Object?>>[
       classesAsync,
       assetsAsync,
-      latestAsync,
       lifecycleAsync,
       lifecycleCurrentAsync,
       ticketsAsync,
@@ -90,7 +86,6 @@ class _FurnaceComponentConditionAuditScreenState
         <AsyncValue<Object?>>[
           classesAsync,
           assetsAsync,
-          latestAsync,
           lifecycleAsync,
           lifecycleCurrentAsync,
           ticketsAsync,
@@ -107,7 +102,7 @@ class _FurnaceComponentConditionAuditScreenState
           onPrimary: () {
             ref.invalidate(assetClassesProvider);
             ref.invalidate(allAssetInstancesProvider);
-            ref.invalidate(latestBurnerConditionRoundsProvider(actor.uid));
+            ref.invalidate(latestBurnerConditionRoundsProvider);
             ref.invalidate(burnerBlockLifecycleEventsProvider(actor.uid));
             ref.invalidate(burnerBlockLifecycleCurrentProvider(actor.uid));
             ref.invalidate(openTicketsProvider);
@@ -145,6 +140,29 @@ class _FurnaceComponentConditionAuditScreenState
           ..sort(
             (left, right) => left.assetNumber.compareTo(right.assetNumber),
           );
+    final latestQuery = LatestBurnerConditionRoundsQuery(
+      actorUid: actor.uid,
+      assetInstanceIds: furnaces.map((furnace) => furnace.id),
+    );
+    final latestAsync = ref.watch(
+      latestBurnerConditionRoundsProvider(latestQuery),
+    );
+    if (latestAsync.isLoading && !latestAsync.hasValue) {
+      return _shell(
+        const BafLoadingPanel(label: 'Resolving current furnace conditions'),
+      );
+    }
+    if (latestAsync.hasError && !latestAsync.hasValue) {
+      return _shell(
+        BafStatePanel.error(
+          message: 'Current furnace condition authority could not be verified.',
+          onPrimary:
+              () => ref.invalidate(
+                latestBurnerConditionRoundsProvider(latestQuery),
+              ),
+        ),
+      );
+    }
     final latest = latestAsync.value ?? const <String, BurnerConditionRound>{};
     final lifecycleEvents =
         lifecycleAsync.value ?? const <BurnerBlockLifecycleEvent>[];
@@ -342,7 +360,7 @@ class _FurnaceComponentConditionAuditScreenState
         if (result.directiveId != null) directives++;
         draft.dirty = false;
       }
-      ref.invalidate(latestBurnerConditionRoundsProvider(actor.uid));
+      ref.invalidate(latestBurnerConditionRoundsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

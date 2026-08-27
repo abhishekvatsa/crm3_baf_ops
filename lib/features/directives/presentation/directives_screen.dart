@@ -778,11 +778,9 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
     final results = await Future.wait<Object>([
       ref.read(assetClassesProvider.future),
       ref.read(allAssetInstancesProvider.future),
-      ref.read(latestBurnerConditionRoundsProvider(actor.uid).future),
     ]);
     final classes = results[0] as List<AssetClassRecord>;
     final assets = results[1] as List<AssetInstanceRecord>;
-    final latest = results[2] as Map<String, BurnerConditionRound>;
     final furnaceClasses = classes
         .where(
           (item) =>
@@ -811,6 +809,14 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       );
     }
     final furnace = furnaces.single;
+    final latest = await ref.read(
+      latestBurnerConditionRoundsProvider(
+        LatestBurnerConditionRoundsQuery(
+          actorUid: actor.uid,
+          assetInstanceIds: <String>[furnace.id],
+        ),
+      ).future,
+    );
     final current = latest[furnace.id];
     if (current == null) {
       throw BurnerConditionRoundException(
@@ -843,7 +849,7 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
           actor: actor,
           closureRemarks: closureRemarks,
         );
-    ref.invalidate(latestBurnerConditionRoundsProvider(actor.uid));
+    ref.invalidate(latestBurnerConditionRoundsProvider);
     return result;
   }
 

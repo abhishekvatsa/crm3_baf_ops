@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
@@ -142,6 +143,68 @@ void main() {
         throwsA(isA<PersistedDataFormatException>()),
       );
     }
+  });
+
+  test('current pointer binds one exact round to its governed furnace', () {
+    final pointer = BurnerConditionCurrentPointer.fromMap(<String, dynamic>{
+      'schemaVersion': 1,
+      'assetInstanceId': 'furnace-2',
+      'roundId': 'round-1',
+      'observedAt': DateTime.utc(2026, 8, 16, 18, 30),
+      'updatedAt': DateTime.utc(2026, 8, 16, 18, 30),
+    }, 'furnace-2');
+    final round = BurnerConditionRound.fromMap(roundMapV2(), 'round-1');
+
+    expect(pointer.requireMatchingRound(round), same(round));
+  });
+
+  test('current pointer rejects partial, stale, or cross-asset evidence', () {
+    final valid = <String, dynamic>{
+      'schemaVersion': 1,
+      'assetInstanceId': 'furnace-2',
+      'roundId': 'round-1',
+      'observedAt': DateTime.utc(2026, 8, 16, 18, 30),
+      'updatedAt': DateTime.utc(2026, 8, 16, 18, 30),
+    };
+    for (final malformed in <Map<String, dynamic>>[
+      <String, dynamic>{...valid}..remove('roundId'),
+      <String, dynamic>{...valid, 'assetInstanceId': 'furnace-3'},
+      <String, dynamic>{
+        ...valid,
+        'updatedAt': DateTime.utc(2026, 8, 16, 18, 29),
+      },
+      <String, dynamic>{...valid, 'unsupported': true},
+    ]) {
+      expect(
+        () => BurnerConditionCurrentPointer.fromMap(malformed, 'furnace-2'),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    }
+
+    final pointer = BurnerConditionCurrentPointer.fromMap(valid, 'furnace-2');
+    final mismatchedRound = BurnerConditionRound.fromMap(<String, dynamic>{
+      ...roundMapV2(),
+      'assetInstanceId': 'furnace-3',
+    }, 'round-1');
+    expect(
+      () => pointer.requireMatchingRound(mismatchedRound),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
+  test('current furnace resolution is not bounded by retained history', () {
+    final providerSource =
+        File(
+          'lib/features/assets/providers/burner_condition_round_provider.dart',
+        ).readAsStringSync().split('typedef BurnerConditionRoundQuery').first;
+
+    expect(providerSource, contains("collection('burner_condition_current')"));
+    expect(providerSource, contains("where('assetInstanceId'"));
+    expect(providerSource, contains('.limit(2)'));
+    expect(
+      providerSource,
+      isNot(contains('.limit(burnerConditionRoundReportLimit)')),
+    );
   });
 
   test('burner directive binding is exact and canonical', () {

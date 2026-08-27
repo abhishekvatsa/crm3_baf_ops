@@ -22,13 +22,14 @@ inventory now inherits all 75 strict A-05 decoder surfaces, including the
 business-function tranche added on 21 August 2026 and the strict issue-lane
 topology plus strict asset-hierarchy and workflow command receipts added on
 23 August 2026, and the administrative issue-closure envelope added on 24
-August 2026. The strict remote business mirror and account-owned local
+August 2026, plus the strict server-maintained burner current-round pointer
+added on 28 August 2026. The strict remote business mirror and account-owned local
 recovery catches and the exact-device reset journal, including its SHA-256-bound
 original and supplemental backup evidence, are separately classified without
 adding a persisted dynamic field. Text-file authority is
 canonicalized to LF before hashing so the same tracked content has one digest
 on Windows and Linux. Its current stable digest is
-`67DD2A8481532EAF7A406CFB585713297CBCE56C3647BFF859D62C5B996EBEEF`.
+`B16D0DD047E50C8B09199CE0EB628A86994A54A6A5BE52D83BEFB84816C573F7`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing

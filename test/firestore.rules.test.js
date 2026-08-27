@@ -3510,8 +3510,14 @@ describe("directives", () => {
     await assertSucceeds(
       updateDoc(doc(db, "directives/dirAck"), {
         status: "acknowledged",
+        isActive: true,
         acknowledgedByUid: "ops1",
+        acknowledgedByName: "Operations One",
         acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
         updatedAt: Timestamp.now(),
         version: 2,
       })
@@ -3548,6 +3554,10 @@ describe("directives", () => {
       component: "Burner block",
       subsystem: "Burner system",
       directedTo: "seniorInstrumentation",
+      isActive: true,
+      acknowledgedByName: null,
+      closedByName: null,
+      closedWithoutAcknowledgement: false,
       metadataJson: JSON.stringify({
         schemaVersion: 1,
         trigger: "burnerConditionRoundRedHot",
@@ -3557,6 +3567,28 @@ describe("directives", () => {
       }),
     });
 
+    for (const lifecycleMutation of [
+      {isActive: false},
+      {closedWithoutAcknowledgement: true},
+      {closedByName: "Fabricated closure"},
+    ]) {
+      await assertFails(
+        updateDoc(doc(dbAs("ia1"), `directives/${burnerDirectiveId}`), {
+          status: "acknowledged",
+          isActive: true,
+          acknowledgedByUid: "ia1",
+          acknowledgedByName: "Instrumentation One",
+          acknowledgedAt: Timestamp.now(),
+          closedByUid: null,
+          closedByName: null,
+          closedAt: null,
+          closedWithoutAcknowledgement: false,
+          ...lifecycleMutation,
+          updatedAt: Timestamp.now(),
+          version: 2,
+        })
+      );
+    }
     for (const uid of ["supervisor1", "admin1"]) {
       await assertFails(
         updateDoc(doc(dbAs(uid), `directives/${burnerDirectiveId}`), {
@@ -3587,8 +3619,14 @@ describe("directives", () => {
     await assertSucceeds(
       updateDoc(doc(dbAs("ia1"), `directives/${burnerDirectiveId}`), {
         status: "acknowledged",
+        isActive: true,
         acknowledgedByUid: "ia1",
+        acknowledgedByName: "Instrumentation One",
         acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
         updatedAt: Timestamp.now(),
         version: 2,
       })
@@ -3601,6 +3639,10 @@ describe("directives", () => {
       component: "Burner block",
       subsystem: "Burner system",
       directedTo: "seniorInstrumentation",
+      isActive: true,
+      acknowledgedByName: null,
+      closedByName: null,
+      closedWithoutAcknowledgement: false,
       metadataJson: JSON.stringify({
         schemaVersion: 1,
         trigger: "burnerConditionRoundRedHot",
@@ -3612,8 +3654,14 @@ describe("directives", () => {
     await assertFails(
       updateDoc(doc(dbAs("ia1"), `directives/${burnerDirectiveId}`), {
         status: "acknowledged",
+        isActive: true,
         acknowledgedByUid: "ia1",
+        acknowledgedByName: "Instrumentation One",
         acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
         metadataJson: JSON.stringify({
           schemaVersion: 1,
           trigger: "burnerConditionRoundRedHot",
@@ -5343,6 +5391,7 @@ describe("governed dynamic asset hierarchy", () => {
   });
 
   test("burner rounds and block lifecycle are approved-readable and immutable", async () => {
+    await seedUser("burnerPending", ["operations"], false);
     await seedDoc("burner_condition_rounds/round-1", {
       roundId: "round-1",
       observedAt: Timestamp.now(),
@@ -5390,8 +5439,14 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(
       getDoc(doc(dbAs("admin1"), "burner_condition_round_receipts/request-1"))
     );
-    await assertFails(
+    await assertSucceeds(
       getDoc(doc(dbAs("admin1"), "burner_condition_current/furnace-1"))
+    );
+    await assertSucceeds(
+      getDocs(collection(dbAs("ops1"), "burner_condition_current"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("burnerPending"), "burner_condition_current/furnace-1"))
     );
     await assertFails(
       updateDoc(doc(dbAs("admin1"), "burner_condition_current/furnace-1"), {

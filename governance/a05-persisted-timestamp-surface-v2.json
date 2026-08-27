@@ -652,6 +652,18 @@
       "reArmCondition": "any burner-condition round timestamp schema change"
     },
     {
+      "id": "burner-condition-current-pointer",
+      "readerFile": "lib/features/assets/data/burner_condition_round.dart",
+      "readerMarker": "factory BurnerConditionCurrentPointer.fromMap",
+      "requiredFields": ["observedAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "verify the current-round projection chronology before resolving authoritative Furnace burner condition",
+      "authorityBoundary": "remote-burner-condition-current-pointer",
+      "regression": "test/burner_condition_round_test.dart; test/firestore.rules.test.js",
+      "reArmCondition": "any burner current-pointer identity or timestamp schema change"
+    },
+    {
       "id": "burner-block-lifecycle-record",
       "readerFile": "lib/features/assets/data/burner_block_lifecycle_event.dart",
       "readerMarker": "factory BurnerBlockLifecycleEvent.fromMap",

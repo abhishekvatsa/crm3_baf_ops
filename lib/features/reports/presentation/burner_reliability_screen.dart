@@ -363,7 +363,7 @@ class _BurnerReliabilityBodyState
     );
     if (!mounted) return;
     ref.invalidate(burnerConditionRoundsProvider);
-    ref.invalidate(latestBurnerConditionRoundsProvider(widget.actor.uid));
+    ref.invalidate(latestBurnerConditionRoundsProvider);
   }
 
   Future<void> _selectDateRange() async {

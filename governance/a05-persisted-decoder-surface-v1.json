@@ -836,17 +836,18 @@
       "id": "burner-condition-round-record",
       "file": "lib/features/assets/data/burner_condition_round.dart",
       "markers": [
+        "factory BurnerConditionCurrentPointer.fromMap",
         "factory BurnerConditionRound.fromMap",
         "factory BurnerConditionObservation.fromMap",
         "static BurnerRedHotDirectiveBinding? tryDecode"
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "furnace-reliability",
-      "authorityBoundary": "immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
-      "malformedDisposition": "fail closed before malformed or internally inconsistent burner-round evidence enters reliability reporting",
-      "compatibility": "schema version 1 only; exactly eight ordered positions, exact derived position projections, and strict directive-source binding",
+      "authorityBoundary": "server-maintained current-round identity plus immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
+      "malformedDisposition": "fail closed before a malformed current pointer, missing or mismatched referenced round, or internally inconsistent burner-round evidence enters reliability reporting",
+      "compatibility": "round schemas 1 and 2 plus current-pointer schema 1; exactly eight ordered positions, exact derived position projections, strict directive-source binding, and exact pointer-to-round identity and chronology",
       "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js",
-      "reArmCondition": "round identity, exact shape, position coverage, observation, microamp, red-hot projection, directive, actor, timestamp, or fingerprint validation changes",
+      "reArmCondition": "current-pointer or round identity, exact shape, position coverage, observation, microamp, red-hot projection, directive, actor, timestamp, or fingerprint validation changes",
       "riskFingerprint": "dbb8ebba1b7529823b5db5185a3518d844aef46b3747a5fe304ceee5db962ea9"
     },
     {

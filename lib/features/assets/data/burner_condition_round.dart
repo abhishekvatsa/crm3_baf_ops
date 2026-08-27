@@ -363,6 +363,87 @@ BurnerDirectiveComplianceProjection projectBurnerDirectiveCompliance({
   );
 }
 
+class BurnerConditionCurrentPointer {
+  const BurnerConditionCurrentPointer({
+    required this.assetInstanceId,
+    required this.roundId,
+    required this.observedAt,
+    required this.updatedAt,
+  });
+
+  final String assetInstanceId;
+  final String roundId;
+  final DateTime observedAt;
+  final DateTime updatedAt;
+
+  factory BurnerConditionCurrentPointer.fromMap(
+    Map<String, dynamic> map,
+    String documentId,
+  ) {
+    final source = 'burner_condition_current/$documentId';
+    _requireExactKeys(map, const <String>{
+      'schemaVersion',
+      'assetInstanceId',
+      'roundId',
+      'observedAt',
+      'updatedAt',
+    }, source);
+    final schemaVersion = readRequiredPersistedInt(
+      map['schemaVersion'],
+      field: 'schemaVersion',
+      source: source,
+      minimum: 1,
+    );
+    final assetInstanceId = readRequiredPersistedString(
+      map['assetInstanceId'],
+      field: 'assetInstanceId',
+      source: source,
+    );
+    final observedAt = readRequiredPersistedDateTime(
+      map['observedAt'],
+      field: 'observedAt',
+      source: source,
+    );
+    final updatedAt = readRequiredPersistedDateTime(
+      map['updatedAt'],
+      field: 'updatedAt',
+      source: source,
+    );
+    if (schemaVersion != 1 ||
+        assetInstanceId != documentId ||
+        updatedAt.isBefore(observedAt)) {
+      throw PersistedDataFormatException(
+        field: 'assetInstanceId',
+        source: source,
+        detail: 'schema, identity, or timestamp ordering mismatch',
+      );
+    }
+    return BurnerConditionCurrentPointer(
+      assetInstanceId: assetInstanceId,
+      roundId: readRequiredPersistedString(
+        map['roundId'],
+        field: 'roundId',
+        source: source,
+      ),
+      observedAt: observedAt,
+      updatedAt: updatedAt,
+    );
+  }
+
+  BurnerConditionRound requireMatchingRound(BurnerConditionRound round) {
+    if (round.roundId != roundId ||
+        round.assetInstanceId != assetInstanceId ||
+        !round.observedAt.isAtSameMomentAs(observedAt)) {
+      throw PersistedDataFormatException(
+        field: 'roundId',
+        source: 'burner_condition_current/$assetInstanceId',
+        detail: 'referenced round identity or observation time mismatch',
+      );
+    }
+    return round;
+  }
+}
+
 class BurnerConditionRound {
   const BurnerConditionRound({
     required this.roundId,
