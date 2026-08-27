@@ -175,6 +175,10 @@ void main() {
       expect(text, contains('Get-GitTreeObjectId'));
       expect(text, contains('Get-FunctionFleetDeploymentStatus'));
       expect(text, contains('Test-FunctionFleetDeploymentStatusClassifier'));
+      expect(text, contains('Get-ApprovedArtifactSourceStatus'));
+      expect(text, contains('Test-ArtifactConstructionAuthorityClassifier'));
+      expect(text, contains(r'$artifactSourceStatus.matches'));
+      expect(text, contains(r'[switch]$RequireArtifactConstructionAuthority'));
       expect(text, contains(r"-Path 'functions'"));
       expect(text, contains(r'$expectedCurrentSourceFunctionDeployment'));
       expect(text, contains(r'$functionsMatchDeployed'));
@@ -293,10 +297,32 @@ void main() {
         text,
         contains('Pre-reservation production policy verification failed.'),
       );
+      expect(text, contains('-RequireArtifactConstructionAuthority'));
       expect(
         text.indexOf('Test-ProductionReleasePolicy.ps1'),
         lessThan(text.indexOf('- name: Atomically consume the build number')),
       );
+      expect(
+        text.indexOf('-RequireArtifactConstructionAuthority'),
+        lessThan(text.indexOf('- name: Atomically consume the build number')),
+      );
+      expect(
+        read('tools/release/New-ProductionArtifact.ps1'),
+        contains('-RequireArtifactConstructionAuthority'),
+      );
+      for (final path in <String>[
+        "'.github/workflows/production-artifact.yml'",
+        "'android'",
+        "'assets'",
+        "'functions'",
+        "'lib'",
+        "'package-lock.json'",
+        "'pubspec.lock'",
+        "'test'",
+        "'tools/release'",
+      ]) {
+        expect(policyVerifier, contains(path));
+      }
       expect(
         text,
         contains('Prove Android dependency configuration before reservation'),

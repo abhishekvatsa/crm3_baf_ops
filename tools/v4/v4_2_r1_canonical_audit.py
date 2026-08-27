@@ -5700,6 +5700,52 @@ check(
         f"firestore={'exact' if firestore_matches_deployed else 'pending'}"
     ),
 )
+approved_artifact_exact_source_paths = (
+    ".firebaserc",
+    ".github/workflows/production-artifact.yml",
+    ".metadata",
+    ".npmrc",
+    "analysis_options.yaml",
+    "android",
+    "assets",
+    "firebase.json",
+    "firestore.indexes.json",
+    "firestore.rules",
+    "functions",
+    "integration_test",
+    "jest.config.js",
+    "lib",
+    "package.json",
+    "package-lock.json",
+    "pubspec.lock",
+    "release/approvals/linux-isar-core-authority.json",
+    "release/github-actions-pins.json",
+    "release_gate.ps1",
+    "test",
+    "tool",
+    "tooling",
+    "tools/release",
+)
+check(
+    "Production artifact construction requires exact approved build source",
+    all(
+        f"'{path}'" in c04_production_policy
+        for path in approved_artifact_exact_source_paths
+    )
+    and "Get-ApprovedArtifactSourceStatus" in c04_production_policy
+    and "Get-NormalizedArtifactPubspec" in c04_production_policy
+    and "Test-ArtifactConstructionAuthorityClassifier"
+        in c04_production_policy
+    and "$artifactSourceStatus.matches" in c04_production_policy
+    and "[switch]$RequireArtifactConstructionAuthority"
+        in c04_production_policy
+    and "-RequireArtifactConstructionAuthority" in text(
+        ".github/workflows/production-artifact.yml"
+    )
+    and "-RequireArtifactConstructionAuthority" in text(
+        "tools/release/New-ProductionArtifact.ps1"
+    ),
+)
 check(
     "Build 8 backend is ready and its one physical sync retry stays bounded",
     sha(build8_sync_promotion_path)

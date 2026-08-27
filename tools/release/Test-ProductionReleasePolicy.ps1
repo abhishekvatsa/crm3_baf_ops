@@ -13,7 +13,8 @@ locked Firebase CLI, action pins and exact sealed-pilot distribution boundaries.
 param(
   [string]$PolicyPath = 'release/production-release-policy.json',
   [string]$AuthorityPath = 'release/backend-authority.prod.json',
-  [string]$RepositoryRoot = (Get-Location).Path
+  [string]$RepositoryRoot = (Get-Location).Path,
+  [switch]$RequireArtifactConstructionAuthority
 )
 
 Set-StrictMode -Version Latest
@@ -55,6 +56,32 @@ $ExpectedToolchain = [ordered]@{
   dartVersion = '3.12.0'
   firebaseToolsVersion = '15.22.4'
 }
+$ApprovedArtifactExactSourcePaths = @(
+  '.firebaserc'
+  '.github/workflows/production-artifact.yml'
+  '.metadata'
+  '.npmrc'
+  'analysis_options.yaml'
+  'android'
+  'assets'
+  'firebase.json'
+  'firestore.indexes.json'
+  'firestore.rules'
+  'functions'
+  'integration_test'
+  'jest.config.js'
+  'lib'
+  'package.json'
+  'package-lock.json'
+  'pubspec.lock'
+  'release/approvals/linux-isar-core-authority.json'
+  'release/github-actions-pins.json'
+  'release_gate.ps1'
+  'test'
+  'tool'
+  'tooling'
+  'tools/release'
+)
 
 function Get-Sha256 {
   param([Parameter(Mandatory)][string]$Path)
@@ -107,6 +134,108 @@ function Get-GitTreeObjectId {
     throw "Invalid Git tree identity for $Commit`:$Path."
   }
   $tree
+}
+
+function Get-GitFileText {
+  param(
+    [Parameter(Mandatory)][string]$Commit,
+    [Parameter(Mandatory)][string]$Path
+  )
+
+  $output = @(git show ("{0}:{1}" -f $Commit, $Path))
+  if ($LASTEXITCODE -ne 0) {
+    throw "Unable to read Git file for $Commit`:$Path."
+  }
+  $output -join "`n"
+}
+
+function Get-NormalizedArtifactPubspec {
+  param(
+    [Parameter(Mandatory)][string]$Text,
+    [string]$ExpectedVersion,
+    [switch]$RequireExpectedVersion
+  )
+
+  $pattern = '(?m)^version:[ \t]*(\S+)[ \t]*$'
+  $matches = [regex]::Matches($Text, $pattern)
+  if ($matches.Count -ne 1) {
+    throw 'Artifact pubspec must contain exactly one version declaration.'
+  }
+  $version = $matches[0].Groups[1].Value
+  if ($RequireExpectedVersion -and $version -cne $ExpectedVersion) {
+    return $null
+  }
+  [regex]::Replace(
+    $Text,
+    $pattern,
+    'version: <governed-artifact-version>'
+  )
+}
+
+function Get-ApprovedArtifactSourceStatus {
+  param(
+    [Parameter(Mandatory)][string]$BaselineCommit,
+    [Parameter(Mandatory)][string]$CurrentCommit,
+    [Parameter(Mandatory)][string]$ExpectedPackageVersion
+  )
+
+  $driftedPaths = [Collections.Generic.List[string]]::new()
+  foreach ($path in $ApprovedArtifactExactSourcePaths) {
+    $baselineObject = Get-GitTreeObjectId `
+      -Commit $BaselineCommit `
+      -Path $path
+    $currentObject = Get-GitTreeObjectId `
+      -Commit $CurrentCommit `
+      -Path $path
+    if ($baselineObject -cne $currentObject) {
+      $driftedPaths.Add($path)
+    }
+  }
+
+  $baselinePubspec = Get-NormalizedArtifactPubspec `
+    -Text (Get-GitFileText -Commit $BaselineCommit -Path 'pubspec.yaml')
+  $currentPubspec = Get-NormalizedArtifactPubspec `
+    -Text (Get-GitFileText -Commit $CurrentCommit -Path 'pubspec.yaml') `
+    -ExpectedVersion $ExpectedPackageVersion `
+    -RequireExpectedVersion
+  if ($null -eq $currentPubspec -or
+      $baselinePubspec -cne $currentPubspec) {
+    $driftedPaths.Add('pubspec.yaml')
+  }
+
+  [pscustomobject]@{
+    matches = $driftedPaths.Count -eq 0
+    driftedPaths = @($driftedPaths)
+  }
+}
+
+function Get-ArtifactConstructionAuthority {
+  param(
+    [Parameter(Mandatory)][bool]$PendingSourceAuthorization,
+    [Parameter(Mandatory)][bool]$BackendMatchesDeployed,
+    [Parameter(Mandatory)][bool]$ArtifactSourceMatchesApproval
+  )
+
+  $PendingSourceAuthorization -and
+    $BackendMatchesDeployed -and
+    $ArtifactSourceMatchesApproval
+}
+
+function Test-ArtifactConstructionAuthorityClassifier {
+  foreach ($pending in @($false, $true)) {
+    foreach ($backend in @($false, $true)) {
+      foreach ($source in @($false, $true)) {
+        $actual = Get-ArtifactConstructionAuthority `
+          -PendingSourceAuthorization $pending `
+          -BackendMatchesDeployed $backend `
+          -ArtifactSourceMatchesApproval $source
+        $expected = $pending -and $backend -and $source
+        if ($actual -ne $expected) {
+          throw 'Artifact-construction authority classifier self-test failed.'
+        }
+      }
+    }
+  }
 }
 
 function Get-FunctionFleetDeploymentStatus {
@@ -190,6 +319,7 @@ function Get-YamlRunBlocks {
 
 Set-Location (Resolve-Path -LiteralPath $RepositoryRoot)
 Test-FunctionFleetDeploymentStatusClassifier
+Test-ArtifactConstructionAuthorityClassifier
 & pwsh -NoProfile -ExecutionPolicy Bypass `
   -File tools/release/Test-ProductionReleaseManifest.ps1 `
   -LedgerSelectionSelfTest
@@ -780,6 +910,12 @@ $expectedCurrentSourceFunctionDeployment =
 $functionsMatchDeployed =
   $expectedCurrentSourceFunctionDeployment -eq
     'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
+$expectedPackageVersion =
+  "$([string]$policy.release.versionName)+$([int64]$policy.release.buildNumber)"
+$artifactSourceStatus = Get-ApprovedArtifactSourceStatus `
+  -BaselineCommit ([string]$versionSource.sourceBaseline.commit) `
+  -CurrentCommit 'HEAD' `
+  -ExpectedPackageVersion $expectedPackageVersion
 $firestoreReadbackAuthority =
   $policy.finalization.exactFirestoreRulesIndexesLiveReadback
 $firestoreReadbackPath = [string]$firestoreReadbackAuthority.receiptFile
@@ -865,6 +1001,8 @@ if (($null -eq $requiredRulesShaProperty) -ne
       ($null -eq $requiredIndexSetShaProperty)) {
   throw 'Exact successor Firestore Rules and index-set requirements must coexist.'
 }
+$backendMatchesDeployed = $false
+$expectedArtifactConstructionAuthority = $false
 if ($null -ne $requiredRulesShaProperty) {
   $requiredRulesSha = [string]$requiredRulesShaProperty.Value
   $requiredIndexCount = [int64]$requiredIndexCountProperty.Value
@@ -935,8 +1073,12 @@ if ($null -ne $requiredRulesShaProperty) {
     'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT'
   }
   $expectedArtifactConstructionAuthority =
-    [string]$policy.finalization.status -eq 'pending-source-authorized' -and
-      $backendMatchesDeployed
+    Get-ArtifactConstructionAuthority `
+      -PendingSourceAuthorization (
+        [string]$policy.finalization.status -eq 'pending-source-authorized'
+      ) `
+      -BackendMatchesDeployed $backendMatchesDeployed `
+      -ArtifactSourceMatchesApproval ([bool]$artifactSourceStatus.matches)
   if ($currentSuccessorState.schemaVersion -lt 2 -or
       [string]$currentSourceAuthority.reference -ne 'refs/heads/main' -or
       $currentSourceAuthority.sourceAndCiAuthority -ne $true -or
@@ -983,6 +1125,21 @@ if ($null -ne $requiredRulesShaProperty) {
         $true) {
     throw 'Current source backend authority differs from source state.'
   }
+}
+if ($RequireArtifactConstructionAuthority -and
+    -not $expectedArtifactConstructionAuthority) {
+  $sourceDrift = if (@($artifactSourceStatus.driftedPaths).Count -eq 0) {
+    'none'
+  } else {
+    $artifactSourceStatus.driftedPaths -join ', '
+  }
+  throw (
+    'Artifact construction is not authorized for this exact source. ' +
+    "Approved build-source drift: $sourceDrift; " +
+    "backend exact: $backendMatchesDeployed; " +
+    "pending source authorization: " +
+    ([string]$policy.finalization.status -eq 'pending-source-authorized') + '.'
+  )
 }
 $consumedDisposition = [string]$versionSource.consumedBuild.disposition
 $consumedAuthorityValid = $false

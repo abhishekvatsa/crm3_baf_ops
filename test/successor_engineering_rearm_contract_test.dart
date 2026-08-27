@@ -38,6 +38,83 @@ String _gitTreeObjectId(String commit, String path) {
   return tree;
 }
 
+const _approvedArtifactExactSourcePaths = <String>[
+  '.firebaserc',
+  '.github/workflows/production-artifact.yml',
+  '.metadata',
+  '.npmrc',
+  'analysis_options.yaml',
+  'android',
+  'assets',
+  'firebase.json',
+  'firestore.indexes.json',
+  'firestore.rules',
+  'functions',
+  'integration_test',
+  'jest.config.js',
+  'lib',
+  'package.json',
+  'package-lock.json',
+  'pubspec.lock',
+  'release/approvals/linux-isar-core-authority.json',
+  'release/github-actions-pins.json',
+  'release_gate.ps1',
+  'test',
+  'tool',
+  'tooling',
+  'tools/release',
+];
+
+String _gitFileText(String commit, String path) {
+  final result = Process.runSync('git', <String>['show', '$commit:$path']);
+  if (result.exitCode != 0) {
+    throw StateError('Unable to read Git file for $commit:$path.');
+  }
+  return (result.stdout as String).replaceAll('\r\n', '\n');
+}
+
+String? _normalizedArtifactPubspec(String text, {String? expectedVersion}) {
+  final pattern = RegExp(r'^version:[ \t]*(\S+)[ \t]*$', multiLine: true);
+  final matches = pattern.allMatches(text).toList(growable: false);
+  if (matches.length != 1) {
+    throw StateError('Artifact pubspec must have one version declaration.');
+  }
+  if (expectedVersion != null && matches.single.group(1) != expectedVersion) {
+    return null;
+  }
+  return text.replaceFirst(pattern, 'version: <governed-artifact-version>');
+}
+
+bool _approvedArtifactSourceMatches(
+  String baselineCommit,
+  String expectedPackageVersion,
+) {
+  final exactPathsMatch = _approvedArtifactExactSourcePaths.every(
+    (path) =>
+        _gitTreeObjectId(baselineCommit, path) ==
+        _gitTreeObjectId('HEAD', path),
+  );
+  final baselinePubspec = _normalizedArtifactPubspec(
+    _gitFileText(baselineCommit, 'pubspec.yaml'),
+  );
+  final currentPubspec = _normalizedArtifactPubspec(
+    _gitFileText('HEAD', 'pubspec.yaml'),
+    expectedVersion: expectedPackageVersion,
+  );
+  return exactPathsMatch &&
+      currentPubspec != null &&
+      baselinePubspec == currentPubspec;
+}
+
+bool _artifactConstructionAuthority({
+  required bool pendingSourceAuthorization,
+  required bool backendMatchesDeployed,
+  required bool artifactSourceMatchesApproval,
+}) =>
+    pendingSourceAuthorization &&
+    backendMatchesDeployed &&
+    artifactSourceMatchesApproval;
+
 String _functionDeploymentStatus(String deployedTree, String currentTree) =>
     deployedTree == currentTree
         ? 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
@@ -111,6 +188,20 @@ void main() {
       _firestoreDeploymentStatus(rulesChanged: true, indexesChanged: true),
       'SOURCE_RULES_AND_INDEX_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT',
     );
+    for (final pending in <bool>[false, true]) {
+      for (final backend in <bool>[false, true]) {
+        for (final source in <bool>[false, true]) {
+          expect(
+            _artifactConstructionAuthority(
+              pendingSourceAuthorization: pending,
+              backendMatchesDeployed: backend,
+              artifactSourceMatchesApproval: source,
+            ),
+            pending && backend && source,
+          );
+        }
+      }
+    }
   });
 
   test(
@@ -274,6 +365,12 @@ void main() {
       final firestoreMatchesDeployed = !rulesChanged && !indexesChanged;
       final backendMatchesDeployed =
           functionsMatchDeployed && firestoreMatchesDeployed;
+      final sourceBaseline =
+          (nextApproval['sourceBaseline'] as Map).cast<String, dynamic>();
+      final artifactSourceMatchesApproval = _approvedArtifactSourceMatches(
+        sourceBaseline['commit'] as String,
+        '${release['versionName']}+$candidateBuildNumber',
+      );
       final expectedFirestoreRelationship = _firestoreRelationship(
         rulesChanged: rulesChanged,
         indexesChanged: indexesChanged,
@@ -316,7 +413,11 @@ void main() {
       expect(currentSource['sourceAndCiAuthority'], isTrue);
       expect(
         currentSource['artifactConstructionAuthority'],
-        pendingConstruction && backendMatchesDeployed,
+        _artifactConstructionAuthority(
+          pendingSourceAuthorization: pendingConstruction,
+          backendMatchesDeployed: backendMatchesDeployed,
+          artifactSourceMatchesApproval: artifactSourceMatchesApproval,
+        ),
       );
       expect(currentSource['deploymentAuthority'], isFalse);
       expect(currentSource['distributionAuthority'], isFalse);
