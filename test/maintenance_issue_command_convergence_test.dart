@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_command_reconciler.dart';
@@ -115,6 +116,66 @@ void main() {
       expect(stored.isSynced, isFalse);
     });
   });
+
+  test(
+    'administrative closure readback becomes synchronized terminal server state',
+    () async {
+      await _withMaintenanceIsar((isar) async {
+        final localTime = DateTime.utc(2026, 8, 28, 4);
+        final remoteTime = localTime.add(const Duration(minutes: 1));
+        final lanePlan = IssueLanePlan.initial(const <String>['mechanical']);
+        final local = _record(
+          version: 4,
+          updatedAt: localTime,
+          isSynced: true,
+          lanePlan: lanePlan,
+        );
+        final remote =
+            _record(
+                version: 5,
+                updatedAt: remoteTime,
+                isSynced: false,
+                status: TicketStatus.closedWithoutResolution,
+                lanePlan: lanePlan,
+              )
+              ..isResolved = true
+              ..endDate = remoteTime
+              ..closedByUid = 'admin-1'
+              ..closedByName = 'Admin One'
+              ..administrativeClosure = const IssueAdministrativeClosure(
+                disposition:
+                    IssueAdministrativeClosureDisposition.stillRelevant,
+                reason:
+                    'The operating cycle ended while the concern remains relevant.',
+              );
+        await isar.writeTxn(() => isar.maintenanceRecords.put(local));
+
+        final applied = await IsarMaintenanceRepository()
+            .applyMaintenanceIssueCommandReadback(
+              remote: remote,
+              expectedLocalVersion: 4,
+              expectedLocalUpdatedAt: localTime,
+            );
+        final repository = IsarMaintenanceRepository();
+        final stored = await isar.maintenanceRecords.get(local.id);
+        final unsynced = await repository.getUnsyncedTickets();
+
+        expect(applied, isTrue);
+        expect(stored!.status, TicketStatus.closedWithoutResolution);
+        expect(stored.isResolved, isTrue);
+        expect(stored.wasTechnicallyResolved, isFalse);
+        expect(stored.wasClosedWithoutResolution, isTrue);
+        expect(stored.version, 5);
+        expect(stored.isSynced, isTrue);
+        expect(
+          stored.administrativeClosure?.disposition,
+          IssueAdministrativeClosureDisposition.stillRelevant,
+        );
+        expect(stored.issueLanePlan.completedLanes, isEmpty);
+        expect(unsynced, isEmpty);
+      });
+    },
+  );
 
   test('exact server refresh applies a clean remote tombstone', () async {
     await _withMaintenanceIsar((isar) async {

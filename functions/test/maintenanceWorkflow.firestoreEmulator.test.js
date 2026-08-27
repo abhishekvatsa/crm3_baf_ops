@@ -482,6 +482,156 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     });
   });
 
+  test('administrative issue closure atomically cancels active Operations coordination', async () => {
+    await Promise.all([
+      db.collection('maintenance_records').doc('ticket-admin-close').set({
+        firestoreId: 'ticket-admin-close',
+        version: 4,
+        assetType: 'base',
+        assetNumber: 201,
+        maintenanceType: 'breakdown',
+        description: 'Temporary operating context ended before repair.',
+        routedTo: 'mechanical',
+        status: 'acknowledged',
+        isResolved: false,
+        isCritical: false,
+        startDate: admin.firestore.Timestamp.fromDate(
+          new Date('2026-08-14T14:00:00.000Z'),
+        ),
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 2,
+        issueAssignedLanes: ['mechanical'],
+        issueAcknowledgedLanes: ['mechanical'],
+        issueCompletedLanes: [],
+        acknowledgedByUid: 'mechanical1',
+        acknowledgedByName: 'Mechanical Supervisor',
+        acknowledgedAt: admin.firestore.Timestamp.fromDate(
+          new Date('2026-08-14T14:30:00.000Z'),
+        ),
+        workflowDeferred: true,
+        workflowQueueState: 'deferred',
+        workflowAggregateId: 'issue-workflow-admin-close',
+        workflowComplianceId: 'issue-compliance-admin-close',
+        workflowOriginLaneKey: 'mech',
+        workflowTargetLaneKey: 'oprn',
+        workflowConditionTypeKey: 'manual',
+        workflowUpdatedAt: admin.firestore.Timestamp.fromDate(
+          new Date('2026-08-14T15:00:00.000Z'),
+        ),
+        isDeleted: false,
+      }),
+      db.collection('maintenance_workflows')
+        .doc('issue-workflow-admin-close').set({
+          workflowSchemaVersion: 1,
+          workflowKind: 'issueCoordination',
+          linkedMaintenanceFirestoreId: 'ticket-admin-close',
+          status: 'awaitingCompliance',
+          cancelled: false,
+          version: 2,
+        }),
+      db.collection('compliance_requests')
+        .doc('issue-compliance-admin-close').set({
+          linkedWorkflowId: 'issue-workflow-admin-close',
+          linkedMaintenanceFirestoreId: 'ticket-admin-close',
+          status: 'raised',
+          version: 3,
+        }),
+    ]);
+    const command = {
+      commandId: 'ticket-admin-close-command',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-admin-close',
+      expectedVersion: 4,
+      payload: {
+        disposition: 'stillRelevant',
+        reason:
+          'The operating cycle ended, while the unresolved concern remains relevant for engineering review.',
+      },
+    };
+    const first = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T16:00:00.000Z'),
+    });
+    const replay = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T16:01:00.000Z'),
+    });
+
+    expect(replay).toEqual(first);
+    expect(first).toMatchObject({
+      resultKey: 'maintenance-ticket-closed-without-resolution',
+      aggregateVersion: 5,
+      result: {
+        ticketId: 'ticket-admin-close',
+        disposition: 'stillRelevant',
+        cancelledCoordination: true,
+        cancelledWorkflowId: 'issue-workflow-admin-close',
+        cancelledComplianceId: 'issue-compliance-admin-close',
+      },
+    });
+    const [ticket, workflow, compliance, audit, event, receipt] =
+      await Promise.all([
+        db.collection('maintenance_records').doc('ticket-admin-close').get(),
+        db.collection('maintenance_workflows')
+          .doc('issue-workflow-admin-close').get(),
+        db.collection('compliance_requests')
+          .doc('issue-compliance-admin-close').get(),
+        db.collection('audit_logs')
+          .doc('server_maintenance_ticket_ticket-admin-close-command').get(),
+        db.collection('maintenance_workflow_events')
+          .doc('ticket-admin-close-command').get(),
+        db.collection('maintenance_workflow_command_receipts')
+          .doc('ticket-admin-close-command').get(),
+      ]);
+
+    expect(ticket.data()).toMatchObject({
+      status: 'closedWithoutResolution',
+      isResolved: true,
+      closedByUid: actor.uid,
+      issueClosureSchemaVersion: 1,
+      issueClosureDisposition: 'stillRelevant',
+      issueClosureReason:
+        'The operating cycle ended, while the unresolved concern remains relevant for engineering review.',
+      issueAssignedLanes: ['mechanical'],
+      issueAcknowledgedLanes: ['mechanical'],
+      issueCompletedLanes: [],
+      workflowDeferred: false,
+      workflowQueueState: 'released',
+      version: 5,
+    });
+    expect(ticket.data().endDate).toBe('2026-08-14T16:00:00.000Z');
+    expect(ticket.data().workflowReleasedAt).toBeInstanceOf(
+      admin.firestore.Timestamp,
+    );
+    expect(workflow.data()).toMatchObject({
+      status: 'cancelled',
+      cancelled: true,
+      cancelledByUid: actor.uid,
+      version: 3,
+    });
+    expect(compliance.data()).toMatchObject({
+      status: 'cancelled',
+      cancelledByUid: actor.uid,
+      version: 4,
+    });
+    expect(audit.data()).toMatchObject({
+      operation: 'closeMaintenanceTicketWithoutResolution',
+      entityId: 'ticket-admin-close',
+      performedByUid: actor.uid,
+      resultVersion: 5,
+    });
+    expect(event.data()).toMatchObject({
+      eventType: 'issue.closedWithoutResolution',
+      aggregateId: 'issue-workflow-admin-close',
+      actorUid: actor.uid,
+    });
+    expect(receipt.data()).toMatchObject({
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateVersion: 5,
+      actorUid: actor.uid,
+    });
+  });
+
   test('critical alarm lifecycle and replay commit as one Firestore transaction', async () => {
     const raise = {
       commandId: 'critical-fire-raise',
