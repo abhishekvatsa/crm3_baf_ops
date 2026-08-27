@@ -837,16 +837,17 @@
       "file": "lib/features/assets/data/burner_condition_round.dart",
       "markers": [
         "factory BurnerConditionRound.fromMap",
-        "factory BurnerConditionObservation.fromMap"
+        "factory BurnerConditionObservation.fromMap",
+        "static BurnerRedHotDirectiveBinding? tryDecode"
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "furnace-reliability",
-      "authorityBoundary": "immutable eight-position Furnace burner observation, microamp, red-hot, actor, and directive evidence",
+      "authorityBoundary": "immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
       "malformedDisposition": "fail closed before malformed or internally inconsistent burner-round evidence enters reliability reporting",
-      "compatibility": "schema version 1 only; exactly eight ordered positions and exact derived position projections",
+      "compatibility": "schema version 1 only; exactly eight ordered positions, exact derived position projections, and strict directive-source binding",
       "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js",
       "reArmCondition": "round identity, exact shape, position coverage, observation, microamp, red-hot projection, directive, actor, timestamp, or fingerprint validation changes",
-      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "riskFingerprint": "dbb8ebba1b7529823b5db5185a3518d844aef46b3747a5fe304ceee5db962ea9"
     },
     {
       "id": "burner-condition-round-command-result",
@@ -1127,13 +1128,14 @@
       "file": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
       "markers": [
         "factory CriticalAlarm.fromFirestore",
+        "factory CriticalAlarmDefinition.fromFirestore",
         "factory CriticalAlarmContact.fromFirestore"
       ],
       "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
       "owner": "critical-safety",
-      "authorityBoundary": "server-governed alarm lifecycle and exact hazard-specific emergency contact directory",
+      "authorityBoundary": "server-governed alarm lifecycle, editable hazard catalogue, and exact hazard-specific emergency contact directory",
       "malformedDisposition": "fail closed before malformed severity, lifecycle, actor, chronology, dial target, or hazard mapping reaches safety coordination",
-      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact contact audit fields",
+      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact definition and contact audit fields",
       "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js",
       "reArmCondition": "alarm or contact fields are defaulted, spoofed, partly populated, weakly parsed, or accepted outside the governed hazard catalogue",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -1490,7 +1492,7 @@
     {
       "id": "completion-transport-translation",
       "file": "lib/features/planned_maintenance/services/planned_job_server_completion_service.dart",
-      "siteFingerprint": "3509e1ed73e5f303542cbe6701c1abd889a41cbe0af97f49d7850585e76ee6c7",
+      "siteFingerprint": "aaf4570b9190db642a70c663beda35ce77833349c76418e5887f0f2c8f89d4b9",
       "classification": "TRANSPORT_ERROR_TRANSLATION",
       "purpose": "map Cloud Functions completion errors to app-domain errors",
       "authorityBoundary": "server completion response",
@@ -1672,7 +1674,7 @@
     {
       "id": "burner-condition-round-transport-translation",
       "file": "lib/features/assets/services/burner_condition_round_service.dart",
-      "siteFingerprint": "e5193f0f3c72702d41b6ebd5efac1cc3cf691d2908b7ce5a53a247f2c0cb9d4c",
+      "siteFingerprint": "6d07eac9c4c6025dda9aa064c5bf3bfbcb804ce8f107a3db2e6056b462bb7d8a",
       "classification": "TRANSPORT_ERROR_TRANSLATION",
       "purpose": "translate callable transport failures while preserving strict burner-round response-format failure",
       "authorityBoundary": "governed burner-condition round mutation response",

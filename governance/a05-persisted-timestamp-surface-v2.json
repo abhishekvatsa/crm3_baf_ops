@@ -832,6 +832,18 @@
       "reArmCondition": "any critical-alarm lifecycle timestamp schema or complete-evidence requirement changes"
     },
     {
+      "id": "critical-alarm-definition-record",
+      "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
+      "readerMarker": "factory CriticalAlarmDefinition.fromFirestore",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "critical-safety",
+      "purpose": "restore the governed critical-alarm catalogue definition and revision chronology",
+      "authorityBoundary": "remote-critical-alarm-definition-record",
+      "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js",
+      "reArmCondition": "any critical-alarm definition timestamp or revision schema changes"
+    },
+    {
       "id": "critical-alarm-contact-record",
       "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
       "readerMarker": "factory CriticalAlarmContact.fromFirestore",

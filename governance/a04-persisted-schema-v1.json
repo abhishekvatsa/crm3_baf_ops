@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "098A89070E57C7849AFB6B2A687E4F6EC1C6C83C81B95AB4F8E1E3CF23D91807",
+  "inventoryDigest": "6AB18DFCD5EAD06D6E44FEE414A63F6C42CC838FC4AA207C0DAE0394B8C8DE12",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "7A0CE14D542F2137A4FEF32897AD29387135E140104042E94355588114E1DD2F",
+  "a05ManifestSha256": "B7D8DE642E5B63176D730FE73544EEC9EBD37CE5129EB052466FAF0B6B19F5D1",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -890,9 +890,9 @@
       "id": "burner-condition-round-record",
       "file": "lib/features/assets/data/burner_condition_round.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "immutable eight-position Furnace burner observation, microamp, red-hot, actor, and directive evidence",
+      "authorityBoundary": "immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
       "malformedDisposition": "fail closed before malformed or internally inconsistent burner-round evidence enters reliability reporting",
-      "compatibility": "schema version 1 only; exactly eight ordered positions and exact derived position projections",
+      "compatibility": "schema version 1 only; exactly eight ordered positions, exact derived position projections, and strict directive-source binding",
       "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js"
     },
     {
@@ -980,9 +980,9 @@
       "id": "critical-alarm-records",
       "file": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
       "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
-      "authorityBoundary": "server-governed alarm lifecycle and exact hazard-specific emergency contact directory",
+      "authorityBoundary": "server-governed alarm lifecycle, editable hazard catalogue, and exact hazard-specific emergency contact directory",
       "malformedDisposition": "fail closed before malformed severity, lifecycle, actor, chronology, dial target, or hazard mapping reaches safety coordination",
-      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact contact audit fields",
+      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact definition and contact audit fields",
       "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js"
     },
     {
