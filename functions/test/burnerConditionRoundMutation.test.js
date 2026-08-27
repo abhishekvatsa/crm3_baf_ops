@@ -116,6 +116,15 @@ function observations(overrides = {}) {
   }));
 }
 
+function uvObservations(overrides = {}) {
+  return Array.from({length: 8}, (_, index) => ({
+    position: index + 1,
+    condition: 'serviceable',
+    remarks: null,
+    ...(overrides[index + 1] ?? {}),
+  }));
+}
+
 function request(overrides = {}) {
   return {
     requestId: IDS.round,
@@ -245,6 +254,46 @@ describe('burner condition round mutation', () => {
       burnerPositions: [3],
       automaticPlantActuation: false,
     });
+  });
+
+  test('extended audit records draft-seal and UV state and routes only exposed UVs', async () => {
+    const memory = fakeDb(seed('seniorInstrumentation'));
+    const data = request({
+      observations: observations({
+        2: {redHotObserved: true},
+        3: {redHotObserved: true},
+      }),
+      draftSealRedHotObserved: true,
+      hotAirAtDraftSealObserved: false,
+      uvObservations: uvObservations({3: {condition: 'missing'}}),
+    });
+    const result = await invoke(memory, data);
+    const round = memory.store.get(`burner_condition_rounds/${IDS.round}`);
+    const directive = memory.store.get(`directives/${result.directiveId}`);
+
+    expect(round).toMatchObject({
+      schemaVersion: 2,
+      redHotPositions: [2, 3],
+      directivePositions: [2],
+      draftSealRedHotObserved: true,
+      hotAirAtDraftSealObserved: false,
+    });
+    expect(round.uvObservations[2]).toMatchObject({
+      position: 3,
+      condition: 'missing',
+    });
+    expect(JSON.parse(directive.metadataJson).burnerPositions).toEqual([2]);
+  });
+
+  test('extended audit fields are accepted only as one complete set', () => {
+    expect(() => parseBurnerConditionRoundMutationRequest(request({
+      draftSealRedHotObserved: false,
+    }))).toThrow('must accompany');
+    expect(() => parseBurnerConditionRoundMutationRequest(request({
+      draftSealRedHotObserved: false,
+      hotAirAtDraftSealObserved: false,
+      uvObservations: uvObservations().slice(0, 7),
+    }))).toThrow('exactly eight');
   });
 
   test('red-hot directive rejects a Furnace number outside legacy support', async () => {

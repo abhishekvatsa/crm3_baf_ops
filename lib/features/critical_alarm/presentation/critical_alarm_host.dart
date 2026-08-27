@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -26,6 +27,10 @@ class CriticalAlarmHost extends ConsumerStatefulWidget {
 
 class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     with WidgetsBindingObserver {
+  static const _launcherXKey = 'critical_alarm_launcher_x_fraction_v1';
+  static const _launcherYKey = 'critical_alarm_launcher_y_fraction_v1';
+  static const _launcherSize = 48.0;
+  static const _launcherMargin = 12.0;
   final Set<String> _notifiedRingingIds = <String>{};
   final Set<String> _notificationAttemptsInFlight = <String>{};
   Set<String> _latestRingingIds = const <String>{};
@@ -36,6 +41,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   late final ProviderSubscription<AsyncValue<List<CriticalAlarm>>>
   _alarmFeedSubscription;
   String? _pendingOpenedAlarmId;
+  Offset _launcherFraction = const Offset(1, 0.78);
 
   @override
   void initState() {
@@ -65,6 +71,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         if (alarmId != null) _queueOpenedAlarm(alarmId);
       }),
     );
+    unawaited(_restoreLauncherPosition());
   }
 
   @override
@@ -98,47 +105,128 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         if (mounted) _open(initialAlarmId: alarmId);
       });
     }
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final media = MediaQuery.of(context);
+        final bounds = _launcherBounds(
+          constraints,
+          media,
+          hasBanner: primary != null,
+        );
+        final launcherOffset = Offset(
+          bounds.left + bounds.width * _launcherFraction.dx,
+          bounds.top + bounds.height * _launcherFraction.dy,
+        );
+        return Stack(
+          fit: StackFit.expand,
           children: [
-            if (primary != null)
-              _ActiveAlarmBanner(
-                alarm: primary,
-                count: active.length,
-                onTap: () => _open(initialAlarmId: primary.id),
-              ),
-            Expanded(child: widget.child),
-          ],
-        ),
-        if (user?.isApproved == true)
-          Positioned(
-            right: 12,
-            bottom: 92,
-            child: SafeArea(
-              top: false,
-              child: Semantics(
-                label: 'Critical safety alarms',
-                button: true,
-                child: FloatingActionButton.small(
-                  heroTag: 'global-critical-alarm-launcher',
-                  backgroundColor: BafColors.danger,
-                  foregroundColor: Colors.white,
-                  onPressed: _open,
-                  child:
-                      active.isEmpty
-                          ? const Icon(Icons.notification_important_outlined)
-                          : Badge(
-                            label: Text('${active.length}'),
-                            child: const Icon(Icons.notification_important),
-                          ),
+            Column(
+              children: [
+                if (primary != null)
+                  _ActiveAlarmBanner(
+                    alarm: primary,
+                    count: active.length,
+                    onTap: () => _open(initialAlarmId: primary.id),
+                  ),
+                Expanded(child: widget.child),
+              ],
+            ),
+            if (user?.isApproved == true)
+              Positioned(
+                left: launcherOffset.dx,
+                top: launcherOffset.dy,
+                child: SafeArea(
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      final next = Offset(
+                        (launcherOffset.dx + details.delta.dx).clamp(
+                          bounds.left,
+                          bounds.right,
+                        ),
+                        (launcherOffset.dy + details.delta.dy).clamp(
+                          bounds.top,
+                          bounds.bottom,
+                        ),
+                      );
+                      setState(() {
+                        _launcherFraction = Offset(
+                          bounds.width == 0
+                              ? 0
+                              : (next.dx - bounds.left) / bounds.width,
+                          bounds.height == 0
+                              ? 0
+                              : (next.dy - bounds.top) / bounds.height,
+                        );
+                      });
+                    },
+                    onPanEnd: (_) => unawaited(_saveLauncherPosition()),
+                    child: Semantics(
+                      label: 'Critical safety alarms. Drag to reposition.',
+                      button: true,
+                      child: FloatingActionButton.small(
+                        heroTag: 'global-critical-alarm-launcher',
+                        backgroundColor: BafColors.danger,
+                        foregroundColor: Colors.white,
+                        onPressed: _open,
+                        child:
+                            active.isEmpty
+                                ? const Icon(
+                                  Icons.notification_important_outlined,
+                                )
+                                : Badge(
+                                  label: Text('${active.length}'),
+                                  child: const Icon(
+                                    Icons.notification_important,
+                                  ),
+                                ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
+  }
+
+  Rect _launcherBounds(
+    BoxConstraints constraints,
+    MediaQueryData media, {
+    required bool hasBanner,
+  }) {
+    const left = _launcherMargin;
+    final top = media.padding.top + _launcherMargin + (hasBanner ? 52 : 0);
+    final right = (constraints.maxWidth - _launcherSize - _launcherMargin)
+        .clamp(left, double.infinity);
+    final bottom = (constraints.maxHeight -
+            media.padding.bottom -
+            _launcherSize -
+            84)
+        .clamp(top, double.infinity);
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  Future<void> _restoreLauncherPosition() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final x = preferences.getDouble(_launcherXKey);
+      final y = preferences.getDouble(_launcherYKey);
+      if (!mounted || x == null || y == null) return;
+      setState(() => _launcherFraction = Offset(x.clamp(0, 1), y.clamp(0, 1)));
+    } catch (_) {
+      // Position persistence is cosmetic; alarm access must remain available.
+    }
+  }
+
+  Future<void> _saveLauncherPosition() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setDouble(_launcherXKey, _launcherFraction.dx);
+      await preferences.setDouble(_launcherYKey, _launcherFraction.dy);
+    } catch (_) {
+      // Position persistence is cosmetic; alarm access must remain available.
+    }
   }
 
   CriticalAlarm _primary(List<CriticalAlarm> alarms) {

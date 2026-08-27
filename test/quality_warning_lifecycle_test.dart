@@ -235,6 +235,45 @@ void main() {
         'monitoring-old-active',
       ]);
     });
+
+    test('operational window expires closed requests after seven days', () {
+      final closedAt = DateTime.utc(2026, 8, 14, 8);
+      final closed = QualityMonitoringRequest.fromMap(
+        _monitoring()
+          ..['status'] = 'closed'
+          ..['closedAt'] = closedAt
+          ..['closedByUid'] = 'si-2'
+          ..['closedByName'] = 'SI Two'
+          ..['closeReason'] = 'The monitored campaign is complete.'
+          ..['updatedAt'] = closedAt
+          ..['updatedByUid'] = 'si-2'
+          ..['updatedByName'] = 'SI Two'
+          ..['version'] = 2,
+        'monitoring-1',
+      );
+      final active = QualityMonitoringRequest.fromMap(
+        _monitoring()
+          ..['requestId'] = 'monitoring-active'
+          ..['createdAt'] = DateTime.utc(2025, 1, 1)
+          ..['updatedAt'] = DateTime.utc(2025, 1, 1),
+        'monitoring-active',
+      );
+
+      expect(
+        retainQualityMonitoringOperationalWindow(
+          <QualityMonitoringRequest>[closed, active],
+          now: closedAt.add(const Duration(days: 6, hours: 23)),
+        ).map((request) => request.requestId),
+        <String>['monitoring-1', 'monitoring-active'],
+      );
+      expect(
+        retainQualityMonitoringOperationalWindow(
+          <QualityMonitoringRequest>[closed, active],
+          now: closedAt.add(qualityMonitoringOperationalRetention),
+        ).map((request) => request.requestId),
+        <String>['monitoring-active'],
+      );
+    });
   });
 
   testWidgets(
@@ -324,6 +363,56 @@ void main() {
     expect(find.text('Monitoring (1)'), findsOneWidget);
     expect(find.text('Base 12 · CRGO M4'), findsOneWidget);
     expect(find.text('No warnings in this view'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('closed monitoring cards show accountable closure evidence', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final closedAt = DateTime.utc(2026, 8, 15, 9, 30);
+    final closed = QualityMonitoringRequest.fromMap(
+      _monitoring()
+        ..['status'] = 'closed'
+        ..['closedAt'] = closedAt
+        ..['closedByUid'] = 'si-2'
+        ..['closedByName'] = 'SI Two'
+        ..['closeReason'] = 'Campaign evidence reviewed and accepted.'
+        ..['updatedAt'] = closedAt
+        ..['updatedByUid'] = 'si-2'
+        ..['updatedByName'] = 'SI Two'
+        ..['version'] = 2,
+      'monitoring-1',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_qualityViewer()),
+          ),
+          qualityWarningsProvider.overrideWith(
+            (ref) => Stream.value(const <QualityWarning>[]),
+          ),
+          qualityMonitoringRequestsProvider.overrideWith(
+            (ref) => Stream.value(<QualityMonitoringRequest>[closed]),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const QualityHomeScreen.monitoring(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Campaign evidence reviewed and accepted.'),
+      findsOneWidget,
+    );
+    expect(find.text('Closed by SI Two'), findsOneWidget);
+    expect(find.text('15 Aug 2026, 09:30'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

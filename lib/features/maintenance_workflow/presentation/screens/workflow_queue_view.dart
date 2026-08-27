@@ -88,6 +88,12 @@ class WorkflowQueueView extends ConsumerWidget {
             );
             return due != 0 ? due : b.updatedAt.compareTo(a.updatedAt);
           });
+    final targetActionCompliance = compliance
+        .where((record) => record.statusKey != 'complied')
+        .toList(growable: false);
+    final awaitingOriginConfirmation = compliance
+        .where((record) => record.statusKey == 'complied')
+        .toList(growable: false);
 
     return RefreshIndicator(
       onRefresh: () => _refreshWorkflowQueue(context, ref),
@@ -130,8 +136,13 @@ class WorkflowQueueView extends ConsumerWidget {
                 color: BafColors.planned,
               ),
               StatusBadge(
-                label: '${compliance.length} obligations',
+                label: '${targetActionCompliance.length} target actions',
                 color: BafColors.warning,
+              ),
+              StatusBadge(
+                label:
+                    '${awaitingOriginConfirmation.length} awaiting confirmation',
+                color: BafColors.audit,
               ),
             ],
           ),
@@ -193,10 +204,27 @@ class WorkflowQueueView extends ConsumerWidget {
                 ),
               ),
             ],
-            if (compliance.isNotEmpty) ...[
+            if (targetActionCompliance.isNotEmpty) ...[
               if (lanes.isNotEmpty) const SizedBox(height: BafSpacing.lg),
-              const _QueueSectionTitle('Compliance obligations'),
-              ...compliance.map(
+              const _QueueSectionTitle('Action required by target lane'),
+              ...targetActionCompliance.map(
+                (record) => _ComplianceQueueTile(
+                  record: record,
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder:
+                              (_) => ComplianceDetailScreen(record: record),
+                        ),
+                      ),
+                ),
+              ),
+            ],
+            if (awaitingOriginConfirmation.isNotEmpty) ...[
+              if (lanes.isNotEmpty || targetActionCompliance.isNotEmpty)
+                const SizedBox(height: BafSpacing.lg),
+              const _QueueSectionTitle('Awaiting origin confirmation'),
+              ...awaitingOriginConfirmation.map(
                 (record) => _ComplianceQueueTile(
                   record: record,
                   onTap:
@@ -332,22 +360,29 @@ class _ComplianceQueueTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final awaitingConfirmation = record.statusKey == 'complied';
     return Material(
       type: MaterialType.transparency,
       child: ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Icon(
-          record.becameDueAt == null
+          awaitingConfirmation
+              ? Icons.pending_actions_outlined
+              : record.becameDueAt == null
               ? Icons.assignment_outlined
               : Icons.warning_amber_rounded,
           color:
-              record.becameDueAt == null
+              awaitingConfirmation
+                  ? BafColors.audit
+                  : record.becameDueAt == null
                   ? BafColors.planned
                   : BafColors.warning,
         ),
         title: Text(record.title, maxLines: 2, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          '${_laneLabel(record.targetLaneKey)} · ${record.statusKey}',
+          awaitingConfirmation
+              ? '${_laneLabel(record.originLaneKey ?? 'shared')} must confirm closure'
+              : '${_laneLabel(record.targetLaneKey)} · ${record.statusKey}',
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: onTap,

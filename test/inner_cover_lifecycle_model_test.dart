@@ -140,6 +140,22 @@ void main() {
     );
   });
 
+  test('retirement condition is retained only after salvage retirement', () {
+    final retired = InnerCoverProfile.fromMap({
+      ...profileMap(state: 'retiredForSalvage'),
+      'retirementCondition': 'bulged',
+    }, 'cover-1');
+    expect(retired.retirementCondition, InnerCoverRetirementCondition.bulged);
+
+    expect(
+      () => InnerCoverProfile.fromMap({
+        ...profileMap(),
+        'retirementCondition': 'notBulged',
+      }, 'cover-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
   test('selected incorporation day persists from local midnight', () {
     final selected = DateTime(2026, 8, 22, 18, 45);
 

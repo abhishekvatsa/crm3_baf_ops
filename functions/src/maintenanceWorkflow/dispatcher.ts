@@ -83,7 +83,9 @@ import {
   raiseCriticalAlarm,
   resolveCriticalAlarm,
   setCriticalAlarmContactStatus,
+  setCriticalAlarmDefinitionStatus,
   upsertCriticalAlarmContact,
+  upsertCriticalAlarmDefinition,
   verifyCriticalAlarmReplay,
   withdrawCriticalAlarmInError,
 } from "./criticalAlarmHandlers";
@@ -148,6 +150,8 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   withdrawCriticalAlarmInError,
   upsertCriticalAlarmContact,
   setCriticalAlarmContactStatus,
+  upsertCriticalAlarmDefinition,
+  setCriticalAlarmDefinitionStatus,
   purgePilotBusinessRecord,
 };
 

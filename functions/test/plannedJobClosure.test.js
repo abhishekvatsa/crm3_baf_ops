@@ -384,7 +384,12 @@ describe('planned job server closure validation', () => {
 });
 
 describe('completePlannedJobWithDb unhappy paths do not write', () => {
-  function fakeCompletionDb({userData, executionData, modules = []}) {
+  function fakeCompletionDb({
+    userData,
+    executionData,
+    modules = [],
+    documents = {},
+  }) {
     const writes = {
       updates: [],
       sets: [],
@@ -434,11 +439,23 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
               writes.executionReads += 1;
               return {exists: true, data: () => executionData};
             }
+            if (refOrQuery && Object.prototype.hasOwnProperty.call(
+              documents,
+              refOrQuery.path,
+            )) {
+              const path = refOrQuery.path;
+              return {
+                exists: true,
+                id: path.split('/').at(-1),
+                data: () => documents[path],
+              };
+            }
             if (refOrQuery && refOrQuery.kind === 'query') {
               writes.moduleQueryReads += 1;
               return {
                 docs: modules.map((moduleData, index) => ({
                   id: moduleData.firestoreId ?? `module_${index}`,
+                  exists: true,
                   data: () => moduleData,
                 })),
               };
@@ -496,6 +513,107 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
     })).rejects.toMatchObject({
       code: 'invalid-argument',
       details: expect.objectContaining({reasonCode: 'action-payload-invalid'}),
+    });
+  });
+
+  test('legacy completion canonicalizes new actions from the live asset hierarchy', async () => {
+    const executionData = baseExecution({
+      assetType: 'furnace',
+      assetNumber: 7,
+      actionsJson: '[]',
+      responsesJson: '[]',
+    });
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Shift Supervisor',
+      },
+      executionData,
+      modules: [baseModule()],
+      documents: {
+        'asset_classes/class-furnace': {
+          schemaVersion: 1,
+          assetClassId: 'class-furnace',
+          status: 'active',
+          legacyAssetTypeKey: 'furnace',
+          code: 'FR',
+          name: 'Furnace',
+        },
+        'asset_instances/asset-furnace-7': {
+          schemaVersion: 1,
+          assetInstanceId: 'asset-furnace-7',
+          assetClassId: 'class-furnace',
+          assetClassCode: 'FR',
+          assetClassName: 'Furnace',
+          assetNumber: 7,
+          name: 'Furnace 7',
+          status: 'active',
+          version: 4,
+          ownershipStatus: 'confirmed',
+          ownerDiscipline: 'Mechanical',
+          accountableRoleKeys: ['seniorMechanical'],
+        },
+        'asset_hierarchy_nodes/node-shell': {
+          schemaVersion: 1,
+          nodeId: 'node-shell',
+          assetClassId: 'class-furnace',
+          status: 'active',
+          version: 2,
+          nodeType: 'component',
+          name: 'Furnace shell',
+          componentTag: null,
+          hierarchyPath: ['Structure', 'Furnace shell'],
+          ownershipStatus: 'confirmed',
+          ownerDiscipline: 'Mechanical',
+          accountableRoleKeys: ['seniorMechanical'],
+        },
+      },
+    });
+
+    await expect(completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {
+        executionId: 'job_1',
+        expectedCompletionVersion: 7,
+        actionTargetContractVersion: 1,
+        actions: [{
+          schemaVersion: 1,
+          asset: 'Untrusted asset',
+          component: 'Untrusted component',
+          hierarchyPath: ['Untrusted'],
+          assetHierarchyRef: {
+            schemaVersion: 4,
+            scope: 'componentDefinitionOnAsset',
+            assetClassId: 'class-furnace',
+            assetInstanceId: 'asset-furnace-7',
+            assetInstanceVersion: 4,
+            nodeId: 'node-shell',
+            nodeVersion: 2,
+          },
+          tag: null,
+          actionType: 'inspection',
+          isAutoResolved: true,
+          status: 'resolved',
+          createdAt: '2026-05-15T09:00:00.000Z',
+          severity: 'medium',
+          version: 1,
+        }],
+      },
+    })).resolves.toMatchObject({ok: true, executionId: 'job_1'});
+
+    const executionWrite = writes.updates.find(
+      (write) => write.ref.path === 'job_executions/job_1',
+    );
+    const [savedAction] = JSON.parse(executionWrite.data.actionsJson);
+    expect(savedAction).toMatchObject({
+      asset: 'Furnace 7',
+      component: 'Furnace shell',
+      hierarchyPath: ['Structure', 'Furnace shell'],
+      system: 'Furnace',
+      subsystem: 'Structure',
+      performedBy: 'Shift Supervisor',
     });
   });
 

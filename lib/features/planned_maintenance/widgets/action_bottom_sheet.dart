@@ -4,15 +4,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/asset_registry_model.dart';
+import '../../assets/presentation/widgets/governed_asset_target_picker.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
-import '../domain/baf_tag_resolver_v2.dart';
 import '../models/component_action_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 
+final class GovernedActionContext {
+  const GovernedActionContext({
+    required this.assetTypeKey,
+    required this.assetNumber,
+    this.assetClassId,
+    this.assetInstanceId,
+  });
+
+  final String assetTypeKey;
+  final int assetNumber;
+  final String? assetClassId;
+  final String? assetInstanceId;
+}
+
 class ActionBottomSheet extends ConsumerStatefulWidget {
-  const ActionBottomSheet({super.key});
+  const ActionBottomSheet({super.key, required this.target, this.performedAt});
+
+  final GovernedActionContext target;
+  final DateTime? performedAt;
 
   @override
   ConsumerState<ActionBottomSheet> createState() => _ActionBottomSheetState();
@@ -30,11 +48,25 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
   AssetHierarchyReference? hierarchyReference;
   String? ownership;
   int _resolutionGeneration = 0;
+  AssetInstanceRecord? _assetRecord;
+  List<AssetHierarchyNode> _hierarchyNodes = const <AssetHierarchyNode>[];
+  String? _definitionAssetClassId;
+  String? _selectedNodeId;
+  String? _targetLoadError;
+  String? _tagError;
+  bool _loadingTarget = true;
+  bool _resolvingTag = false;
 
   bool _isAutoResolved = false;
 
   ActionType _actionType = ActionType.issue;
   ActionStatus _status = ActionStatus.issue;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_loadTarget);
+  }
 
   @override
   void dispose() {
@@ -44,107 +76,214 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     super.dispose();
   }
 
+  Future<void> _loadTarget() async {
+    try {
+      final repository = ref.read(assetHierarchyRepositoryProvider);
+      final classes = await repository.watchAssetClasses().first;
+      final explicitClassId = widget.target.assetClassId?.trim();
+      final expectedLegacyType =
+          widget.target.assetTypeKey == 'innerCover'
+              ? 'base'
+              : widget.target.assetTypeKey;
+      final matchingClasses = classes
+          .where(
+            (item) =>
+                item.isActive &&
+                (explicitClassId?.isNotEmpty == true
+                    ? item.id == explicitClassId
+                    : item.legacyAssetTypeKey == expectedLegacyType),
+          )
+          .toList(growable: false);
+      if (matchingClasses.length != 1) {
+        throw const AssetHierarchyException(
+          'The work asset class is unavailable or ambiguous.',
+        );
+      }
+      final assetClass = matchingClasses.single;
+      final hierarchyClass =
+          widget.target.assetTypeKey == 'innerCover'
+              ? classes
+                  .where(
+                    (item) =>
+                        item.isActive &&
+                        item.legacyAssetTypeKey == 'innerCover',
+                  )
+                  .singleOrNull
+              : assetClass;
+      if (hierarchyClass == null) {
+        throw const AssetHierarchyException(
+          'The active Inner Cover hierarchy is unavailable or ambiguous.',
+        );
+      }
+      final assets = await repository.watchAssetInstances(assetClass.id).first;
+      final explicitAssetId = widget.target.assetInstanceId?.trim();
+      final matchingAssets = assets
+          .where(
+            (item) =>
+                item.isActive &&
+                item.assetNumber == widget.target.assetNumber &&
+                (explicitAssetId?.isNotEmpty == true
+                    ? item.id == explicitAssetId
+                    : true),
+          )
+          .toList(growable: false);
+      if (matchingAssets.length != 1) {
+        throw const AssetHierarchyException(
+          'The exact physical work asset is unavailable or ambiguous.',
+        );
+      }
+      final nodes = await repository.watchNodes(hierarchyClass.id).first;
+      if (!mounted) return;
+      setState(() {
+        _assetRecord = matchingAssets.single;
+        _hierarchyNodes = nodes;
+        _definitionAssetClassId = hierarchyClass.id;
+        asset = matchingAssets.single.name;
+        system = hierarchyClass.name;
+        _loadingTarget = false;
+        _targetLoadError = null;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingTarget = false;
+        _targetLoadError =
+            error is AssetHierarchyException
+                ? '$error'
+                : 'The governed asset hierarchy could not be loaded.';
+      });
+    }
+  }
+
+  Future<void> _chooseHierarchyTarget() async {
+    final assetRecord = _assetRecord;
+    if (assetRecord == null) return;
+    final selection = await showGovernedAssetTargetPicker(
+      context: context,
+      asset: assetRecord,
+      nodes: _hierarchyNodes,
+      selectedNodeId: _selectedNodeId,
+      definitionAssetClassId: _definitionAssetClassId,
+    );
+    if (!mounted || selection == null) return;
+    final reference = selection.reference;
+    final node = selection.node;
+    if (selection.unlisted || reference == null || node == null) return;
+    setState(() {
+      _selectedNodeId = node.id;
+      hierarchyReference = reference;
+      asset = reference.assetInstanceName;
+      system = reference.assetClassName;
+      subsystem =
+          reference.hierarchyPath.length > 1
+              ? reference.hierarchyPath[reference.hierarchyPath.length - 2]
+              : null;
+      path = List<String>.from(reference.hierarchyPath);
+      ownership = <String>[
+        reference.ownershipStatus.label,
+        if (reference.ownerDiscipline != null) reference.ownerDiscipline!,
+      ].join(' · ');
+      _componentController.text = reference.nodeName;
+      _tagController.clear();
+      _tagError = null;
+      _isAutoResolved = true;
+    });
+  }
+
   Future<void> _resolveTag(String rawTag) async {
     final generation = ++_resolutionGeneration;
     final tag = rawTag.trim();
 
     if (tag.isEmpty) {
-      _clearAutoFields();
+      setState(() {
+        _tagError = null;
+        _resolvingTag = false;
+      });
       return;
     }
+
+    final targetAsset = _assetRecord;
+    if (targetAsset == null) {
+      setState(() => _tagError = 'Load the work asset before resolving a tag.');
+      return;
+    }
+    setState(() {
+      _resolvingTag = true;
+      _tagError = null;
+    });
 
     try {
       final repository = ref.read(assetHierarchyRepositoryProvider);
       final component = await repository.findActiveInstalledComponentByTag(tag);
       if (!mounted || generation != _resolutionGeneration) return;
-      if (component != null) {
-        final assetClass = await repository.getAssetClass(
-          component.assetClassId,
+      if (component == null) {
+        throw AssetHierarchyException(
+          'Tag ${normalizeAssetComponentTag(tag)} is not registered.',
         );
-        if (!mounted || generation != _resolutionGeneration) return;
-        if (assetClass == null || !assetClass.isActive) {
-          throw const AssetHierarchyException(
-            'The tag belongs to an unavailable asset class.',
-          );
-        }
-        final reference = component.toReference();
-        setState(() {
-          asset = component.assetInstanceName;
-          system = assetClass.majorArea;
-          subsystem =
-              component.hierarchyPath.length > 1
-                  ? component.hierarchyPath[component.hierarchyPath.length - 2]
-                  : null;
-          path = List<String>.from(component.hierarchyPath);
-          hierarchyReference = reference;
-          ownership = [
-            component.ownershipStatus.label,
-            if (component.ownerDiscipline != null) component.ownerDiscipline!,
-          ].join(' · ');
-          _componentController.text = component.definitionName;
-          _isAutoResolved = true;
-        });
-        return;
       }
+      if (component.assetClassId != targetAsset.assetClassId ||
+          component.assetInstanceId != targetAsset.id ||
+          component.assetNumber != targetAsset.assetNumber) {
+        throw AssetHierarchyException(
+          'Tag ${component.componentTag ?? tag} belongs to ${component.assetInstanceName}, not ${targetAsset.name}.',
+        );
+      }
+      final reference = component.toReference();
+      setState(() {
+        asset = component.assetInstanceName;
+        system = component.assetClassName;
+        subsystem =
+            component.hierarchyPath.length > 1
+                ? component.hierarchyPath[component.hierarchyPath.length - 2]
+                : null;
+        path = List<String>.from(component.hierarchyPath);
+        hierarchyReference = reference;
+        ownership = [
+          component.ownershipStatus.label,
+          if (component.ownerDiscipline != null) component.ownerDiscipline!,
+        ].join(' · ');
+        _selectedNodeId = component.definitionNodeId;
+        _componentController.text = component.definitionName;
+        _tagController.text = component.componentTag ?? tag;
+        _tagError = null;
+        _resolvingTag = false;
+        _isAutoResolved = true;
+      });
+      return;
     } on AssetHierarchyException catch (error) {
       if (!mounted || generation != _resolutionGeneration) return;
-      _clearAutoFields();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$error'), backgroundColor: BafColors.danger),
-      );
+      setState(() {
+        _tagError = '$error';
+        _resolvingTag = false;
+      });
       return;
     }
-
-    final result = BafTagResolverV2.resolveToMap(tag);
-    final isResolved = result['isAutoResolved'] == true;
-
-    if (!isResolved) {
-      _clearAutoFields();
-      return;
-    }
-
-    setState(() {
-      asset = result['asset'] as String?;
-      system = result['system'] as String?;
-      subsystem = result['subsystem'] as String?;
-
-      final rawPath = result['hierarchyPath'];
-      path = rawPath is List ? List<String>.from(rawPath) : null;
-      hierarchyReference = null;
-      ownership = null;
-
-      if (_componentController.text.trim().isEmpty) {
-        _componentController.text = (result['component'] as String?) ?? '';
-      }
-
-      _isAutoResolved = true;
-    });
-  }
-
-  void _clearAutoFields() {
-    setState(() {
-      asset = null;
-      system = null;
-      subsystem = null;
-      path = null;
-      hierarchyReference = null;
-      ownership = null;
-      _isAutoResolved = false;
-    });
   }
 
   bool _canSave() {
-    return _componentController.text.trim().isNotEmpty && asset != null;
+    final tag = _tagController.text.trim();
+    return !_loadingTarget &&
+        _targetLoadError == null &&
+        !_resolvingTag &&
+        _tagError == null &&
+        _componentController.text.trim().isNotEmpty &&
+        asset != null &&
+        hierarchyReference != null &&
+        (tag.isEmpty ||
+            hierarchyReference!.scope ==
+                AssetHierarchyReferenceScope.installedComponent);
   }
 
   void _save() {
     final component = _componentController.text.trim();
     final tag = _tagController.text.trim();
 
-    if (asset == null) {
+    if (asset == null || hierarchyReference == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Enter a valid tag to resolve asset'),
+          content: Text(
+            'Choose a governed component or enter a valid tag for this asset.',
+          ),
           backgroundColor: BafColors.danger,
         ),
       );
@@ -173,7 +312,7 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       status: _status,
       issue: _issueController.text.trim(),
       isAutoResolved: _isAutoResolved,
-      createdAt: DateTime.now(),
+      createdAt: widget.performedAt ?? DateTime.now(),
     );
 
     Navigator.pop(context, action);
@@ -216,11 +355,11 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Add action / observation',
                           style: TextStyle(
                             color: BafColors.textPrimary,
@@ -228,10 +367,12 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          'Record what was found or done during the job.',
-                          style: TextStyle(
+                          _assetRecord == null
+                              ? 'Loading the exact work asset.'
+                              : 'Record work on ${_assetRecord!.name}.',
+                          style: const TextStyle(
                             color: BafColors.textSecondary,
                             fontSize: 12,
                             height: 1.25,
@@ -243,12 +384,57 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                 ],
               ),
               const SizedBox(height: 18),
+              if (_loadingTarget)
+                const LinearProgressIndicator(color: BafColors.planned)
+              else if (_targetLoadError != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.danger.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: BafColors.danger.withValues(alpha: 0.28),
+                    ),
+                    borderRadius: BorderRadius.circular(BafRadius.small),
+                  ),
+                  child: Text(
+                    _targetLoadError!,
+                    style: const TextStyle(color: BafColors.danger),
+                  ),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _chooseHierarchyTarget,
+                    icon: const Icon(Icons.account_tree_outlined),
+                    label: Text(
+                      _selectedNodeId == null
+                          ? 'Choose from asset hierarchy'
+                          : 'Change hierarchy target',
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
               TextField(
                 controller: _tagController,
+                enabled: !_loadingTarget && _targetLoadError == null,
                 decoration: _inputDecoration(
-                  'Instrument tag',
-                  hint: 'Example: FIT45',
+                  'Instrument tag (optional)',
+                  hint: 'Use only when the tag is known',
                   icon: Icons.sell_rounded,
+                ).copyWith(
+                  errorText: _tagError,
+                  suffixIcon:
+                      _resolvingTag
+                          ? const Padding(
+                            padding: EdgeInsets.all(14),
+                            child: SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                          : null,
                 ),
                 textCapitalization: TextCapitalization.characters,
                 onChanged: _resolveTag,
@@ -257,11 +443,11 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
               TextField(
                 controller: _componentController,
                 decoration: _inputDecoration(
-                  'Component',
+                  'Governed component',
+                  hint: 'Choose hierarchy or resolve a tag',
                   icon: Icons.memory_rounded,
                 ),
-                textCapitalization: TextCapitalization.words,
-                onChanged: (_) => setState(() {}),
+                readOnly: true,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<ActionType>(

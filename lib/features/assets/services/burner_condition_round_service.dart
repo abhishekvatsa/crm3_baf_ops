@@ -166,6 +166,9 @@ class BurnerConditionRoundService {
     required List<BurnerConditionObservation> observations,
     required AppUser actor,
     String? roundNote,
+    bool? draftSealRedHotObserved,
+    bool? hotAirAtDraftSealObserved,
+    List<BurnerUvObservation>? uvObservations,
   }) async {
     if (!actor.canRecordBurnerConditionRound) {
       throw const BurnerConditionRoundException(
@@ -182,10 +185,35 @@ class BurnerConditionRoundService {
         code: 'invalid-argument',
       );
     }
+    final extendedValues = <Object?>[
+      draftSealRedHotObserved,
+      hotAirAtDraftSealObserved,
+      uvObservations,
+    ];
+    final extended = extendedValues.any((value) => value != null);
+    if (extended && extendedValues.any((value) => value == null)) {
+      throw const BurnerConditionRoundException(
+        'Record both draft-seal conditions and all eight UV positions together.',
+        code: 'invalid-argument',
+      );
+    }
+    if (uvObservations != null &&
+        (uvObservations.length != 8 ||
+            uvObservations.asMap().entries.any(
+              (entry) => entry.value.position != entry.key + 1,
+            ))) {
+      throw const BurnerConditionRoundException(
+        'Record every UV position from 1 to 8.',
+        code: 'invalid-argument',
+      );
+    }
     final payloadFingerprint = burnerConditionRoundPayloadFingerprint(
       furnace: furnace,
       observations: observations,
       roundNote: roundNote,
+      draftSealRedHotObserved: draftSealRedHotObserved,
+      hotAirAtDraftSealObserved: hotAirAtDraftSealObserved,
+      uvObservations: uvObservations,
     );
     final pendingIdentity = await _resolvePendingIdentity(
       actorUid: actor.uid,
@@ -202,6 +230,13 @@ class BurnerConditionRoundService {
         'observations': observations
             .map((item) => item.toCommandMap())
             .toList(growable: false),
+        if (extended) ...<String, dynamic>{
+          'draftSealRedHotObserved': draftSealRedHotObserved,
+          'hotAirAtDraftSealObserved': hotAirAtDraftSealObserved,
+          'uvObservations': uvObservations!
+              .map((item) => item.toCommandMap())
+              .toList(growable: false),
+        },
         'roundNote': _cleanOptionalText(roundNote),
       };
       final response = await _client
@@ -273,7 +308,11 @@ String burnerConditionRoundPayloadFingerprint({
   required AssetInstanceRecord furnace,
   required List<BurnerConditionObservation> observations,
   String? roundNote,
+  bool? draftSealRedHotObserved,
+  bool? hotAirAtDraftSealObserved,
+  List<BurnerUvObservation>? uvObservations,
 }) {
+  final extended = uvObservations != null;
   final canonical = jsonEncode(<String, dynamic>{
     'operation': burnerConditionRoundOperation,
     'assetClassId': furnace.assetClassId,
@@ -282,6 +321,13 @@ String burnerConditionRoundPayloadFingerprint({
     'observations': observations
         .map((item) => item.toCommandMap())
         .toList(growable: false),
+    if (extended) ...<String, dynamic>{
+      'draftSealRedHotObserved': draftSealRedHotObserved,
+      'hotAirAtDraftSealObserved': hotAirAtDraftSealObserved,
+      'uvObservations': uvObservations
+          .map((item) => item.toCommandMap())
+          .toList(growable: false),
+    },
     'roundNote': _cleanOptionalText(roundNote),
   });
   return sha256.convert(utf8.encode(canonical)).toString();

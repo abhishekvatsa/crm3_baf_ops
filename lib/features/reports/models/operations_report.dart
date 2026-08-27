@@ -230,6 +230,95 @@ class OperationsReport {
           .length;
   int get terminalIssueCount =>
       resolvedIssueCount + administrativelyClosedIssueCount;
+  int get issueReopenEventCount {
+    var count = 0;
+    for (final ticket in tickets) {
+      final instants = <int>{};
+      final history = ticket.resolutionHistoryReadResult;
+      if (!history.isValid) {
+        throw StateError(
+          'Issue ${ticket.firestoreId ?? ticket.id} has invalid resolution history.',
+        );
+      }
+      for (final entry in history.entries) {
+        final reopenedAt = entry.reopenedAt;
+        if (reopenedAt != null) {
+          instants.add(reopenedAt.toUtc().microsecondsSinceEpoch);
+        }
+      }
+      final reopenedAt = ticket.reopenedAt;
+      if (reopenedAt != null) {
+        instants.add(reopenedAt.toUtc().microsecondsSinceEpoch);
+      }
+      count += instants.length;
+    }
+    return count;
+  }
+
+  int get reopenedIssueCount =>
+      tickets.where((ticket) {
+        if (ticket.reopenedAt != null) return true;
+        final history = ticket.resolutionHistoryReadResult;
+        if (!history.isValid) {
+          throw StateError(
+            'Issue ${ticket.firestoreId ?? ticket.id} has invalid resolution history.',
+          );
+        }
+        return history.entries.any((entry) => entry.reopenedAt != null);
+      }).length;
+
+  Duration get issueImpactDuration {
+    var microseconds = 0;
+    for (final ticket in tickets) {
+      for (final interval in _issueImpactIntervals(ticket)) {
+        final clippedStart =
+            interval.start.isAfter(filter.startInclusive)
+                ? interval.start
+                : filter.startInclusive;
+        final clippedEnd =
+            interval.end.isBefore(filter.endExclusive)
+                ? interval.end
+                : filter.endExclusive;
+        if (clippedEnd.isAfter(clippedStart)) {
+          microseconds += clippedEnd.difference(clippedStart).inMicroseconds;
+        }
+      }
+    }
+    return Duration(microseconds: microseconds);
+  }
+
+  List<({DateTime start, DateTime end})> _issueImpactIntervals(
+    MaintenanceRecord ticket,
+  ) {
+    final history = ticket.resolutionHistoryReadResult;
+    if (!history.isValid) {
+      throw StateError(
+        'Issue ${ticket.firestoreId ?? ticket.id} has invalid resolution history.',
+      );
+    }
+    final intervals = <({DateTime start, DateTime end})>[];
+    var episodeStart = ticket.startDate;
+    for (final entry in history.entries) {
+      final resolvedAt = entry.resolvedAt;
+      if (resolvedAt == null || resolvedAt.isBefore(episodeStart)) {
+        throw StateError(
+          'Issue ${ticket.firestoreId ?? ticket.id} has invalid lifecycle chronology.',
+        );
+      }
+      intervals.add((start: episodeStart, end: resolvedAt));
+      episodeStart = entry.reopenedAt ?? resolvedAt;
+    }
+    final latestReopen = ticket.reopenedAt;
+    if (latestReopen != null && latestReopen.isAfter(episodeStart)) {
+      episodeStart = latestReopen;
+    }
+    final currentEnd = ticket.endDate ?? asOf;
+    if (currentEnd.isAfter(episodeStart)) {
+      intervals.add((start: episodeStart, end: currentEnd));
+    }
+    return intervals;
+  }
+
   int get criticalIssueCount =>
       tickets.where((ticket) => ticket.isCritical).length;
   int get openCriticalIssueCount =>

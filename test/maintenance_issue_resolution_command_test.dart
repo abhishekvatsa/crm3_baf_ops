@@ -29,6 +29,7 @@ void main() {
         'remarks': 'Mechanical and Electrical checks completed.',
         'teamsInvolved': <String>['mechanical', 'electrical', 'operations'],
         'actionsJson': '[]',
+        'actionTargetContractVersion': 1,
       });
     },
   );
@@ -149,6 +150,34 @@ void main() {
       () => buildMaintenanceIssueReopenCommand(ticket: closed),
       throwsStateError,
     );
+  });
+
+  test('resolution rejects every nonterminal coordination queue state', () {
+    for (final state in const <String>[
+      'deferred',
+      'actionable',
+      'awaitingConfirmation',
+      'correctionRequired',
+    ]) {
+      final ticket =
+          _ticket()
+            ..workflowQueueState = state
+            ..workflowDeferred =
+                state == 'deferred' || state == 'correctionRequired';
+
+      expect(ticket.isWorkflowActionBlocked, isTrue, reason: state);
+      expect(
+        () => buildMaintenanceIssueResolutionCommand(
+          ticket: ticket,
+          endDate: DateTime.utc(2026, 8, 23, 8, 45),
+          remarks: 'Work completed.',
+          teamsInvolved: const <String>[],
+          actions: const [],
+        ),
+        throwsStateError,
+        reason: state,
+      );
+    }
   });
 
   test(

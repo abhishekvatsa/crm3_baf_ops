@@ -32,6 +32,15 @@ enum InnerCoverLifecycleState {
   };
 }
 
+enum InnerCoverRetirementCondition { bulged, notBulged }
+
+extension InnerCoverRetirementConditionLabel on InnerCoverRetirementCondition {
+  String get label => switch (this) {
+    InnerCoverRetirementCondition.bulged => 'Bulged',
+    InnerCoverRetirementCondition.notBulged => 'Not bulged',
+  };
+}
+
 enum InnerCoverSourceType {
   purchased,
   fabricated,
@@ -234,6 +243,7 @@ class InnerCoverProfile {
   final InnerCoverSourceType sourceType;
   final InnerCoverOriginClassification originClassification;
   final InnerCoverLifecycleState lifecycleState;
+  final InnerCoverRetirementCondition? retirementCondition;
   final InnerCoverTraceabilityGrade traceabilityGrade;
   final String? supplierOrFabricator;
   final DateTime? receivedOrCompletedOn;
@@ -264,6 +274,7 @@ class InnerCoverProfile {
     this.originClassification =
         InnerCoverOriginClassification.legacyUndocumented,
     required this.lifecycleState,
+    this.retirementCondition,
     required this.traceabilityGrade,
     this.supplierOrFabricator,
     this.receivedOrCompletedOn,
@@ -328,6 +339,25 @@ class InnerCoverProfile {
       field: 'lifecycleState',
       source: source,
     );
+    final retirementCondition = readOptionalPersistedEnum(
+      InnerCoverRetirementCondition.values,
+      map['retirementCondition'],
+      field: 'retirementCondition',
+      source: source,
+    );
+    final retirementEvidenceAllowed = const <InnerCoverLifecycleState>{
+      InnerCoverLifecycleState.retiredForSalvage,
+      InnerCoverLifecycleState.partiallyDismantled,
+      InnerCoverLifecycleState.fullyConsumedAsDonor,
+      InnerCoverLifecycleState.disposed,
+    }.contains(state);
+    if (retirementCondition != null && !retirementEvidenceAllowed) {
+      throw PersistedDataFormatException(
+        field: 'retirementCondition',
+        source: source,
+        detail: 'is allowed only after retirement for salvage',
+      );
+    }
     final sourceType = readRequiredPersistedEnum(
       InnerCoverSourceType.values,
       map['sourceType'],
@@ -512,6 +542,7 @@ class InnerCoverProfile {
       sourceType: sourceType,
       originClassification: originClassification,
       lifecycleState: state,
+      retirementCondition: retirementCondition,
       traceabilityGrade: traceabilityGrade,
       supplierOrFabricator: readOptionalPersistedString(
         map['supplierOrFabricator'],

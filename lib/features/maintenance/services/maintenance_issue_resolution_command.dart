@@ -27,7 +27,7 @@ WorkflowCommand buildMaintenanceIssueResolutionCommand({
       'Synchronize this issue before applying a governed resolution.',
     );
   }
-  if (ticket.isDeleted || ticket.isResolved || ticket.workflowDeferred) {
+  if (ticket.isDeleted || ticket.isResolved || ticket.isWorkflowActionBlocked) {
     throw StateError('Only an active, released issue can be resolved.');
   }
   final cleanRemarks = remarks.trim();
@@ -48,6 +48,7 @@ WorkflowCommand buildMaintenanceIssueResolutionCommand({
       'remarks': cleanRemarks,
       'teamsInvolved': teams,
       'actionsJson': ComponentAction.encode(actionList),
+      'actionTargetContractVersion': 1,
     },
   );
 }

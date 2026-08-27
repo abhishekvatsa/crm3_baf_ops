@@ -163,7 +163,8 @@ void main() {
 
       expect(source, contains('bool _isAcknowledging = false;'));
       expect(source, contains('bool _isClosing = false;'));
-      expect(source, contains('showDialog<String>'));
+      expect(source, contains('showDialog<_DirectiveClosureDraft>'));
+      expect(source, contains('burnerDispositions:'));
       expect(
         source,
         contains('class _CloseDirectiveDialog extends StatefulWidget'),

@@ -28,6 +28,7 @@ import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/presentation/inner_cover_lifecycle_screen.dart';
+import '../../assets/presentation/widgets/governed_asset_target_picker.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../quality/domain/issue_quality_intent.dart';
@@ -535,27 +536,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     try {
       final repository = ref.read(assetHierarchyRepositoryProvider);
       final nodes = await repository.watchNodes(route.issueClass.id).first;
-      final components =
-          await repository.watchInstalledComponents(asset.id).first;
       if (!mounted) return;
-      final selection = await showModalBottomSheet<_IssueComponentSelection>(
+      final selection = await showGovernedAssetTargetPicker(
         context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder:
-            (context) => _IssueComponentPickerSheet(
-              assetLabel: '${route.issueClass.name} ${asset.assetNumber}',
-              nodes: nodes
-                  .where(
-                    (node) =>
-                        node.isActive &&
-                        (node.nodeType == AssetHierarchyNodeType.component ||
-                            node.nodeType ==
-                                AssetHierarchyNodeType.subcomponent),
-                  )
-                  .toList(growable: false),
-              selectedNodeId: _selectedComponentNodeId,
-            ),
+        asset: asset,
+        nodes: nodes,
+        selectedNodeId: _selectedComponentNodeId,
+        definitionAssetClassId: route.issueClass.id,
+        allowUnlisted: true,
       );
       if (!mounted || selection == null) return;
       if (selection.unlisted) {
@@ -574,48 +562,15 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         });
         return;
       }
-      final node = selection.node!;
-      final installed = components
-          .where(
-            (item) =>
-                item.isActive &&
-                item.definitionNodeId == node.id &&
-                item.componentTag?.trim().isNotEmpty == true &&
-                item.ownershipStatus == AssetOwnershipStatus.confirmed,
-          )
-          .toList(growable: false);
-      if (installed.length > 1) {
-        throw const AssetHierarchyException(
-          'More than one active tagged component occupies this hierarchy position. Reconcile the asset register first.',
-        );
-      }
-      final reference =
-          installed.length == 1
-              ? installed.single.toReference()
-              : AssetHierarchyReference(
-                scope: AssetHierarchyReferenceScope.componentDefinitionOnAsset,
-                assetClassId: asset.assetClassId,
-                assetClassCode: asset.assetClassCode,
-                assetClassName: asset.assetClassName,
-                nodeId: node.id,
-                nodeVersion: node.version,
-                nodeName: node.name,
-                assetInstanceId: asset.id,
-                assetInstanceVersion: asset.version,
-                assetNumber: asset.assetNumber,
-                assetInstanceName: asset.name,
-                hierarchyPath: node.hierarchyPath,
-                ownershipStatus: node.ownershipStatus,
-                ownerDiscipline: node.ownerDiscipline,
-                accountableRoleKeys: node.accountableRoleKeys,
-              );
+      final node = selection.node;
+      final reference = selection.reference;
+      if (node == null || reference == null) return;
       setState(() {
         _clearFrequentIssueSelection();
         _selectedComponentNodeId = node.id;
         _assetHierarchyReference = reference;
         _componentController.text = node.name;
-        _tagController.text =
-            installed.isEmpty ? '' : installed.single.componentTag ?? '';
+        _tagController.clear();
         _resolvedSystem = route.issueClass.name;
         _resolvedSubsystem =
             node.hierarchyPath.length > 1

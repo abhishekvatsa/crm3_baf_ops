@@ -785,6 +785,7 @@ Future<void> _changeCoverState(
         .setInnerCoverState(
           cover: cover,
           targetState: result.state,
+          retirementCondition: result.retirementCondition,
           actor: user,
           reason: result.reason,
         );
@@ -949,6 +950,11 @@ class _CoverDetailsSheet extends ConsumerWidget {
               _DetailRow(
                 label: 'Current position',
                 value: 'Base ${cover.currentBaseAssetNumber}',
+              ),
+            if (cover.retirementCondition != null)
+              _DetailRow(
+                label: 'Retirement condition',
+                value: cover.retirementCondition!.label,
               ),
             if (cover.drawingReference != null)
               _DetailRow(label: 'Drawing', value: cover.drawingReference!),
@@ -1242,9 +1248,14 @@ class _PairingDialogState extends State<_PairingDialog> {
 
 class _StateReasonResult {
   final InnerCoverLifecycleState state;
+  final InnerCoverRetirementCondition? retirementCondition;
   final String reason;
 
-  const _StateReasonResult({required this.state, required this.reason});
+  const _StateReasonResult({
+    required this.state,
+    required this.retirementCondition,
+    required this.reason,
+  });
 }
 
 class _StateReasonDialog extends StatefulWidget {
@@ -1264,6 +1275,7 @@ class _StateReasonDialog extends StatefulWidget {
 
 class _StateReasonDialogState extends State<_StateReasonDialog> {
   late InnerCoverLifecycleState _state = widget.initialState;
+  InnerCoverRetirementCondition? _retirementCondition;
   final _reason = TextEditingController();
 
   @override
@@ -1293,8 +1305,33 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
                       ),
                     )
                     .toList(),
-            onChanged: (value) => setState(() => _state = value ?? _state),
+            onChanged:
+                (value) => setState(() {
+                  _state = value ?? _state;
+                  if (_state != InnerCoverLifecycleState.retiredForSalvage) {
+                    _retirementCondition = null;
+                  }
+                }),
           ),
+          if (_state == InnerCoverLifecycleState.retiredForSalvage) ...[
+            const SizedBox(height: BafSpacing.md),
+            DropdownButtonFormField<InnerCoverRetirementCondition>(
+              initialValue: _retirementCondition,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Condition at retirement',
+              ),
+              items: [
+                for (final condition in InnerCoverRetirementCondition.values)
+                  DropdownMenuItem(
+                    value: condition,
+                    child: Text(condition.label),
+                  ),
+              ],
+              onChanged:
+                  (value) => setState(() => _retirementCondition = value),
+            ),
+          ],
           const SizedBox(height: BafSpacing.md),
           TextField(
             controller: _reason,
@@ -1316,9 +1353,17 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
         onPressed: () {
           final reason = _reason.text.trim();
           if (reason.length < 8) return;
+          if (_state == InnerCoverLifecycleState.retiredForSalvage &&
+              _retirementCondition == null) {
+            return;
+          }
           Navigator.pop(
             context,
-            _StateReasonResult(state: _state, reason: reason),
+            _StateReasonResult(
+              state: _state,
+              retirementCondition: _retirementCondition,
+              reason: reason,
+            ),
           );
         },
         child: const Text('Confirm'),

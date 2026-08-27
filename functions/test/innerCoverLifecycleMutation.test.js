@@ -266,6 +266,49 @@ describe('Inner Cover lifecycle mutation', () => {
     })).rejects.toThrow('cannot be in the future');
   });
 
+  test('retirement for salvage requires and retains bulge evidence', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: profile(
+        IDS.cover,
+        'GR26',
+        'available',
+        2,
+      ),
+    });
+    const request = {
+      requestId: '19191919-1919-4191-8191-191919191919',
+      operation: 'SET_INNER_COVER_STATE',
+      innerCoverId: IDS.cover,
+      expectedVersion: 2,
+      targetState: 'retiredForSalvage',
+      reason: 'Retire the cover for controlled salvage after inspection.',
+    };
+    await expect(invoke(memory, request)).rejects.toThrow(
+      'retirementCondition is required',
+    );
+
+    const result = await invoke(memory, {
+      ...request,
+      retirementCondition: 'bulged',
+    });
+
+    expect(result).toMatchObject({version: 3, idempotentReplay: false});
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({
+        lifecycleState: 'retiredForSalvage',
+        retirementCondition: 'bulged',
+        version: 3,
+      });
+    const audit = memory.store.get(
+      `inner_cover_lifecycle_audits/inner_cover_${request.requestId}`,
+    );
+    expect(JSON.parse(audit.afterJson)).toMatchObject({
+      lifecycleState: 'retiredForSalvage',
+      retirementCondition: 'bulged',
+    });
+  });
+
   test('owner-declared new origin remains limited-trace rather than T3', async () => {
     const memory = fakeDb(seed());
     await invoke(memory, {

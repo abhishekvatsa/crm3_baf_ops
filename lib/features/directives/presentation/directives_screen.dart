@@ -10,6 +10,12 @@ import 'package:intl/intl.dart';
 import '../data/operational_directive_model.dart';
 import '../providers/operational_directive_provider.dart';
 import '../../auth/data/user_model.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/asset_registry_model.dart';
+import '../../assets/data/burner_condition_round.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/providers/burner_condition_round_provider.dart';
+import '../../assets/services/burner_condition_round_service.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
@@ -628,12 +634,22 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       return;
     }
 
-    final remarks = await showDialog<String>(
+    final BurnerRedHotDirectiveBinding? burnerBinding;
+    try {
+      burnerBinding = BurnerRedHotDirectiveBinding.tryDecode(
+        directive.metadataJson,
+      );
+    } on FormatException catch (error) {
+      _showDirectiveSnack(error.message, BafColors.danger);
+      return;
+    }
+
+    final closure = await showDialog<_DirectiveClosureDraft>(
       context: context,
-      builder: (_) => const _CloseDirectiveDialog(),
+      builder: (_) => _CloseDirectiveDialog(burnerBinding: burnerBinding),
     );
 
-    if (!mounted || remarks == null) {
+    if (!mounted || closure == null) {
       return;
     }
     if (_isClosing) {
@@ -642,7 +658,8 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
     setState(() => _isClosing = true);
 
     try {
-      final closureRemarks = remarks.trim().isEmpty ? null : remarks.trim();
+      final closureRemarks =
+          closure.remarks.trim().isEmpty ? null : closure.remarks.trim();
 
       final repo = ref.read(directiveRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
@@ -651,6 +668,16 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       if (id == null) {
         throw Exception('Directive is missing its sync identifier.');
       }
+
+      final conditionRecorded =
+          burnerBinding == null
+              ? false
+              : await _recordBurnerDirectiveCompliance(
+                directive: directive,
+                binding: burnerBinding,
+                dispositions: closure.burnerDispositions,
+                actor: appUser,
+              );
 
       await repo.closeDirective(
         id,
@@ -671,7 +698,9 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
 
       final (message, color) = switch (outcome) {
         SyncRequestOutcome.succeeded => (
-          'Directive closed and synchronized.',
+          conditionRecorded
+              ? 'Burner condition updated; directive closed and synchronized.'
+              : 'Directive closed and synchronized.',
           BafColors.sync,
         ),
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
@@ -693,6 +722,97 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         setState(() => _isClosing = false);
       }
     }
+  }
+
+  Future<bool> _recordBurnerDirectiveCompliance({
+    required OperationalDirective directive,
+    required BurnerRedHotDirectiveBinding binding,
+    required Map<int, BurnerDirectiveComplianceDisposition> dispositions,
+    required AppUser actor,
+  }) async {
+    if (!actor.canRecordBurnerConditionRound) {
+      throw const BurnerConditionRoundException(
+        'Your role cannot record the required Burner/UV compliance evidence.',
+        code: 'permission-denied',
+      );
+    }
+    final assetNumber = directive.assetNumber;
+    if (directive.assetType != AssetType.furnace || assetNumber == null) {
+      throw const BurnerConditionRoundException(
+        'The burner directive has no exact Furnace identity.',
+        code: 'data-loss',
+      );
+    }
+    final results = await Future.wait<Object>([
+      ref.read(assetClassesProvider.future),
+      ref.read(allAssetInstancesProvider.future),
+      ref.read(latestBurnerConditionRoundsProvider(actor.uid).future),
+    ]);
+    final classes = results[0] as List<AssetClassRecord>;
+    final assets = results[1] as List<AssetInstanceRecord>;
+    final latest = results[2] as Map<String, BurnerConditionRound>;
+    final furnaceClasses = classes
+        .where(
+          (item) =>
+              item.isActive &&
+              item.legacyAssetTypeKey == AssetType.furnace.name,
+        )
+        .toList(growable: false);
+    if (furnaceClasses.length != 1) {
+      throw const BurnerConditionRoundException(
+        'Exactly one active governed Furnace class is required.',
+        code: 'failed-precondition',
+      );
+    }
+    final furnaces = assets
+        .where(
+          (item) =>
+              item.isActive &&
+              item.assetClassId == furnaceClasses.single.id &&
+              item.assetNumber == assetNumber,
+        )
+        .toList(growable: false);
+    if (furnaces.length != 1) {
+      throw BurnerConditionRoundException(
+        'Furnace $assetNumber could not be resolved to one governed asset.',
+        code: 'failed-precondition',
+      );
+    }
+    final furnace = furnaces.single;
+    final current = latest[furnace.id];
+    if (current == null) {
+      throw BurnerConditionRoundException(
+        'The source Burner audit ${binding.sourceRoundId} is not available for safe compliance.',
+        code: 'failed-precondition',
+      );
+    }
+    if (current.assetNumber != assetNumber ||
+        current.assetInstanceId != furnace.id) {
+      throw const BurnerConditionRoundException(
+        'The latest Burner audit no longer matches the directed Furnace.',
+        code: 'data-loss',
+      );
+    }
+    final projection = projectBurnerDirectiveCompliance(
+      current: current,
+      binding: binding,
+      dispositions: dispositions,
+    );
+    if (!projection.changed) return false;
+    await ref
+        .read(burnerConditionRoundServiceProvider)
+        .record(
+          furnace: furnace,
+          observations: projection.observations,
+          draftSealRedHotObserved: current.draftSealRedHotObserved,
+          hotAirAtDraftSealObserved: current.hotAirAtDraftSealObserved,
+          uvObservations: projection.uvObservations,
+          actor: actor,
+          roundNote:
+              'I&A compliance for directive ${directive.firestoreId ?? directive.id}.',
+        );
+    ref.invalidate(latestBurnerConditionRoundsProvider(actor.uid));
+    return true;
   }
 
   void _showDirectiveSnack(String message, Color color) {
@@ -793,20 +913,38 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
   }
 }
 
+class _DirectiveClosureDraft {
+  const _DirectiveClosureDraft({
+    required this.remarks,
+    required this.burnerDispositions,
+  });
+
+  final String remarks;
+  final Map<int, BurnerDirectiveComplianceDisposition> burnerDispositions;
+}
+
 class _CloseDirectiveDialog extends StatefulWidget {
-  const _CloseDirectiveDialog();
+  const _CloseDirectiveDialog({required this.burnerBinding});
+
+  final BurnerRedHotDirectiveBinding? burnerBinding;
 
   @override
   State<_CloseDirectiveDialog> createState() => _CloseDirectiveDialogState();
 }
 
 class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _remarksController;
+  final Map<int, BurnerDirectiveComplianceDisposition?> _dispositions = {};
 
   @override
   void initState() {
     super.initState();
     _remarksController = TextEditingController();
+    for (final position
+        in widget.burnerBinding?.burnerPositions ?? const <int>[]) {
+      _dispositions[position] = null;
+    }
   }
 
   @override
@@ -821,32 +959,69 @@ class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
       title: const Text('Close Directive'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Add a short closure note if useful for traceability.',
-                style: TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 13,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _remarksController,
-                minLines: 2,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  labelText: 'Remarks (optional)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(BafRadius.medium),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.burnerBinding == null
+                      ? 'Add a short closure note if useful for traceability.'
+                      : 'Record the current UV disposition for every directed burner before closure. This creates a new governed condition round.',
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.3,
                   ),
                 ),
-              ),
-            ],
+                if (widget.burnerBinding != null) ...[
+                  const SizedBox(height: 12),
+                  for (final position
+                      in widget.burnerBinding!.burnerPositions) ...[
+                    DropdownButtonFormField<
+                      BurnerDirectiveComplianceDisposition
+                    >(
+                      initialValue: _dispositions[position],
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Burner $position compliance',
+                        prefixIcon: const Icon(Icons.sensors_outlined),
+                      ),
+                      items: [
+                        for (final value
+                            in BurnerDirectiveComplianceDisposition.values)
+                          DropdownMenuItem(
+                            value: value,
+                            child: Text(value.label),
+                          ),
+                      ],
+                      validator:
+                          (value) =>
+                              value == null ? 'Select the outcome.' : null,
+                      onChanged:
+                          (value) => setState(() {
+                            _dispositions[position] = value;
+                          }),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _remarksController,
+                  minLines: 2,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    labelText: 'Remarks (optional)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(BafRadius.medium),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -860,7 +1035,19 @@ class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
             backgroundColor: BafColors.sync,
             foregroundColor: Colors.white,
           ),
-          onPressed: () => Navigator.pop(context, _remarksController.text),
+          onPressed: () {
+            if (!(_formKey.currentState?.validate() ?? false)) return;
+            Navigator.pop(
+              context,
+              _DirectiveClosureDraft(
+                remarks: _remarksController.text,
+                burnerDispositions: <int, BurnerDirectiveComplianceDisposition>{
+                  for (final entry in _dispositions.entries)
+                    entry.key: entry.value!,
+                },
+              ),
+            );
+          },
           child: const Text('Close'),
         ),
       ],

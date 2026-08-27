@@ -4,6 +4,11 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
   void _addManualModule() {
     setState(() {
       final module = ComposerModuleDraft.manual(assetType: _draft.assetType);
+      final hierarchyReference = _draft.assetHierarchyReference;
+      if (hierarchyReference != null) {
+        module.targetRefs = List<String>.from(hierarchyReference.hierarchyPath);
+        module.metadata['assetHierarchyRefJson'] = hierarchyReference.encode();
+      }
       module.moduleCode = _uniqueModuleCode(module.moduleCode);
       _draft.modules.add(module);
       _selectedModuleIndex = _draft.modules.length - 1;

@@ -15,6 +15,8 @@ import {
 } from "./maintenanceWorkflow/maintenanceIntelligence";
 import {WorkflowTransaction} from "./maintenanceWorkflow/store";
 import {RoleKey} from "./maintenanceWorkflow/types";
+import {WorkflowError} from "./maintenanceWorkflow/errors";
+import {canonicalGovernedClosureActions} from "./maintenanceWorkflow/ticketHandlers";
 
 export type HttpsErrorCode =
   | "ok"
@@ -89,11 +91,20 @@ function workflowTransactionAdapter(
         data: (snapshot.data() ?? null) as never,
       };
     },
-    query: async () => {
-      throw new ClosureValidationError(
-        "internal",
-        "Maintenance completion preparation does not support collection queries.",
-      );
+    query: async (collection, filters) => {
+      let query: QueryLike = db.collection(collection);
+      for (const filter of filters) {
+        query = query.where(filter.field, filter.op, filter.value);
+      }
+      const snapshot = asQuerySnapshot(await transaction.get(query));
+      return snapshot.docs.map((doc) => {
+        const id = doc.id ?? "";
+        return {
+          path: `${collection}/${id}`,
+          exists: doc.exists,
+          data: (doc.data() ?? null) as never,
+        };
+      });
     },
     create: (path, value) => transaction.set(
       refForPath(path),
@@ -771,7 +782,10 @@ function asDocumentSnapshot(value: DocumentSnapshotLike | QuerySnapshotLike): Do
 
 export type AuditTimestampFactory = (date: Date) => unknown;
 
-function requestedActionsJson(data: JsonMap): string | null {
+function requestedActionsJson(data: JsonMap): {
+  readonly text: string;
+  readonly rows: readonly Record<string, unknown>[];
+} | null {
   let raw: unknown = null;
   if (data.actionsJson != null) {
     raw = data.actionsJson;
@@ -787,7 +801,7 @@ function requestedActionsJson(data: JsonMap): string | null {
   if (raw == null) return null;
 
   try {
-    return readComponentActionPayload(raw, {field: "actionsJson"}).text;
+    return readComponentActionPayload(raw, {field: "actionsJson"});
   } catch (error) {
     if (error instanceof PersistedActionPayloadError) {
       throw new ClosureValidationError(
@@ -798,6 +812,19 @@ function requestedActionsJson(data: JsonMap): string | null {
     }
     throw error;
   }
+}
+
+function requestedActionTargetContractVersion(data: JsonMap): number | null {
+  if (!Object.prototype.hasOwnProperty.call(
+    data,
+    "actionTargetContractVersion",
+  )) return null;
+  if (data.actionTargetContractVersion === 1) return 1;
+  throw new ClosureValidationError(
+    "invalid-argument",
+    "actionTargetContractVersion must be 1 when supplied.",
+    {reasonCode: "planned-job-action-target-contract-invalid"},
+  );
 }
 
 function requestedResponsesJson(data: JsonMap): string | null {
@@ -922,7 +949,9 @@ export async function completePlannedJobWithDb(params: {
   const remarks = cleanOptionalText(data.remarks);
   const teamsInvolved = cleanStringList(data.teamsInvolved);
   const responsesJson = requestedResponsesJson(data);
-  const actionsJson = requestedActionsJson(data);
+  const requestedActions = requestedActionsJson(data);
+  const actionTargetContractVersion =
+    requestedActionTargetContractVersion(data);
   const expectedCompletionVersion = parseExpectedCompletionVersion(
     data.expectedCompletionVersion,
   );
@@ -1039,21 +1068,52 @@ export async function completePlannedJobWithDb(params: {
     const guardIssueCounts = assertClosureReady(modules);
     const completedAt = new Date().toISOString();
     const maintenanceTx = workflowTransactionAdapter(db, transaction);
+    const completionActor = {
+      uid: authUid,
+      name: completedByName,
+      roles: new Set(
+        cleanStringList(userData?.roles).filter((role) => [
+          "admin", "si", "contractSupervisor", "shiftSupervisor",
+        ].includes(role)),
+      ) as ReadonlySet<RoleKey>,
+    };
+    let actionsJson: string | null = null;
+    if (requestedActions != null) {
+      try {
+        const canonicalActions = await canonicalGovernedClosureActions({
+          tx: maintenanceTx,
+          existingValue: beforeData.actionsJson,
+          assetType: beforeData.assetType,
+          assetNumber: beforeData.assetNumber,
+          workStartedAt: beforeData.createdAt,
+          requested: {
+            text: requestedActions.text,
+            rows: requestedActions.rows as never,
+          },
+          contractVersion: actionTargetContractVersion,
+          actor: completionActor,
+          serverNow: new Date(completedAt),
+          endDate: new Date(completedAt),
+        });
+        actionsJson = canonicalActions.text;
+      } catch (error) {
+        if (error instanceof WorkflowError) {
+          throw new ClosureValidationError(
+            error.code as HttpsErrorCode,
+            error.message,
+            error.details,
+          );
+        }
+        throw error;
+      }
+    }
     const maintenanceCompletionPlan = await prepareMaintenanceCompletionWritePlan({
       tx: maintenanceTx,
       execution: beforeData as never,
       executionId,
       sourceType: "legacyPlannedJob",
       completedAt,
-      completedBy: {
-        uid: authUid,
-        name: completedByName,
-        roles: new Set(
-          cleanStringList(userData?.roles).filter((role) => [
-            "admin", "si", "contractSupervisor", "shiftSupervisor",
-          ].includes(role)),
-        ) as ReadonlySet<RoleKey>,
-      },
+      completedBy: completionActor,
       recordedAt: completedAt,
     });
     const attestation = buildClosureAttestation({

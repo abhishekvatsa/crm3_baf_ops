@@ -1,4 +1,5 @@
 import '../../../core/serialization/persisted_data_reader.dart';
+import 'asset_hierarchy_model.dart';
 
 enum AssetOperationalCondition {
   available,
@@ -34,6 +35,20 @@ enum AssetConditionCause {
   };
 }
 
+enum AssetConditionBasis {
+  pendingMaintenance,
+  spareUnavailable,
+  innerCoverUnavailable,
+  otherOperationalConstraint;
+
+  String get label => switch (this) {
+    pendingMaintenance => 'Pending maintenance',
+    spareUnavailable => 'Spare unavailable',
+    innerCoverUnavailable => 'Inner Cover unavailable',
+    otherOperationalConstraint => 'Other operational constraint',
+  };
+}
+
 class AssetOperationalConditionRecord {
   final String assetInstanceId;
   final String assetClassId;
@@ -44,6 +59,8 @@ class AssetOperationalConditionRecord {
   final AssetOperationalCondition condition;
   final bool active;
   final List<AssetConditionCause> causes;
+  final AssetConditionBasis? basis;
+  final AssetHierarchyReference? componentReference;
   final String reason;
   final List<String> linkedIssueIds;
   final DateTime? declaredAt;
@@ -69,6 +86,8 @@ class AssetOperationalConditionRecord {
     required this.condition,
     required this.active,
     required this.causes,
+    this.basis,
+    this.componentReference,
     required this.reason,
     required this.linkedIssueIds,
     required this.declaredAt,
@@ -96,7 +115,7 @@ class AssetOperationalConditionRecord {
       source: source,
       minimum: 1,
     );
-    if (schemaVersion != 1) {
+    if (schemaVersion != 1 && schemaVersion != 2) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
@@ -164,6 +183,53 @@ class AssetOperationalConditionRecord {
         source: source,
         detail: 'must be unique, present only for an active condition',
       );
+    }
+    final AssetConditionBasis? basis;
+    final AssetHierarchyReference? componentReference;
+    if (schemaVersion == 1) {
+      basis = null;
+      componentReference = null;
+    } else {
+      basis = readRequiredPersistedEnum(
+        AssetConditionBasis.values,
+        map['basis'],
+        field: 'basis',
+        source: source,
+      );
+      final rawReference = readOptionalPersistedString(
+        map['componentHierarchyRefJson'],
+        field: 'componentHierarchyRefJson',
+        source: source,
+      );
+      componentReference =
+          rawReference == null
+              ? null
+              : AssetHierarchyReference.decode(
+                rawReference,
+                source: '$source.componentHierarchyRefJson',
+              );
+      final usesInnerCover = basis == AssetConditionBasis.innerCoverUnavailable;
+      if ((usesInnerCover && componentReference != null) ||
+          (!usesInnerCover && componentReference == null)) {
+        throw PersistedDataFormatException(
+          field: 'componentHierarchyRefJson',
+          source: source,
+          detail:
+              'must be absent only for an Inner Cover availability declaration',
+        );
+      }
+      if (componentReference != null &&
+          (componentReference.scope !=
+                  AssetHierarchyReferenceScope.componentDefinitionOnAsset ||
+              componentReference.assetInstanceId != assetInstanceId ||
+              componentReference.assetClassId != map['assetClassId'] ||
+              componentReference.assetNumber != map['assetNumber'])) {
+        throw PersistedDataFormatException(
+          field: 'componentHierarchyRefJson',
+          source: source,
+          detail: 'must identify a component on this exact physical asset',
+        );
+      }
     }
     if (!map.containsKey('linkedIssueIds') || map['linkedIssueIds'] == null) {
       throw PersistedDataFormatException(
@@ -294,6 +360,8 @@ class AssetOperationalConditionRecord {
       condition: condition,
       active: active,
       causes: List<AssetConditionCause>.unmodifiable(causes),
+      basis: basis,
+      componentReference: componentReference,
       reason: reason,
       linkedIssueIds: List<String>.unmodifiable(linkedIssueIds),
       declaredAt: declaredAt,

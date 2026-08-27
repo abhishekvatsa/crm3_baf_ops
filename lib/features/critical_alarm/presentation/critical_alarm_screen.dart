@@ -11,6 +11,7 @@ import '../../maintenance_workflow/domain/workflow_error.dart';
 import '../domain/critical_alarm_models.dart';
 import '../providers/critical_alarm_providers.dart';
 import 'critical_alarm_contacts_panel.dart';
+import 'critical_alarm_definitions_panel.dart';
 import 'critical_alarm_feed_state.dart';
 
 class CriticalAlarmScreen extends ConsumerWidget {
@@ -75,6 +76,13 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
     final activeFeed = ref.watch(activeCriticalAlarmsProvider);
     final recentFeed = ref.watch(criticalAlarmFeedProvider);
     final contacts = ref.watch(criticalAlarmContactsProvider);
+    final definitionFeed = ref.watch(criticalAlarmDefinitionsProvider);
+    final activeDefinitions =
+        definitionFeed.asData?.value
+            .where((definition) => definition.isActive)
+            .toList() ??
+        const <CriticalAlarmDefinition>[];
+    final showDefinitions = user.isAdmin;
     final active = activeFeed.asData?.value ?? const <CriticalAlarm>[];
     final recentRows = recentFeed.asData?.value ?? const <CriticalAlarm>[];
     final history = recentRows.where((alarm) => !alarm.isActive).toList();
@@ -88,7 +96,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
       key: ValueKey(
         'critical-alarm-tabs-${linkedAlarmIsHistorical ? 'history' : 'active'}',
       ),
-      length: 3,
+      length: showDefinitions ? 4 : 3,
       initialIndex: linkedAlarmIsHistorical ? 1 : 0,
       child: Scaffold(
         backgroundColor: BafColors.background,
@@ -107,6 +115,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
                 text:
                     'Contacts (${contactRows.where((row) => row.isActive).length})',
               ),
+              if (showDefinitions) const Tab(text: 'Alarm reasons'),
             ],
           ),
         ),
@@ -136,6 +145,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
                             : 'Alarm not available in recent history',
                   ),
                   const CriticalAlarmContactsPanel(),
+                  if (showDefinitions) const CriticalAlarmDefinitionsPanel(),
                 ],
               ),
             ),
@@ -145,7 +155,10 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
           heroTag: 'raise-critical-alarm',
           backgroundColor: BafColors.danger,
           foregroundColor: Colors.white,
-          onPressed: () => _raise(context, ref),
+          onPressed:
+              definitionFeed.hasValue && activeDefinitions.isNotEmpty
+                  ? () => _raise(context, ref, activeDefinitions)
+                  : null,
           icon: const Icon(Icons.notification_important),
           label: const Text('Raise alarm'),
         ),
@@ -153,12 +166,16 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
     );
   }
 
-  Future<void> _raise(BuildContext context, WidgetRef ref) async {
+  Future<void> _raise(
+    BuildContext context,
+    WidgetRef ref,
+    List<CriticalAlarmDefinition> definitions,
+  ) async {
     final draft = await showModalBottomSheet<_AlarmDraft>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => const _RaiseAlarmSheet(),
+      builder: (_) => _RaiseAlarmSheet(definitions: definitions),
     );
     if (draft == null || !context.mounted) return;
     final confirmed = await showDialog<bool>(
@@ -173,7 +190,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
             ),
             title: Text('Raise ${draft.definition.name}?'),
             content: Text(
-              '${draft.definition.criticalityLabel.toUpperCase()} - ${draft.location}\n\nThis alerts reachable CRM3 users only. Follow the plant emergency procedure first. The alarm is sent immediately after confirmation and is never queued offline.',
+              '${draft.definition.criticalityLabel.toUpperCase()} - ${draft.location}\n\n${draft.details}\n\nThis alerts reachable CRM3 users only. Follow the plant emergency procedure first. The alarm is sent immediately after confirmation and is never queued offline.',
             ),
             actions: [
               TextButton(
@@ -652,7 +669,9 @@ class _AlarmCard extends ConsumerWidget {
 }
 
 class _RaiseAlarmSheet extends StatefulWidget {
-  const _RaiseAlarmSheet();
+  const _RaiseAlarmSheet({required this.definitions});
+
+  final List<CriticalAlarmDefinition> definitions;
 
   @override
   State<_RaiseAlarmSheet> createState() => _RaiseAlarmSheetState();
@@ -720,7 +739,7 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
                 border: OutlineInputBorder(),
               ),
               items:
-                  CriticalAlarmDefinition.values
+                  widget.definitions
                       .map(
                         (definition) => DropdownMenuItem(
                           value: definition,
@@ -801,21 +820,15 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
               maxLines: 5,
               maxLength: 2000,
               decoration: const InputDecoration(
-                labelText: 'Immediate details (optional before dispatch)',
+                labelText: 'Reason and immediate details',
                 counterText: '',
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
                 final length = value?.trim().length ?? 0;
-                return length > 0 && length < 5
-                    ? 'Enter at least 5 characters or leave this blank'
-                    : null;
+                if (length < 5) return 'Enter the reason and immediate details';
+                return null;
               },
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'If omitted, incident details remain required immediately after dispatch.',
-              style: TextStyle(color: BafColors.textSecondary),
             ),
             const SizedBox(height: BafSpacing.md),
             Container(
@@ -847,10 +860,7 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
                           _assetTypeKey == null
                               ? null
                               : int.parse(_assetNumber.text),
-                      details:
-                          _details.text.trim().isEmpty
-                              ? null
-                              : _details.text.trim(),
+                      details: _details.text.trim(),
                     ),
                   );
                 },
@@ -1014,7 +1024,7 @@ class _AlarmDraft {
   final String location;
   final String? assetTypeKey;
   final int? assetNumber;
-  final String? details;
+  final String details;
 }
 
 class _SupportDraft {

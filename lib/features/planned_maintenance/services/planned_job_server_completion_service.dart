@@ -53,6 +53,7 @@ class PlannedJobServerCompletionService {
           'responses': responses.map((response) => response.toMap()).toList(),
         if (actions != null)
           'actions': actions.map((action) => action.toMap()).toList(),
+        if (actions != null) 'actionTargetContractVersion': 1,
         if (expectedCompletionVersion != null)
           'expectedCompletionVersion': expectedCompletionVersion,
       });

@@ -40,6 +40,7 @@ void main() {
         _service(gateway, const [ConnectivityResult.none]).raise(
           definition: CriticalAlarmDefinition.byKey['fire']!,
           location: 'BAF shop',
+          initialDetails: 'Visible flame near the utility gallery',
         ),
         throwsA(
           isA<WorkflowException>().having(
@@ -66,6 +67,7 @@ void main() {
       ]).raise(
         definition: CriticalAlarmDefinition.byKey['majorGasLeakage']!,
         location: 'Gas mixing station',
+        initialDetails: 'Major gas leakage suspected at the mixing station',
       );
       expect(gateway.commands, hasLength(2));
       expect(gateway.commands[1].commandId, gateway.commands[0].commandId);
@@ -87,6 +89,7 @@ void main() {
       await _service(gateway, const [ConnectivityResult.wifi]).raise(
         definition: CriticalAlarmDefinition.byKey['fire']!,
         location: 'North bay',
+        initialDetails: 'Visible flame reported in the north bay',
       );
       expect(gateway.commands, hasLength(2));
       expect(gateway.commands[1].commandId, gateway.commands[0].commandId);
@@ -102,6 +105,7 @@ void main() {
       _service(gateway, const [ConnectivityResult.mobile]).raise(
         definition: CriticalAlarmDefinition.byKey['blast']!,
         location: 'Annealing bay',
+        initialDetails: 'Blast-like event reported in the annealing bay',
       ),
       throwsA(
         isA<WorkflowException>()

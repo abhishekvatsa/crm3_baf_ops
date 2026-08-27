@@ -40,6 +40,7 @@ import {
   resolveRedSuccessorTemplate,
 } from "./redSuccessorTemplateResolver";
 import {cleanText, iso, optionalText, plusMinutes, stringArray} from "./utils";
+import {canonicalGovernedClosureActions} from "./ticketHandlers";
 
 const responseArrayText = (
   value: unknown,
@@ -68,14 +69,17 @@ const responseArrayText = (
   }
 };
 
-const actionArrayText = (
+const actionArrayPayload = (
   value: unknown,
   field: string,
   code: "invalid-argument" | "failed-precondition",
   allowMissing = false,
-): string => {
+): {
+  readonly text: string;
+  readonly rows: readonly Record<string, unknown>[];
+} => {
   try {
-    return readComponentActionPayload(value, {field, allowMissing}).text;
+    return readComponentActionPayload(value, {field, allowMissing});
   } catch (error) {
     if (error instanceof PersistedActionPayloadError) {
       throw new WorkflowError(
@@ -229,19 +233,46 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       "responsesJson",
       "invalid-argument",
     );
-  const currentActionsJson = actionArrayText(
+  const currentActions = actionArrayPayload(
     currentExecution.actionsJson,
     "execution.actionsJson",
     "failed-precondition",
     !Object.prototype.hasOwnProperty.call(currentExecution, "actionsJson"),
   );
-  const actionsJson = command.payload.actionsJson == null
-    ? currentActionsJson
-    : actionArrayText(
+  const requestedActions = command.payload.actionsJson == null
+    ? currentActions
+    : actionArrayPayload(
       command.payload.actionsJson,
       "actionsJson",
       "invalid-argument",
     );
+  const rawActionTargetContractVersion =
+    command.payload.actionTargetContractVersion;
+  const actionTargetContractVersion =
+    rawActionTargetContractVersion == null ? null :
+      rawActionTargetContractVersion === 1 ? 1 : (() => {
+        throw new WorkflowError(
+          "invalid-argument",
+          "actionTargetContractVersion must be 1 when supplied.",
+          {reasonCode: "planned-job-action-target-contract-invalid"},
+        );
+      })();
+  const canonicalActions = await canonicalGovernedClosureActions({
+    tx,
+    existingValue: currentActions.text,
+    assetType: assetTypeKey,
+    assetNumber,
+    workStartedAt: currentExecution.createdAt ?? workflow.createdAt,
+    requested: {
+      text: requestedActions.text,
+      rows: requestedActions.rows as never,
+    },
+    contractVersion: actionTargetContractVersion,
+    actor: context.actor,
+    serverNow: context.serverNow,
+    endDate: context.serverNow,
+  });
+  const actionsJson = canonicalActions.text;
   const remarks = command.payload.remarks == null
     ? typeof currentExecution.remarks === "string" ? currentExecution.remarks : null
     : optionalText(command.payload.remarks);

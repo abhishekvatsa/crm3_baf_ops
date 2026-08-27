@@ -297,7 +297,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                             appUser.canCorrectMaintenanceTicket &&
                             hasGovernedServerState,
                       ),
-                  canResolve: canResolveThis && !ticket.workflowDeferred,
+                  canResolve: canResolveThis && !ticket.isWorkflowActionBlocked,
                   onResolve: () => _openResolve(ticket),
                   canCloseWithoutResolution:
                       appUser.canCloseMaintenanceIssueWithoutResolution &&

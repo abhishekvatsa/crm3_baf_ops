@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-26",
-  "asOfDate": "2026-08-26",
-  "status": "BUILD17_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-27",
+  "asOfDate": "2026-08-27",
+  "status": "BUILD17_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
@@ -13,15 +13,15 @@
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
-      "backendDeploymentStatus": "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED",
+      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
-        "rulesSha256": "68BB2B5D481A947DD72478B8B5B22000DC72D209FAAF8447AA98B1F1A9C82EDE",
+        "rulesSha256": "939F5984986A8A66837EC669C3088D87325135D385C78C834E225D21840096B0",
         "indexCount": 66,
         "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
-        "relationshipToDeployedBackend": "EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED",
-        "productionDeploymentPerformed": true,
-        "productionRuntimeUseAuthorized": true
+        "relationshipToDeployedBackend": "RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+        "productionDeploymentPerformed": false,
+        "productionRuntimeUseAuthorized": false
       }
     },
     "latestFinalizedArtifact": {
@@ -42,8 +42,8 @@
       "rulesAndIndexesSourceCommit": "1cb7d68f9642fec0eb68fc9f64891a16aef31478",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
-      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
-      "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionBackendRuntimeAuthorized": true
     },
     "controlledPilot": {

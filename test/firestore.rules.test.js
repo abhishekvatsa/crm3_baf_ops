@@ -5146,6 +5146,7 @@ describe("governed dynamic asset hierarchy", () => {
     for (const path of [
       "critical_alarms/alarm-1",
       "critical_alarm_contacts/contact-1",
+      "critical_alarm_definitions/fire",
     ]) {
       await seedDoc(path, {schemaVersion: 1, identity: path});
       await assertSucceeds(getDoc(doc(dbAs("ops1"), path)));
@@ -5157,6 +5158,7 @@ describe("governed dynamic asset hierarchy", () => {
     }
     await seedDoc("critical_alarm_audits/audit-1", {schemaVersion: 1});
     await seedDoc("critical_alarm_contact_audits/audit-2", {schemaVersion: 1});
+    await seedDoc("critical_alarm_definition_audits/audit-3", {schemaVersion: 1});
     await assertSucceeds(
       getDoc(doc(dbAs("admin1"), "critical_alarm_audits/audit-1"))
     );
@@ -5172,11 +5174,20 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(
       getDoc(doc(dbAs("si1"), "critical_alarm_contact_audits/audit-2"))
     );
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "critical_alarm_definition_audits/audit-3"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("si1"), "critical_alarm_definition_audits/audit-3"))
+    );
     await assertFails(
       deleteDoc(doc(dbAs("admin1"), "critical_alarm_audits/audit-1"))
     );
     await assertFails(
       deleteDoc(doc(dbAs("admin1"), "critical_alarm_contact_audits/audit-2"))
+    );
+    await assertFails(
+      deleteDoc(doc(dbAs("admin1"), "critical_alarm_definition_audits/audit-3"))
     );
   });
 

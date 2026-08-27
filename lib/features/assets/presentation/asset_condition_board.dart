@@ -10,11 +10,15 @@ import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
+import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
+import '../data/inner_cover_lifecycle.dart';
 import '../domain/plant_asset_overview.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../providers/plant_asset_overview_provider.dart';
+import 'inner_cover_lifecycle_screen.dart';
+import 'widgets/governed_asset_target_picker.dart';
 
 part 'asset_condition_board.filters.dart';
 
@@ -560,6 +564,7 @@ class _AssetClassSection extends StatelessWidget {
                 return index.isEven
                     ? _AssetConditionRow(
                       state: summary.assets[index ~/ 2],
+                      assetClass: summary.assetClass,
                       user: user,
                       openTickets: openTickets,
                     )
@@ -577,11 +582,13 @@ enum _AssetConditionAction { declareDown, declareUnfit, restore }
 
 class _AssetConditionRow extends ConsumerWidget {
   final PlantAssetState state;
+  final AssetClassRecord assetClass;
   final AppUser? user;
   final List<MaintenanceRecord> openTickets;
 
   const _AssetConditionRow({
     required this.state,
+    required this.assetClass,
     required this.user,
     required this.openTickets,
   });
@@ -646,6 +653,24 @@ class _AssetConditionRow extends ConsumerWidget {
                       fontSize: 12,
                     ),
                   ),
+                  if (state.operationalCondition!.basis case final basis?) ...[
+                    const SizedBox(height: BafSpacing.xs),
+                    Text(
+                      <String>[
+                        basis.label,
+                        if (state.operationalCondition!.componentReference
+                            case final reference?)
+                          reference.hierarchyPath.join(' › '),
+                      ].join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: BafSpacing.xs),
                   Text(
                     'Declared ${DateFormat('dd MMM, HH:mm').format(state.operationalCondition!.declaredAt!.toLocal())} by ${state.operationalCondition!.declaredByName}',
@@ -740,6 +765,7 @@ class _AssetConditionRow extends ConsumerWidget {
       builder:
           (context) => _DeclareConditionSheet(
             asset: state.asset,
+            isBase: assetClass.legacyAssetTypeKey == 'base',
             condition: condition,
             tickets: linkedTickets,
           ),
@@ -753,6 +779,8 @@ class _AssetConditionRow extends ConsumerWidget {
             asset: state.asset,
             condition: condition,
             causes: draft.causes,
+            basis: draft.basis,
+            componentReference: draft.componentReference,
             reason: draft.reason,
             linkedIssueIds: draft.linkedIssueIds,
             actor: actor,
@@ -765,35 +793,45 @@ class _AssetConditionRow extends ConsumerWidget {
 
 class _ConditionDraft {
   final Set<AssetConditionCause> causes;
+  final AssetConditionBasis basis;
+  final AssetHierarchyReference? componentReference;
   final String reason;
   final List<String> linkedIssueIds;
 
   const _ConditionDraft({
     required this.causes,
+    required this.basis,
+    required this.componentReference,
     required this.reason,
     required this.linkedIssueIds,
   });
 }
 
-class _DeclareConditionSheet extends StatefulWidget {
+class _DeclareConditionSheet extends ConsumerStatefulWidget {
   final AssetInstanceRecord asset;
+  final bool isBase;
   final AssetOperationalCondition condition;
   final List<MaintenanceRecord> tickets;
 
   const _DeclareConditionSheet({
     required this.asset,
+    required this.isBase,
     required this.condition,
     required this.tickets,
   });
 
   @override
-  State<_DeclareConditionSheet> createState() => _DeclareConditionSheetState();
+  ConsumerState<_DeclareConditionSheet> createState() =>
+      _DeclareConditionSheetState();
 }
 
-class _DeclareConditionSheetState extends State<_DeclareConditionSheet> {
+class _DeclareConditionSheetState
+    extends ConsumerState<_DeclareConditionSheet> {
   final _reason = TextEditingController();
   final Set<AssetConditionCause> _causes = {};
   final Set<String> _tickets = {};
+  AssetConditionBasis? _basis;
+  AssetHierarchyReference? _componentReference;
 
   @override
   void dispose() {
@@ -804,6 +842,17 @@ class _DeclareConditionSheetState extends State<_DeclareConditionSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final nodesAsync = ref.watch(
+      assetHierarchyNodesProvider(widget.asset.assetClassId),
+    );
+    final assignmentsAsync =
+        widget.isBase ? ref.watch(innerCoverAssignmentsProvider) : null;
+    final linkedInnerCover =
+        assignmentsAsync?.value
+            ?.where(
+              (assignment) => assignment.baseAssetInstanceId == widget.asset.id,
+            )
+            .firstOrNull;
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -827,6 +876,77 @@ class _DeclareConditionSheetState extends State<_DeclareConditionSheet> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: BafSpacing.lg),
+                DropdownButtonFormField<AssetConditionBasis>(
+                  initialValue: _basis,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Why is the asset unavailable?',
+                    prefixIcon: Icon(Icons.rule_folder_outlined),
+                  ),
+                  items: [
+                    for (final basis in AssetConditionBasis.values)
+                      if (widget.isBase ||
+                          basis != AssetConditionBasis.innerCoverUnavailable)
+                        DropdownMenuItem(
+                          value: basis,
+                          child: Text(basis.label),
+                        ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _basis = value;
+                      if (value == AssetConditionBasis.innerCoverUnavailable) {
+                        _componentReference = null;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: BafSpacing.md),
+                if (_basis == AssetConditionBasis.innerCoverUnavailable) ...[
+                  _InnerCoverAvailabilityPanel(
+                    assignment: linkedInnerCover,
+                    loading: assignmentsAsync?.isLoading == true,
+                    failed: assignmentsAsync?.hasError == true,
+                    onOpenLifecycle:
+                        () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const InnerCoverLifecycleScreen(),
+                          ),
+                        ),
+                  ),
+                ] else ...[
+                  _ComponentConditionTarget(
+                    reference: _componentReference,
+                    loading: nodesAsync.isLoading,
+                    failed: nodesAsync.hasError,
+                    onChoose:
+                        nodesAsync.hasValue
+                            ? () async {
+                              final selection =
+                                  await showGovernedAssetTargetPicker(
+                                    context: context,
+                                    asset: widget.asset,
+                                    nodes:
+                                        nodesAsync.value ??
+                                        const <AssetHierarchyNode>[],
+                                    selectedNodeId: _componentReference?.nodeId,
+                                  );
+                              if (selection?.reference != null && mounted) {
+                                setState(
+                                  () =>
+                                      _componentReference =
+                                          selection!.reference,
+                                );
+                              }
+                            }
+                            : null,
+                    onClear:
+                        _componentReference == null
+                            ? null
+                            : () => setState(() => _componentReference = null),
+                  ),
+                ],
                 const SizedBox(height: BafSpacing.lg),
                 const Text(
                   'Causes',
@@ -929,10 +1049,44 @@ class _DeclareConditionSheetState extends State<_DeclareConditionSheet> {
 
   void _submit() {
     final reason = _reason.text.trim();
-    if (_causes.isEmpty || reason.length < 8) {
+    final basis = _basis;
+    final linkedAssignment =
+        widget.isBase
+            ? ref
+                .read(innerCoverAssignmentsProvider)
+                .value
+                ?.where(
+                  (assignment) =>
+                      assignment.baseAssetInstanceId == widget.asset.id,
+                )
+                .firstOrNull
+            : null;
+    if (_causes.isEmpty || reason.length < 8 || basis == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Choose at least one cause and enter a clear reason.'),
+          content: Text(
+            'Choose the availability basis, at least one cause, and enter a clear reason.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (basis == AssetConditionBasis.innerCoverUnavailable &&
+        linkedAssignment != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Inner Cover ${linkedAssignment.innerCoverSerialNumber} is still linked. Delink or retire it first.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (basis != AssetConditionBasis.innerCoverUnavailable &&
+        _componentReference == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choose the affected governed component.'),
         ),
       );
       return;
@@ -941,8 +1095,149 @@ class _DeclareConditionSheetState extends State<_DeclareConditionSheet> {
       context,
       _ConditionDraft(
         causes: Set<AssetConditionCause>.unmodifiable(_causes),
+        basis: basis,
+        componentReference: _componentReference,
         reason: reason,
         linkedIssueIds: _tickets.toList(growable: false),
+      ),
+    );
+  }
+}
+
+class _ComponentConditionTarget extends StatelessWidget {
+  const _ComponentConditionTarget({
+    required this.reference,
+    required this.loading,
+    required this.failed,
+    required this.onChoose,
+    required this.onClear,
+  });
+
+  final AssetHierarchyReference? reference;
+  final bool loading;
+  final bool failed;
+  final VoidCallback? onChoose;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = reference;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.surfaceMuted,
+        border: Border.all(color: BafColors.border),
+        borderRadius: BorderRadius.circular(BafRadius.small),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Affected component',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: BafSpacing.xs),
+          Text(
+            selected == null
+                ? failed
+                    ? 'The governed hierarchy could not be verified.'
+                    : loading
+                    ? 'Loading the current governed hierarchy...'
+                    : 'Choose the exact component or subcomponent making this asset unavailable.'
+                : selected.hierarchyPath.join(' › '),
+            style: TextStyle(
+              color: failed ? BafColors.danger : BafColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onChoose,
+                  icon: const Icon(Icons.account_tree_outlined),
+                  label: Text(
+                    selected == null ? 'Choose component' : 'Change component',
+                  ),
+                ),
+              ),
+              if (onClear != null) ...[
+                const SizedBox(width: BafSpacing.sm),
+                IconButton(
+                  tooltip: 'Clear component',
+                  onPressed: onClear,
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InnerCoverAvailabilityPanel extends StatelessWidget {
+  const _InnerCoverAvailabilityPanel({
+    required this.assignment,
+    required this.loading,
+    required this.failed,
+    required this.onOpenLifecycle,
+  });
+
+  final BaseInnerCoverAssignment? assignment;
+  final bool loading;
+  final bool failed;
+  final VoidCallback onOpenLifecycle;
+
+  @override
+  Widget build(BuildContext context) {
+    final linked = assignment;
+    final blocked = loading || failed || linked != null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color:
+            blocked
+                ? BafColors.warning.withValues(alpha: 0.09)
+                : BafColors.success.withValues(alpha: 0.08),
+        border: Border.all(
+          color:
+              blocked
+                  ? BafColors.warning.withValues(alpha: 0.45)
+                  : BafColors.success.withValues(alpha: 0.35),
+        ),
+        borderRadius: BorderRadius.circular(BafRadius.small),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            failed
+                ? 'Inner Cover assignment could not be verified'
+                : loading
+                ? 'Checking the current Inner Cover assignment'
+                : linked == null
+                ? 'No Inner Cover is linked to this Base'
+                : 'Inner Cover ${linked.innerCoverSerialNumber} is still linked',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: BafSpacing.xs),
+          Text(
+            linked == null && !loading && !failed
+                ? 'The Base may be declared unavailable for want of an Inner Cover.'
+                : 'Use the governed lifecycle to delink it, or retire it with the correct condition evidence, before declaring the Base unavailable.',
+            style: const TextStyle(color: BafColors.textSecondary),
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: onOpenLifecycle,
+            icon: const Icon(Icons.layers_outlined),
+            label: const Text('Open Inner Cover lifecycle'),
+          ),
+        ],
       ),
     );
   }

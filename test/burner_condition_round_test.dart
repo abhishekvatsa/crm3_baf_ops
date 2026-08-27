@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
@@ -46,6 +48,23 @@ Map<String, dynamic> roundMap({
   'fingerprint': 'burnerround1-sha256:${'a' * 64}',
 };
 
+Map<String, dynamic> roundMapV2() => <String, dynamic>{
+  ...roundMap(),
+  'schemaVersion': 2,
+  'draftSealRedHotObserved': true,
+  'hotAirAtDraftSealObserved': false,
+  'uvObservations': List<Map<String, dynamic>>.generate(
+    8,
+    (index) => <String, dynamic>{
+      'position': index + 1,
+      'condition': 'serviceable',
+      'remarks': null,
+    },
+  ),
+  'directivePositions': <int>[3],
+  'fingerprint': 'burnerround2-sha256:${'b' * 64}',
+};
+
 const requestId = '11111111-1111-4111-8111-111111111111';
 
 Map<String, dynamic> resultMap() => <String, dynamic>{
@@ -85,6 +104,99 @@ void main() {
       );
     }
   });
+
+  test('schema two retains UV and draft-seal condition authority', () {
+    final round = BurnerConditionRound.fromMap(roundMapV2(), 'round-1');
+    expect(round.draftSealRedHotObserved, isTrue);
+    expect(round.hotAirAtDraftSealObserved, isFalse);
+    expect(round.uvObservations, hasLength(8));
+    expect(round.uvObservations[2].condition, BurnerUvCondition.serviceable);
+    expect(round.directivePositions, <int>[3]);
+
+    for (final malformed in <Map<String, dynamic>>[
+      {...roundMapV2()}..remove('uvObservations'),
+      {...roundMapV2(), 'directivePositions': <int>[]},
+      {
+        ...roundMapV2(),
+        'uvObservations': List<Map<String, dynamic>>.from(
+          roundMapV2()['uvObservations']! as List,
+        )..removeLast(),
+      },
+    ]) {
+      expect(
+        () => BurnerConditionRound.fromMap(malformed, 'round-1'),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    }
+  });
+
+  test('burner directive binding is exact and canonical', () {
+    final binding = BurnerRedHotDirectiveBinding.tryDecode(
+      jsonEncode(<String, dynamic>{
+        'schemaVersion': 1,
+        'trigger': 'burnerConditionRoundRedHot',
+        'sourceRoundId': 'round-1',
+        'burnerPositions': <int>[2, 4],
+        'automaticPlantActuation': false,
+      }),
+    );
+
+    expect(binding, isNotNull);
+    expect(binding!.sourceRoundId, 'round-1');
+    expect(binding.burnerPositions, <int>[2, 4]);
+    expect(
+      () => BurnerRedHotDirectiveBinding.tryDecode(
+        jsonEncode(<String, dynamic>{
+          'schemaVersion': 1,
+          'trigger': 'burnerConditionRoundRedHot',
+          'sourceRoundId': 'round-1',
+          'burnerPositions': <int>[4, 2],
+          'automaticPlantActuation': false,
+        }),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test(
+    'directive compliance projects UV disposition without rewriting history',
+    () {
+      final current = BurnerConditionRound.fromMap(roundMapV2(), 'round-1');
+      const binding = BurnerRedHotDirectiveBinding(
+        sourceRoundId: 'round-1',
+        burnerPositions: <int>[3],
+      );
+      final removed = projectBurnerDirectiveCompliance(
+        current: current,
+        binding: binding,
+        dispositions: const <int, BurnerDirectiveComplianceDisposition>{
+          3: BurnerDirectiveComplianceDisposition.uvHungRemoved,
+        },
+      );
+      expect(removed.changed, isTrue);
+      expect(removed.observations[2].redHotObserved, isTrue);
+      expect(
+        removed.observations[2].flameObservation,
+        BurnerRoundFlameObservation.notOperating,
+      );
+      expect(removed.observations[2].microampReading, isNull);
+      expect(removed.uvObservations[2].condition, BurnerUvCondition.hanging);
+
+      final restored = projectBurnerDirectiveCompliance(
+        current: current,
+        binding: binding,
+        dispositions: const <int, BurnerDirectiveComplianceDisposition>{
+          3: BurnerDirectiveComplianceDisposition.restoredInService,
+        },
+      );
+      expect(restored.changed, isTrue);
+      expect(restored.observations[2].redHotObserved, isFalse);
+      expect(
+        restored.uvObservations[2].condition,
+        BurnerUvCondition.serviceable,
+      );
+    },
+  );
 
   test('partial, duplicate, and contradictory observations fail closed', () {
     final partial = List<Map<String, dynamic>>.from(

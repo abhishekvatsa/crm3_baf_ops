@@ -347,6 +347,42 @@ const requiredPersistedInstantDate = (
   return parsed;
 };
 
+const currentMaintenanceEpisodeStart = (ticket: JsonMap): Date => {
+  const startedAt = requiredPersistedInstantDate(
+    ticket.startDate,
+    "ticket.startDate",
+  );
+  const hasAnyReopenEvidence =
+    ticket.reopenedAt != null ||
+    ticket.reopenedByUid != null ||
+    ticket.reopenedByName != null ||
+    ticket.reopenReason != null;
+  if (!hasAnyReopenEvidence) return startedAt;
+  if (typeof ticket.reopenedByUid !== "string" ||
+      ticket.reopenedByUid.trim().length === 0 ||
+      typeof ticket.reopenedByName !== "string" ||
+      ticket.reopenedByName.trim().length === 0 ||
+      ticket.reopenedAt == null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket reopening evidence is incomplete.",
+      {reasonCode: "maintenance-ticket-reopen-evidence-invalid"},
+    );
+  }
+  const reopenedAt = requiredPersistedInstantDate(
+    ticket.reopenedAt,
+    "ticket.reopenedAt",
+  );
+  if (reopenedAt.getTime() < startedAt.getTime()) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket reopening predates the original issue.",
+      {reasonCode: "maintenance-ticket-reopen-evidence-invalid"},
+    );
+  }
+  return reopenedAt;
+};
+
 const closureActionPayload = (
   value: unknown,
 ): {readonly text: string; readonly rows: readonly JsonMap[]} => {
@@ -1032,6 +1068,159 @@ const requireFreshAssetReference = async (args: {
   });
 };
 
+const savedClosureActionPayload = (
+  value: unknown,
+  field = "work.actionsJson",
+): {readonly text: string; readonly rows: readonly JsonMap[]} => {
+  try {
+    const parsed = readComponentActionPayload(value, {
+      field,
+      allowMissing: value == null,
+    });
+    return {
+      text: parsed.text,
+      rows: parsed.rows as readonly JsonMap[],
+    };
+  } catch (error) {
+    if (error instanceof PersistedActionPayloadError) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Saved maintenance action evidence needs repair before resolution.",
+        {
+          reasonCode: "maintenance-ticket-saved-actions-invalid",
+          field: error.field,
+        },
+      );
+    }
+    throw error;
+  }
+};
+
+const isBurnerActionEvidence = (row: JsonMap): boolean =>
+  row.attendanceSessionId != null || row.burnerPosition != null ||
+  row.burnerActionCode != null || row.burnerOutcome != null ||
+  row.burnerMicroampReading != null;
+
+export const canonicalGovernedClosureActions = async (args: {
+  tx: WorkflowTransaction;
+  existingValue: unknown;
+  assetType: unknown;
+  assetNumber: unknown;
+  workStartedAt: unknown;
+  requested: {readonly text: string; readonly rows: readonly JsonMap[]};
+  contractVersion: number | null;
+  actor: Actor;
+  serverNow: Date;
+  endDate: Date;
+  allowBurnerEvidence?: boolean;
+}): Promise<{readonly text: string; readonly rows: readonly JsonMap[]}> => {
+  const saved = savedClosureActionPayload(args.existingValue);
+  if (args.requested.rows.length < saved.rows.length ||
+      saved.rows.some((row, index) =>
+        stableJson(row) !== stableJson(args.requested.rows[index]))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Existing maintenance action history cannot be removed or changed during resolution.",
+      {reasonCode: "maintenance-ticket-action-history-changed"},
+    );
+  }
+
+  const additions = args.requested.rows.slice(saved.rows.length);
+  if (additions.length === 0) return args.requested;
+  if (additions.some((row) => !isBurnerActionEvidence(row)) &&
+      args.contractVersion !== 1) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "New maintenance actions require the governed asset-target contract.",
+      {reasonCode: "maintenance-ticket-action-target-contract-required"},
+    );
+  }
+
+  const assetType = boundedText(args.assetType, "work.assetType", 1, 80);
+  const assetNumber = requiredInteger(
+    args.assetNumber,
+    "work.assetNumber",
+    1,
+    2147483647,
+  );
+  const ticketStart = requiredPersistedInstantDate(
+    args.workStartedAt,
+    "work.startedAt",
+  );
+  const canonicalRows: JsonMap[] = [...saved.rows];
+
+  for (const [offset, row] of additions.entries()) {
+    if (isBurnerActionEvidence(row)) {
+      if (args.allowBurnerEvidence !== true) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "Burner attendance evidence is only valid for a burner-lockout issue.",
+          {reasonCode: "maintenance-ticket-burner-action-out-of-scope"},
+        );
+      }
+      canonicalRows.push(row);
+      continue;
+    }
+
+    const performedAt = requiredPersistedInstantDate(
+      row.createdAt,
+      `actionsJson[${saved.rows.length + offset}].createdAt`,
+    );
+    if (performedAt.getTime() < ticketStart.getTime() ||
+        performedAt.getTime() > args.endDate.getTime() + 5 * 60 * 1000) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Maintenance action time must fall within the issue work period.",
+        {reasonCode: "maintenance-ticket-action-time-invalid"},
+      );
+    }
+    const rawReference = row.assetHierarchyRef;
+    if (rawReference == null || typeof rawReference !== "object" ||
+        Array.isArray(rawReference)) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Each new maintenance action must select a governed component on the work asset.",
+        {reasonCode: "maintenance-ticket-action-target-required"},
+      );
+    }
+    const tag = optionalText(row.tag, "tag", 160);
+    const canonicalReferenceText = await requireFreshAssetReference({
+      tx: args.tx,
+      raw: stableJson(rawReference),
+      assetType,
+      assetNumber,
+      tag,
+      startDate: performedAt.toISOString(),
+      actor: args.actor,
+      serverNow: args.serverNow,
+    });
+    const canonicalReference = record(
+      JSON.parse(canonicalReferenceText),
+      "assetHierarchyRef",
+    );
+    const hierarchyPath = persistedStringList(
+      canonicalReference.hierarchyPath,
+      "assetHierarchyRef.hierarchyPath",
+      20,
+      200,
+    );
+    canonicalRows.push({
+      ...row,
+      asset: canonicalReference.assetInstanceName,
+      component: canonicalReference.nodeName,
+      hierarchyPath,
+      assetHierarchyRef: canonicalReference,
+      system: canonicalReference.assetClassName,
+      subsystem: hierarchyPath.length > 1 ?
+        hierarchyPath[hierarchyPath.length - 2] : null,
+      tag: canonicalReference.componentTag ?? null,
+      performedBy: args.actor.name,
+    });
+  }
+
+  return {text: stableJson(canonicalRows), rows: canonicalRows};
+};
+
 const qualityWarningProjection = (args: {
   ticketId: string;
   ticket: JsonMap;
@@ -1349,7 +1538,7 @@ const requireTicket = async (
   return {ticket, version: version as number};
 };
 
-interface AdministrativeClosureWorkflowProjection {
+interface TicketWorkflowProjection {
   readonly projected: boolean;
   readonly queueState: string;
   readonly workflowId: string | null;
@@ -1380,9 +1569,9 @@ const persistedWorkflowText = (
   return cleaned;
 };
 
-const administrativeClosureWorkflowProjection = (
+const ticketWorkflowProjection = (
   ticket: JsonMap,
-): AdministrativeClosureWorkflowProjection => {
+): TicketWorkflowProjection => {
   const owns = (field: string): boolean =>
     Object.prototype.hasOwnProperty.call(ticket, field);
   const presentFields = WORKFLOW_PROJECTION_FIELDS.filter(owns);
@@ -1444,6 +1633,89 @@ const administrativeClosureWorkflowProjection = (
     persistedWorkflowText(ticket.workflowConditionRef, "workflowConditionRef", 300);
   }
   return {projected: true, queueState, workflowId, complianceId};
+};
+
+const requireReleasedTicketCoordination = async (args: {
+  tx: WorkflowTransaction;
+  ticket: JsonMap;
+  ticketId: string;
+}): Promise<void> => {
+  const projection = ticketWorkflowProjection(args.ticket);
+  const {queueState, workflowId, complianceId} = projection;
+  if (queueState !== "independent" && queueState !== "released") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Operations coordination must be completed or cancelled before resolving this issue.",
+      {
+        reasonCode: "maintenance-ticket-coordination-open",
+        queueState,
+      },
+    );
+  }
+
+  const [complianceRows, workflowRows, workflowSnapshot,
+    projectedComplianceSnapshot] = await Promise.all([
+    args.tx.query("compliance_requests", [
+      {
+        field: "linkedMaintenanceFirestoreId",
+        op: "==",
+        value: args.ticketId,
+      },
+    ]),
+    args.tx.query("maintenance_workflows", [
+      {
+        field: "linkedMaintenanceFirestoreId",
+        op: "==",
+        value: args.ticketId,
+      },
+    ]),
+    workflowId == null ?
+      Promise.resolve(null) : args.tx.get(workflowPath(workflowId)),
+    complianceId == null ?
+      Promise.resolve(null) : args.tx.get(compliancePath(complianceId)),
+  ]);
+  if (complianceRows.length > 50 || workflowRows.length > 50) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Issue coordination history exceeds the governed resolution boundary.",
+      {
+        reasonCode: "maintenance-ticket-coordination-history-oversized",
+        complianceCount: complianceRows.length,
+        workflowCount: workflowRows.length,
+      },
+    );
+  }
+  const activeComplianceRows = complianceRows.filter((row) =>
+    !TERMINAL_COMPLIANCE_STATUSES.has(String(row.data?.status)));
+  const activeWorkflowRows = workflowRows.filter((row) =>
+    !TERMINAL_WORKFLOW_STATUSES.has(String(row.data?.status)));
+  if (activeComplianceRows.length !== 0 || activeWorkflowRows.length !== 0) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "An Operations obligation is still active for this issue.",
+      {reasonCode: "maintenance-ticket-coordination-projection-diverged"},
+    );
+  }
+  if (!projection.projected) return;
+  if (workflowId == null || complianceId == null ||
+      workflowSnapshot?.exists !== true || workflowSnapshot.data == null ||
+      projectedComplianceSnapshot?.exists !== true ||
+      projectedComplianceSnapshot.data == null ||
+      workflowSnapshot.data.workflowKind !== "issueCoordination" ||
+      workflowSnapshot.data.linkedMaintenanceFirestoreId !== args.ticketId ||
+      projectedComplianceSnapshot.data.linkedWorkflowId !== workflowId ||
+      projectedComplianceSnapshot.data.linkedMaintenanceFirestoreId !==
+        args.ticketId ||
+      !TERMINAL_WORKFLOW_STATUSES.has(String(workflowSnapshot.data.status)) ||
+      !TERMINAL_COMPLIANCE_STATUSES.has(
+        String(projectedComplianceSnapshot.data.status),
+      )) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Released Operations coordination evidence is incomplete or contradictory.",
+      {reasonCode: "maintenance-ticket-coordination-release-invalid"},
+    );
+  }
 };
 
 const requireVacantAudit = async (
@@ -2329,11 +2601,27 @@ export const resolveMaintenanceTicket = async ({
   command,
   context,
 }: HandlerArgs): Promise<HandlerResult> => {
+  const hasActionTargetContract = Object.prototype.hasOwnProperty.call(
+    command.payload,
+    "actionTargetContractVersion",
+  );
   exactKeys(
     command.payload,
-    ["endDate", "remarks", "teamsInvolved", "actionsJson"],
+    hasActionTargetContract ?
+      [
+        "endDate", "remarks", "teamsInvolved", "actionsJson",
+        "actionTargetContractVersion",
+      ] :
+      ["endDate", "remarks", "teamsInvolved", "actionsJson"],
     "payload",
   );
+  const actionTargetContractVersion = hasActionTargetContract ?
+    requiredInteger(
+      command.payload.actionTargetContractVersion,
+      "actionTargetContractVersion",
+      1,
+      1,
+    ) : null;
   const {ticket, version} = await requireTicket(tx, command);
   await requireVacantAudit(tx, command.commandId);
   if (ticket.isResolved === true || ticket.status === "resolved") {
@@ -2343,13 +2631,15 @@ export const resolveMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-not-open-for-resolution"},
     );
   }
+  await requireReleasedTicketCoordination({
+    tx,
+    ticket,
+    ticketId: command.aggregateId,
+  });
   const plan = ticketLanePlan(ticket);
   const endDate = requiredInstantDate(command.payload.endDate, "endDate");
-  const startDate = requiredPersistedInstantDate(
-    ticket.startDate,
-    "ticket.startDate",
-  );
-  if (endDate.getTime() < startDate.getTime() ||
+  const episodeStartedAt = currentMaintenanceEpisodeStart(ticket);
+  if (endDate.getTime() < episodeStartedAt.getTime() ||
       endDate.getTime() > context.serverNow.getTime() + 5 * 60 * 1000) {
     throw new WorkflowError(
       "invalid-argument",
@@ -2362,7 +2652,21 @@ export const resolveMaintenanceTicket = async ({
     command.payload.teamsInvolved,
     plan.assigned,
   );
-  const actions = closureActionPayload(command.payload.actionsJson);
+  const requestedActions = closureActionPayload(command.payload.actionsJson);
+  const actions = await canonicalGovernedClosureActions({
+    tx,
+    existingValue: ticket.actionsJson,
+    assetType: ticket.assetType,
+    assetNumber: ticket.assetNumber,
+    workStartedAt: episodeStartedAt.toISOString(),
+    requested: requestedActions,
+    contractVersion: actionTargetContractVersion,
+    actor: context.actor,
+    serverNow: context.serverNow,
+    endDate,
+    allowBurnerEvidence:
+      ticket.classification === BURNER_LOCKOUT_CLASSIFICATION,
+  });
   const burner = burnerResolutionProjection(
     command.aggregateId,
     ticket,
@@ -2391,7 +2695,7 @@ export const resolveMaintenanceTicket = async ({
     closedByName: context.actor.name,
     remarks,
     downtimeHours:
-      (endDate.getTime() - startDate.getTime()) / (60 * 60 * 1000),
+      (endDate.getTime() - episodeStartedAt.getTime()) / (60 * 60 * 1000),
     teamsInvolved,
     actionsJson: actions.text,
     ...ticketLaneProjection(nextPlan),
@@ -2473,11 +2777,8 @@ export const closeMaintenanceTicketWithoutResolution = async ({
     );
   }
   const lanePlan = ticketLanePlan(ticket);
-  const startDate = requiredPersistedInstantDate(
-    ticket.startDate,
-    "ticket.startDate",
-  );
-  if (context.serverNow.getTime() < startDate.getTime()) {
+  const episodeStartedAt = currentMaintenanceEpisodeStart(ticket);
+  if (context.serverNow.getTime() < episodeStartedAt.getTime()) {
     throw new WorkflowError(
       "failed-precondition",
       "The issue start time is later than the server closure time.",
@@ -2485,7 +2786,7 @@ export const closeMaintenanceTicketWithoutResolution = async ({
     );
   }
 
-  const projection = administrativeClosureWorkflowProjection(ticket);
+  const projection = ticketWorkflowProjection(ticket);
   const {queueState, workflowId, complianceId} = projection;
   const [complianceRows, workflowRows, workflowSnapshot,
     projectedComplianceSnapshot] = await Promise.all([
@@ -2602,13 +2903,14 @@ export const closeMaintenanceTicketWithoutResolution = async ({
     closedByUid: context.actor.uid,
     closedByName: context.actor.name,
     downtimeHours:
-      (context.serverNow.getTime() - startDate.getTime()) / (60 * 60 * 1000),
+      (context.serverNow.getTime() - episodeStartedAt.getTime()) /
+      (60 * 60 * 1000),
     issueClosureSchemaVersion: 1,
     issueClosureDisposition: disposition,
     issueClosureReason: reason,
-    workflowDeferred: false,
-    workflowQueueState: workflowId == null ? "independent" : "released",
     ...(workflowId == null ? {} : {
+      workflowDeferred: false,
+      workflowQueueState: "released",
       workflowReleasedAt: updatedAt,
       workflowReleasedByUid: context.actor.uid,
       workflowReleasedByName: context.actor.name,
@@ -2621,7 +2923,11 @@ export const closeMaintenanceTicketWithoutResolution = async ({
     version: nextVersion,
   };
   const before = ticketSnapshot(ticket);
-  const after = ticketSnapshot({...ticket, ...update});
+  const updatedTicket = {...ticket, ...update};
+  if (workflowId == null) {
+    for (const field of WORKFLOW_PROJECTION_FIELDS) delete updatedTicket[field];
+  }
+  const after = ticketSnapshot(updatedTicket);
   const id = writeAudit({
     tx,
     command,
@@ -2684,7 +2990,11 @@ export const closeMaintenanceTicketWithoutResolution = async ({
     });
     tx.create(event.path, event.data);
   }
-  tx.update(maintenancePath(command.aggregateId), update);
+  if (workflowId == null) {
+    tx.set(maintenancePath(command.aggregateId), updatedTicket);
+  } else {
+    tx.update(maintenancePath(command.aggregateId), update);
+  }
   return {
     resultKey: "maintenance-ticket-closed-without-resolution",
     aggregateVersion: nextVersion,

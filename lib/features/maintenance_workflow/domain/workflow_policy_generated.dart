@@ -20,6 +20,7 @@ abstract final class WorkflowPolicyGenerated {
     'confirmCriticalAlarmSupport': <String>{'admin', 'si'},
     'resolveCriticalAlarm': <String>{'admin', 'si'},
     'manageCriticalAlarmContacts': <String>{'admin'},
+    'manageCriticalAlarmDefinitions': <String>{'admin'},
   };
   static const Map<String, CriticalAlarmDefinitionGenerated> criticalAlarmDefinitions = <String, CriticalAlarmDefinitionGenerated>{
     'fire': CriticalAlarmDefinitionGenerated(

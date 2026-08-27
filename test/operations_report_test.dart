@@ -1393,6 +1393,53 @@ void main() {
     );
   });
 
+  test('reopened issues count once while impact sums active episodes', () {
+    final ticket =
+        issue(
+            type: AssetType.furnace,
+            number: 7,
+            started: DateTime.utc(2026, 8, 14, 8),
+            resolved: true,
+          )
+          ..firestoreId = 'reopened-issue'
+          ..endDate = DateTime.utc(2026, 8, 14, 15)
+          ..reopenedByUid = 'operations-1'
+          ..reopenedByName = 'Operations One'
+          ..reopenedAt = DateTime.utc(2026, 8, 14, 12)
+          ..reopenReason = 'The symptom returned after the first repair.'
+          ..resolutionHistory = <ResolutionHistory>[
+            ResolutionHistory(
+              resolvedByUid: 'electrical-1',
+              resolvedByName: 'Electrical One',
+              resolvedAt: DateTime.utc(2026, 8, 14, 10),
+              downtimeHours: 2,
+              teamsInvolved: const <String>['electrical'],
+              reopenedByUid: 'operations-1',
+              reopenedByName: 'Operations One',
+              reopenedAt: DateTime.utc(2026, 8, 14, 12),
+              reopenReason: 'The symptom returned after the first repair.',
+            ),
+          ];
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 14),
+        endDate: DateTime.utc(2026, 8, 14),
+      ),
+      tickets: <MaintenanceRecord>[ticket],
+      executions: const [],
+      events: const [],
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+      asOf: DateTime.utc(2026, 8, 14, 16),
+    );
+
+    expect(report.issueCount, 1);
+    expect(report.reopenedIssueCount, 1);
+    expect(report.issueReopenEventCount, 1);
+    expect(report.issueImpactDuration, const Duration(hours: 5));
+  });
+
   test('reopened disruption keeps each occurrence on its recorded asset', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
     final furnace7 = asset('furnace-7', furnace, 7);

@@ -12,6 +12,49 @@ const burnerConditionRoundReportLimit = 1000;
 const burnerConditionRoundHistoryDisclosure =
     'Showing up to $burnerConditionRoundReportLimit rounds in the selected period.';
 
+final latestBurnerConditionRoundsProvider = StreamProvider.autoDispose
+    .family<Map<String, BurnerConditionRound>, String>((ref, actorUid) {
+      final actorAsync = ref.watch(currentAppUserProvider);
+      if (actorAsync.isLoading) {
+        throw StateError('Burner-condition access is still being verified.');
+      }
+      if (actorAsync.hasError) {
+        throw StateError('Burner-condition access could not be verified.');
+      }
+      final actor = actorAsync.value;
+      if (actor == null ||
+          !actor.isApproved ||
+          actor.uid != actorUid ||
+          actorUid.trim().isEmpty) {
+        throw StateError('Approved burner-condition access is required.');
+      }
+      final cacheTrust = ref.watch(burnerConditionRoundCacheTrustProvider)
+        ..observeActor(actorUid);
+      final snapshots = FirebaseFirestore.instance
+          .collection('burner_condition_rounds')
+          .orderBy('observedAt', descending: true)
+          .limit(burnerConditionRoundReportLimit)
+          .snapshots(includeMetadataChanges: true);
+      return admitActorSessionSnapshots(
+        snapshots,
+        trust: cacheTrust,
+        actorUid: actorUid,
+        queryKey: 'latest-burner-condition-rounds',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
+      ).map((snapshot) {
+        final latest = <String, BurnerConditionRound>{};
+        for (final document in snapshot.docs) {
+          final round = BurnerConditionRound.fromMap(
+            document.data(),
+            document.id,
+          );
+          latest.putIfAbsent(round.assetInstanceId, () => round);
+        }
+        return Map<String, BurnerConditionRound>.unmodifiable(latest);
+      });
+    });
+
 typedef BurnerConditionRoundQuery =
     ({
       String actorUid,

@@ -779,7 +779,9 @@ class MaintenanceRecord {
       workflowAggregateId != null && workflowAggregateId!.trim().isNotEmpty;
 
   @ignore
-  bool get isWorkflowActionBlocked => workflowDeferred;
+  bool get isWorkflowActionBlocked =>
+      workflowDeferred ||
+      (workflowQueueState != 'independent' && workflowQueueState != 'released');
 
   @ignore
   String get workflowStateLabel {
@@ -802,8 +804,11 @@ class MaintenanceRecord {
   @ignore
   Duration? get totalDowntime {
     if (endDate == null) return null;
-    return endDate!.difference(startDate);
+    return endDate!.difference(currentWorkEpisodeStartedAt);
   }
+
+  @ignore
+  DateTime get currentWorkEpisodeStartedAt => reopenedAt ?? startDate;
 
   bool get hasComponentContext =>
       (component != null && component!.trim().isNotEmpty) ||

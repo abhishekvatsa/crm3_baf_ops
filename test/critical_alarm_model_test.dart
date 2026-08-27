@@ -114,14 +114,27 @@ void main() {
       expect(alarm.definition.name, 'Fire');
     });
 
-    test('rejects a client-spoofed severity', () {
+    test('rejects a malformed criticality pair', () {
       expect(
         () => CriticalAlarm.fromFirestore(
-          raisedAlarm(criticalityKey: 'critical', criticalityRank: 2),
+          raisedAlarm(criticalityKey: 'highest', criticalityRank: 2),
           'alarm-1',
         ),
         throwsA(isA<PersistedDataFormatException>()),
       );
+    });
+
+    test('accepts an immutable snapshot from a live custom definition', () {
+      final alarm = CriticalAlarm.fromFirestore(
+        raisedAlarm(
+          alarmTypeKey: 'critical_alarm_definition_custom',
+          alarmTypeName: 'Hydrogen pressure collapse',
+          criticalityKey: 'highest',
+          criticalityRank: 1,
+        ),
+        'alarm-1',
+      );
+      expect(alarm.definition.name, 'Hydrogen pressure collapse');
     });
 
     test('rejects unknown fields and inconsistent detail state', () {
@@ -217,7 +230,7 @@ void main() {
       expect(decoded.kind, CriticalAlarmContactKind.landline);
     });
 
-    test('rejects unsupported or duplicated hazard mappings', () {
+    test('rejects duplicated or malformed hazard mappings', () {
       expect(
         () => CriticalAlarmContact.fromFirestore({
           ...contact(),
@@ -228,7 +241,7 @@ void main() {
       expect(
         () => CriticalAlarmContact.fromFirestore({
           ...contact(),
-          'alarmTypeKeys': ['genericEmergency'],
+          'alarmTypeKeys': [' genericEmergency '],
         }, 'fire-room'),
         throwsA(isA<PersistedDataFormatException>()),
       );

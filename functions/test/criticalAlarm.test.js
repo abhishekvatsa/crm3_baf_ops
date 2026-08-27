@@ -34,7 +34,7 @@ function raiseCommand(id, type = 'fire') {
       location: 'Annealing shop north bay',
       assetTypeKey: null,
       assetNumber: null,
-      initialDetails: null,
+      initialDetails: 'Immediate critical-alarm details supplied by the raiser.',
     },
   };
 }
@@ -64,8 +64,8 @@ describe('critical safety alarm workflow', () => {
       criticalityRank: 1,
       status: 'raised',
       version: 1,
-      details: null,
-      detailsPending: true,
+      details: 'Immediate critical-alarm details supplied by the raiser.',
+      detailsPending: false,
       raisedByUid: ops.uid,
     });
     expect(store.read('maintenance_workflow_events/raise-alarm-fire-1'))
@@ -120,7 +120,7 @@ describe('critical safety alarm workflow', () => {
     });
     expect(store.read('critical_alarms/alarm-version-conflict')).toMatchObject({
       version: 1,
-      detailsPending: true,
+      detailsPending: false,
     });
   });
 
@@ -136,12 +136,38 @@ describe('critical safety alarm workflow', () => {
     expect(store.read('critical_alarms/alarm-short-details')).toBeNull();
   });
 
+  test('an installed legacy client may raise first and provide details next', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = serviceFor(store);
+    const command = raiseCommand('alarm-legacy-details');
+    command.payload.initialDetails = null;
+    const receipt = await service.execute(command, {
+      actor: ops,
+      serverNow: at('2026-08-26T10:06:00Z'),
+    });
+    expect(receipt.result).toMatchObject({detailsPending: true});
+    expect(store.read('critical_alarms/alarm-legacy-details')).toMatchObject({
+      details: null,
+      detailsPending: true,
+      detailsProvidedAt: null,
+    });
+  });
+
   test('support confirmation requires details and resolution requires support', async () => {
     const store = new MemoryWorkflowStore();
     const service = serviceFor(store);
     await service.execute(raiseCommand('alarm-n2', 'nitrogenFailure'), {
       actor: ops,
       serverNow: at('2026-08-26T11:00:00Z'),
+    });
+    const legacyPending = store.read('critical_alarms/alarm-n2');
+    store.seed('critical_alarms/alarm-n2', {
+      ...legacyPending,
+      details: null,
+      detailsPending: true,
+      detailsProvidedByUid: null,
+      detailsProvidedByName: null,
+      detailsProvidedAt: null,
     });
 
     await expect(service.execute({
@@ -324,6 +350,100 @@ describe('critical safety alarm workflow', () => {
     expect(first.resultKey).toBe('critical-alarm-contact-active');
     expect(store.read('critical_alarm_contacts/contact-lifecycle'))
       .toMatchObject({status: 'active', version: 3});
+  });
+
+  test('Admin governs custom alarm reasons while raised alarms retain their snapshot', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = serviceFor(store);
+    const create = {
+      commandId: 'definition-hydrogen-create',
+      commandType: 'upsertCriticalAlarmDefinition',
+      aggregateId: 'hydrogenPressureCollapse',
+      expectedVersion: 0,
+      payload: {
+        definition: {
+          schemaVersion: 1,
+          name: 'Hydrogen pressure collapse',
+          criticalityKey: 'highest',
+          criticalityRank: 1,
+        },
+        reason: 'Add the approved hydrogen emergency reason',
+      },
+    };
+    await expect(service.execute(create, {
+      actor: si,
+      serverNow: at('2026-08-26T13:20:00Z'),
+    })).rejects.toMatchObject({code: 'permission-denied'});
+    const first = await service.execute(create, {
+      actor: admin,
+      serverNow: at('2026-08-26T13:21:00Z'),
+    });
+    expect(await service.execute(create, {
+      actor: admin,
+      serverNow: at('2026-08-26T13:22:00Z'),
+    })).toEqual(first);
+
+    await service.execute(raiseCommand(
+      'alarm-custom-hydrogen-old',
+      'hydrogenPressureCollapse',
+    ), {actor: ops, serverNow: at('2026-08-26T13:23:00Z')});
+    await service.execute({
+      ...create,
+      commandId: 'definition-hydrogen-update',
+      expectedVersion: 1,
+      payload: {
+        ...create.payload,
+        definition: {
+          ...create.payload.definition,
+          name: 'Hydrogen supply collapse',
+        },
+        reason: 'Use the approved plant terminology',
+      },
+    }, {actor: admin, serverNow: at('2026-08-26T13:24:00Z')});
+    await service.execute(raiseCommand(
+      'alarm-custom-hydrogen-new',
+      'hydrogenPressureCollapse',
+    ), {actor: ops, serverNow: at('2026-08-26T13:25:00Z')});
+
+    expect(store.read('critical_alarms/alarm-custom-hydrogen-old'))
+      .toMatchObject({alarmTypeName: 'Hydrogen pressure collapse'});
+    expect(store.read('critical_alarms/alarm-custom-hydrogen-new'))
+      .toMatchObject({alarmTypeName: 'Hydrogen supply collapse'});
+  });
+
+  test('retiring a bootstrap alarm reason creates a blocking governed override', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = serviceFor(store);
+    const command = {
+      commandId: 'definition-fire-retire',
+      commandType: 'setCriticalAlarmDefinitionStatus',
+      aggregateId: 'fire',
+      expectedVersion: 0,
+      payload: {
+        status: 'retired',
+        reason: 'Fire reason temporarily withdrawn by governance',
+      },
+    };
+    const first = await service.execute(command, {
+      actor: admin,
+      serverNow: at('2026-08-26T13:30:00Z'),
+    });
+    expect(await service.execute(command, {
+      actor: admin,
+      serverNow: at('2026-08-26T13:31:00Z'),
+    })).toEqual(first);
+    expect(store.read('critical_alarm_definitions/fire')).toMatchObject({
+      status: 'retired',
+      name: 'Fire',
+      version: 1,
+    });
+    await expect(service.execute(raiseCommand('alarm-retired-fire'), {
+      actor: ops,
+      serverNow: at('2026-08-26T13:32:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'critical-alarm-type-retired'},
+    });
   });
 
   test('later commands fail closed on a partial or severity-tampered alarm record', async () => {

@@ -114,6 +114,8 @@ enum WorkflowCommandType {
   withdrawCriticalAlarmInError,
   upsertCriticalAlarmContact,
   setCriticalAlarmContactStatus,
+  upsertCriticalAlarmDefinition,
+  setCriticalAlarmDefinitionStatus,
   purgePilotBusinessRecord,
 }
 

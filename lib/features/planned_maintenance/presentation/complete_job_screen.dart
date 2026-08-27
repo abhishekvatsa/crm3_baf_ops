@@ -334,6 +334,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                     ? widget.execution.responsesJson
                     : FieldResponse.encode(fieldResponses),
             'actionsJson': ComponentAction.encode(_actions),
+            'actionTargetContractVersion': 1,
             if (redAnswers != null) 'redRequired': redAnswers.redRequired,
             if (redAnswers?.preparationRequired != null)
               'preparationRequired': redAnswers!.preparationRequired,
@@ -426,6 +427,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   }
 
   Future<void> _addAction() async {
+    final identity = widget.execution.assignmentPhysicalAssetIdentity;
     final result = await showModalBottomSheet<ComponentAction>(
       context: context,
       isScrollControlled: true,
@@ -436,7 +438,15 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           top: Radius.circular(BafRadius.medium),
         ),
       ),
-      builder: (_) => const ActionBottomSheet(),
+      builder:
+          (_) => ActionBottomSheet(
+            target: GovernedActionContext(
+              assetTypeKey: widget.execution.assetType.name,
+              assetNumber: widget.execution.assetNumber,
+              assetClassId: identity?.assetClassId,
+              assetInstanceId: identity?.assetInstanceId,
+            ),
+          ),
     );
 
     if (!mounted || result == null) return;

@@ -22,6 +22,7 @@ const ALARM_STATUSES = new Set([
   "raised", "supportConfirmed", "resolved", "withdrawnInError",
 ]);
 const CONTACT_STATUSES = new Set(["active", "retired"]);
+const DEFINITION_STATUSES = new Set(["active", "retired"]);
 const CONTACT_KINDS = new Set(["mobile", "landline", "plantExtension"]);
 const SUPPORT_BASES = new Set([
   "supportDispatched", "supportAlreadyPresent", "raiserContactedDirectly",
@@ -43,6 +44,11 @@ const CONTACT_FIELDS = [
   "createdAt", "createdByUid", "createdByName", "updatedAt",
   "updatedByUid", "updatedByName",
 ] as const;
+const DEFINITION_FIELDS = [
+  "schemaVersion", "definitionId", "version", "status", "name",
+  "criticalityKey", "criticalityRank", "createdAt", "createdByUid",
+  "createdByName", "updatedAt", "updatedByUid", "updatedByName",
+] as const;
 const ALARM_COMMANDS = new Set<WorkflowCommandType>([
   "raiseCriticalAlarm", "provideCriticalAlarmDetails",
   "confirmCriticalAlarmSupport", "resolveCriticalAlarm",
@@ -50,6 +56,9 @@ const ALARM_COMMANDS = new Set<WorkflowCommandType>([
 ]);
 const CONTACT_COMMANDS = new Set<WorkflowCommandType>([
   "upsertCriticalAlarmContact", "setCriticalAlarmContactStatus",
+]);
+const DEFINITION_COMMANDS = new Set<WorkflowCommandType>([
+  "upsertCriticalAlarmDefinition", "setCriticalAlarmDefinitionStatus",
 ]);
 const OPERATION_BY_COMMAND: Partial<Record<WorkflowCommandType, string>> = {
   raiseCriticalAlarm: "raise",
@@ -59,6 +68,8 @@ const OPERATION_BY_COMMAND: Partial<Record<WorkflowCommandType, string>> = {
   withdrawCriticalAlarmInError: "withdraw-in-error",
   upsertCriticalAlarmContact: "create-contact",
   setCriticalAlarmContactStatus: "retired-contact",
+  upsertCriticalAlarmDefinition: "create-definition",
+  setCriticalAlarmDefinitionStatus: "retired-definition",
 };
 const RESULT_KEY_BY_COMMAND: Partial<Record<WorkflowCommandType, string>> = {
   raiseCriticalAlarm: "critical-alarm-raised",
@@ -77,10 +88,14 @@ const EVENT_TYPE_BY_COMMAND: Partial<Record<WorkflowCommandType, string>> = {
 
 const alarmPath = (id: string): string => `critical_alarms/${id}`;
 const contactPath = (id: string): string => `critical_alarm_contacts/${id}`;
+const definitionPath = (id: string): string =>
+  `critical_alarm_definitions/${id}`;
 const alarmAuditPath = (commandId: string): string =>
   `critical_alarm_audits/${commandId}`;
 const contactAuditPath = (commandId: string): string =>
   `critical_alarm_contact_audits/${commandId}`;
+const definitionAuditPath = (commandId: string): string =>
+  `critical_alarm_definition_audits/${commandId}`;
 
 const exactKeys = (
   value: JsonMap,
@@ -160,17 +175,10 @@ const choice = (
   return parsed;
 };
 
-const alarmDefinition = (value: unknown) => {
+const baselineAlarmDefinition = (value: unknown) => {
   const key = cleanText(value, "alarmTypeKey");
   const definition = CRITICAL_ALARM_DEFINITIONS[key];
-  if (definition == null) {
-    throw new WorkflowError(
-      "invalid-argument",
-      "alarmTypeKey is not in the governed critical-alarm catalogue.",
-      {reasonCode: "critical-alarm-type-unsupported"},
-    );
-  }
-  return definition;
+  return {key, definition};
 };
 
 const hasExactKeys = (
@@ -236,8 +244,9 @@ const normalizedAlarm = (data: JsonMap): JsonMap => normalizeStoredInstants(
 );
 
 const assertCanonicalAlarm = (data: JsonMap, alarmId: string): void => {
-  const definition = typeof data.alarmTypeKey === "string" ?
-    CRITICAL_ALARM_DEFINITIONS[data.alarmTypeKey] : undefined;
+  const criticalityValid =
+    (data.criticalityKey === "highest" && data.criticalityRank === 1) ||
+    (data.criticalityKey === "critical" && data.criticalityRank === 2);
   const assetAbsent = data.assetTypeKey === null && data.assetNumber === null;
   const assetComplete = isStoredText(data.assetTypeKey, 1, 80) &&
     Number.isSafeInteger(data.assetNumber) && (data.assetNumber as number) >= 1;
@@ -309,10 +318,9 @@ const assertCanonicalAlarm = (data: JsonMap, alarmId: string): void => {
       ))
     ));
   if (!hasExactKeys(data, ALARM_FIELDS) || data.schemaVersion !== 1 ||
-      data.alarmId !== alarmId || definition == null ||
-      data.alarmTypeName !== definition.name ||
-      data.criticalityKey !== definition.criticalityKey ||
-      data.criticalityRank !== definition.criticalityRank ||
+      data.alarmId !== alarmId ||
+      !isStoredText(data.alarmTypeKey, 1, 160) ||
+      !isStoredText(data.alarmTypeName, 2, 120) || !criticalityValid ||
       typeof data.status !== "string" || !ALARM_STATUSES.has(data.status) ||
       !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
       !isStoredText(data.location, 2, 160) ||
@@ -354,9 +362,8 @@ const assertCanonicalContact = (data: JsonMap, contactId: string): void => {
       typeof data.status !== "string" || !CONTACT_STATUSES.has(data.status) ||
       !isStoredText(data.label, 2, 120) ||
       typeof kind !== "string" || !CONTACT_KINDS.has(kind) || !dialValid ||
-      !Array.isArray(keys) || keys.length < 1 || keys.length > 5 ||
-      keys.some((key) => typeof key !== "string" ||
-        CRITICAL_ALARM_DEFINITIONS[key] == null) ||
+      !Array.isArray(keys) || keys.length < 1 || keys.length > 20 ||
+      keys.some((key) => !isStoredText(key, 1, 160)) ||
       new Set(keys).size !== keys.length ||
       !Number.isSafeInteger(data.priority) || (data.priority as number) < 1 ||
       (data.priority as number) > 99 ||
@@ -369,6 +376,84 @@ const assertCanonicalContact = (data: JsonMap, contactId: string): void => {
       Date.parse(data.updatedAt as string) < Date.parse(data.createdAt as string)) {
     failMalformedContact();
   }
+};
+
+const failMalformedDefinition = (): never => {
+  throw new WorkflowError(
+    "failed-precondition",
+    "The critical-alarm definition is malformed.",
+    {reasonCode: "critical-alarm-definition-malformed"},
+  );
+};
+
+const normalizedDefinition = (data: JsonMap): JsonMap =>
+  normalizeStoredInstants(
+    data,
+    ["createdAt", "updatedAt"],
+    failMalformedDefinition,
+  );
+
+const assertCanonicalDefinition = (
+  data: JsonMap,
+  definitionId: string,
+): void => {
+  const criticalityValid =
+    (data.criticalityKey === "highest" && data.criticalityRank === 1) ||
+    (data.criticalityKey === "critical" && data.criticalityRank === 2);
+  if (!hasExactKeys(data, DEFINITION_FIELDS) || data.schemaVersion !== 1 ||
+      data.definitionId !== definitionId ||
+      !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
+      typeof data.status !== "string" ||
+      !DEFINITION_STATUSES.has(data.status) ||
+      !isStoredText(data.name, 2, 120) || !criticalityValid ||
+      !isIsoInstant(data.createdAt) || !isIsoInstant(data.updatedAt) ||
+      !isStoredText(data.createdByUid, 1, 256) ||
+      !isStoredText(data.createdByName, 1, 256) ||
+      !isStoredText(data.updatedByUid, 1, 256) ||
+      !isStoredText(data.updatedByName, 1, 256) ||
+      Date.parse(data.updatedAt as string) <
+        Date.parse(data.createdAt as string)) {
+    failMalformedDefinition();
+  }
+};
+
+const activeAlarmDefinition = async (
+  tx: WorkflowTransaction,
+  value: unknown,
+): Promise<Readonly<{
+  key: string;
+  name: string;
+  criticalityKey: "highest" | "critical";
+  criticalityRank: number;
+}>> => {
+  const {key, definition: baseline} = baselineAlarmDefinition(value);
+  const snapshot = await tx.get(definitionPath(key));
+  if (!snapshot.exists) {
+    if (baseline == null) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "alarmTypeKey is not in the governed critical-alarm catalogue.",
+        {reasonCode: "critical-alarm-type-unsupported"},
+      );
+    }
+    return baseline;
+  }
+  if (snapshot.data == null) failMalformedDefinition();
+  const data = normalizedDefinition(snapshot.data as JsonMap);
+  assertCanonicalDefinition(data, key);
+  if (data.status !== "active") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected critical-alarm reason is retired.",
+      {reasonCode: "critical-alarm-type-retired"},
+    );
+  }
+  return {
+    key,
+    name: data.name as string,
+    criticalityKey: data.criticalityKey as "highest" | "critical",
+    criticalityRank: data.criticalityRank as number,
+  };
 };
 
 const parsedAuditObject = (value: unknown): JsonMap | null => {
@@ -398,9 +483,12 @@ export const verifyCriticalAlarmReplay = async (args: {
 }): Promise<void> => {
   const isAlarm = ALARM_COMMANDS.has(args.command.commandType);
   const isContact = CONTACT_COMMANDS.has(args.command.commandType);
-  if (!isAlarm && !isContact) return;
+  const isDefinition = DEFINITION_COMMANDS.has(args.command.commandType);
+  if (!isAlarm && !isContact && !isDefinition) return;
   const auditCollection = isAlarm ?
-    "critical_alarm_audits" : "critical_alarm_contact_audits";
+    "critical_alarm_audits" : isContact ?
+      "critical_alarm_contact_audits" :
+      "critical_alarm_definition_audits";
   const audit = await args.tx.get(
     `${auditCollection}/${args.command.commandId}`,
   );
@@ -439,21 +527,45 @@ export const verifyCriticalAlarmReplay = async (args: {
         args.receipt.resultKey !== `critical-alarm-contact-${requestedStatus}`) {
       replayInvalid();
     }
+  } else if (args.command.commandType === "upsertCriticalAlarmDefinition") {
+    const expectedDynamicOperation = args.command.expectedVersion === 0 ?
+      "create-definition" : "update-definition";
+    const expectedDynamicResult = args.command.expectedVersion === 0 ?
+      "critical-alarm-definition-created" :
+      "critical-alarm-definition-updated";
+    if (auditData.operation !== expectedDynamicOperation ||
+        args.receipt.resultKey !== expectedDynamicResult) replayInvalid();
+  } else if (
+    args.command.commandType === "setCriticalAlarmDefinitionStatus"
+  ) {
+    const requestedStatus = args.command.payload.status;
+    if (typeof requestedStatus !== "string" ||
+        auditData.operation !== `${requestedStatus}-definition` ||
+        args.receipt.resultKey !==
+          `critical-alarm-definition-${requestedStatus}`) {
+      replayInvalid();
+    }
   } else if (auditData.operation !== expectedOperation) {
     replayInvalid();
   }
 
   const identityResult = isAlarm ?
-    args.receipt.result.alarmId : args.receipt.result.contactId;
+    args.receipt.result.alarmId : isContact ?
+      args.receipt.result.contactId : args.receipt.result.definitionId;
   const expectedStatus = args.receipt.result.status;
   if (identityResult !== args.command.aggregateId ||
       expectedStatus !== afterData.status) replayInvalid();
   if (isAlarm) assertCanonicalAlarm(afterData, args.command.aggregateId);
-  else assertCanonicalContact(afterData, args.command.aggregateId);
+  else if (isContact) {
+    assertCanonicalContact(afterData, args.command.aggregateId);
+  } else {
+    assertCanonicalDefinition(afterData, args.command.aggregateId);
+  }
 
   const current = await args.tx.get(
     isAlarm ? alarmPath(args.command.aggregateId) :
-      contactPath(args.command.aggregateId),
+      isContact ? contactPath(args.command.aggregateId) :
+        definitionPath(args.command.aggregateId),
   );
   if (!current.exists || current.data == null ||
       !Number.isSafeInteger(current.data.version) ||
@@ -462,9 +574,14 @@ export const verifyCriticalAlarmReplay = async (args: {
   }
   const currentData = isAlarm ?
     normalizedAlarm(current.data as JsonMap) :
-    normalizedContact(current.data as JsonMap);
+    isContact ? normalizedContact(current.data as JsonMap) :
+      normalizedDefinition(current.data as JsonMap);
   if (isAlarm) assertCanonicalAlarm(currentData, args.command.aggregateId);
-  else assertCanonicalContact(currentData, args.command.aggregateId);
+  else if (isContact) {
+    assertCanonicalContact(currentData, args.command.aggregateId);
+  } else {
+    assertCanonicalDefinition(currentData, args.command.aggregateId);
+  }
 
   if (isAlarm) {
     const event = await args.tx.get(
@@ -595,7 +712,10 @@ export const raiseCriticalAlarm: CommandHandler = async ({
       "A new critical alarm must use expectedVersion 0.",
     );
   }
-  const definition = alarmDefinition(command.payload.alarmTypeKey);
+  const definition = await activeAlarmDefinition(
+    tx,
+    command.payload.alarmTypeKey,
+  );
   const location = boundedText(command.payload.location, "location", 2, 160);
   const details = optionalText(
     command.payload.initialDetails,
@@ -983,19 +1103,18 @@ export const withdrawCriticalAlarmInError: CommandHandler = async ({
 };
 
 const parseAlarmTypeKeys = (value: unknown): string[] => {
-  if (!Array.isArray(value) || value.length === 0 || value.length > 5) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
     throw new WorkflowError(
       "invalid-argument",
-      "contact.alarmTypeKeys must contain 1-5 alarm types.",
+      "contact.alarmTypeKeys must contain 1-20 alarm types.",
     );
   }
   const keys = value.map((entry, index) =>
-    cleanText(entry, `contact.alarmTypeKeys[${index}]`));
-  if (new Set(keys).size !== keys.length ||
-      keys.some((key) => CRITICAL_ALARM_DEFINITIONS[key] == null)) {
+    documentId(entry, `contact.alarmTypeKeys[${index}]`));
+  if (new Set(keys).size !== keys.length) {
     throw new WorkflowError(
       "invalid-argument",
-      "contact.alarmTypeKeys contains duplicates or unsupported alarm types.",
+      "contact.alarmTypeKeys contains duplicates.",
     );
   }
   return [...keys].sort();
@@ -1040,6 +1159,9 @@ export const upsertCriticalAlarmContact: CommandHandler = async ({
     priority: intValue(data.priority, "contact.priority", 1),
     notes: optionalText(data.notes, "contact.notes", 500),
   };
+  await Promise.all(
+    contact.alarmTypeKeys.map((key) => activeAlarmDefinition(tx, key)),
+  );
   if (contact.priority > 99) {
     throw new WorkflowError("invalid-argument", "contact.priority cannot exceed 99.");
   }
@@ -1151,5 +1273,233 @@ export const setCriticalAlarmContactStatus: CommandHandler = async ({
     resultKey: `critical-alarm-contact-${status}`,
     aggregateVersion: version + 1,
     result: {contactId, status},
+  };
+};
+
+const definitionInput = (value: unknown): Readonly<{
+  name: string;
+  criticalityKey: "highest" | "critical";
+  criticalityRank: number;
+}> => {
+  const data = record(value, "definition");
+  exactKeys(
+    data,
+    ["schemaVersion", "name", "criticalityKey", "criticalityRank"],
+    "definition",
+  );
+  if (data.schemaVersion !== 1) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "definition.schemaVersion is unsupported.",
+    );
+  }
+  const criticalityKey = choice(
+    data.criticalityKey,
+    "definition.criticalityKey",
+    new Set(["highest", "critical"]),
+  ) as "highest" | "critical";
+  const criticalityRank = intValue(
+    data.criticalityRank,
+    "definition.criticalityRank",
+    1,
+  );
+  if (!((criticalityKey === "highest" && criticalityRank === 1) ||
+      (criticalityKey === "critical" && criticalityRank === 2))) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Definition criticality and rank do not match.",
+      {reasonCode: "critical-alarm-definition-criticality-invalid"},
+    );
+  }
+  return {
+    name: boundedText(data.name, "definition.name", 2, 120),
+    criticalityKey,
+    criticalityRank,
+  };
+};
+
+export const upsertCriticalAlarmDefinition: CommandHandler = async ({
+  tx,
+  command,
+  context,
+}) => {
+  exactKeys(command.payload, ["definition", "reason"], "payload");
+  const definitionId = documentId(command.aggregateId, "aggregateId");
+  const input = definitionInput(command.payload.definition);
+  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const [current] = await Promise.all([
+    tx.get(definitionPath(definitionId)),
+    requireVacantAudit(tx, definitionAuditPath(command.commandId)),
+  ]);
+  const currentData = current.exists && current.data != null ?
+    normalizedDefinition(current.data as JsonMap) : null;
+  if (current.exists && currentData == null) failMalformedDefinition();
+  if (currentData != null) {
+    assertCanonicalDefinition(currentData, definitionId);
+    if (currentData.version !== command.expectedVersion) {
+      throw new WorkflowError(
+        "workflow-version-conflict",
+        "Critical-alarm definition version changed.",
+        {reasonCode: "critical-alarm-version-conflict"},
+      );
+    }
+  } else if (command.expectedVersion !== 0) {
+    throw new WorkflowError(
+      "workflow-version-conflict",
+      "Critical-alarm definition version changed.",
+      {reasonCode: "critical-alarm-version-conflict"},
+    );
+  }
+  const now = iso(context.serverNow);
+  const version = currentData == null ? 1 :
+    (currentData.version as number) + 1;
+  const after: JsonMap = {
+    schemaVersion: 1,
+    definitionId,
+    version,
+    status: currentData?.status === "retired" ? "retired" : "active",
+    ...input,
+    createdAt: currentData?.createdAt ?? now,
+    createdByUid: currentData?.createdByUid ?? context.actor.uid,
+    createdByName: currentData?.createdByName ?? context.actor.name,
+    updatedAt: now,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+  };
+  assertCanonicalDefinition(after, definitionId);
+  if (current.exists) tx.update(definitionPath(definitionId), after);
+  else tx.create(definitionPath(definitionId), after);
+  writeAudit({
+    tx,
+    path: definitionAuditPath(command.commandId),
+    commandId: command.commandId,
+    aggregateId: definitionId,
+    operation: current.exists ? "update-definition" : "create-definition",
+    actorUid: context.actor.uid,
+    actorName: context.actor.name,
+    at: now,
+    reason,
+    before: currentData ?? {},
+    after,
+  });
+  return {
+    resultKey: current.exists ?
+      "critical-alarm-definition-updated" :
+      "critical-alarm-definition-created",
+    aggregateVersion: version,
+    result: {definitionId, status: after.status},
+  };
+};
+
+export const setCriticalAlarmDefinitionStatus: CommandHandler = async ({
+  tx,
+  command,
+  context,
+}) => {
+  exactKeys(command.payload, ["status", "reason"], "payload");
+  const definitionId = documentId(command.aggregateId, "aggregateId");
+  const status = choice(
+    command.payload.status,
+    "status",
+    DEFINITION_STATUSES,
+  );
+  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const [current] = await Promise.all([
+    tx.get(definitionPath(definitionId)),
+    requireVacantAudit(tx, definitionAuditPath(command.commandId)),
+  ]);
+  let currentData: JsonMap | null = null;
+  if (current.exists) {
+    if (current.data == null) failMalformedDefinition();
+    currentData = normalizedDefinition(current.data as JsonMap);
+    assertCanonicalDefinition(currentData, definitionId);
+    if (currentData.version !== command.expectedVersion) {
+      throw new WorkflowError(
+        "workflow-version-conflict",
+        "Critical-alarm definition version changed.",
+        {reasonCode: "critical-alarm-version-conflict"},
+      );
+    }
+    if (currentData.status === status) {
+      throw new WorkflowError(
+        "failed-precondition",
+        `Alarm reason is already ${status}.`,
+      );
+    }
+  } else {
+    const baseline = CRITICAL_ALARM_DEFINITIONS[definitionId];
+    if (baseline == null) {
+      throw new WorkflowError(
+        "not-found",
+        "Critical-alarm definition was not found.",
+      );
+    }
+    if (command.expectedVersion !== 0) {
+      throw new WorkflowError(
+        "workflow-version-conflict",
+        "Critical-alarm definition version changed.",
+        {reasonCode: "critical-alarm-version-conflict"},
+      );
+    }
+    if (status === "active") {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Alarm reason is already active.",
+      );
+    }
+  }
+  const now = iso(context.serverNow);
+  const baseline = CRITICAL_ALARM_DEFINITIONS[definitionId];
+  const after: JsonMap = currentData == null ? {
+    schemaVersion: 1,
+    definitionId,
+    version: 1,
+    status,
+    name: baseline.name,
+    criticalityKey: baseline.criticalityKey,
+    criticalityRank: baseline.criticalityRank,
+    createdAt: now,
+    createdByUid: context.actor.uid,
+    createdByName: context.actor.name,
+    updatedAt: now,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+  } : {
+    ...currentData,
+    status,
+    version: (currentData.version as number) + 1,
+    updatedAt: now,
+    updatedByUid: context.actor.uid,
+    updatedByName: context.actor.name,
+  };
+  assertCanonicalDefinition(after, definitionId);
+  if (current.exists) {
+    tx.update(definitionPath(definitionId), {
+      status,
+      version: after.version,
+      updatedAt: now,
+      updatedByUid: context.actor.uid,
+      updatedByName: context.actor.name,
+    });
+  } else {
+    tx.create(definitionPath(definitionId), after);
+  }
+  writeAudit({
+    tx,
+    path: definitionAuditPath(command.commandId),
+    commandId: command.commandId,
+    aggregateId: definitionId,
+    operation: `${status}-definition`,
+    actorUid: context.actor.uid,
+    actorName: context.actor.name,
+    at: now,
+    reason,
+    before: currentData ?? {},
+    after,
+  });
+  return {
+    resultKey: `critical-alarm-definition-${status}`,
+    aggregateVersion: after.version as number,
+    result: {definitionId, status},
   };
 };

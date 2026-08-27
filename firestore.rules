@@ -3966,12 +3966,22 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /critical_alarm_definitions/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
     match /critical_alarm_audits/{docId} {
       allow read: if isAdminOrSI();
       allow create, update, delete: if false;
     }
 
     match /critical_alarm_contact_audits/{docId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /critical_alarm_definition_audits/{docId} {
       allow read: if isAdmin();
       allow create, update, delete: if false;
     }

@@ -70,6 +70,7 @@ export type WorkflowAuthorityCapability =
   | "criticalAlarm.raise" | "criticalAlarm.details"
   | "criticalAlarm.support" | "criticalAlarm.resolve"
   | "criticalAlarm.withdraw" | "criticalAlarm.contacts.manage"
+  | "criticalAlarm.definitions.manage"
   | "pilotRecord.purge";
 
 export interface WorkflowAuthorityScope extends JsonMap {
@@ -109,6 +110,7 @@ export type WorkflowCommandType =
   | "confirmCriticalAlarmSupport" | "resolveCriticalAlarm"
   | "withdrawCriticalAlarmInError"
   | "upsertCriticalAlarmContact" | "setCriticalAlarmContactStatus"
+  | "upsertCriticalAlarmDefinition" | "setCriticalAlarmDefinitionStatus"
   | "purgePilotBusinessRecord";
 
 export interface WorkflowCommandReceipt {

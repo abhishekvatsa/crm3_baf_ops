@@ -30,11 +30,17 @@ export type BurnerConditionRoundOperation =
   typeof RECORD_BURNER_CONDITION_ROUND;
 
 type FlameObservation = "seen" | "notSeen" | "notOperating" | "notChecked";
+type UvCondition = "serviceable" | "melted" | "missing" | "hanging";
 type BurnerObservation = Readonly<{
   position: number;
   flameObservation: FlameObservation;
   redHotObserved: boolean;
   microampReading: number | null;
+  remarks: string | null;
+}>;
+type UvObservation = Readonly<{
+  position: number;
+  condition: UvCondition;
   remarks: string | null;
 }>;
 
@@ -45,6 +51,9 @@ interface ParsedRequest {
   assetInstanceId: string;
   expectedAssetVersion: number;
   observations: ReadonlyArray<BurnerObservation>;
+  draftSealRedHotObserved: boolean | null;
+  hotAirAtDraftSealObserved: boolean | null;
+  uvObservations: ReadonlyArray<UvObservation> | null;
   roundNote: string | null;
   fingerprint: string;
 }
@@ -65,6 +74,9 @@ const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FLAME_OBSERVATIONS = new Set<FlameObservation>([
   "seen", "notSeen", "notOperating", "notChecked",
+]);
+const UV_CONDITIONS = new Set<UvCondition>([
+  "serviceable", "melted", "missing", "hanging",
 ]);
 const RECORD_ROLES = new Set([
   "admin",
@@ -173,6 +185,34 @@ function parseObservation(value: unknown, index: number): BurnerObservation {
   };
 }
 
+function parseUvObservation(value: unknown, index: number): UvObservation {
+  const field = `uvObservations[${index}]`;
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    invalid(field, "must be an object");
+  }
+  const raw = value as JsonMap;
+  const allowed = new Set(["position", "condition", "remarks"]);
+  for (const key of Object.keys(raw)) {
+    if (!allowed.has(key)) invalid(`${field}.${key}`, "is unsupported");
+  }
+  if (!Number.isSafeInteger(raw.position) || raw.position !== index + 1) {
+    invalid(`${field}.position`, "must match its position from 1 to 8");
+  }
+  const condition = requiredString(
+    raw.condition,
+    `${field}.condition`,
+    20,
+  ) as UvCondition;
+  if (!UV_CONDITIONS.has(condition)) {
+    invalid(`${field}.condition`, "is unsupported");
+  }
+  return {
+    position: raw.position as number,
+    condition,
+    remarks: optionalString(raw.remarks, `${field}.remarks`, 500),
+  };
+}
+
 export function isBurnerConditionRoundOperation(
   value: unknown,
 ): value is BurnerConditionRoundOperation {
@@ -189,6 +229,9 @@ export function parseBurnerConditionRoundMutationRequest(
     "assetInstanceId",
     "expectedAssetVersion",
     "observations",
+    "draftSealRedHotObserved",
+    "hotAirAtDraftSealObserved",
+    "uvObservations",
     "roundNote",
   ]);
   for (const key of Object.keys(raw)) {
@@ -212,6 +255,30 @@ export function parseBurnerConditionRoundMutationRequest(
       observations.some((item, index) => item.position !== index + 1)) {
     invalid("observations", "must contain each position from 1 to 8 once");
   }
+  const extendedValues = [
+    raw.draftSealRedHotObserved,
+    raw.hotAirAtDraftSealObserved,
+    raw.uvObservations,
+  ];
+  const extended = extendedValues.some((value) => value != null);
+  if (extended && extendedValues.some((value) => value == null)) {
+    invalid(
+      "uvObservations",
+      "must accompany both draft-seal condition fields",
+    );
+  }
+  if (extended &&
+      (typeof raw.draftSealRedHotObserved !== "boolean" ||
+        typeof raw.hotAirAtDraftSealObserved !== "boolean")) {
+    invalid("draftSealRedHotObserved", "and hot-air state must be booleans");
+  }
+  let uvObservations: ReadonlyArray<UvObservation> | null = null;
+  if (extended) {
+    if (!Array.isArray(raw.uvObservations) || raw.uvObservations.length !== 8) {
+      invalid("uvObservations", "must contain exactly eight UV positions");
+    }
+    uvObservations = raw.uvObservations.map(parseUvObservation);
+  }
   const request = {
     requestId,
     operation: RECORD_BURNER_CONDITION_ROUND,
@@ -219,9 +286,14 @@ export function parseBurnerConditionRoundMutationRequest(
     assetInstanceId: documentId(raw.assetInstanceId, "assetInstanceId"),
     expectedAssetVersion: raw.expectedAssetVersion as number,
     observations,
+    draftSealRedHotObserved: extended ?
+      raw.draftSealRedHotObserved as boolean : null,
+    hotAirAtDraftSealObserved: extended ?
+      raw.hotAirAtDraftSealObserved as boolean : null,
+    uvObservations,
     roundNote: optionalString(raw.roundNote, "roundNote", 1000),
   };
-  const fingerprint = `burnerround1-sha256:${createHash("sha256")
+  const fingerprint = `burnerround${extended ? 2 : 1}-sha256:${createHash("sha256")
     .update(stableJson(request), "utf8").digest("hex")}`;
   return {...request, fingerprint};
 }
@@ -270,6 +342,21 @@ function actorName(data: JsonMap): string {
     data.name.trim() : "Approved user";
 }
 
+function redHotPositionsFor(request: ParsedRequest): ReadonlyArray<number> {
+  return request.observations
+    .filter((item) => item.redHotObserved)
+    .map((item) => item.position);
+}
+
+function directivePositionsFor(request: ParsedRequest): ReadonlyArray<number> {
+  const redHotPositions = redHotPositionsFor(request);
+  if (request.uvObservations == null) return redHotPositions;
+  return redHotPositions.filter(
+    (position) =>
+      request.uvObservations![position - 1].condition === "serviceable",
+  );
+}
+
 function verifyFurnace(
   assetClass: JsonMap,
   asset: JsonMap,
@@ -302,10 +389,8 @@ function verifyFurnace(
       {reasonCode: "burner-condition-round-furnace-invalid"},
     );
   }
-  const redHotObserved = request.observations.some(
-    (observation) => observation.redHotObserved,
-  );
-  if (redHotObserved && (asset.assetNumber as number) > 26) {
+  if (directivePositionsFor(request).length > 0 &&
+      (asset.assetNumber as number) > 26) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "Red-hot directives require a legacy-compatible Furnace number from 1 to 26.",
@@ -463,14 +548,14 @@ function validateRetainedRound(
   committedAtIso: string,
   receipt: JsonMap,
 ): void {
-  const redHotPositions = request.observations
-    .filter((item) => item.redHotObserved)
-    .map((item) => item.position);
+  const redHotPositions = redHotPositionsFor(request);
+  const directivePositions = directivePositionsFor(request);
   const microampPositions = request.observations
     .filter((item) => item.microampReading != null)
     .map((item) => item.position);
   const mismatches: string[] = [];
-  if (data.schemaVersion !== 1) mismatches.push("schemaVersion");
+  const expectedSchemaVersion = request.uvObservations == null ? 1 : 2;
+  if (data.schemaVersion !== expectedSchemaVersion) mismatches.push("schemaVersion");
   if (data.roundId !== request.requestId) mismatches.push("roundId");
   if (data.operation !== request.operation) mismatches.push("operation");
   if (data.assetClassId !== request.assetClassId) mismatches.push("assetClassId");
@@ -499,6 +584,20 @@ function validateRetainedRound(
   }
   if (stableJson(data.microampPositions) !== stableJson(microampPositions)) {
     mismatches.push("microampPositions");
+  }
+  if (expectedSchemaVersion === 2) {
+    if (data.draftSealRedHotObserved !== request.draftSealRedHotObserved) {
+      mismatches.push("draftSealRedHotObserved");
+    }
+    if (data.hotAirAtDraftSealObserved !== request.hotAirAtDraftSealObserved) {
+      mismatches.push("hotAirAtDraftSealObserved");
+    }
+    if (stableJson(data.uvObservations) !== stableJson(request.uvObservations)) {
+      mismatches.push("uvObservations");
+    }
+    if (stableJson(data.directivePositions) !== stableJson(directivePositions)) {
+      mismatches.push("directivePositions");
+    }
   }
   if (data.roundNote !== request.roundNote) mismatches.push("roundNote");
   if (data.directiveId !== directiveId) mismatches.push("directiveId");
@@ -551,8 +650,10 @@ function validateRetainedDirective(
       metadata.trigger !== "burnerConditionRoundRedHot" ||
       metadata.sourceRoundId !== roundId ||
       metadata.automaticPlantActuation !== false ||
-      stableJson(metadata.burnerPositions) !==
-        stableJson(round.redHotPositions)) {
+      stableJson(metadata.burnerPositions) !== stableJson(
+        round.schemaVersion === 2 ? round.directivePositions :
+          round.redHotPositions,
+      )) {
     throw new AssetHierarchyMutationError(
       "data-loss",
       "The retained burner-round directive no longer matches its source round.",
@@ -583,10 +684,9 @@ export async function mutateBurnerConditionRoundWithDb(args: {
   const roundRef = db.collection("burner_condition_rounds").doc(request.requestId);
   const receiptRef = db.collection("burner_condition_round_receipts")
     .doc(request.requestId);
-  const redHotPositions = request.observations
-    .filter((item) => item.redHotObserved)
-    .map((item) => item.position);
-  const directiveId = redHotPositions.length === 0 ? null :
+  const redHotPositions = redHotPositionsFor(request);
+  const directivePositions = directivePositionsFor(request);
+  const directiveId = directivePositions.length === 0 ? null :
     `burner_round_red_hot_${request.requestId}`;
   const directiveRef = directiveId == null ? null :
     db.collection("directives").doc(directiveId);
@@ -685,7 +785,7 @@ export async function mutateBurnerConditionRoundWithDb(args: {
       .filter((item) => item.microampReading != null)
       .map((item) => item.position);
     const round: JsonMap = {
-      schemaVersion: 1,
+      schemaVersion: request.uvObservations == null ? 1 : 2,
       roundId: request.requestId,
       operation: request.operation,
       assetClassId: request.assetClassId,
@@ -698,6 +798,12 @@ export async function mutateBurnerConditionRoundWithDb(args: {
       observations,
       redHotPositions,
       microampPositions,
+      ...(request.uvObservations == null ? {} : {
+        draftSealRedHotObserved: request.draftSealRedHotObserved,
+        hotAirAtDraftSealObserved: request.hotAirAtDraftSealObserved,
+        uvObservations: request.uvObservations.map((item) => ({...item})),
+        directivePositions,
+      }),
       roundNote: request.roundNote,
       observedAt: committedAt,
       recordedByUid: actorUid,
@@ -733,7 +839,7 @@ export async function mutateBurnerConditionRoundWithDb(args: {
           roundId: request.requestId,
           directiveId,
           asset,
-          positions: redHotPositions,
+          positions: directivePositions,
           actorUid,
           actorName: recordedByName,
           committedAt,

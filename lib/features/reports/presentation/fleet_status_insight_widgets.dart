@@ -127,6 +127,14 @@ class OperationsManagementReadout extends StatelessWidget {
         color: BafColors.cobalt,
       ),
       _ManagementMetricData(
+        label: 'Issue impact',
+        value: _durationLabel(report.issueImpactDuration),
+        detail:
+            '${report.issueCount} distinct · '
+            '${report.issueReopenEventCount} reopen events',
+        color: BafColors.ember,
+      ),
+      _ManagementMetricData(
         label: 'Planned complete',
         value: _rateLabel(report.plannedCompletionRate),
         detail:
@@ -263,6 +271,13 @@ class OperationsManagementReadout extends StatelessWidget {
 
   static String _rateLabel(double? rate) =>
       rate == null ? '--' : '${(rate * 100).round()}%';
+
+  static String _durationLabel(Duration duration) {
+    final minutes = duration.inMinutes;
+    if (minutes < 60) return '${minutes}m';
+    if (minutes.isEven && minutes % 60 == 0) return '${minutes ~/ 60}h';
+    return '${(minutes / 60).toStringAsFixed(1)}h';
+  }
 }
 
 class OperationsDecisionBrief extends StatelessWidget {

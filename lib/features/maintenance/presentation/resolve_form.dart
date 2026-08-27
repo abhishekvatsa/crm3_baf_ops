@@ -162,14 +162,15 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   }
 
   double get _downtimeHours {
-    final diff = _endTime.difference(widget.ticket.startDate);
+    final diff = _endTime.difference(widget.ticket.currentWorkEpisodeStartedAt);
     return diff.inMinutes / 60.0;
   }
 
   Future<void> _pickEndTime() async {
     final now = DateTime.now();
 
-    if (widget.ticket.startDate.isAfter(now)) {
+    final episodeStartedAt = widget.ticket.currentWorkEpisodeStartedAt;
+    if (episodeStartedAt.isAfter(now)) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(
           content: Text(
@@ -183,7 +184,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     final date = await showDatePicker(
       context: context,
       initialDate: _endTime,
-      firstDate: widget.ticket.startDate,
+      firstDate: episodeStartedAt,
       lastDate: now,
     );
     if (!mounted || date == null) return;
@@ -209,7 +210,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       return;
     }
 
-    if (picked.isBefore(widget.ticket.startDate)) {
+    if (picked.isBefore(episodeStartedAt)) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(content: Text('End time cannot be before start time')),
       );
@@ -220,6 +221,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   }
 
   Future<void> _addAction() async {
+    final reference = widget.ticket.assetHierarchyReference;
     final result = await showModalBottomSheet<ComponentAction>(
       context: context,
       isScrollControlled: true,
@@ -230,7 +232,16 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
           top: Radius.circular(BafRadius.medium),
         ),
       ),
-      builder: (_) => const ActionBottomSheet(),
+      builder:
+          (_) => ActionBottomSheet(
+            performedAt: _endTime,
+            target: GovernedActionContext(
+              assetTypeKey: widget.ticket.assetType.name,
+              assetNumber: widget.ticket.assetNumber,
+              assetClassId: reference?.assetClassId,
+              assetInstanceId: reference?.assetInstanceId,
+            ),
+          ),
     );
     if (!mounted || result == null) return;
     setState(() => _actions.add(result));

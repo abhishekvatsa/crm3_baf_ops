@@ -85,6 +85,8 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   withdrawCriticalAlarmInError: "criticalAlarm.withdraw",
   upsertCriticalAlarmContact: "criticalAlarm.contacts.manage",
   setCriticalAlarmContactStatus: "criticalAlarm.contacts.manage",
+  upsertCriticalAlarmDefinition: "criticalAlarm.definitions.manage",
+  setCriticalAlarmDefinitionStatus: "criticalAlarm.definitions.manage",
   purgePilotBusinessRecord: "pilotRecord.purge",
 };
 
@@ -131,6 +133,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "criticalAlarm.resolve",
   "criticalAlarm.withdraw",
   "criticalAlarm.contacts.manage",
+  "criticalAlarm.definitions.manage",
   "pilotRecord.purge",
 ]);
 
@@ -307,6 +310,9 @@ export const assertWorkflowAuthorityScope = (
     return;
   case "criticalAlarm.contacts.manage":
     if (!hasPolicyRole(actor, "manageCriticalAlarmContacts")) denied();
+    return;
+  case "criticalAlarm.definitions.manage":
+    if (!hasPolicyRole(actor, "manageCriticalAlarmDefinitions")) denied();
     return;
   case "laneSet.finalize":
     if (!mayFinalizeLaneSet(actor)) denied();

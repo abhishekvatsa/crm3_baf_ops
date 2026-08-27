@@ -982,16 +982,25 @@ class AssetHierarchyRepository {
   Future<void> setInnerCoverState({
     required InnerCoverProfile cover,
     required InnerCoverLifecycleState targetState,
+    required InnerCoverRetirementCondition? retirementCondition,
     required AppUser actor,
     required String reason,
   }) async {
     _requireAdmin(actor);
+    final retiring = targetState == InnerCoverLifecycleState.retiredForSalvage;
+    if (retiring != (retirementCondition != null)) {
+      throw const AssetHierarchyException(
+        'Record whether the Inner Cover is bulged when retiring it for salvage.',
+      );
+    }
     await _invoke(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'SET_INNER_COVER_STATE',
       'innerCoverId': cover.id,
       'expectedVersion': cover.version,
       'targetState': targetState.name,
+      if (retirementCondition != null)
+        'retirementCondition': retirementCondition.name,
       'reason': _validateConditionReason(reason),
     });
   }
@@ -1231,6 +1240,8 @@ class AssetHierarchyRepository {
     required AssetInstanceRecord asset,
     required AssetOperationalCondition condition,
     required Set<AssetConditionCause> causes,
+    required AssetConditionBasis basis,
+    required AssetHierarchyReference? componentReference,
     required String reason,
     required List<String> linkedIssueIds,
     required AppUser actor,
@@ -1246,6 +1257,13 @@ class AssetHierarchyRepository {
         'Choose Down or Unfit and at least one cause.',
       );
     }
+    if (basis == AssetConditionBasis.innerCoverUnavailable
+        ? componentReference != null
+        : componentReference == null) {
+      throw const AssetHierarchyException(
+        'Choose the affected governed component, except when the Inner Cover is unavailable.',
+      );
+    }
     await _invoke(<String, dynamic>{
       'requestId': _uuid.v4(),
       'operation': 'DECLARE_ASSET_CONDITION',
@@ -1254,6 +1272,8 @@ class AssetHierarchyRepository {
       'expectedVersion': current?.version ?? 0,
       'condition': condition.name,
       'causeKeys': causes.map((cause) => cause.name).toList()..sort(),
+      'basis': basis.name,
+      'componentHierarchyRefJson': componentReference?.encode(),
       'reason': _validateConditionReason(reason),
       'linkedIssueIds': linkedIssueIds.toSet().toList()..sort(),
     });
