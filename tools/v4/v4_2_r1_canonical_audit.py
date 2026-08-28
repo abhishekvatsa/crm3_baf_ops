@@ -75,6 +75,81 @@ def git_tree_object_id(commit: str, path: str) -> str | None:
     return value
 
 
+def git_file_text(commit: str, path: str) -> str | None:
+    result = subprocess.run(
+        ["git", "show", f"{commit}:{path}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
+def normalized_artifact_pubspec(
+    source: str | None,
+    expected_version: str | None = None,
+) -> str | None:
+    if source is None:
+        return None
+    pattern = re.compile(r"^version:[ \t]*(\S+)[ \t]*$", re.MULTILINE)
+    matches = list(pattern.finditer(source))
+    if len(matches) != 1:
+        return None
+    if expected_version is not None and matches[0].group(1) != expected_version:
+        return None
+    return pattern.sub("version: <governed-artifact-version>", source, count=1)
+
+
+APPROVED_ARTIFACT_EXACT_SOURCE_PATHS = (
+    ".firebaserc",
+    ".github/workflows/production-artifact.yml",
+    ".metadata",
+    ".npmrc",
+    "analysis_options.yaml",
+    "android",
+    "assets",
+    "firebase.json",
+    "firestore.indexes.json",
+    "firestore.rules",
+    "functions",
+    "integration_test",
+    "jest.config.js",
+    "lib",
+    "package.json",
+    "package-lock.json",
+    "pubspec.lock",
+    "release/approvals/linux-isar-core-authority.json",
+    "release/github-actions-pins.json",
+    "release_gate.ps1",
+    "test",
+    "tool",
+    "tooling",
+    "tools/release",
+)
+
+
+def approved_artifact_source_matches(
+    baseline_commit: str,
+    expected_package_version: str,
+) -> bool:
+    if not baseline_commit:
+        return False
+    if not all(
+        git_tree_object_id(baseline_commit, path)
+        == git_tree_object_id("HEAD", path)
+        for path in APPROVED_ARTIFACT_EXACT_SOURCE_PATHS
+    ):
+        return False
+    return normalized_artifact_pubspec(
+        git_file_text(baseline_commit, "pubspec.yaml")
+    ) == normalized_artifact_pubspec(
+        git_file_text("HEAD", "pubspec.yaml"),
+        expected_version=expected_package_version,
+    )
+
+
 def function_fleet_deployment_status(
     deployed_tree: str | None,
     current_tree: str | None,
@@ -4214,20 +4289,46 @@ expected_current_backend_status = (
     if backend_matches_deployed
     else "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT"
 )
+candidate_package_version = (
+    f"{combined_policy.get('versionPolicy', {}).get('versionName')}+"
+    f"{candidate_build_number}"
+)
+artifact_source_matches_approval = approved_artifact_source_matches(
+    str(build18_approval.get("sourceBaseline", {}).get("commit", "")),
+    candidate_package_version,
+)
+expected_artifact_construction_authority = (
+    candidate_pending
+    and backend_matches_deployed
+    and artifact_source_matches_approval
+)
 if candidate_pending:
-    expected_successor_state_status = (
-        f"BUILD{candidate_build_number}_SOURCE_AUTHORIZED_BACKEND_READY_"
-        "AWAITING_SIGNED_CONSTRUCTION"
-        if backend_matches_deployed
-        else (
+    if not backend_matches_deployed:
+        expected_successor_state_status = (
             f"BUILD{candidate_build_number}_SOURCE_AUTHORIZED_BACKEND_"
             "PENDING_GOVERNED_DEPLOYMENT"
         )
-    )
-    expected_next_candidate_status = (
-        f"SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD{candidate_build_number}_"
-        "CONSTRUCTION"
-    )
+        expected_next_candidate_status = (
+            "SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT"
+        )
+    elif not artifact_source_matches_approval:
+        expected_successor_state_status = (
+            f"BUILD{candidate_build_number}_SOURCE_SUCCESSOR_BACKEND_READY_"
+            "AWAITING_ARTIFACT_SOURCE_REBIND"
+        )
+        expected_next_candidate_status = (
+            f"SOURCE_SUCCESSOR_AWAITING_BUILD{candidate_build_number}_"
+            "ARTIFACT_SOURCE_REBIND"
+        )
+    else:
+        expected_successor_state_status = (
+            f"BUILD{candidate_build_number}_SOURCE_AUTHORIZED_BACKEND_READY_"
+            "AWAITING_SIGNED_CONSTRUCTION"
+        )
+        expected_next_candidate_status = (
+            f"SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD{candidate_build_number}_"
+            "CONSTRUCTION"
+        )
 else:
     expected_successor_state_status = (
         f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
@@ -5638,7 +5739,7 @@ check(
         == "1.0.0-rc.8+18"
     and current_successor_planes.get("currentSource", {}).get(
         "artifactConstructionAuthority"
-    ) is True
+    ) is expected_artifact_construction_authority
     and current_successor_planes.get("currentSource", {}).get(
         "productionRuntimeUseAuthorized"
     ) is False
@@ -5885,37 +5986,11 @@ check(
         f"firestore={'exact' if firestore_matches_deployed else 'pending'}"
     ),
 )
-approved_artifact_exact_source_paths = (
-    ".firebaserc",
-    ".github/workflows/production-artifact.yml",
-    ".metadata",
-    ".npmrc",
-    "analysis_options.yaml",
-    "android",
-    "assets",
-    "firebase.json",
-    "firestore.indexes.json",
-    "firestore.rules",
-    "functions",
-    "integration_test",
-    "jest.config.js",
-    "lib",
-    "package.json",
-    "package-lock.json",
-    "pubspec.lock",
-    "release/approvals/linux-isar-core-authority.json",
-    "release/github-actions-pins.json",
-    "release_gate.ps1",
-    "test",
-    "tool",
-    "tooling",
-    "tools/release",
-)
 check(
     "Production artifact construction requires exact approved build source",
     all(
         f"'{path}'" in c04_production_policy
-        for path in approved_artifact_exact_source_paths
+        for path in APPROVED_ARTIFACT_EXACT_SOURCE_PATHS
     )
     and "Get-ApprovedArtifactSourceStatus" in c04_production_policy
     and "Get-NormalizedArtifactPubspec" in c04_production_policy

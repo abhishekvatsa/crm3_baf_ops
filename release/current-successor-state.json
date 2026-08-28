@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-28",
   "asOfDate": "2026-08-28",
-  "status": "BUILD18_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+  "status": "BUILD18_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.8+18",
       "relationshipToLatestFinalizedArtifact": "BUILD18_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD17",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": true,
+      "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -60,7 +60,7 @@
     },
     "nextCandidate": {
       "minimumBuildNumber": 18,
-      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD18_CONSTRUCTION",
+      "status": "SOURCE_SUCCESSOR_AWAITING_BUILD18_ARTIFACT_SOURCE_REBIND",
       "sourceApprovalFile": "release/approvals/build-number-18-successor-approval.json",
       "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-18.json",
       "constructionRequiresFreshGovernedApproval": true,
