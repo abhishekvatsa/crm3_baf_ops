@@ -443,6 +443,36 @@ describe('burner-block lifecycle projection', () => {
     });
   });
 
+  test('ignores an optional investigation target without a lifecycle decision', async () => {
+    const store = seedStore();
+    const plan = await store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-f03-investigation-only',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03',
+          discipline: 'instrumentation',
+          actionsJson: '[]',
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerTarget',
+            value: null,
+          }, {
+            schemaVersion: 1,
+            key: 'UVCondition',
+            value: 'Serviceable',
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }));
+
+    expect(plan).toEqual({events: [], currentStates: []});
+  });
+
   test('rejects an explicitly invalid burner target', async () => {
     const store = seedStore();
     await expect(store.runTransaction((tx) =>

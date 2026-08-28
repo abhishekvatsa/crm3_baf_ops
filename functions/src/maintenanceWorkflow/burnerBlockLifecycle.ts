@@ -190,29 +190,13 @@ const moduleBurnerBlockChangeDecision = (
     throw error;
   }
   let decision: "changed" | "unchanged" | null = null;
-  let burnerPosition: number | null = null;
+  const burnerTargetValues: unknown[] = [];
   for (const row of payload.rows) {
     const key = responseKey(row);
     const value = Object.prototype.hasOwnProperty.call(row, "value") ?
       row.value : row.answer;
     if (normalizedKey(key) === "burnertarget") {
-      const rowPosition = burnerPositionFromResponse(value);
-      if (rowPosition == null) {
-        throw new WorkflowError(
-          "failed-precondition",
-          "Saved burner-block target must identify Burner 1 through Burner 8.",
-          {reasonCode: "burner-block-lifecycle-response-target-invalid"},
-        );
-      }
-      if (burnerPosition != null &&
-          rowPosition !== burnerPosition) {
-        throw new WorkflowError(
-          "failed-precondition",
-          "Saved burner-block target responses contradict each other.",
-          {reasonCode: "burner-block-lifecycle-response-conflict"},
-        );
-      }
-      burnerPosition = rowPosition;
+      burnerTargetValues.push(value);
       continue;
     }
     if (normalizedKey(key) !== "burnerblockchanged") continue;
@@ -227,7 +211,28 @@ const moduleBurnerBlockChangeDecision = (
     }
     decision = rowDecision;
   }
-  return decision == null ? null : {
+  if (decision == null) return null;
+
+  let burnerPosition: number | null = null;
+  for (const value of burnerTargetValues) {
+    const rowPosition = burnerPositionFromResponse(value);
+    if (rowPosition == null) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Saved burner-block target must identify Burner 1 through Burner 8.",
+        {reasonCode: "burner-block-lifecycle-response-target-invalid"},
+      );
+    }
+    if (burnerPosition != null && rowPosition !== burnerPosition) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Saved burner-block target responses contradict each other.",
+        {reasonCode: "burner-block-lifecycle-response-conflict"},
+      );
+    }
+    burnerPosition = rowPosition;
+  }
+  return {
     state: decision,
     burnerPosition,
   };
