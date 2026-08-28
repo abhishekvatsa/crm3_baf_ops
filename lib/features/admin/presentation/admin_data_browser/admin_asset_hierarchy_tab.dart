@@ -19,6 +19,7 @@ part 'admin_asset_hierarchy_tab.component_registry.dart';
 part 'admin_asset_hierarchy_tab.asset_dialog.dart';
 part 'admin_asset_hierarchy_tab.component_dialog.dart';
 part 'admin_asset_hierarchy_tab.reason_dialog.dart';
+part 'admin_asset_hierarchy_tab.toolbar.dart';
 
 class AssetHierarchyAdminTab extends ConsumerStatefulWidget {
   final AppUser actor;
@@ -96,7 +97,7 @@ class _AssetHierarchyAdminTabState
                 return Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                       child: DropdownButtonFormField<String>(
                         initialValue: selected?.id,
                         decoration: const InputDecoration(
@@ -379,152 +380,6 @@ class _AssetHierarchyAdminTabState
   }
 }
 
-class _HierarchyToolbar extends StatelessWidget {
-  final int total;
-  final int active;
-  final bool showRetired;
-  final bool busy;
-  final ValueChanged<bool> onShowRetiredChanged;
-  final ValueChanged<String> onSearchChanged;
-  final VoidCallback? onAddClass;
-
-  const _HierarchyToolbar({
-    required this.total,
-    required this.active,
-    required this.showRetired,
-    required this.busy,
-    required this.onShowRetiredChanged,
-    required this.onSearchChanged,
-    required this.onAddClass,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(BafSpacing.md),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 560;
-            final search = TextField(
-              onChanged: onSearchChanged,
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'Search class, code or area',
-                prefixIcon: Icon(Icons.search_rounded),
-                border: OutlineInputBorder(),
-              ),
-            );
-            final filters = <Widget>[
-              FilterChip(
-                selected: showRetired,
-                onSelected: onShowRetiredChanged,
-                avatar: const Icon(Icons.history_rounded, size: 18),
-                label: Text('Retired ${total - active}'),
-              ),
-              Chip(label: Text('$active active')),
-            ];
-            return Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: BafColors.assets.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(BafRadius.medium),
-                      ),
-                      child: const Icon(
-                        Icons.account_tree_rounded,
-                        color: BafColors.assets,
-                      ),
-                    ),
-                    const SizedBox(width: BafSpacing.md),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Asset hierarchy',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                              color: BafColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Maintain classes, assemblies, components and subcomponents.',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: BafColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (busy)
-                      const Padding(
-                        padding: EdgeInsets.only(right: 12),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    if (compact)
-                      IconButton.filled(
-                        tooltip: 'Add asset class',
-                        onPressed: onAddClass,
-                        icon: const Icon(Icons.add_rounded),
-                      )
-                    else
-                      FilledButton.icon(
-                        onPressed: onAddClass,
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Asset class'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: BafSpacing.md),
-                if (compact) ...[
-                  search,
-                  const SizedBox(height: BafSpacing.sm),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
-                      spacing: BafSpacing.sm,
-                      runSpacing: BafSpacing.xs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: filters,
-                    ),
-                  ),
-                ] else
-                  Row(
-                    children: [
-                      Expanded(child: search),
-                      const SizedBox(width: BafSpacing.md),
-                      ...filters.expand(
-                        (filter) => [
-                          filter,
-                          const SizedBox(width: BafSpacing.sm),
-                        ],
-                      ),
-                    ],
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
 class _AssetClassList extends StatelessWidget {
   final List<AssetClassRecord> classes;
   final String? selectedId;
@@ -620,6 +475,7 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
     final nodesAsync = ref.watch(
       assetHierarchyNodesProvider(widget.assetClass.id),
     );
+    final compact = MediaQuery.sizeOf(context).width < 560;
     return DefaultTabController(
       length: 2,
       child: Column(
@@ -635,16 +491,17 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                     ? () => widget.onAddNode(null)
                     : null,
           ),
-          const Material(
+          Material(
             color: Colors.white,
             child: TabBar(
               tabs: [
                 Tab(
-                  icon: Icon(Icons.account_tree_outlined),
+                  icon:
+                      compact ? null : const Icon(Icons.account_tree_outlined),
                   text: 'Definition',
                 ),
                 Tab(
-                  icon: Icon(Icons.factory_outlined),
+                  icon: compact ? null : const Icon(Icons.factory_outlined),
                   text: 'Physical assets',
                 ),
               ],
@@ -676,7 +533,7 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: BafSpacing.md,
-                            vertical: BafSpacing.sm,
+                            vertical: BafSpacing.xs,
                           ),
                           child: Row(
                             children: [
@@ -713,6 +570,9 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                                         'Add a grouping, assembly, component or subcomponent.',
                                   )
                                   : ListView(
+                                    key: const ValueKey(
+                                      'asset-hierarchy-definition-list',
+                                    ),
                                     padding: const EdgeInsets.fromLTRB(
                                       12,
                                       0,
@@ -770,7 +630,10 @@ class _ClassSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.all(BafSpacing.md),
+      padding:
+          MediaQuery.sizeOf(context).width < 560
+              ? const EdgeInsets.fromLTRB(12, 8, 8, 8)
+              : const EdgeInsets.all(BafSpacing.md),
       child: LayoutBuilder(
         builder:
             (context, constraints) => Row(
@@ -801,7 +664,8 @@ class _ClassSummary extends StatelessWidget {
                         '${assetClass.code} · ${assetClass.majorArea} · v${assetClass.version}',
                         style: const TextStyle(color: BafColors.textSecondary),
                       ),
-                      if (assetClass.shortDescription != null) ...[
+                      if (constraints.maxWidth >= 560 &&
+                          assetClass.shortDescription != null) ...[
                         const SizedBox(height: 6),
                         Text(
                           assetClass.shortDescription!,

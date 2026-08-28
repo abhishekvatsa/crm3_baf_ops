@@ -67,6 +67,7 @@ void main() {
         'admin_asset_hierarchy_tab.asset_dialog.dart',
         'admin_asset_hierarchy_tab.component_dialog.dart',
         'admin_asset_hierarchy_tab.reason_dialog.dart',
+        'admin_asset_hierarchy_tab.toolbar.dart',
       ];
       for (final part in parts) {
         expect(root, contains("part '$part';"));
