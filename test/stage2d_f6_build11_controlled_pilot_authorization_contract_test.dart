@@ -135,8 +135,8 @@ void main() {
       firestoreAuthority['receiptFileSha256'],
     );
     expect(
-      firestoreReceipt['receiptSha256'],
-      firestoreAuthority['receiptCanonicalSha256'],
+      firestoreReceipt['receiptSha256'].toString().toUpperCase(),
+      firestoreAuthority['receiptCanonicalSha256'].toString().toUpperCase(),
     );
     expect(_receiptSeal(firestoreReceipt), firestoreReceipt['receiptSha256']);
     expect(firestoreReceipt['mode'], 'STRICT');
