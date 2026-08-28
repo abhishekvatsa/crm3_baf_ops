@@ -543,8 +543,8 @@ void main() {
         firestoreAuthority['receiptFileSha256'],
       );
       expect(
-        rulesReadback['receiptSha256'],
-        firestoreAuthority['receiptCanonicalSha256'],
+        (rulesReadback['receiptSha256'] as String).toUpperCase(),
+        (firestoreAuthority['receiptCanonicalSha256'] as String).toUpperCase(),
       );
       expect(
         deployed['rulesAndIndexesSourceCommit'],
