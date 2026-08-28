@@ -1076,18 +1076,91 @@ describe('maintenance workflow command integration', () => {
     expect(store.read('compliance_attempts/c-attempt_1').returnReason).toBe('Isolation incomplete');
   });
 
+  test('terminal compliance escalation never re-enters a later scheduler window', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-terminal-escalation', 'awaitingCompliance', 1);
+    store.seed('compliance_requests/c-terminal-escalation', {
+      linkedWorkflowId: 'wf-terminal-escalation',
+      originLaneKey: 'elec',
+      targetLaneKey: 'oprn',
+      conditionTypeKey: 'manual',
+      status: 'raised',
+      escalationTier: 3,
+      lastEscalatedAt: '2026-07-20T10:00:00.000Z',
+      nextEscalationAt: null,
+      version: 1,
+      attemptCount: 0,
+    });
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'terminal-ack',
+      commandType: 'acknowledgeCompliance',
+      aggregateId: 'wf-terminal-escalation',
+      expectedVersion: 1,
+      payload: {complianceId: 'c-terminal-escalation'},
+    }, {actor: ops, serverNow: at('2026-07-20T11:00:00Z')});
+    expect(store.read('compliance_requests/c-terminal-escalation')).toMatchObject({
+      status: 'acknowledged',
+      escalationTier: 3,
+      complianceDueAt: '2026-07-20T19:00:00.000Z',
+      nextEscalationAt: null,
+    });
+
+    await service.execute({
+      commandId: 'terminal-comply',
+      commandType: 'markComplianceComplied',
+      aggregateId: 'wf-terminal-escalation',
+      expectedVersion: 2,
+      payload: {
+        complianceId: 'c-terminal-escalation',
+        note: 'Operations support completed.',
+      },
+    }, {actor: ops, serverNow: at('2026-07-20T11:01:00Z')});
+    expect(store.read('compliance_requests/c-terminal-escalation')).toMatchObject({
+      status: 'complied',
+      escalationTier: 3,
+      attemptCount: 1,
+      nextEscalationAt: null,
+    });
+
+    await service.execute({
+      commandId: 'terminal-return',
+      commandType: 'returnComplianceForCorrection',
+      aggregateId: 'wf-terminal-escalation',
+      expectedVersion: 3,
+      payload: {
+        complianceId: 'c-terminal-escalation',
+        reason: 'Completion evidence needs correction.',
+      },
+    }, {actor: electrical, serverNow: at('2026-07-20T11:02:00Z')});
+    expect(store.read('compliance_requests/c-terminal-escalation')).toMatchObject({
+      status: 'acknowledged',
+      escalationTier: 3,
+      correctionCount: 1,
+      nextEscalationAt: null,
+    });
+  });
+
   test('accepted counter transfers a blocking lane gate to its successor', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf-gate', 'awaitingCompliance', 2);
     store.seed('job_lanes/wf-gate_mech_1', {workflowId: 'wf-gate', laneKey: 'mech', status: 'acknowledged', version: 2, gatingComplianceRequestId: 'c-gate'});
     store.seed('compliance_requests/c-gate', {
       linkedWorkflowId: 'wf-gate', originLaneKey: 'elec', targetLaneKey: 'oprn',
       status: 'acknowledged', gatesLaneFirestoreId: 'job_lanes/wf-gate_mech_1',
-      counterDepth: 0, counterProposal: {revisedDescription: 'After crane release', proposedByUid: 'ops-1', proposedByName: 'ops-1'}, version: 1,
+      counterDepth: 0, escalationTier: 3,
+      lastEscalatedAt: '2026-07-20T11:30:00.000Z',
+      counterProposal: {revisedDescription: 'After crane release', proposedByUid: 'ops-1', proposedByName: 'ops-1'}, version: 1,
     });
     const service = serviceFor(store);
     await service.execute({commandId: 'gate-counter', commandType: 'decideCounterCondition', aggregateId: 'wf-gate', expectedVersion: 2, payload: {complianceId: 'c-gate', accepted: true, successorComplianceId: 'c-gate-2'}}, {actor: electrical, serverNow: at('2026-07-20T12:00:00Z')});
     expect(store.read('job_lanes/wf-gate_mech_1').gatingComplianceRequestId).toBe('c-gate-2');
-    expect(store.read('compliance_requests/c-gate-2')).toMatchObject({gatesLaneFirestoreId: 'job_lanes/wf-gate_mech_1', counterDepth: 1});
+    expect(store.read('compliance_requests/c-gate-2')).toMatchObject({
+      gatesLaneFirestoreId: 'job_lanes/wf-gate_mech_1',
+      counterDepth: 1,
+      escalationTier: 0,
+      lastEscalatedAt: null,
+    });
   });
 
   test('rejected counter consumes the single revision and a second proposal is denied', async () => {
