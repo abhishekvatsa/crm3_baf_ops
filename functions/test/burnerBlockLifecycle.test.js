@@ -384,6 +384,35 @@ describe('burner-block lifecycle projection', () => {
       path.startsWith('burner_block_lifecycle_current/'))).toBe(false);
   });
 
+  test('rejects a replacement action that contradicts an explicit no-change response', async () => {
+    const store = seedStore();
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-contradictory-block-change',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: JSON.stringify([action()]),
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-action-conflicts-with-response',
+      },
+    });
+  });
+
   test('a module-declared block change requires governed replacement evidence', async () => {
     const store = seedStore();
     await expect(store.runTransaction((tx) =>
