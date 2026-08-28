@@ -268,6 +268,8 @@ void main() {
           finalization['status'] == 'pending-source-authorized';
       final finalizedAuthority =
           pendingConstruction ? priorFinalization : finalization;
+      final runtimeValidationPassed =
+          finalizedAuthority['runtimeValidationPassed'] == true;
       final candidateBuildNumber = release['buildNumber'] as int;
       final finalizedBuildNumber =
           finalizedAuthority['buildNumber'] as int? ?? candidateBuildNumber;
@@ -414,8 +416,16 @@ void main() {
                 : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
                     'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
             : backendMatchesDeployed
-            ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
-                'AWAITING_DEVICE_AND_PILOT_DECISIONS'
+            ? runtimeValidationPassed
+                ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                    'DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_'
+                    'PILOT_DECISIONS'
+                : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                    'AWAITING_DEVICE_AND_PILOT_DECISIONS'
+            : runtimeValidationPassed
+            ? 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
+                'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_MUTATING_FLOW_AND_'
+                'PILOT_DECISIONS'
             : 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
                 'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_'
                 'PILOT_DECISIONS',
@@ -494,6 +504,31 @@ void main() {
         _sha256(artifact['completionReceiptFile'] as String),
         artifact['completionReceiptSha256'],
       );
+      expect(
+        artifact['runtimeValidation'],
+        runtimeValidationPassed
+            ? 'PASSED_EXACT_BUILD18_PHYSICAL_IN_PLACE_'
+                'AUTHENTICATED_READ_ONLY_SURFACES'
+            : 'NOT_ADJUDICATED_FOR_EXACT_BUILD18',
+      );
+      if (runtimeValidationPassed) {
+        expect(
+          artifact['deviceAcceptanceReceiptFile'],
+          finalizedAuthority['deviceAcceptanceReceiptFile'],
+        );
+        expect(
+          artifact['deviceAcceptanceReceiptSha256'],
+          finalizedAuthority['deviceAcceptanceReceiptSha256'],
+        );
+        expect(
+          _sha256(artifact['deviceAcceptanceReceiptFile'] as String),
+          artifact['deviceAcceptanceReceiptSha256'],
+        );
+        expect(
+          artifact['fullBusinessFlowValidation'],
+          'MUTATING_FLOWS_NOT_ADJUDICATED',
+        );
+      }
       expect(artifact['pilotPromotion'], 'NOT_AUTHORIZED');
       expect(artifact['unrestrictedDistribution'], 'NOT_AUTHORIZED');
 

@@ -92,6 +92,11 @@
       "sha256": "716453DF8A3620A30584E89877AF5E7DBEBD99CB7C883C060A4BC1641A1AADD4"
     },
     {
+      "path": "release/evidence/build-18-device-acceptance.json",
+      "bytes": 4974,
+      "sha256": "ABFF0F813901FDE7816DD404615DA74F83CD26ECA5EE5FBE6462E70F1FCA3809"
+    },
+    {
       "path": "release/evidence/build-12-closure-custody-reconciliation.json",
       "bytes": 2462,
       "sha256": "C12D43C0D32DD1F9FEFCB5E5CF32CA50215292B0DE602C3439F88011FEAD8C5D"
@@ -313,7 +318,7 @@
       "dualCustodyCompleted": true,
       "governedPackageSha256": "951DF1C961E08CD78B52B0B588CAEE5A767CF182BF4063F7F4DEBCA0010AD911",
       "authorityReceiptPath": "release/evidence/build-18-finalization-closure.json",
-      "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
+      "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_ACCEPTED_MUTATING_FLOW_PENDING_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {

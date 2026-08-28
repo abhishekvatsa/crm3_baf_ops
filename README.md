@@ -19,9 +19,12 @@ Current `main` records finalized Build 18 (`1.0.0-rc.8+18`) with the exact
 Function fleet, Firestore Rules and all 66 indexes deployed and strictly read
 back, plus protected production signing, independent package verification and
 dual custody. Build 17 remains independently finalized, and neither consumed
-package identity may be reused. Exact Build 18 device migration and
-authenticated business-flow validation remain unadjudicated. A separate
-controlled-pilot decision is still required before any distribution.
+package identity may be reused. Exact Build 18 passed a same-signer in-place
+physical-device upgrade, preserved its authenticated local state, converged
+with zero unsynced or rejected rows, and rendered the principal authenticated
+read-side business surfaces. Production-mutating business flows remain
+unadjudicated, and a separate controlled-pilot decision is still required
+before any distribution.
 
 Authoritative status sources:
 

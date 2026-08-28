@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 String read(String path) => File(path).readAsStringSync();
+
+String _sha256(String path) =>
+    sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
 void main() {
   group('O-01 to O-05 governed production-release contracts', () {
@@ -485,8 +489,8 @@ void main() {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
-      final entries = (ledger['entries'] as List<dynamic>)
-          .cast<Map<String, dynamic>>();
+      final entries =
+          (ledger['entries'] as List<dynamic>).cast<Map<String, dynamic>>();
       final build1 = entries.singleWhere((entry) => entry['buildNumber'] == 1);
       final build2 = entries.singleWhere((entry) => entry['buildNumber'] == 2);
       final build3 = entries.singleWhere((entry) => entry['buildNumber'] == 3);
@@ -1326,6 +1330,9 @@ void main() {
                   read('release/evidence/build-18-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
+        final build18DeviceAcceptance =
+            jsonDecode(read('release/evidence/build-18-device-acceptance.json'))
+                as Map<String, dynamic>;
         final receipt =
             jsonDecode(
                   read('release/evidence/build-11-finalization-closure.json'),
@@ -1448,6 +1455,79 @@ void main() {
           finalization['completionReceiptFile'],
           'release/evidence/build-18-finalization-closure.json',
         );
+        expect(finalization['runtimeValidationPassed'], isTrue);
+        expect(
+          finalization['runtimeDisposition'],
+          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces',
+        );
+        expect(
+          finalization['deviceAcceptanceReceiptFile'],
+          'release/evidence/build-18-device-acceptance.json',
+        );
+        expect(
+          _sha256(finalization['deviceAcceptanceReceiptFile'] as String),
+          finalization['deviceAcceptanceReceiptSha256'],
+        );
+        expect(
+          build18DeviceAcceptance['status'],
+          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces',
+        );
+        final build18DeviceRelease =
+            (build18DeviceAcceptance['release'] as Map).cast<String, dynamic>();
+        final build18PhysicalDevice =
+            (build18DeviceAcceptance['physicalDevice'] as Map)
+                .cast<String, dynamic>();
+        final build18Synchronization =
+            (build18DeviceAcceptance['synchronization'] as Map)
+                .cast<String, dynamic>();
+        final build18MutationBoundary =
+            (build18DeviceAcceptance['businessMutationBoundary'] as Map)
+                .cast<String, dynamic>();
+        final build18Adjudication =
+            (build18DeviceAcceptance['adjudication'] as Map)
+                .cast<String, dynamic>();
+        final build18DeviceBoundary =
+            (build18DeviceAcceptance['releaseBoundary'] as Map)
+                .cast<String, dynamic>();
+        expect(build18DeviceRelease['buildNumber'], 18);
+        expect(
+          build18DeviceRelease['finalizationReceiptSha256'],
+          _sha256('release/evidence/build-18-finalization-closure.json'),
+        );
+        expect(build18PhysicalDevice['deviceSerialRecorded'], isFalse);
+        expect(build18PhysicalDevice['accountIdentifierRecorded'], isFalse);
+        expect(
+          build18PhysicalDevice['installationMode'],
+          'adb-install-no-streaming-r',
+        );
+        expect(build18PhysicalDevice['installedVersionCode'], 18);
+        expect(build18PhysicalDevice['exactGovernedApkMatch'], isTrue);
+        expect(build18PhysicalDevice['signerContinuityVerified'], isTrue);
+        expect(build18PhysicalDevice['firstInstallTimePreserved'], isTrue);
+        expect(build18PhysicalDevice['applicationDataPreserved'], isTrue);
+        expect(build18PhysicalDevice['applicationDataCleared'], isFalse);
+        expect(build18PhysicalDevice['applicationUninstalled'], isFalse);
+        expect(build18Synchronization['lastSyncResult'], 'success');
+        expect(build18Synchronization['unsyncedRows'], 0);
+        expect(build18Synchronization['unresolvedRejections'], 0);
+        expect(build18Synchronization['latestFullSyncConflicts'], 0);
+        expect(build18MutationBoundary.values, everyElement(isFalse));
+        expect(build18Adjudication['runtimeValidationPassed'], isTrue);
+        expect(
+          build18Adjudication['authenticatedReadOnlySurfaceValidationCompleted'],
+          isTrue,
+        );
+        expect(
+          build18Adjudication['mutatingBusinessFlowValidationCompleted'],
+          isFalse,
+        );
+        expect(
+          build18Adjudication['fullBusinessFlowValidationCompleted'],
+          isFalse,
+        );
+        expect(build18DeviceBoundary['controlledPilotApproved'], isFalse);
+        expect(build18DeviceBoundary['pilotHandoutPerformed'], isFalse);
+        expect(build18DeviceBoundary['deviceDataClearPerformed'], isFalse);
         expect(build17Receipt['schemaVersion'], 1);
         expect(build17Receipt['status'], 'passed-non-distributable');
         expect(
@@ -1474,9 +1554,10 @@ void main() {
         expect(build15Finalization['dualCustodyCompleted'], isTrue);
         expect(build15Finalization['runtimeValidationPassed'], isFalse);
         expect(finalization['controlledPilotApproved'], isFalse);
-        final failedAttempt = (finalization['historicalFailedAttempts'] as List)
-            .cast<Map<String, dynamic>>()
-            .single;
+        final failedAttempt =
+            (finalization['historicalFailedAttempts'] as List)
+                .cast<Map<String, dynamic>>()
+                .single;
         expect(failedAttempt['buildNumber'], 10);
         expect(failedAttempt['status'], 'blocked-non-distributable');
         expect(failedAttempt['independentVerificationCompleted'], isTrue);

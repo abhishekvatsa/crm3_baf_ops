@@ -114,9 +114,11 @@
     "closurePackageSha256": "AF46CDA968CC9C75018C7640D666BB68BD0AAF4FA90B27B30AF39D94A8621FDF",
     "custodyRecordSha256": "56E70271170596F2229D80546D1CBD9BB3DE424F2068C56AB9F7743524B406F6",
     "dualCustodyCompleted": true,
-    "runtimeValidationPassed": false,
-    "runtimeDisposition": "not-adjudicated-by-build-finalization",
+    "runtimeValidationPassed": true,
+    "runtimeDisposition": "passed-exact-build18-physical-in-place-authenticated-read-only-surfaces",
     "fullBusinessFlowValidationCompleted": false,
+    "deviceAcceptanceReceiptFile": "release/evidence/build-18-device-acceptance.json",
+    "deviceAcceptanceReceiptSha256": "ABFF0F813901FDE7816DD404615DA74F83CD26ECA5EE5FBE6462E70F1FCA3809",
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build18-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "EC960F969B79C8C63B60A2E83CD0E29B34CAA3C7F6F370196E5906AE99E35D68",
     "exactFirestoreRulesIndexesLiveReadback": {
@@ -255,7 +257,7 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD18_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
+    "BUILD18_MUTATING_BUSINESS_FLOW_VALIDATION",
     "BUILD18_EXPLICIT_PILOT_PROMOTION"
   ]
 }

@@ -16,8 +16,9 @@ void main() {
                 ),
               )
               as Map<String, dynamic>;
-      final artifacts = (policy['expectedArtifactsForContainment'] as List)
-          .cast<Map<String, dynamic>>();
+      final artifacts =
+          (policy['expectedArtifactsForContainment'] as List)
+              .cast<Map<String, dynamic>>();
 
       expect(policy['schemaVersion'], 1);
       expect(
@@ -31,7 +32,10 @@ void main() {
         (policy['sourceEvidence'] as List).cast<Map<String, dynamic>>().map(
           (entry) => entry['path'],
         ),
-        contains('.github/workflows/production-artifact.yml'),
+        containsAll(<String>[
+          '.github/workflows/production-artifact.yml',
+          'release/evidence/build-18-device-acceptance.json',
+        ]),
       );
       expect(
         (policy['workflow']
@@ -134,7 +138,7 @@ void main() {
         artifacts.singleWhere(
           (entry) => entry['buildNumber'] == 18,
         )['deletionBasis'],
-        'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
+        'FINALIZED_DUAL_CUSTODY_DEVICE_ACCEPTED_MUTATING_FLOW_PENDING_NON_DISTRIBUTABLE',
       );
       expect(
         (policy['executionAuthority']
@@ -199,8 +203,8 @@ void main() {
       final ledger =
           jsonDecode(read('governance/programme-ledger.json'))
               as Map<String, dynamic>;
-      final gates = (ledger['programmeGates'] as List)
-          .cast<Map<String, dynamic>>();
+      final gates =
+          (ledger['programmeGates'] as List).cast<Map<String, dynamic>>();
       final lr07 = gates.singleWhere((record) => record['gateId'] == 'LR-07');
 
       expect(source, contains('liveProductionArtifactInventoryEmpty'));

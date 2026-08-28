@@ -484,6 +484,10 @@ $requiredFiles = @(
 $finalizationStatus = [string]$policy.finalization.status
 if ($finalizationStatus -eq 'completed-non-distributable') {
   $requiredFiles += [string]$policy.finalization.completionReceiptFile
+  if ($policy.finalization.runtimeValidationPassed -eq $true) {
+    $requiredFiles +=
+      [string]$policy.finalization.deviceAcceptanceReceiptFile
+  }
   foreach ($failedAttempt in @($policy.finalization.historicalFailedAttempts)) {
     $requiredFiles += [string]$failedAttempt.evidenceFile
   }
@@ -1460,6 +1464,74 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         $false -or
       $completionReceipt.releaseBoundary.distributionPerformed -ne $false) {
     throw 'Finalization receipt differs from policy or release boundary.'
+  }
+
+  if ($policy.finalization.runtimeValidationPassed -eq $true) {
+    $deviceAcceptancePath =
+      [string]$policy.finalization.deviceAcceptanceReceiptFile
+    $deviceAcceptance =
+      Get-Content -LiteralPath $deviceAcceptancePath -Raw |
+        ConvertFrom-Json
+    $mutationValues = @(
+      $deviceAcceptance.businessMutationBoundary.PSObject.Properties |
+        ForEach-Object { $_.Value }
+    )
+    $readOnlySurfacesValidated =
+      $deviceAcceptance.adjudication.authenticatedReadOnlySurfaceValidationCompleted
+    $mutatingFlowsValidated =
+      $deviceAcceptance.adjudication.mutatingBusinessFlowValidationCompleted
+    if ((Get-Sha256 $deviceAcceptancePath) -ne
+        ([string]$policy.finalization.deviceAcceptanceReceiptSha256).
+          ToUpperInvariant() -or
+        [string]$policy.finalization.runtimeDisposition -ne
+          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces' -or
+        $policy.finalization.fullBusinessFlowValidationCompleted -ne
+          $false -or
+        [string]$deviceAcceptance.evidenceType -ne
+          'production-build-device-acceptance' -or
+        [string]$deviceAcceptance.status -ne
+          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces' -or
+        [int64]$deviceAcceptance.release.buildNumber -ne
+          [int64]$policy.release.buildNumber -or
+        [string]$deviceAcceptance.release.finalizationReceiptSha256 -ne
+          (Get-Sha256 $completionReceiptPath) -or
+        [string]$deviceAcceptance.release.apkSha256 -ne
+          [string]$completionReceipt.governedPackage.apkSha256 -or
+        [string]$deviceAcceptance.release.certificateSha256 -ne
+          [string]$completionReceipt.governedPackage.certificateSha256 -or
+        $deviceAcceptance.physicalDevice.deviceSerialRecorded -ne $false -or
+        $deviceAcceptance.physicalDevice.accountIdentifierRecorded -ne
+          $false -or
+        [int64]$deviceAcceptance.physicalDevice.installedVersionCode -ne
+          [int64]$policy.release.buildNumber -or
+        $deviceAcceptance.physicalDevice.exactGovernedApkMatch -ne $true -or
+        $deviceAcceptance.physicalDevice.signerContinuityVerified -ne
+          $true -or
+        $deviceAcceptance.physicalDevice.firstInstallTimePreserved -ne
+          $true -or
+        $deviceAcceptance.physicalDevice.applicationDataCleared -ne
+          $false -or
+        [string]$deviceAcceptance.synchronization.lastSyncResult -ne
+          'success' -or
+        [int64]$deviceAcceptance.synchronization.unsyncedRows -ne 0 -or
+        [int64]$deviceAcceptance.synchronization.unresolvedRejections -ne
+          0 -or
+        @($mutationValues | Where-Object { $_ -ne $false }).Count -ne 0 -or
+        $deviceAcceptance.adjudication.runtimeValidationPassed -ne $true -or
+        $readOnlySurfacesValidated -ne $true -or
+        $mutatingFlowsValidated -ne $false -or
+        $deviceAcceptance.adjudication.fullBusinessFlowValidationCompleted -ne
+          $false -or
+        $deviceAcceptance.releaseBoundary.controlledPilotApproved -ne
+          $false -or
+        $deviceAcceptance.releaseBoundary.pilotHandoutPerformed -ne
+          $false -or
+        $deviceAcceptance.releaseBoundary.deviceDataClearPerformed -ne
+          $false -or
+        $completionReceipt.runtimeAdjudication.runtimeValidationPassed -ne
+          $false) {
+      throw 'Device acceptance differs from the exact read-only runtime boundary.'
+    }
   }
 
 } else {
