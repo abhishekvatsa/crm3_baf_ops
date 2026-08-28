@@ -626,9 +626,9 @@
     {
       "path": "functions/test/plannedJobClosure.test.js",
       "canonicalSha256": "D02FCEDEF9A98C63C9742A1707D64CBF69D0652CCFE5AB85863B54523E15727B",
-      "candidateSha256": "D9265085C7B869A6E123EC1D8218D2C525DE44FB8329CE7486EB9BE2E4DFBCA9",
+      "candidateSha256": "6FC538289D7746B53E71E521E98E57E64AB4561024324439183F26320CE2E3F0",
       "canonicalBytes": 18037,
-      "candidateBytes": 29898,
+      "candidateBytes": 30618,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3014,9 +3014,9 @@
     {
       "path": "test/planned_job_closure_guard_test.dart",
       "canonicalSha256": "BFF7574A62CFBB860A7F3F1AB08FA63D85D51223730BCCF7024C9D9DD7BC8753",
-      "candidateSha256": "3656627892B2EA9885340AEA909BB38543AB25F4A7679D01EEEDAA29BCF476D3",
+      "candidateSha256": "F1F9AA5A4D06521F2A4BA3B8762F957737762D3C43601C187C2BD17BC1ED5EFA",
       "canonicalBytes": 5727,
-      "candidateBytes": 6630,
+      "candidateBytes": 7492,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
