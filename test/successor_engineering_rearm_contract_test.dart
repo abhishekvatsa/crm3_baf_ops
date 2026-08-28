@@ -665,14 +665,11 @@ void main() {
   );
 
   test('Build 16 phone smoke never implies migration or pilot authority', () {
-    final state = _readObject('release/current-successor-state.json');
-    final policy = _readObject('release/production-release-policy.json');
-    final finalization =
-        (policy['finalization'] as Map).cast<String, dynamic>();
+    final build17Approval = _readObject(
+      'release/approvals/build-number-17-successor-approval.json',
+    );
     final build16Authority =
-        (finalization['priorCompletedBuild'] as Map).cast<String, dynamic>();
-    final latestArtifact =
-        ((state['authorityPlanes'] as Map)['latestFinalizedArtifact'] as Map)
+        (build17Approval['preservedCompletedBuild'] as Map)
             .cast<String, dynamic>();
     final receipt = _readObject(
       build16Authority['completionReceiptFile'] as String,
@@ -685,10 +682,10 @@ void main() {
     final physical = (smoke['physicalDevice'] as Map).cast<String, dynamic>();
     final emulator = (smoke['emulator'] as Map).cast<String, dynamic>();
     final boundary = (smoke['boundary'] as Map).cast<String, dynamic>();
+    final releaseBoundary =
+        (receipt['releaseBoundary'] as Map).cast<String, dynamic>();
 
-    expect(finalization['status'], 'completed-non-distributable');
     expect(build16Authority['status'], 'completed-non-distributable');
-    expect(latestArtifact['buildNumber'], 17);
     expect(build16Authority['buildNumber'], 16);
     expect(
       _sha256(build16Authority['completionReceiptFile'] as String),
@@ -717,7 +714,7 @@ void main() {
     expect(emulator['applicationDataCleared'], isFalse);
     expect(boundary.values, everyElement(isFalse));
     expect(build16Authority['runtimeValidationPassed'], isFalse);
-    expect(finalization['controlledPilotApproved'], isFalse);
+    expect(releaseBoundary['controlledPilotApproved'], isFalse);
   });
 
   test('historical Build 12 deployment record remains exact', () {

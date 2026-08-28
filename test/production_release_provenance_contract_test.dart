@@ -1261,14 +1261,21 @@ void main() {
     });
 
     test(
-      'build 17 preserves builds 14-16 and the historical build 10 failure',
+      'current candidate preserves builds 14-17 and the historical build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
                 as Map<String, dynamic>;
         final finalization = policy['finalization'] as Map<String, dynamic>;
+        final build17Approval =
+            jsonDecode(
+                  read(
+                    'release/approvals/build-number-17-successor-approval.json',
+                  ),
+                )
+                as Map<String, dynamic>;
         final build16Finalization =
-            finalization['priorCompletedBuild'] as Map<String, dynamic>;
+            build17Approval['preservedCompletedBuild'] as Map<String, dynamic>;
         final build16Approval =
             jsonDecode(
                   read(
@@ -1305,6 +1312,11 @@ void main() {
         final build16Receipt =
             jsonDecode(
                   read(build16Finalization['completionReceiptFile'] as String),
+                )
+                as Map<String, dynamic>;
+        final build17Receipt =
+            jsonDecode(
+                  read('release/evidence/build-17-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
         final receipt =
@@ -1410,6 +1422,22 @@ void main() {
               : 'completed-non-distributable',
         );
         expect(finalization['dualCustodyCompleted'], !pendingConstruction);
+        expect(build17Receipt['schemaVersion'], 1);
+        expect(build17Receipt['status'], 'passed-non-distributable');
+        expect(
+          (build17Receipt['release'] as Map<String, dynamic>)['buildNumber'],
+          17,
+        );
+        expect(
+          (build17Receipt['governedPackage']
+              as Map<String, dynamic>)['sha256'],
+          '155E5F9E8748695ADBF59B208236C919EB9D6A35616C3256007BAE5D0E54F2AD',
+        );
+        expect(
+          (build17Receipt['releaseBoundary']
+              as Map<String, dynamic>)['controlledPilotApproved'],
+          isFalse,
+        );
         expect(build16Finalization['buildNumber'], 16);
         expect(build16Finalization['dualCustodyCompleted'], isTrue);
         expect(build16Finalization['runtimeValidationPassed'], isFalse);
@@ -1648,22 +1676,28 @@ void main() {
       );
     });
 
-    test('permanent identity and public version are committed', () {
+    test('permanent identity and current public version are committed', () {
       final gradle = read('android/app/build.gradle.kts');
       final manifest = read('android/app/src/main/AndroidManifest.xml');
       final pubspec = read('pubspec.yaml');
       final policy = read('release/production-release-policy.json');
+      final policyObject = jsonDecode(policy) as Map<String, dynamic>;
+      final versionPolicy =
+          policyObject['versionPolicy'] as Map<String, dynamic>;
+      final release = policyObject['release'] as Map<String, dynamic>;
+      final versionName = versionPolicy['versionName'] as String;
+      final buildNumber = versionPolicy['buildNumber'] as int;
 
       expect(gradle, isNot(contains('com.example.crm3_baf_ops')));
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
-        pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.7\+17$', multiLine: true)),
+        pubspec.split(RegExp(r'\r?\n')).map((line) => line.trim()),
+        contains('version: $versionName+$buildNumber'),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.7-b17"'));
+      expect(release['releaseId'], 'crm3-baf-ops-$versionName-b$buildNumber');
       expect(
-        policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/17"'),
+        versionPolicy['remoteReservationTag'],
+        'crm3-build-reserved/$buildNumber',
       );
       expect(policy, contains('"approved": true'));
       expect(
