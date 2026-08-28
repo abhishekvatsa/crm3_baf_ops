@@ -311,6 +311,12 @@ void main() {
       );
       final requiredSource =
           (nextApproval['requiredSource'] as Map).cast<String, dynamic>();
+      final functionReadback = _readObject(
+        requiredSource['exactFunctionFleetCleanMainReadbackFile'] as String,
+      );
+      final iamReadback = _readObject(
+        requiredSource['exactFunctionsIamDependenciesReadbackFile'] as String,
+      );
       final nextApprovalBuild =
           (nextApproval['nextBuild'] as Map).cast<String, dynamic>();
       final backendAuthority =
@@ -371,6 +377,17 @@ void main() {
         sourceBaseline['commit'] as String,
         '${release['versionName']}+$candidateBuildNumber',
       );
+      final evidenceBoundAt = DateTime.parse(
+        nextApproval['evidenceBoundAtUtc'] as String,
+      );
+      for (final capturedAt in <String>[
+        functionReadback['capturedAtUtc'] as String,
+        iamReadback['capturedAtUtc'] as String,
+        rulesReadback['capturedAtUtc'] as String,
+        liveBackend['recordedAtUtc'] as String,
+      ]) {
+        expect(evidenceBoundAt.isBefore(DateTime.parse(capturedAt)), isFalse);
+      }
       final expectedFirestoreRelationship = _firestoreRelationship(
         rulesChanged: rulesChanged,
         indexesChanged: indexesChanged,

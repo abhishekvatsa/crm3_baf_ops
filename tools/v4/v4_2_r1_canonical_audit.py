@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +57,15 @@ def text(rel: str) -> str:
 
 def data(rel: str):
     return json.loads(text(rel))
+
+
+def utc_instant(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def git_tree_object_id(commit: str, path: str) -> str | None:
@@ -4302,6 +4312,21 @@ expected_artifact_construction_authority = (
     and backend_matches_deployed
     and artifact_source_matches_approval
 )
+build18_evidence_bound_at = utc_instant(
+    build18_approval.get("evidenceBoundAtUtc")
+)
+build18_bound_evidence_times = [
+    utc_instant(build18_function_readback.get("capturedAtUtc")),
+    utc_instant(build18_iam_readback.get("capturedAtUtc")),
+    utc_instant(build18_firestore_readback.get("capturedAtUtc")),
+    utc_instant(build18_backend_deployment.get("recordedAtUtc")),
+]
+build18_evidence_chronology_valid = (
+    build18_evidence_bound_at is not None
+    and all(value is not None for value in build18_bound_evidence_times)
+    and build18_evidence_bound_at
+    >= max(value for value in build18_bound_evidence_times if value is not None)
+)
 if candidate_pending:
     if not backend_matches_deployed:
         expected_successor_state_status = (
@@ -5683,6 +5708,7 @@ check(
         )
     and build18_approval.get("approved") is True
     and build18_approval.get("approvalReference") == "BAF-REF-003-C17"
+    and build18_evidence_chronology_valid
     and build18_approval.get("sourceBaseline", {}).get("commit")
         == "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff"
     and build18_approval.get("sourceBaseline", {}).get("tree")

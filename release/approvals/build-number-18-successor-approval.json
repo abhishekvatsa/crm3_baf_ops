@@ -3,6 +3,7 @@
   "documentType": "governed-build-number-rollover-approval",
   "approved": true,
   "approvedAtUtc": "2026-08-28T07:50:58Z",
+  "evidenceBoundAtUtc": "2026-08-28T09:35:06Z",
   "approverName": "Abhishek Vatsa",
   "approvalReference": "BAF-REF-003-C17",
   "authorityBasis": "Project-owner instruction to proceed with governed Build 18 after exact production deployment and strict live readback of the complete current-source backend, while preserving the finalized Build 17 artifact and the separately retained Build 11 pilot authority.",
