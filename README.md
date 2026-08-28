@@ -15,13 +15,13 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` records finalized Build 17 (`1.0.0-rc.7+17`) after exact
-production deployment and strict live readback of the current Function fleet,
-Firestore Rules and all 66 indexes, production signing, independent package
-verification and dual custody. Build 16 remains independently finalized, and
-neither consumed package identity may be reused. Exact Build 17 device
-migration and authenticated business-flow validation remain unadjudicated. A
-separate controlled-pilot decision is still required before any distribution.
+Current `main` records source-authorized Build 18 (`1.0.0-rc.8+18`) with the
+exact Function fleet, Firestore Rules and all 66 indexes deployed and strictly
+read back. Protected signed construction is authorized but not yet finalized.
+Build 17 remains independently finalized and its consumed package identity may
+not be reused. Exact Build 18 device migration and authenticated business-flow
+validation remain unadjudicated. A separate controlled-pilot decision is still
+required before any distribution.
 
 Authoritative status sources:
 

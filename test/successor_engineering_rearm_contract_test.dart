@@ -311,6 +311,12 @@ void main() {
       );
       final requiredSource =
           (nextApproval['requiredSource'] as Map).cast<String, dynamic>();
+      final functionReadback = _readObject(
+        requiredSource['exactFunctionFleetCleanMainReadbackFile'] as String,
+      );
+      final iamReadback = _readObject(
+        requiredSource['exactFunctionsIamDependenciesReadbackFile'] as String,
+      );
       final nextApprovalBuild =
           (nextApproval['nextBuild'] as Map).cast<String, dynamic>();
       final backendAuthority =
@@ -371,6 +377,17 @@ void main() {
         sourceBaseline['commit'] as String,
         '${release['versionName']}+$candidateBuildNumber',
       );
+      final evidenceBoundAt = DateTime.parse(
+        nextApproval['evidenceBoundAtUtc'] as String,
+      );
+      for (final capturedAt in <String>[
+        functionReadback['capturedAtUtc'] as String,
+        iamReadback['capturedAtUtc'] as String,
+        rulesReadback['capturedAtUtc'] as String,
+        liveBackend['recordedAtUtc'] as String,
+      ]) {
+        expect(evidenceBoundAt.isBefore(DateTime.parse(capturedAt)), isFalse);
+      }
       final expectedFirestoreRelationship = _firestoreRelationship(
         rulesChanged: rulesChanged,
         indexesChanged: indexesChanged,
@@ -388,11 +405,14 @@ void main() {
       expect(
         state['status'],
         pendingConstruction
-            ? backendMatchesDeployed
+            ? !backendMatchesDeployed
                 ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
-                    'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
-                : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
                     'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
+                : !artifactSourceMatchesApproval
+                ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_'
+                    'BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND'
+                : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
+                    'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
             : backendMatchesDeployed
             ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
                 'AWAITING_DEVICE_AND_PILOT_DECISIONS'
@@ -543,8 +563,8 @@ void main() {
         firestoreAuthority['receiptFileSha256'],
       );
       expect(
-        rulesReadback['receiptSha256'],
-        firestoreAuthority['receiptCanonicalSha256'],
+        (rulesReadback['receiptSha256'] as String).toUpperCase(),
+        (firestoreAuthority['receiptCanonicalSha256'] as String).toUpperCase(),
       );
       expect(
         deployed['rulesAndIndexesSourceCommit'],
@@ -630,6 +650,7 @@ void main() {
       expect(pilot['appliesToBuild15'], isFalse);
       expect(pilot['appliesToBuild16'], isFalse);
       expect(pilot['appliesToBuild17'], isFalse);
+      expect(pilot['appliesToBuild$candidateBuildNumber'], isFalse);
       expect(
         next['minimumBuildNumber'],
         candidateBuildNumber + (pendingConstruction ? 0 : 1),
@@ -637,10 +658,13 @@ void main() {
       expect(
         next['status'],
         pendingConstruction
-            ? backendMatchesDeployed
-                ? 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
+            ? !backendMatchesDeployed
+                ? 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
+                : !artifactSourceMatchesApproval
+                ? 'SOURCE_SUCCESSOR_AWAITING_BUILD${candidateBuildNumber}_'
+                    'ARTIFACT_SOURCE_REBIND'
+                : 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
                     'BUILD${candidateBuildNumber}_CONSTRUCTION'
-                : 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
             : 'AWAITING_FRESH_GOVERNED_BUILD${candidateBuildNumber + 1}_'
                 'APPROVAL',
       );

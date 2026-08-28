@@ -191,12 +191,14 @@ void main() {
       expect(
         canonicalAudit,
         contains(
-          'BUILD17_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_',
+          'f"BUILD{candidate_build_number}_FINALIZED_SOURCE_SUCCESSOR_"',
         ),
       );
       expect(
         canonicalAudit,
-        contains('AWAITING_FRESH_GOVERNED_BUILD18_APPROVAL'),
+        contains(
+          'f"AWAITING_FRESH_GOVERNED_BUILD{candidate_build_number + 1}_APPROVAL"',
+        ),
       );
       expect(
         text,
