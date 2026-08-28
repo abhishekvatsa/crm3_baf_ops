@@ -247,6 +247,9 @@ At closure, the server revalidates the Furnace and hierarchy identities, numbere
 - Records physical detector installation through I&A work.
 - Requires the governed Furnace UV component and Burner / UV position.
 - Updates the UV lifecycle and current condition only after governed closure.
+- In burner-lockout attendance, marks the UV **In service** only when the
+  terminal outcome is **Returned to service**. A locked-out or isolated result
+  stays in the work dossier and awaits successful attendance or a fresh audit.
 - Does not imply that a burner block was changed.
 
 ### Re-audit

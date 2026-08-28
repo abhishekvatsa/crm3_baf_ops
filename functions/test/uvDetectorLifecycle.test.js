@@ -225,6 +225,39 @@ describe('UV-detector lifecycle projection', () => {
     });
   });
 
+  test.each(['remainsLockedOut', 'isolatedForFollowUp'])(
+    'does not mark a burner-lockout UV replacement serviceable when outcome is %s',
+    async (burnerOutcome) => {
+      const store = seedStore();
+      const sourceReference = JSON.stringify({
+        ...reference(),
+        schemaVersion: 3,
+        scope: 'physicalAsset',
+        nodeId: IDS.asset,
+        nodeVersion: 4,
+        nodeName: 'Furnace 7',
+        hierarchyPath: ['Furnace', 'Furnace 7'],
+      });
+      const row = lockoutAction({burnerOutcome});
+
+      const plan = await prepare(store, row, {
+        sourceType: 'maintenanceIssue',
+        sourceId: `ticket-${burnerOutcome}`,
+        sourceAssetReferenceJson: sourceReference,
+        actionSources: [{
+          sourceModuleId: null,
+          actionsJson: JSON.stringify([row]),
+        }],
+        executionLevelInstrumentationEvidence: true,
+      });
+
+      expect(plan.events).toHaveLength(0);
+      expect(plan.currentStates).toHaveLength(0);
+      expect(store.entries().some(([path]) =>
+        path.startsWith('uv_detector_lifecycle_'))).toBe(false);
+    },
+  );
+
   test('rejects generic UV installation outside I&A work', async () => {
     const store = seedStore();
     await expect(prepare(store, action(), {

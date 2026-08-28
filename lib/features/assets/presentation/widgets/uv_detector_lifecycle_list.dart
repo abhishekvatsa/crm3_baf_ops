@@ -17,7 +17,7 @@ class UvDetectorLifecycleList extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(BafSpacing.xl),
           child: Text(
-            'No completed UV-detector replacement has been recorded yet.',
+            'No verified UV-detector restoration has been recorded yet.',
             textAlign: TextAlign.center,
             style: TextStyle(color: BafColors.textSecondary),
           ),

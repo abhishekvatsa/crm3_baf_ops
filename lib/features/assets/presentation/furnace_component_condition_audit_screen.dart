@@ -568,7 +568,7 @@ class _AuditStatusBand extends StatelessWidget {
             child: Text(
               '$furnaceCount governed Furnaces · $dirtyCount changed. '
               '$replacementCount retained block replacement${replacementCount == 1 ? '' : 's'}. '
-              '$uvReplacementCount retained UV replacement${uvReplacementCount == 1 ? '' : 's'}. '
+              '$uvReplacementCount verified UV restoration${uvReplacementCount == 1 ? '' : 's'}. '
               'Newer audits and work events supersede earlier condition evidence.',
               style: const TextStyle(fontSize: 12),
             ),

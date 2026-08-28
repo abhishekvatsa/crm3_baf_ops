@@ -132,6 +132,10 @@ const isUvDetectorReplacement = (row: ActionRow): boolean => {
     );
 };
 
+const establishesServiceableUvCondition = (row: ActionRow): boolean =>
+  row.burnerActionCode !== "uvDetectorReplacement" ||
+  row.burnerOutcome === "returnedToService";
+
 const parseInstant = (value: unknown, field: string): string => {
   const text = requiredText(value, field);
   const parsed = new Date(text);
@@ -436,7 +440,8 @@ export const prepareUvDetectorLifecycleWritePlan = async (args: {
       throw error;
     }
     payload.rows.forEach((row, index) => {
-      if (!isUvDetectorReplacement(row)) return;
+      if (!isUvDetectorReplacement(row) ||
+          !establishesServiceableUvCondition(row)) return;
       candidates.push({
         row,
         sourceModuleId: source.sourceModuleId,
