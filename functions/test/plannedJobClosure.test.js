@@ -94,6 +94,31 @@ describe('planned job server closure validation', () => {
     });
   });
 
+  test('treats a required boolean false as supplied evidence', () => {
+    const module = baseModule({
+      fieldDefinitionsJson: JSON.stringify([{
+        key: 'burnerBlockChanged',
+        type: 'boolean',
+        isRequired: true,
+      }]),
+      responsesJson: JSON.stringify([{
+        schemaVersion: 1,
+        key: 'burnerBlockChanged',
+        fieldLabel: 'Burner block changed',
+        fieldType: 'yesNo',
+        value: false,
+      }]),
+    });
+
+    expect(moduleMissingRequiredClosureEvidence(module)).toBe(false);
+    expect(assertClosureReady([module])).toEqual({
+      openRequiredModule: 0,
+      waitingAcceptance: 0,
+      missingRequiredEvidence: 0,
+      pendingIssueOrFollowUp: 0,
+    });
+  });
+
   test('rejects malformed saved module action evidence before closure', () => {
     let caught;
     try {
