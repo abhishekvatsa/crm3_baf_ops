@@ -3928,6 +3928,12 @@ build17_completion_path = (
 build17_completion = data(
     "release/evidence/build-17-finalization-closure.json"
 )
+build18_completion_path = (
+    ROOT / "release/evidence/build-18-finalization-closure.json"
+)
+build18_completion = data(
+    "release/evidence/build-18-finalization-closure.json"
+)
 build16_installation_smoke_path = (
     ROOT / "release/evidence/build-16-device-installation-smoke.json"
 )
@@ -4377,7 +4383,7 @@ else:
         f"AWAITING_FRESH_GOVERNED_BUILD{candidate_build_number + 1}_APPROVAL"
     )
 check(
-    "Builds 6-17 are preserved and Build 18 construction remains governed",
+    "Builds 6-18 are preserved and Build 18 finalization remains governed",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -4576,7 +4582,7 @@ check(
     and combined_policy.get("release", {}).get("buildNumber") == 18
     and combined_policy.get("release", {}).get("versionName") == "1.0.0-rc.8"
     and combined_policy.get("finalization", {}).get("status")
-        == "pending-source-authorized"
+        == "completed-non-distributable"
     and sha(build14_completion_path)
         == build15_approval.get("preservedCompletedBuild", {}).get(
             "completionReceiptSha256"
@@ -4614,7 +4620,7 @@ check(
     ).get("runtimeValidationPassed")
         is False
     and combined_policy.get("finalization", {}).get("dualCustodyCompleted")
-        is False
+        is True
     and build12_completion.get("status") == "passed-non-distributable"
     and build12_completion.get("sourceAuthority", {}).get("commit")
         == "8ba5b237cef151b001d9bea41e16e68015091e43"
@@ -5709,7 +5715,7 @@ check(
         "controlledPilotApproved"
     ) is False
     and len(build18_entries) == 1
-    and candidate_pending
+    and not candidate_pending
     and sha(build18_approval_path)
         == combined_policy.get("versionPolicy", {}).get(
             "sourceDocumentSha256"
@@ -5766,8 +5772,50 @@ check(
         == "crm3-build-reserved/18"
     and build18_entry.get("remoteBuiltTag") == "crm3-build-built/18"
     and build18_entry.get("status")
-        == "source-reserved-awaiting-remote-consumption"
+        == "remote-consumed-artifact-built-finalized-non-distributable"
     and build18_entry.get("failedOrWithdrawnBuildConsumesNumber") is True
+    and build18_entry.get("remoteReservationTagObject")
+        == "b27499ad7e51acb8416251b181c40ea5d808c76c"
+    and build18_entry.get("remoteBuiltTagObject")
+        == "270ad46f02d834490bfdcdb99a7700b1c2b3f8fe"
+    and build18_entry.get("remoteBuiltCommit")
+        == "2a2520e075c44c6b347bc9f1c6bcc4343e62713b"
+    and build18_entry.get("githubRunId") == 33163539650
+    and build18_entry.get("githubArtifactId") == 9683214490
+    and build18_entry.get("governedPackageSha256")
+        == "951DF1C961E08CD78B52B0B588CAEE5A767CF182BF4063F7F4DEBCA0010AD911"
+    and build18_entry.get("completionReceiptSha256")
+        == sha(build18_completion_path)
+    and build18_entry.get("dualCustodyCompleted") is True
+    and build18_entry.get("runtimeValidationPassed") is False
+    and build18_entry.get("controlledPilotApproved") is False
+    and build18_entry.get("distributionPerformed") is False
+    and build18_completion.get("status") == "passed-non-distributable"
+    and build18_completion.get("sourceAuthority", {}).get("commit")
+        == "2a2520e075c44c6b347bc9f1c6bcc4343e62713b"
+    and build18_completion.get("sourceAuthority", {}).get("tree")
+        == "a6e12947caee64cc31d5633eec57423f3ae1a3d3"
+    and build18_completion.get("sourceAuthority", {}).get(
+        "pullRequestNumber"
+    ) == 308
+    and build18_completion.get("workflow", {}).get("runId") == 33163539650
+    and build18_completion.get("githubArtifact", {}).get("id")
+        == 9683214490
+    and build18_completion.get("governedPackage", {}).get("sha256")
+        == build18_entry.get("governedPackageSha256")
+    and build18_completion.get("governedPackage", {}).get("apkSha256")
+        == "57C0A0EAB96A1B723B2431FAA7D7A4FE3516C38D80804CD4B00F1D59AC463613"
+    and build18_completion.get("governedPackage", {}).get(
+        "independentVerificationCompleted"
+    ) is True
+    and build18_completion.get("dualCustody", {}).get("distinctVolumes")
+        is True
+    and build18_completion.get("runtimeAdjudication", {}).get(
+        "runtimeValidationPassed"
+    ) is False
+    and build18_completion.get("releaseBoundary", {}).get(
+        "controlledPilotApproved"
+    ) is False
     and current_successor_state.get("status")
         == expected_successor_state_status
     and current_successor_planes.get("currentSource", {}).get("packageVersion")
@@ -5780,16 +5828,16 @@ check(
     ) is False
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "buildNumber"
-    ) == 17
+    ) == 18
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "completionReceiptSha256"
-    ) == sha(build17_completion_path)
+    ) == sha(build18_completion_path)
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "runtimeValidation"
-    ) == "NOT_ADJUDICATED_FOR_EXACT_BUILD17"
+    ) == "NOT_ADJUDICATED_FOR_EXACT_BUILD18"
     and current_successor_planes.get("nextCandidate", {}).get(
         "minimumBuildNumber"
-    ) == 18
+    ) == 19
     and current_successor_planes.get("nextCandidate", {}).get("status")
         == expected_next_candidate_status,
 )
@@ -11978,7 +12026,7 @@ lr07_successor_ledger = [
     > lr07_latest_artifact.get("buildNumber", -1)
 ]
 check(
-    "LR-07 preserves finalized Builds 9-17 and source-only successors",
+    "LR-07 preserves finalized Builds 9-18 and source-only successors",
     lr07_policy.get("schemaVersion") == 1
     and lr07_policy.get("policyId")
         == "LR07-DISTRIBUTION-INSTALLATION-READBACK-POLICY-V1"
@@ -11988,9 +12036,9 @@ check(
     and lr07_policy.get("workflow", {}).get(
         "requiredArtifactRetentionDays"
     ) == 1
-    and len(lr07_artifacts) == 14
+    and len(lr07_artifacts) == 15
     and [entry.get("buildNumber") for entry in lr07_artifacts]
-        == [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+        == [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     and {entry.get("id") for entry in lr07_artifacts}
         == {
             8711253816,
@@ -12007,14 +12055,15 @@ check(
             9547514373,
             9567065107,
             9614787514,
+            9683214490,
         }
     and sum(entry.get("sizeBytes", 0) for entry in lr07_artifacts)
-        == 2121661930
+        == 2279702364
     and sum(
         1
         for entry in lr07_artifacts
         if entry.get("dualCustodyCompleted") is True
-    ) == 12
+    ) == 13
     and lr07_policy.get("installationReceipt", {}).get("bytes") == 8119
     and lr07_policy.get("installationReceipt", {}).get("sha256")
         == "4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC"
@@ -12030,10 +12079,10 @@ check(
     and lr07_policy.get("executionAuthority", {}).get(
         "requiredOwnerApprovalPhrase"
     )
-        == "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9614787514"
+        == "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9683214490"
     and lr07_policy.get("executionAuthority", {}).get(
         "requiredPresentArtifactIds"
-    ) == [9614787514]
+    ) == [9683214490]
     and lr07_policy.get("executionAuthority", {}).get(
         "deleteOnlyExactArtifactIds"
     ) is True
@@ -12066,7 +12115,7 @@ check(
         for entry in lr07_source_evidence
     )
     and lr07_preserved_finalization.get("buildNumber")
-        == lr07_latest_completed_artifact.get("buildNumber") == 17
+        == lr07_latest_completed_artifact.get("buildNumber") == 18
     and lr07_preserved_finalization.get("status")
         == "completed-non-distributable"
     and lr07_preserved_finalization.get("completionReceiptFile")
