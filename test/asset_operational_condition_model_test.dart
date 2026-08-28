@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +34,34 @@ Map<String, dynamic> activeCondition({
   'lastMutationId': 'mutation-1',
 };
 
+Map<String, dynamic> activeConditionV2() => <String, dynamic>{
+  ...activeCondition(),
+  'schemaVersion': 2,
+  'basis': 'pendingMaintenance',
+  'componentHierarchyRefJson': jsonEncode(<String, dynamic>{
+    'schemaVersion': 4,
+    'scope': 'componentDefinitionOnAsset',
+    'assetClassId': 'class-1',
+    'assetClassCode': 'FURNACE',
+    'assetClassName': 'Furnace',
+    'nodeId': 'burner-system',
+    'nodeVersion': 3,
+    'nodeName': 'Burner system',
+    'assetInstanceId': 'asset-1',
+    'assetInstanceVersion': 2,
+    'assetNumber': 1,
+    'assetInstanceName': 'Furnace 1',
+    'componentInstanceId': null,
+    'componentInstanceVersion': null,
+    'componentTag': null,
+    'hierarchyPath': <String>['Combustion system', 'Burner system'],
+    'ownershipStatus': 'confirmed',
+    'ownerDiscipline': 'I&A',
+    'accountableRoleKeys': <String>['seniorInstrumentation'],
+    'innerCoverAssociation': null,
+  }),
+};
+
 void main() {
   test('strict condition decoder retains complete active evidence', () {
     final record = AssetOperationalConditionRecord.fromMap(
@@ -60,6 +90,37 @@ void main() {
         throwsA(isA<PersistedDataFormatException>()),
       );
     }
+  });
+
+  test('schema two retains availability basis and exact component', () {
+    final record = AssetOperationalConditionRecord.fromMap(
+      activeConditionV2(),
+      'asset-1',
+    );
+    expect(record.basis, AssetConditionBasis.pendingMaintenance);
+    expect(record.componentReference?.nodeId, 'burner-system');
+    expect(record.componentReference?.assetInstanceId, 'asset-1');
+
+    for (final malformed in <Map<String, dynamic>>[
+      {...activeConditionV2()}..remove('basis'),
+      {...activeConditionV2(), 'componentHierarchyRefJson': null},
+      {...activeConditionV2(), 'basis': 'innerCoverUnavailable'},
+    ]) {
+      expect(
+        () => AssetOperationalConditionRecord.fromMap(malformed, 'asset-1'),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    }
+
+    final innerCover = <String, dynamic>{
+      ...activeConditionV2(),
+      'basis': 'innerCoverUnavailable',
+      'componentHierarchyRefJson': null,
+    };
+    expect(
+      AssetOperationalConditionRecord.fromMap(innerCover, 'asset-1').basis,
+      AssetConditionBasis.innerCoverUnavailable,
+    );
   });
 
   test('restored condition requires complete restoration authority', () {

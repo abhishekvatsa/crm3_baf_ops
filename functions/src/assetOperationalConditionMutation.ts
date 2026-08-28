@@ -29,6 +29,11 @@ export type AssetOperationalConditionOperation =
   | "RESTORE_ASSET_CONDITION";
 
 type ActiveCondition = "down" | "unfit";
+type ConditionBasis =
+  | "pendingMaintenance"
+  | "spareUnavailable"
+  | "innerCoverUnavailable"
+  | "otherOperationalConstraint";
 
 interface ParsedRequest {
   requestId: string;
@@ -38,6 +43,9 @@ interface ParsedRequest {
   expectedVersion: number;
   condition: ActiveCondition | null;
   causeKeys: ReadonlyArray<string>;
+  basis: ConditionBasis | null;
+  componentHierarchyRefJson: string | null;
+  requestContractVersion: 1 | 2;
   reason: string;
   linkedIssueIds: ReadonlyArray<string>;
   fingerprint: string;
@@ -63,6 +71,12 @@ const OPERATIONS = new Set<AssetOperationalConditionOperation>([
   "RESTORE_ASSET_CONDITION",
 ]);
 const ACTIVE_CONDITIONS = new Set<ActiveCondition>(["down", "unfit"]);
+const CONDITION_BASES = new Set<ConditionBasis>([
+  "pendingMaintenance",
+  "spareUnavailable",
+  "innerCoverUnavailable",
+  "otherOperationalConstraint",
+]);
 const CAUSES = new Set([
   "breakdown",
   "safety",
@@ -133,7 +147,8 @@ export function parseAssetOperationalConditionMutationRequest(
 ): ParsedRequest {
   const allowed = new Set([
     "requestId", "operation", "assetClassId", "assetInstanceId",
-    "expectedVersion", "condition", "causeKeys", "reason", "linkedIssueIds",
+    "expectedVersion", "condition", "causeKeys", "basis",
+    "componentHierarchyRefJson", "reason", "linkedIssueIds",
   ]);
   for (const key of Object.keys(raw)) if (!allowed.has(key)) invalid(key, "is unsupported");
 
@@ -153,8 +168,28 @@ export function parseAssetOperationalConditionMutationRequest(
   if (reason.length < 8) invalid("reason", "must contain at least 8 characters");
   const condition = raw.condition == null ? null :
     requiredString(raw.condition, "condition", 16) as ActiveCondition;
+  const basis = raw.basis == null ? null :
+    requiredString(raw.basis, "basis", 40) as ConditionBasis;
+  const componentHierarchyRefJson = raw.componentHierarchyRefJson == null ? null :
+    requiredString(
+      raw.componentHierarchyRefJson,
+      "componentHierarchyRefJson",
+      12000,
+    );
   const causeKeys = stringSet(raw.causeKeys, "causeKeys", 8);
   const linkedIssueIds = stringSet(raw.linkedIssueIds, "linkedIssueIds", 20);
+  const hasBasis = Object.prototype.hasOwnProperty.call(raw, "basis");
+  const hasComponentReference = Object.prototype.hasOwnProperty.call(
+    raw,
+    "componentHierarchyRefJson",
+  );
+  if (hasBasis !== hasComponentReference) {
+    invalid(
+      "basis",
+      "and componentHierarchyRefJson must be supplied together",
+    );
+  }
+  const requestContractVersion: 1 | 2 = hasBasis ? 2 : 1;
 
   if (operation === "DECLARE_ASSET_CONDITION") {
     if (condition == null || !ACTIVE_CONDITIONS.has(condition)) {
@@ -163,14 +198,28 @@ export function parseAssetOperationalConditionMutationRequest(
     if (causeKeys.length === 0 || causeKeys.some((cause) => !CAUSES.has(cause))) {
       invalid("causeKeys", "must contain at least one supported cause");
     }
-  } else if (condition != null || causeKeys.length > 0 || linkedIssueIds.length > 0) {
+    if (requestContractVersion === 2) {
+      if (basis == null || !CONDITION_BASES.has(basis)) {
+        invalid("basis", "must identify the operational availability constraint");
+      }
+      if (basis === "innerCoverUnavailable" ?
+        componentHierarchyRefJson != null : componentHierarchyRefJson == null) {
+        invalid(
+          "componentHierarchyRefJson",
+          "must identify a governed component unless Inner Cover availability is selected",
+        );
+      }
+    }
+  } else if (condition != null || basis != null ||
+      componentHierarchyRefJson != null || causeKeys.length > 0 ||
+      linkedIssueIds.length > 0) {
     invalid(
       "condition",
       "cause and linked-issue fields are not allowed when restoring an asset",
     );
   }
 
-  const request = {
+  const legacyRequest = {
     requestId,
     operation,
     assetClassId: documentId(raw.assetClassId, "assetClassId"),
@@ -181,9 +230,22 @@ export function parseAssetOperationalConditionMutationRequest(
     reason,
     linkedIssueIds,
   };
-  const fingerprint = `assetcondition1-sha256:${createHash("sha256")
-    .update(stableJson(request), "utf8").digest("hex")}`;
-  return {...request, fingerprint};
+  const fingerprintRequest = requestContractVersion === 1 ? legacyRequest : {
+    ...legacyRequest,
+    basis,
+    componentHierarchyRefJson,
+  };
+  const fingerprint = `assetcondition${requestContractVersion}-sha256:${
+    createHash("sha256")
+      .update(stableJson(fingerprintRequest), "utf8").digest("hex")
+  }`;
+  return {
+    ...legacyRequest,
+    basis,
+    componentHierarchyRefJson,
+    requestContractVersion,
+    fingerprint,
+  };
 }
 
 export function userCanMutateAssetOperationalCondition(
@@ -281,6 +343,36 @@ function requireStringList(
   return value as string[];
 }
 
+function validPersistedComponentReference(
+  value: unknown,
+  identity: {assetInstanceId: string; assetClassId: string},
+): boolean {
+  if (typeof value !== "string" || value.trim().length === 0) return false;
+  try {
+    const decoded = JSON.parse(value);
+    if (decoded == null || typeof decoded !== "object" || Array.isArray(decoded)) {
+      return false;
+    }
+    const map = decoded as JsonMap;
+    return Object.keys(map).length === COMPONENT_REFERENCE_KEYS.size &&
+      Object.keys(map).every((key) => COMPONENT_REFERENCE_KEYS.has(key)) &&
+      map.schemaVersion === 4 && map.scope === "componentDefinitionOnAsset" &&
+      map.assetInstanceId === identity.assetInstanceId &&
+      map.assetClassId === identity.assetClassId &&
+      Number.isSafeInteger(map.assetInstanceVersion) &&
+      (map.assetInstanceVersion as number) >= 1 &&
+      Number.isSafeInteger(map.assetNumber) && (map.assetNumber as number) >= 1 &&
+      typeof map.nodeId === "string" && map.nodeId.trim().length > 0 &&
+      Number.isSafeInteger(map.nodeVersion) && (map.nodeVersion as number) >= 1 &&
+      typeof map.nodeName === "string" && map.nodeName.trim().length > 0 &&
+      map.componentInstanceId == null && map.componentInstanceVersion == null &&
+      map.componentTag == null && map.innerCoverAssociation == null &&
+      Array.isArray(map.hierarchyPath) && Array.isArray(map.accountableRoleKeys);
+  } catch {
+    return false;
+  }
+}
+
 function validateCurrentCondition(
   data: JsonMap | null,
   identity: {assetInstanceId: string; assetClassId: string},
@@ -310,7 +402,19 @@ function validateCurrentCondition(
   const validRestored = active === false && condition === "available" &&
     causes.length === 0 && linkedIssues.length === 0 && restorationComplete &&
     ACTIVE_CONDITIONS.has(data.previousCondition as ActiveCondition);
-  if (data.schemaVersion !== 1 || data.assetInstanceId !== identity.assetInstanceId ||
+  const schemaOne = data.schemaVersion === 1;
+  const schemaTwo = data.schemaVersion === 2;
+  const basis = data.basis;
+  const componentEvidenceValid = schemaOne ||
+    (schemaTwo && CONDITION_BASES.has(basis as ConditionBasis) &&
+      (basis === "innerCoverUnavailable" ?
+        data.componentHierarchyRefJson == null :
+        validPersistedComponentReference(
+          data.componentHierarchyRefJson,
+          identity,
+        )));
+  if ((!schemaOne && !schemaTwo) || !componentEvidenceValid ||
+      data.assetInstanceId !== identity.assetInstanceId ||
       data.assetClassId !== identity.assetClassId ||
       typeof data.assetClassCode !== "string" ||
       typeof data.assetClassName !== "string" ||
@@ -347,6 +451,8 @@ function conditionSnapshot(data: JsonMap | null): JsonMap | null {
     condition: data.condition,
     active: data.active,
     causeKeys: data.causeKeys,
+    basis: data.basis ?? null,
+    componentHierarchyRefJson: data.componentHierarchyRefJson ?? null,
     reason: data.reason,
     linkedIssueIds: data.linkedIssueIds,
     version: data.version,
@@ -379,6 +485,134 @@ function verifyAsset(data: JsonMap, request: ParsedRequest): void {
       {reasonCode: "asset-condition-administratively-out-of-service"},
     );
   }
+}
+
+function verifyAssetClass(data: JsonMap, asset: JsonMap, request: ParsedRequest): void {
+  if (data.schemaVersion !== 1 || data.assetClassId !== request.assetClassId ||
+      data.status !== "active" || data.code !== asset.assetClassCode ||
+      data.name !== asset.assetClassName || typeof data.legacyAssetTypeKey !== "string") {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The governed asset class is malformed, changed, or retired.",
+      {reasonCode: "asset-condition-asset-class-invalid"},
+    );
+  }
+}
+
+const COMPONENT_REFERENCE_KEYS = new Set([
+  "schemaVersion", "scope", "assetClassId", "assetClassCode",
+  "assetClassName", "nodeId", "nodeVersion", "nodeName",
+  "assetInstanceId", "assetInstanceVersion", "assetNumber",
+  "assetInstanceName", "componentInstanceId", "componentInstanceVersion",
+  "componentTag", "hierarchyPath", "ownershipStatus", "ownerDiscipline",
+  "accountableRoleKeys", "innerCoverAssociation",
+]);
+
+function componentReference(value: string | null): JsonMap | null {
+  if (value == null) return null;
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(value);
+  } catch {
+    invalid("componentHierarchyRefJson", "must contain valid JSON");
+  }
+  if (decoded == null || typeof decoded !== "object" || Array.isArray(decoded)) {
+    invalid("componentHierarchyRefJson", "must contain an object");
+  }
+  const map = decoded as JsonMap;
+  if (Object.keys(map).length !== COMPONENT_REFERENCE_KEYS.size ||
+      Object.keys(map).some((key) => !COMPONENT_REFERENCE_KEYS.has(key))) {
+    invalid(
+      "componentHierarchyRefJson",
+      "has missing or unsupported reference fields",
+    );
+  }
+  if (map.schemaVersion !== 4 || map.scope !== "componentDefinitionOnAsset") {
+    invalid(
+      "componentHierarchyRefJson",
+      "must be a component-on-physical-asset reference",
+    );
+  }
+  return map;
+}
+
+function storedStringList(
+  value: unknown,
+  field: string,
+  maximum: number,
+): ReadonlyArray<string> {
+  if (!Array.isArray(value) || value.length > maximum ||
+      value.some((item) => typeof item !== "string" || item.trim().length === 0) ||
+      new Set(value).size !== value.length) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `The governed hierarchy component has malformed ${field}.`,
+      {reasonCode: "asset-condition-component-definition-malformed", field},
+    );
+  }
+  return value as string[];
+}
+
+function canonicalComponentReference(args: {
+  reference: JsonMap;
+  asset: JsonMap;
+  node: JsonMap;
+}): string {
+  const {reference, asset, node} = args;
+  const hierarchyPath = storedStringList(node.hierarchyPath, "hierarchyPath", 20);
+  const accountableRoleKeys = storedStringList(
+    node.accountableRoleKeys,
+    "accountableRoleKeys",
+    10,
+  );
+  const ownerDiscipline = node.ownerDiscipline == null ? null : node.ownerDiscipline;
+  if (node.schemaVersion !== 1 || typeof node.nodeId !== "string" ||
+      node.nodeId !== reference.nodeId || node.assetClassId !== asset.assetClassId ||
+      node.status !== "active" ||
+      !["component", "subcomponent"].includes(node.nodeType as string) ||
+      !Number.isSafeInteger(node.version) || (node.version as number) < 1 ||
+      typeof node.name !== "string" || node.name.trim().length === 0 ||
+      !["unassigned", "provisional", "confirmed"].includes(
+        node.ownershipStatus as string,
+      ) ||
+      (ownerDiscipline != null &&
+        (typeof ownerDiscipline !== "string" || ownerDiscipline.trim().length === 0))) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The selected governed component is malformed, changed, or retired.",
+      {reasonCode: "asset-condition-component-definition-changed"},
+    );
+  }
+  const canonical: JsonMap = {
+    schemaVersion: 4,
+    scope: "componentDefinitionOnAsset",
+    assetClassId: asset.assetClassId,
+    assetClassCode: asset.assetClassCode,
+    assetClassName: asset.assetClassName,
+    nodeId: node.nodeId,
+    nodeVersion: node.version,
+    nodeName: node.name,
+    assetInstanceId: asset.assetInstanceId,
+    assetInstanceVersion: asset.version,
+    assetNumber: asset.assetNumber,
+    assetInstanceName: asset.name,
+    componentInstanceId: null,
+    componentInstanceVersion: null,
+    componentTag: null,
+    hierarchyPath,
+    ownershipStatus: node.ownershipStatus,
+    ownerDiscipline,
+    accountableRoleKeys,
+    innerCoverAssociation: null,
+  };
+  if (stableJson(reference) !== stableJson(canonical)) {
+    throw new AssetHierarchyMutationError(
+      "aborted",
+      "The selected governed component changed before the condition was recorded.",
+      {reasonCode: "asset-condition-component-definition-changed"},
+    );
+  }
+  return stableJson(canonical);
 }
 
 function verifyLinkedIssue(data: JsonMap, issueId: string, asset: JsonMap): void {
@@ -536,13 +770,28 @@ export async function mutateAssetOperationalConditionWithDb(args: {
   const request = parseAssetOperationalConditionMutationRequest(args.data);
   const db = args.db;
   const users = db.collection("users");
+  const assetClasses = db.collection("asset_classes");
   const assets = db.collection("asset_instances");
+  const hierarchyNodes = db.collection("asset_hierarchy_nodes");
+  const innerCoverAssignments = db.collection("base_inner_cover_assignments");
   const issues = db.collection("maintenance_records");
   const conditions = db.collection("asset_operational_conditions");
   const audits = db.collection("asset_operational_condition_audits");
   const receipts = db.collection("asset_operational_condition_receipts");
   const actorRef = users.doc(actorUid);
+  const assetClassRef = request.requestContractVersion === 2 ?
+    assetClasses.doc(request.assetClassId) : null;
   const assetRef = assets.doc(request.assetInstanceId);
+  const requestedComponentReference = componentReference(
+    request.componentHierarchyRefJson,
+  );
+  const componentNodeRef = requestedComponentReference == null ? null :
+    hierarchyNodes.doc(documentId(
+      requestedComponentReference.nodeId,
+      "componentHierarchyRefJson.nodeId",
+    ));
+  const innerCoverAssignmentRef = request.basis === "innerCoverUnavailable" ?
+    innerCoverAssignments.doc(request.assetInstanceId) : null;
   const conditionRef = conditions.doc(request.assetInstanceId);
   const auditId = `asset_condition_${request.requestId}`;
   const auditRef = audits.doc(auditId);
@@ -606,6 +855,14 @@ export async function mutateAssetOperationalConditionWithDb(args: {
       "Governed asset",
     );
     verifyAsset(assetData, request);
+    const assetClassData = assetClassRef == null ? null : record(
+      asSnapshot(
+        await transaction.get(assetClassRef),
+        "Asset-condition asset-class lookup",
+      ),
+      "Governed asset class",
+    );
+    if (assetClassData != null) verifyAssetClass(assetClassData, assetData, request);
     if (currentVersion !== request.expectedVersion) {
       throw new AssetHierarchyMutationError(
         "aborted",
@@ -628,6 +885,49 @@ export async function mutateAssetOperationalConditionWithDb(args: {
       verifyLinkedIssue(issueData, issue.id, assetData);
     }
 
+    let canonicalReferenceJson: string | null = null;
+    if (componentNodeRef != null && requestedComponentReference != null) {
+      const nodeData = record(
+        asSnapshot(
+          await transaction.get(componentNodeRef),
+          "Asset-condition component lookup",
+        ),
+        "Governed hierarchy component",
+      );
+      canonicalReferenceJson = canonicalComponentReference({
+        reference: requestedComponentReference,
+        asset: assetData,
+        node: nodeData,
+      });
+    }
+    if (request.operation === "DECLARE_ASSET_CONDITION" &&
+        request.basis === "innerCoverUnavailable") {
+      if (assetClassData?.legacyAssetTypeKey !== "base") {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "Inner Cover unavailability can only be declared against a governed Base.",
+          {reasonCode: "asset-condition-inner-cover-basis-not-base"},
+        );
+      }
+      const assignment = asSnapshot(
+        await transaction.get(innerCoverAssignmentRef!),
+        "Base Inner Cover assignment lookup",
+      );
+      if (assignment.exists) {
+        const assignmentData = assignment.data() ?? {};
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "Delink or retire the currently assigned Inner Cover before declaring it unavailable.",
+          {
+            reasonCode: "asset-condition-inner-cover-still-linked",
+            innerCoverSerialNumber:
+              typeof assignmentData.innerCoverSerialNumber === "string" ?
+                assignmentData.innerCoverSerialNumber : null,
+          },
+        );
+      }
+    }
+
     if (request.operation === "RESTORE_ASSET_CONDITION" &&
         (current == null || current.active !== true ||
          !ACTIVE_CONDITIONS.has(current.condition as ActiveCondition))) {
@@ -643,8 +943,10 @@ export async function mutateAssetOperationalConditionWithDb(args: {
     const version = currentVersion + 1;
     const active = request.operation === "DECLARE_ASSET_CONDITION";
     const nextCondition = active ? request.condition! : "available";
+    const nextSchemaVersion = active ?
+      request.requestContractVersion : current?.schemaVersion ?? 1;
     const next: JsonMap = {
-      schemaVersion: 1,
+      schemaVersion: nextSchemaVersion,
       assetInstanceId: request.assetInstanceId,
       assetClassId: assetData.assetClassId,
       assetClassCode: assetData.assetClassCode,
@@ -654,6 +956,11 @@ export async function mutateAssetOperationalConditionWithDb(args: {
       condition: nextCondition,
       active,
       causeKeys: active ? request.causeKeys : [],
+      ...(nextSchemaVersion === 2 ? {
+        basis: active ? request.basis : current?.basis,
+        componentHierarchyRefJson: active ?
+          canonicalReferenceJson : current?.componentHierarchyRefJson ?? null,
+      } : {}),
       reason: request.reason,
       linkedIssueIds: active ? request.linkedIssueIds : [],
       declaredAt: active ? committedAt : current?.declaredAt ?? null,

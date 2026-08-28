@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
@@ -46,6 +49,23 @@ Map<String, dynamic> roundMap({
   'fingerprint': 'burnerround1-sha256:${'a' * 64}',
 };
 
+Map<String, dynamic> roundMapV2() => <String, dynamic>{
+  ...roundMap(),
+  'schemaVersion': 2,
+  'draftSealRedHotObserved': true,
+  'hotAirAtDraftSealObserved': false,
+  'uvObservations': List<Map<String, dynamic>>.generate(
+    8,
+    (index) => <String, dynamic>{
+      'position': index + 1,
+      'condition': 'serviceable',
+      'remarks': null,
+    },
+  ),
+  'directivePositions': <int>[3],
+  'fingerprint': 'burnerround2-sha256:${'b' * 64}',
+};
+
 const requestId = '11111111-1111-4111-8111-111111111111';
 
 Map<String, dynamic> resultMap() => <String, dynamic>{
@@ -56,6 +76,20 @@ Map<String, dynamic> resultMap() => <String, dynamic>{
   'assetClassId': 'furnace-class',
   'assetInstanceId': 'furnace-2',
   'directiveId': 'burner_round_red_hot_$requestId',
+  'committedAt': DateTime.utc(2026, 8, 16, 18, 30),
+  'idempotentReplay': false,
+};
+
+Map<String, dynamic> complianceResultMap() => <String, dynamic>{
+  'ok': true,
+  'requestId': requestId,
+  'operation': burnerDirectiveComplianceOperation,
+  'roundId': requestId,
+  'assetClassId': 'furnace-class',
+  'assetInstanceId': 'furnace-2',
+  'closedDirectiveId': 'burner_round_red_hot_source-round',
+  'closedDirectiveVersion': 4,
+  'newDirectiveId': null,
   'committedAt': DateTime.utc(2026, 8, 16, 18, 30),
   'idempotentReplay': false,
 };
@@ -85,6 +119,161 @@ void main() {
       );
     }
   });
+
+  test('schema two retains UV and draft-seal condition authority', () {
+    final round = BurnerConditionRound.fromMap(roundMapV2(), 'round-1');
+    expect(round.draftSealRedHotObserved, isTrue);
+    expect(round.hotAirAtDraftSealObserved, isFalse);
+    expect(round.uvObservations, hasLength(8));
+    expect(round.uvObservations[2].condition, BurnerUvCondition.serviceable);
+    expect(round.directivePositions, <int>[3]);
+
+    for (final malformed in <Map<String, dynamic>>[
+      {...roundMapV2()}..remove('uvObservations'),
+      {...roundMapV2(), 'directivePositions': <int>[]},
+      {
+        ...roundMapV2(),
+        'uvObservations': List<Map<String, dynamic>>.from(
+          roundMapV2()['uvObservations']! as List,
+        )..removeLast(),
+      },
+    ]) {
+      expect(
+        () => BurnerConditionRound.fromMap(malformed, 'round-1'),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    }
+  });
+
+  test('current pointer binds one exact round to its governed furnace', () {
+    final pointer = BurnerConditionCurrentPointer.fromMap(<String, dynamic>{
+      'schemaVersion': 1,
+      'assetInstanceId': 'furnace-2',
+      'roundId': 'round-1',
+      'observedAt': DateTime.utc(2026, 8, 16, 18, 30),
+      'updatedAt': DateTime.utc(2026, 8, 16, 18, 30),
+    }, 'furnace-2');
+    final round = BurnerConditionRound.fromMap(roundMapV2(), 'round-1');
+
+    expect(pointer.requireMatchingRound(round), same(round));
+  });
+
+  test('current pointer rejects partial, stale, or cross-asset evidence', () {
+    final valid = <String, dynamic>{
+      'schemaVersion': 1,
+      'assetInstanceId': 'furnace-2',
+      'roundId': 'round-1',
+      'observedAt': DateTime.utc(2026, 8, 16, 18, 30),
+      'updatedAt': DateTime.utc(2026, 8, 16, 18, 30),
+    };
+    for (final malformed in <Map<String, dynamic>>[
+      <String, dynamic>{...valid}..remove('roundId'),
+      <String, dynamic>{...valid, 'assetInstanceId': 'furnace-3'},
+      <String, dynamic>{
+        ...valid,
+        'updatedAt': DateTime.utc(2026, 8, 16, 18, 29),
+      },
+      <String, dynamic>{...valid, 'unsupported': true},
+    ]) {
+      expect(
+        () => BurnerConditionCurrentPointer.fromMap(malformed, 'furnace-2'),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    }
+
+    final pointer = BurnerConditionCurrentPointer.fromMap(valid, 'furnace-2');
+    final mismatchedRound = BurnerConditionRound.fromMap(<String, dynamic>{
+      ...roundMapV2(),
+      'assetInstanceId': 'furnace-3',
+    }, 'round-1');
+    expect(
+      () => pointer.requireMatchingRound(mismatchedRound),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
+  test('current furnace resolution is not bounded by retained history', () {
+    final providerSource =
+        File(
+          'lib/features/assets/providers/burner_condition_round_provider.dart',
+        ).readAsStringSync().split('typedef BurnerConditionRoundQuery').first;
+
+    expect(providerSource, contains("collection('burner_condition_current')"));
+    expect(providerSource, contains("where('assetInstanceId'"));
+    expect(providerSource, contains('.limit(2)'));
+    expect(
+      providerSource,
+      isNot(contains('.limit(burnerConditionRoundReportLimit)')),
+    );
+  });
+
+  test('burner directive binding is exact and canonical', () {
+    final binding = BurnerRedHotDirectiveBinding.tryDecode(
+      jsonEncode(<String, dynamic>{
+        'schemaVersion': 1,
+        'trigger': 'burnerConditionRoundRedHot',
+        'sourceRoundId': 'round-1',
+        'burnerPositions': <int>[2, 4],
+        'automaticPlantActuation': false,
+      }),
+    );
+
+    expect(binding, isNotNull);
+    expect(binding!.sourceRoundId, 'round-1');
+    expect(binding.burnerPositions, <int>[2, 4]);
+    expect(
+      () => BurnerRedHotDirectiveBinding.tryDecode(
+        jsonEncode(<String, dynamic>{
+          'schemaVersion': 1,
+          'trigger': 'burnerConditionRoundRedHot',
+          'sourceRoundId': 'round-1',
+          'burnerPositions': <int>[4, 2],
+          'automaticPlantActuation': false,
+        }),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test(
+    'directive compliance projects UV disposition without rewriting history',
+    () {
+      final current = BurnerConditionRound.fromMap(roundMapV2(), 'round-1');
+      const binding = BurnerRedHotDirectiveBinding(
+        sourceRoundId: 'round-1',
+        burnerPositions: <int>[3],
+      );
+      final removed = projectBurnerDirectiveCompliance(
+        current: current,
+        binding: binding,
+        dispositions: const <int, BurnerDirectiveComplianceDisposition>{
+          3: BurnerDirectiveComplianceDisposition.uvHungRemoved,
+        },
+      );
+      expect(removed.changed, isTrue);
+      expect(removed.observations[2].redHotObserved, isTrue);
+      expect(
+        removed.observations[2].flameObservation,
+        BurnerRoundFlameObservation.notOperating,
+      );
+      expect(removed.observations[2].microampReading, isNull);
+      expect(removed.uvObservations[2].condition, BurnerUvCondition.hanging);
+
+      final restored = projectBurnerDirectiveCompliance(
+        current: current,
+        binding: binding,
+        dispositions: const <int, BurnerDirectiveComplianceDisposition>{
+          3: BurnerDirectiveComplianceDisposition.restoredInService,
+        },
+      );
+      expect(restored.changed, isTrue);
+      expect(restored.observations[2].redHotObserved, isFalse);
+      expect(
+        restored.uvObservations[2].condition,
+        BurnerUvCondition.serviceable,
+      );
+    },
+  );
 
   test('partial, duplicate, and contradictory observations fail closed', () {
     final partial = List<Map<String, dynamic>>.from(
@@ -159,6 +348,65 @@ void main() {
         throwsA(isA<PersistedDataFormatException>()),
       );
     }
+  });
+
+  test('compliance result retains the exact server closure receipt', () {
+    final result = BurnerDirectiveComplianceResult.fromCallableData(
+      complianceResultMap(),
+      expectedRequestId: requestId,
+      expectedAssetClassId: 'furnace-class',
+      expectedAssetInstanceId: 'furnace-2',
+      expectedDirectiveId: 'burner_round_red_hot_source-round',
+    );
+
+    expect(result.roundId, requestId);
+    expect(result.closedDirectiveVersion, 4);
+    expect(result.newDirectiveId, isNull);
+    expect(result.committedAt, DateTime.utc(2026, 8, 16, 18, 30));
+  });
+
+  test(
+    'compliance result rejects mismatched directive or successor evidence',
+    () {
+      for (final malformed in <Map<String, dynamic>>[
+        complianceResultMap()..['closedDirectiveId'] = 'different-directive',
+        complianceResultMap()
+          ..['newDirectiveId'] = 'burner_round_red_hot_different-round',
+        complianceResultMap()..['closedDirectiveVersion'] = 1,
+      ]) {
+        expect(
+          () => BurnerDirectiveComplianceResult.fromCallableData(
+            malformed,
+            expectedRequestId: requestId,
+            expectedAssetClassId: 'furnace-class',
+            expectedAssetInstanceId: 'furnace-2',
+            expectedDirectiveId: 'burner_round_red_hot_source-round',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
+    },
+  );
+
+  test('compliance receipt survives retry-identity cleanup failure', () async {
+    final committed = BurnerDirectiveComplianceResult.fromCallableData(
+      complianceResultMap(),
+      expectedRequestId: requestId,
+      expectedAssetClassId: 'furnace-class',
+      expectedAssetInstanceId: 'furnace-2',
+      expectedDirectiveId: 'burner_round_red_hot_source-round',
+    );
+
+    final result = await finalizeBurnerDirectiveComplianceResult(
+      result: committed,
+      clearPendingIdentity: () async {
+        throw StateError('local storage unavailable');
+      },
+    );
+
+    expect(result.roundId, committed.roundId);
+    expect(result.closedDirectiveVersion, committed.closedDirectiveVersion);
+    expect(result.retryIdentityCleanupPending, isTrue);
   });
 
   test('committed round survives local retry cleanup failure', () async {

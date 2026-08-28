@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "098A89070E57C7849AFB6B2A687E4F6EC1C6C83C81B95AB4F8E1E3CF23D91807",
+  "inventoryDigest": "B16D0DD047E50C8B09199CE0EB628A86994A54A6A5BE52D83BEFB84816C573F7",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "7A0CE14D542F2137A4FEF32897AD29387135E140104042E94355588114E1DD2F",
+  "a05ManifestSha256": "E09C98105FE934A91D9B03E8BCD5CE7E699BDE50204DF17A7DEDCF60C4CFF937",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -869,13 +869,22 @@
       "regression": "test/a05_baf_knowledge_integrity_test.dart"
     },
     {
+      "id": "burner-block-lifecycle-record",
+      "file": "lib/features/assets/data/burner_block_lifecycle_event.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "append-only Furnace burner-block replacement evidence and its server-maintained per-position current-state projection",
+      "malformedDisposition": "fail closed before malformed lifecycle or current-projection evidence changes burner condition reporting",
+      "compatibility": "schema version 1 only; exact Furnace and burner identity, governed hierarchy, Mechanical installation, source provenance, chronology, and projection binding",
+      "regression": "test/planned_maintenance_burner_block_lifecycle_test.dart; functions/test/burnerBlockLifecycle.test.js"
+    },
+    {
       "id": "burner-condition-round-command-result",
       "file": "lib/features/assets/services/burner_condition_round_service.dart",
       "classification": "SERVER_COMMAND_RECEIPT",
-      "authorityBoundary": "governed burner-condition round result, asset identity, replay, directive, and commit-time evidence",
-      "malformedDisposition": "translate malformed callable evidence to data-loss and never report round capture success",
-      "compatibility": "none for request, round, operation, asset, directive, replay, or commit-time evidence",
-      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js"
+      "authorityBoundary": "governed burner-condition round and directive-compliance results, asset identity, replay, directive, and commit-time evidence",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report round capture or directive closure success",
+      "compatibility": "none for request, round, operation, asset, directive, version, replay, or commit-time evidence",
+      "regression": "test/burner_condition_round_test.dart; test/directive_server_closure_adoption_test.dart; functions/test/burnerConditionRoundMutation.test.js; functions/test/burnerDirectiveComplianceMutation.test.js"
     },
     {
       "id": "burner-condition-round-pending-identity",
@@ -890,9 +899,9 @@
       "id": "burner-condition-round-record",
       "file": "lib/features/assets/data/burner_condition_round.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "immutable eight-position Furnace burner observation, microamp, red-hot, actor, and directive evidence",
-      "malformedDisposition": "fail closed before malformed or internally inconsistent burner-round evidence enters reliability reporting",
-      "compatibility": "schema version 1 only; exactly eight ordered positions and exact derived position projections",
+      "authorityBoundary": "server-maintained current-round identity plus immutable eight-position Furnace burner and UV observation, microamp, red-hot, draft-seal, actor, and directive-source evidence",
+      "malformedDisposition": "fail closed before a malformed current pointer, missing or mismatched referenced round, or internally inconsistent burner-round evidence enters reliability reporting",
+      "compatibility": "round schemas 1 and 2 plus current-pointer schema 1; exactly eight ordered positions, exact derived position projections, strict directive-source binding, and exact pointer-to-round identity and chronology",
       "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js"
     },
     {
@@ -980,9 +989,9 @@
       "id": "critical-alarm-records",
       "file": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
       "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
-      "authorityBoundary": "server-governed alarm lifecycle and exact hazard-specific emergency contact directory",
+      "authorityBoundary": "server-governed alarm lifecycle, editable hazard catalogue, and exact hazard-specific emergency contact directory",
       "malformedDisposition": "fail closed before malformed severity, lifecycle, actor, chronology, dial target, or hazard mapping reaches safety coordination",
-      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact contact audit fields",
+      "compatibility": "schema version 1 only; complete state-specific lifecycle evidence and exact definition and contact audit fields",
       "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js"
     },
     {

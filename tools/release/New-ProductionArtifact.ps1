@@ -593,7 +593,8 @@ if ([string]$constructionBoundary.authority -ne
 & pwsh -NoProfile -ExecutionPolicy Bypass `
   -File tools/release/Test-ProductionReleasePolicy.ps1 `
   -PolicyPath $PolicyPath `
-  -RepositoryRoot $repo
+  -RepositoryRoot $repo `
+  -RequireArtifactConstructionAuthority
 if ($LASTEXITCODE -ne 0) {
   throw 'Production policy verification failed.'
 }

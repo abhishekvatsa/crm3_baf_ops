@@ -136,6 +136,24 @@ function criticalAlarmDocuments() {
         updatedByName: 'Admin One',
       },
     }],
+    critical_alarm_definitions: [{
+      id: 'fire',
+      data: {
+        schemaVersion: 1,
+        definitionId: 'fire',
+        version: 1,
+        status: 'active',
+        name: 'Fire',
+        criticalityKey: 'highest',
+        criticalityRank: 1,
+        createdAt: ts,
+        createdByUid: 'admin-1',
+        createdByName: 'Admin One',
+        updatedAt: ts,
+        updatedByUid: 'admin-1',
+        updatedByName: 'Admin One',
+      },
+    }],
   };
 }
 
@@ -170,6 +188,64 @@ function burnerConditionRoundDocuments() {
         recordedByName: 'I&A',
         directiveId: `burner_round_red_hot_${roundId}`,
         fingerprint: `burnerround1-sha256:${'a'.repeat(64)}`,
+      },
+    }],
+  };
+}
+
+function burnerBlockLifecycleDocuments() {
+  const eventId = `bbl_${'a'.repeat(40)}`;
+  const projectionId = `bblc_${'b'.repeat(40)}`;
+  const data = {
+    schemaVersion: 1,
+    eventId,
+    eventType: 'replacement',
+    assetClassId: 'furnace-class',
+    assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace',
+    assetInstanceId: 'furnace-7',
+    assetInstanceName: 'Furnace 7',
+    assetNumber: 7,
+    hierarchyNodeId: 'burner-block-node',
+    hierarchyNodeName: 'Burner blocks and firing tubes',
+    hierarchyPath: [
+      'Furnace',
+      'Refractory system',
+      'Burner blocks and firing tubes',
+    ],
+    componentTag: null,
+    burnerPosition: 3,
+    replacementDisposition: 'newPart',
+    supplyMode: 'purchased',
+    supplierName: 'Industrial Refractories Ltd',
+    purchaseOrderNumber: 'PO-2026-411',
+    installationDiscipline: 'mechanical',
+    performedByName: 'Mechanical Technician One',
+    sourceType: 'workflowPlannedJob',
+    sourceId: 'execution-1',
+    sourceModuleId: 'module-1',
+    sourceActionId: 'action-1',
+    sourceActionIndex: 0,
+    actionPerformedAt: ts,
+    completedAt: ts,
+    completedByUid: 'private-supervisor-id',
+    completedByName: 'Supervisor One',
+    recordedAt: ts,
+    version: 1,
+    isDeleted: false,
+  };
+  return {
+    burner_block_lifecycle_events: [{
+      id: eventId,
+      data,
+    }],
+    burner_block_lifecycle_current: [{
+      id: projectionId,
+      data: {
+        ...data,
+        projectionSchemaVersion: 1,
+        projectionId,
+        currentEventId: eventId,
       },
     }],
   };
@@ -955,7 +1031,7 @@ test('actual Dart readers reconcile critical alarms and exact contacts', async (
     hmacKey: HMAC_KEY,
   });
 
-  assert.equal(reconciliation.length, 2);
+  assert.equal(reconciliation.length, 3);
   assert.ok(reconciliation.every((result) => result.result === 'PASS'));
   assert.equal(JSON.stringify(reconciliation).includes('alarm-1'), false);
   assert.equal(JSON.stringify(reconciliation).includes('fire-room'), false);
@@ -966,6 +1042,7 @@ test('actual Dart readers reconcile critical alarms and exact contacts', async (
       'users',
       'runtime_contracts',
       'critical_alarm_contacts',
+      'critical_alarm_definitions',
       'critical_alarms',
     ],
     reconciliation,
@@ -973,6 +1050,10 @@ test('actual Dart readers reconcile critical alarms and exact contacts', async (
   assert.equal(result.decision, A05_DECISIONS.pass);
   assert.equal(
     result.collectionDispositions.critical_alarm_contacts,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+  assert.equal(
+    result.collectionDispositions.critical_alarm_definitions,
     'DART_STRICT_RECONCILIATION_PASS',
   );
   assert.equal(
@@ -1069,6 +1150,38 @@ test('actual Dart reader reconciles immutable burner-condition rounds', async ()
   assert.equal(result.decision, A05_DECISIONS.pass);
   assert.equal(
     result.collectionDispositions.burner_condition_rounds,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+});
+
+test('actual Dart reader reconciles immutable burner-block lifecycle events', async () => {
+  const lifecycle = burnerBlockLifecycleDocuments();
+  const documents = {
+    ...emptyDocuments(),
+    users: [{id: 'private-user-id', data: user()}],
+    runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
+    ...lifecycle,
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  assert.equal(reconciliation.length, 2);
+  assert.equal(reconciliation.every((entry) => entry.result === 'PASS'), true);
+  assert.equal(JSON.stringify(reconciliation).includes('execution-1'), false);
+
+  const result = classify({
+    documents,
+    roots: ['users', 'runtime_contracts', ...Object.keys(lifecycle)],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.pass);
+  assert.equal(
+    result.collectionDispositions.burner_block_lifecycle_events,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+  assert.equal(
+    result.collectionDispositions.burner_block_lifecycle_current,
     'DART_STRICT_RECONCILIATION_PASS',
   );
 });

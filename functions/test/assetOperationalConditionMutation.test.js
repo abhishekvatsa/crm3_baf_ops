@@ -90,6 +90,61 @@ function asset(overrides = {}) {
   };
 }
 
+function assetClass(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    assetClassId: IDS.class,
+    code: 'FURNACE',
+    name: 'Furnace',
+    legacyAssetTypeKey: 'furnace',
+    status: 'active',
+    ...overrides,
+  };
+}
+
+function hierarchyNode(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    nodeId: 'burner-system',
+    assetClassId: IDS.class,
+    status: 'active',
+    nodeType: 'component',
+    version: 3,
+    name: 'Burner system',
+    hierarchyPath: ['Combustion system', 'Burner system'],
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'I&A',
+    accountableRoleKeys: ['seniorInstrumentation'],
+    ...overrides,
+  };
+}
+
+function componentReferenceJson(overrides = {}) {
+  return JSON.stringify({
+    schemaVersion: 4,
+    scope: 'componentDefinitionOnAsset',
+    assetClassId: IDS.class,
+    assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace',
+    nodeId: 'burner-system',
+    nodeVersion: 3,
+    nodeName: 'Burner system',
+    assetInstanceId: IDS.asset,
+    assetInstanceVersion: 2,
+    assetNumber: 7,
+    assetInstanceName: 'Furnace 7',
+    componentInstanceId: null,
+    componentInstanceVersion: null,
+    componentTag: null,
+    hierarchyPath: ['Combustion system', 'Burner system'],
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'I&A',
+    accountableRoleKeys: ['seniorInstrumentation'],
+    innerCoverAssociation: null,
+    ...overrides,
+  });
+}
+
 function issueReference(assetInstanceId = IDS.asset) {
   return JSON.stringify({
     schemaVersion: 2,
@@ -109,6 +164,8 @@ function declareRequest(overrides = {}) {
     expectedVersion: 0,
     condition: 'down',
     causeKeys: ['breakdown'],
+    basis: 'pendingMaintenance',
+    componentHierarchyRefJson: componentReferenceJson(),
     reason: 'Drive fault prevents safe operation.',
     linkedIssueIds: ['issue-1'],
     ...overrides,
@@ -151,6 +208,8 @@ function baseSeed() {
     'users/shift-1': user('shiftSupervisor', 'Shift Supervisor'),
     'users/contract-1': user('contractSupervisor', 'Contract Supervisor'),
     [`asset_instances/${IDS.asset}`]: asset(),
+    [`asset_classes/${IDS.class}`]: assetClass(),
+    'asset_hierarchy_nodes/burner-system': hierarchyNode(),
     'maintenance_records/issue-1': {
       isDeleted: false,
       isResolved: false,
@@ -171,12 +230,51 @@ async function invoke(memory, authUid, data) {
 
 describe('asset operational condition mutation', () => {
   test('parses a bounded declaration and rejects unknown request fields', () => {
-    expect(parseAssetOperationalConditionMutationRequest(declareRequest()))
-      .toMatchObject({condition: 'down', causeKeys: ['breakdown']});
+    const parsed = parseAssetOperationalConditionMutationRequest(declareRequest());
+    expect(parsed)
+      .toMatchObject({
+        condition: 'down',
+        causeKeys: ['breakdown'],
+        basis: 'pendingMaintenance',
+        requestContractVersion: 2,
+      });
+    expect(parsed.fingerprint).toMatch(/^assetcondition2-sha256:[0-9a-f]{64}$/);
     expect(() => parseAssetOperationalConditionMutationRequest({
       ...declareRequest(),
       surprise: true,
     })).toThrow('surprise is unsupported');
+  });
+
+  test('preserves the legacy request fingerprint and rejects a partial v2 shape', () => {
+    const legacy = declareRequest();
+    delete legacy.basis;
+    delete legacy.componentHierarchyRefJson;
+    const parsed = parseAssetOperationalConditionMutationRequest(legacy);
+    expect(parsed).toMatchObject({
+      requestContractVersion: 1,
+      basis: null,
+      componentHierarchyRefJson: null,
+    });
+    expect(parsed.fingerprint).toBe(
+      'assetcondition1-sha256:ffe6759e1fa901412e21e1e5d6effed99e4058f72f356d237c11780de0af011e',
+    );
+    expect(() => parseAssetOperationalConditionMutationRequest({
+      ...legacy,
+      basis: 'pendingMaintenance',
+    })).toThrow('basis and componentHierarchyRefJson must be supplied together');
+  });
+
+  test('a legacy declaration remains schema-1 compatible', async () => {
+    const memory = fakeDb(baseSeed());
+    const legacy = declareRequest();
+    delete legacy.basis;
+    delete legacy.componentHierarchyRefJson;
+    await expect(invoke(memory, 'ops-1', legacy))
+      .resolves.toMatchObject({condition: 'down', version: 1});
+    expect(memory.store.get(`asset_operational_conditions/${IDS.asset}`))
+      .toMatchObject({schemaVersion: 1, active: true, condition: 'down'});
+    expect(memory.store.get(`asset_operational_conditions/${IDS.asset}`))
+      .not.toHaveProperty('basis');
   });
 
   test('authority distinguishes declaration from restoration', () => {
@@ -211,14 +309,22 @@ describe('asset operational condition mutation', () => {
     });
     expect(replay).toEqual({...first, idempotentReplay: true});
     expect(memory.writes).toHaveLength(writesAfterFirst);
-    expect(memory.store.get(`asset_operational_conditions/${IDS.asset}`))
-      .toMatchObject({
+    const storedCondition = memory.store.get(
+      `asset_operational_conditions/${IDS.asset}`,
+    );
+    expect(storedCondition).toMatchObject({
+        schemaVersion: 2,
         active: true,
         condition: 'down',
+        basis: 'pendingMaintenance',
         linkedIssueIds: ['issue-1'],
         declaredByUid: 'ops-1',
         version: 1,
       });
+    expect(JSON.parse(storedCondition.componentHierarchyRefJson)).toMatchObject({
+      nodeId: 'burner-system',
+      assetInstanceId: IDS.asset,
+    });
   });
 
   test('linked issue must carry the same governed asset identity', async () => {
@@ -230,6 +336,55 @@ describe('asset operational condition mutation', () => {
         code: 'failed-precondition',
         details: {reasonCode: 'asset-condition-linked-issue-asset-mismatch'},
       });
+  });
+
+  test('stale governed component evidence fails without writes', async () => {
+    const memory = fakeDb(baseSeed());
+    await expect(invoke(memory, 'ops-1', declareRequest({
+      componentHierarchyRefJson: componentReferenceJson({nodeVersion: 2}),
+    }))).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'asset-condition-component-definition-changed'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('Inner Cover unavailability is Base-only and requires a vacant assignment', async () => {
+    const base = {
+      ...baseSeed(),
+      [`asset_classes/${IDS.class}`]: assetClass({
+        code: 'BASE',
+        name: 'Base',
+        legacyAssetTypeKey: 'base',
+      }),
+      [`asset_instances/${IDS.asset}`]: asset({
+        assetClassCode: 'BASE',
+        assetClassName: 'Base',
+        name: 'Base 7',
+      }),
+    };
+    const request = declareRequest({
+      basis: 'innerCoverUnavailable',
+      componentHierarchyRefJson: null,
+    });
+    await expect(invoke(fakeDb(base), 'ops-1', request))
+      .resolves.toMatchObject({condition: 'down', version: 1});
+
+    const linked = fakeDb({
+      ...base,
+      [`base_inner_cover_assignments/${IDS.asset}`]: {
+        innerCoverSerialNumber: 'GR26',
+      },
+    });
+    await expect(invoke(linked, 'ops-1', request))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'asset-condition-inner-cover-still-linked',
+          innerCoverSerialNumber: 'GR26',
+        },
+      });
+    expect(linked.writes).toHaveLength(0);
   });
 
   test('schema-3 physical asset issue remains valid condition evidence', async () => {

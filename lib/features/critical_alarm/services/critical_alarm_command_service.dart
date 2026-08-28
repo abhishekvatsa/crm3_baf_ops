@@ -67,7 +67,7 @@ class CriticalAlarmCommandService {
     required String location,
     String? assetTypeKey,
     int? assetNumber,
-    String? initialDetails,
+    required String initialDetails,
   }) {
     final alarmId = WorkflowCommandFactory.uniqueId('critical_alarm');
     return _execute(
@@ -175,6 +175,44 @@ class CriticalAlarmCommandService {
       type: WorkflowCommandType.setCriticalAlarmContactStatus,
       aggregateId: contact.id,
       expectedVersion: contact.version,
+      payload: {'status': status.name, 'reason': reason},
+    ),
+  );
+
+  Future<WorkflowCommandReceipt> upsertDefinition({
+    CriticalAlarmDefinition? definition,
+    required String name,
+    required String criticalityKey,
+    required int criticalityRank,
+    required String reason,
+  }) => _execute(
+    WorkflowCommandFactory.create(
+      type: WorkflowCommandType.upsertCriticalAlarmDefinition,
+      aggregateId:
+          definition?.key ??
+          WorkflowCommandFactory.uniqueId('critical_alarm_definition'),
+      expectedVersion: definition?.version ?? 0,
+      payload: {
+        'definition': {
+          'schemaVersion': 1,
+          'name': name,
+          'criticalityKey': criticalityKey,
+          'criticalityRank': criticalityRank,
+        },
+        'reason': reason,
+      },
+    ),
+  );
+
+  Future<WorkflowCommandReceipt> setDefinitionStatus({
+    required CriticalAlarmDefinition definition,
+    required CriticalAlarmDefinitionStatus status,
+    required String reason,
+  }) => _execute(
+    WorkflowCommandFactory.create(
+      type: WorkflowCommandType.setCriticalAlarmDefinitionStatus,
+      aggregateId: definition.key,
+      expectedVersion: definition.version,
       payload: {'status': status.name, 'reason': reason},
     ),
   );

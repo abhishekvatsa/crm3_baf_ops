@@ -8,6 +8,7 @@ import '../services/quality_command_service.dart';
 
 const qualityWarningLiveWindowLimit = 500;
 const qualityMonitoringLiveWindowLimit = 250;
+const qualityMonitoringOperationalRetention = Duration(days: 7);
 
 final qualityCommandServiceProvider = Provider<QualityCommandService>(
   (ref) => QualityCommandService(),
@@ -106,7 +107,9 @@ final qualityMonitoringRequestsProvider =
           .limit(qualityMonitoringLiveWindowLimit)
           .snapshots()
           .map(_decodeQualityMonitoringRequests);
-      return _combineQualityMonitoringWindows(active, recent);
+      return _retainQualityMonitoringOperationalWindow(
+        _combineQualityMonitoringWindows(active, recent),
+      );
     });
 
 /// Complete quality-monitoring population for date- and asset-bound reports.
@@ -155,6 +158,72 @@ List<QualityMonitoringRequest> mergeQualityMonitoringWindows(
       for (final request in active) request.requestId: request,
     }.values,
   );
+}
+
+List<QualityMonitoringRequest> retainQualityMonitoringOperationalWindow(
+  Iterable<QualityMonitoringRequest> source, {
+  DateTime? now,
+}) {
+  final reference = (now ?? DateTime.now()).toUtc();
+  final cutoff = reference.subtract(qualityMonitoringOperationalRetention);
+  return List<QualityMonitoringRequest>.unmodifiable(
+    source.where((request) {
+      if (request.status == QualityMonitoringStatus.active) return true;
+      final closedAt = request.closedAt;
+      return closedAt != null && closedAt.toUtc().isAfter(cutoff);
+    }),
+  );
+}
+
+Stream<List<QualityMonitoringRequest>>
+_retainQualityMonitoringOperationalWindow(
+  Stream<List<QualityMonitoringRequest>> source,
+) {
+  late StreamController<List<QualityMonitoringRequest>> controller;
+  StreamSubscription<List<QualityMonitoringRequest>>? subscription;
+  Timer? expiryTimer;
+  List<QualityMonitoringRequest>? latest;
+
+  void emitAndSchedule() {
+    final requests = latest;
+    if (requests == null) return;
+    final now = DateTime.now().toUtc();
+    controller.add(
+      retainQualityMonitoringOperationalWindow(requests, now: now),
+    );
+    expiryTimer?.cancel();
+    DateTime? nextExpiry;
+    for (final request in requests) {
+      if (request.status != QualityMonitoringStatus.closed ||
+          request.closedAt == null) {
+        continue;
+      }
+      final expiry = request.closedAt!.toUtc().add(
+        qualityMonitoringOperationalRetention,
+      );
+      if (!expiry.isAfter(now)) continue;
+      if (nextExpiry == null || expiry.isBefore(nextExpiry)) {
+        nextExpiry = expiry;
+      }
+    }
+    if (nextExpiry != null) {
+      expiryTimer = Timer(nextExpiry.difference(now), emitAndSchedule);
+    }
+  }
+
+  controller = StreamController<List<QualityMonitoringRequest>>(
+    onListen: () {
+      subscription = source.listen((value) {
+        latest = value;
+        emitAndSchedule();
+      }, onError: controller.addError);
+    },
+    onCancel: () async {
+      expiryTimer?.cancel();
+      await subscription?.cancel();
+    },
+  );
+  return controller.stream;
 }
 
 Stream<List<QualityMonitoringRequest>> _combineQualityMonitoringWindows(

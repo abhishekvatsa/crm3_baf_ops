@@ -22,6 +22,13 @@ class CriticalAlarmContactsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentAppUserProvider).asData?.value;
     final contacts = ref.watch(criticalAlarmContactsProvider);
+    final definitionFeed = ref.watch(criticalAlarmDefinitionsProvider);
+    final definitions =
+        definitionFeed.asData?.value ?? const <CriticalAlarmDefinition>[];
+    final definitionNames = {
+      for (final definition in definitions) definition.key: definition.name,
+    };
+    final canManage = user?.isAdmin == true && definitionFeed.hasValue;
     return contacts.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error:
@@ -58,45 +65,64 @@ class CriticalAlarmContactsPanel extends ConsumerWidget {
             message:
                 'Follow the plant emergency procedure. CRM3 will not substitute a contact from another alarm type.',
             action:
-                user?.isAdmin == true
+                canManage
                     ? FilledButton.icon(
                       onPressed:
-                          () => showCriticalAlarmContactEditor(context, ref),
+                          () => showCriticalAlarmContactEditor(
+                            context,
+                            ref,
+                            definitions: definitions,
+                          ),
                       icon: const Icon(Icons.add_call),
                       label: const Text('Add contact'),
                     )
                     : null,
           );
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(BafSpacing.md),
-          itemCount: filtered.length + (user?.isAdmin == true ? 1 : 0),
-          separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.sm),
-          itemBuilder: (context, index) {
-            if (index == filtered.length) {
-              return Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  onPressed: () => showCriticalAlarmContactEditor(context, ref),
-                  icon: const Icon(Icons.add_call),
-                  label: const Text('Add approved contact'),
-                ),
-              );
-            }
-            final contact = filtered[index];
-            return _ContactCard(
-              contact: contact,
-              canManage: user?.isAdmin == true,
-              onEdit:
-                  () => showCriticalAlarmContactEditor(
-                    context,
-                    ref,
-                    contact: contact,
+        return SafeArea(
+          top: false,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(
+              BafSpacing.md,
+              BafSpacing.md,
+              BafSpacing.md,
+              BafSpacing.xl,
+            ),
+            itemCount: filtered.length + (canManage ? 1 : 0),
+            separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.sm),
+            itemBuilder: (context, index) {
+              if (canManage && index == 0) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed:
+                        () => showCriticalAlarmContactEditor(
+                          context,
+                          ref,
+                          definitions: definitions,
+                        ),
+                    icon: const Icon(Icons.add_call),
+                    label: const Text('Add approved contact'),
                   ),
-              onStatus: () => _changeStatus(context, ref, contact),
-              onDial: () => _dial(context, ref, contact),
-            );
-          },
+                );
+              }
+              final contact = filtered[index - (canManage ? 1 : 0)];
+              return _ContactCard(
+                contact: contact,
+                definitionNames: definitionNames,
+                canManage: canManage,
+                onEdit:
+                    () => showCriticalAlarmContactEditor(
+                      context,
+                      ref,
+                      contact: contact,
+                      definitions: definitions,
+                    ),
+                onStatus: () => _changeStatus(context, ref, contact),
+                onDial: () => _dial(context, ref, contact),
+              );
+            },
+          ),
         );
       },
     );
@@ -220,6 +246,7 @@ class _ContactStatusReasonDialogState
 class _ContactCard extends StatelessWidget {
   const _ContactCard({
     required this.contact,
+    required this.definitionNames,
     required this.canManage,
     required this.onEdit,
     required this.onStatus,
@@ -227,6 +254,7 @@ class _ContactCard extends StatelessWidget {
   });
 
   final CriticalAlarmContact contact;
+  final Map<String, String> definitionNames;
   final bool canManage;
   final VoidCallback onEdit;
   final VoidCallback onStatus;
@@ -303,7 +331,9 @@ class _ContactCard extends StatelessWidget {
                       (key) => Chip(
                         visualDensity: VisualDensity.compact,
                         label: Text(
-                          CriticalAlarmDefinition.byKey[key]?.name ?? key,
+                          definitionNames[key] ??
+                              CriticalAlarmDefinition.byKey[key]?.name ??
+                              key,
                         ),
                       ),
                     )
@@ -323,10 +353,11 @@ Future<void> showCriticalAlarmContactEditor(
   BuildContext context,
   WidgetRef ref, {
   CriticalAlarmContact? contact,
+  required List<CriticalAlarmDefinition> definitions,
 }) async {
   final draft = await showDialog<_ContactDraft>(
     context: context,
-    builder: (_) => _ContactEditor(contact: contact),
+    builder: (_) => _ContactEditor(contact: contact, definitions: definitions),
   );
   if (draft == null || !context.mounted) return;
   try {
@@ -354,9 +385,10 @@ Future<void> showCriticalAlarmContactEditor(
 }
 
 class _ContactEditor extends StatefulWidget {
-  const _ContactEditor({this.contact});
+  const _ContactEditor({this.contact, required this.definitions});
 
   final CriticalAlarmContact? contact;
+  final List<CriticalAlarmDefinition> definitions;
 
   @override
   State<_ContactEditor> createState() => _ContactEditorState();
@@ -382,7 +414,13 @@ class _ContactEditorState extends State<_ContactEditor> {
     _notes = TextEditingController(text: contact?.notes);
     _reason = TextEditingController();
     _kind = contact?.kind ?? CriticalAlarmContactKind.mobile;
-    _alarmTypes = contact?.alarmTypeKeys.toSet() ?? <String>{};
+    final activeKeys =
+        widget.definitions
+            .where((definition) => definition.isActive)
+            .map((definition) => definition.key)
+            .toSet();
+    _alarmTypes =
+        contact?.alarmTypeKeys.where(activeKeys.contains).toSet() ?? <String>{};
   }
 
   @override
@@ -468,23 +506,25 @@ class _ContactEditorState extends State<_ContactEditor> {
                 'Exact alarm types',
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
-              ...CriticalAlarmDefinition.values.map(
-                (definition) => CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: _alarmTypes.contains(definition.key),
-                  title: Text(definition.name),
-                  onChanged: (selected) {
-                    setState(() {
-                      if (selected == true) {
-                        _alarmTypes.add(definition.key);
-                      } else {
-                        _alarmTypes.remove(definition.key);
-                      }
-                    });
-                  },
-                ),
-              ),
+              ...widget.definitions
+                  .where((definition) => definition.isActive)
+                  .map(
+                    (definition) => CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: _alarmTypes.contains(definition.key),
+                      title: Text(definition.name),
+                      onChanged: (selected) {
+                        setState(() {
+                          if (selected == true) {
+                            _alarmTypes.add(definition.key);
+                          } else {
+                            _alarmTypes.remove(definition.key);
+                          }
+                        });
+                      },
+                    ),
+                  ),
               TextFormField(
                 controller: _notes,
                 maxLines: 2,

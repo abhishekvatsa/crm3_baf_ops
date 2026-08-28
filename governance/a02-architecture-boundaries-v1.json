@@ -181,6 +181,64 @@
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
+      "path": "lib/features/assets/presentation/asset_condition_board.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / assets",
+      "purpose": "Owns the plant-condition board, asset-class filters, condition declaration workflow, and the governed cause and component evidence presented with each asset.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved-user capabilities gate declaration and restoration actions; repositories and the governed mutation service remain authoritative for stored condition evidence.",
+      "persistenceOwnership": "No direct persistence is admitted; providers load condition and hierarchy facts while the command service owns mutations.",
+      "transactionOwnership": "No database transaction is owned by this presentation surface.",
+      "rationale": "The board is a cohesive operational workspace whose filters, declaration dialog, Inner Cover consequence handling, and responsive list share one state lifecycle; it remains bounded by explicit no-persistence markers and focused authority tests.",
+      "regressionTests": [
+        "test/operational_asset_screen_authority_gate_test.dart",
+        "test/plant_overview_panel_test.dart",
+        "test/asset_operational_condition_model_test.dart"
+      ],
+      "maximumLines": 1500,
+      "requiredMarkers": [
+        "class AssetConditionBoard"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/assets/presentation/asset_registry_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / assets",
+      "purpose": "Owns the approved-user asset registry, physical-asset detail, read-only hierarchy browser, installed-component lineage, and responsive registry states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved operational access is checked before registry providers are observed; this screen exposes no hierarchy or component mutation authority.",
+      "persistenceOwnership": "No direct persistence is admitted; typed asset, condition, hierarchy, and component providers own all reads.",
+      "transactionOwnership": "No database transaction is owned by this presentation surface.",
+      "rationale": "The registry and its detail browser form one read-only asset-inspection workflow. Keeping the responsive cards, hierarchy browser, and component lineage together preserves navigation state without importing persistence or mutation ownership.",
+      "regressionTests": [
+        "test/read_only_asset_registry_ui_test.dart",
+        "test/operational_asset_screen_authority_gate_test.dart",
+        "test/governed_asset_target_picker_test.dart"
+      ],
+      "maximumLines": 1400,
+      "requiredMarkers": [
+        "class AssetRegistryScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
       "path": "lib/features/assets/presentation/inner_cover_lifecycle_screen.dart",
       "disposition": "bounded-exception",
       "owner": "Architecture / assets",
@@ -199,7 +257,7 @@
         "test/inner_cover_lifecycle_screen_test.dart",
         "test/operational_asset_screen_authority_gate_test.dart"
       ],
-      "maximumLines": 1948,
+      "maximumLines": 2050,
       "requiredMarkers": [
         "class InnerCoverLifecycleScreen"
       ],

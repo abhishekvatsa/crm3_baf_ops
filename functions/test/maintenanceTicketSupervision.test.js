@@ -123,6 +123,168 @@ function physicalAssetReference(assetVersion = 4) {
   });
 }
 
+function seedFurnaceHierarchy(store) {
+  store.seed('asset_classes/class-furnace', {
+    schemaVersion: 1,
+    assetClassId: 'class-furnace',
+    status: 'active',
+    legacyAssetTypeKey: 'furnace',
+    code: 'FR',
+    name: 'Furnace',
+  });
+  store.seed('asset_instances/asset-furnace-7', {
+    schemaVersion: 1,
+    assetInstanceId: 'asset-furnace-7',
+    assetClassId: 'class-furnace',
+    assetClassCode: 'FR',
+    assetClassName: 'Furnace',
+    assetNumber: 7,
+    name: 'Furnace 7',
+    status: 'active',
+    version: 4,
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Mechanical',
+    accountableRoleKeys: ['seniorMechanical'],
+  });
+  store.seed('asset_hierarchy_nodes/node-furnace-shell', {
+    schemaVersion: 1,
+    nodeId: 'node-furnace-shell',
+    assetClassId: 'class-furnace',
+    status: 'active',
+    version: 3,
+    nodeType: 'component',
+    name: 'Furnace shell',
+    componentTag: 'FSH-REF',
+    hierarchyPath: ['Structure', 'Furnace shell'],
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Mechanical',
+    accountableRoleKeys: ['seniorMechanical'],
+  });
+  store.seed('asset_hierarchy_nodes/node-burner-block', {
+    schemaVersion: 1,
+    nodeId: 'node-burner-block',
+    assetClassId: 'class-furnace',
+    status: 'active',
+    version: 2,
+    nodeType: 'component',
+    name: 'Burner blocks and firing tubes',
+    componentTag: null,
+    hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'RED',
+    accountableRoleKeys: ['seniorRefractory'],
+  });
+}
+
+function seedInstalledFurnaceShell(store) {
+  store.seed('asset_component_instances/component-furnace-shell-7', {
+    schemaVersion: 1,
+    componentInstanceId: 'component-furnace-shell-7',
+    assetClassId: 'class-furnace',
+    assetClassCode: 'FR',
+    assetClassName: 'Furnace',
+    assetInstanceId: 'asset-furnace-7',
+    assetInstanceVersionAtMutation: 4,
+    assetNumber: 7,
+    assetInstanceName: 'Furnace 7',
+    definitionNodeId: 'node-furnace-shell',
+    definitionNodeVersion: 3,
+    definitionName: 'Furnace shell',
+    hierarchyPath: ['Structure', 'Furnace shell'],
+    componentTag: 'FR07-SHELL-01',
+    status: 'active',
+    version: 2,
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Mechanical',
+    accountableRoleKeys: ['seniorMechanical'],
+  });
+}
+
+function furnaceShellReference(nodeVersion = 3) {
+  return {
+    schemaVersion: 4,
+    scope: 'componentDefinitionOnAsset',
+    assetClassId: 'class-furnace',
+    assetInstanceId: 'asset-furnace-7',
+    assetInstanceVersion: 4,
+    nodeId: 'node-furnace-shell',
+    nodeVersion,
+  };
+}
+
+function installedFurnaceShellReference() {
+  return {
+    schemaVersion: 2,
+    scope: 'installedComponent',
+    assetClassId: 'class-furnace',
+    assetInstanceId: 'asset-furnace-7',
+    assetInstanceVersion: 4,
+    nodeId: 'node-furnace-shell',
+    nodeVersion: 3,
+    componentInstanceId: 'component-furnace-shell-7',
+    componentInstanceVersion: 2,
+  };
+}
+
+function hierarchyAction(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    asset: 'Untrusted asset label',
+    component: 'Untrusted component label',
+    hierarchyPath: ['Untrusted', 'Path'],
+    assetHierarchyRef: furnaceShellReference(),
+    system: 'Untrusted system',
+    subsystem: 'Untrusted subsystem',
+    tag: null,
+    actionType: 'inspection',
+    issue: 'Shell condition inspected.',
+    isAutoResolved: true,
+    status: 'resolved',
+    createdAt: '2026-08-14T15:45:00.000Z',
+    severity: 'medium',
+    version: 1,
+    ...overrides,
+  };
+}
+
+function burnerBlockReplacementAction(overrides = {}) {
+  return hierarchyAction({
+    id: 'burner-block-action-1',
+    asset: 'Furnace 7',
+    component: 'Burner blocks and firing tubes',
+    hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+    assetHierarchyRef: {
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: 'class-furnace',
+      assetClassCode: 'FR',
+      assetClassName: 'Furnace',
+      nodeId: 'node-burner-block',
+      nodeVersion: 2,
+      nodeName: 'Burner blocks and firing tubes',
+      assetInstanceId: 'asset-furnace-7',
+      assetInstanceVersion: 4,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'RED',
+      accountableRoleKeys: ['seniorRefractory'],
+      innerCoverAssociation: null,
+    },
+    actionType: 'replacement',
+    replacement: 'newPart',
+    burnerPosition: 3,
+    burnerBlockSupplyMode: 'purchased',
+    burnerBlockSupplierName: 'Industrial Refractories Ltd',
+    burnerBlockPurchaseOrderNumber: 'PO-2026-411',
+    ...overrides,
+  });
+}
+
 function createCommand({
   commandId = 'create-ticket-2',
   ticketId = 'ticket-2',
@@ -276,6 +438,76 @@ describe('governed maintenance-ticket supervision', () => {
       hierarchyPath: ['Furnace', 'Furnace 7'],
       qualityImpactAssessment: 'notSuspected',
       createdAt: at.toISOString(),
+    });
+  });
+
+  test('binds a definition tag to the selected physical asset', async () => {
+    const seeded = createServiceFor(mechanical);
+    seedFurnaceHierarchy(seeded.store);
+    const command = createCommand({
+      commandId: 'create-definition-tag-ticket',
+      ticketId: 'definition-tag-ticket',
+      ticket: {
+        component: 'Furnace shell',
+        tag: 'fsh ref',
+        assetHierarchyRefJson: JSON.stringify(furnaceShellReference()),
+      },
+    });
+
+    await expect(seeded.service.execute(command, seeded.context)).resolves
+      .toMatchObject({aggregateVersion: 1});
+    expect(seeded.store.read('maintenance_records/definition-tag-ticket'))
+      .toMatchObject({
+        component: 'Furnace shell',
+        tag: 'FSH REF',
+        hierarchyPath: ['Structure', 'Furnace shell'],
+      });
+
+    const mismatch = createServiceFor(mechanical);
+    seedFurnaceHierarchy(mismatch.store);
+    await expect(mismatch.service.execute(createCommand({
+      commandId: 'create-wrong-definition-tag-ticket',
+      ticketId: 'wrong-definition-tag-ticket',
+      ticket: {
+        component: 'Furnace shell',
+        tag: 'TE00',
+        assetHierarchyRefJson: JSON.stringify(furnaceShellReference()),
+      },
+    }), mismatch.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-component-definition-tag-invalid',
+      },
+    });
+  });
+
+  test('accepts the client schema for an exact installed-component tag', async () => {
+    const seeded = createServiceFor(mechanical);
+    seedFurnaceHierarchy(seeded.store);
+    seedInstalledFurnaceShell(seeded.store);
+    const command = createCommand({
+      commandId: 'create-installed-tag-ticket',
+      ticketId: 'installed-tag-ticket',
+      ticket: {
+        component: 'Furnace shell',
+        tag: 'fr07 shell 01',
+        assetHierarchyRefJson: JSON.stringify(installedFurnaceShellReference()),
+      },
+    });
+
+    await expect(seeded.service.execute(command, seeded.context)).resolves
+      .toMatchObject({aggregateVersion: 1});
+    const created = seeded.store.read('maintenance_records/installed-tag-ticket');
+    expect(created).toMatchObject({
+      component: 'Furnace shell',
+      tag: 'FR07 SHELL 01',
+      hierarchyPath: ['Structure', 'Furnace shell'],
+    });
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      schemaVersion: 3,
+      scope: 'installedComponent',
+      componentInstanceId: 'component-furnace-shell-7',
+      componentTag: 'FR07-SHELL-01',
     });
   });
 
@@ -850,6 +1082,179 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('reopened issue downtime starts at the latest reopen', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      startDate: '2026-08-14T10:00:00.000Z',
+      reopenedByUid: operations.uid,
+      reopenedByName: operations.name,
+      reopenedAt: '2026-08-14T15:00:00.000Z',
+      reopenReason: 'The fault returned after the equipment resumed service.',
+      resolutionHistoryJson: JSON.stringify([{
+        resolvedByUid: electrical.uid,
+        resolvedByName: electrical.name,
+        resolvedAt: '2026-08-14T12:00:00.000Z',
+        actionsJson: '[]',
+        remarks: 'Initial repair completed.',
+        downtimeHours: 2,
+        teamsInvolved: ['electrical'],
+        reopenedByUid: operations.uid,
+        reopenedByName: operations.name,
+        reopenedAt: '2026-08-14T15:00:00.000Z',
+        reopenReason: 'The fault returned after the equipment resumed service.',
+      }]),
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'resolve-reopened-episode',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'The recurrent fault was repaired and functionally checked.',
+        teamsInvolved: ['electrical'],
+        actionsJson: '[]',
+      },
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'resolved',
+      endDate: '2026-08-14T16:00:00.000Z',
+      downtimeHours: 1,
+    });
+  });
+
+  test('resolution waits for complied Operations coordination confirmation', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      workflowDeferred: false,
+      workflowQueueState: 'awaitingConfirmation',
+      workflowAggregateId: 'workflow-ticket-1',
+      workflowComplianceId: 'compliance-ticket-1',
+      workflowOriginLaneKey: 'mechanical',
+      workflowTargetLaneKey: 'operations',
+      workflowConditionTypeKey: 'craneSupport',
+      workflowUpdatedAt: '2026-08-14T16:15:00.000Z',
+    });
+    seeded.store.seed('maintenance_workflows/workflow-ticket-1', {
+      workflowKind: 'issueCoordination',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'readyForClosure',
+      cancelled: false,
+      version: 3,
+    });
+    seeded.store.seed('compliance_requests/compliance-ticket-1', {
+      linkedWorkflowId: 'workflow-ticket-1',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'complied',
+      version: 2,
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'resolve-before-coordination-confirmation',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Repair work is complete.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: '[]',
+      },
+    }, seeded.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-coordination-open',
+        queueState: 'awaitingConfirmation',
+      },
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'open',
+      isResolved: false,
+      version: 3,
+    });
+  });
+
+  test('resolution rejects an unprojected active Operations obligation', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      startDate: '2026-08-14T14:30:00.000Z',
+    });
+    seeded.store.seed('maintenance_workflows/orphan-workflow', {
+      workflowKind: 'issueCoordination',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'inProgress',
+      cancelled: false,
+      version: 2,
+    });
+    seeded.store.seed('compliance_requests/orphan-compliance', {
+      linkedWorkflowId: 'orphan-workflow',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'acknowledged',
+      version: 2,
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'resolve-with-orphan-obligation',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Repair work is complete.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: '[]',
+      },
+    }, seeded.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-coordination-projection-diverged',
+      },
+    });
+  });
+
+  test('resolution accepts exact terminal Operations coordination evidence', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      workflowDeferred: false,
+      workflowQueueState: 'released',
+      workflowAggregateId: 'workflow-ticket-1',
+      workflowComplianceId: 'compliance-ticket-1',
+      workflowOriginLaneKey: 'mechanical',
+      workflowTargetLaneKey: 'operations',
+      workflowConditionTypeKey: 'craneSupport',
+      workflowUpdatedAt: '2026-08-14T16:15:00.000Z',
+    });
+    seeded.store.seed('maintenance_workflows/workflow-ticket-1', {
+      workflowKind: 'issueCoordination',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'completed',
+      cancelled: false,
+      version: 4,
+    });
+    seeded.store.seed('compliance_requests/compliance-ticket-1', {
+      linkedWorkflowId: 'workflow-ticket-1',
+      linkedMaintenanceFirestoreId: 'ticket-1',
+      status: 'confirmedClosed',
+      version: 3,
+    });
+
+    await expect(seeded.service.execute({
+      commandId: 'resolve-after-coordination-confirmation',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Repair and Operations support are both complete.',
+        teamsInvolved: ['mechanical', 'operations'],
+        actionsJson: '[]',
+      },
+    }, seeded.context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-resolved',
+      aggregateVersion: 4,
+    });
+  });
+
   test('discipline closer resolves one lane but cannot finalize multiple lanes', async () => {
     const single = serviceFor(electrical, {
       startDate: '2026-08-14T14:30:00.000Z',
@@ -924,7 +1329,8 @@ describe('governed maintenance-ticket supervision', () => {
         cancelledComplianceId: null,
       },
     });
-    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+    const closed = seeded.store.read('maintenance_records/ticket-1');
+    expect(closed).toMatchObject({
       status: 'closedWithoutResolution',
       isResolved: true,
       closedByUid: admin.uid,
@@ -936,10 +1342,11 @@ describe('governed maintenance-ticket supervision', () => {
       issueAssignedLanes: ['electrical', 'mechanical'],
       issueAcknowledgedLanes: [],
       issueCompletedLanes: [],
-      workflowDeferred: false,
-      workflowQueueState: 'independent',
       version: 4,
     });
+    expect(
+      Object.keys(closed).filter((field) => field.startsWith('workflow')),
+    ).toEqual([]);
   });
 
   test.each([
@@ -1195,6 +1602,174 @@ describe('governed maintenance-ticket supervision', () => {
       },
       context: {actor: electrical, serverNow: at},
     })).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
+  test('resolution canonicalizes each new action from the live asset hierarchy', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      actionsJson: '[]',
+    });
+    seedFurnaceHierarchy(seeded.store);
+
+    await expect(seeded.service.execute({
+      commandId: 'resolve-with-governed-action',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'The governed shell inspection was completed.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: JSON.stringify([hierarchyAction()]),
+        actionTargetContractVersion: 1,
+      },
+    }, seeded.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    const [savedAction] = JSON.parse(
+      seeded.store.read('maintenance_records/ticket-1').actionsJson,
+    );
+    expect(savedAction).toMatchObject({
+      asset: 'Furnace 7',
+      component: 'Furnace shell',
+      hierarchyPath: ['Structure', 'Furnace shell'],
+      system: 'Furnace',
+      subsystem: 'Structure',
+      tag: null,
+      performedBy: admin.name,
+      assetHierarchyRef: {
+        schemaVersion: 4,
+        scope: 'componentDefinitionOnAsset',
+        nodeId: 'node-furnace-shell',
+        nodeVersion: 3,
+        assetInstanceId: 'asset-furnace-7',
+        assetInstanceVersion: 4,
+      },
+    });
+  });
+
+  test('resolution preserves a verified hierarchy-definition tag', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      actionsJson: '[]',
+    });
+    seedFurnaceHierarchy(seeded.store);
+
+    await seeded.service.execute({
+      commandId: 'resolve-with-definition-tag',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'The tagged Furnace shell inspection was completed.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: JSON.stringify([hierarchyAction({tag: 'fsh ref'})]),
+        actionTargetContractVersion: 1,
+      },
+    }, seeded.context);
+
+    const [savedAction] = JSON.parse(
+      seeded.store.read('maintenance_records/ticket-1').actionsJson,
+    );
+    expect(savedAction).toMatchObject({
+      component: 'Furnace shell',
+      tag: 'fsh ref',
+      assetHierarchyRef: {
+        scope: 'componentDefinitionOnAsset',
+        nodeId: 'node-furnace-shell',
+        componentTag: null,
+      },
+    });
+  });
+
+  test('issue resolution projects burner-block replacement into lifecycle history', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      actionsJson: '[]',
+      routedTo: 'mechanical',
+    });
+    seedFurnaceHierarchy(seeded.store);
+
+    await seeded.service.execute({
+      commandId: 'resolve-with-burner-block-replacement',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Burner block replaced and furnace returned to service.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: JSON.stringify([burnerBlockReplacementAction()]),
+        actionTargetContractVersion: 1,
+      },
+    }, seeded.context);
+
+    const lifecycle = seeded.store.entries().find(([path]) =>
+      path.startsWith('burner_block_lifecycle_events/'));
+    expect(lifecycle?.[1]).toMatchObject({
+      assetInstanceId: 'asset-furnace-7',
+      burnerPosition: 3,
+      supplyMode: 'purchased',
+      supplierName: 'Industrial Refractories Ltd',
+      purchaseOrderNumber: 'PO-2026-411',
+      sourceType: 'maintenanceIssue',
+      sourceId: 'ticket-1',
+    });
+  });
+
+  test('resolution rejects stale action targets and retained-history changes', async () => {
+    const stale = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      actionsJson: '[]',
+    });
+    seedFurnaceHierarchy(stale.store);
+    await expect(stale.service.execute({
+      commandId: 'reject-stale-action-target',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'This action points at an old hierarchy revision.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: JSON.stringify([
+          hierarchyAction({
+            assetHierarchyRef: furnaceShellReference(2),
+          }),
+        ]),
+        actionTargetContractVersion: 1,
+      },
+    }, stale.context)).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'maintenance-ticket-component-definition-changed'},
+    });
+
+    const retained = hierarchyAction({
+      asset: 'Historical operator label',
+      component: 'Historical shell finding',
+    });
+    const tampered = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      actionsJson: JSON.stringify([retained]),
+    });
+    await expect(tampered.service.execute({
+      commandId: 'reject-action-history-change',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Attempted closure after changing retained evidence.',
+        teamsInvolved: ['mechanical'],
+        actionsJson: JSON.stringify([
+          {...retained, component: 'Rewritten historical finding'},
+        ]),
+        actionTargetContractVersion: 1,
+      },
+    }, tampered.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-action-history-changed'},
+    });
   });
 
   test('burner resolution derives immutable closure evidence from work actions', async () => {

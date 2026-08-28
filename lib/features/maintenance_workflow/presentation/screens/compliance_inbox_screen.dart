@@ -219,7 +219,7 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
         overdue
             ? BafColors.danger
             : row.statusKey == 'complied'
-            ? BafColors.success
+            ? BafColors.warning
             : row.becameDueAt == null
             ? BafColors.steel
             : BafColors.warning;

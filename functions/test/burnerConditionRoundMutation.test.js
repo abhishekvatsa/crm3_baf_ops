@@ -8,12 +8,14 @@ const {
 
 const clone = (value) => value == null ? value : structuredClone(value);
 
-function fakeDb(seed = {}) {
+function fakeDb(seed = {}, options = {}) {
   const store = new Map(Object.entries(seed).map(([path, value]) => [
     path,
     clone(value),
   ]));
   const writes = [];
+  const outsideReads = [];
+  const transactionReads = [];
   let transactionCalls = 0;
 
   function snapshot(path, id) {
@@ -31,7 +33,10 @@ function fakeDb(seed = {}) {
       id,
       path,
       async get() {
-        return snapshot(path, id);
+        outsideReads.push(path);
+        const value = snapshot(path, id);
+        options.afterOutsideGet?.({path, store});
+        return value;
       },
     };
   }
@@ -39,6 +44,8 @@ function fakeDb(seed = {}) {
   return {
     store,
     writes,
+    outsideReads,
+    transactionReads,
     get transactionCalls() { return transactionCalls; },
     db: {
       collection(name) {
@@ -49,6 +56,7 @@ function fakeDb(seed = {}) {
         const staged = [];
         const transaction = {
           async get(documentRef) {
+            transactionReads.push(documentRef.path);
             return snapshot(documentRef.path, documentRef.id);
           },
           set(documentRef, data) {
@@ -111,6 +119,15 @@ function observations(overrides = {}) {
     flameObservation: 'seen',
     redHotObserved: false,
     microampReading: index === 0 ? 3.7 : null,
+    remarks: null,
+    ...(overrides[index + 1] ?? {}),
+  }));
+}
+
+function uvObservations(overrides = {}) {
+  return Array.from({length: 8}, (_, index) => ({
+    position: index + 1,
+    condition: 'serviceable',
     remarks: null,
     ...(overrides[index + 1] ?? {}),
   }));
@@ -192,6 +209,24 @@ describe('burner condition round mutation', () => {
     })).toBe(false);
   });
 
+  test('revalidates authority before every transactional business read', async () => {
+    const memory = fakeDb(seed(), {
+      afterOutsideGet({path, store}) {
+        if (path === 'users/actor-1') {
+          store.set(path, user('operations', 'Actor One'));
+          store.get(path).isApproved = false;
+        }
+      },
+    });
+
+    await expect(invoke(memory)).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+    expect(memory.outsideReads).toEqual(['users/actor-1']);
+    expect(memory.transactionReads).toEqual(['users/actor-1']);
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('records immutable round evidence and exact replay is write-free', async () => {
     const memory = fakeDb(seed());
     const first = await invoke(memory);
@@ -221,6 +256,12 @@ describe('burner condition round mutation', () => {
         assetName: 'Furnace 7',
         recordedByName: 'Actor One',
       });
+    expect(memory.store.get(`burner_condition_current/${IDS.asset}`))
+      .toMatchObject({
+        schemaVersion: 1,
+        assetInstanceId: IDS.asset,
+        roundId: IDS.round,
+      });
   });
 
   test('red-hot evidence atomically creates an I&A directive', async () => {
@@ -245,6 +286,46 @@ describe('burner condition round mutation', () => {
       burnerPositions: [3],
       automaticPlantActuation: false,
     });
+  });
+
+  test('extended audit records draft-seal and UV state and routes only exposed UVs', async () => {
+    const memory = fakeDb(seed('seniorInstrumentation'));
+    const data = request({
+      observations: observations({
+        2: {redHotObserved: true},
+        3: {redHotObserved: true},
+      }),
+      draftSealRedHotObserved: true,
+      hotAirAtDraftSealObserved: false,
+      uvObservations: uvObservations({3: {condition: 'missing'}}),
+    });
+    const result = await invoke(memory, data);
+    const round = memory.store.get(`burner_condition_rounds/${IDS.round}`);
+    const directive = memory.store.get(`directives/${result.directiveId}`);
+
+    expect(round).toMatchObject({
+      schemaVersion: 2,
+      redHotPositions: [2, 3],
+      directivePositions: [2],
+      draftSealRedHotObserved: true,
+      hotAirAtDraftSealObserved: false,
+    });
+    expect(round.uvObservations[2]).toMatchObject({
+      position: 3,
+      condition: 'missing',
+    });
+    expect(JSON.parse(directive.metadataJson).burnerPositions).toEqual([2]);
+  });
+
+  test('extended audit fields are accepted only as one complete set', () => {
+    expect(() => parseBurnerConditionRoundMutationRequest(request({
+      draftSealRedHotObserved: false,
+    }))).toThrow('must accompany');
+    expect(() => parseBurnerConditionRoundMutationRequest(request({
+      draftSealRedHotObserved: false,
+      hotAirAtDraftSealObserved: false,
+      uvObservations: uvObservations().slice(0, 7),
+    }))).toThrow('exactly eight');
   });
 
   test('red-hot directive rejects a Furnace number outside legacy support', async () => {

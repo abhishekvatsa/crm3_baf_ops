@@ -767,11 +767,71 @@ class _MonitoringCard extends StatelessWidget {
             request.reason,
             style: const TextStyle(color: BafColors.textSecondary),
           ),
+          const SizedBox(height: BafSpacing.sm),
+          Wrap(
+            spacing: BafSpacing.sm,
+            runSpacing: BafSpacing.xs,
+            children: [
+              _Fact(
+                icon: Icons.person_outline_rounded,
+                text:
+                    'Requested by ${request.createdByName ?? request.createdByUid}',
+              ),
+              _Fact(
+                icon: Icons.schedule_outlined,
+                text: DateFormat(
+                  'dd MMM yyyy, HH:mm',
+                ).format(request.createdAt),
+              ),
+            ],
+          ),
           if (request.chargeNumbers.isNotEmpty) ...[
             const SizedBox(height: BafSpacing.sm),
             Text(
               'Charges: ${request.chargeNumbers.join(', ')}',
               style: const TextStyle(color: BafColors.textSecondary),
+            ),
+          ],
+          if (request.status == QualityMonitoringStatus.closed) ...[
+            const SizedBox(height: BafSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(BafSpacing.md),
+              decoration: BoxDecoration(
+                color: BafColors.surfaceTint,
+                border: Border.all(color: BafColors.border),
+                borderRadius: BorderRadius.circular(BafRadius.medium),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    request.closeReason!,
+                    style: const TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                  Wrap(
+                    spacing: BafSpacing.sm,
+                    runSpacing: BafSpacing.xs,
+                    children: [
+                      _Fact(
+                        icon: Icons.verified_user_outlined,
+                        text:
+                            'Closed by ${request.closedByName ?? request.closedByUid}',
+                      ),
+                      _Fact(
+                        icon: Icons.event_available_outlined,
+                        text: DateFormat(
+                          'dd MMM yyyy, HH:mm',
+                        ).format(request.closedAt!),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
           if (request.status == QualityMonitoringStatus.active && canClose) ...[

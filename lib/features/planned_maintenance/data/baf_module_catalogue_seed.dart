@@ -12,9 +12,9 @@ import 'job_module_model.dart';
 /// be migrated into TemplatePackage / TemplateVersion / TemplateModule without
 /// changing the JobModuleInstance runtime model.
 class BafModuleCatalogueSeed {
-  static const String seedVersion = 'manualCatalogueV0_2';
+  static const String seedVersion = 'manualCatalogueV0_3';
   static const String sourceLabel =
-      'Emergency/manual seed catalogue v0.2';
+      'Emergency/manual seed catalogue v0.3';
 
   static const List<BafModuleSeed> modules = <BafModuleSeed>[
     // ─────────────────────────────────────────────────────────
@@ -432,13 +432,44 @@ class BafModuleCatalogueSeed {
         BafModuleFieldSeed('UVSignal', 'UV signal', 'numericWithUnit', unit: 'µA'),
         BafModuleFieldSeed('igniterGap', 'Igniter gap', 'numericWithUnit', unit: 'mm'),
         BafModuleFieldSeed('flameStatus', 'Flame status', 'enum'),
+        BafModuleFieldSeed('burnerBlockCondition', 'Burner block / firing tube condition', 'enum'),
       ],
       standardItems: [
         BafStandardJobItemSeed('F-03-01', 'Check UV detector/lens/signal and burner target.'),
         BafStandardJobItemSeed('F-03-02', 'Inspect igniter, ignition cable, connector and burner parts.'),
+        BafStandardJobItemSeed('F-03-03', 'Observe the numbered burner block and firing tube for red heat, missing castable or cracking; involve Mechanical for physical investigation or replacement.'),
       ],
-      addAsYouGoTriggers: ['Burner fails to light', 'All burners do not light', 'Flame out', 'Weak UV or dirty lens suspected'],
-      closedDossierOutput: 'Burner-wise condition, weak UV/flame issues, ignition component status and observation requirement.',
+      addAsYouGoTriggers: ['Burner fails to light', 'All burners do not light', 'Flame out', 'Weak UV or dirty lens suspected', 'Burner block red hot', 'Burner block or firing tube damaged'],
+      closedDossierOutput: 'Burner-wise I&A investigation, weak UV/flame issues, ignition component status and any Mechanical follow-up requirement.',
+    ),
+    BafModuleSeed(
+      moduleCode: 'F-03M',
+      moduleTitle: 'Furnace Burner Block Investigation and Mechanical Replacement',
+      catalogueArea: 'Furnace',
+      applicableAssetTypes: [AssetType.furnace],
+      functionalSection: 'Burner-block investigation, installation and lifecycle',
+      componentGroup: 'Burner block / firing tube',
+      defaultDiscipline: JobModuleDiscipline.mechanical,
+      defaultSafetyClass: JobModuleSafetyClass.combustionSpecialist,
+      defaultUseMode: JobModuleUseMode.shutdownWork,
+      procedureRefs: ['7-1-13-0028-41-1012 §4.3'],
+      operationalStatePreconditions: ['Furnace removed, cooled and safe for burner access', 'Fuel isolated before burner-block work'],
+      safetyConfirmations: ['Fuel isolation confirmed', 'Hot-surface exposure controlled', 'Refractory handling and lifting controls applied'],
+      fields: [
+        BafModuleFieldSeed('burnerTarget', 'Burner target', 'targetRule', required: true, options: ['Burner 1', 'Burner 2', 'Burner 3', 'Burner 4', 'Burner 5', 'Burner 6', 'Burner 7', 'Burner 8']),
+        BafModuleFieldSeed('burnerBlockAsFound', 'Burner block / firing tube as found', 'enum', required: true, options: ['Healthy', 'Red hot', 'Missing castable', 'Cracked', 'Other damage']),
+        BafModuleFieldSeed('burnerBlockChanged', 'Burner block changed', 'boolean', required: true),
+        BafModuleFieldSeed('supplyRoute', 'Replacement supply route', 'enum', options: ['SAIL-made by RED', 'Purchased']),
+        BafModuleFieldSeed('supplierName', 'Supplier name (purchased, optional)', 'text'),
+        BafModuleFieldSeed('purchaseOrderNumber', 'PO number (purchased, optional)', 'text'),
+      ],
+      standardItems: [
+        BafStandardJobItemSeed('F-03M-01', 'Mechanically investigate the selected burner block and firing tube for red heat, missing castable, cracking and other damage.'),
+        BafStandardJobItemSeed('F-03M-02', 'When changed, Mechanical must add a governed Replacement component action with burner position, SAIL-made-by-RED or Purchased source, and optional supplier/PO evidence.'),
+        BafStandardJobItemSeed('F-03M-03', 'Confirm the mechanically installed block and firing tube are serviceable before module submission.'),
+      ],
+      addAsYouGoTriggers: ['Burner block red hot', 'Burner block cracked', 'Castable missing', 'Firing tube damaged', 'Block replacement during shutdown'],
+      closedDossierOutput: 'Mechanical as-found and installation evidence, burner position, SAIL-made-by-RED or purchased provenance, optional supplier/PO and automatic Furnace audit update.',
     ),
     BafModuleSeed(
       moduleCode: 'F-04',

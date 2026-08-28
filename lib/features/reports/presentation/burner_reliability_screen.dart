@@ -10,6 +10,7 @@ import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/burner_condition_round.dart';
 import '../../assets/presentation/burner_condition_round_screen.dart';
+import '../../assets/presentation/furnace_component_condition_audit_screen.dart';
 import '../../assets/presentation/asset_timeline_screen.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/burner_condition_round_provider.dart';
@@ -311,12 +312,18 @@ class _BurnerReliabilityBodyState
         accent: BafColors.maintenance,
       ),
       actions: [
-        if (widget.actor.canRecordBurnerConditionRound)
+        if (widget.actor.canRecordBurnerConditionRound) ...[
+          IconButton(
+            tooltip: 'Open Furnace condition matrix',
+            onPressed: _openConditionMatrix,
+            icon: const Icon(Icons.grid_on_rounded),
+          ),
           IconButton(
             tooltip: 'Record burner round',
             onPressed: _openRoundForm,
             icon: const Icon(Icons.fact_check_outlined),
           ),
+        ],
       ],
     ),
     body: body,
@@ -346,6 +353,17 @@ class _BurnerReliabilityBodyState
         ),
       ),
     );
+  }
+
+  Future<void> _openConditionMatrix() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const FurnaceComponentConditionAuditScreen(),
+      ),
+    );
+    if (!mounted) return;
+    ref.invalidate(burnerConditionRoundsProvider);
+    ref.invalidate(latestBurnerConditionRoundsProvider);
   }
 
   Future<void> _selectDateRange() async {

@@ -56,6 +56,7 @@ export type InnerCoverLifecycleState =
   | "disposed";
 
 type InnerCoverSourceType = "purchased" | "fabricated" | "legacyExisting";
+type InnerCoverRetirementCondition = "bulged" | "notBulged";
 type InnerCoverOriginClassification =
   | "documentedPurchase"
   | "documentedFabrication"
@@ -124,6 +125,7 @@ interface ParsedRequest {
   displacedInnerCoverId: string | null;
   expectedDisplacedVersion: number | null;
   targetState: InnerCoverLifecycleState | null;
+  retirementCondition: InnerCoverRetirementCondition | null;
   registrationDraft: RegistrationDraft | null;
   acceptanceDraft: AcceptanceDraft | null;
   reason: string;
@@ -168,6 +170,9 @@ const STATES = new Set<InnerCoverLifecycleState>([
   "partiallyDismantled",
   "fullyConsumedAsDonor",
   "disposed",
+]);
+const RETIREMENT_CONDITIONS = new Set<InnerCoverRetirementCondition>([
+  "bulged", "notBulged",
 ]);
 const SOURCE_TYPES = new Set<InnerCoverSourceType>([
   "purchased", "fabricated", "legacyExisting",
@@ -538,7 +543,7 @@ export function parseInnerCoverLifecycleMutationRequest(
     "targetBaseAssetInstanceId", "expectedSourceAssignmentVersion",
     "expectedTargetAssignmentVersion", "displacedInnerCoverId",
     "expectedDisplacedVersion", "targetState", "registrationDraft",
-    "acceptanceDraft", "reason",
+    "retirementCondition", "acceptanceDraft", "reason",
   ]), "request");
   const operation = requiredString(
     raw.operation, "operation", 40,
@@ -549,6 +554,14 @@ export function parseInnerCoverLifecycleMutationRequest(
   ) as InnerCoverLifecycleState;
   if (targetState != null && !STATES.has(targetState)) {
     invalid("targetState", "is unsupported");
+  }
+  const retirementCondition = raw.retirementCondition == null ? null :
+    requiredString(
+      raw.retirementCondition, "retirementCondition", 32,
+    ) as InnerCoverRetirementCondition;
+  if (retirementCondition != null &&
+      !RETIREMENT_CONDITIONS.has(retirementCondition)) {
+    invalid("retirementCondition", "is unsupported");
   }
   const request: Omit<ParsedRequest, "fingerprint"> = {
     requestId: uuid(raw.requestId, "requestId"),
@@ -579,6 +592,7 @@ export function parseInnerCoverLifecycleMutationRequest(
       raw.expectedDisplacedVersion, "expectedDisplacedVersion",
     ),
     targetState,
+    retirementCondition,
     registrationDraft: raw.registrationDraft == null ? null :
       parseRegistrationDraft(raw.registrationDraft),
     acceptanceDraft: raw.acceptanceDraft == null ? null :
@@ -652,6 +666,17 @@ export function parseInnerCoverLifecycleMutationRequest(
       !DELINK_STATES.has(request.targetState!)) {
     invalid("targetState", "is not a safe post-removal state");
   }
+  const retirementConditionRequired =
+    operation === "SET_INNER_COVER_STATE" &&
+    request.targetState === "retiredForSalvage";
+  if (retirementConditionRequired !== (request.retirementCondition != null)) {
+    invalid(
+      "retirementCondition",
+      retirementConditionRequired ?
+        "is required when retiring an Inner Cover for salvage" :
+        "is allowed only when retiring an Inner Cover for salvage",
+    );
+  }
   if (request.sourceBaseAssetInstanceId != null &&
       request.sourceBaseAssetInstanceId === request.targetBaseAssetInstanceId) {
     invalid("targetBaseAssetInstanceId", "must differ from the source Base");
@@ -659,8 +684,11 @@ export function parseInnerCoverLifecycleMutationRequest(
   if (request.displacedInnerCoverId === request.innerCoverId) {
     invalid("displacedInnerCoverId", "must differ from the incoming Inner Cover");
   }
-  const fingerprint = `innercover1-sha256:${createHash("sha256")
-    .update(stableJson(request), "utf8").digest("hex")}`;
+  const {retirementCondition: condition, ...legacyRequest} = request;
+  const fingerprintVersion = condition == null ? "innercover1" : "innercover2";
+  const fingerprintPayload = condition == null ? legacyRequest : request;
+  const fingerprint = `${fingerprintVersion}-sha256:${createHash("sha256")
+    .update(stableJson(fingerprintPayload), "utf8").digest("hex")}`;
   return {...request, fingerprint};
 }
 
@@ -787,6 +815,21 @@ function requireProfile(
       {reasonCode: "inner-cover-acceptance-incomplete"},
     );
   }
+  const retirementCondition = data.retirementCondition;
+  const retirementState = new Set([
+    "retiredForSalvage", "partiallyDismantled",
+    "fullyConsumedAsDonor", "disposed",
+  ]).has(data.lifecycleState as string);
+  if (retirementCondition != null &&
+      (!RETIREMENT_CONDITIONS.has(
+        retirementCondition as InnerCoverRetirementCondition,
+      ) || !retirementState)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `${label} has malformed retirement-condition evidence.`,
+      {reasonCode: "inner-cover-retirement-condition-malformed"},
+    );
+  }
   return data;
 }
 
@@ -902,6 +945,7 @@ function profileSnapshot(data: JsonMap | null): JsonMap | null {
       "Inner Cover incorporation date",
     ),
     lifecycleState: data.lifecycleState,
+    retirementCondition: data.retirementCondition ?? null,
     currentBaseAssetInstanceId: data.currentBaseAssetInstanceId ?? null,
     currentBaseAssetNumber: data.currentBaseAssetNumber ?? null,
     currentLinkageId: data.currentLinkageId ?? null,
@@ -1513,6 +1557,9 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
           current, target, nextVersion, committedAt, actorUid, actorName,
           request.requestId,
         );
+        if (target === "retiredForSalvage") {
+          after.retirementCondition = request.retirementCondition;
+        }
         transaction.set(profileRef, after);
       } else if (request.operation === "LINK_INNER_COVER") {
         if (current.lifecycleState !== "available") {

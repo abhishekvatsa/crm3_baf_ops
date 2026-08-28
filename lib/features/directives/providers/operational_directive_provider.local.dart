@@ -306,6 +306,61 @@ class IsarDirectiveRepository implements DirectiveRepository {
   }
 
   @override
+  Future<void> adoptServerDirectiveClosure({
+    required String firestoreId,
+    required int expectedBeforeVersion,
+    required int committedVersion,
+    required AppUser actor,
+    required DateTime closedAt,
+    required bool wasUnacknowledged,
+    String? remarks,
+  }) async {
+    await isar.writeTxn(() async {
+      final directive =
+          await isar.operationalDirectives
+              .filter()
+              .firestoreIdEqualTo(firestoreId)
+              .findFirst();
+      if (directive != null &&
+          !directive.isDeleted &&
+          directive.isSynced &&
+          directive.isClosed &&
+          directive.version == committedVersion &&
+          directive.closedByUid == actor.uid &&
+          directive.closedAt?.toUtc() == closedAt.toUtc() &&
+          directive.closedWithoutAcknowledgement == wasUnacknowledged &&
+          (remarks == null || directive.remarks == remarks.trim())) {
+        return;
+      }
+      if (directive == null ||
+          directive.isDeleted ||
+          !directive.isSynced ||
+          directive.version != expectedBeforeVersion ||
+          committedVersion != expectedBeforeVersion + 1 ||
+          directive.isClosed) {
+        throw StateError(
+          'The local directive changed before the server closure was adopted.',
+        );
+      }
+      directive
+        ..status = DirectiveStatus.closed
+        ..isActive = false
+        ..closedByUid = actor.uid
+        ..closedByName = actor.name
+        ..closedAt = closedAt
+        ..closedWithoutAcknowledgement = wasUnacknowledged
+        ..updatedAt = closedAt
+        ..version = committedVersion
+        ..isSynced = true;
+      final cleanedRemarks = remarks?.trim();
+      if (cleanedRemarks != null && cleanedRemarks.isNotEmpty) {
+        directive.remarks = cleanedRemarks;
+      }
+      await isar.operationalDirectives.put(directive);
+    });
+  }
+
+  @override
   Future<List<OperationalDirective>> getUnsyncedDirectives() async {
     return await isar.operationalDirectives
         .filter()

@@ -652,6 +652,30 @@
       "reArmCondition": "any burner-condition round timestamp schema change"
     },
     {
+      "id": "burner-condition-current-pointer",
+      "readerFile": "lib/features/assets/data/burner_condition_round.dart",
+      "readerMarker": "factory BurnerConditionCurrentPointer.fromMap",
+      "requiredFields": ["observedAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "verify the current-round projection chronology before resolving authoritative Furnace burner condition",
+      "authorityBoundary": "remote-burner-condition-current-pointer",
+      "regression": "test/burner_condition_round_test.dart; test/firestore.rules.test.js",
+      "reArmCondition": "any burner current-pointer identity or timestamp schema change"
+    },
+    {
+      "id": "burner-block-lifecycle-record",
+      "readerFile": "lib/features/assets/data/burner_block_lifecycle_event.dart",
+      "readerMarker": "factory BurnerBlockLifecycleEvent.fromMap",
+      "requiredFields": ["actionPerformedAt", "completedAt", "recordedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "restore the immutable burner-block intervention, closure, and recording chronology used by lifecycle history and the current-state projection",
+      "authorityBoundary": "remote-burner-block-lifecycle-record",
+      "regression": "test/planned_maintenance_burner_block_lifecycle_test.dart",
+      "reArmCondition": "any burner-block lifecycle event or current-projection timestamp schema change"
+    },
+    {
       "id": "burner-condition-round-command-response",
       "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
       "readerMarker": "factory BurnerConditionRoundResult.fromMap",
@@ -662,6 +686,18 @@
       "authorityBoundary": "remote-burner-condition-round-command-response",
       "regression": "test/burner_condition_round_test.dart",
       "reArmCondition": "any burner-condition round callable receipt timestamp change"
+    },
+    {
+      "id": "burner-directive-compliance-command-response",
+      "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
+      "readerMarker": "factory BurnerDirectiveComplianceResult.fromCallableData",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "verify the canonical server commit instant before adopting an atomic burner compliance and directive-closure receipt",
+      "authorityBoundary": "remote-burner-directive-compliance-command-response",
+      "regression": "test/burner_condition_round_test.dart; test/directive_server_closure_adoption_test.dart; functions/test/burnerDirectiveComplianceMutation.test.js",
+      "reArmCondition": "any burner compliance callable receipt timestamp change"
     },
     {
       "id": "asset-availability-record",
@@ -830,6 +866,18 @@
       "authorityBoundary": "remote-critical-alarm-record",
       "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js",
       "reArmCondition": "any critical-alarm lifecycle timestamp schema or complete-evidence requirement changes"
+    },
+    {
+      "id": "critical-alarm-definition-record",
+      "readerFile": "lib/features/critical_alarm/domain/critical_alarm_models.dart",
+      "readerMarker": "factory CriticalAlarmDefinition.fromFirestore",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "critical-safety",
+      "purpose": "restore the governed critical-alarm catalogue definition and revision chronology",
+      "authorityBoundary": "remote-critical-alarm-definition-record",
+      "regression": "test/critical_alarm_model_test.dart; functions/test/criticalAlarm.test.js",
+      "reArmCondition": "any critical-alarm definition timestamp or revision schema changes"
     },
     {
       "id": "critical-alarm-contact-record",

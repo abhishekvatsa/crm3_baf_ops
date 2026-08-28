@@ -65,10 +65,13 @@ surfaces. Alarm lifecycle commands remain online-only callable operations and
 alarm state is deliberately never persisted to Isar; the unbounded active feed
 is separate from the bounded recent-history feed so historical volume cannot
 displace an active emergency. It preserves every previously registered feature
-regression instead of replacing named coverage with a generic test. The current
-manifest therefore covers
-537 operations and 1,865 sites across 55 surfaces with digest
-`BE3F4E7FD499D3E395E5AFEDE29756B2E760227C1A6236637EB25DAD5019F1A2`;
+regression instead of replacing named coverage with a generic test. The
+seven-day operational retention stream for closed quality-monitoring requests
+adds two read-only stream operations under the already classified quality
+provider; the complete reporting provider continues to retain full history.
+The current manifest therefore covers 544 operations and 1,889 sites across 56
+surfaces with digest
+`383101BB805F36F313A132BCF3254E6612E153C80D0A902E85DECD7D4D3BC5F2`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

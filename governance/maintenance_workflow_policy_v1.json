@@ -471,6 +471,9 @@
     ],
     "manageCriticalAlarmContacts": [
       "admin"
+    ],
+    "manageCriticalAlarmDefinitions": [
+      "admin"
     ]
   }
 }

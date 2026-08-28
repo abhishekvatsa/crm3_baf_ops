@@ -68,6 +68,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Flame seen').last);
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Apply UV condition to all burners'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('In service').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Red-hot burner block observed').first);
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Record round'));
@@ -124,6 +128,9 @@ class _FakeBurnerConditionRoundService extends BurnerConditionRoundService {
     required List<BurnerConditionObservation> observations,
     required AppUser actor,
     String? roundNote,
+    bool? draftSealRedHotObserved,
+    bool? hotAirAtDraftSealObserved,
+    List<BurnerUvObservation>? uvObservations,
   }) async {
     calls.add(List<BurnerConditionObservation>.from(observations));
     return BurnerConditionRoundResult(

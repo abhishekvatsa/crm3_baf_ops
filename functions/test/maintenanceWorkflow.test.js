@@ -76,6 +76,69 @@ const seedWorkflow = (store, id = 'wf1', status = 'pendingLaneClassification', v
   store.seed(`job_executions/${id}-exec`, {version: 1, isCompleted: false});
 };
 
+const seedFurnaceActionHierarchy = (store) => {
+  store.seed('asset_classes/class-furnace', {
+    schemaVersion: 1, assetClassId: 'class-furnace', status: 'active',
+    legacyAssetTypeKey: 'furnace', code: 'FR', name: 'Furnace',
+  });
+  store.seed('asset_instances/asset-furnace-7', {
+    schemaVersion: 1, assetInstanceId: 'asset-furnace-7',
+    assetClassId: 'class-furnace', assetClassCode: 'FR',
+    assetClassName: 'Furnace', assetNumber: 7, name: 'Furnace 7',
+    status: 'active', version: 2, ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Mechanical', accountableRoleKeys: ['seniorMechanical'],
+  });
+  store.seed('asset_hierarchy_nodes/node-burner-system', {
+    schemaVersion: 1, nodeId: 'node-burner-system',
+    assetClassId: 'class-furnace', status: 'active', version: 3,
+    nodeType: 'component', name: 'Burner system', componentTag: null,
+    hierarchyPath: ['Combustion system', 'Burner system'],
+    ownershipStatus: 'confirmed', ownerDiscipline: 'Mechanical',
+    accountableRoleKeys: ['seniorMechanical'],
+  });
+  store.seed('asset_hierarchy_nodes/node-burner-block', {
+    schemaVersion: 1, nodeId: 'node-burner-block',
+    assetClassId: 'class-furnace', status: 'active', version: 2,
+    nodeType: 'component', name: 'Burner blocks and firing tubes',
+    componentTag: null,
+    hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+    ownershipStatus: 'confirmed', ownerDiscipline: 'RED',
+    accountableRoleKeys: ['seniorRefractory'],
+  });
+};
+
+const burnerBlockReplacementAction = (overrides = {}) => ({
+  schemaVersion: 1,
+  id: 'burner-block-action-1',
+  asset: 'Furnace 7',
+  component: 'Burner blocks and firing tubes',
+  hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+  assetHierarchyRef: {
+    schemaVersion: 4, scope: 'componentDefinitionOnAsset',
+    assetClassId: 'class-furnace', assetClassCode: 'FR',
+    assetClassName: 'Furnace', nodeId: 'node-burner-block', nodeVersion: 2,
+    nodeName: 'Burner blocks and firing tubes',
+    assetInstanceId: 'asset-furnace-7', assetInstanceVersion: 2,
+    assetNumber: 7, assetInstanceName: 'Furnace 7',
+    componentInstanceId: null, componentInstanceVersion: null,
+    componentTag: null,
+    hierarchyPath: ['Refractory system', 'Burner blocks and firing tubes'],
+    ownershipStatus: 'confirmed', ownerDiscipline: 'RED',
+    accountableRoleKeys: ['seniorRefractory'], innerCoverAssociation: null,
+  },
+  system: 'Furnace', subsystem: 'Refractory system', subComponent: null,
+  tag: null, instance: null, actionType: 'replacement',
+  replacement: 'newPart', issue: 'Block was cracked.', resolution: null,
+  remarks: null, templateFieldKey: null, isAutoResolved: true,
+  status: 'resolved', createdAt: '2026-07-20T17:30:00.000Z',
+  severity: 'medium', performedBy: 'RED Technician', updatedAt: null,
+  version: 1, metadataJson: null, attendanceSessionId: null,
+  burnerPosition: 3, burnerActionCode: null, burnerOutcome: null,
+  burnerMicroampReading: null, burnerBlockSupplyMode: 'sailRed',
+  burnerBlockSupplierName: null, burnerBlockPurchaseOrderNumber: null,
+  ...overrides,
+});
+
 const seedRedSuccessorTemplate = (store, assetTypeKey = 'furnace') => {
   const code = assetTypeKey === 'base' ? 'RED-BASE-V1' : 'RED-FURNACE-V1';
   const packageId = assetTypeKey === 'base' ? 'pkg-red-base' : 'pkg-red-furnace';
@@ -687,7 +750,7 @@ describe('maintenance workflow command integration', () => {
 
   test('new furnace RED successor is gated by Operations preparation', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf1', 'readyForClosure', 8);
-    store.seed('maintenance_workflows/wf1', {jobExecutionId: 'wf1-exec', status: 'readyForClosure', version: 8, assetTypeKey: 'furnace', assetNumber: 7, laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
+    store.seed('maintenance_workflows/wf1', {jobExecutionId: 'wf1-exec', status: 'readyForClosure', version: 8, assetTypeKey: 'furnace', assetNumber: 7, laneSetFinalizedAt: '2026-07-20T00:00:00Z', createdAt: '2026-07-20T00:00:00.000Z'});
     store.seed('job_lanes/wf1_mech_1', {workflowId: 'wf1', jobExecutionId: 'wf1-exec', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
     store.seed('equipment_status/furnace_7', {
       state: 'underMaintenance',
@@ -696,14 +759,20 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 2,
     });
+    seedFurnaceActionHierarchy(store);
     seedRedSuccessorTemplate(store, 'furnace');
     const service = serviceFor(store);
-    const actionsJson = JSON.stringify([{
-      asset: 'furnace-7', component: 'burner', actionType: 'inspection',
+    const requestedActionsJson = JSON.stringify([{
+      asset: 'untrusted', component: 'untrusted', actionType: 'inspection',
       isAutoResolved: false, createdAt: '2026-07-20T04:55:00.000Z',
-      severity: 'medium', version: 1,
+      severity: 'medium', version: 1, tag: null,
+      assetHierarchyRef: {
+        schemaVersion: 4, scope: 'componentDefinitionOnAsset',
+        assetClassId: 'class-furnace', assetInstanceId: 'asset-furnace-7',
+        assetInstanceVersion: 2, nodeId: 'node-burner-system', nodeVersion: 3,
+      },
     }]);
-    const receipt = await service.execute({commandId: 'final-red', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 8, payload: {redRequired: true, preparationRequired: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'], responsesJson: '[{"key":"final","value":"ok"}]', actionsJson}}, {actor: admin, serverNow: at('2026-07-20T05:00:00Z')});
+    const receipt = await service.execute({commandId: 'final-red', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 8, payload: {redRequired: true, preparationRequired: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'], responsesJson: '[{"key":"final","value":"ok"}]', actionsJson: requestedActionsJson, actionTargetContractVersion: 1}}, {actor: admin, serverNow: at('2026-07-20T05:00:00Z')});
     const successorWorkflowId = receipt.result.successorWorkflowId;
     const successorExecutionId = receipt.result.successorExecutionId;
     expect(store.read(`maintenance_workflows/${successorWorkflowId}`)).toMatchObject({status: 'awaitingCompliance', activeRedWork: false, awaitingPreparation: true});
@@ -714,11 +783,17 @@ describe('maintenance workflow command integration', () => {
       isCancelled: false,
     });
     expect(store.entries().filter(([path]) => path.startsWith('job_modules/red_module_'))).toHaveLength(1);
-    expect(store.read('job_executions/wf1-exec')).toMatchObject({
+    const completedExecution = store.read('job_executions/wf1-exec');
+    expect(completedExecution).toMatchObject({
       isCompleted: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'],
       responsesJson: '[{"key":"final","value":"ok"}]',
-      actionsJson,
       spawnedRedExecutionFirestoreId: successorExecutionId,
+    });
+    expect(JSON.parse(completedExecution.actionsJson)[0]).toMatchObject({
+      asset: 'Furnace 7', component: 'Burner system',
+      hierarchyPath: ['Combustion system', 'Burner system'],
+      system: 'Furnace', subsystem: 'Combustion system',
+      performedBy: admin.name,
     });
     expect(store.read('equipment_status/furnace_7').state).toBe('awaitingPreparation');
   });
@@ -1621,6 +1696,59 @@ describe('maintenance workflow command integration', () => {
       .toBe(receipt.result.closureAttestationHash);
     expect(store.read('audit_logs/server_closure_wf-canonical-close-exec_3'))
       .toMatchObject({workflowAggregateId: 'wf-canonical-close'});
+  });
+
+  test('governed module replacement updates burner-block lifecycle on finalization', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-burner-block', 'readyForClosure', 5, 'furnace', 7);
+    seedFurnaceActionHierarchy(store);
+    store.seed('maintenance_workflows/wf-burner-block', {
+      jobExecutionId: 'wf-burner-block-exec', status: 'readyForClosure', version: 5,
+      assetTypeKey: 'furnace', assetNumber: 7,
+      laneSetFinalizedAt: '2026-07-20T00:00:00.000Z', cancelled: false,
+      createdAt: '2026-07-20T00:00:00.000Z',
+    });
+    store.seed('job_executions/wf-burner-block-exec', {
+      firestoreId: 'wf-burner-block-exec', workflowSchemaVersion: 1,
+      version: 2, modulePopulationVersion: 1, modulePopulationSchemaVersion: 1,
+      isCompleted: false, metadataJson: '{}', teamsInvolved: [],
+      responsesJson: '[]', actionsJson: '[]',
+      createdAt: '2026-07-20T00:00:00.000Z',
+    });
+    store.seed('job_lanes/wf-burner-block_mech_1', {
+      workflowId: 'wf-burner-block', jobExecutionId: 'wf-burner-block-exec',
+      laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2,
+    });
+    store.seed('job_modules/module-burner-block', {
+      firestoreId: 'module-burner-block',
+      jobExecutionFirestoreId: 'wf-burner-block-exec',
+      workflowLaneFirestoreId: 'wf-burner-block_mech_1', laneKey: 'mech',
+      discipline: 'mechanical', status: 'accepted', isOpenForWork: false,
+      requiredForClosure: true, isDeleted: false,
+      fieldDefinitionsJson: '[]', responsesJson: '[]',
+      actionsJson: JSON.stringify([burnerBlockReplacementAction()]),
+      requiresFollowUp: false, pendingIssue: null, version: 2,
+    });
+    store.seed('equipment_status/furnace_7', {
+      state: 'underMaintenance', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+    const service = serviceFor(store);
+    await service.execute({
+      commandId: 'finalize-burner-block', commandType: 'finalizeJob',
+      aggregateId: 'wf-burner-block', expectedVersion: 5,
+      payload: {redRequired: false},
+    }, {actor: admin, serverNow: at('2026-07-20T18:00:00Z')});
+
+    const lifecycle = store.entries().find(([path]) =>
+      path.startsWith('burner_block_lifecycle_events/'));
+    expect(lifecycle?.[1]).toMatchObject({
+      burnerPosition: 3,
+      supplyMode: 'sailRed',
+      sourceType: 'workflowPlannedJob',
+      sourceId: 'wf-burner-block-exec',
+      sourceModuleId: 'module-burner-block',
+    });
   });
 
   test.each([

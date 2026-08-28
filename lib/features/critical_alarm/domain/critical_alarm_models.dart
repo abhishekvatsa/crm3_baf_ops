@@ -10,6 +10,8 @@ enum CriticalAlarmStatus {
 
 enum CriticalAlarmContactStatus { active, retired }
 
+enum CriticalAlarmDefinitionStatus { active, retired }
+
 enum CriticalAlarmContactKind { mobile, landline, plantExtension }
 
 enum CriticalAlarmSupportBasis {
@@ -24,12 +26,23 @@ class CriticalAlarmDefinition {
     required this.name,
     required this.criticalityKey,
     required this.criticalityRank,
+    this.version = 0,
+    this.status = CriticalAlarmDefinitionStatus.active,
+    this.updatedAt,
+    this.updatedByName,
   });
 
   final String key;
   final String name;
   final String criticalityKey;
   final int criticalityRank;
+  final int version;
+  final CriticalAlarmDefinitionStatus status;
+  final DateTime? updatedAt;
+  final String? updatedByName;
+
+  bool get isActive => status == CriticalAlarmDefinitionStatus.active;
+  bool get isBootstrapDefault => version == 0;
 
   String get criticalityLabel =>
       criticalityKey == 'highest' ? 'Highest' : 'Critical';
@@ -53,6 +66,197 @@ class CriticalAlarmDefinition {
   static final List<CriticalAlarmDefinition> values = List.unmodifiable(
     byKey.values,
   );
+
+  factory CriticalAlarmDefinition.snapshot({
+    required String key,
+    required String name,
+    required String criticalityKey,
+    required int criticalityRank,
+  }) {
+    _validateCriticality(
+      key: criticalityKey,
+      rank: criticalityRank,
+      source: 'critical-alarm snapshot/$key',
+    );
+    return CriticalAlarmDefinition(
+      key: key,
+      name: name,
+      criticalityKey: criticalityKey,
+      criticalityRank: criticalityRank,
+    );
+  }
+
+  factory CriticalAlarmDefinition.fromFirestore(
+    Map<String, dynamic> data,
+    String documentId,
+  ) {
+    final source = 'critical_alarm_definitions/$documentId';
+    _requireExactFields(data, const {
+      'schemaVersion',
+      'definitionId',
+      'version',
+      'status',
+      'name',
+      'criticalityKey',
+      'criticalityRank',
+      'createdAt',
+      'createdByUid',
+      'createdByName',
+      'updatedAt',
+      'updatedByUid',
+      'updatedByName',
+    }, source);
+    if (readRequiredPersistedInt(
+          data['schemaVersion'],
+          field: 'schemaVersion',
+          source: source,
+        ) !=
+        1) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail: 'unsupported critical-alarm definition schema',
+      );
+    }
+    final key = _boundedStoredText(
+      data['definitionId'],
+      field: 'definitionId',
+      source: source,
+      minimum: 1,
+      maximum: 160,
+    );
+    if (key != documentId) {
+      throw PersistedDataFormatException(
+        field: 'definitionId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
+    final criticalityKey = _boundedStoredText(
+      data['criticalityKey'],
+      field: 'criticalityKey',
+      source: source,
+      minimum: 1,
+      maximum: 20,
+    );
+    final criticalityRank = _boundedInt(
+      data['criticalityRank'],
+      field: 'criticalityRank',
+      source: source,
+      minimum: 1,
+      maximum: 2,
+    );
+    _validateCriticality(
+      key: criticalityKey,
+      rank: criticalityRank,
+      source: source,
+    );
+    final createdAt = readRequiredPersistedDateTime(
+      data['createdAt'],
+      field: 'createdAt',
+      source: source,
+    );
+    _boundedStoredText(
+      data['createdByUid'],
+      field: 'createdByUid',
+      source: source,
+      minimum: 1,
+      maximum: 256,
+    );
+    _boundedStoredText(
+      data['createdByName'],
+      field: 'createdByName',
+      source: source,
+      minimum: 1,
+      maximum: 256,
+    );
+    final updatedAt = readRequiredPersistedDateTime(
+      data['updatedAt'],
+      field: 'updatedAt',
+      source: source,
+    );
+    _boundedStoredText(
+      data['updatedByUid'],
+      field: 'updatedByUid',
+      source: source,
+      minimum: 1,
+      maximum: 256,
+    );
+    final updatedByName = _boundedStoredText(
+      data['updatedByName'],
+      field: 'updatedByName',
+      source: source,
+      minimum: 1,
+      maximum: 256,
+    );
+    if (updatedAt.isBefore(createdAt)) {
+      throw PersistedDataFormatException(
+        field: 'updatedAt',
+        source: source,
+        detail: 'must not precede createdAt',
+      );
+    }
+    return CriticalAlarmDefinition(
+      key: key,
+      name: _boundedStoredText(
+        data['name'],
+        field: 'name',
+        source: source,
+        minimum: 2,
+        maximum: 120,
+      ),
+      criticalityKey: criticalityKey,
+      criticalityRank: criticalityRank,
+      version: readRequiredPersistedInt(
+        data['version'],
+        field: 'version',
+        source: source,
+        minimum: 1,
+      ),
+      status: readRequiredPersistedEnum(
+        CriticalAlarmDefinitionStatus.values,
+        data['status'],
+        field: 'status',
+        source: source,
+      ),
+      updatedAt: updatedAt,
+      updatedByName: updatedByName,
+    );
+  }
+
+  static List<CriticalAlarmDefinition> mergeOverrides(
+    Iterable<CriticalAlarmDefinition> overrides,
+  ) {
+    final merged = <String, CriticalAlarmDefinition>{...byKey};
+    for (final definition in overrides) {
+      merged[definition.key] = definition;
+    }
+    final rows =
+        merged.values.toList()..sort((left, right) {
+          final rank = left.criticalityRank.compareTo(right.criticalityRank);
+          if (rank != 0) return rank;
+          final name = left.name.toLowerCase().compareTo(
+            right.name.toLowerCase(),
+          );
+          return name != 0 ? name : left.key.compareTo(right.key);
+        });
+    return List.unmodifiable(rows);
+  }
+
+  static void _validateCriticality({
+    required String key,
+    required int rank,
+    required String source,
+  }) {
+    if (!((key == 'highest' && rank == 1) ||
+        (key == 'critical' && rank == 2))) {
+      throw PersistedDataFormatException(
+        field: 'criticalityKey',
+        source: source,
+        detail: 'must be Highest/rank 1 or Critical/rank 2',
+      );
+    }
+  }
 }
 
 void _requireExactFields(
@@ -263,22 +467,37 @@ class CriticalAlarm {
         detail: 'must match the document ID',
       );
     }
-    final typeKey = readRequiredPersistedString(
+    final typeKey = _boundedStoredText(
       data['alarmTypeKey'],
       field: 'alarmTypeKey',
       source: source,
+      minimum: 1,
+      maximum: 160,
     );
-    final definition = CriticalAlarmDefinition.byKey[typeKey];
-    if (definition == null ||
-        data['alarmTypeName'] != definition.name ||
-        data['criticalityKey'] != definition.criticalityKey ||
-        data['criticalityRank'] != definition.criticalityRank) {
-      throw PersistedDataFormatException(
-        field: 'alarmTypeKey',
+    final definition = CriticalAlarmDefinition.snapshot(
+      key: typeKey,
+      name: _boundedStoredText(
+        data['alarmTypeName'],
+        field: 'alarmTypeName',
         source: source,
-        detail: 'does not match the governed alarm catalogue',
-      );
-    }
+        minimum: 2,
+        maximum: 120,
+      ),
+      criticalityKey: _boundedStoredText(
+        data['criticalityKey'],
+        field: 'criticalityKey',
+        source: source,
+        minimum: 1,
+        maximum: 20,
+      ),
+      criticalityRank: _boundedInt(
+        data['criticalityRank'],
+        field: 'criticalityRank',
+        source: source,
+        minimum: 1,
+        maximum: 2,
+      ),
+    );
     final assetTypeKey = _boundedOptionalStoredText(
       data['assetTypeKey'],
       field: 'assetTypeKey',
@@ -666,11 +885,18 @@ class CriticalAlarmContact {
       field: 'alarmTypeKeys',
       source: source,
     );
-    if (alarmTypeKeys.isEmpty ||
-        alarmTypeKeys.length > CriticalAlarmDefinition.values.length ||
+    final rawAlarmTypeKeys = data['alarmTypeKeys'];
+    if (rawAlarmTypeKeys is! List ||
+        rawAlarmTypeKeys.length != alarmTypeKeys.length ||
+        List.generate(
+          alarmTypeKeys.length,
+          (index) => rawAlarmTypeKeys[index] == alarmTypeKeys[index],
+        ).contains(false) ||
+        alarmTypeKeys.isEmpty ||
+        alarmTypeKeys.length > 20 ||
         alarmTypeKeys.toSet().length != alarmTypeKeys.length ||
         alarmTypeKeys.any(
-          (key) => !CriticalAlarmDefinition.byKey.containsKey(key),
+          (key) => key.trim() != key || key.isEmpty || key.length > 160,
         )) {
       throw PersistedDataFormatException(
         field: 'alarmTypeKeys',

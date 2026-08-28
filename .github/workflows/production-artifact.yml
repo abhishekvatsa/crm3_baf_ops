@@ -252,7 +252,8 @@ jobs:
             -File tools/release/Test-ProductionReleasePolicy.ps1 `
             -PolicyPath release/production-release-policy.json `
             -AuthorityPath release/backend-authority.prod.json `
-            -RepositoryRoot $PWD
+            -RepositoryRoot $PWD `
+            -RequireArtifactConstructionAuthority
           if ($LASTEXITCODE -ne 0) {
             throw 'Pre-reservation production policy verification failed.'
           }

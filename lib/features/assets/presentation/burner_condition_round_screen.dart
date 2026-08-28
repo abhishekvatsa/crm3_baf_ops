@@ -29,6 +29,8 @@ class _BurnerConditionRoundScreenState
   late final List<_BurnerObservationDraft> _observations;
   String? _assetInstanceId;
   bool _submitting = false;
+  bool _draftSealRedHotObserved = false;
+  bool _hotAirAtDraftSealObserved = false;
 
   @override
   void initState() {
@@ -155,6 +157,16 @@ class _BurnerConditionRoundScreenState
                       : (value) => setState(() => _assetInstanceId = value),
             ),
             const SizedBox(height: BafSpacing.xl),
+            _DraftSealConditionPanel(
+              draftSealRedHotObserved: _draftSealRedHotObserved,
+              hotAirAtDraftSealObserved: _hotAirAtDraftSealObserved,
+              enabled: !_submitting,
+              onDraftSealRedHotChanged:
+                  (value) => setState(() => _draftSealRedHotObserved = value),
+              onHotAirChanged:
+                  (value) => setState(() => _hotAirAtDraftSealObserved = value),
+            ),
+            const SizedBox(height: BafSpacing.xl),
             Row(
               children: [
                 const Expanded(
@@ -191,6 +203,25 @@ class _BurnerConditionRoundScreenState
                   itemBuilder:
                       (context) => [
                         for (final value in BurnerRoundFlameObservation.values)
+                          PopupMenuItem(value: value, child: Text(value.label)),
+                      ],
+                ),
+                PopupMenuButton<BurnerUvCondition>(
+                  tooltip: 'Apply UV condition to all burners',
+                  icon: const Icon(Icons.sensors_rounded),
+                  onSelected:
+                      _submitting
+                          ? null
+                          : (value) {
+                            setState(() {
+                              for (final observation in _observations) {
+                                observation.uvCondition = value;
+                              }
+                            });
+                          },
+                  itemBuilder:
+                      (context) => [
+                        for (final value in BurnerUvCondition.values)
                           PopupMenuItem(value: value, child: Text(value.label)),
                       ],
                 ),
@@ -291,6 +322,11 @@ class _BurnerConditionRoundScreenState
           .record(
             furnace: furnace,
             observations: observations,
+            draftSealRedHotObserved: _draftSealRedHotObserved,
+            hotAirAtDraftSealObserved: _hotAirAtDraftSealObserved,
+            uvObservations: _observations
+                .map((draft) => draft.toUvObservation())
+                .toList(growable: false),
             actor: actor,
             roundNote: _roundNoteController.text,
           );
@@ -403,6 +439,32 @@ class _BurnerObservationEditor extends StatelessWidget {
                       : null,
             ),
             const SizedBox(height: BafSpacing.xs),
+            DropdownButtonFormField<BurnerUvCondition>(
+              initialValue: draft.uvCondition,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'UV condition',
+                prefixIcon: Icon(Icons.sensors_outlined),
+              ),
+              items: [
+                for (final condition in BurnerUvCondition.values)
+                  DropdownMenuItem(
+                    value: condition,
+                    child: Text(condition.label),
+                  ),
+              ],
+              validator:
+                  (value) => value == null ? 'Select the UV condition.' : null,
+              onChanged:
+                  enabled
+                      ? (value) {
+                        if (value == null) return;
+                        draft.uvCondition = value;
+                        onChanged();
+                      }
+                      : null,
+            ),
+            const SizedBox(height: BafSpacing.sm),
             TextFormField(
               controller: draft._microampController,
               enabled:
@@ -453,6 +515,7 @@ class _BurnerObservationDraft {
 
   final int position;
   BurnerRoundFlameObservation? flameObservation;
+  BurnerUvCondition? uvCondition;
   bool redHotObserved = false;
   final _microampController = TextEditingController();
   final _remarksController = TextEditingController();
@@ -495,8 +558,67 @@ class _BurnerObservationDraft {
     );
   }
 
+  BurnerUvObservation toUvObservation() {
+    final condition = uvCondition;
+    if (condition == null) {
+      throw const FormatException('Select every burner UV condition.');
+    }
+    return BurnerUvObservation(
+      position: position,
+      condition: condition,
+      remarks:
+          _remarksController.text.trim().isEmpty
+              ? null
+              : _remarksController.text.trim(),
+    );
+  }
+
   void dispose() {
     _microampController.dispose();
     _remarksController.dispose();
+  }
+}
+
+class _DraftSealConditionPanel extends StatelessWidget {
+  const _DraftSealConditionPanel({
+    required this.draftSealRedHotObserved,
+    required this.hotAirAtDraftSealObserved,
+    required this.enabled,
+    required this.onDraftSealRedHotChanged,
+    required this.onHotAirChanged,
+  });
+
+  final bool draftSealRedHotObserved;
+  final bool hotAirAtDraftSealObserved;
+  final bool enabled;
+  final ValueChanged<bool> onDraftSealRedHotChanged;
+  final ValueChanged<bool> onHotAirChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: BafColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        side: const BorderSide(color: BafColors.border),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile.adaptive(
+            title: const Text('Draft seal red hot'),
+            subtitle: const Text('Visible red-hot condition at the draft seal'),
+            value: draftSealRedHotObserved,
+            onChanged: enabled ? onDraftSealRedHotChanged : null,
+          ),
+          const Divider(height: 1),
+          SwitchListTile.adaptive(
+            title: const Text('Hot air at draft seal'),
+            subtitle: const Text('Abnormal hot-air escape observed'),
+            value: hotAirAtDraftSealObserved,
+            onChanged: enabled ? onHotAirChanged : null,
+          ),
+        ],
+      ),
+    );
   }
 }

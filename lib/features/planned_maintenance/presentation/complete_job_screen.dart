@@ -259,11 +259,13 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           force: true,
         );
       } catch (_) {
-        // Best effort only. The completion repository/server path below remains
-        // the authoritative guard and reports any still-unsynced modules.
+        // The job-scoped readback below decides whether completion is safe.
+        // An unrelated sync failure must not conceal an unsent module change.
         if (!mounted) return;
       }
 
+      if (!mounted) return;
+      await _assertCurrentJobModulesSynced();
       if (!mounted) return;
       setState(() => _completionPhase = _CompletionPhase.completing);
 
@@ -334,6 +336,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                     ? widget.execution.responsesJson
                     : FieldResponse.encode(fieldResponses),
             'actionsJson': ComponentAction.encode(_actions),
+            'actionTargetContractVersion': 1,
             if (redAnswers != null) 'redRequired': redAnswers.redRequired,
             if (redAnswers?.preparationRequired != null)
               'preparationRequired': redAnswers!.preparationRequired,
@@ -407,6 +410,35 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     }
   }
 
+  Future<void> _assertCurrentJobModulesSynced() async {
+    final modules = await ref
+        .read(jobModuleRepositoryProvider)
+        .getModulesForJob(
+          jobExecutionFirestoreId: widget.execution.firestoreId,
+          jobExecutionLocalId: kIsWeb ? null : widget.execution.id,
+          includeDeleted: true,
+        );
+    final unsyncedModules =
+        modules.where((module) => !module.isSynced).toList();
+    if (unsyncedModules.isEmpty) return;
+
+    final identities = unsyncedModules
+        .map((module) {
+          final code = module.moduleCode?.trim();
+          if (code != null && code.isNotEmpty) return code;
+          final title = module.moduleTitle.trim();
+          if (title.isNotEmpty) return title;
+          return module.firestoreId ?? 'local-${module.id}';
+        })
+        .toSet()
+        .take(4)
+        .join(', ');
+    throw StateError(
+      'Unsynced module changes remain for this job'
+      '${identities.isEmpty ? '' : ': $identities'}.',
+    );
+  }
+
   bool _isDisplayOnlyField(TemplateField field) {
     return field.type == FieldType.sectionHeader ||
         field.type == FieldType.instruction;
@@ -426,6 +458,17 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   }
 
   Future<void> _addAction() async {
+    final actor = ref.read(currentAppUserProvider).value;
+    if (actor == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Your approved user identity is not available.'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+    final identity = widget.execution.assignmentPhysicalAssetIdentity;
     final result = await showModalBottomSheet<ComponentAction>(
       context: context,
       isScrollControlled: true,
@@ -436,11 +479,25 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           top: Radius.circular(BafRadius.medium),
         ),
       ),
-      builder: (_) => const ActionBottomSheet(),
+      builder:
+          (_) => ActionBottomSheet(
+            performedBy: actor.name,
+            target: GovernedActionContext(
+              assetTypeKey: widget.execution.assetType.name,
+              assetNumber: widget.execution.assetNumber,
+              assetClassId: identity?.assetClassId,
+              assetInstanceId: identity?.assetInstanceId,
+            ),
+          ),
     );
 
     if (!mounted || result == null) return;
-    setState(() => _actions.add(result));
+    setState(() {
+      _actions.add(result);
+      if (result.burnerBlockSupplyMode != null) {
+        _teamsInvolved.add('mechanical');
+      }
+    });
   }
 
   Widget _buildField(TemplateField field) {
@@ -1166,7 +1223,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       case 'instrumentation':
         return 'I&A';
       case 'refractory':
-        return 'REFRACTORY';
+        return 'RED';
       case 'emd':
         return 'EMD';
       default:

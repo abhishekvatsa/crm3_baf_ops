@@ -58,4 +58,19 @@ class CriticalAlarmRepository {
       );
     }
   }
+
+  Stream<List<CriticalAlarmDefinition>> watchDefinitions() async* {
+    await for (final snapshot in firestore
+        .collection('critical_alarm_definitions')
+        .snapshots(includeMetadataChanges: true)) {
+      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
+        continue;
+      }
+      final overrides = snapshot.docs.map(
+        (document) =>
+            CriticalAlarmDefinition.fromFirestore(document.data(), document.id),
+      );
+      yield CriticalAlarmDefinition.mergeOverrides(overrides);
+    }
+  }
 }

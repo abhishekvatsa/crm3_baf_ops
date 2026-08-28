@@ -226,8 +226,9 @@ class ComplianceDetailScreen extends ConsumerWidget {
   Color _statusColor(String status) {
     switch (status) {
       case 'confirmedClosed':
-      case 'complied':
         return BafColors.success;
+      case 'complied':
+        return BafColors.warning;
       case 'cancelled':
       case 'superseded':
         return BafColors.textSecondary;

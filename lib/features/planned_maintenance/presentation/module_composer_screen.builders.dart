@@ -256,10 +256,8 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
             onChanged:
                 (value) => _setComposerAssetType(value ?? _draft.assetType),
           ),
-          if (_draft.assetType == AssetType.governedCustom) ...[
-            const SizedBox(height: BafSpacing.sm),
-            _buildGovernedHierarchyScope(),
-          ],
+          const SizedBox(height: BafSpacing.sm),
+          _buildGovernedHierarchyScope(),
           CheckboxListTile(
             value: _draft.closureReviewConfirmed,
             dense: true,
@@ -302,7 +300,13 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
 
     final classes =
         classesAsync.requireValue
-            .where((item) => item.isActive && item.legacyAssetTypeKey == null)
+            .where(
+              (item) =>
+                  item.isActive &&
+                  (_draft.assetType == AssetType.governedCustom
+                      ? item.legacyAssetTypeKey == null
+                      : item.legacyAssetTypeKey == _draft.assetType.name),
+            )
             .toList()
           ..sort((left, right) => left.name.compareTo(right.name));
     final selectedClass =
@@ -964,6 +968,9 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
           ),
           const SizedBox(height: BafSpacing.sm),
           TextFormField(
+            key: ValueKey(
+              'module-target-refs-${module.localId}-${module.targetRefs.join('|')}',
+            ),
             initialValue: module.targetRefs.join(', '),
             decoration: _inputDecoration(
               'Target refs',
@@ -973,6 +980,24 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
                 (value) =>
                     setState(() => module.targetRefs = _splitComma(value)),
           ),
+          if (_draft.assetHierarchyReference case final reference?) ...[
+            const SizedBox(height: BafSpacing.xs),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed:
+                    () => setState(() {
+                      module.targetRefs = List<String>.from(
+                        reference.hierarchyPath,
+                      );
+                      module.metadata['assetHierarchyRefJson'] =
+                          reference.encode();
+                    }),
+                icon: const Icon(Icons.account_tree_outlined),
+                label: const Text('Use template component scope'),
+              ),
+            ),
+          ],
           const SizedBox(height: BafSpacing.sm),
           TextFormField(
             initialValue: module.procedureRefs.join(', '),

@@ -73,3 +73,21 @@ final criticalAlarmContactsProvider =
             error: Stream<List<CriticalAlarmContact>>.error,
           );
     });
+
+final criticalAlarmDefinitionsProvider =
+    StreamProvider<List<CriticalAlarmDefinition>>((ref) {
+      return ref
+          .watch(currentAppUserProvider)
+          .when(
+            data: (user) {
+              if (user == null || !user.isApproved) {
+                return Stream.value(const <CriticalAlarmDefinition>[]);
+              }
+              return ref
+                  .watch(criticalAlarmRepositoryProvider)
+                  .watchDefinitions();
+            },
+            loading: () => const Stream<List<CriticalAlarmDefinition>>.empty(),
+            error: Stream<List<CriticalAlarmDefinition>>.error,
+          );
+    });

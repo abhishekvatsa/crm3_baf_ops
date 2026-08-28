@@ -3435,6 +3435,7 @@ describe("directives", () => {
     await seedUser("admin1", ["admin"]);
     await seedUser("supervisor1", ["shiftSupervisor"]);
     await seedUser("ops1", ["operations"]);
+    await seedUser("ia1", ["seniorInstrumentation"]);
     await seedUser("seniorMech", ["seniorMechanical"]);
   });
 
@@ -3509,8 +3510,14 @@ describe("directives", () => {
     await assertSucceeds(
       updateDoc(doc(db, "directives/dirAck"), {
         status: "acknowledged",
+        isActive: true,
         acknowledgedByUid: "ops1",
+        acknowledgedByName: "Operations One",
         acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
         updatedAt: Timestamp.now(),
         version: 2,
       })
@@ -3532,6 +3539,146 @@ describe("directives", () => {
         closedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         version: 2,
+      })
+    );
+  });
+
+  test("burner-round directives cannot bypass server-governed compliance", async () => {
+    const burnerDirectiveId =
+      "burner_round_red_hot_11111111-1111-4111-8111-111111111111";
+    await seedDoc(`directives/${burnerDirectiveId}`, {
+      ...directiveBase,
+      firestoreId: burnerDirectiveId,
+      assetType: "furnace",
+      assetNumber: 7,
+      component: "Burner block",
+      subsystem: "Burner system",
+      directedTo: "seniorInstrumentation",
+      isActive: true,
+      acknowledgedByName: null,
+      closedByName: null,
+      closedWithoutAcknowledgement: false,
+      metadataJson: JSON.stringify({
+        schemaVersion: 1,
+        trigger: "burnerConditionRoundRedHot",
+        sourceRoundId: "11111111-1111-4111-8111-111111111111",
+        burnerPositions: [3],
+        automaticPlantActuation: false,
+      }),
+    });
+
+    for (const lifecycleMutation of [
+      {isActive: false},
+      {closedWithoutAcknowledgement: true},
+      {closedByName: "Fabricated closure"},
+    ]) {
+      await assertFails(
+        updateDoc(doc(dbAs("ia1"), `directives/${burnerDirectiveId}`), {
+          status: "acknowledged",
+          isActive: true,
+          acknowledgedByUid: "ia1",
+          acknowledgedByName: "Instrumentation One",
+          acknowledgedAt: Timestamp.now(),
+          closedByUid: null,
+          closedByName: null,
+          closedAt: null,
+          closedWithoutAcknowledgement: false,
+          ...lifecycleMutation,
+          updatedAt: Timestamp.now(),
+          version: 2,
+        })
+      );
+    }
+    for (const uid of ["supervisor1", "admin1"]) {
+      await assertFails(
+        updateDoc(doc(dbAs(uid), `directives/${burnerDirectiveId}`), {
+          status: "closed",
+          closedByUid: uid,
+          closedAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          version: 2,
+        })
+      );
+    }
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), `directives/${burnerDirectiveId}`), {
+        firestoreId: "ordinary-directive",
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), `directives/${burnerDirectiveId}`), {
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedByUid: "admin1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(dbAs("ia1"), `directives/${burnerDirectiveId}`), {
+        status: "acknowledged",
+        isActive: true,
+        acknowledgedByUid: "ia1",
+        acknowledgedByName: "Instrumentation One",
+        acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+    await seedDoc(`directives/${burnerDirectiveId}`, {
+      ...directiveBase,
+      firestoreId: burnerDirectiveId,
+      assetType: "furnace",
+      assetNumber: 7,
+      component: "Burner block",
+      subsystem: "Burner system",
+      directedTo: "seniorInstrumentation",
+      isActive: true,
+      acknowledgedByName: null,
+      closedByName: null,
+      closedWithoutAcknowledgement: false,
+      metadataJson: JSON.stringify({
+        schemaVersion: 1,
+        trigger: "burnerConditionRoundRedHot",
+        sourceRoundId: "11111111-1111-4111-8111-111111111111",
+        burnerPositions: [3],
+        automaticPlantActuation: false,
+      }),
+    });
+    await assertFails(
+      updateDoc(doc(dbAs("ia1"), `directives/${burnerDirectiveId}`), {
+        status: "acknowledged",
+        isActive: true,
+        acknowledgedByUid: "ia1",
+        acknowledgedByName: "Instrumentation One",
+        acknowledgedAt: Timestamp.now(),
+        closedByUid: null,
+        closedByName: null,
+        closedAt: null,
+        closedWithoutAcknowledgement: false,
+        metadataJson: JSON.stringify({
+          schemaVersion: 1,
+          trigger: "burnerConditionRoundRedHot",
+          sourceRoundId: "11111111-1111-4111-8111-111111111111",
+          burnerPositions: [4],
+          automaticPlantActuation: false,
+        }),
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+    await assertFails(
+      setDoc(doc(dbAs("admin1"), "directives/burner_round_red_hot_forged"), {
+        ...directiveBase,
+        firestoreId: "burner_round_red_hot_forged",
+        createdByUid: "admin1",
+        issuedByUid: "admin1",
       })
     );
   });
@@ -4940,6 +5087,14 @@ describe("governed dynamic asset hierarchy", () => {
       roundId: "round-1",
       observedAt: Timestamp.now(),
     });
+    await seedDoc("burner_block_lifecycle_events/event-1", {
+      eventId: "event-1",
+      completedAt: Timestamp.now(),
+    });
+    await seedDoc("burner_block_lifecycle_current/current-1", {
+      projectionId: "current-1",
+      currentEventId: "event-1",
+    });
     await seedDoc("inner_cover_profiles/cover-1", {
       innerCoverId: "cover-1",
     });
@@ -4964,6 +5119,12 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertSucceeds(
       getDoc(doc(opsDb, "burner_condition_rounds/round-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "burner_block_lifecycle_events/event-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "burner_block_lifecycle_current/current-1"))
     );
     await assertSucceeds(getDoc(doc(opsDb, "asset_tag_claims/tag-hash")));
     await assertFails(getDocs(collection(opsDb, "asset_tag_claims")));
@@ -5012,6 +5173,12 @@ describe("governed dynamic asset hierarchy", () => {
       }),
       setDoc(doc(adminDb, "burner_condition_rounds/round-1"), {
         roundId: "round-1",
+      }),
+      setDoc(doc(adminDb, "burner_block_lifecycle_events/event-1"), {
+        eventId: "event-1",
+      }),
+      setDoc(doc(adminDb, "burner_block_lifecycle_current/current-1"), {
+        projectionId: "current-1",
       }),
       setDoc(doc(adminDb, "burner_condition_round_receipts/request-1"), {
         requestId: "request-1",
@@ -5146,6 +5313,7 @@ describe("governed dynamic asset hierarchy", () => {
     for (const path of [
       "critical_alarms/alarm-1",
       "critical_alarm_contacts/contact-1",
+      "critical_alarm_definitions/fire",
     ]) {
       await seedDoc(path, {schemaVersion: 1, identity: path});
       await assertSucceeds(getDoc(doc(dbAs("ops1"), path)));
@@ -5157,6 +5325,7 @@ describe("governed dynamic asset hierarchy", () => {
     }
     await seedDoc("critical_alarm_audits/audit-1", {schemaVersion: 1});
     await seedDoc("critical_alarm_contact_audits/audit-2", {schemaVersion: 1});
+    await seedDoc("critical_alarm_definition_audits/audit-3", {schemaVersion: 1});
     await assertSucceeds(
       getDoc(doc(dbAs("admin1"), "critical_alarm_audits/audit-1"))
     );
@@ -5172,11 +5341,20 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(
       getDoc(doc(dbAs("si1"), "critical_alarm_contact_audits/audit-2"))
     );
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "critical_alarm_definition_audits/audit-3"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("si1"), "critical_alarm_definition_audits/audit-3"))
+    );
     await assertFails(
       deleteDoc(doc(dbAs("admin1"), "critical_alarm_audits/audit-1"))
     );
     await assertFails(
       deleteDoc(doc(dbAs("admin1"), "critical_alarm_contact_audits/audit-2"))
+    );
+    await assertFails(
+      deleteDoc(doc(dbAs("admin1"), "critical_alarm_definition_audits/audit-3"))
     );
   });
 
@@ -5212,16 +5390,36 @@ describe("governed dynamic asset hierarchy", () => {
     }
   });
 
-  test("burner rounds are approved-readable, immutable, and receipts stay private", async () => {
+  test("burner rounds and block lifecycle are approved-readable and immutable", async () => {
+    await seedUser("burnerPending", ["operations"], false);
     await seedDoc("burner_condition_rounds/round-1", {
       roundId: "round-1",
       observedAt: Timestamp.now(),
     });
+    await seedDoc("burner_block_lifecycle_events/event-1", {
+      eventId: "event-1",
+      completedAt: Timestamp.now(),
+    });
+    await seedDoc("burner_block_lifecycle_current/current-1", {
+      projectionId: "current-1",
+      currentEventId: "event-1",
+    });
     await seedDoc("burner_condition_round_receipts/request-1", {
       requestId: "request-1",
     });
+    await seedDoc("burner_condition_current/furnace-1", {
+      schemaVersion: 1,
+      assetInstanceId: "furnace-1",
+      roundId: "round-1",
+    });
     await assertSucceeds(
       getDoc(doc(dbAs("ops1"), "burner_condition_rounds/round-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "burner_block_lifecycle_events/event-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "burner_block_lifecycle_current/current-1"))
     );
     await assertFails(
       updateDoc(doc(dbAs("admin1"), "burner_condition_rounds/round-1"), {
@@ -5229,7 +5427,31 @@ describe("governed dynamic asset hierarchy", () => {
       })
     );
     await assertFails(
+      updateDoc(doc(dbAs("admin1"), "burner_block_lifecycle_events/event-1"), {
+        supplierName: "Client-side rewrite",
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "burner_block_lifecycle_current/current-1"), {
+        supplierName: "Client-side rewrite",
+      })
+    );
+    await assertFails(
       getDoc(doc(dbAs("admin1"), "burner_condition_round_receipts/request-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "burner_condition_current/furnace-1"))
+    );
+    await assertSucceeds(
+      getDocs(collection(dbAs("ops1"), "burner_condition_current"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("burnerPending"), "burner_condition_current/furnace-1"))
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "burner_condition_current/furnace-1"), {
+        roundId: "round-2",
+      })
     );
   });
 

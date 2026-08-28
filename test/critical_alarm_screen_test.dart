@@ -149,6 +149,9 @@ Future<void> _pump(
         criticalAlarmContactsProvider.overrideWith(
           (_) => Stream.value(contacts),
         ),
+        criticalAlarmDefinitionsProvider.overrideWith(
+          (_) => Stream.value(CriticalAlarmDefinition.values),
+        ),
       ],
       child: MaterialApp(
         theme: BafAppTheme.light,
@@ -198,6 +201,12 @@ void main() {
         find.byKey(const ValueKey('critical-alarm-location')),
         'BAF north bay',
       );
+      await tester.enterText(
+        find.byKey(const ValueKey('critical-alarm-details')),
+        'Visible flame near the north bay utility gallery',
+      );
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
       await tester.ensureVisible(
         find.byKey(const ValueKey('critical-alarm-review')),
       );

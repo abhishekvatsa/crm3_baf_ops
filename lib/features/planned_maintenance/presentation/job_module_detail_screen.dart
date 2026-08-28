@@ -18,7 +18,10 @@ import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../data/job_module_model.dart';
 import '../data/job_template_model.dart';
 import '../domain/runtime_module_lineage.dart';
+import '../models/component_action_model.dart';
 import '../providers/job_module_provider.dart';
+import '../widgets/action_bottom_sheet.dart';
+import '../widgets/action_mini_card.dart';
 import 'widgets/job_module_response_form.dart';
 import 'widgets/job_module_response_summary.dart';
 
@@ -199,6 +202,78 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                 performedByUid: actor.uid,
                 performedByName: actor.name,
                 summary: 'Saved process-module progress',
+              ),
+            );
+        if (!mounted) return;
+        setState(() => _module = updated);
+      },
+    );
+  }
+
+  Future<void> _addComponentAction() async {
+    final actor = await _readActor();
+    if (!mounted) return;
+    if (actor == null ||
+        !actor.canSaveJobModuleWorkFor(_module.discipline.name)) {
+      _showSnack(
+        'You are not authorized to record component work in this module.',
+        isError: true,
+      );
+      return;
+    }
+    final currentActions = _module.actionsReadResult;
+    if (!currentActions.isValid) {
+      _showSnack(
+        'Saved module actions need repair before new work can be added.',
+        isError: true,
+      );
+      return;
+    }
+    final identity = widget.execution.assignmentPhysicalAssetIdentity;
+    final action = await showModalBottomSheet<ComponentAction>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: BafColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(BafRadius.medium),
+        ),
+      ),
+      builder:
+          (_) => ActionBottomSheet(
+            target: GovernedActionContext(
+              assetTypeKey: widget.execution.assetType.name,
+              assetNumber: widget.execution.assetNumber,
+              assetClassId: identity?.assetClassId,
+              assetInstanceId: identity?.assetInstanceId,
+            ),
+            performedBy: actor.name,
+          ),
+    );
+    if (!mounted || action == null) return;
+
+    final wasNotStarted = _module.status == JobModuleStatus.notStarted;
+    final updated =
+        _editableCopy()
+          ..actions = <ComponentAction>[...currentActions.entries, action]
+          ..status = wasNotStarted ? JobModuleStatus.draftSaved : _module.status
+          ..updatedByUid = actor.uid
+          ..updatedByName = actor.name
+          ..updatedAt = DateTime.now();
+
+    await _runBusyAction(
+      successMessage: 'Component work action saved',
+      action: () async {
+        await ref
+            .read(jobModuleRepositoryProvider)
+            .saveModule(
+              updated,
+              actor: actor,
+              auditContext: AuditContext(
+                performedByUid: actor.uid,
+                performedByName: actor.name,
+                summary: 'Added governed component work to process module',
               ),
             );
         if (!mounted) return;
@@ -792,6 +867,44 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                   responses: responses,
                   fieldDefinitions: fields,
                 ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          _ModuleSectionCard(
+            title: 'Component work actions',
+            subtitle:
+                'Hierarchy-bound inspections, repairs and replacements retained with this module.',
+            icon: Icons.handyman_outlined,
+            children: [
+              if (!actionRead.isValid)
+                const PersistedDataIntegrityNotice(
+                  title: 'Component actions unavailable',
+                  message:
+                      'Repair the saved action payload before recording additional component work.',
+                )
+              else if (actionRead.entries.isEmpty)
+                const _EmptyBox(
+                  icon: Icons.playlist_add_check_circle_outlined,
+                  text: 'No component work has been recorded in this module.',
+                )
+              else
+                ...actionRead.entries.map(
+                  (action) => ActionMiniCard(action: action),
+                ),
+              if (!parentJobTerminal) ...[
+                const SizedBox(height: BafSpacing.md),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed:
+                        canSaveWork && actionRead.isValid && !_isBusy
+                            ? _addComponentAction
+                            : null,
+                    icon: const Icon(Icons.add_task_rounded),
+                    label: const Text('Add component work'),
+                  ),
+                ),
+              ],
             ],
           ),
           if (!parentJobTerminal) ...[

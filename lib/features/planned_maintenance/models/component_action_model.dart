@@ -7,6 +7,8 @@ enum ActionType { issue, repair, replacement, inspection }
 
 enum ReplacementType { newPart, repaired, revised }
 
+enum BurnerBlockSupplyMode { sailRed, purchased }
+
 enum ActionSeverity { low, medium, high, critical }
 
 enum ActionStatus { issue, inProgress, resolved }
@@ -58,6 +60,9 @@ class ComponentAction {
     'burnerActionCode',
     'burnerOutcome',
     'burnerMicroampReading',
+    'burnerBlockSupplyMode',
+    'burnerBlockSupplierName',
+    'burnerBlockPurchaseOrderNumber',
     'schemaVersion',
   };
 
@@ -90,6 +95,9 @@ class ComponentAction {
   final String? burnerActionCode;
   final String? burnerOutcome;
   final double? burnerMicroampReading;
+  final BurnerBlockSupplyMode? burnerBlockSupplyMode;
+  final String? burnerBlockSupplierName;
+  final String? burnerBlockPurchaseOrderNumber;
 
   /// Only explicitly registered, bounded non-authority extensions are retained.
   final Map<String, dynamic> extensions;
@@ -124,6 +132,9 @@ class ComponentAction {
     String? burnerActionCode,
     String? burnerOutcome,
     double? burnerMicroampReading,
+    this.burnerBlockSupplyMode,
+    String? burnerBlockSupplierName,
+    String? burnerBlockPurchaseOrderNumber,
     Map<String, dynamic>? extensions,
   }) : createdAt = createdAt ?? DateTime.now(),
        metadataJson = _readOptionalJsonObjectText(
@@ -154,6 +165,16 @@ class ComponentAction {
          burnerMicroampReading,
          source: 'ComponentAction constructor',
        ),
+       burnerBlockSupplierName = readOptionalPersistedString(
+         burnerBlockSupplierName,
+         field: 'burnerBlockSupplierName',
+         source: 'ComponentAction constructor',
+       ),
+       burnerBlockPurchaseOrderNumber = readOptionalPersistedString(
+         burnerBlockPurchaseOrderNumber,
+         field: 'burnerBlockPurchaseOrderNumber',
+         source: 'ComponentAction constructor',
+       ),
        extensions = validateBoundedPersistedExtensionBag(
          extensions ?? const <String, dynamic>{},
          allowedFields: _allowedExtensions,
@@ -166,6 +187,14 @@ class ComponentAction {
       burnerActionCode: this.burnerActionCode,
       burnerOutcome: this.burnerOutcome,
       burnerMicroampReading: this.burnerMicroampReading,
+      burnerBlockSupplyMode: burnerBlockSupplyMode,
+      burnerBlockSupplierName: this.burnerBlockSupplierName,
+      burnerBlockPurchaseOrderNumber: this.burnerBlockPurchaseOrderNumber,
+      actionType: actionType,
+      replacement: replacement,
+      status: status,
+      component: component,
+      hierarchyReference: assetHierarchyRef,
       source: 'ComponentAction constructor',
     );
   }
@@ -202,6 +231,9 @@ class ComponentAction {
     'burnerActionCode': burnerActionCode,
     'burnerOutcome': burnerOutcome,
     'burnerMicroampReading': burnerMicroampReading,
+    'burnerBlockSupplyMode': burnerBlockSupplyMode?.name,
+    'burnerBlockSupplierName': burnerBlockSupplierName,
+    'burnerBlockPurchaseOrderNumber': burnerBlockPurchaseOrderNumber,
   };
 
   factory ComponentAction.fromMap(Map<String, dynamic> map, {String? source}) {
@@ -354,6 +386,22 @@ class ComponentAction {
         map['burnerMicroampReading'],
         source: source,
       ),
+      burnerBlockSupplyMode: readOptionalPersistedEnum(
+        BurnerBlockSupplyMode.values,
+        map['burnerBlockSupplyMode'],
+        field: 'burnerBlockSupplyMode',
+        source: source,
+      ),
+      burnerBlockSupplierName: readOptionalPersistedString(
+        map['burnerBlockSupplierName'],
+        field: 'burnerBlockSupplierName',
+        source: source,
+      ),
+      burnerBlockPurchaseOrderNumber: readOptionalPersistedString(
+        map['burnerBlockPurchaseOrderNumber'],
+        field: 'burnerBlockPurchaseOrderNumber',
+        source: source,
+      ),
       extensions: extensions,
     );
   }
@@ -484,19 +532,26 @@ void _validateCompleteBurnerEvidence({
   required String? burnerActionCode,
   required String? burnerOutcome,
   required double? burnerMicroampReading,
+  required BurnerBlockSupplyMode? burnerBlockSupplyMode,
+  required String? burnerBlockSupplierName,
+  required String? burnerBlockPurchaseOrderNumber,
+  required ActionType actionType,
+  required ReplacementType? replacement,
+  required ActionStatus? status,
+  required String component,
+  required AssetHierarchyReference? hierarchyReference,
   required String source,
 }) {
-  final anyPresent =
+  final attendanceEvidencePresent =
       attendanceSessionId != null ||
-      burnerPosition != null ||
       burnerActionCode != null ||
       burnerOutcome != null ||
       burnerMicroampReading != null;
-  if (!anyPresent) return;
-  if (attendanceSessionId == null ||
-      burnerPosition == null ||
-      burnerActionCode == null ||
-      burnerOutcome == null) {
+  if (attendanceEvidencePresent &&
+      (attendanceSessionId == null ||
+          burnerPosition == null ||
+          burnerActionCode == null ||
+          burnerOutcome == null)) {
     throw PersistedDataFormatException(
       field: 'burnerEvidence',
       source: source,
@@ -504,6 +559,65 @@ void _validateCompleteBurnerEvidence({
           'burner evidence requires attendanceSessionId, burnerPosition, burnerActionCode and burnerOutcome together',
     );
   }
+
+  final blockLifecyclePresent =
+      burnerBlockSupplyMode != null ||
+      burnerBlockSupplierName != null ||
+      burnerBlockPurchaseOrderNumber != null;
+  if (blockLifecyclePresent) {
+    if (burnerBlockSupplyMode == null ||
+        burnerPosition == null ||
+        actionType != ActionType.replacement ||
+        replacement == null ||
+        status != ActionStatus.resolved ||
+        hierarchyReference == null ||
+        !_isFurnaceBurnerBlockTarget(component, hierarchyReference)) {
+      throw PersistedDataFormatException(
+        field: 'burnerBlockLifecycle',
+        source: source,
+        detail:
+            'burner-block lifecycle evidence requires a resolved, numbered governed Furnace burner-block replacement and replacement disposition',
+      );
+    }
+    if (burnerBlockSupplyMode != BurnerBlockSupplyMode.purchased &&
+        (burnerBlockSupplierName != null ||
+            burnerBlockPurchaseOrderNumber != null)) {
+      throw PersistedDataFormatException(
+        field: 'burnerBlockSupplyMode',
+        source: source,
+        detail:
+            'supplier and purchase-order evidence is only valid for a purchased burner block',
+      );
+    }
+  }
+
+  if (burnerPosition != null &&
+      !attendanceEvidencePresent &&
+      !blockLifecyclePresent) {
+    throw PersistedDataFormatException(
+      field: 'burnerPosition',
+      source: source,
+      detail:
+          'burner position requires attendance evidence or burner-block lifecycle evidence',
+    );
+  }
+}
+
+bool _isFurnaceBurnerBlockTarget(
+  String component,
+  AssetHierarchyReference reference,
+) {
+  final classIdentity =
+      '${reference.assetClassCode} ${reference.assetClassName}'.toLowerCase();
+  if (!classIdentity.contains('furnace')) return false;
+  final targetIdentity =
+      <String>[
+        component,
+        reference.nodeName,
+        ...reference.hierarchyPath,
+      ].join(' ').toLowerCase();
+  return targetIdentity.contains('burner block') ||
+      targetIdentity.contains('firing tube');
 }
 
 String? _readOptionalJsonObjectText(

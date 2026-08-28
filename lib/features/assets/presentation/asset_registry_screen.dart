@@ -7,6 +7,7 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../providers/asset_hierarchy_provider.dart';
@@ -523,6 +524,9 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
     final componentsAsync = ref.watch(
       installedComponentsProvider(assetInstanceId),
     );
+    final hierarchyAsync = ref.watch(
+      assetHierarchyNodesProvider(asset.assetClassId),
+    );
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -555,6 +559,7 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
               ref.invalidate(allAssetInstancesProvider);
               ref.invalidate(assetOperationalConditionsProvider);
               ref.invalidate(installedComponentsProvider(assetInstanceId));
+              ref.invalidate(assetHierarchyNodesProvider(asset.assetClassId));
             },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -566,6 +571,15 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
               ),
               children: [
                 _AssetSummaryPanel(asset: asset, condition: condition),
+                const SizedBox(height: BafSpacing.lg),
+                _AssetHierarchyOverview(
+                  asset: asset,
+                  hierarchy: hierarchyAsync,
+                  onRetry:
+                      () => ref.invalidate(
+                        assetHierarchyNodesProvider(asset.assetClassId),
+                      ),
+                ),
                 const SizedBox(height: BafSpacing.xl),
                 _SectionHeader(
                   title: 'Installed components',
@@ -605,6 +619,276 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _AssetHierarchyOverview extends StatelessWidget {
+  const _AssetHierarchyOverview({
+    required this.asset,
+    required this.hierarchy,
+    required this.onRetry,
+  });
+
+  final AssetInstanceRecord asset;
+  final AsyncValue<List<AssetHierarchyNode>> hierarchy;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return hierarchy.when(
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading component hierarchy',
+            color: BafColors.assets,
+          ),
+      error:
+          (_, _) => Container(
+            padding: const EdgeInsets.all(BafSpacing.lg),
+            decoration: BoxDecoration(
+              color: BafColors.card,
+              borderRadius: BorderRadius.circular(BafRadius.medium),
+              border: Border.all(color: BafColors.border),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text('Component hierarchy is unavailable.'),
+                ),
+                IconButton(
+                  tooltip: 'Retry hierarchy',
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+          ),
+      data: (nodes) {
+        final active = nodes.where((node) => node.isActive).toList();
+        return Container(
+          padding: const EdgeInsets.all(BafSpacing.lg),
+          decoration: BoxDecoration(
+            color: BafColors.card,
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            border: Border.all(color: BafColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: BafColors.assets.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(BafRadius.small),
+                ),
+                child: const Icon(
+                  Icons.account_tree_outlined,
+                  color: BafColors.assets,
+                ),
+              ),
+              const SizedBox(width: BafSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Component hierarchy',
+                      style: TextStyle(
+                        color: BafColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      '${active.length} active definitions',
+                      style: const TextStyle(color: BafColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Browse component hierarchy',
+                onPressed:
+                    active.isEmpty
+                        ? null
+                        : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder:
+                                (_) => _AssetHierarchyBrowserScreen(
+                                  asset: asset,
+                                  nodes: active,
+                                ),
+                          ),
+                        ),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AssetHierarchyBrowserScreen extends StatefulWidget {
+  const _AssetHierarchyBrowserScreen({
+    required this.asset,
+    required this.nodes,
+  });
+
+  final AssetInstanceRecord asset;
+  final List<AssetHierarchyNode> nodes;
+
+  @override
+  State<_AssetHierarchyBrowserScreen> createState() =>
+      _AssetHierarchyBrowserScreenState();
+}
+
+class _AssetHierarchyBrowserScreenState
+    extends State<_AssetHierarchyBrowserScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _query.trim().toLowerCase();
+    final visible =
+        widget.nodes.where((node) {
+            if (query.isEmpty) return true;
+            return <String?>[
+              node.name,
+              node.componentTag,
+              node.discipline,
+              node.operatingType,
+              node.shortDescription,
+              ...node.hierarchyPath,
+            ].whereType<String>().any(
+              (value) => value.toLowerCase().contains(query),
+            );
+          }).toList()
+          ..sort((left, right) {
+            final path = left.hierarchyPath
+                .join('/')
+                .compareTo(right.hierarchyPath.join('/'));
+            return path != 0 ? path : left.sortOrder.compareTo(right.sortOrder);
+          });
+
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: BafAppBarTitle(
+          title: 'Component hierarchy',
+          subtitle: widget.asset.name,
+          icon: Icons.account_tree_outlined,
+          accent: BafColors.assets,
+        ),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(BafSpacing.lg),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: InputDecoration(
+                hintText: 'Search component, tag or discipline',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon:
+                    _query.isEmpty
+                        ? null
+                        : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+              ),
+            ),
+          ),
+          Expanded(
+            child:
+                visible.isEmpty
+                    ? const Center(
+                      child: Text('No hierarchy entries match this search.'),
+                    )
+                    : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        BafSpacing.lg,
+                        0,
+                        BafSpacing.lg,
+                        BafSpacing.xl,
+                      ),
+                      itemCount: visible.length,
+                      separatorBuilder:
+                          (_, _) => const SizedBox(height: BafSpacing.sm),
+                      itemBuilder: (context, index) {
+                        final node = visible[index];
+                        return Container(
+                          padding: const EdgeInsets.all(BafSpacing.md),
+                          decoration: BoxDecoration(
+                            color: BafColors.card,
+                            borderRadius: BorderRadius.circular(
+                              BafRadius.small,
+                            ),
+                            border: Border.all(color: BafColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                node.name,
+                                style: const TextStyle(
+                                  color: BafColors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                node.hierarchyPath.join(' › '),
+                                style: const TextStyle(
+                                  color: BafColors.textSecondary,
+                                ),
+                              ),
+                              if (node.shortDescription != null) ...[
+                                const SizedBox(height: BafSpacing.xs),
+                                Text(node.shortDescription!),
+                              ],
+                              if (node.componentTag != null ||
+                                  node.discipline != null) ...[
+                                const SizedBox(height: BafSpacing.sm),
+                                Wrap(
+                                  spacing: BafSpacing.xs,
+                                  runSpacing: BafSpacing.xs,
+                                  children: [
+                                    if (node.componentTag != null)
+                                      StatusBadge(
+                                        label: node.componentTag!,
+                                        color: BafColors.assets,
+                                      ),
+                                    if (node.discipline != null)
+                                      StatusBadge(
+                                        label: node.discipline!,
+                                        color: BafColors.planned,
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+          ),
+        ],
       ),
     );
   }
