@@ -478,8 +478,56 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
     final evidenceIsValid =
         ticket.actionsReadResult.isValid &&
         ticket.resolutionHistoryReadResult.isValid;
+    final statusChip = Chip(
+      label: Text(
+        ticket.isDeleted ? 'DELETED' : ticket.status.name.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      backgroundColor: ticket.isDeleted ? BafColors.textSecondary : statusColor,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    final actionButtons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip:
+              evidenceIsValid
+                  ? 'Correct ticket'
+                  : 'Repair saved evidence before correction',
+          icon: Icon(
+            Icons.edit,
+            color:
+                evidenceIsValid ? BafColors.planned : BafColors.textSecondary,
+          ),
+          onPressed:
+              evidenceIsValid ? () => _showCorrectionDialog(ticket) : null,
+        ),
+        if (!ticket.isDeleted)
+          IconButton(
+            tooltip: 'Mark deleted',
+            icon: const Icon(Icons.delete, color: BafColors.danger),
+            onPressed: () => _confirmDelete(ticket),
+          )
+        else if (ticket.firestoreId != null)
+          IconButton(
+            tooltip: 'Permanently remove pilot record',
+            icon: const Icon(
+              Icons.delete_forever_rounded,
+              color: BafColors.danger,
+            ),
+            onPressed: () => _purgePermanently(ticket),
+          ),
+      ],
+    );
 
     return Card(
+      key: ValueKey('admin-ticket-${ticket.firestoreId ?? ticket.id}'),
       color: BafColors.card,
       elevation: 0,
       margin: const EdgeInsets.symmetric(
@@ -490,97 +538,141 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
         borderRadius: BorderRadius.circular(BafRadius.medium),
         side: const BorderSide(color: BafColors.border),
       ),
-      child: ListTile(
-        title: Text(
-          '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber} – ${ticket.description}',
-          style: const TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: BafSpacing.xs),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Logged: ${DateFormat('dd MMM yyyy, HH:mm').format(ticket.createdAt)} | By: ${ticket.loggedByName ?? ticket.reportedBy ?? 'Unknown'}',
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-              if (!evidenceIsValid) ...[
-                const SizedBox(height: 4),
-                const Text(
-                  'Saved evidence needs repair before correction',
-                  style: TextStyle(
-                    color: BafColors.danger,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 620;
+          final assetLabel =
+              '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber}';
+          final metadata =
+              'Logged ${DateFormat('dd MMM yyyy, HH:mm').format(ticket.createdAt)} · ${ticket.loggedByName ?? ticket.reportedBy ?? 'Unknown'}';
+          if (compact) {
+            return Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color:
+                        ticket.isDeleted
+                            ? BafColors.textSecondary
+                            : statusColor,
+                    width: 7,
                   ),
                 ),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          assetLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: BafColors.textPrimary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: BafSpacing.sm),
+                      statusChip,
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    ticket.description,
+                    key: const ValueKey('admin-ticket-description-preview'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    metadata,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (!evidenceIsValid) ...[
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Saved evidence needs repair before correction',
+                      style: TextStyle(
+                        color: BafColors.danger,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                  Align(alignment: Alignment.centerRight, child: actionButtons),
+                ],
+              ),
+            );
+          }
+          return ListTile(
+            title: Text(
+              '$assetLabel – ${ticket.description}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: BafColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: BafSpacing.xs),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    metadata,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (!evidenceIsValid) ...[
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Saved evidence needs repair before correction',
+                      style: TextStyle(
+                        color: BafColors.danger,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            leading: Container(
+              width: 10,
+              height: 42,
+              decoration: BoxDecoration(
+                color: ticket.isDeleted ? BafColors.textSecondary : statusColor,
+                borderRadius: BorderRadius.circular(BafRadius.small),
+              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                statusChip,
+                const SizedBox(width: BafSpacing.xs),
+                actionButtons,
               ],
-            ],
-          ),
-        ),
-        leading: Container(
-          width: 10,
-          height: 42,
-          decoration: BoxDecoration(
-            color: ticket.isDeleted ? BafColors.textSecondary : statusColor,
-            borderRadius: BorderRadius.circular(BafRadius.small),
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Chip(
-              label: Text(
-                ticket.isDeleted ? 'DELETED' : ticket.status.name.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              backgroundColor:
-                  ticket.isDeleted ? BafColors.textSecondary : statusColor,
-              padding: EdgeInsets.zero,
             ),
-            const SizedBox(width: BafSpacing.xs),
-            IconButton(
-              tooltip:
-                  evidenceIsValid
-                      ? 'Correct ticket'
-                      : 'Repair saved evidence before correction',
-              icon: Icon(
-                Icons.edit,
-                color:
-                    evidenceIsValid
-                        ? BafColors.planned
-                        : BafColors.textSecondary,
-              ),
-              onPressed:
-                  evidenceIsValid ? () => _showCorrectionDialog(ticket) : null,
-            ),
-            if (!ticket.isDeleted)
-              IconButton(
-                tooltip: 'Mark deleted',
-                icon: const Icon(Icons.delete, color: BafColors.danger),
-                onPressed: () => _confirmDelete(ticket),
-              )
-            else if (ticket.firestoreId != null)
-              IconButton(
-                tooltip: 'Permanently remove pilot record',
-                icon: const Icon(
-                  Icons.delete_forever_rounded,
-                  color: BafColors.danger,
-                ),
-                onPressed: () => _purgePermanently(ticket),
-              ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
