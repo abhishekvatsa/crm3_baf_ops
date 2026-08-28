@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-28",
   "asOfDate": "2026-08-28",
-  "status": "BUILD18_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
+  "status": "BUILD18_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.8+18",
       "relationshipToLatestFinalizedArtifact": "BUILD18_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD17",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": false,
+      "artifactConstructionAuthority": true,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -37,9 +37,9 @@
     },
     "deployedBackend": {
       "functionFleetEvidenceFile": "release/evidence/build18-backend-deployment-closure.json",
-      "functionFleetSourceCommit": "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff",
+      "functionFleetSourceCommit": "5601e8d00f6796d41ed48abe8d8023722cd477e3",
       "rulesAndIndexesEvidenceFile": "release/evidence/build18-firestore-rules-indexes-live-readback.json",
-      "rulesAndIndexesSourceCommit": "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff",
+      "rulesAndIndexesSourceCommit": "5601e8d00f6796d41ed48abe8d8023722cd477e3",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
@@ -60,7 +60,7 @@
     },
     "nextCandidate": {
       "minimumBuildNumber": 18,
-      "status": "SOURCE_SUCCESSOR_AWAITING_BUILD18_ARTIFACT_SOURCE_REBIND",
+      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD18_CONSTRUCTION",
       "sourceApprovalFile": "release/approvals/build-number-18-successor-approval.json",
       "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-18.json",
       "constructionRequiresFreshGovernedApproval": true,

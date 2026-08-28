@@ -4327,6 +4327,14 @@ build18_evidence_chronology_valid = (
     and build18_evidence_bound_at
     >= max(value for value in build18_bound_evidence_times if value is not None)
 )
+build18_environment_evidence_bound_at = utc_instant(
+    build18_environment_approval.get("evidenceBoundAtUtc")
+)
+build18_environment_evidence_chronology_valid = (
+    build18_environment_evidence_bound_at is not None
+    and build18_evidence_bound_at is not None
+    and build18_environment_evidence_bound_at >= build18_evidence_bound_at
+)
 if candidate_pending:
     if not backend_matches_deployed:
         expected_successor_state_status = (
@@ -5710,19 +5718,19 @@ check(
     and build18_approval.get("approvalReference") == "BAF-REF-003-C17"
     and build18_evidence_chronology_valid
     and build18_approval.get("sourceBaseline", {}).get("commit")
-        == "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff"
+        == "5601e8d00f6796d41ed48abe8d8023722cd477e3"
     and build18_approval.get("sourceBaseline", {}).get("tree")
-        == "5353aa637d245504edb45a466ef92db2b2fc2ebc"
+        == "14c50151b4fd5267c6a309e9c69e44c9c2531408"
     and build18_approval.get("consumedBuild", {}).get("buildNumber") == 17
     and build18_approval.get("nextBuild", {}).get("buildNumber") == 18
     and build18_approval.get("nextBuild", {}).get("versionName")
         == "1.0.0-rc.8"
     and build18_approval.get("requiredSource", {}).get(
         "successorFreezePullRequest"
-    ) == 306
+    ) == 307
     and build18_approval.get("requiredSource", {}).get(
         "successorFreezePostMergeGithubRunId"
-    ) == 33156200584
+    ) == 33160299262
     and build18_approval.get("controls", {}).get("deviceDataClearProhibited")
         is True
     and build18_approval.get("controls", {}).get("build17AuthorityPreserved")
@@ -5737,6 +5745,7 @@ check(
         .get("approvalReceiptSha256")
     and build18_environment_approval.get("approvalReference")
         == "BAF-GH-ENV-014"
+    and build18_environment_evidence_chronology_valid
     and build18_environment_approval.get("scope", {}).get("buildNumber")
         == 18
     and build18_environment_approval.get("controls", {}).get(
@@ -5912,7 +5921,7 @@ check(
     ) == 305
     and build18_backend_deployment.get("sourceAuthority", {}).get(
         "sourceFreezePullRequestNumber"
-    ) == 306
+    ) == 307
     and build18_backend_deployment.get("deployment", {}).get("functionCount")
         == 15
     and build18_backend_deployment.get("deployment", {}).get(
@@ -5978,7 +5987,7 @@ check(
     and current_deployed_backend.get("functionFleetEvidenceFile")
         == "release/evidence/build18-backend-deployment-closure.json"
     and current_deployed_backend.get("functionFleetSourceCommit")
-        == "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff"
+        == "5601e8d00f6796d41ed48abe8d8023722cd477e3"
     and current_deployed_backend.get("functionFleetReadbackDecision")
         == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
     and current_deployed_backend.get("currentSourceFunctionDeployment")
