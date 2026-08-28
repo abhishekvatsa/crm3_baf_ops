@@ -487,7 +487,6 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
   Widget build(BuildContext context) {
     final ticket = widget.ticket;
     final statusColor = _adminTicketStatusColor(ticket.status);
-    final canExpandDescription = ticket.description.trim().length > 120;
     final evidenceIsValid =
         ticket.actionsReadResult.isValid &&
         ticket.resolutionHistoryReadResult.isValid;
@@ -505,68 +504,70 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
-    final actionButtons = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (!evidenceIsValid)
-          const Tooltip(
-            message: 'Saved ticket evidence is malformed',
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Icon(
-                Icons.warning_amber_rounded,
-                color: BafColors.danger,
-                size: 20,
+    Widget buildActionButtons(bool canExpandDescription) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!evidenceIsValid)
+            const Tooltip(
+              message: 'Saved ticket evidence is malformed',
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  color: BafColors.danger,
+                  size: 20,
+                ),
               ),
             ),
-          ),
-        if (canExpandDescription)
-          IconButton(
-            key: const ValueKey('admin-ticket-description-toggle'),
-            tooltip:
+          if (canExpandDescription)
+            IconButton(
+              key: const ValueKey('admin-ticket-description-toggle'),
+              tooltip:
+                  _descriptionExpanded
+                      ? 'Collapse full description'
+                      : 'View full description',
+              icon: Icon(
                 _descriptionExpanded
-                    ? 'Collapse full description'
-                    : 'View full description',
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+              ),
+              onPressed:
+                  () => setState(
+                    () => _descriptionExpanded = !_descriptionExpanded,
+                  ),
+            ),
+          IconButton(
+            tooltip:
+                evidenceIsValid
+                    ? 'Correct ticket'
+                    : 'Repair saved evidence before correction',
             icon: Icon(
-              _descriptionExpanded
-                  ? Icons.expand_less_rounded
-                  : Icons.expand_more_rounded,
+              Icons.edit,
+              color:
+                  evidenceIsValid ? BafColors.planned : BafColors.textSecondary,
             ),
             onPressed:
-                () => setState(
-                  () => _descriptionExpanded = !_descriptionExpanded,
-                ),
+                evidenceIsValid ? () => _showCorrectionDialog(ticket) : null,
           ),
-        IconButton(
-          tooltip:
-              evidenceIsValid
-                  ? 'Correct ticket'
-                  : 'Repair saved evidence before correction',
-          icon: Icon(
-            Icons.edit,
-            color:
-                evidenceIsValid ? BafColors.planned : BafColors.textSecondary,
-          ),
-          onPressed:
-              evidenceIsValid ? () => _showCorrectionDialog(ticket) : null,
-        ),
-        if (!ticket.isDeleted)
-          IconButton(
-            tooltip: 'Mark deleted',
-            icon: const Icon(Icons.delete, color: BafColors.danger),
-            onPressed: () => _confirmDelete(ticket),
-          )
-        else if (ticket.firestoreId != null)
-          IconButton(
-            tooltip: 'Permanently remove pilot record',
-            icon: const Icon(
-              Icons.delete_forever_rounded,
-              color: BafColors.danger,
+          if (!ticket.isDeleted)
+            IconButton(
+              tooltip: 'Mark deleted',
+              icon: const Icon(Icons.delete, color: BafColors.danger),
+              onPressed: () => _confirmDelete(ticket),
+            )
+          else if (ticket.firestoreId != null)
+            IconButton(
+              tooltip: 'Permanently remove pilot record',
+              icon: const Icon(
+                Icons.delete_forever_rounded,
+                color: BafColors.danger,
+              ),
+              onPressed: () => _purgePermanently(ticket),
             ),
-            onPressed: () => _purgePermanently(ticket),
-          ),
-      ],
-    );
+        ],
+      );
+    }
 
     return Card(
       key: ValueKey('admin-ticket-${ticket.firestoreId ?? ticket.id}'),
@@ -587,6 +588,30 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
               '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber}';
           final metadata =
               'Logged ${DateFormat('dd MMM yyyy, HH:mm').format(ticket.createdAt)} · ${ticket.loggedByName ?? ticket.reportedBy ?? 'Unknown'}';
+          const compactDescriptionStyle = TextStyle(
+            color: BafColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          );
+          const desktopDescriptionStyle = TextStyle(
+            color: BafColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          );
+          final descriptionText =
+              compact
+                  ? ticket.description
+                  : '$assetLabel – ${ticket.description}';
+          final estimatedTextWidth =
+              constraints.maxWidth - (compact ? 20.0 : 360.0);
+          final descriptionOverflows = _exceedsTwoLines(
+            context: context,
+            text: descriptionText,
+            style: compact ? compactDescriptionStyle : desktopDescriptionStyle,
+            maxWidth: estimatedTextWidth > 1 ? estimatedTextWidth : 1,
+          );
+          final actionButtons = buildActionButtons(
+            _descriptionExpanded || descriptionOverflows,
+          );
           if (compact) {
             return Container(
               decoration: BoxDecoration(
@@ -630,11 +655,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                         _descriptionExpanded
                             ? TextOverflow.visible
                             : TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: BafColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
+                    style: compactDescriptionStyle,
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -659,10 +680,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                   _descriptionExpanded
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: BafColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+              style: desktopDescriptionStyle,
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: BafSpacing.xs),
@@ -712,6 +730,21 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
         },
       ),
     );
+  }
+
+  bool _exceedsTwoLines({
+    required BuildContext context,
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 2,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: maxWidth);
+    return painter.didExceedMaxLines;
   }
 
   Future<void> _showCorrectionDialog(MaintenanceRecord ticket) async {

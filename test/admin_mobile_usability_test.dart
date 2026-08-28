@@ -96,6 +96,7 @@ void main() {
     final preview = find.byKey(
       const ValueKey('admin-ticket-description-preview'),
     );
+    expect(ticket.description.length, lessThanOrEqualTo(120));
     expect(card, findsOneWidget);
     expect(tester.getSize(card).height, lessThanOrEqualTo(220));
     expect(preview, findsOneWidget);
@@ -179,10 +180,9 @@ MaintenanceRecord _longTicket(DateTime now) =>
       ..assetType = AssetType.furnace
       ..assetNumber = 12
       ..maintenanceType = MaintenanceType.breakdown
-      ..description = List<String>.filled(
-        24,
-        'A detailed operational observation should remain available in the record',
-      ).join(' ')
+      ..description =
+          'UV detector replacement completed after inspection; verify the flame '
+          'signal and restore the burner before release.'
       ..routedTo = RoutedTo.mechanical
       ..status = TicketStatus.open
       ..loggedByUid = 'operator-1'

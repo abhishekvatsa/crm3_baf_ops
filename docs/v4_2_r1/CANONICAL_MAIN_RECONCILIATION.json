@@ -1262,9 +1262,9 @@
     {
       "path": "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart",
       "canonicalSha256": "F8D05C5FE70571DE9411B4E369E0318493A2CB2BADB5FE054A2D4E147C2F28BC",
-      "candidateSha256": "F76124EC6A7F29ED6DB75E92E0E806DF375C4E08A889103CC8DD857E4EF38075",
+      "candidateSha256": "1B140C5A408758F6D26603C51FEF374143E7DD6141A409A032BA350519399976",
       "canonicalBytes": 19777,
-      "candidateBytes": 31493,
+      "candidateBytes": 32762,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
