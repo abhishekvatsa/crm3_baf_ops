@@ -1142,6 +1142,15 @@ export async function completePlannedJobWithDb(params: {
       completedAt,
       completedBy: completionActor,
       executionLevelMechanicalEvidence: teamsInvolved.includes("mechanical"),
+    }).catch((error: unknown) => {
+      if (error instanceof WorkflowError) {
+        throw new ClosureValidationError(
+          error.code as HttpsErrorCode,
+          error.message,
+          error.details,
+        );
+      }
+      throw error;
     });
     const attestation = buildClosureAttestation({
       executionFirestoreId: executionId,
