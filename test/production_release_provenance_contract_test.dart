@@ -1511,6 +1511,17 @@ void main() {
         expect(build18Synchronization['unsyncedRows'], 0);
         expect(build18Synchronization['unresolvedRejections'], 0);
         expect(build18Synchronization['latestFullSyncConflicts'], 0);
+        expect(build18DeviceAcceptance['validatedSurfaces'], <String>[
+          'authenticated-shift-overview-and-plant-condition',
+          'maintenance-issue-list-unsaved-raise-form-and-governed-furnace-hierarchy',
+          'planned-maintenance-jobs-workflow-and-template-library',
+          'operational-control-critical-safety-contacts-and-reason-catalogue',
+          'burner-reliability-history-and-26-furnace-condition-matrix',
+          'inner-cover-base-pairing-all-cover-inventory-and-incorporation-dates',
+          'asset-registry',
+          'operations-intelligence-overview-and-reliability-concentration',
+          'support-diagnostics',
+        ]);
         expect(build18MutationBoundary.values, everyElement(isFalse));
         expect(build18Adjudication['runtimeValidationPassed'], isTrue);
         expect(

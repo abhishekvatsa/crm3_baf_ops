@@ -3940,6 +3940,17 @@ build18_device_acceptance_path = (
 build18_device_acceptance = data(
     "release/evidence/build-18-device-acceptance.json"
 )
+expected_build18_read_only_surfaces = [
+    "authenticated-shift-overview-and-plant-condition",
+    "maintenance-issue-list-unsaved-raise-form-and-governed-furnace-hierarchy",
+    "planned-maintenance-jobs-workflow-and-template-library",
+    "operational-control-critical-safety-contacts-and-reason-catalogue",
+    "burner-reliability-history-and-26-furnace-condition-matrix",
+    "inner-cover-base-pairing-all-cover-inventory-and-incorporation-dates",
+    "asset-registry",
+    "operations-intelligence-overview-and-reliability-concentration",
+    "support-diagnostics",
+]
 build16_installation_smoke_path = (
     ROOT / "release/evidence/build-16-device-installation-smoke.json"
 )
@@ -5900,6 +5911,8 @@ check(
     and build18_device_acceptance.get("adjudication", {}).get(
         "runtimeValidationPassed"
     ) is True
+    and build18_device_acceptance.get("validatedSurfaces")
+        == expected_build18_read_only_surfaces
     and build18_device_acceptance.get("adjudication", {}).get(
         "mutatingBusinessFlowValidationCompleted"
     ) is False

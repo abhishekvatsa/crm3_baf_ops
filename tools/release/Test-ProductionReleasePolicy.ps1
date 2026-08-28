@@ -56,6 +56,17 @@ $ExpectedToolchain = [ordered]@{
   dartVersion = '3.12.0'
   firebaseToolsVersion = '15.22.4'
 }
+$ExpectedBuild18ReadOnlySurfaces = @(
+  'authenticated-shift-overview-and-plant-condition'
+  'maintenance-issue-list-unsaved-raise-form-and-governed-furnace-hierarchy'
+  'planned-maintenance-jobs-workflow-and-template-library'
+  'operational-control-critical-safety-contacts-and-reason-catalogue'
+  'burner-reliability-history-and-26-furnace-condition-matrix'
+  'inner-cover-base-pairing-all-cover-inventory-and-incorporation-dates'
+  'asset-registry'
+  'operations-intelligence-overview-and-reliability-concentration'
+  'support-diagnostics'
+)
 $ApprovedArtifactExactSourcePaths = @(
   '.firebaserc'
   '.github/workflows/production-artifact.yml'
@@ -1480,6 +1491,23 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $deviceAcceptance.adjudication.authenticatedReadOnlySurfaceValidationCompleted
     $mutatingFlowsValidated =
       $deviceAcceptance.adjudication.mutatingBusinessFlowValidationCompleted
+    $validatedSurfaces = @(
+      $deviceAcceptance.validatedSurfaces |
+        ForEach-Object { [string]$_ }
+    )
+    $validatedSurfacesExact =
+      $validatedSurfaces.Count -eq $ExpectedBuild18ReadOnlySurfaces.Count
+    if ($validatedSurfacesExact) {
+      for ($surfaceIndex = 0;
+          $surfaceIndex -lt $ExpectedBuild18ReadOnlySurfaces.Count;
+          $surfaceIndex++) {
+        if ($validatedSurfaces[$surfaceIndex] -cne
+            $ExpectedBuild18ReadOnlySurfaces[$surfaceIndex]) {
+          $validatedSurfacesExact = $false
+          break
+        }
+      }
+    }
     if ((Get-Sha256 $deviceAcceptancePath) -ne
         ([string]$policy.finalization.deviceAcceptanceReceiptSha256).
           ToUpperInvariant() -or
@@ -1519,6 +1547,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         @($mutationValues | Where-Object { $_ -ne $false }).Count -ne 0 -or
         $deviceAcceptance.adjudication.runtimeValidationPassed -ne $true -or
         $readOnlySurfacesValidated -ne $true -or
+        $validatedSurfacesExact -ne $true -or
         $mutatingFlowsValidated -ne $false -or
         $deviceAcceptance.adjudication.fullBusinessFlowValidationCompleted -ne
           $false -or
