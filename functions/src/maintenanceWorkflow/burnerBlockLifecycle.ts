@@ -124,6 +124,20 @@ const normalizedKey = (value: unknown): string =>
   typeof value === "string" ?
     value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "") : "";
 
+const responseKey = (row: ActionRow): string => {
+  for (const alias of ["key", "fieldId", "fieldKey", "id", "name"] as const) {
+    const candidate = row[alias];
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  throw new WorkflowError(
+    "failed-precondition",
+    "Saved burner-block response key is invalid.",
+    {reasonCode: "burner-block-lifecycle-responses-invalid"},
+  );
+};
+
 const declaresBurnerBlockChange = (value: unknown): boolean => {
   if (value === true) return true;
   if (typeof value !== "string") return false;
@@ -178,12 +192,19 @@ const moduleBurnerBlockChangeDecision = (
   let decision: "changed" | "unchanged" | null = null;
   let burnerPosition: number | null = null;
   for (const row of payload.rows) {
-    const key = row.key ?? row.fieldId ?? row.fieldKey ?? row.id ?? row.name;
+    const key = responseKey(row);
     const value = Object.prototype.hasOwnProperty.call(row, "value") ?
       row.value : row.answer;
     if (normalizedKey(key) === "burnertarget") {
       const rowPosition = burnerPositionFromResponse(value);
-      if (rowPosition != null && burnerPosition != null &&
+      if (rowPosition == null) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "Saved burner-block target must identify Burner 1 through Burner 8.",
+          {reasonCode: "burner-block-lifecycle-response-target-invalid"},
+        );
+      }
+      if (burnerPosition != null &&
           rowPosition !== burnerPosition) {
         throw new WorkflowError(
           "failed-precondition",
@@ -191,7 +212,7 @@ const moduleBurnerBlockChangeDecision = (
           {reasonCode: "burner-block-lifecycle-response-conflict"},
         );
       }
-      burnerPosition = rowPosition ?? burnerPosition;
+      burnerPosition = rowPosition;
       continue;
     }
     if (normalizedKey(key) !== "burnerblockchanged") continue;

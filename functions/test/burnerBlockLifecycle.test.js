@@ -413,6 +413,69 @@ describe('burner-block lifecycle projection', () => {
     });
   });
 
+  test('uses the first nonempty supported response-key alias', async () => {
+    const store = seedStore();
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-legacy-response-alias',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: JSON.stringify([action()]),
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: '',
+            fieldId: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-action-conflicts-with-response',
+      },
+    });
+  });
+
+  test('rejects an explicitly invalid burner target', async () => {
+    const store = seedStore();
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-invalid-burner-target',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: JSON.stringify([action()]),
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerTarget',
+            value: 'Burner 9',
+          }, {
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: true,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-response-target-invalid',
+      },
+    });
+  });
+
   test('reconciles a no-change module response with execution-level actions', async () => {
     const store = seedStore();
     await expect(store.runTransaction((tx) =>
