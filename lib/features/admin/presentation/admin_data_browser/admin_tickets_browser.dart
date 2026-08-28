@@ -471,18 +471,6 @@ class _TicketCard extends ConsumerStatefulWidget {
 }
 
 class _TicketCardState extends ConsumerState<_TicketCard> {
-  bool _descriptionExpanded = false;
-
-  @override
-  void didUpdateWidget(covariant _TicketCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.ticket.firestoreId != widget.ticket.firestoreId ||
-        oldWidget.ticket.id != widget.ticket.id ||
-        oldWidget.ticket.description != widget.ticket.description) {
-      _descriptionExpanded = false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final ticket = widget.ticket;
@@ -504,7 +492,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
-    Widget buildActionButtons(bool canExpandDescription) {
+    Widget buildActionButtons() {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -520,23 +508,12 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                 ),
               ),
             ),
-          if (canExpandDescription)
-            IconButton(
-              key: const ValueKey('admin-ticket-description-toggle'),
-              tooltip:
-                  _descriptionExpanded
-                      ? 'Collapse full description'
-                      : 'View full description',
-              icon: Icon(
-                _descriptionExpanded
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
-              ),
-              onPressed:
-                  () => setState(
-                    () => _descriptionExpanded = !_descriptionExpanded,
-                  ),
-            ),
+          IconButton(
+            key: const ValueKey('admin-ticket-description-view'),
+            tooltip: 'View full ticket description',
+            icon: const Icon(Icons.visibility_outlined),
+            onPressed: () => _showDescriptionDialog(ticket),
+          ),
           IconButton(
             tooltip:
                 evidenceIsValid
@@ -597,21 +574,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
             color: BafColors.textPrimary,
             fontWeight: FontWeight.w700,
           );
-          final descriptionText =
-              compact
-                  ? ticket.description
-                  : '$assetLabel – ${ticket.description}';
-          final estimatedTextWidth =
-              constraints.maxWidth - (compact ? 20.0 : 360.0);
-          final descriptionOverflows = _exceedsTwoLines(
-            context: context,
-            text: descriptionText,
-            style: compact ? compactDescriptionStyle : desktopDescriptionStyle,
-            maxWidth: estimatedTextWidth > 1 ? estimatedTextWidth : 1,
-          );
-          final actionButtons = buildActionButtons(
-            _descriptionExpanded || descriptionOverflows,
-          );
+          final actionButtons = buildActionButtons();
           if (compact) {
             return Container(
               decoration: BoxDecoration(
@@ -650,11 +613,8 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                   Text(
                     ticket.description,
                     key: const ValueKey('admin-ticket-description-preview'),
-                    maxLines: _descriptionExpanded ? null : 2,
-                    overflow:
-                        _descriptionExpanded
-                            ? TextOverflow.visible
-                            : TextOverflow.ellipsis,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: compactDescriptionStyle,
                   ),
                   const SizedBox(height: 6),
@@ -675,11 +635,8 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
           return ListTile(
             title: Text(
               '$assetLabel – ${ticket.description}',
-              maxLines: _descriptionExpanded ? null : 2,
-              overflow:
-                  _descriptionExpanded
-                      ? TextOverflow.visible
-                      : TextOverflow.ellipsis,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: desktopDescriptionStyle,
             ),
             subtitle: Padding(
@@ -732,19 +689,74 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
     );
   }
 
-  bool _exceedsTwoLines({
-    required BuildContext context,
-    required String text,
-    required TextStyle style,
-    required double maxWidth,
-  }) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      maxLines: 2,
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout(maxWidth: maxWidth);
-    return painter.didExceedMaxLines;
+  Future<void> _showDescriptionDialog(MaintenanceRecord ticket) async {
+    final assetLabel =
+        '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber}';
+    final metadata =
+        'Logged ${DateFormat('dd MMM yyyy, HH:mm').format(ticket.createdAt)} by '
+        '${ticket.loggedByName ?? ticket.reportedBy ?? 'Unknown'}';
+    await showDialog<void>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.description_outlined),
+                const SizedBox(width: BafSpacing.sm),
+                Expanded(
+                  child: Text(
+                    assetLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ticket.isDeleted
+                          ? 'Deleted · ${ticket.status.name}'
+                          : ticket.status.name,
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.sm),
+                    SelectableText(
+                      ticket.description,
+                      key: const ValueKey('admin-ticket-full-description'),
+                      style: const TextStyle(
+                        color: BafColors.textPrimary,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.md),
+                    Text(
+                      metadata,
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
   }
 
   Future<void> _showCorrectionDialog(MaintenanceRecord ticket) async {

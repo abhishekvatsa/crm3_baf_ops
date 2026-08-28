@@ -72,7 +72,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('long admin ticket descriptions stay bounded on phone', (
+  testWidgets('admin ticket descriptions stay bounded and readable on phone', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 820));
@@ -115,15 +115,19 @@ void main() {
     );
 
     await tester.tap(
-      find.byKey(const ValueKey('admin-ticket-description-toggle')),
+      find.byKey(const ValueKey('admin-ticket-description-view')),
     );
     await tester.pumpAndSettle();
 
-    final expandedText = tester.widget<Text>(preview);
-    expect(expandedText.maxLines, isNull);
-    expect(expandedText.overflow, TextOverflow.visible);
-    expect(expandedText.data, ticket.description);
-    expect(find.byTooltip('Collapse full description'), findsOneWidget);
+    final fullDescription = find.byKey(
+      const ValueKey('admin-ticket-full-description'),
+    );
+    expect(fullDescription, findsOneWidget);
+    expect(
+      tester.widget<SelectableText>(fullDescription).data,
+      ticket.description,
+    );
+    expect(find.text('Close'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
