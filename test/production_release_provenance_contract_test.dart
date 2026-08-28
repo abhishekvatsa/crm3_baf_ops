@@ -485,8 +485,8 @@ void main() {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
-      final entries =
-          (ledger['entries'] as List<dynamic>).cast<Map<String, dynamic>>();
+      final entries = (ledger['entries'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
       final build1 = entries.singleWhere((entry) => entry['buildNumber'] == 1);
       final build2 = entries.singleWhere((entry) => entry['buildNumber'] == 2);
       final build3 = entries.singleWhere((entry) => entry['buildNumber'] == 3);
@@ -1263,7 +1263,7 @@ void main() {
     });
 
     test(
-      'current candidate preserves builds 14-17 and the historical build 10 failure',
+      'current candidate preserves builds 14-18 and the historical build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
@@ -1319,6 +1319,11 @@ void main() {
         final build17Receipt =
             jsonDecode(
                   read('release/evidence/build-17-finalization-closure.json'),
+                )
+                as Map<String, dynamic>;
+        final build18Receipt =
+            jsonDecode(
+                  read('release/evidence/build-18-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
         final receipt =
@@ -1424,6 +1429,25 @@ void main() {
               : 'completed-non-distributable',
         );
         expect(finalization['dualCustodyCompleted'], !pendingConstruction);
+        expect(build18Receipt['schemaVersion'], 1);
+        expect(build18Receipt['status'], 'passed-non-distributable');
+        expect(
+          (build18Receipt['release'] as Map<String, dynamic>)['buildNumber'],
+          18,
+        );
+        expect(
+          (build18Receipt['governedPackage'] as Map<String, dynamic>)['sha256'],
+          '951DF1C961E08CD78B52B0B588CAEE5A767CF182BF4063F7F4DEBCA0010AD911',
+        );
+        expect(
+          (build18Receipt['releaseBoundary']
+              as Map<String, dynamic>)['controlledPilotApproved'],
+          isFalse,
+        );
+        expect(
+          finalization['completionReceiptFile'],
+          'release/evidence/build-18-finalization-closure.json',
+        );
         expect(build17Receipt['schemaVersion'], 1);
         expect(build17Receipt['status'], 'passed-non-distributable');
         expect(
@@ -1431,8 +1455,7 @@ void main() {
           17,
         );
         expect(
-          (build17Receipt['governedPackage']
-              as Map<String, dynamic>)['sha256'],
+          (build17Receipt['governedPackage'] as Map<String, dynamic>)['sha256'],
           '155E5F9E8748695ADBF59B208236C919EB9D6A35616C3256007BAE5D0E54F2AD',
         );
         expect(
@@ -1451,10 +1474,9 @@ void main() {
         expect(build15Finalization['dualCustodyCompleted'], isTrue);
         expect(build15Finalization['runtimeValidationPassed'], isFalse);
         expect(finalization['controlledPilotApproved'], isFalse);
-        final failedAttempt =
-            (finalization['historicalFailedAttempts'] as List)
-                .cast<Map<String, dynamic>>()
-                .single;
+        final failedAttempt = (finalization['historicalFailedAttempts'] as List)
+            .cast<Map<String, dynamic>>()
+            .single;
         expect(failedAttempt['buildNumber'], 10);
         expect(failedAttempt['status'], 'blocked-non-distributable');
         expect(failedAttempt['independentVerificationCompleted'], isTrue);

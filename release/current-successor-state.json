@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-28",
   "asOfDate": "2026-08-28",
-  "status": "BUILD18_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+  "status": "BUILD18_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.8+18",
-      "relationshipToLatestFinalizedArtifact": "BUILD18_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD17",
+      "relationshipToLatestFinalizedArtifact": "BUILD18_SOURCE_CONTAINS_FINALIZED_BUILD18",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": true,
+      "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -25,13 +25,13 @@
       }
     },
     "latestFinalizedArtifact": {
-      "buildNumber": 17,
-      "version": "1.0.0-rc.7+17",
-      "sourceCommit": "ab51a2aaea2b8db257085350f34bf151f819b2bd",
+      "buildNumber": 18,
+      "version": "1.0.0-rc.8+18",
+      "sourceCommit": "2a2520e075c44c6b347bc9f1c6bcc4343e62713b",
       "status": "COMPLETED_NON_DISTRIBUTABLE",
-      "completionReceiptFile": "release/evidence/build-17-finalization-closure.json",
-      "completionReceiptSha256": "F6A2B8584954C5A3227648F96115D98BF6F845B790B2D0E665CACC97FC00D276",
-      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD17",
+      "completionReceiptFile": "release/evidence/build-18-finalization-closure.json",
+      "completionReceiptSha256": "716453DF8A3620A30584E89877AF5E7DBEBD99CB7C883C060A4BC1641A1AADD4",
+      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD18",
       "pilotPromotion": "NOT_AUTHORIZED",
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
@@ -59,10 +59,8 @@
       "appliesToBuild18": false
     },
     "nextCandidate": {
-      "minimumBuildNumber": 18,
-      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD18_CONSTRUCTION",
-      "sourceApprovalFile": "release/approvals/build-number-18-successor-approval.json",
-      "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-18.json",
+      "minimumBuildNumber": 19,
+      "status": "AWAITING_FRESH_GOVERNED_BUILD19_APPROVAL",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
@@ -80,7 +78,7 @@
   "authoritativeSources": [
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
-    "release/evidence/build-17-finalization-closure.json",
+    "release/evidence/build-18-finalization-closure.json",
     "release/evidence/build18-backend-deployment-closure.json",
     "release/evidence/build18-function-fleet-runtime-identity-readback.json",
     "release/evidence/build18-functions-iam-dependencies-readback.json",
