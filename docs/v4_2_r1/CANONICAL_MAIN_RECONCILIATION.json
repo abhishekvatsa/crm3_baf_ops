@@ -2450,7 +2450,7 @@
     {
       "path": "pubspec.yaml",
       "canonicalSha256": "AA50252F720ECFF280AEB9703F4602ED76BAD8636EF6922250A80B8733AC58B2",
-      "candidateSha256": "9FC115EED0CBF2160AC4C01FE3C9A14EDE2BFFF4AEA823FA0282F2D37F2C460E",
+      "candidateSha256": "CE58C04A3EC976DD15DA0125B8EADEAC38F4E80F745C401094D744B827802A74",
       "canonicalBytes": 845,
       "candidateBytes": 951,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -2498,7 +2498,7 @@
     {
       "path": "release/approvals/version-policy-approval.json",
       "canonicalSha256": "40F82419238953032CB2350936D68C179339E5B020DBF5D59105E63BB326CC6D",
-      "candidateSha256": "905B293831F822EE2A2800DAB83AB319CDE632849288DC8A7C58321BCEE95284",
+      "candidateSha256": "65E29145018039C9B53D3A6E48F4CB6A6C25D6418A5EE809AB14E8489E696887",
       "canonicalBytes": 530,
       "candidateBytes": 618,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -2570,9 +2570,9 @@
     {
       "path": "release/build-number-ledger.json",
       "canonicalSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
-      "candidateSha256": "053A1CAA53EB843758C2C6164B696E383579142C8C22D32A5AF21EE9B5987AF8",
+      "candidateSha256": "CA39D72CC6F5F07ADA7565D2B868843A2213F3B5548BB99AA60194B15FF762D5",
       "canonicalBytes": 1097,
-      "candidateBytes": 51621,
+      "candidateBytes": 52515,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2594,9 +2594,9 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "639B8D8608A9A4F942B305CDC6DF940C08EDF0FEE9EE4D1D633B3956692583D0",
+      "candidateSha256": "D1C49AB98955C2F5D36DC15E4223762DD6FF7B2552DA77E16DBCEC36B94B5DC2",
       "canonicalBytes": 5884,
-      "candidateBytes": 14354,
+      "candidateBytes": 13484,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
