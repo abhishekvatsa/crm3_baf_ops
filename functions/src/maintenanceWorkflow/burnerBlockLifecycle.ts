@@ -37,6 +37,11 @@ export interface BurnerBlockLifecycleWritePlan {
   }[];
 }
 
+interface BurnerBlockChangeDecision {
+  readonly state: "changed" | "unchanged";
+  readonly burnerPosition: number | null;
+}
+
 const requiredText = (value: unknown, field: string): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new WorkflowError(
@@ -119,6 +124,20 @@ const normalizedKey = (value: unknown): string =>
   typeof value === "string" ?
     value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "") : "";
 
+const responseKey = (row: ActionRow): string => {
+  for (const alias of ["key", "fieldId", "fieldKey", "id", "name"] as const) {
+    const candidate = row[alias];
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  throw new WorkflowError(
+    "failed-precondition",
+    "Saved burner-block response key is invalid.",
+    {reasonCode: "burner-block-lifecycle-responses-invalid"},
+  );
+};
+
 const declaresBurnerBlockChange = (value: unknown): boolean => {
   if (value === true) return true;
   if (typeof value !== "string") return false;
@@ -127,8 +146,31 @@ const declaresBurnerBlockChange = (value: unknown): boolean => {
   );
 };
 
-const moduleDeclaresBurnerBlockChange = (source: BurnerLifecycleActionSource): boolean => {
-  if (source.responsesJson == null) return false;
+const burnerBlockChangeDecision = (
+  value: unknown,
+): "changed" | "unchanged" | null => {
+  if (declaresBurnerBlockChange(value)) return "changed";
+  if (value === false) return "unchanged";
+  if (typeof value !== "string") return null;
+  return ["false", "no", "unchanged", "notchanged", "none"].includes(
+    normalizedKey(value),
+  ) ? "unchanged" : null;
+};
+
+const burnerPositionFromResponse = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isSafeInteger(value) &&
+      value >= 1 && value <= 8) {
+    return value;
+  }
+  if (typeof value !== "string") return null;
+  const match = /^(?:burner)?([1-8])$/.exec(normalizedKey(value));
+  return match == null ? null : Number(match[1]);
+};
+
+const moduleBurnerBlockChangeDecision = (
+  source: BurnerLifecycleActionSource,
+): BurnerBlockChangeDecision | null => {
+  if (source.responsesJson == null) return null;
   let payload;
   try {
     payload = readFieldResponsePayload(source.responsesJson, {
@@ -147,13 +189,53 @@ const moduleDeclaresBurnerBlockChange = (source: BurnerLifecycleActionSource): b
     }
     throw error;
   }
-  return payload.rows.some((row) => {
-    const key = row.key ?? row.fieldId ?? row.fieldKey ?? row.id ?? row.name;
+  let decision: "changed" | "unchanged" | null = null;
+  const burnerTargetValues: unknown[] = [];
+  for (const row of payload.rows) {
+    const key = responseKey(row);
     const value = Object.prototype.hasOwnProperty.call(row, "value") ?
       row.value : row.answer;
-    return normalizedKey(key) === "burnerblockchanged" &&
-      declaresBurnerBlockChange(value);
-  });
+    if (normalizedKey(key) === "burnertarget") {
+      burnerTargetValues.push(value);
+      continue;
+    }
+    if (normalizedKey(key) !== "burnerblockchanged") continue;
+    const rowDecision = burnerBlockChangeDecision(value);
+    if (rowDecision == null) continue;
+    if (decision != null && decision !== rowDecision) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Saved burner-block change responses contradict each other.",
+        {reasonCode: "burner-block-lifecycle-response-conflict"},
+      );
+    }
+    decision = rowDecision;
+  }
+  if (decision == null) return null;
+
+  let burnerPosition: number | null = null;
+  for (const value of burnerTargetValues) {
+    const rowPosition = burnerPositionFromResponse(value);
+    if (rowPosition == null) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Saved burner-block target must identify Burner 1 through Burner 8.",
+        {reasonCode: "burner-block-lifecycle-response-target-invalid"},
+      );
+    }
+    if (burnerPosition != null && rowPosition !== burnerPosition) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Saved burner-block target responses contradict each other.",
+        {reasonCode: "burner-block-lifecycle-response-conflict"},
+      );
+    }
+    burnerPosition = rowPosition;
+  }
+  return {
+    state: decision,
+    burnerPosition,
+  };
 };
 
 const parseInstant = (value: unknown, field: string): string => {
@@ -372,7 +454,10 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
     readonly sourceActionIndex: number;
     readonly mechanicalWorkContext: boolean;
   }> = [];
+  const changeDecisions: BurnerBlockChangeDecision[] = [];
   for (const source of args.actionSources) {
+    const changeDecision = moduleBurnerBlockChangeDecision(source);
+    if (changeDecision != null) changeDecisions.push(changeDecision);
     let payload;
     try {
       payload = readComponentActionPayload(source.actionsJson, {
@@ -393,10 +478,8 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
       }
       throw error;
     }
-    let sourceReplacementCount = 0;
     payload.rows.forEach((row, index) => {
       if (isBurnerBlockReplacement(row)) {
-        sourceReplacementCount += 1;
         candidates.push({
           row,
           sourceModuleId: source.sourceModuleId,
@@ -407,11 +490,24 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
         });
       }
     });
-    if (moduleDeclaresBurnerBlockChange(source) && sourceReplacementCount === 0) {
+  }
+  for (const decision of changeDecisions) {
+    const matchingCandidates = decision.burnerPosition == null ?
+      candidates : candidates.filter((candidate) =>
+        burnerPositionFromResponse(candidate.row.burnerPosition) ===
+          decision.burnerPosition);
+    if (decision.state === "changed" && matchingCandidates.length === 0) {
       throw new WorkflowError(
         "failed-precondition",
         "A module recording a burner-block change must include its governed replacement action.",
         {reasonCode: "burner-block-lifecycle-action-required"},
+      );
+    }
+    if (decision.state === "unchanged" && matchingCandidates.length > 0) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "A module recording no burner-block change cannot include a burner-block replacement action.",
+        {reasonCode: "burner-block-lifecycle-action-conflicts-with-response"},
       );
     }
   }

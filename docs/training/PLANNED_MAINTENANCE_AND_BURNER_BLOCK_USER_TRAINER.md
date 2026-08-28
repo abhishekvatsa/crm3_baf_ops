@@ -185,6 +185,11 @@ Use F-03M for:
 - recording the numbered replacement action; and
 - closing Mechanical installation evidence.
 
+Do not add F-03M merely because the planned job is for a Furnace. Planned
+maintenance can close without burner-block work. If F-03M is used and `Burner
+block changed` is No, no replacement action is required and the burner-block
+lifecycle and current-condition projection remain unchanged.
+
 If `Burner block changed` is Yes, the server requires the matching structured replacement action. A narrative statement alone is insufficient.
 
 ## 9. Record a burner-block replacement

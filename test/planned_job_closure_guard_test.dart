@@ -181,6 +181,35 @@ void main() {
       expect(PlannedJobClosureGuard.isReady(modules), isTrue);
     });
 
+    test('treats a required boolean No as supplied evidence', () {
+      final modules = [
+        _module(
+          id: 'accepted-no-burner-block-change',
+          requiredForClosure: true,
+          status: JobModuleStatus.accepted,
+          fields: const [
+            {
+              'key': 'burnerBlockChanged',
+              'label': 'Burner block changed',
+              'required': true,
+              'type': 'boolean',
+            },
+          ],
+          responses: [
+            FieldResponse(
+              key: 'burnerBlockChanged',
+              fieldLabel: 'Burner block changed',
+              fieldType: FieldType.yesNo,
+              value: false,
+            ),
+          ],
+        ),
+      ];
+
+      expect(PlannedJobClosureGuard.collectIssues(modules), isEmpty);
+      expect(PlannedJobClosureGuard.isReady(modules), isTrue);
+    });
+
     test('blocks required module with pending issue or follow-up', () {
       final issues = PlannedJobClosureGuard.collectIssues([
         _module(

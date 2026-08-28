@@ -355,6 +355,264 @@ describe('burner-block lifecycle projection', () => {
     expect(plan.events).toEqual([]);
   });
 
+  test('planned maintenance without a burner-block change leaves lifecycle untouched', async () => {
+    const store = seedStore();
+    const plan = await store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-no-block-change',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: '[]',
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }));
+
+    expect(plan).toEqual({events: [], currentStates: []});
+    expect(store.entries().some(([path]) =>
+      path.startsWith('burner_block_lifecycle_events/') ||
+      path.startsWith('burner_block_lifecycle_current/'))).toBe(false);
+  });
+
+  test('rejects a replacement action that contradicts an explicit no-change response', async () => {
+    const store = seedStore();
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-contradictory-block-change',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: JSON.stringify([action()]),
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-action-conflicts-with-response',
+      },
+    });
+  });
+
+  test('uses the first nonempty supported response-key alias', async () => {
+    const store = seedStore();
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-legacy-response-alias',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: JSON.stringify([action()]),
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: '',
+            fieldId: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-action-conflicts-with-response',
+      },
+    });
+  });
+
+  test('ignores an optional investigation target without a lifecycle decision', async () => {
+    const store = seedStore();
+    const plan = await store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-f03-investigation-only',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03',
+          discipline: 'instrumentation',
+          actionsJson: '[]',
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerTarget',
+            value: null,
+          }, {
+            schemaVersion: 1,
+            key: 'UVCondition',
+            value: 'Serviceable',
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }));
+
+    expect(plan).toEqual({events: [], currentStates: []});
+  });
+
+  test('rejects an explicitly invalid burner target', async () => {
+    const store = seedStore();
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-invalid-burner-target',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: JSON.stringify([action()]),
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerTarget',
+            value: 'Burner 9',
+          }, {
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: true,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-response-target-invalid',
+      },
+    });
+  });
+
+  test('reconciles a no-change module response with execution-level actions', async () => {
+    const store = seedStore();
+    await expect(store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-level-contradictory-block-change',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: null,
+          actionsJson: JSON.stringify([action()]),
+        }, {
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: '[]',
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerTarget',
+            value: 'Burner 3',
+          }, {
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+        executionLevelMechanicalEvidence: true,
+      }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-action-conflicts-with-response',
+      },
+    });
+  });
+
+  test('allows no-change evidence for a different burner position', async () => {
+    const store = seedStore();
+    const plan = await store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-distinct-burner-change',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: null,
+          actionsJson: JSON.stringify([action()]),
+        }, {
+          sourceModuleId: 'module-f03m-burner-2',
+          discipline: 'mechanical',
+          actionsJson: '[]',
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerTarget',
+            value: 'Burner 2',
+          }, {
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+        executionLevelMechanicalEvidence: true,
+      }));
+
+    expect(plan.events).toHaveLength(1);
+    expect(plan.events[0].data.burnerPosition).toBe(3);
+  });
+
+  test('accepts an execution-level replacement for a changed module target', async () => {
+    const store = seedStore();
+    const plan = await store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-level-confirmed-block-change',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: null,
+          actionsJson: JSON.stringify([action()]),
+        }, {
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: '[]',
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerTarget',
+            value: 'Burner 3',
+          }, {
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: true,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+        executionLevelMechanicalEvidence: true,
+      }));
+
+    expect(plan.events).toHaveLength(1);
+    expect(plan.events[0].data.burnerPosition).toBe(3);
+  });
+
   test('a module-declared block change requires governed replacement evidence', async () => {
     const store = seedStore();
     await expect(store.runTransaction((tx) =>

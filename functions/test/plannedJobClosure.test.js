@@ -94,6 +94,31 @@ describe('planned job server closure validation', () => {
     });
   });
 
+  test('treats a required boolean false as supplied evidence', () => {
+    const module = baseModule({
+      fieldDefinitionsJson: JSON.stringify([{
+        key: 'burnerBlockChanged',
+        type: 'boolean',
+        isRequired: true,
+      }]),
+      responsesJson: JSON.stringify([{
+        schemaVersion: 1,
+        key: 'burnerBlockChanged',
+        fieldLabel: 'Burner block changed',
+        fieldType: 'yesNo',
+        value: false,
+      }]),
+    });
+
+    expect(moduleMissingRequiredClosureEvidence(module)).toBe(false);
+    expect(assertClosureReady([module])).toEqual({
+      openRequiredModule: 0,
+      waitingAcceptance: 0,
+      missingRequiredEvidence: 0,
+      pendingIssueOrFollowUp: 0,
+    });
+  });
+
   test('rejects malformed saved module action evidence before closure', () => {
     let caught;
     try {
@@ -918,6 +943,101 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
 
     expect(writes.transactionRuns).toBe(1);
     expect(writes.moduleQueryReads).toBe(1);
+    expect(writes.updates).toHaveLength(0);
+    expect(writes.sets).toHaveLength(0);
+  });
+
+  test('preserves burner lifecycle rejection at the legacy callable boundary', async () => {
+    const burnerReplacement = {
+      schemaVersion: 1,
+      asset: 'Furnace 7',
+      component: 'Burner blocks and firing tubes',
+      hierarchyPath: [
+        'Furnace',
+        'Refractory system',
+        'Burner blocks and firing tubes',
+      ],
+      assetHierarchyRef: {
+        schemaVersion: 4,
+        scope: 'componentDefinitionOnAsset',
+        assetClassId: 'class-furnace',
+        assetClassCode: 'FURNACE',
+        assetClassName: 'Furnace',
+        nodeId: 'node-burner-block',
+        nodeVersion: 1,
+        nodeName: 'Burner blocks and firing tubes',
+        assetInstanceId: 'furnace-7',
+        assetInstanceVersion: 1,
+        assetNumber: 7,
+        assetInstanceName: 'Furnace 7',
+        componentInstanceId: null,
+        componentInstanceVersion: null,
+        componentTag: null,
+        hierarchyPath: [
+          'Furnace',
+          'Refractory system',
+          'Burner blocks and firing tubes',
+        ],
+        ownershipStatus: 'confirmed',
+        ownerDiscipline: 'RED',
+        accountableRoleKeys: ['seniorRefractory'],
+        innerCoverAssociation: null,
+      },
+      actionType: 'replacement',
+      replacement: 'newPart',
+      isAutoResolved: true,
+      status: 'resolved',
+      createdAt: '2026-05-15T09:00:00.000Z',
+      severity: 'medium',
+      version: 1,
+      burnerPosition: 3,
+      burnerBlockSupplyMode: 'sailRed',
+    };
+    const module = baseModule({
+      moduleCode: 'F-03M',
+      discipline: 'mechanical',
+      fieldDefinitionsJson: JSON.stringify([{
+        key: 'burnerTarget',
+        type: 'targetRule',
+        isRequired: true,
+      }, {
+        key: 'burnerBlockChanged',
+        type: 'boolean',
+        isRequired: true,
+      }]),
+      responsesJson: JSON.stringify([{
+        key: 'burnerTarget',
+        value: 'Burner 3',
+      }, {
+        key: 'burnerBlockChanged',
+        value: false,
+      }]),
+      actionsJson: JSON.stringify([burnerReplacement]),
+    });
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Supervisor',
+      },
+      executionData: baseExecution({
+        assetType: 'furnace',
+        assetNumber: 7,
+      }),
+      modules: [module],
+    });
+
+    await expect(completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId: 'job_1', expectedCompletionVersion: 7},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-action-conflicts-with-response',
+      },
+    });
+
     expect(writes.updates).toHaveLength(0);
     expect(writes.sets).toHaveLength(0);
   });
