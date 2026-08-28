@@ -2,23 +2,23 @@
   "schemaVersion": 1,
   "evidenceType": "exact-source-function-fleet-deployment-closure",
   "decision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
-  "recordedAtUtc": "2026-08-28T08:49:39Z",
+  "recordedAtUtc": "2026-08-28T10:01:53Z",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "sourceAuthority": {
-    "commit": "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff",
-    "tree": "5353aa637d245504edb45a466ef92db2b2fc2ebc",
+    "commit": "5601e8d00f6796d41ed48abe8d8023722cd477e3",
+    "tree": "14c50151b4fd5267c6a309e9c69e44c9c2531408",
     "pullRequestNumber": 305,
-    "sourceFreezePullRequestNumber": 306,
-    "postMergeReleaseGateRunId": 33156200584,
+    "sourceFreezePullRequestNumber": 307,
+    "postMergeReleaseGateRunId": 33160299262,
     "postMergeReleaseGateConclusion": "success"
   },
   "sourceBinding": {
     "deployedFunctionSourceCommit": "025d044deff2b6827f575059663597e16ab5d016",
     "deployedFunctionSourceTree": "7f8fc6423dc10ed7f7cf4554aac5c598a185d606",
     "deployedFunctionPullRequestNumber": 305,
-    "cleanMainSourceCommit": "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff",
-    "cleanMainSourceTree": "5353aa637d245504edb45a466ef92db2b2fc2ebc",
-    "cleanMainSourceFreezePullRequestNumber": 306,
+    "cleanMainSourceCommit": "5601e8d00f6796d41ed48abe8d8023722cd477e3",
+    "cleanMainSourceTree": "14c50151b4fd5267c6a309e9c69e44c9c2531408",
+    "cleanMainSourceFreezePullRequestNumber": 307,
     "deployedFunctionsGitObjectId": "0957ab2c994bfdead69fa5200cac8eaae51a19da",
     "cleanMainFunctionsGitObjectId": "0957ab2c994bfdead69fa5200cac8eaae51a19da",
     "functionSourceByteExactAcrossSuccessor": true,
@@ -97,15 +97,15 @@
   "cleanMainLiveReadbacks": {
     "functionFleet": {
       "file": "release/evidence/build18-function-fleet-runtime-identity-readback.json",
-      "physicalSha256": "116A9142262CEB9056A83BE3C0E4F8395DF924194CE38A7F5FD00369A42686A0",
-      "canonicalReceiptSha256": "97E70C0531EA9CBE9C6565434354567472BD18069DE273277B7834BEB65954C9",
+      "physicalSha256": "19F6676107B2C709850A158230870876688A7F4F4B924BCF622DA391296E4547",
+      "canonicalReceiptSha256": "0D531CFF5A0B550817B2328B5D39267F8C6284A139C981CFCE3ACEE386DC7FA4",
       "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
       "failedChecks": 0
     },
     "iamDependencies": {
       "file": "release/evidence/build18-functions-iam-dependencies-readback.json",
-      "physicalSha256": "B6D01E4C52EC52B4458F985334647DD6C23E384C8FAF83018C686747DCB70104",
-      "canonicalReceiptSha256": "5622D7EF96BBDF02C7736CDF83CEB587802512186C7B52962E62C15F79DFEF6B",
+      "physicalSha256": "D64CAF4AF3643BC9AA811C70F5FF52C53BD281062338CD0412698BD5E27BAD5F",
+      "canonicalReceiptSha256": "3CAD64FC382A7344298A3DCC64FF01D8D016211228088FF0AA591343A9B68345",
       "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
       "failedChecks": 0,
       "postureHolds": 0

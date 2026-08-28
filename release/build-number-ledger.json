@@ -907,14 +907,14 @@
       "distributionPerformed": false
     },
     {
-      "reservationId": "crm3-baf-ops-successor-9116e16-b18-18",
+      "reservationId": "crm3-baf-ops-successor-5601e8d-b18-18",
       "buildNumber": 18,
       "versionName": "1.0.0-rc.8",
       "releaseId": "crm3-baf-ops-1.0.0-rc.8-b18",
       "releaseTag": "crm3-baf-ops-v1.0.0-rc.8",
       "releaseChannel": "production-candidate",
-      "campaignId": "crm3-baf-ops-successor-9116e16-b18",
-      "baselineCommit": "9116e16e0d9a50a7e1af1668a6fff3f9ec197bff",
+      "campaignId": "crm3-baf-ops-successor-5601e8d-b18",
+      "baselineCommit": "5601e8d00f6796d41ed48abe8d8023722cd477e3",
       "reservedForBranch": "codex/build18-governed-release",
       "status": "source-reserved-awaiting-remote-consumption",
       "remoteReservationTag": "crm3-build-reserved/18",
@@ -922,7 +922,7 @@
       "failedOrWithdrawnBuildConsumesNumber": true,
       "reservedAtUtc": "2026-08-28T07:50:58Z",
       "versionApprovalReference": "BAF-REF-003-C17",
-      "versionApprovalDocumentSha256": "6150B489257F40A2CEF7B5D1365F474906BD8E041AF00F2507ADC0111941A4CA"
+      "versionApprovalDocumentSha256": "F1AB6EB3FEF03445AE5BF17F2A832D4303E31312F3EDEC5DE1CCD7AA4CB4CF60"
     }
   ]
 }
