@@ -3934,6 +3934,23 @@ build18_completion_path = (
 build18_completion = data(
     "release/evidence/build-18-finalization-closure.json"
 )
+build18_device_acceptance_path = (
+    ROOT / "release/evidence/build-18-device-acceptance.json"
+)
+build18_device_acceptance = data(
+    "release/evidence/build-18-device-acceptance.json"
+)
+expected_build18_read_only_surfaces = [
+    "authenticated-shift-overview-and-plant-condition",
+    "maintenance-issue-list-unsaved-raise-form-and-governed-furnace-hierarchy",
+    "planned-maintenance-jobs-workflow-and-template-library",
+    "operational-control-critical-safety-contacts-and-reason-catalogue",
+    "burner-reliability-history-and-26-furnace-condition-matrix",
+    "inner-cover-base-pairing-all-cover-inventory-and-incorporation-dates",
+    "asset-registry",
+    "operations-intelligence-overview-and-reliability-concentration",
+    "support-diagnostics",
+]
 build16_installation_smoke_path = (
     ROOT / "release/evidence/build-16-device-installation-smoke.json"
 )
@@ -4341,6 +4358,10 @@ build18_environment_evidence_chronology_valid = (
     and build18_evidence_bound_at is not None
     and build18_environment_evidence_bound_at >= build18_evidence_bound_at
 )
+build18_runtime_accepted = (
+    combined_policy.get("finalization", {}).get("runtimeValidationPassed")
+    is True
+)
 if candidate_pending:
     if not backend_matches_deployed:
         expected_successor_state_status = (
@@ -4369,16 +4390,28 @@ if candidate_pending:
             "CONSTRUCTION"
         )
 else:
-    expected_successor_state_status = (
-        f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
-        "AWAITING_DEVICE_AND_PILOT_DECISIONS"
-        if backend_matches_deployed
-        else (
-            f"BUILD{candidate_build_number}_FINALIZED_SOURCE_SUCCESSOR_"
-            "AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_"
-            "PILOT_DECISIONS"
+    if backend_matches_deployed:
+        expected_successor_state_status = (
+            f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
+            "DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_PILOT_DECISIONS"
+            if build18_runtime_accepted
+            else (
+                f"BUILD{candidate_build_number}_FINALIZED_BACKEND_READY_"
+                "AWAITING_DEVICE_AND_PILOT_DECISIONS"
+            )
         )
-    )
+    else:
+        expected_successor_state_status = (
+            f"BUILD{candidate_build_number}_FINALIZED_SOURCE_SUCCESSOR_"
+            "AWAITING_GOVERNED_BACKEND_DEPLOYMENT_MUTATING_FLOW_AND_"
+            "PILOT_DECISIONS"
+            if build18_runtime_accepted
+            else (
+                f"BUILD{candidate_build_number}_FINALIZED_SOURCE_SUCCESSOR_"
+                "AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_"
+                "PILOT_DECISIONS"
+            )
+        )
     expected_next_candidate_status = (
         f"AWAITING_FRESH_GOVERNED_BUILD{candidate_build_number + 1}_APPROVAL"
     )
@@ -5787,7 +5820,13 @@ check(
     and build18_entry.get("completionReceiptSha256")
         == sha(build18_completion_path)
     and build18_entry.get("dualCustodyCompleted") is True
-    and build18_entry.get("runtimeValidationPassed") is False
+    and build18_entry.get("runtimeValidationPassed") is True
+    and build18_entry.get("runtimeDisposition")
+        == "passed-exact-build18-physical-in-place-authenticated-read-only-surfaces"
+    and build18_entry.get("deviceAcceptanceReceiptFile")
+        == "release/evidence/build-18-device-acceptance.json"
+    and build18_entry.get("deviceAcceptanceReceiptSha256")
+        == sha(build18_device_acceptance_path)
     and build18_entry.get("controlledPilotApproved") is False
     and build18_entry.get("distributionPerformed") is False
     and build18_completion.get("status") == "passed-non-distributable"
@@ -5816,6 +5855,70 @@ check(
     and build18_completion.get("releaseBoundary", {}).get(
         "controlledPilotApproved"
     ) is False
+    and combined_policy.get("finalization", {}).get(
+        "runtimeValidationPassed"
+    ) is True
+    and combined_policy.get("finalization", {}).get("runtimeDisposition")
+        == "passed-exact-build18-physical-in-place-authenticated-read-only-surfaces"
+    and combined_policy.get("finalization", {}).get(
+        "deviceAcceptanceReceiptFile"
+    ) == "release/evidence/build-18-device-acceptance.json"
+    and combined_policy.get("finalization", {}).get(
+        "deviceAcceptanceReceiptSha256"
+    ) == sha(build18_device_acceptance_path)
+    and build18_device_acceptance.get("status")
+        == "passed-exact-build18-physical-in-place-authenticated-read-only-surfaces"
+    and build18_device_acceptance.get("release", {}).get("buildNumber") == 18
+    and build18_device_acceptance.get("release", {}).get(
+        "finalizationReceiptSha256"
+    ) == sha(build18_completion_path)
+    and build18_device_acceptance.get("physicalDevice", {}).get(
+        "deviceSerialRecorded"
+    ) is False
+    and build18_device_acceptance.get("physicalDevice", {}).get(
+        "accountIdentifierRecorded"
+    ) is False
+    and build18_device_acceptance.get("physicalDevice", {}).get(
+        "installedVersionCode"
+    ) == 18
+    and build18_device_acceptance.get("physicalDevice", {}).get(
+        "exactGovernedApkMatch"
+    ) is True
+    and build18_device_acceptance.get("physicalDevice", {}).get(
+        "signerContinuityVerified"
+    ) is True
+    and build18_device_acceptance.get("physicalDevice", {}).get(
+        "firstInstallTimePreserved"
+    ) is True
+    and build18_device_acceptance.get("physicalDevice", {}).get(
+        "applicationDataCleared"
+    ) is False
+    and build18_device_acceptance.get("synchronization", {}).get(
+        "lastSyncResult"
+    ) == "success"
+    and build18_device_acceptance.get("synchronization", {}).get(
+        "unsyncedRows"
+    ) == 0
+    and build18_device_acceptance.get("synchronization", {}).get(
+        "unresolvedRejections"
+    ) == 0
+    and all(
+        value is False
+        for value in build18_device_acceptance.get(
+            "businessMutationBoundary", {}
+        ).values()
+    )
+    and build18_device_acceptance.get("adjudication", {}).get(
+        "runtimeValidationPassed"
+    ) is True
+    and build18_device_acceptance.get("validatedSurfaces")
+        == expected_build18_read_only_surfaces
+    and build18_device_acceptance.get("adjudication", {}).get(
+        "mutatingBusinessFlowValidationCompleted"
+    ) is False
+    and build18_device_acceptance.get("releaseBoundary", {}).get(
+        "controlledPilotApproved"
+    ) is False
     and current_successor_state.get("status")
         == expected_successor_state_status
     and current_successor_planes.get("currentSource", {}).get("packageVersion")
@@ -5834,7 +5937,13 @@ check(
     ) == sha(build18_completion_path)
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "runtimeValidation"
-    ) == "NOT_ADJUDICATED_FOR_EXACT_BUILD18"
+    ) == "PASSED_EXACT_BUILD18_PHYSICAL_IN_PLACE_AUTHENTICATED_READ_ONLY_SURFACES"
+    and current_successor_planes.get("latestFinalizedArtifact", {}).get(
+        "deviceAcceptanceReceiptSha256"
+    ) == sha(build18_device_acceptance_path)
+    and current_successor_planes.get("latestFinalizedArtifact", {}).get(
+        "fullBusinessFlowValidation"
+    ) == "MUTATING_FLOWS_NOT_ADJUDICATED"
     and current_successor_planes.get("nextCandidate", {}).get(
         "minimumBuildNumber"
     ) == 19
@@ -6059,8 +6168,15 @@ check(
                 else []
             )
             + [
-                f"BUILD{candidate_build_number}_SIGNED_DEVICE_MIGRATION_AND_"
-                "BUSINESS_FLOW_VALIDATION",
+                (
+                    f"BUILD{candidate_build_number}_MUTATING_BUSINESS_"
+                    "FLOW_VALIDATION"
+                    if build18_runtime_accepted
+                    else (
+                        f"BUILD{candidate_build_number}_SIGNED_DEVICE_"
+                        "MIGRATION_AND_BUSINESS_FLOW_VALIDATION"
+                    )
+                ),
                 f"BUILD{candidate_build_number}_EXPLICIT_PILOT_PROMOTION",
             ]
         ),

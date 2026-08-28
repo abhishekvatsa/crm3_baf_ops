@@ -172,13 +172,18 @@ void main() {
       everyElement(isFalse),
     );
     final candidateBuild = _object(policy['release'])['buildNumber'];
+    final finalization = _object(policy['finalization']);
     final pendingConstruction =
-        _object(policy['finalization'])['status'] ==
-        'pending-source-authorized';
+        finalization['status'] == 'pending-source-authorized';
+    final runtimeValidationPassed =
+        finalization['runtimeValidationPassed'] == true;
     expect(policy['knownOpenGates'], <String>[
       if (pendingConstruction)
         'BUILD${candidateBuild}_PRODUCTION_SIGNED_FINALIZATION',
-      'BUILD${candidateBuild}_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
+      if (runtimeValidationPassed)
+        'BUILD${candidateBuild}_MUTATING_BUSINESS_FLOW_VALIDATION'
+      else
+        'BUILD${candidateBuild}_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
       'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
     ]);
   });

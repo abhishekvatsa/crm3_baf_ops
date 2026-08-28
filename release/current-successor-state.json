@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-28",
   "asOfDate": "2026-08-28",
-  "status": "BUILD18_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
+  "status": "BUILD18_FINALIZED_BACKEND_READY_DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
@@ -31,7 +31,10 @@
       "status": "COMPLETED_NON_DISTRIBUTABLE",
       "completionReceiptFile": "release/evidence/build-18-finalization-closure.json",
       "completionReceiptSha256": "716453DF8A3620A30584E89877AF5E7DBEBD99CB7C883C060A4BC1641A1AADD4",
-      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD18",
+      "runtimeValidation": "PASSED_EXACT_BUILD18_PHYSICAL_IN_PLACE_AUTHENTICATED_READ_ONLY_SURFACES",
+      "deviceAcceptanceReceiptFile": "release/evidence/build-18-device-acceptance.json",
+      "deviceAcceptanceReceiptSha256": "ABFF0F813901FDE7816DD404615DA74F83CD26ECA5EE5FBE6462E70F1FCA3809",
+      "fullBusinessFlowValidation": "MUTATING_FLOWS_NOT_ADJUDICATED",
       "pilotPromotion": "NOT_AUTHORIZED",
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
@@ -79,6 +82,7 @@
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
     "release/evidence/build-18-finalization-closure.json",
+    "release/evidence/build-18-device-acceptance.json",
     "release/evidence/build18-backend-deployment-closure.json",
     "release/evidence/build18-function-fleet-runtime-identity-readback.json",
     "release/evidence/build18-functions-iam-dependencies-readback.json",

@@ -56,6 +56,17 @@ $ExpectedToolchain = [ordered]@{
   dartVersion = '3.12.0'
   firebaseToolsVersion = '15.22.4'
 }
+$ExpectedBuild18ReadOnlySurfaces = @(
+  'authenticated-shift-overview-and-plant-condition'
+  'maintenance-issue-list-unsaved-raise-form-and-governed-furnace-hierarchy'
+  'planned-maintenance-jobs-workflow-and-template-library'
+  'operational-control-critical-safety-contacts-and-reason-catalogue'
+  'burner-reliability-history-and-26-furnace-condition-matrix'
+  'inner-cover-base-pairing-all-cover-inventory-and-incorporation-dates'
+  'asset-registry'
+  'operations-intelligence-overview-and-reliability-concentration'
+  'support-diagnostics'
+)
 $ApprovedArtifactExactSourcePaths = @(
   '.firebaserc'
   '.github/workflows/production-artifact.yml'
@@ -484,6 +495,10 @@ $requiredFiles = @(
 $finalizationStatus = [string]$policy.finalization.status
 if ($finalizationStatus -eq 'completed-non-distributable') {
   $requiredFiles += [string]$policy.finalization.completionReceiptFile
+  if ($policy.finalization.runtimeValidationPassed -eq $true) {
+    $requiredFiles +=
+      [string]$policy.finalization.deviceAcceptanceReceiptFile
+  }
   foreach ($failedAttempt in @($policy.finalization.historicalFailedAttempts)) {
     $requiredFiles += [string]$failedAttempt.evidenceFile
   }
@@ -1460,6 +1475,92 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         $false -or
       $completionReceipt.releaseBoundary.distributionPerformed -ne $false) {
     throw 'Finalization receipt differs from policy or release boundary.'
+  }
+
+  if ($policy.finalization.runtimeValidationPassed -eq $true) {
+    $deviceAcceptancePath =
+      [string]$policy.finalization.deviceAcceptanceReceiptFile
+    $deviceAcceptance =
+      Get-Content -LiteralPath $deviceAcceptancePath -Raw |
+        ConvertFrom-Json
+    $mutationValues = @(
+      $deviceAcceptance.businessMutationBoundary.PSObject.Properties |
+        ForEach-Object { $_.Value }
+    )
+    $readOnlySurfacesValidated =
+      $deviceAcceptance.adjudication.authenticatedReadOnlySurfaceValidationCompleted
+    $mutatingFlowsValidated =
+      $deviceAcceptance.adjudication.mutatingBusinessFlowValidationCompleted
+    $validatedSurfaces = @(
+      $deviceAcceptance.validatedSurfaces |
+        ForEach-Object { [string]$_ }
+    )
+    $validatedSurfacesExact =
+      $validatedSurfaces.Count -eq $ExpectedBuild18ReadOnlySurfaces.Count
+    if ($validatedSurfacesExact) {
+      for ($surfaceIndex = 0;
+          $surfaceIndex -lt $ExpectedBuild18ReadOnlySurfaces.Count;
+          $surfaceIndex++) {
+        if ($validatedSurfaces[$surfaceIndex] -cne
+            $ExpectedBuild18ReadOnlySurfaces[$surfaceIndex]) {
+          $validatedSurfacesExact = $false
+          break
+        }
+      }
+    }
+    if ((Get-Sha256 $deviceAcceptancePath) -ne
+        ([string]$policy.finalization.deviceAcceptanceReceiptSha256).
+          ToUpperInvariant() -or
+        [string]$policy.finalization.runtimeDisposition -ne
+          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces' -or
+        $policy.finalization.fullBusinessFlowValidationCompleted -ne
+          $false -or
+        [string]$deviceAcceptance.evidenceType -ne
+          'production-build-device-acceptance' -or
+        [string]$deviceAcceptance.status -ne
+          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces' -or
+        [int64]$deviceAcceptance.release.buildNumber -ne
+          [int64]$policy.release.buildNumber -or
+        [string]$deviceAcceptance.release.finalizationReceiptSha256 -ne
+          (Get-Sha256 $completionReceiptPath) -or
+        [string]$deviceAcceptance.release.apkSha256 -ne
+          [string]$completionReceipt.governedPackage.apkSha256 -or
+        [string]$deviceAcceptance.release.certificateSha256 -ne
+          [string]$completionReceipt.governedPackage.certificateSha256 -or
+        $deviceAcceptance.physicalDevice.deviceSerialRecorded -ne $false -or
+        $deviceAcceptance.physicalDevice.accountIdentifierRecorded -ne
+          $false -or
+        [int64]$deviceAcceptance.physicalDevice.installedVersionCode -ne
+          [int64]$policy.release.buildNumber -or
+        $deviceAcceptance.physicalDevice.exactGovernedApkMatch -ne $true -or
+        $deviceAcceptance.physicalDevice.signerContinuityVerified -ne
+          $true -or
+        $deviceAcceptance.physicalDevice.firstInstallTimePreserved -ne
+          $true -or
+        $deviceAcceptance.physicalDevice.applicationDataCleared -ne
+          $false -or
+        [string]$deviceAcceptance.synchronization.lastSyncResult -ne
+          'success' -or
+        [int64]$deviceAcceptance.synchronization.unsyncedRows -ne 0 -or
+        [int64]$deviceAcceptance.synchronization.unresolvedRejections -ne
+          0 -or
+        @($mutationValues | Where-Object { $_ -ne $false }).Count -ne 0 -or
+        $deviceAcceptance.adjudication.runtimeValidationPassed -ne $true -or
+        $readOnlySurfacesValidated -ne $true -or
+        $validatedSurfacesExact -ne $true -or
+        $mutatingFlowsValidated -ne $false -or
+        $deviceAcceptance.adjudication.fullBusinessFlowValidationCompleted -ne
+          $false -or
+        $deviceAcceptance.releaseBoundary.controlledPilotApproved -ne
+          $false -or
+        $deviceAcceptance.releaseBoundary.pilotHandoutPerformed -ne
+          $false -or
+        $deviceAcceptance.releaseBoundary.deviceDataClearPerformed -ne
+          $false -or
+        $completionReceipt.runtimeAdjudication.runtimeValidationPassed -ne
+          $false) {
+      throw 'Device acceptance differs from the exact read-only runtime boundary.'
+    }
   }
 
 } else {
