@@ -120,7 +120,7 @@ void main() {
         throwsA(isA<PersistedDataFormatException>()),
       );
 
-      final shortOtherDepartment = readRemoteMaintenanceRecord(
+      final conciseOtherDepartment = readRemoteMaintenanceRecord(
         _validRecord()
           ..['routedTo'] = 'others'
           ..['otherDepartment'] = 'X'
@@ -133,7 +133,7 @@ void main() {
           }),
         documentId: 'ticket-1',
       );
-      expect(shortOtherDepartment.issueLanePlanReadResult.isValid, isFalse);
+      expect(conciseOtherDepartment.issueLanePlanReadResult.isValid, isTrue);
 
       expect(
         () => readRemoteMaintenanceRecord(

@@ -231,10 +231,8 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }) async {
     _requireTemplateGovernor(actor, 'archive template-version drafts');
     final trimmedReason = reason.trim();
-    if (trimmedReason.length < 10) {
-      throw StateError(
-        'TemplateVersion draft archive reason must be at least 10 characters.',
-      );
+    if (trimmedReason.isEmpty) {
+      throw StateError('TemplateVersion draft archive reason is required.');
     }
     final firestoreId = _cleanOptionalText(record.firestoreId);
     if (firestoreId == null) {
@@ -304,10 +302,8 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }) async {
     _requireTemplateGovernor(actor, 'restore archived template-version drafts');
     final trimmedReason = reason.trim();
-    if (trimmedReason.length < 10) {
-      throw StateError(
-        'TemplateVersion draft restore reason must be at least 10 characters.',
-      );
+    if (trimmedReason.isEmpty) {
+      throw StateError('TemplateVersion draft restore reason is required.');
     }
     final firestoreId = _cleanOptionalText(record.firestoreId);
     if (firestoreId == null) {

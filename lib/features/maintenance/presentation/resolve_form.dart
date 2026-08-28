@@ -108,8 +108,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         throw StateError('Select a terminal outcome for Burner $position.');
       }
       final notes = _burnerNotes[position]?.text.trim() ?? '';
-      if (selectedActions.contains(BurnerActionCode.other) &&
-          notes.length < 3) {
+      if (selectedActions.contains(BurnerActionCode.other) && notes.isEmpty) {
         throw StateError('Describe the other work done on Burner $position.');
       }
       final microampText = _burnerMicroampReadings[position]?.text.trim() ?? '';
@@ -260,6 +259,9 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       if (result.burnerBlockSupplyMode != null) {
         _teamsInvolved.add('mechanical');
       }
+      if (result.isGovernedUvDetectorReplacement) {
+        _teamsInvolved.add('instrumentation');
+      }
     });
     if (result.burnerBlockSupplyMode != null &&
         !(widget.ticket.issueLanePlanReadResult.value?.assignedLanes.contains(
@@ -270,6 +272,20 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         const SnackBar(
           content: Text(
             'A supervisor must add the Mechanical lane before this burner-block replacement can close the issue.',
+          ),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+    }
+    if (result.isGovernedUvDetectorReplacement &&
+        !(widget.ticket.issueLanePlanReadResult.value?.assignedLanes.contains(
+              'instrumentation',
+            ) ??
+            false)) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A supervisor must add the I&A lane before this UV-detector replacement can close the issue.',
           ),
           backgroundColor: BafColors.warning,
         ),
@@ -1100,7 +1116,7 @@ class _BurnerAttendanceEditor extends StatelessWidget {
           ),
           validator: (value) {
             if (selectedActions.contains(BurnerActionCode.other) &&
-                (value?.trim().length ?? 0) < 3) {
+                (value?.trim().isEmpty ?? true)) {
               return 'Describe the other work';
             }
             return null;

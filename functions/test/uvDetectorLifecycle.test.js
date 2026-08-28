@@ -1,0 +1,261 @@
+'use strict';
+
+const {
+  applyUvDetectorLifecycleWritePlan,
+  prepareUvDetectorLifecycleWritePlan,
+} = require('../lib/maintenanceWorkflow/uvDetectorLifecycle');
+const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
+
+const IDS = {
+  assetClass: 'class-furnace',
+  asset: 'furnace-7',
+  node: 'node-uv-detector',
+};
+
+const actor = {
+  uid: 'supervisor-1',
+  name: 'Supervisor One',
+  roles: new Set(['shiftSupervisor']),
+};
+
+function reference() {
+  return {
+    schemaVersion: 4,
+    scope: 'componentDefinitionOnAsset',
+    assetClassId: IDS.assetClass,
+    assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace',
+    nodeId: IDS.node,
+    nodeVersion: 3,
+    nodeName: 'UV flame scanner and peep sight',
+    assetInstanceId: IDS.asset,
+    assetInstanceVersion: 4,
+    assetNumber: 7,
+    assetInstanceName: 'Furnace 7',
+    componentInstanceId: null,
+    componentInstanceVersion: null,
+    componentTag: null,
+    hierarchyPath: [
+      'Furnace',
+      'Burner and flame supervision',
+      'UV flame scanner and peep sight',
+    ],
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Instrumentation & Automation',
+    accountableRoleKeys: ['seniorInstrumentation'],
+    innerCoverAssociation: null,
+  };
+}
+
+function action(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    id: 'action-uv-1',
+    asset: 'Furnace 7',
+    component: 'UV flame scanner and peep sight',
+    hierarchyPath: reference().hierarchyPath,
+    assetHierarchyRef: reference(),
+    system: 'Furnace',
+    subsystem: 'Burner and flame supervision',
+    subComponent: null,
+    tag: null,
+    instance: null,
+    actionType: 'replacement',
+    replacement: 'newPart',
+    issue: 'UV detector was missing.',
+    resolution: 'UV detector installed.',
+    remarks: null,
+    templateFieldKey: null,
+    isAutoResolved: true,
+    status: 'resolved',
+    createdAt: '2026-08-28T08:00:00.000Z',
+    severity: 'high',
+    performedBy: 'I&A Technician One',
+    updatedAt: null,
+    version: 1,
+    metadataJson: null,
+    attendanceSessionId: null,
+    burnerPosition: 3,
+    burnerActionCode: null,
+    burnerOutcome: null,
+    burnerMicroampReading: null,
+    burnerBlockSupplyMode: null,
+    burnerBlockSupplierName: null,
+    burnerBlockPurchaseOrderNumber: null,
+    ...overrides,
+  };
+}
+
+function lockoutAction(overrides = {}) {
+  return action({
+    id: 'burner_ticket-1_3_uvDetectorReplacement',
+    component: 'Burner 3',
+    hierarchyPath: null,
+    assetHierarchyRef: null,
+    system: 'Combustion system',
+    subsystem: 'Burner system',
+    subComponent: 'UV detector replacement',
+    tag: 'FR-07-B03',
+    instance: '3',
+    attendanceSessionId: 'burner_ticket-1_3',
+    burnerActionCode: 'uvDetectorReplacement',
+    burnerOutcome: 'returnedToService',
+    ...overrides,
+  });
+}
+
+function seedStore() {
+  const store = new MemoryWorkflowStore();
+  store.seed(`asset_classes/${IDS.assetClass}`, {
+    schemaVersion: 1,
+    assetClassId: IDS.assetClass,
+    code: 'FURNACE',
+    name: 'Furnace',
+    legacyAssetTypeKey: 'furnace',
+    status: 'active',
+  });
+  store.seed(`asset_instances/${IDS.asset}`, {
+    schemaVersion: 1,
+    assetInstanceId: IDS.asset,
+    assetClassId: IDS.assetClass,
+    assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace',
+    assetNumber: 7,
+    name: 'Furnace 7',
+    status: 'active',
+    version: 4,
+  });
+  store.seed(`asset_hierarchy_nodes/${IDS.node}`, {
+    schemaVersion: 1,
+    nodeId: IDS.node,
+    assetClassId: IDS.assetClass,
+    name: 'UV flame scanner and peep sight',
+    hierarchyPath: reference().hierarchyPath,
+    nodeType: 'component',
+    componentTag: null,
+    status: 'active',
+    version: 3,
+  });
+  return store;
+}
+
+async function prepare(store, row = action(), overrides = {}) {
+  return store.runTransaction(async (tx) => {
+    const plan = await prepareUvDetectorLifecycleWritePlan({
+      tx,
+      sourceType: 'workflowPlannedJob',
+      sourceId: 'execution-1',
+      assetType: 'furnace',
+      assetNumber: 7,
+      actionSources: [{
+        sourceModuleId: 'module-1',
+        discipline: 'instrumentation',
+        actionsJson: JSON.stringify([row]),
+      }],
+      completedAt: '2026-08-28T09:00:00.000Z',
+      completedBy: actor,
+      ...overrides,
+    });
+    applyUvDetectorLifecycleWritePlan(tx, plan);
+    return plan;
+  });
+}
+
+describe('UV-detector lifecycle projection', () => {
+  test('projects a governed numbered UV replacement to In service', async () => {
+    const store = seedStore();
+    const plan = await prepare(store);
+    const [, event] = store.entries().find(([path]) =>
+      path.startsWith('uv_detector_lifecycle_events/'));
+    const [currentPath, current] = store.entries().find(([path]) =>
+      path.startsWith('uv_detector_lifecycle_current/'));
+
+    expect(plan.events).toHaveLength(1);
+    expect(currentPath).toMatch(
+      /^uv_detector_lifecycle_current\/uvlc_[a-f0-9]{40}$/,
+    );
+    expect(event).toMatchObject({
+      assetInstanceId: IDS.asset,
+      burnerPosition: 3,
+      resultingCondition: 'serviceable',
+      replacementDisposition: 'newPart',
+      installationDiscipline: 'instrumentation',
+      sourceType: 'workflowPlannedJob',
+      sourceModuleId: 'module-1',
+    });
+    expect(current).toMatchObject({
+      projectionSchemaVersion: 1,
+      currentEventId: event.eventId,
+      resultingCondition: 'serviceable',
+    });
+  });
+
+  test('projects burner-lockout UV replacement using the ticket asset identity', async () => {
+    const store = seedStore();
+    const sourceReference = JSON.stringify({
+      ...reference(),
+      schemaVersion: 3,
+      scope: 'physicalAsset',
+      nodeId: IDS.asset,
+      nodeVersion: 4,
+      nodeName: 'Furnace 7',
+      hierarchyPath: ['Furnace', 'Furnace 7'],
+    });
+    const plan = await prepare(store, lockoutAction(), {
+      sourceType: 'maintenanceIssue',
+      sourceId: 'ticket-1',
+      sourceAssetReferenceJson: sourceReference,
+      actionSources: [{
+        sourceModuleId: null,
+        actionsJson: JSON.stringify([lockoutAction()]),
+      }],
+      executionLevelInstrumentationEvidence: true,
+    });
+    const event = store.entries().find(([path]) =>
+      path.startsWith('uv_detector_lifecycle_events/'))[1];
+
+    expect(plan.events).toHaveLength(1);
+    expect(event).toMatchObject({
+      burnerPosition: 3,
+      hierarchyNodeId: null,
+      hierarchyNodeName: 'UV detector at Burner 3',
+      sourceType: 'maintenanceIssue',
+      sourceId: 'ticket-1',
+      resultingCondition: 'serviceable',
+    });
+  });
+
+  test('rejects generic UV installation outside I&A work', async () => {
+    const store = seedStore();
+    await expect(prepare(store, action(), {
+      actionSources: [{
+        sourceModuleId: 'module-1',
+        discipline: 'mechanical',
+        actionsJson: JSON.stringify([action()]),
+      }],
+    })).rejects.toMatchObject({
+      details: {
+        reasonCode: 'uv-detector-lifecycle-instrumentation-work-required',
+      },
+    });
+  });
+
+  test('retains the newest physical installation as current', async () => {
+    const store = seedStore();
+    await prepare(store, action({
+      id: 'newer',
+      createdAt: '2026-08-28T08:00:00.000Z',
+    }), {sourceId: 'execution-newer'});
+    const before = store.entries().find(([path]) =>
+      path.startsWith('uv_detector_lifecycle_current/'))[1];
+
+    await prepare(store, action({
+      id: 'older',
+      createdAt: '2026-08-28T07:00:00.000Z',
+    }), {sourceId: 'execution-older'});
+    const after = store.entries().find(([path]) =>
+      path.startsWith('uv_detector_lifecycle_current/'))[1];
+
+    expect(after.currentEventId).toBe(before.currentEventId);
+  });
+});

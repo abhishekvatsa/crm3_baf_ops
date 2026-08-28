@@ -718,11 +718,11 @@ TemplatePublishAudit readRemoteTemplatePublishAudit(
   }
   if ((action == TemplatePublishAuditAction.archived ||
           action == TemplatePublishAuditAction.restored) &&
-      reason!.length < 10) {
+      reason!.isEmpty) {
     throw PersistedDataFormatException(
       field: 'reason',
       source: source,
-      detail: 'archive and restore reasons require at least 10 characters',
+      detail: 'archive and restore reasons are required',
     );
   }
 

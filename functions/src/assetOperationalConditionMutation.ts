@@ -165,7 +165,6 @@ export function parseAssetOperationalConditionMutationRequest(
     invalid("expectedVersion", "must be a non-negative integer");
   }
   const reason = requiredString(raw.reason, "reason", 1000);
-  if (reason.length < 8) invalid("reason", "must contain at least 8 characters");
   const condition = raw.condition == null ? null :
     requiredString(raw.condition, "condition", 16) as ActiveCondition;
   const basis = raw.basis == null ? null :
@@ -421,7 +420,7 @@ function validateCurrentCondition(
       !Number.isSafeInteger(data.assetNumber) || (data.assetNumber as number) < 1 ||
       typeof data.assetName !== "string" || data.assetName.trim().length === 0 ||
       (!validActive && !validRestored) || !declarationComplete ||
-      typeof data.reason !== "string" || data.reason.trim().length < 8 ||
+      typeof data.reason !== "string" || data.reason.trim().length === 0 ||
       data.reason.trim().length > 1000 ||
       !["available", "down", "unfit"].includes(data.previousCondition as string) ||
       !isTimestampLike(data.updatedAt) || typeof data.updatedByUid !== "string" ||

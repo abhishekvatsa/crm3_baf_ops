@@ -627,7 +627,9 @@ String? _required(String? value) =>
     value == null || value.trim().isEmpty ? 'Required' : null;
 String? _reasonValidator(String? value) {
   final length = value?.trim().length ?? 0;
-  return length < 8 || length > 500 ? 'Use 8-500 characters' : null;
+  return length == 0 || length > 500
+      ? 'Required; use up to 500 characters'
+      : null;
 }
 
 Future<String?> _reasonDialog(

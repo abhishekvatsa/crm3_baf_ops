@@ -173,8 +173,8 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                   maxLines: 2,
                   validator:
                       (value) =>
-                          (value?.trim().length ?? 0) < 5
-                              ? 'Enter at least 5 characters'
+                          (value?.trim().isEmpty ?? true)
+                              ? 'Enter a description'
                               : null,
                 ),
                 const SizedBox(height: BafSpacing.sm),
@@ -254,7 +254,6 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                   ),
                   validator: (value) {
                     final length = value?.trim().length ?? 0;
-                    if (length == 1) return 'Enter at least 2 characters';
                     if (length > 120) return 'Use at most 120 characters';
                     if (length == 0 &&
                         widget.ticket.component?.trim().isNotEmpty == true) {
@@ -300,7 +299,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                     ),
                     validator: (value) {
                       final length = value?.trim().length ?? 0;
-                      if (length < 2) return 'Enter at least 2 characters';
+                      if (length == 0) return 'Enter the accountable team';
                       if (length > 80) return 'Use at most 80 characters';
                       return null;
                     },
@@ -321,8 +320,8 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                   ),
                   maxLines: 3,
                   validator: (value) {
-                    if ((value?.trim().length ?? 0) < 12) {
-                      return 'Give a clear reason of at least 12 characters';
+                    if (value?.trim().isEmpty ?? true) {
+                      return 'Give a reason for the correction';
                     }
                     return null;
                   },

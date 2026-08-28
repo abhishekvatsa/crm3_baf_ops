@@ -489,31 +489,47 @@ void main() {
       },
     );
 
-    test(
-      'admin correction can repair only malformed Other-department evidence',
-      () {
-        final now = DateTime.utc(2026, 8, 23, 5, 45);
-        final source =
-            MaintenanceRecord()
-              ..firestoreId = 'ticket-short-other-lane'
-              ..assetType = AssetType.base
-              ..assetNumber = 117
-              ..maintenanceType = MaintenanceType.breakdown
-              ..description = 'Mechanical and contractor attendance required'
-              ..routedTo = RoutedTo.mechanical
-              ..otherDepartment = 'X'
-              ..status = TicketStatus.open
-              ..isResolved = false
-              ..startDate = now.subtract(const Duration(hours: 1))
-              ..createdAt = now.subtract(const Duration(hours: 1))
-              ..updatedAt = now;
-        source.issueLanePlan = IssueLanePlan.initial(const <String>[
-          'mechanical',
-          'others',
-        ]);
-        expect(source.issueLanePlanReadResult.isValid, isFalse);
+    test('admin correction can repair blank Other-department evidence', () {
+      final now = DateTime.utc(2026, 8, 23, 5, 45);
+      final source =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-short-other-lane'
+            ..assetType = AssetType.base
+            ..assetNumber = 117
+            ..maintenanceType = MaintenanceType.breakdown
+            ..description = 'Mechanical and contractor attendance required'
+            ..routedTo = RoutedTo.mechanical
+            ..otherDepartment = ' '
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now.subtract(const Duration(hours: 1))
+            ..createdAt = now.subtract(const Duration(hours: 1))
+            ..updatedAt = now;
+      source.issueLanePlan = IssueLanePlan.initial(const <String>[
+        'mechanical',
+        'others',
+      ]);
+      expect(source.issueLanePlanReadResult.isValid, isFalse);
 
-        final draft = buildAdminTicketCorrection(
+      final draft = buildAdminTicketCorrection(
+        source: source,
+        description: source.description,
+        routedTo: source.routedTo,
+        maintenanceType: source.maintenanceType,
+        isCritical: source.isCritical,
+        component: source.component,
+        subsystem: source.subsystem,
+        tag: source.tag,
+        classification: source.classification,
+        otherDepartment: 'QA',
+        remarks: source.remarks,
+        reason: 'Expanded the legacy receiving-team abbreviation.',
+      );
+      expect(draft.corrections, <String, Object?>{'otherDepartment': 'QA'});
+
+      source.status = TicketStatus.inProgress;
+      expect(
+        () => buildAdminTicketCorrection(
           source: source,
           description: source.description,
           routedTo: source.routedTo,
@@ -525,30 +541,11 @@ void main() {
           classification: source.classification,
           otherDepartment: 'QA',
           remarks: source.remarks,
-          reason: 'Expanded the legacy receiving-team abbreviation.',
-        );
-        expect(draft.corrections, <String, Object?>{'otherDepartment': 'QA'});
-
-        source.status = TicketStatus.inProgress;
-        expect(
-          () => buildAdminTicketCorrection(
-            source: source,
-            description: source.description,
-            routedTo: source.routedTo,
-            maintenanceType: source.maintenanceType,
-            isCritical: source.isCritical,
-            component: source.component,
-            subsystem: source.subsystem,
-            tag: source.tag,
-            classification: source.classification,
-            otherDepartment: 'QA',
-            remarks: source.remarks,
-            reason: 'Attempted repair with invalid lifecycle evidence.',
-          ),
-          throwsA(isA<PersistedDataFormatException>()),
-        );
-      },
-    );
+          reason: 'Attempted repair with invalid lifecycle evidence.',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
 
     test('local lane evidence rejects route and acknowledgement drift', () {
       final now = DateTime.utc(2026, 8, 23, 6);

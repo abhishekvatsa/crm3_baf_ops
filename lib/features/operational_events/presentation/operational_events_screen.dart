@@ -982,8 +982,8 @@ class _EventDialogState extends State<_EventDialog> {
       setState(() => _error = 'Enter the operational effect and situation.');
       return;
     }
-    if (reason.length < 8 || reason.length > 1000) {
-      setState(() => _error = 'Enter a reason between 8 and 1,000 characters.');
+    if (reason.isEmpty || reason.length > 1000) {
+      setState(() => _error = 'Enter a reason within 1,000 characters.');
       return;
     }
     if (_scope == OperationalEventScope.assetClasses && _classIds.isEmpty) {
@@ -1093,8 +1093,8 @@ class _ReasonDialogState extends State<_ReasonDialog> {
       FilledButton(
         onPressed: () {
           final value = _controller.text.trim();
-          if (value.length < 8 || value.length > 1000) {
-            setState(() => _error = 'Enter between 8 and 1,000 characters.');
+          if (value.isEmpty || value.length > 1000) {
+            setState(() => _error = 'Enter a note within 1,000 characters.');
             return;
           }
           Navigator.pop(context, value);

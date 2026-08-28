@@ -202,7 +202,7 @@ class CriticalAlarmDefinition {
         data['name'],
         field: 'name',
         source: source,
-        minimum: 2,
+        minimum: 1,
         maximum: 120,
       ),
       criticalityKey: criticalityKey,
@@ -480,7 +480,7 @@ class CriticalAlarm {
         data['alarmTypeName'],
         field: 'alarmTypeName',
         source: source,
-        minimum: 2,
+        minimum: 1,
         maximum: 120,
       ),
       criticalityKey: _boundedStoredText(
@@ -528,7 +528,7 @@ class CriticalAlarm {
       data['details'],
       field: 'details',
       source: source,
-      minimum: 5,
+      minimum: 1,
       maximum: 2000,
     );
     final detailsPending = readRequiredPersistedBool(
@@ -581,7 +581,7 @@ class CriticalAlarm {
       data['supportNote'],
       field: 'supportNote',
       source: source,
-      minimum: 5,
+      minimum: 1,
       maximum: 1000,
     );
     final supportConfirmedByUid = _boundedOptionalStoredText(
@@ -619,7 +619,7 @@ class CriticalAlarm {
       data['resolutionSummary'],
       field: 'resolutionSummary',
       source: source,
-      minimum: 5,
+      minimum: 1,
       maximum: 2000,
     );
     final resolvedByUid = _boundedOptionalStoredText(
@@ -655,7 +655,7 @@ class CriticalAlarm {
       data['withdrawalReason'],
       field: 'withdrawalReason',
       source: source,
-      minimum: 5,
+      minimum: 1,
       maximum: 1000,
     );
     final withdrawnByUid = _boundedOptionalStoredText(
@@ -763,7 +763,7 @@ class CriticalAlarm {
         data['location'],
         field: 'location',
         source: source,
-        minimum: 2,
+        minimum: 1,
         maximum: 160,
       ),
       assetTypeKey: assetTypeKey,
@@ -991,7 +991,7 @@ class CriticalAlarmContact {
         data['label'],
         field: 'label',
         source: source,
-        minimum: 2,
+        minimum: 1,
         maximum: 120,
       ),
       kind: kind,

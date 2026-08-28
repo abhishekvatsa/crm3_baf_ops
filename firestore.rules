@@ -1569,7 +1569,7 @@ service cloud.firestore {
 
     function validTemplateLifecycleAuditEvidence() {
       return request.resource.data.get('reason', null) is string
-        && request.resource.data.get('reason', '').size() >= 10
+        && request.resource.data.get('reason', '').size() > 0
         && request.resource.data.get('afterHash', null) is string
         && request.resource.data.get('afterHash', null).matches('^tg2-sha256:[0-9a-f]{64}$')
         && request.resource.data.get('payloadSnapshotJson', null) is string;
@@ -2340,7 +2340,7 @@ service cloud.firestore {
 
     function validKnowledgeChangeSummary() {
       return request.resource.data.get('changeSummary', null) is string
-        && request.resource.data.get('changeSummary', null).size() >= 15;
+        && request.resource.data.get('changeSummary', null).size() > 0;
     }
 
     function validKnowledgeBaseCommon(docId) {
@@ -2403,7 +2403,7 @@ service cloud.firestore {
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && request.resource.data.get('updatedAt', null) == request.time
         && request.resource.data.get('changeSummary', null) is string
-        && request.resource.data.get('changeSummary', null).size() >= 15;
+        && request.resource.data.get('changeSummary', null).size() > 0;
     }
 
     // ─────────────────────────────────────────────
@@ -2479,7 +2479,7 @@ service cloud.firestore {
           && (assessment == 'notSuspected'
             ? (warningReason == null && abnormalityTypeId == null)
             : (warningReason is string
-              && warningReason.size() >= 8
+              && warningReason.size() > 0
               && warningReason.size() <= 1000
               && (schemaVersion == 1
                 || validNonEmptyString(abnormalityTypeId, 512))
@@ -2733,8 +2733,7 @@ service cloud.firestore {
           && acknowledged.hasAll(completed)
           && assigned[0] == data.get('routedTo', null)
           && (assigned.hasAny(['others'])
-            ? (validNonEmptyString(data.get('otherDepartment', null), 80)
-              && data.get('otherDepartment', '').size() >= 2)
+            ? validNonEmptyString(data.get('otherDepartment', null), 80)
             : data.get('otherDepartment', null) == null)
           && (status == 'open'
             ? acknowledged.size() == 0 && completed.size() == 0
@@ -3931,6 +3930,16 @@ service cloud.firestore {
     }
 
     match /burner_block_lifecycle_current/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /uv_detector_lifecycle_events/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /uv_detector_lifecycle_current/{docId} {
       allow read: if isApprovedUser();
       allow write: if false;
     }

@@ -143,7 +143,7 @@ class DeviceRecoveryRequest {
         requestedByName is! String ||
         requestedByName.isEmpty ||
         reason is! String ||
-        reason.trim().length < 12 ||
+        reason.trim().isEmpty ||
         requestedAt is! String ||
         requestedAt.isEmpty ||
         expiresAt is! String ||

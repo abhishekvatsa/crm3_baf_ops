@@ -1061,11 +1061,11 @@ class _DeclareConditionSheetState
                 )
                 .firstOrNull
             : null;
-    if (_causes.isEmpty || reason.length < 8 || basis == null) {
+    if (_causes.isEmpty || reason.isEmpty || basis == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Choose the availability basis, at least one cause, and enter a clear reason.',
+            'Choose the availability basis, at least one cause, and enter a reason.',
           ),
         ),
       );
@@ -1321,8 +1321,8 @@ class _ReasonDialogState extends State<_ReasonDialog> {
         FilledButton(
           onPressed: () {
             final reason = _reason.text.trim();
-            if (reason.length < 8) {
-              setState(() => _error = 'Enter at least 8 characters.');
+            if (reason.isEmpty) {
+              setState(() => _error = 'Enter a reason.');
               return;
             }
             Navigator.pop(context, reason);

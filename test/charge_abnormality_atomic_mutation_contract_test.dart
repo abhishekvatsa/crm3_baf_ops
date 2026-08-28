@@ -125,32 +125,35 @@ void main() {
     },
   );
 
-  test('short delete reason is normalized and tombstone is verified', () async {
-    final transport = _FakeTransport(
-      _response(
+  test(
+    'concise delete reason is preserved and tombstone is verified',
+    () async {
+      final transport = _FakeTransport(
+        _response(
+          requestId: requestId,
+          operation: ChargeAbnormalityMutationOperation.softDelete,
+        ),
+      );
+      final service = ChargeAbnormalityCommandService(transport: transport);
+
+      final result = await service.softDelete(
+        abnormality: _record(),
+        expectedVersion: 4,
+        reason: 'dup',
         requestId: requestId,
-        operation: ChargeAbnormalityMutationOperation.softDelete,
-      ),
-    );
-    final service = ChargeAbnormalityCommandService(transport: transport);
+      );
 
-    final result = await service.softDelete(
-      abnormality: _record(),
-      expectedVersion: 4,
-      reason: 'dup',
-      requestId: requestId,
-    );
-
-    expect(transport.requests.single['reason'], 'Reason: dup');
-    expect(transport.requests.single.keys, <String>[
-      'requestId',
-      'abnormalityId',
-      'operation',
-      'expectedVersion',
-      'reason',
-    ]);
-    expect(result.abnormality.isDeleted, isTrue);
-  });
+      expect(transport.requests.single['reason'], 'dup');
+      expect(transport.requests.single.keys, <String>[
+        'requestId',
+        'abnormalityId',
+        'operation',
+        'expectedVersion',
+        'reason',
+      ]);
+      expect(result.abnormality.isDeleted, isTrue);
+    },
+  );
 
   test(
     'non-string or non-canonical committedAt evidence fails closed',

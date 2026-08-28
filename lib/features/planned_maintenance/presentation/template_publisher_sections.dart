@@ -950,7 +950,7 @@ class _ArchivePublisherDraftReasonDialog extends StatefulWidget {
 
 class _ArchivePublisherDraftReasonDialogState
     extends State<_ArchivePublisherDraftReasonDialog> {
-  static const _minimumReasonLength = 10;
+  static const _minimumReasonLength = 1;
 
   final _reasonController = TextEditingController();
   String _reason = '';
@@ -986,7 +986,7 @@ class _ArchivePublisherDraftReasonDialogState
               onChanged: (value) => setState(() => _reason = value),
               decoration: const InputDecoration(
                 labelText: 'Mandatory archive reason',
-                helperText: 'Enter at least 10 characters.',
+                helperText: 'Required for the audit record.',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -1023,7 +1023,7 @@ class _RestorePublisherDraftReasonDialog extends StatefulWidget {
 
 class _RestorePublisherDraftReasonDialogState
     extends State<_RestorePublisherDraftReasonDialog> {
-  static const _minimumReasonLength = 10;
+  static const _minimumReasonLength = 1;
 
   final _reasonController = TextEditingController();
   String _reason = '';
@@ -1058,7 +1058,7 @@ class _RestorePublisherDraftReasonDialogState
               onChanged: (value) => setState(() => _reason = value),
               decoration: const InputDecoration(
                 labelText: 'Mandatory restore reason',
-                helperText: 'Enter at least 10 characters.',
+                helperText: 'Required for the audit record.',
                 border: OutlineInputBorder(),
               ),
             ),

@@ -359,7 +359,6 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     assetDraft: raw.assetDraft == null ? null : parseAssetDraft(raw.assetDraft),
     componentDraft: raw.componentDraft == null ? null : parseComponentDraft(raw.componentDraft),
   };
-  if (request.reason.length < 8) invalid("reason", "must contain at least 8 characters");
   if (raw.allowTagTransfer != null && typeof raw.allowTagTransfer !== "boolean") {
     invalid("allowTagTransfer", "must be a boolean");
   }

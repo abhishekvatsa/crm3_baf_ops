@@ -346,7 +346,6 @@ export function parseQualityMutationRequest(
   const requestId = requiredString(raw.requestId, "requestId", 64);
   if (!UUID.test(requestId)) invalid("requestId", "must be a canonical UUID");
   const reason = requiredString(raw.reason, "reason", 1000);
-  if (reason.length < 8) invalid("reason", "must contain at least 8 characters");
   const expectedVersion = nonNegativeInteger(
     raw.expectedVersion,
     "expectedVersion",

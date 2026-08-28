@@ -165,11 +165,11 @@ export const startIssueCoordination: CommandHandler = async ({
     "conditionTypeKey",
     new Set(["manual", "chargeComplete", "activityRef"]),
   );
-  const title = boundedText(command.payload.title, "title", 3, 160);
+  const title = boundedText(command.payload.title, "title", 1, 160);
   const description = boundedText(
     command.payload.description,
     "description",
-    5,
+    1,
     2000,
   );
   const priority = choice(command.payload.priorityKey, "priorityKey", PRIORITIES);

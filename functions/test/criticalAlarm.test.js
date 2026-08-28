@@ -124,7 +124,7 @@ describe('critical safety alarm workflow', () => {
     });
   });
 
-  test('optional incident details cannot bypass the useful-detail minimum', async () => {
+  test('optional incident details accept concise nonblank evidence', async () => {
     const store = new MemoryWorkflowStore();
     const service = serviceFor(store);
     const command = raiseCommand('alarm-short-details');
@@ -132,8 +132,11 @@ describe('critical safety alarm workflow', () => {
     await expect(service.execute(command, {
       actor: ops,
       serverNow: at('2026-08-26T10:05:00Z'),
-    })).rejects.toMatchObject({code: 'invalid-argument'});
-    expect(store.read('critical_alarms/alarm-short-details')).toBeNull();
+    })).resolves.toMatchObject({aggregateVersion: 1});
+    expect(store.read('critical_alarms/alarm-short-details')).toMatchObject({
+      details: 'x',
+      detailsPending: false,
+    });
   });
 
   test('an installed legacy client may raise first and provide details next', async () => {

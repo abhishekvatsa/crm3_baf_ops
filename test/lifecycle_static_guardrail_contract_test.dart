@@ -462,7 +462,8 @@ void main() {
         );
         _expectContains(rowEditor, "initialValue: textValue ?? ''");
         _expectContains(rowEditor, 'final errorText =');
-        _expectContains(rowEditor, 'reason.isEmpty || canSubmit');
+        _expectContains(rowEditor, 'final canSubmit = reason.isNotEmpty');
+        _expectContains(rowEditor, "reason.isEmpty ? 'Enter a change reason.'");
         _expectContains(rowEditor, 'errorText: errorText');
         _expectContains(
           rowEditor,

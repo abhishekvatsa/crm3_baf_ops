@@ -1556,7 +1556,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("Other-department lane projection requires at least two characters", async () => {
+  test("Other-department lane projection requires nonempty text", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const closedAt = new Date().toISOString();
     const ticket = {
@@ -1582,15 +1582,15 @@ describe("maintenance_records", () => {
       updatedAt: createdAt,
       isDeleted: false,
     };
-    await seedDoc("maintenance_records/ticketOtherShort", {
+    await seedDoc("maintenance_records/ticketOtherBlank", {
       ...ticket,
-      firestoreId: "ticketOtherShort",
-      otherDepartment: "X",
+      firestoreId: "ticketOtherBlank",
+      otherDepartment: "",
     });
-    await seedDoc("maintenance_records/ticketOtherValid", {
+    await seedDoc("maintenance_records/ticketOtherConcise", {
       ...ticket,
-      firestoreId: "ticketOtherValid",
-      otherDepartment: "QA",
+      firestoreId: "ticketOtherConcise",
+      otherDepartment: "X",
     });
     const close = {
       isResolved: true,
@@ -1611,10 +1611,10 @@ describe("maintenance_records", () => {
     const db = dbAs("supervisor1");
 
     await assertFails(
-      updateDoc(doc(db, "maintenance_records/ticketOtherShort"), close)
+      updateDoc(doc(db, "maintenance_records/ticketOtherBlank"), close)
     );
     await assertSucceeds(
-      updateDoc(doc(db, "maintenance_records/ticketOtherValid"), close)
+      updateDoc(doc(db, "maintenance_records/ticketOtherConcise"), close)
     );
   });
 
@@ -2812,7 +2812,7 @@ describe("template_version draft archive governance", () => {
     );
   });
 
-  test("archive audit rejects short reason and direct archived creation remains denied", async () => {
+  test("archive audit rejects an empty reason and direct archived creation remains denied", async () => {
     await seedDoc(
       "template_versions/draftArchive",
       activeDraft({
@@ -2825,15 +2825,15 @@ describe("template_version draft archive governance", () => {
     const db = dbAs("si1");
 
     await assertFails(
-      setDoc(doc(db, "template_publish_audits/archiveAuditShort"), {
-        firestoreId: "archiveAuditShort",
+      setDoc(doc(db, "template_publish_audits/archiveAuditBlank"), {
+        firestoreId: "archiveAuditBlank",
         packageFirestoreId: "pkg1",
         versionFirestoreId: "draftArchive",
         action: "archived",
         performedByUid: "si1",
         performedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        reason: "short",
+        reason: "",
         afterHash:
           "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         payloadSnapshotJson: '{"status":"archived"}',
@@ -2994,24 +2994,24 @@ describe("template_version draft archive governance", () => {
     );
 
     await seedDoc(
-      "template_versions/restoredForShortReason",
+      "template_versions/restoredForBlankReason",
       activeDraft({
-        firestoreId: "restoredForShortReason",
+        firestoreId: "restoredForBlankReason",
         status: "draft",
         contentHash: archivedHash,
         version: 4,
       })
     );
     await assertFails(
-      setDoc(doc(siDb, "template_publish_audits/restoreShortReason"), {
-        firestoreId: "restoreShortReason",
+      setDoc(doc(siDb, "template_publish_audits/restoreBlankReason"), {
+        firestoreId: "restoreBlankReason",
         packageFirestoreId: "pkg1",
-        versionFirestoreId: "restoredForShortReason",
+        versionFirestoreId: "restoredForBlankReason",
         action: "restored",
         performedByUid: "si1",
         performedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        reason: "short",
+        reason: "",
         afterHash: archivedHash,
         payloadSnapshotJson: '{"status":"draft"}',
         version: 1,
@@ -5095,6 +5095,14 @@ describe("governed dynamic asset hierarchy", () => {
       projectionId: "current-1",
       currentEventId: "event-1",
     });
+    await seedDoc("uv_detector_lifecycle_events/uv-event-1", {
+      eventId: "uv-event-1",
+      actionPerformedAt: Timestamp.now(),
+    });
+    await seedDoc("uv_detector_lifecycle_current/uv-current-1", {
+      projectionId: "uv-current-1",
+      currentEventId: "uv-event-1",
+    });
     await seedDoc("inner_cover_profiles/cover-1", {
       innerCoverId: "cover-1",
     });
@@ -5125,6 +5133,12 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertSucceeds(
       getDoc(doc(opsDb, "burner_block_lifecycle_current/current-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "uv_detector_lifecycle_events/uv-event-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "uv_detector_lifecycle_current/uv-current-1"))
     );
     await assertSucceeds(getDoc(doc(opsDb, "asset_tag_claims/tag-hash")));
     await assertFails(getDocs(collection(opsDb, "asset_tag_claims")));
@@ -5179,6 +5193,12 @@ describe("governed dynamic asset hierarchy", () => {
       }),
       setDoc(doc(adminDb, "burner_block_lifecycle_current/current-1"), {
         projectionId: "current-1",
+      }),
+      setDoc(doc(adminDb, "uv_detector_lifecycle_events/uv-event-1"), {
+        eventId: "uv-event-1",
+      }),
+      setDoc(doc(adminDb, "uv_detector_lifecycle_current/uv-current-1"), {
+        projectionId: "uv-current-1",
       }),
       setDoc(doc(adminDb, "burner_condition_round_receipts/request-1"), {
         requestId: "request-1",
@@ -5390,7 +5410,7 @@ describe("governed dynamic asset hierarchy", () => {
     }
   });
 
-  test("burner rounds and block lifecycle are approved-readable and immutable", async () => {
+  test("burner rounds and component lifecycles are approved-readable and immutable", async () => {
     await seedUser("burnerPending", ["operations"], false);
     await seedDoc("burner_condition_rounds/round-1", {
       roundId: "round-1",
@@ -5403,6 +5423,14 @@ describe("governed dynamic asset hierarchy", () => {
     await seedDoc("burner_block_lifecycle_current/current-1", {
       projectionId: "current-1",
       currentEventId: "event-1",
+    });
+    await seedDoc("uv_detector_lifecycle_events/uv-event-1", {
+      eventId: "uv-event-1",
+      actionPerformedAt: Timestamp.now(),
+    });
+    await seedDoc("uv_detector_lifecycle_current/uv-current-1", {
+      projectionId: "uv-current-1",
+      currentEventId: "uv-event-1",
     });
     await seedDoc("burner_condition_round_receipts/request-1", {
       requestId: "request-1",
@@ -5421,6 +5449,12 @@ describe("governed dynamic asset hierarchy", () => {
     await assertSucceeds(
       getDoc(doc(dbAs("ops1"), "burner_block_lifecycle_current/current-1"))
     );
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "uv_detector_lifecycle_events/uv-event-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "uv_detector_lifecycle_current/uv-current-1"))
+    );
     await assertFails(
       updateDoc(doc(dbAs("admin1"), "burner_condition_rounds/round-1"), {
         roundNote: "Client-side rewrite",
@@ -5434,6 +5468,16 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(
       updateDoc(doc(dbAs("admin1"), "burner_block_lifecycle_current/current-1"), {
         supplierName: "Client-side rewrite",
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "uv_detector_lifecycle_events/uv-event-1"), {
+        resultingCondition: "missing",
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "uv_detector_lifecycle_current/uv-current-1"), {
+        resultingCondition: "missing",
       })
     );
     await assertFails(

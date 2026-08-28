@@ -144,7 +144,6 @@ export function parseOperationalEventIssueLinkRequest(
     invalid("relationship", "is unsupported");
   }
   const reason = requiredString(raw.reason, "reason", 1000);
-  if (reason.length < 8) invalid("reason", "must contain at least 8 characters");
   const request = {
     requestId,
     operation: OPERATIONAL_EVENT_ISSUE_LINK_OPERATION,

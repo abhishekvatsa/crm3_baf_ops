@@ -1233,7 +1233,7 @@ class _PairingDialogState extends State<_PairingDialog> {
         FilledButton(
           onPressed: () {
             final reason = _reason.text.trim();
-            if (reason.length < 8) return;
+            if (reason.isEmpty) return;
             Navigator.pop(
               context,
               _PairingSelection(cover: _selected, reason: reason),
@@ -1352,7 +1352,7 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
       FilledButton(
         onPressed: () {
           final reason = _reason.text.trim();
-          if (reason.length < 8) return;
+          if (reason.isEmpty) return;
           if (_state == InnerCoverLifecycleState.retiredForSalvage &&
               _retirementCondition == null) {
             return;
@@ -1459,8 +1459,7 @@ class _AcceptanceDialogState extends State<_AcceptanceDialog> {
       ),
       FilledButton(
         onPressed: () {
-          if (_acceptance.text.trim().isEmpty ||
-              _reason.text.trim().length < 8) {
+          if (_acceptance.text.trim().isEmpty || _reason.text.trim().isEmpty) {
             return;
           }
           String? optional(TextEditingController controller) {
@@ -1769,10 +1768,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
         normalizeInnerCoverSerial(serial).length < 2
             ? 'Enter an Inner Cover serial number.'
             : null;
-    final reasonError =
-        reason.length < 8
-            ? 'Explain the registration in at least 8 characters.'
-            : null;
+    final reasonError = reason.isEmpty ? 'Explain the registration.' : null;
     if (serialError != null ||
         reasonError != null ||
         sectionErrors.isNotEmpty) {

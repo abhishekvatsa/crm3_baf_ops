@@ -380,13 +380,13 @@ void main() {
       },
     );
 
-    test('archive and restore audits require substantive reason evidence', () {
+    test('archive and restore audits require nonblank reason evidence', () {
       for (final action in <String>['archived', 'restored']) {
         expect(
           () => TemplatePublishAudit.fromMap(<String, dynamic>{
             ..._validAudit(),
             'action': action,
-            'reason': 'too short',
+            'reason': ' ',
           }, 'audit-1'),
           _invalidField('reason'),
           reason: action,

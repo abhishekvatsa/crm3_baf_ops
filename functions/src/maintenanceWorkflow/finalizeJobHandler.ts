@@ -45,6 +45,10 @@ import {
   applyBurnerBlockLifecycleWritePlan,
   prepareBurnerBlockLifecycleWritePlan,
 } from "./burnerBlockLifecycle";
+import {
+  applyUvDetectorLifecycleWritePlan,
+  prepareUvDetectorLifecycleWritePlan,
+} from "./uvDetectorLifecycle";
 
 const responseArrayText = (
   value: unknown,
@@ -357,6 +361,26 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     completedBy: context.actor,
     executionLevelMechanicalEvidence: teamsInvolved.includes("mechanical"),
   });
+  const uvDetectorLifecyclePlan = await prepareUvDetectorLifecycleWritePlan({
+    tx,
+    sourceType: "workflowPlannedJob",
+    sourceId: parentExecutionId,
+    assetType: assetTypeKey,
+    assetNumber,
+    actionSources: [
+      {sourceModuleId: null, actionsJson},
+      ...closurePlan.modules.map((module) => ({
+        sourceModuleId:
+          typeof module.firestoreId === "string" ? module.firestoreId : null,
+        discipline: module.discipline,
+        actionsJson: module.actionsJson,
+      })),
+    ],
+    completedAt: now,
+    completedBy: context.actor,
+    executionLevelInstrumentationEvidence:
+      teamsInvolved.includes("instrumentation"),
+  });
 
   // All transaction reads have completed. Writes begin below.
   if (successorWorkflowId != null && successorExecutionId != null && successorTemplate != null) {
@@ -557,6 +581,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
   tx.set(closurePlan.auditPath, closurePlan.auditData, true);
   applyMaintenanceCompletionWritePlan(tx, maintenanceCompletionPlan);
   applyBurnerBlockLifecycleWritePlan(tx, burnerBlockLifecyclePlan);
+  applyUvDetectorLifecycleWritePlan(tx, uvDetectorLifecyclePlan);
 
   tx.set(equipmentId, equipmentProjectionWrite(equipment.data, facts, projection, {
     assetTypeKey,

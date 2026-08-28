@@ -9,7 +9,7 @@
 //  Abnormality Types   ──  dialog-owned controllers + _isSaving busy-guard +
 //                          complete _showAbnormalityTypeSnack rollout (zero raw)
 //  Knowledge Row Editor ── readonly-field ValueKey + late final lifecycle
-//                          controller + listener-driven canSubmit (≥15 chars) +
+//                          controller + listener-driven nonblank canSubmit +
 //                          defence-in-depth outer trim guard
 //
 // Run from the project root:
@@ -260,17 +260,14 @@ void main() {
       expect(src, contains('_controller.dispose();'));
     });
 
-    test(
-      'lifecycle dialog uses listener-driven canSubmit (≥15 chars enforced in UI)',
-      () {
-        expect(src, contains('_controller.addListener(_handleChanged)'));
-        expect(src, contains('final canSubmit = reason.length >= 15'));
-        expect(src, contains('onPressed: canSubmit ?'));
-        expect(src, contains('final errorText ='));
-        expect(src, contains('reason.isEmpty || canSubmit'));
-        expect(src, contains('errorText: errorText'));
-      },
-    );
+    test('lifecycle dialog uses listener-driven nonblank canSubmit', () {
+      expect(src, contains('_controller.addListener(_handleChanged)'));
+      expect(src, contains('final canSubmit = reason.isNotEmpty'));
+      expect(src, contains('onPressed: canSubmit ?'));
+      expect(src, contains('final errorText ='));
+      expect(src, contains("reason.isEmpty ? 'Enter a change reason.'"));
+      expect(src, contains('errorText: errorText'));
+    });
 
     test('showDialog is typed to String (non-nullable)', () {
       expect(src, contains('showDialog<String>'));

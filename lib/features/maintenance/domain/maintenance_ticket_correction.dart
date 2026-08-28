@@ -87,14 +87,12 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
     );
   }
   final cleanDescription = description.trim();
-  if (cleanDescription.length < 5) {
-    throw ArgumentError('Description must contain at least 5 characters.');
+  if (cleanDescription.isEmpty) {
+    throw ArgumentError('Description is required.');
   }
   final cleanReason = reason.trim();
-  if (cleanReason.length < 12) {
-    throw ArgumentError(
-      'Correction reason must contain at least 12 characters.',
-    );
+  if (cleanReason.isEmpty) {
+    throw ArgumentError('Correction reason is required.');
   }
   if (source.classification == burnerLockoutClassification) {
     final hasRedHot =
@@ -142,8 +140,8 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
     otherDepartment ?? '',
   );
   if (effectiveLanes.contains(RoutedTo.others) &&
-      (cleanOtherDepartment == null || cleanOtherDepartment.length < 2)) {
-    throw ArgumentError('Other department must contain at least 2 characters.');
+      cleanOtherDepartment == null) {
+    throw ArgumentError('Other department is required.');
   }
   final proposed = <String, Object?>{
     'description': cleanDescription,

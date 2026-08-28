@@ -15,9 +15,11 @@ import '../data/asset_registry_model.dart';
 import '../data/burner_block_condition_projection.dart';
 import '../data/burner_block_lifecycle_event.dart';
 import '../data/burner_condition_round.dart';
+import '../data/uv_detector_lifecycle_event.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../providers/burner_block_lifecycle_provider.dart';
 import '../providers/burner_condition_round_provider.dart';
+import '../providers/uv_detector_lifecycle_provider.dart';
 import '../services/burner_condition_round_service.dart';
 
 class FurnaceComponentConditionAuditScreen extends ConsumerStatefulWidget {
@@ -74,12 +76,20 @@ class _FurnaceComponentConditionAuditScreenState
     final lifecycleCurrentAsync = ref.watch(
       burnerBlockLifecycleCurrentProvider(actor.uid),
     );
+    final uvLifecycleAsync = ref.watch(
+      uvDetectorLifecycleEventsProvider(actor.uid),
+    );
+    final uvLifecycleCurrentAsync = ref.watch(
+      uvDetectorLifecycleCurrentProvider(actor.uid),
+    );
     final ticketsAsync = ref.watch(openTicketsProvider);
     final loading = <AsyncValue<Object?>>[
       classesAsync,
       assetsAsync,
       lifecycleAsync,
       lifecycleCurrentAsync,
+      uvLifecycleAsync,
+      uvLifecycleCurrentAsync,
       ticketsAsync,
     ].any((value) => value.isLoading && !value.hasValue);
     final error =
@@ -88,6 +98,8 @@ class _FurnaceComponentConditionAuditScreenState
           assetsAsync,
           lifecycleAsync,
           lifecycleCurrentAsync,
+          uvLifecycleAsync,
+          uvLifecycleCurrentAsync,
           ticketsAsync,
         ].where((value) => value.hasError && !value.hasValue).firstOrNull;
     if (loading) {
@@ -105,6 +117,8 @@ class _FurnaceComponentConditionAuditScreenState
             ref.invalidate(latestBurnerConditionRoundsProvider);
             ref.invalidate(burnerBlockLifecycleEventsProvider(actor.uid));
             ref.invalidate(burnerBlockLifecycleCurrentProvider(actor.uid));
+            ref.invalidate(uvDetectorLifecycleEventsProvider(actor.uid));
+            ref.invalidate(uvDetectorLifecycleCurrentProvider(actor.uid));
             ref.invalidate(openTicketsProvider);
           },
         ),
@@ -172,6 +186,14 @@ class _FurnaceComponentConditionAuditScreenState
       ...lifecycleCurrent,
       ...lifecycleEvents,
     ];
+    final uvLifecycleEvents =
+        uvLifecycleAsync.value ?? const <UvDetectorLifecycleEvent>[];
+    final uvLifecycleCurrent =
+        uvLifecycleCurrentAsync.value ?? const <UvDetectorLifecycleEvent>[];
+    final uvLifecycleProjectionEvidence = <UvDetectorLifecycleEvent>[
+      ...uvLifecycleCurrent,
+      ...uvLifecycleEvents,
+    ];
     final tickets = ticketsAsync.value ?? const <MaintenanceRecord>[];
 
     try {
@@ -186,6 +208,7 @@ class _FurnaceComponentConditionAuditScreenState
           round: round,
           newerRedHotObservations: newerRedHot,
           lifecycleEvents: lifecycleProjectionEvidence,
+          uvLifecycleEvents: uvLifecycleProjectionEvidence,
           assetInstanceId: furnace.id,
         );
         final current = _drafts[furnace.id];
@@ -211,7 +234,7 @@ class _FurnaceComponentConditionAuditScreenState
     final dirtyCount =
         furnaces.where((furnace) => _drafts[furnace.id]?.dirty == true).length;
     return DefaultTabController(
-      length: 6,
+      length: 7,
       child: Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(
@@ -230,6 +253,7 @@ class _FurnaceComponentConditionAuditScreenState
               Tab(text: 'UV missing'),
               Tab(text: 'UV hung'),
               Tab(text: 'Block lifecycle'),
+              Tab(text: 'UV lifecycle'),
             ],
           ),
         ),
@@ -239,6 +263,7 @@ class _FurnaceComponentConditionAuditScreenState
               furnaceCount: furnaces.length,
               dirtyCount: dirtyCount,
               replacementCount: lifecycleEvents.length,
+              uvReplacementCount: uvLifecycleEvents.length,
             ),
             Expanded(
               child: TabBarView(
@@ -272,6 +297,7 @@ class _FurnaceComponentConditionAuditScreenState
                     onChanged: _markChanged,
                   ),
                   _BurnerBlockLifecycleList(events: lifecycleEvents),
+                  _UvDetectorLifecycleList(events: uvLifecycleEvents),
                 ],
               ),
             ),
@@ -398,6 +424,7 @@ class _FurnaceAuditDraft {
     required this.uvByPosition,
     required this.burnerObservations,
     required this.replacementsByPosition,
+    required this.uvReplacementsByPosition,
   });
 
   factory _FurnaceAuditDraft.fromSources({
@@ -405,14 +432,9 @@ class _FurnaceAuditDraft {
     required BurnerBlockConditionProjection conditionProjection,
   }) {
     final redHot = conditionProjection.redHotPositions;
-    final uv = <int, BurnerUvCondition>{
-      for (var position = 1; position <= 8; position++)
-        position: BurnerUvCondition.serviceable,
-    };
-    for (final observation
-        in round?.uvObservations ?? const <BurnerUvObservation>[]) {
-      uv[observation.position] = observation.condition;
-    }
+    final uv = Map<int, BurnerUvCondition>.of(
+      conditionProjection.uvConditionsByPosition,
+    );
     final prior = round?.observations;
     return _FurnaceAuditDraft(
       sourceKey: conditionProjection.sourceKey,
@@ -441,6 +463,15 @@ class _FurnaceAuditDraft {
       replacementsByPosition: Map<int, BurnerBlockLifecycleEvent>.unmodifiable(
         conditionProjection.replacementsByPosition,
       ),
+      uvReplacementsByPosition: Map<int, UvDetectorLifecycleEvent>.unmodifiable(
+        <int, UvDetectorLifecycleEvent>{
+          for (final entry
+              in conditionProjection.uvReplacementsByPosition.entries)
+            if (round == null ||
+                entry.value.actionPerformedAt.isAfter(round.observedAt))
+              entry.key: entry.value,
+        },
+      ),
     );
   }
 
@@ -452,6 +483,7 @@ class _FurnaceAuditDraft {
   final Map<int, BurnerUvCondition> uvByPosition;
   List<BurnerConditionObservation> burnerObservations;
   final Map<int, BurnerBlockLifecycleEvent> replacementsByPosition;
+  final Map<int, UvDetectorLifecycleEvent> uvReplacementsByPosition;
   bool dirty = false;
 
   List<BurnerUvObservation> get uvObservations => <BurnerUvObservation>[
@@ -510,11 +542,13 @@ class _AuditStatusBand extends StatelessWidget {
     required this.furnaceCount,
     required this.dirtyCount,
     required this.replacementCount,
+    required this.uvReplacementCount,
   });
 
   final int furnaceCount;
   final int dirtyCount;
   final int replacementCount;
+  final int uvReplacementCount;
 
   @override
   Widget build(BuildContext context) {
@@ -533,6 +567,7 @@ class _AuditStatusBand extends StatelessWidget {
             child: Text(
               '$furnaceCount governed Furnaces · $dirtyCount changed. '
               '$replacementCount retained block replacement${replacementCount == 1 ? '' : 's'}. '
+              '$uvReplacementCount retained UV replacement${uvReplacementCount == 1 ? '' : 's'}. '
               'Newer audits and work events supersede earlier condition evidence.',
               style: const TextStyle(fontSize: 12),
             ),
@@ -690,6 +725,134 @@ class _BurnerBlockLifecycleList extends StatelessWidget {
   }
 }
 
+class _UvDetectorLifecycleList extends StatelessWidget {
+  const _UvDetectorLifecycleList({required this.events});
+
+  final List<UvDetectorLifecycleEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    if (events.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(BafSpacing.xl),
+          child: Text(
+            'No completed UV-detector replacement has been recorded yet.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: BafColors.textSecondary),
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(BafSpacing.lg),
+      itemCount: events.length,
+      separatorBuilder: (_, __) => const SizedBox(height: BafSpacing.sm),
+      itemBuilder: (context, index) {
+        final event = events[index];
+        final sourceLabel = switch (event.sourceType) {
+          UvDetectorLifecycleSourceType.maintenanceIssue => 'Issue resolution',
+          UvDetectorLifecycleSourceType.legacyPlannedJob =>
+            'Planned maintenance',
+          UvDetectorLifecycleSourceType.workflowPlannedJob =>
+            'Governed planned maintenance',
+        };
+        final disposition = switch (event.replacementDisposition) {
+          UvDetectorReplacementDisposition.newPart => 'New detector',
+          UvDetectorReplacementDisposition.repaired => 'Repaired detector',
+          UvDetectorReplacementDisposition.revised => 'Revised detector',
+        };
+        return Container(
+          padding: const EdgeInsets.all(BafSpacing.md),
+          decoration: BoxDecoration(
+            color: BafColors.card,
+            border: Border.all(color: BafColors.border),
+            borderRadius: BorderRadius.circular(BafRadius.small),
+            boxShadow: BafShadows.subtle,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: BafColors.instrument.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(BafRadius.small),
+                    ),
+                    child: const Icon(
+                      Icons.sensors_rounded,
+                      color: BafColors.instrument,
+                    ),
+                  ),
+                  const SizedBox(width: BafSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Furnace ${event.assetNumber.toString().padLeft(2, '0')} · UV ${event.burnerPosition}',
+                          style: const TextStyle(
+                            color: BafColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          DateFormat(
+                            'dd MMM yyyy, HH:mm',
+                          ).format(event.actionPerformedAt.toLocal()),
+                          style: const TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              Wrap(
+                spacing: BafSpacing.xs,
+                runSpacing: BafSpacing.xs,
+                children: [
+                  const StatusBadge(
+                    label: 'In service',
+                    color: BafColors.success,
+                  ),
+                  StatusBadge(label: disposition, color: BafColors.assets),
+                  const StatusBadge(
+                    label: 'I&A installation',
+                    color: BafColors.instrument,
+                  ),
+                  StatusBadge(label: sourceLabel, color: BafColors.planned),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              Text(
+                <String>[
+                  event.hierarchyNodeName,
+                  if (event.componentTag != null) 'Tag ${event.componentTag}',
+                  'performed by ${event.performedByName}',
+                  'closure recorded by ${event.completedByName}',
+                ].join(' · '),
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _BurnerBlockMatrix extends StatelessWidget {
   const _BurnerBlockMatrix({
     required this.furnaces,
@@ -805,10 +968,18 @@ class _UvConditionMatrix extends StatelessWidget {
     onConfirm: (furnace) => onChanged(furnace.id, (_) {}),
     cellBuilder: (furnace, draft, position) {
       final selected = draft.uvByPosition[position] == condition;
+      final replacement = draft.uvReplacementsByPosition[position];
       return _ConditionCell(
         selected: selected,
         color: _uvColor(condition),
-        tooltip: '${condition.label} at UV$position',
+        tooltip:
+            selected
+                ? '${condition.label} at UV$position'
+                : replacement == null
+                ? '${condition.label} not recorded at UV$position'
+                : 'UV$position returned to service by I&A replacement on ${DateFormat('dd MMM yyyy, HH:mm').format(replacement.actionPerformedAt.toLocal())}',
+        evidenceIcon:
+            !selected && replacement != null ? Icons.sensors_rounded : null,
         onChanged:
             furnace.serviceState == AssetServiceState.outOfService
                 ? null

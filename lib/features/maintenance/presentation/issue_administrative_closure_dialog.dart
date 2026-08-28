@@ -51,10 +51,8 @@ class _IssueAdministrativeClosureDialogState
       setState(() => _error = 'Select why the issue is being closed.');
       return;
     }
-    if (reason.length < 12) {
-      setState(
-        () => _error = 'Enter a clear reason of at least 12 characters.',
-      );
+    if (reason.isEmpty) {
+      setState(() => _error = 'Enter a reason for this closure.');
       return;
     }
     if (reason.length > 2000) {

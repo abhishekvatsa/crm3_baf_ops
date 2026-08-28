@@ -110,6 +110,11 @@ does not invent OEM tags.
   presented as server-validated evidence to the confirming Admin and frozen into
   both lifecycle audits. Maintenance evidence and registry confirmation remain
   separate authorities and are never silently conflated.
+- Physical UV-detector replacement has its own I&A lifecycle projection. A
+  resolved numbered UV replacement from a maintenance issue, legacy planned
+  job, or governed planned workflow appends immutable history and updates the
+  current Furnace/UV position to `serviceable`. A later condition audit can
+  supersede that current condition without deleting the replacement history.
 - Automatic red-hot escalation thresholds, timers, and severity changes remain
   governed plant configuration. No threshold has been inferred from the manual.
 - Microamp readings are observations, not automatic pass/fail decisions. The

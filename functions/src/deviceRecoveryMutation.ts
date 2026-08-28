@@ -558,13 +558,6 @@ async function requestReset(
     "installationId",
   );
   const reason = requiredText(args.data.reason, "reason", 500);
-  if (reason.length < 12) {
-    throw new DeviceRecoveryMutationError(
-      "invalid-argument",
-      "A meaningful administrator reason of at least 12 characters is required.",
-      {reasonCode: "device-recovery-reason-too-short"},
-    );
-  }
   const stateRef = args.db.collection(DEVICE_REQUESTS)
     .doc(deviceRecoveryStateDocumentId(targetUid, installationId));
   const receiptRef = args.db.collection(DEVICE_RECEIPTS).doc(requestId);

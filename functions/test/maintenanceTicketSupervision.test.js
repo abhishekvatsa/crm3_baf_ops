@@ -541,7 +541,7 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
-  test('rejects one-character Other-department names on create and reconfiguration', async () => {
+  test('accepts concise Other-department names but rejects blank names', async () => {
     const created = createServiceFor(mechanical);
     await expect(created.service.execute(createCommand({
       commandId: 'create-short-other-department',
@@ -555,7 +555,9 @@ describe('governed maintenance-ticket supervision', () => {
         issueAcknowledgedLanes: [],
         issueCompletedLanes: [],
       },
-    }), created.context)).rejects.toMatchObject({code: 'invalid-argument'});
+    }), created.context)).resolves.toMatchObject({aggregateVersion: 1});
+    expect(created.store.read('maintenance_records/short-other-department'))
+      .toMatchObject({routedTo: 'others', otherDepartment: 'X'});
 
     const reconfigured = serviceFor(contractSupervisor);
     await expect(reconfigured.service.execute({
@@ -568,7 +570,24 @@ describe('governed maintenance-ticket supervision', () => {
         otherDepartment: 'X',
         reason: 'A specialist contractor is now accountable.',
       },
-    }, reconfigured.context)).rejects.toMatchObject({code: 'invalid-argument'});
+    }, reconfigured.context)).resolves.toMatchObject({aggregateVersion: 4});
+    expect(reconfigured.store.read('maintenance_records/ticket-1'))
+      .toMatchObject({routedTo: 'others', otherDepartment: 'X'});
+
+    const blank = createServiceFor(mechanical);
+    await expect(blank.service.execute(createCommand({
+      commandId: 'create-blank-other-department',
+      ticketId: 'blank-other-department',
+      ticket: {
+        routedTo: 'others',
+        otherDepartment: ' ',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['others'],
+        issueAcknowledgedLanes: [],
+        issueCompletedLanes: [],
+      },
+    }), blank.context)).rejects.toMatchObject({code: 'invalid-argument'});
   });
 
   test('creates a quality warning with the issue in the same command', async () => {

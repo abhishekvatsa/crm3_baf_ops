@@ -26,7 +26,7 @@ Map<String, dynamic>? qualityWarningProjectionForIssue(
       actorUid == null ||
       actorUid.isEmpty ||
       reason == null ||
-      reason.length < 8) {
+      reason.isEmpty) {
     throw StateError(
       'A suspected issue quality warning requires charge, actor and reason evidence.',
     );
@@ -79,7 +79,7 @@ Map<String, dynamic>? qualityWarningProjectionForIssueMap(
       version <= 0 ||
       actorUid == null ||
       reason == null ||
-      reason.length < 8 ||
+      reason.isEmpty ||
       description == null ||
       assetType == null ||
       assetNumber is! int ||

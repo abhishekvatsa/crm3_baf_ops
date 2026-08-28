@@ -599,9 +599,6 @@ export function parseInnerCoverLifecycleMutationRequest(
       parseAcceptanceDraft(raw.acceptanceDraft),
     reason: requiredString(raw.reason, "reason", 1000),
   };
-  if (request.reason.length < 8) {
-    invalid("reason", "must contain at least 8 characters");
-  }
   const register = operation === "REGISTER_INNER_COVER";
   if (register !== (request.registrationDraft != null) ||
       register !== (request.innerCoverAssetClassId != null)) {

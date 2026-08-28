@@ -486,7 +486,7 @@ class _IssueLinkDialogState extends State<_IssueLinkDialog> {
       ),
       FilledButton.icon(
         onPressed:
-            _reason.text.trim().length < 8
+            _reason.text.trim().isEmpty
                 ? null
                 : () => Navigator.pop(
                   context,

@@ -124,7 +124,7 @@ export const addInspectionCampaignTargets: CommandHandler = async ({
     32,
     80,
   );
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [campaign, audit] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(campaignAuditPath(command.commandId)),
@@ -272,7 +272,7 @@ export const setInspectionTargetDisposition: CommandHandler = async ({
     throw new WorkflowError("invalid-argument", "Target disposition is unsupported.");
   }
   const reason = disposition === "pending" ? null :
-    boundedText(command.payload.reason, "reason", 5, 500);
+    boundedText(command.payload.reason, "reason", 1, 500);
   if (disposition === "pending" && command.payload.reason != null &&
       (typeof command.payload.reason !== "string" ||
        command.payload.reason.trim().length > 0)) {
@@ -367,7 +367,7 @@ export const verifyInspectionFinding: CommandHandler = async ({
     .includes(outcome)) {
     throw new WorkflowError("invalid-argument", "Verification outcome is unsupported.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 1000);
+  const reason = boundedText(command.payload.reason, "reason", 1, 1000);
   const [campaign, finding, observation, verification] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(`inspection_findings/${findingId}`),
@@ -526,7 +526,7 @@ export const adjudicateInspectionFinding: CommandHandler = async ({
   if (!["acceptedCondition", "invalidated", "open"].includes(status)) {
     throw new WorkflowError("invalid-argument", "Finding adjudication status is unsupported.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 10, 1000);
+  const reason = boundedText(command.payload.reason, "reason", 1, 1000);
   const [campaign, finding, event] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(`inspection_findings/${findingId}`),

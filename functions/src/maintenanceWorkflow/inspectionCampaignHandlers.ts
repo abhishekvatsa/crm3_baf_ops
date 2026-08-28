@@ -211,8 +211,8 @@ const parseDefinition = (value: unknown): ParsedInspectionDefinition => {
   }
   return {
     code,
-    title: boundedText(data.title, "definition.title", 3, 160),
-    description: boundedText(data.description, "definition.description", 5, 1000),
+    title: boundedText(data.title, "definition.title", 1, 160),
+    description: boundedText(data.description, "definition.description", 1, 1000),
     assetTypeKeys,
     assetClassIds,
     componentNodeIds: stringList(data.componentNodeIds, "definition.componentNodeIds", 100, 160),
@@ -273,7 +273,7 @@ export const upsertInspectionDefinition: CommandHandler = async ({tx, command, c
   exactKeys(command.payload, ["definition", "reason"], "payload");
   const id = documentId(command.aggregateId, "aggregateId");
   const parsed = parseDefinition(command.payload.definition);
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, codeRows, audit, ...references] = await Promise.all([
     tx.get(definitionPath(id)),
     tx.query("inspection_definitions", [
@@ -392,7 +392,7 @@ export const setInspectionDefinitionStatus: CommandHandler = async ({tx, command
   if (!["active", "retired"].includes(status)) {
     throw new WorkflowError("invalid-argument", "status is unsupported.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, audit] = await Promise.all([
     tx.get(definitionPath(id)),
     tx.get(definitionAuditPath(command.commandId)),
@@ -500,7 +500,7 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
   if (observerRoleKeys.some((role) => !OBSERVER_ROLES.has(role as RoleKey))) {
     throw new WorkflowError("invalid-argument", "observerRoleKeys contains an unsupported role.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, definition, audit, campaignClass, campaignAssets, baseline] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(definitionPath(definitionId)),
@@ -619,7 +619,7 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     definitionVersion: definitionVersion as number,
     definitionCode: definition.data.code,
     definitionTitle: definition.data.title,
-    purpose: boundedText(command.payload.purpose, "purpose", 5, 1000),
+    purpose: boundedText(command.payload.purpose, "purpose", 1, 1000),
     assetTypeKey,
     assetClassId,
     targetAssetNumbers,
@@ -666,7 +666,7 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
   if (!["open", "paused", "closed"].includes(target)) {
     throw new WorkflowError("invalid-argument", "status is unsupported.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, audit, findings] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(campaignAuditPath(command.commandId)),
@@ -1191,7 +1191,7 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const observationId = documentId(command.payload.observationId, "observationId");
   const ticketId = documentId(command.payload.ticketId, "ticketId");
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const linkId = `${observationId}_${ticketId}`;
   const [campaign, observation, ticket, link] = await Promise.all([
     tx.get(campaignPath(campaignId)),

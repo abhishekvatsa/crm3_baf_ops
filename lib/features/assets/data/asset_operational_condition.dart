@@ -309,11 +309,11 @@ class AssetOperationalConditionRecord {
       field: 'reason',
       source: source,
     );
-    if (reason.length < 8 || reason.length > 1000) {
+    if (reason.length > 1000) {
       throw PersistedDataFormatException(
         field: 'reason',
         source: source,
-        detail: 'must contain 8-1,000 characters',
+        detail: 'must not exceed 1,000 characters',
       );
     }
     final previousCondition = readRequiredPersistedEnum(

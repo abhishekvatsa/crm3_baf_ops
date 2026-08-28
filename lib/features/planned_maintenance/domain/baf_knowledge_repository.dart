@@ -157,7 +157,7 @@ class BafKnowledgeRepository {
 
   static const String collectionPath = 'knowledge_base';
   static const String metaPath = 'knowledge_base_meta/current';
-  static const int changeReasonMinLength = 15;
+  static const int changeReasonMinLength = 1;
   static const int _knowledgePullPageSize = 250;
 
   final FirebaseFirestore _firestore;
@@ -455,9 +455,7 @@ class BafKnowledgeRepository {
   }) async {
     final reason = changeSummary.trim();
     if (reason.length < changeReasonMinLength) {
-      throw StateError(
-        'Knowledge baseline seed requires a change reason of at least $changeReasonMinLength characters.',
-      );
+      throw StateError('Knowledge baseline seed requires a change reason.');
     }
     if (actorUid.trim().isEmpty) {
       throw StateError(

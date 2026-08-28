@@ -137,7 +137,7 @@ void main() {
     );
 
     test(
-      'rejects invalid asset, short description, bad charge and future start',
+      'rejects invalid asset, bad charge and future start while allowing concise text',
       () {
         final result = MaintenanceInputValidator.validateCreate(
           MaintenanceCreateInput(
@@ -153,8 +153,8 @@ void main() {
 
         expect(result.isInvalid, isTrue);
         expect(result.messageFor('assetNumber'), isNotNull);
-        expect(result.messageFor('component'), isNotNull);
-        expect(result.messageFor('description'), isNotNull);
+        expect(result.messageFor('component'), isNull);
+        expect(result.messageFor('description'), isNull);
         expect(result.messageFor('chargeNoAtEvent'), isNotNull);
         expect(result.messageFor('startDate'), isNotNull);
       },

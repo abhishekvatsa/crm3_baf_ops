@@ -346,10 +346,8 @@ class ModuleRegistryRepository {
   }) async {
     _requireRegistryGovernor(actor, 'publish module registry revisions');
     final trimmedReason = reason.trim();
-    if (trimmedReason.length < 10) {
-      throw StateError(
-        'Registry publish reason must be at least 10 characters.',
-      );
+    if (trimmedReason.isEmpty) {
+      throw StateError('Registry publish reason is required.');
     }
 
     final familyRef = _families.doc(registryModuleId);
@@ -470,10 +468,8 @@ class ModuleRegistryRepository {
   }) async {
     _requireRegistryGovernor(actor, 'retire module registry revisions');
     final trimmedReason = reason.trim();
-    if (trimmedReason.length < 10) {
-      throw StateError(
-        'Registry retire reason must be at least 10 characters.',
-      );
+    if (trimmedReason.isEmpty) {
+      throw StateError('Registry retire reason is required.');
     }
     await _firestore.runTransaction((txn) async {
       final revisionRef = _revisions(
@@ -514,10 +510,8 @@ class ModuleRegistryRepository {
   }) async {
     _requireRegistryGovernor(actor, 'retire module registry families');
     final trimmedReason = reason.trim();
-    if (trimmedReason.length < 10) {
-      throw StateError(
-        'Registry family retire reason must be at least 10 characters.',
-      );
+    if (trimmedReason.isEmpty) {
+      throw StateError('Registry family retire reason is required.');
     }
     await _firestore.runTransaction((txn) async {
       final familyRef = _families.doc(family.registryModuleId);

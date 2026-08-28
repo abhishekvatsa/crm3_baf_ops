@@ -105,7 +105,7 @@ class MaintenanceInputValidator {
       value,
       field: 'component',
       label: 'Component',
-      minLength: 2,
+      minLength: 1,
       maxLength: maxComponentLength,
     );
   }
@@ -115,7 +115,7 @@ class MaintenanceInputValidator {
       value,
       field: 'description',
       label: 'Fault description',
-      minLength: 5,
+      minLength: 1,
       maxLength: maxDescriptionLength,
     );
   }
@@ -234,7 +234,7 @@ class MaintenanceInputValidator {
         otherDepartment,
         field: 'otherDepartment',
         label: 'Other department',
-        minLength: 2,
+        minLength: 1,
         maxLength: 80,
       );
     }

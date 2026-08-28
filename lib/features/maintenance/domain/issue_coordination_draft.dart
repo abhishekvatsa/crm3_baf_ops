@@ -53,14 +53,14 @@ class IssueCoordinationDraft {
     final cleanDescription = description.trim();
     final cleanConditionRef = optional(conditionRef);
     final cleanLocation = optional(requestedLocation);
-    if (cleanTitle.length < 3 || cleanTitle.length > 160) {
+    if (cleanTitle.isEmpty || cleanTitle.length > 160) {
       throw const FormatException(
-        'Request title must contain 3-160 characters.',
+        'Request title is required and cannot exceed 160 characters.',
       );
     }
-    if (cleanDescription.length < 5 || cleanDescription.length > 2000) {
+    if (cleanDescription.isEmpty || cleanDescription.length > 2000) {
       throw const FormatException(
-        'Required action must contain 5-2000 characters.',
+        'Required action is required and cannot exceed 2000 characters.',
       );
     }
     if (!const <String>{

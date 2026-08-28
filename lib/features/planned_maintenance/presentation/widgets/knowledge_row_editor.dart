@@ -393,7 +393,7 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
                       maxLines: 3,
                       decoration: InputDecoration(
                         hintText:
-                            'Explain why this row is changing. ≥15 characters; must differ from prior version.',
+                            'Explain why this row is changing; it must differ from the prior version.',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(BafRadius.small),
                         ),
@@ -760,9 +760,8 @@ class _KnowledgeLifecycleReasonDialogState
   @override
   Widget build(BuildContext context) {
     final reason = _controller.text.trim();
-    final canSubmit = reason.length >= 15;
-    final errorText =
-        reason.isEmpty || canSubmit ? null : 'Enter at least 15 characters.';
+    final canSubmit = reason.isNotEmpty;
+    final errorText = reason.isEmpty ? 'Enter a change reason.' : null;
 
     return AlertDialog(
       title: Text('Reason for ${widget.next.name}'),
@@ -775,9 +774,8 @@ class _KnowledgeLifecycleReasonDialogState
             textInputAction: TextInputAction.newline,
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
-              hintText: 'Why is this row being changed? ≥15 characters.',
-              helperText:
-                  'Minimum 15 characters for governed lifecycle changes.',
+              hintText: 'Why is this row being changed?',
+              helperText: 'Required for governed lifecycle changes.',
               errorText: errorText,
             ),
           ),

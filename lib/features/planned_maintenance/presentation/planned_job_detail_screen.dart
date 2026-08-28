@@ -246,7 +246,7 @@ class _PlannedJobDetailScreenState
     reason.dispose();
     if (confirmed != true ||
         selected == null ||
-        rationale.length < 5 ||
+        rationale.isEmpty ||
         !mounted) {
       return;
     }

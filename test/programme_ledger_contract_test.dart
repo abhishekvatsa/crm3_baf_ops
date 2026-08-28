@@ -699,9 +699,9 @@ void main() {
     expect(a03Manifest['findingId'], 'A-03');
     expect(
       a03Manifest['inventoryDigest'],
-      '383101BB805F36F313A132BCF3254E6612E153C80D0A902E85DECD7D4D3BC5F2',
+      'E93B4C7F5A207901298103C5387AAAA373354197D7B824B86C738250F4355B9B',
     );
-    expect(_objects(a03Manifest['surfaces']), hasLength(56));
+    expect(_objects(a03Manifest['surfaces']), hasLength(57));
 
     final a04 = architecture['A-04']!;
     expect(a04['currentStatus'], 'CLOSED');

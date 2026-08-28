@@ -940,11 +940,11 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
               base <= 0 ||
               grade.isEmpty ||
               cycle.isEmpty ||
-              reason.length < 8) {
+              reason.isEmpty) {
             setState(
               () =>
                   _error =
-                      'Enter a positive Base number, Grade, cycle and a reason of at least 8 characters.',
+                      'Enter a positive Base number, Grade, cycle and a reason.',
             );
             return;
           }
@@ -1020,8 +1020,8 @@ class _ReasonDialogState extends State<_ReasonDialog> {
       FilledButton(
         onPressed: () {
           final value = _controller.text.trim();
-          if (value.length < 8) {
-            setState(() => _error = 'Enter at least 8 characters.');
+          if (value.isEmpty) {
+            setState(() => _error = 'Enter a reason.');
             return;
           }
           Navigator.pop(context, value);

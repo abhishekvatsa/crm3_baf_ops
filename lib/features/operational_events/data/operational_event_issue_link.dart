@@ -233,11 +233,11 @@ class OperationalEventIssueLink {
       field: 'reason',
       source: source,
     );
-    if (reason.length < 8 || reason.length > 1000) {
+    if (reason.length > 1000) {
       throw PersistedDataFormatException(
         field: 'reason',
         source: source,
-        detail: 'must contain 8-1000 characters',
+        detail: 'must not exceed 1000 characters',
       );
     }
     return OperationalEventIssueLink(

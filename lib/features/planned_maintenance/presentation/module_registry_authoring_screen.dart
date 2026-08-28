@@ -228,7 +228,7 @@ class _ModuleRegistryAuthoringScreenState
       title: 'Create registry draft',
       label: 'Reason / authoring note',
       initialValue: 'Create governed registry draft from ${module.moduleCode}.',
-      minLength: 6,
+      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -257,7 +257,7 @@ class _ModuleRegistryAuthoringScreenState
       title: 'Update registry draft',
       label: 'Reason / change note',
       initialValue: 'Update registry draft from ${module.moduleCode}.',
-      minLength: 6,
+      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -281,7 +281,7 @@ class _ModuleRegistryAuthoringScreenState
       label: 'Publish reason',
       initialValue:
           'Approve ${module.moduleCode} as governed registry revision.',
-      minLength: 10,
+      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -305,7 +305,7 @@ class _ModuleRegistryAuthoringScreenState
       label: 'Retire reason',
       initialValue:
           'Retire registry revision ${source.revision.revisionNumber} for ${module.moduleCode}.',
-      minLength: 10,
+      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -327,7 +327,7 @@ class _ModuleRegistryAuthoringScreenState
       title: 'Retire registry family',
       label: 'Retire reason',
       initialValue: 'Retire registry family ${family.moduleCode}.',
-      minLength: 10,
+      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -596,11 +596,8 @@ class _RegistryReasonDialogState extends State<_RegistryReasonDialog> {
             textInputAction: TextInputAction.newline,
             decoration: InputDecoration(
               labelText: widget.label,
-              helperText: 'Minimum ${widget.minLength} characters.',
-              errorText:
-                  value.isEmpty || canSubmit
-                      ? null
-                      : 'Enter at least ${widget.minLength} characters.',
+              helperText: 'Required for the audit record.',
+              errorText: value.isEmpty || canSubmit ? null : 'Enter a reason.',
               border: const OutlineInputBorder(),
             ),
           ),

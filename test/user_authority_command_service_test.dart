@@ -199,14 +199,14 @@ void main() {
     },
   );
 
-  test('invalid reason is rejected before transport access', () async {
+  test('blank reason is rejected before transport access', () async {
     final transport = _FakeAuthorityTransport();
     final service = UserAuthorityCommandService(transport: transport);
 
     await expectLater(
       service.approve(
         _user(isApproved: false),
-        reason: 'short',
+        reason: '   ',
         requestId: requestId,
       ),
       throwsA(isA<UserAuthorityMutationException>()),

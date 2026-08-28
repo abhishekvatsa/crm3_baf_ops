@@ -70,7 +70,8 @@ class KnowledgeGovernanceFilter {
     this.onlyUnsynced = false,
   });
 
-  factory KnowledgeGovernanceFilter.allActive() => const KnowledgeGovernanceFilter();
+  factory KnowledgeGovernanceFilter.allActive() =>
+      const KnowledgeGovernanceFilter();
 
   KnowledgeGovernanceFilter copyWith({
     String? query,
@@ -112,11 +113,15 @@ class KnowledgeGovernanceFilter {
   Iterable<BafKnowledgeRow> apply(Iterable<BafKnowledgeRow> rows) {
     final lower = query.trim().toLowerCase();
     return rows.where((row) {
-      if (!lifecycleStatuses.contains(KnowledgeLifecycleStatusX.parse(row.lifecycleStatus))) {
+      if (!lifecycleStatuses.contains(
+        KnowledgeLifecycleStatusX.parse(row.lifecycleStatus),
+      )) {
         return false;
       }
       if (readinessStates.isNotEmpty &&
-          !readinessStates.any((state) => state.name == row.composerReadiness)) {
+          !readinessStates.any(
+            (state) => state.name == row.composerReadiness,
+          )) {
         return false;
       }
       if (confidenceStates.isNotEmpty &&
@@ -124,7 +129,9 @@ class KnowledgeGovernanceFilter {
         return false;
       }
       if (assetFamilies.isNotEmpty &&
-          !assetFamilies.any((value) => value.toLowerCase() == row.assetFamily.toLowerCase())) {
+          !assetFamilies.any(
+            (value) => value.toLowerCase() == row.assetFamily.toLowerCase(),
+          )) {
         return false;
       }
       if (safetyClasses.isNotEmpty) {
@@ -137,24 +144,25 @@ class KnowledgeGovernanceFilter {
       if (onlyUnsynced && row.isSynced) return false;
 
       if (lower.isEmpty) return true;
-      final haystack = <String>[
-        row.rowCode,
-        row.taskText,
-        row.componentGroup,
-        row.functionalSection,
-        row.assetFamily,
-        row.discipline,
-        row.taskType,
-        row.frequency,
-        row.moduleCandidateCode,
-        row.consultQuestion,
-        ...row.safetyClasses,
-        ...row.ownerDisciplines,
-        ...row.deviceTags,
-        ...row.procedureRefs,
-        ...row.partRefs,
-        ...row.targetRefs,
-      ].join(' ').toLowerCase();
+      final haystack =
+          <String>[
+            row.rowCode,
+            row.taskText,
+            row.componentGroup,
+            row.functionalSection,
+            row.assetFamily,
+            row.discipline,
+            row.taskType,
+            row.frequency,
+            row.moduleCandidateCode,
+            row.consultQuestion,
+            ...row.safetyClasses,
+            ...row.ownerDisciplines,
+            ...row.deviceTags,
+            ...row.procedureRefs,
+            ...row.partRefs,
+            ...row.targetRefs,
+          ].join(' ').toLowerCase();
       return haystack.contains(lower);
     });
   }
@@ -288,34 +296,34 @@ class KnowledgeRowDraft {
   }
 
   Map<String, dynamic> toEntryMap() => <String, dynamic>{
-        'rowCode': rowCode,
-        'moduleCandidateCode': moduleCandidateCode,
-        'sourceManual': sourceManual,
-        'sourcePage': sourcePage,
-        'sourceType': sourceType,
-        'assetFamily': assetFamily,
-        'functionalSection': functionalSection,
-        'componentGroup': componentGroup,
-        'taskType': taskType,
-        'taskText': taskText,
-        'frequency': frequency,
-        'discipline': discipline,
-        'ownerDisciplines': ownerDisciplines,
-        'safetyClass': safetyClasses,
-        'safetyClasses': safetyClasses,
-        'procedureRefs': procedureRefs,
-        'partRefs': partRefs,
-        'deviceTags': deviceTags.map((tag) => tag.toUpperCase()).toList(),
-        'targetRefs': targetRefs,
-        'suggestedFields': suggestedFields,
-        'requiredForClosure': requiredForClosure,
-        'resolverImpact': resolverImpact,
-        'composerReadiness': composerReadiness.name,
-        'confidence': confidence.name,
-        'consultQuestion': consultQuestion,
-        'lifecycleStatus': lifecycleStatus.name,
-        'matrixVersion': matrixVersion,
-      };
+    'rowCode': rowCode,
+    'moduleCandidateCode': moduleCandidateCode,
+    'sourceManual': sourceManual,
+    'sourcePage': sourcePage,
+    'sourceType': sourceType,
+    'assetFamily': assetFamily,
+    'functionalSection': functionalSection,
+    'componentGroup': componentGroup,
+    'taskType': taskType,
+    'taskText': taskText,
+    'frequency': frequency,
+    'discipline': discipline,
+    'ownerDisciplines': ownerDisciplines,
+    'safetyClass': safetyClasses,
+    'safetyClasses': safetyClasses,
+    'procedureRefs': procedureRefs,
+    'partRefs': partRefs,
+    'deviceTags': deviceTags.map((tag) => tag.toUpperCase()).toList(),
+    'targetRefs': targetRefs,
+    'suggestedFields': suggestedFields,
+    'requiredForClosure': requiredForClosure,
+    'resolverImpact': resolverImpact,
+    'composerReadiness': composerReadiness.name,
+    'confidence': confidence.name,
+    'consultQuestion': consultQuestion,
+    'lifecycleStatus': lifecycleStatus.name,
+    'matrixVersion': matrixVersion,
+  };
 
   /// Editor-side validation. Mirrors the structural guarantees in
   /// `validKnowledgeBaseCommon(...)` in `firestore.rules` so the operator
@@ -339,15 +347,17 @@ class KnowledgeRowDraft {
       errors.add('Matrix version is required.');
     }
     final reason = changeSummary.trim();
-    if (reason.length < 15) {
-      errors.add('Change reason must be at least 15 characters.');
+    if (reason.isEmpty) {
+      errors.add('Change reason is required.');
     }
     if (deviceTags.any((tag) => tag.trim().isEmpty)) {
       warnings.add('Empty device tag entry will be dropped on save.');
     }
     if (composerReadiness == ComposerReadiness.consultRequired &&
         requiredForClosure == 'yes') {
-      warnings.add('Consult-required readiness with closure-critical flag — confirm before publish.');
+      warnings.add(
+        'Consult-required readiness with closure-critical flag — confirm before publish.',
+      );
     }
     if (lifecycleStatus != KnowledgeLifecycleStatus.active && isCreate) {
       errors.add('A new row must start in lifecycle state "active".');
@@ -360,7 +370,10 @@ class KnowledgeRowDraftValidation {
   final List<String> errors;
   final List<String> warnings;
 
-  const KnowledgeRowDraftValidation({required this.errors, required this.warnings});
+  const KnowledgeRowDraftValidation({
+    required this.errors,
+    required this.warnings,
+  });
 
   bool get canSave => errors.isEmpty;
 }
@@ -382,11 +395,11 @@ class KnowledgeRowFieldDiff {
   });
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'field': field,
-        'before': before,
-        'after': after,
-        'kind': kind.name,
-      };
+    'field': field,
+    'before': before,
+    'after': after,
+    'kind': kind.name,
+  };
 }
 
 enum KnowledgeFieldDiffKind { added, removed, changed }
@@ -408,12 +421,12 @@ class KnowledgeRowDiff {
   bool get isNotEmpty => entries.isNotEmpty;
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'rowCode': rowCode,
-        'beforeVersion': beforeVersion,
-        'afterVersion': afterVersion,
-        'changeCount': entries.length,
-        'changes': entries.map((entry) => entry.toMap()).toList(),
-      };
+    'rowCode': rowCode,
+    'beforeVersion': beforeVersion,
+    'afterVersion': afterVersion,
+    'changeCount': entries.length,
+    'changes': entries.map((entry) => entry.toMap()).toList(),
+  };
 
   String toJson() => jsonEncode(toMap());
 }
@@ -445,17 +458,17 @@ class KnowledgeGovernanceAuditEntry {
   });
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'entityType': 'knowledge_base',
-        'entityId': rowCode,
-        'action': action.name,
-        'versionBefore': versionBefore,
-        'versionAfter': versionAfter,
-        'performedByUid': performedByUid,
-        'performedByName': performedByName,
-        'performedAt': performedAt.toIso8601String(),
-        'changeSummary': changeSummary,
-        if (diff != null) 'diff': diff!.toMap(),
-      };
+    'entityType': 'knowledge_base',
+    'entityId': rowCode,
+    'action': action.name,
+    'versionBefore': versionBefore,
+    'versionAfter': versionAfter,
+    'performedByUid': performedByUid,
+    'performedByName': performedByName,
+    'performedAt': performedAt.toIso8601String(),
+    'changeSummary': changeSummary,
+    if (diff != null) 'diff': diff!.toMap(),
+  };
 }
 
 enum KnowledgeGovernanceAction {

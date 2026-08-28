@@ -251,6 +251,59 @@ function burnerBlockLifecycleDocuments() {
   };
 }
 
+function uvDetectorLifecycleDocuments() {
+  const eventId = `uvl_${'c'.repeat(40)}`;
+  const projectionId = `uvlc_${'d'.repeat(40)}`;
+  const data = {
+    schemaVersion: 1,
+    eventId,
+    eventType: 'replacement',
+    resultingCondition: 'serviceable',
+    assetClassId: 'furnace-class',
+    assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace',
+    assetInstanceId: 'furnace-7',
+    assetInstanceName: 'Furnace 7',
+    assetNumber: 7,
+    hierarchyNodeId: 'uv-detector-node',
+    hierarchyNodeName: 'UV flame scanner and peep sight',
+    hierarchyPath: [
+      'Furnace',
+      'Combustion system',
+      'UV flame scanner and peep sight',
+    ],
+    componentTag: null,
+    burnerPosition: 3,
+    replacementDisposition: 'newPart',
+    installationDiscipline: 'instrumentation',
+    performedByName: 'I&A Technician One',
+    sourceType: 'workflowPlannedJob',
+    sourceId: 'execution-uv-1',
+    sourceModuleId: 'module-uv-1',
+    sourceActionId: 'action-uv-1',
+    sourceActionIndex: 0,
+    actionPerformedAt: ts,
+    completedAt: ts,
+    completedByUid: 'private-supervisor-id',
+    completedByName: 'Supervisor One',
+    recordedAt: ts,
+    version: 1,
+    isDeleted: false,
+  };
+  return {
+    uv_detector_lifecycle_events: [{id: eventId, data}],
+    uv_detector_lifecycle_current: [{
+      id: projectionId,
+      data: {
+        ...data,
+        projectionSchemaVersion: 1,
+        projectionId,
+        currentEventId: eventId,
+      },
+    }],
+  };
+}
+
 function hierarchyDocuments() {
   const classId = 'class-1';
   const nodeId = 'node-1';
@@ -1182,6 +1235,38 @@ test('actual Dart reader reconciles immutable burner-block lifecycle events', as
   );
   assert.equal(
     result.collectionDispositions.burner_block_lifecycle_current,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+});
+
+test('actual Dart reader reconciles immutable UV-detector lifecycle events', async () => {
+  const lifecycle = uvDetectorLifecycleDocuments();
+  const documents = {
+    ...emptyDocuments(),
+    users: [{id: 'private-user-id', data: user()}],
+    runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
+    ...lifecycle,
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  assert.equal(reconciliation.length, 2);
+  assert.equal(reconciliation.every((entry) => entry.result === 'PASS'), true);
+  assert.equal(JSON.stringify(reconciliation).includes('execution-uv-1'), false);
+
+  const result = classify({
+    documents,
+    roots: ['users', 'runtime_contracts', ...Object.keys(lifecycle)],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.pass);
+  assert.equal(
+    result.collectionDispositions.uv_detector_lifecycle_events,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+  assert.equal(
+    result.collectionDispositions.uv_detector_lifecycle_current,
     'DART_STRICT_RECONCILIATION_PASS',
   );
 });

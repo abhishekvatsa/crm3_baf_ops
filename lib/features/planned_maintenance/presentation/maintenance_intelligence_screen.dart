@@ -660,7 +660,7 @@ Future<_PlanCompletionDraft?> _capturePlanCompletion(
                   FilledButton.icon(
                     onPressed: () {
                       final text = evidence.text.trim();
-                      if (text.length < 10) return;
+                      if (text.isEmpty) return;
                       Navigator.pop(
                         context,
                         _PlanCompletionDraft(

@@ -135,6 +135,71 @@ function burnerBlockReplacementAction() {
   };
 }
 
+function uvDetectorReplacementAction() {
+  return {
+    schemaVersion: 1,
+    id: 'legacy-uv-detector-action-1',
+    asset: 'Furnace 7',
+    component: 'UV flame scanner and peep sight',
+    hierarchyPath: [
+      'Burner and flame supervision',
+      'UV flame scanner and peep sight',
+    ],
+    assetHierarchyRef: {
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: 'class-furnace',
+      assetClassCode: 'FR',
+      assetClassName: 'Furnace',
+      nodeId: 'node-uv-detector',
+      nodeVersion: 2,
+      nodeName: 'UV flame scanner and peep sight',
+      assetInstanceId: 'asset-furnace-7',
+      assetInstanceVersion: 2,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: [
+        'Burner and flame supervision',
+        'UV flame scanner and peep sight',
+      ],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Instrumentation & Automation',
+      accountableRoleKeys: ['seniorInstrumentation'],
+      innerCoverAssociation: null,
+    },
+    system: 'Furnace',
+    subsystem: 'Burner and flame supervision',
+    subComponent: null,
+    tag: null,
+    instance: null,
+    actionType: 'replacement',
+    replacement: 'newPart',
+    issue: 'UV detector was missing.',
+    resolution: 'UV detector installed and proved.',
+    remarks: null,
+    templateFieldKey: null,
+    isAutoResolved: true,
+    status: 'resolved',
+    createdAt: '2026-06-21T03:00:00.000Z',
+    severity: 'high',
+    performedBy: 'I&A Technician',
+    updatedAt: null,
+    version: 1,
+    metadataJson: null,
+    attendanceSessionId: null,
+    burnerPosition: 4,
+    burnerActionCode: null,
+    burnerOutcome: null,
+    burnerMicroampReading: null,
+    burnerBlockSupplyMode: null,
+    burnerBlockSupplierName: null,
+    burnerBlockPurchaseOrderNumber: null,
+  };
+}
+
 describeWithEmulator(
   'completePlannedJobWithDb with a real Firestore emulator transaction',
   () => {
@@ -504,6 +569,94 @@ describeWithEmulator(
           currentEventId: lifecycle.docs[0].id,
           eventId: lifecycle.docs[0].id,
           burnerPosition: 4,
+        });
+      },
+    );
+
+    test(
+      'legacy planned-job module replacement creates UV lifecycle evidence',
+      async () => {
+        const executionId = 'integration_uv_detector_lifecycle';
+        const uid = 'supervisor_uv_detector';
+
+        await seedUser(uid);
+        await db.collection('asset_classes').doc('class-furnace').set({
+          schemaVersion: 1,
+          assetClassId: 'class-furnace',
+          code: 'FR',
+          name: 'Furnace',
+          legacyAssetTypeKey: 'furnace',
+          status: 'active',
+        });
+        await db.collection('asset_instances').doc('asset-furnace-7').set({
+          schemaVersion: 1,
+          assetInstanceId: 'asset-furnace-7',
+          assetClassId: 'class-furnace',
+          assetClassCode: 'FR',
+          assetClassName: 'Furnace',
+          assetNumber: 7,
+          name: 'Furnace 7',
+          status: 'active',
+          version: 2,
+        });
+        await db.collection('asset_hierarchy_nodes').doc('node-uv-detector').set({
+          schemaVersion: 1,
+          nodeId: 'node-uv-detector',
+          assetClassId: 'class-furnace',
+          name: 'UV flame scanner and peep sight',
+          hierarchyPath: [
+            'Burner and flame supervision',
+            'UV flame scanner and peep sight',
+          ],
+          nodeType: 'component',
+          status: 'active',
+          version: 2,
+        });
+        await seedExecution(executionId, {
+          assetType: 'furnace',
+          assetNumber: 7,
+          version: 6,
+        });
+        await seedModule(executionId, {
+          discipline: 'instrumentation',
+          actionsJson: JSON.stringify([uvDetectorReplacementAction()]),
+        });
+
+        await completePlannedJobWithDb({
+          db,
+          authUid: uid,
+          data: {
+            executionId,
+            expectedCompletionVersion: 7,
+            teamsInvolved: ['instrumentation'],
+          },
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+        });
+
+        const lifecycle = await db
+          .collection('uv_detector_lifecycle_events')
+          .where('sourceId', '==', executionId)
+          .get();
+        const current = await db
+          .collection('uv_detector_lifecycle_current')
+          .where('sourceId', '==', executionId)
+          .get();
+        expect(lifecycle.docs).toHaveLength(1);
+        expect(current.docs).toHaveLength(1);
+        expect(lifecycle.docs[0].data()).toMatchObject({
+          burnerPosition: 4,
+          replacementDisposition: 'newPart',
+          sourceType: 'legacyPlannedJob',
+          sourceModuleId: `module_${executionId}`,
+          installationDiscipline: 'instrumentation',
+          performedByName: 'I&A Technician',
+          resultingCondition: 'serviceable',
+        });
+        expect(current.docs[0].data()).toMatchObject({
+          currentEventId: lifecycle.docs[0].id,
+          eventId: lifecycle.docs[0].id,
+          burnerPosition: 4,
+          resultingCondition: 'serviceable',
         });
       },
     );

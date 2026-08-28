@@ -249,6 +249,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               assetInstanceId: identity?.assetInstanceId,
             ),
             performedBy: actor.name,
+            workDiscipline: _module.discipline.name,
           ),
     );
     if (!mounted || action == null) return;

@@ -159,10 +159,10 @@ export const recordHistoricalMaintenance: CommandHandler = async ({
     "evidenceNote",
     1200,
   );
-  if (evidenceNote == null || evidenceNote.length < 5) {
+  if (evidenceNote == null) {
     throw new WorkflowError(
       "invalid-argument",
-      "evidenceNote must contain at least 5 characters.",
+      "evidenceNote is required.",
     );
   }
   const sourceReference = optionalText(

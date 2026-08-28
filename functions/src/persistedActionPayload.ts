@@ -337,12 +337,19 @@ const assertAction = (
       );
     }
   }
+  const hasUvDetectorLifecycleEvidence =
+    action.burnerPosition != null &&
+    normalizedActionType(rawActionType) === "replacement" &&
+    action.replacement != null &&
+    action.status === "resolved" &&
+    isFurnaceUvDetectorTarget(action);
   if (action.burnerPosition != null &&
       !hasBurnerAttendanceEvidence &&
-      !hasBurnerBlockLifecycleEvidence) {
+      !hasBurnerBlockLifecycleEvidence &&
+      !hasUvDetectorLifecycleEvidence) {
     throw new PersistedActionPayloadError(
       `${field}.burnerPosition`,
-      "requires burner attendance or burner-block lifecycle evidence",
+      "requires burner attendance, burner-block lifecycle, or UV-detector lifecycle evidence",
     );
   }
   return action;
@@ -366,6 +373,28 @@ const isFurnaceBurnerBlockTarget = (
   ].map((value) => String(value ?? "")).join(" ").toLowerCase();
   return targetIdentity.includes("burner block") ||
     targetIdentity.includes("firing tube");
+};
+
+const isFurnaceUvDetectorTarget = (
+  action: Record<string, unknown>,
+): boolean => {
+  const reference = action.assetHierarchyRef;
+  if (reference == null || typeof reference !== "object" ||
+      Array.isArray(reference)) return false;
+  const raw = reference as Record<string, unknown>;
+  const classIdentity = `${String(raw.assetClassCode ?? "")} ` +
+    `${String(raw.assetClassName ?? "")}`;
+  if (!classIdentity.toLowerCase().includes("furnace")) return false;
+  const path = Array.isArray(raw.hierarchyPath) ? raw.hierarchyPath : [];
+  const targetIdentity = [
+    action.component,
+    raw.nodeName,
+    ...path,
+  ].map((value) => String(value ?? "")).join(" ").toLowerCase();
+  return (targetIdentity.includes("uv") &&
+      ["detector", "sensor", "scanner"].some((part) =>
+        targetIdentity.includes(part))) ||
+    targetIdentity.includes("flame detector");
 };
 
 export const readComponentActionPayload = (
