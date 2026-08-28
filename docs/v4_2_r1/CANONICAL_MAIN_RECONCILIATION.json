@@ -3078,9 +3078,9 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "CA7207E22AAA218C22B19CA0A883E4CB067A142885940DBB02481C17313864CF",
+      "candidateSha256": "58BBB317B64EB69475A922426730D96BC2AC0D8FF89666C5885098E23E6C5EBF",
       "canonicalBytes": 7635,
-      "candidateBytes": 70453,
+      "candidateBytes": 71909,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
