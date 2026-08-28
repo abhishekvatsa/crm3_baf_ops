@@ -3,6 +3,7 @@ const {
   MAX_ESCALATION_TIER,
   escalationEventId,
   escalationEventType,
+  isTerminalEscalationTier,
   nextEscalationTier,
 } = require('../lib/maintenanceWorkflow/escalationPolicy');
 
@@ -14,6 +15,8 @@ describe('maintenance workflow escalation policy', () => {
 
   test('never re-escalates beyond the final tier', () => {
     expect(nextEscalationTier({currentTier: MAX_ESCALATION_TIER, lastEscalatedAtMillis: null, nowMillis: 1000})).toBeNull();
+    expect(isTerminalEscalationTier(MAX_ESCALATION_TIER)).toBe(true);
+    expect(isTerminalEscalationTier(MAX_ESCALATION_TIER - 1)).toBe(false);
   });
 
   test('suppresses overlapping or jittered sweeps', () => {

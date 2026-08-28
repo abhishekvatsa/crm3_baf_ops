@@ -6,6 +6,7 @@ import {eventPlan} from "./events";
 import {
   escalationEventId,
   escalationEventType,
+  isTerminalEscalationTier,
   nextEscalationAtMillis,
   nextEscalationTier,
 } from "./escalationPolicy";
@@ -119,7 +120,15 @@ const processCandidate = async (
       last instanceof admin.firestore.Timestamp ? last.toMillis() : null,
     nowMillis: now.toMillis(),
   });
-  if (nextTier == null) return false;
+  if (nextTier == null) {
+    if (!isTerminalEscalationTier(data.escalationTier)) return false;
+    tx.update(candidate.ref, {
+      nextEscalationAt: null,
+      updatedAt: now,
+      version: Number(data.version ?? 0) + 1,
+    });
+    return true;
+  }
 
   const resolvedIdentity = identity(candidate.ref, data);
   if (resolvedIdentity == null) return false;

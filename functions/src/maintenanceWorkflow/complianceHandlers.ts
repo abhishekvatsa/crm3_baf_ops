@@ -15,7 +15,11 @@ import {
 } from "./documents";
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
-import {ESCALATION_SUPPRESSION_MINUTES, MAX_ESCALATION_TIER} from "./escalationPolicy";
+import {
+  ESCALATION_SUPPRESSION_MINUTES,
+  MAX_ESCALATION_TIER,
+  isTerminalEscalationTier,
+} from "./escalationPolicy";
 import {
   equipmentFactsFromProjection,
   equipmentProjectionWrite,
@@ -59,6 +63,12 @@ const SUPPORT_TYPES = new Set([
 const SUPPORT_RESOURCES = new Set([
   "crane", "transferCar", "operationsCrew", "utilities", "other",
 ]);
+
+const nextEscalationAtForExistingCompliance = (
+  compliance: ComplianceDoc,
+  candidate: string | null,
+): string | null =>
+  isTerminalEscalationTier(compliance.escalationTier) ? null : candidate;
 
 const optionalChoice = (
   value: unknown,
@@ -435,7 +445,10 @@ export const acknowledgeCompliance: CommandHandler = async ({tx, command, contex
     acknowledgedAt: iso(context.serverNow),
     acknowledgementDueAt: null,
     complianceDueAt: completionDueAt,
-    nextEscalationAt: completionDueAt,
+    nextEscalationAt: nextEscalationAtForExistingCompliance(
+      compliance,
+      completionDueAt,
+    ),
     version: (compliance.version ?? 0) + 1,
     updatedAt: iso(context.serverNow),
   });
@@ -494,7 +507,13 @@ export const confirmConditionAndReactivate: CommandHandler = async ({tx, command
     compliedAt: iso(context.serverNow),
     complianceNote: optionalText(command.payload.note) ?? "Condition confirmed; linked work reactivated.",
     complianceDueAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
-    nextEscalationAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
+    nextEscalationAt: nextEscalationAtForExistingCompliance(
+      compliance,
+      plusMinutes(
+        context.serverNow,
+        WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition,
+      ),
+    ),
     version: (compliance.version ?? 0) + 1,
     updatedAt: iso(context.serverNow),
   });
@@ -552,7 +571,13 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
     compliedAt: iso(context.serverNow),
     complianceNote: note,
     complianceDueAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
-    nextEscalationAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
+    nextEscalationAt: nextEscalationAtForExistingCompliance(
+      compliance,
+      plusMinutes(
+        context.serverNow,
+        WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition,
+      ),
+    ),
     version: (compliance.version ?? 0) + 1,
     updatedAt: iso(context.serverNow),
   });
@@ -610,7 +635,13 @@ export const returnComplianceForCorrection: CommandHandler = async ({tx, command
   tx.update(compliancePath(id), {
     status: "acknowledged",
     complianceDueAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
-    nextEscalationAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
+    nextEscalationAt: nextEscalationAtForExistingCompliance(
+      compliance,
+      plusMinutes(
+        context.serverNow,
+        WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition,
+      ),
+    ),
     correctionCount: (typeof compliance.correctionCount === "number" ? compliance.correctionCount : 0) + 1,
     lastCorrectionByUid: context.actor.uid,
     lastCorrectionByName: context.actor.name,
@@ -867,6 +898,8 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
       nextEscalationAt: plusMinutes(context.serverNow, WORKFLOW_CLOCKS_MINUTES.complianceAfterCondition),
       currentAttemptId: null,
       attemptCount: 0,
+      escalationTier: 0,
+      lastEscalatedAt: null,
       createdAt: iso(context.serverNow),
       updatedAt: iso(context.serverNow),
       version: 1,

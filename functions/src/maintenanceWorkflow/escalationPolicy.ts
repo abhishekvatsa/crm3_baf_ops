@@ -1,5 +1,10 @@
 export const MAX_ESCALATION_TIER = 3;
 
+export const isTerminalEscalationTier = (value: unknown): boolean =>
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  Math.max(0, Math.trunc(value)) >= MAX_ESCALATION_TIER;
+
 // The sweep runs every 15 minutes. A 20-minute guard absorbs ordinary
 // scheduler jitter and prevents the same tier from being emitted twice by
 // overlapping or delayed invocations.
