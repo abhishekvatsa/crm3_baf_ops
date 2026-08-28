@@ -355,6 +355,35 @@ describe('burner-block lifecycle projection', () => {
     expect(plan.events).toEqual([]);
   });
 
+  test('planned maintenance without a burner-block change leaves lifecycle untouched', async () => {
+    const store = seedStore();
+    const plan = await store.runTransaction((tx) =>
+      prepareBurnerBlockLifecycleWritePlan({
+        tx,
+        sourceType: 'workflowPlannedJob',
+        sourceId: 'execution-no-block-change',
+        assetType: 'furnace',
+        assetNumber: 7,
+        actionSources: [{
+          sourceModuleId: 'module-f03m',
+          discipline: 'mechanical',
+          actionsJson: '[]',
+          responsesJson: JSON.stringify([{
+            schemaVersion: 1,
+            key: 'burnerBlockChanged',
+            value: false,
+          }]),
+        }],
+        completedAt: '2026-08-28T09:00:00.000Z',
+        completedBy: actor,
+      }));
+
+    expect(plan).toEqual({events: [], currentStates: []});
+    expect(store.entries().some(([path]) =>
+      path.startsWith('burner_block_lifecycle_events/') ||
+      path.startsWith('burner_block_lifecycle_current/'))).toBe(false);
+  });
+
   test('a module-declared block change requires governed replacement evidence', async () => {
     const store = seedStore();
     await expect(store.runTransaction((tx) =>
