@@ -3,6 +3,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_block_condition_projection.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_block_lifecycle_event.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
+import 'package:crm3_baf_ops/features/assets/data/uv_detector_lifecycle_event.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -26,6 +27,28 @@ const _burnerBlockReference = AssetHierarchyReference(
   ownershipStatus: AssetOwnershipStatus.confirmed,
   ownerDiscipline: 'RED',
   accountableRoleKeys: <String>['seniorRefractory'],
+);
+
+const _uvReference = AssetHierarchyReference(
+  scope: AssetHierarchyReferenceScope.componentDefinitionOnAsset,
+  assetClassId: 'class-furnace',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnace',
+  nodeId: 'node-uv-detector',
+  nodeVersion: 3,
+  nodeName: 'UV flame scanner and peep sight',
+  assetInstanceId: 'furnace-7',
+  assetInstanceVersion: 4,
+  assetNumber: 7,
+  assetInstanceName: 'Furnace 7',
+  hierarchyPath: <String>[
+    'Furnace',
+    'Burner and flame supervision',
+    'UV flame scanner and peep sight',
+  ],
+  ownershipStatus: AssetOwnershipStatus.confirmed,
+  ownerDiscipline: 'Instrumentation & Automation',
+  accountableRoleKeys: <String>['seniorInstrumentation'],
 );
 
 ComponentAction _replacement({
@@ -89,10 +112,44 @@ BurnerBlockLifecycleEvent _event({
   version: 1,
 );
 
+UvDetectorLifecycleEvent _uvEvent({
+  required String id,
+  required int position,
+  required DateTime completedAt,
+  DateTime? actionPerformedAt,
+}) => UvDetectorLifecycleEvent(
+  eventId: id,
+  assetClassId: 'class-furnace',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnace',
+  assetInstanceId: 'furnace-7',
+  assetInstanceName: 'Furnace 7',
+  assetNumber: 7,
+  hierarchyNodeId: 'node-uv-detector',
+  hierarchyNodeName: 'UV flame scanner and peep sight',
+  hierarchyPath: _uvReference.hierarchyPath,
+  componentTag: null,
+  burnerPosition: position,
+  replacementDisposition: UvDetectorReplacementDisposition.newPart,
+  performedByName: 'I&A Technician One',
+  sourceType: UvDetectorLifecycleSourceType.workflowPlannedJob,
+  sourceId: 'execution-1',
+  sourceModuleId: 'module-1',
+  sourceActionId: 'action-uv-1',
+  sourceActionIndex: 0,
+  actionPerformedAt: actionPerformedAt ?? completedAt,
+  completedAt: completedAt,
+  completedByUid: 'supervisor-1',
+  completedByName: 'Supervisor One',
+  recordedAt: completedAt,
+  version: 1,
+);
+
 BurnerConditionRound _round({
   required String id,
   required DateTime observedAt,
   required List<int> redHot,
+  Map<int, BurnerUvCondition> uvConditions = const <int, BurnerUvCondition>{},
 }) => BurnerConditionRound(
   roundId: id,
   assetClassId: 'class-furnace',
@@ -112,6 +169,13 @@ BurnerConditionRound _round({
   ],
   redHotPositions: redHot,
   microampPositions: const <int>[],
+  uvObservations: <BurnerUvObservation>[
+    for (var position = 1; position <= 8; position++)
+      BurnerUvObservation(
+        position: position,
+        condition: uvConditions[position] ?? BurnerUvCondition.serviceable,
+      ),
+  ],
   observedAt: observedAt,
   recordedByUid: 'auditor-1',
   recordedByName: 'Auditor One',
@@ -174,6 +238,76 @@ void main() {
       expect(
         () => _replacement(status: ActionStatus.inProgress),
         throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
+
+    test('numbered governed UV replacement survives serialization', () {
+      final action = ComponentAction(
+        id: 'action-uv-1',
+        asset: 'Furnace 7',
+        component: _uvReference.nodeName,
+        hierarchyPath: _uvReference.hierarchyPath,
+        assetHierarchyRef: _uvReference,
+        actionType: ActionType.replacement,
+        replacement: ReplacementType.newPart,
+        status: ActionStatus.resolved,
+        burnerPosition: 3,
+      );
+      final decoded =
+          ComponentAction.decode(
+            ComponentAction.encode(<ComponentAction>[action]),
+            source: 'planned UV replacement',
+          ).single;
+
+      expect(decoded.burnerPosition, 3);
+      expect(decoded.isGovernedUvDetectorReplacement, isTrue);
+    });
+
+    test('UV replacement and later audit use physical evidence time', () {
+      final missingAuditAt = DateTime.utc(2026, 8, 20, 8);
+      final replacementAt = DateTime.utc(2026, 8, 21, 8);
+      final laterAuditAt = DateTime.utc(2026, 8, 22, 8);
+      final event = _uvEvent(
+        id: 'uv-event-1',
+        position: 3,
+        completedAt: replacementAt,
+      );
+      final afterReplacement = projectBurnerBlockCondition(
+        round: _round(
+          id: 'round-missing',
+          observedAt: missingAuditAt,
+          redHot: const <int>[],
+          uvConditions: const <int, BurnerUvCondition>{
+            3: BurnerUvCondition.missing,
+          },
+        ),
+        newerRedHotObservations: const <int, DateTime>{},
+        lifecycleEvents: const <BurnerBlockLifecycleEvent>[],
+        uvLifecycleEvents: <UvDetectorLifecycleEvent>[event],
+        assetInstanceId: 'furnace-7',
+      );
+      final afterLaterAudit = projectBurnerBlockCondition(
+        round: _round(
+          id: 'round-later-missing',
+          observedAt: laterAuditAt,
+          redHot: const <int>[],
+          uvConditions: const <int, BurnerUvCondition>{
+            3: BurnerUvCondition.missing,
+          },
+        ),
+        newerRedHotObservations: const <int, DateTime>{},
+        lifecycleEvents: const <BurnerBlockLifecycleEvent>[],
+        uvLifecycleEvents: <UvDetectorLifecycleEvent>[event],
+        assetInstanceId: 'furnace-7',
+      );
+
+      expect(
+        afterReplacement.uvConditionsByPosition[3],
+        BurnerUvCondition.serviceable,
+      );
+      expect(
+        afterLaterAudit.uvConditionsByPosition[3],
+        BurnerUvCondition.missing,
       );
     });
 

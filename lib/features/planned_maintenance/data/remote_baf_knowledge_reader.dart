@@ -294,13 +294,6 @@ RemoteBafKnowledgeRowData readRemoteBafKnowledgeRow(
     field: 'changeSummary',
     source: source,
   );
-  if (changeSummary.length < 15) {
-    throw PersistedDataFormatException(
-      field: 'changeSummary',
-      source: source,
-      detail: 'must contain at least 15 characters',
-    );
-  }
 
   final normalizedRaw = strictJsonSafeBafKnowledgeMap(<String, dynamic>{
     for (final entry in map.entries)
@@ -444,13 +437,6 @@ RemoteBafKnowledgeMetaData readRemoteBafKnowledgeMeta(
     field: 'changeSummary',
     source: source,
   );
-  if (changeSummary.length < 15) {
-    throw PersistedDataFormatException(
-      field: 'changeSummary',
-      source: source,
-      detail: 'must contain at least 15 characters',
-    );
-  }
   return RemoteBafKnowledgeMetaData(
     matrixVersion: readRequiredPersistedString(
       map['matrixVersion'],

@@ -122,7 +122,7 @@ const parseResetCounter = (value: unknown, index: number): MaintenanceResetCount
   }
   return {
     key,
-    label: boundedText(data.label, `definition.resetCounters[${index}].label`, 2, 120),
+    label: boundedText(data.label, `definition.resetCounters[${index}].label`, 1, 120),
     thresholdDays: thresholdDays as number | null,
   };
 };
@@ -181,8 +181,8 @@ const parseDefinition = (value: unknown): ParsedDefinition => {
   }
   return {
     code: normalizedCode(data.code),
-    title: boundedText(data.title, "definition.title", 3, 160),
-    description: boundedText(data.description, "definition.description", 5, 1000),
+    title: boundedText(data.title, "definition.title", 1, 160),
+    description: boundedText(data.description, "definition.description", 1, 1000),
     assetTypeKeys,
     assetClassIds,
     principalLaneKey: lane as LaneKey,
@@ -236,7 +236,7 @@ export const upsertMaintenanceClassDefinition: CommandHandler = async ({
   exactKeys(command.payload, ["definition", "reason"], "payload");
   const definitionId = documentId(command.aggregateId, "aggregateId");
   const definition = parseDefinition(command.payload.definition);
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, matchingCodes, audit, ...classReferences] = await Promise.all([
     tx.get(definitionPath(definitionId)),
     tx.query("maintenance_class_definitions", [
@@ -344,7 +344,7 @@ export const setMaintenanceClassDefinitionStatus: CommandHandler = async ({
   if (!new Set(["active", "retired"]).has(status)) {
     throw new WorkflowError("invalid-argument", "status is unsupported.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, audit] = await Promise.all([
     tx.get(definitionPath(definitionId)),
     tx.get(auditPath(command.commandId)),
@@ -510,7 +510,7 @@ export const classifyMaintenanceExecution: CommandHandler = async ({
       !Number.isSafeInteger(definitionVersion) || definitionVersion < 1) {
     throw new WorkflowError("invalid-argument", "definitionVersion is invalid.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [execution, definition, audit] = await Promise.all([
     tx.get(executionPath(executionId)),
     tx.get(definitionPath(definitionId)),
@@ -758,7 +758,7 @@ export const classifyMaintenanceTicket: CommandHandler = async ({
       !Number.isSafeInteger(definitionVersion) || definitionVersion < 1) {
     throw new WorkflowError("invalid-argument", "definitionVersion is invalid.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [ticket, definition, audit] = await Promise.all([
     tx.get(maintenancePath(ticketId)),
     tx.get(definitionPath(definitionId)),

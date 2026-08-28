@@ -255,7 +255,7 @@ const assertCanonicalAlarm = (data: JsonMap, alarmId: string): void => {
   ] as const;
   const detailsAbsent = data.details === null && data.detailsPending === true &&
     allNull(data, detailEvidenceFields);
-  const detailsComplete = isStoredText(data.details, 5, 2000) &&
+  const detailsComplete = isStoredText(data.details, 1, 2000) &&
     data.detailsPending === false &&
     isStoredText(data.detailsProvidedByUid, 1, 256) &&
     isStoredText(data.detailsProvidedByName, 1, 256) &&
@@ -267,7 +267,7 @@ const assertCanonicalAlarm = (data: JsonMap, alarmId: string): void => {
   const supportAbsent = allNull(data, supportFields);
   const supportComplete = typeof data.supportBasis === "string" &&
     SUPPORT_BASES.has(data.supportBasis) &&
-    isStoredText(data.supportNote, 5, 1000) &&
+    isStoredText(data.supportNote, 1, 1000) &&
     isStoredText(data.supportConfirmedByUid, 1, 256) &&
     isStoredText(data.supportConfirmedByName, 1, 256) &&
     isIsoInstant(data.supportConfirmedAt);
@@ -275,14 +275,14 @@ const assertCanonicalAlarm = (data: JsonMap, alarmId: string): void => {
     "resolutionSummary", "resolvedByUid", "resolvedByName", "resolvedAt",
   ] as const;
   const resolutionAbsent = allNull(data, resolutionFields);
-  const resolutionComplete = isStoredText(data.resolutionSummary, 5, 2000) &&
+  const resolutionComplete = isStoredText(data.resolutionSummary, 1, 2000) &&
     isStoredText(data.resolvedByUid, 1, 256) &&
     isStoredText(data.resolvedByName, 1, 256) && isIsoInstant(data.resolvedAt);
   const withdrawalFields = [
     "withdrawalReason", "withdrawnByUid", "withdrawnByName", "withdrawnAt",
   ] as const;
   const withdrawalAbsent = allNull(data, withdrawalFields);
-  const withdrawalComplete = isStoredText(data.withdrawalReason, 5, 1000) &&
+  const withdrawalComplete = isStoredText(data.withdrawalReason, 1, 1000) &&
     isStoredText(data.withdrawnByUid, 1, 256) &&
     isStoredText(data.withdrawnByName, 1, 256) && isIsoInstant(data.withdrawnAt);
   const lifecycleValid = data.status === "raised" ?
@@ -320,10 +320,10 @@ const assertCanonicalAlarm = (data: JsonMap, alarmId: string): void => {
   if (!hasExactKeys(data, ALARM_FIELDS) || data.schemaVersion !== 1 ||
       data.alarmId !== alarmId ||
       !isStoredText(data.alarmTypeKey, 1, 160) ||
-      !isStoredText(data.alarmTypeName, 2, 120) || !criticalityValid ||
+      !isStoredText(data.alarmTypeName, 1, 120) || !criticalityValid ||
       typeof data.status !== "string" || !ALARM_STATUSES.has(data.status) ||
       !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
-      !isStoredText(data.location, 2, 160) ||
+      !isStoredText(data.location, 1, 160) ||
       (!assetAbsent && !assetComplete) ||
       (!detailsAbsent && !detailsComplete) ||
       !isStoredText(data.raisedByUid, 1, 256) ||
@@ -360,7 +360,7 @@ const assertCanonicalContact = (data: JsonMap, contactId: string): void => {
       data.contactId !== contactId ||
       !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
       typeof data.status !== "string" || !CONTACT_STATUSES.has(data.status) ||
-      !isStoredText(data.label, 2, 120) ||
+      !isStoredText(data.label, 1, 120) ||
       typeof kind !== "string" || !CONTACT_KINDS.has(kind) || !dialValid ||
       !Array.isArray(keys) || keys.length < 1 || keys.length > 20 ||
       keys.some((key) => !isStoredText(key, 1, 160)) ||
@@ -405,7 +405,7 @@ const assertCanonicalDefinition = (
       !Number.isSafeInteger(data.version) || (data.version as number) < 1 ||
       typeof data.status !== "string" ||
       !DEFINITION_STATUSES.has(data.status) ||
-      !isStoredText(data.name, 2, 120) || !criticalityValid ||
+      !isStoredText(data.name, 1, 120) || !criticalityValid ||
       !isIsoInstant(data.createdAt) || !isIsoInstant(data.updatedAt) ||
       !isStoredText(data.createdByUid, 1, 256) ||
       !isStoredText(data.createdByName, 1, 256) ||
@@ -716,18 +716,12 @@ export const raiseCriticalAlarm: CommandHandler = async ({
     tx,
     command.payload.alarmTypeKey,
   );
-  const location = boundedText(command.payload.location, "location", 2, 160);
+  const location = boundedText(command.payload.location, "location", 1, 160);
   const details = optionalText(
     command.payload.initialDetails,
     "initialDetails",
     2000,
   );
-  if (details != null && details.length < 5) {
-    throw new WorkflowError(
-      "invalid-argument",
-      "initialDetails must contain at least 5 characters when supplied.",
-    );
-  }
   const assetTypeKey = optionalText(
     command.payload.assetTypeKey,
     "assetTypeKey",
@@ -823,7 +817,7 @@ export const provideCriticalAlarmDetails: CommandHandler = async ({
 }) => {
   exactKeys(command.payload, ["details"], "payload");
   const alarmId = documentId(command.aggregateId, "aggregateId");
-  const details = boundedText(command.payload.details, "details", 5, 2000);
+  const details = boundedText(command.payload.details, "details", 1, 2000);
   const [current] = await Promise.all([
     requireAlarm(tx, alarmId),
     requireVacantAudit(tx, alarmAuditPath(command.commandId)),
@@ -892,14 +886,8 @@ export const confirmCriticalAlarmSupport: CommandHandler = async ({
   exactKeys(command.payload, ["basis", "responderNote", "details"], "payload");
   const alarmId = documentId(command.aggregateId, "aggregateId");
   const basis = choice(command.payload.basis, "basis", SUPPORT_BASES);
-  const note = boundedText(command.payload.responderNote, "responderNote", 5, 1000);
+  const note = boundedText(command.payload.responderNote, "responderNote", 1, 1000);
   const suppliedDetails = optionalText(command.payload.details, "details", 2000);
-  if (suppliedDetails != null && suppliedDetails.length < 5) {
-    throw new WorkflowError(
-      "invalid-argument",
-      "details must contain at least 5 characters when supplied.",
-    );
-  }
   const [current] = await Promise.all([
     requireAlarm(tx, alarmId),
     requireVacantAudit(tx, alarmAuditPath(command.commandId)),
@@ -979,7 +967,7 @@ export const resolveCriticalAlarm: CommandHandler = async ({
   const summary = boundedText(
     command.payload.resolutionSummary,
     "resolutionSummary",
-    5,
+    1,
     2000,
   );
   const [current] = await Promise.all([
@@ -1041,7 +1029,7 @@ export const withdrawCriticalAlarmInError: CommandHandler = async ({
 }) => {
   exactKeys(command.payload, ["reason"], "payload");
   const alarmId = documentId(command.aggregateId, "aggregateId");
-  const reason = boundedText(command.payload.reason, "reason", 5, 1000);
+  const reason = boundedText(command.payload.reason, "reason", 1, 1000);
   const [current] = await Promise.all([
     requireAlarm(tx, alarmId),
     requireVacantAudit(tx, alarmAuditPath(command.commandId)),
@@ -1152,7 +1140,7 @@ export const upsertCriticalAlarmContact: CommandHandler = async ({
   }
   const kind = choice(data.contactKind, "contact.contactKind", CONTACT_KINDS);
   const contact = {
-    label: boundedText(data.label, "contact.label", 2, 120),
+    label: boundedText(data.label, "contact.label", 1, 120),
     contactKind: kind,
     dialValue: normalizedDialValue(data.dialValue, kind),
     alarmTypeKeys: parseAlarmTypeKeys(data.alarmTypeKeys),
@@ -1165,7 +1153,7 @@ export const upsertCriticalAlarmContact: CommandHandler = async ({
   if (contact.priority > 99) {
     throw new WorkflowError("invalid-argument", "contact.priority cannot exceed 99.");
   }
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current] = await Promise.all([
     tx.get(contactPath(contactId)),
     requireVacantAudit(tx, contactAuditPath(command.commandId)),
@@ -1230,7 +1218,7 @@ export const setCriticalAlarmContactStatus: CommandHandler = async ({
   exactKeys(command.payload, ["status", "reason"], "payload");
   const contactId = documentId(command.aggregateId, "aggregateId");
   const status = choice(command.payload.status, "status", CONTACT_STATUSES);
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current] = await Promise.all([
     tx.get(contactPath(contactId)),
     requireVacantAudit(tx, contactAuditPath(command.commandId)),
@@ -1312,7 +1300,7 @@ const definitionInput = (value: unknown): Readonly<{
     );
   }
   return {
-    name: boundedText(data.name, "definition.name", 2, 120),
+    name: boundedText(data.name, "definition.name", 1, 120),
     criticalityKey,
     criticalityRank,
   };
@@ -1326,7 +1314,7 @@ export const upsertCriticalAlarmDefinition: CommandHandler = async ({
   exactKeys(command.payload, ["definition", "reason"], "payload");
   const definitionId = documentId(command.aggregateId, "aggregateId");
   const input = definitionInput(command.payload.definition);
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current] = await Promise.all([
     tx.get(definitionPath(definitionId)),
     requireVacantAudit(tx, definitionAuditPath(command.commandId)),
@@ -1403,7 +1391,7 @@ export const setCriticalAlarmDefinitionStatus: CommandHandler = async ({
     "status",
     DEFINITION_STATUSES,
   );
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current] = await Promise.all([
     tx.get(definitionPath(definitionId)),
     requireVacantAudit(tx, definitionAuditPath(command.commandId)),

@@ -102,6 +102,14 @@ class ComponentAction {
   /// Only explicitly registered, bounded non-authority extensions are retained.
   final Map<String, dynamic> extensions;
 
+  bool get isGovernedUvDetectorReplacement =>
+      burnerPosition != null &&
+      actionType == ActionType.replacement &&
+      replacement != null &&
+      status == ActionStatus.resolved &&
+      assetHierarchyRef != null &&
+      _isFurnaceUvDetectorTarget(component, assetHierarchyRef!);
+
   ComponentAction({
     this.id,
     required this.asset,
@@ -593,12 +601,17 @@ void _validateCompleteBurnerEvidence({
 
   if (burnerPosition != null &&
       !attendanceEvidencePresent &&
-      !blockLifecyclePresent) {
+      !blockLifecyclePresent &&
+      !(actionType == ActionType.replacement &&
+          replacement != null &&
+          status == ActionStatus.resolved &&
+          hierarchyReference != null &&
+          _isFurnaceUvDetectorTarget(component, hierarchyReference))) {
     throw PersistedDataFormatException(
       field: 'burnerPosition',
       source: source,
       detail:
-          'burner position requires attendance evidence or burner-block lifecycle evidence',
+          'burner position requires attendance, burner-block lifecycle, or UV-detector lifecycle evidence',
     );
   }
 }
@@ -618,6 +631,28 @@ bool _isFurnaceBurnerBlockTarget(
       ].join(' ').toLowerCase();
   return targetIdentity.contains('burner block') ||
       targetIdentity.contains('firing tube');
+}
+
+bool _isFurnaceUvDetectorTarget(
+  String component,
+  AssetHierarchyReference reference,
+) {
+  final classIdentity =
+      '${reference.assetClassCode} ${reference.assetClassName}'.toLowerCase();
+  if (!classIdentity.contains('furnace')) return false;
+  final targetIdentity =
+      <String>[
+        component,
+        reference.nodeName,
+        ...reference.hierarchyPath,
+      ].join(' ').toLowerCase();
+  return (targetIdentity.contains('uv') &&
+          const <String>[
+            'detector',
+            'sensor',
+            'scanner',
+          ].any(targetIdentity.contains)) ||
+      targetIdentity.contains('flame detector');
 }
 
 String? _readOptionalJsonObjectText(

@@ -1380,8 +1380,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                         return null;
                       }
                       final cleaned = value?.trim() ?? '';
-                      if (cleaned.length < 8) {
-                        return 'Describe the suspected effect (at least 8 characters)';
+                      if (cleaned.isEmpty) {
+                        return 'Describe the suspected effect';
                       }
                       if (cleaned.length > 1000) {
                         return 'Keep the quality note within 1000 characters';

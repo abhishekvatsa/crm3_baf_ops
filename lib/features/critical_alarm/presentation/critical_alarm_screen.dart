@@ -590,7 +590,7 @@ class _AlarmCard extends ConsumerWidget {
       context,
       title: 'Add incident details',
       label: 'What happened and what remains at risk?',
-      minimum: 5,
+      minimum: 1,
       maximum: 2000,
     );
     if (value == null || !context.mounted) return;
@@ -626,7 +626,7 @@ class _AlarmCard extends ConsumerWidget {
       context,
       title: 'Resolve critical alarm',
       label: 'Resolution and safe-state summary',
-      minimum: 5,
+      minimum: 1,
       maximum: 2000,
     );
     if (value == null || !context.mounted) return;
@@ -641,7 +641,7 @@ class _AlarmCard extends ConsumerWidget {
       context,
       title: 'Record alarm as raised in error',
       label: 'Why was this alarm mistaken?',
-      minimum: 5,
+      minimum: 1,
       maximum: 1000,
     );
     if (value == null || !context.mounted) return;
@@ -767,7 +767,7 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
               ),
               validator:
                   (value) =>
-                      value == null || value.trim().length < 2
+                      value == null || value.trim().isEmpty
                           ? 'Enter the location'
                           : null,
             ),
@@ -826,7 +826,9 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
               ),
               validator: (value) {
                 final length = value?.trim().length ?? 0;
-                if (length < 5) return 'Enter the reason and immediate details';
+                if (length == 0) {
+                  return 'Enter the reason and immediate details';
+                }
                 return null;
               },
             ),
@@ -941,7 +943,7 @@ class _SupportDialogState extends State<_SupportDialog> {
                 ),
                 validator:
                     (value) =>
-                        value == null || value.trim().length < 5
+                        value == null || value.trim().isEmpty
                             ? 'Enter the support response'
                             : null,
               ),
@@ -958,7 +960,7 @@ class _SupportDialogState extends State<_SupportDialog> {
                   ),
                   validator:
                       (value) =>
-                          value == null || value.trim().length < 5
+                          value == null || value.trim().isEmpty
                               ? 'Incident details are required'
                               : null,
                 ),

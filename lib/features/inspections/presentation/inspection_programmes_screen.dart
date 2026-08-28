@@ -1880,7 +1880,7 @@ Future<void> _adjudicateFinding(
                   : 'Accept continuing condition',
           message:
               'This is an SI/Admin adjudication. The original reading remains immutable.',
-          minimumLength: 10,
+          minimumLength: 1,
         ),
   );
   if (reason == null || !context.mounted) return;
@@ -2020,7 +2020,7 @@ class _InspectionReasonDialog extends StatefulWidget {
   const _InspectionReasonDialog({
     required this.title,
     required this.message,
-    this.minimumLength = 5,
+    this.minimumLength = 1,
   });
 
   final String title;
@@ -2117,7 +2117,7 @@ class _AddInspectionTargetsDialogState
               decoration: const InputDecoration(labelText: 'Reason'),
               validator:
                   (value) =>
-                      (value?.trim().length ?? 0) >= 5
+                      (value?.trim().isNotEmpty ?? false)
                           ? null
                           : 'Record a reason.',
             ),
@@ -2308,7 +2308,7 @@ class _FindingVerificationDialogState
       ),
       FilledButton.icon(
         onPressed:
-            _reason.text.trim().length >= 5
+            _reason.text.trim().isNotEmpty
                 ? () => Navigator.pop(
                   context,
                   _FindingVerificationDraft(

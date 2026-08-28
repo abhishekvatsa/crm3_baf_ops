@@ -215,11 +215,11 @@ const parseDefinition = (value: unknown): ParsedDefinition => {
   }
   return {
     code: normalizedCode(data.code),
-    title: boundedText(data.title, "definition.title", 3, 160),
+    title: boundedText(data.title, "definition.title", 1, 160),
     description: boundedText(
       data.description,
       "definition.description",
-      5,
+      1,
       1000,
     ),
     applicableAssetTypeKeys,
@@ -283,7 +283,7 @@ export const upsertFrequentIssueDefinition: CommandHandler = async ({
   exactKeys(command.payload, ["definition", "reason"], "payload");
   const definitionId = documentId(command.aggregateId, "aggregateId");
   const definition = parseDefinition(command.payload.definition);
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, matchingCodes, audit, ...references] = await Promise.all([
     tx.get(definitionPath(definitionId)),
     tx.query("frequent_issue_definitions", [
@@ -433,7 +433,7 @@ export const setFrequentIssueDefinitionStatus: CommandHandler = async ({
     "status",
     new Set(["active", "retired"]),
   );
-  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, audit] = await Promise.all([
     tx.get(definitionPath(definitionId)),
     tx.get(auditPath(command.commandId)),

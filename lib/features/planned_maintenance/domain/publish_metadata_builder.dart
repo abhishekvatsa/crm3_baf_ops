@@ -6,7 +6,7 @@ import 'module_composer_models.dart';
 import 'module_composer_validator.dart';
 import 'template_version_snapshot_contract.dart';
 
-const int kPublishReasonMinLength = 10;
+const int kPublishReasonMinLength = 1;
 
 class PublishMetadataInput {
   final String packageCode;

@@ -6,9 +6,7 @@ import '../data/maintenance_model.dart';
 import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 
-const _reasonMinimumLength = 12;
 const _reasonMaximumLength = 2000;
-const _otherDepartmentMinimumLength = 2;
 const _otherDepartmentMaximumLength = 80;
 
 class IssueLaneChange {
@@ -93,16 +91,15 @@ class _IssueLaneManagementDialogState
   void _submit() {
     final reason = _reasonController.text.trim();
     final otherDepartment = _otherDepartmentController.text.trim();
-    if (reason.length < _reasonMinimumLength) {
-      setState(() => _error = 'Give a clear reason of at least 12 characters.');
+    if (reason.isEmpty) {
+      setState(() => _error = 'Give a reason for changing the lanes.');
       return;
     }
     if (reason.length > _reasonMaximumLength) {
       setState(() => _error = 'Keep the reason within 2,000 characters.');
       return;
     }
-    if (_selected.contains(RoutedTo.others) &&
-        otherDepartment.length < _otherDepartmentMinimumLength) {
+    if (_selected.contains(RoutedTo.others) && otherDepartment.isEmpty) {
       setState(() => _error = 'Name the receiving team represented by Others.');
       return;
     }

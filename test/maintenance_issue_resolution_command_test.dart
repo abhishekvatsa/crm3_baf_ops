@@ -231,12 +231,12 @@ void main() {
     },
   );
 
-  test('administrative closure rejects a weak reason and terminal record', () {
+  test('administrative closure rejects a blank reason and terminal record', () {
     expect(
       () => buildMaintenanceIssueAdministrativeClosureCommand(
         ticket: _ticket(),
         disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
-        reason: 'Too short',
+        reason: '   ',
       ),
       throwsStateError,
     );

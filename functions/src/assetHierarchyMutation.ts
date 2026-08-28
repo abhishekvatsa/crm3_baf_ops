@@ -402,7 +402,6 @@ export function parseAssetHierarchyMutationRequest(raw: JsonMap): ParsedRequest 
     classDraft: raw.classDraft == null ? null : parseClassDraft(raw.classDraft),
     nodeDraft: raw.nodeDraft == null ? null : parseNodeDraft(raw.nodeDraft),
   };
-  if (request.reason.length < 8) invalid("reason", "must contain at least 8 characters");
   const classOperation = operation === "CREATE_CLASS" || operation === "UPDATE_CLASS";
   if (classOperation !== (request.classDraft != null)) {
     invalid("classDraft", classOperation ? "is required" : "is not allowed");

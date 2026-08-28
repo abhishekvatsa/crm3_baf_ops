@@ -196,15 +196,13 @@ void main() {
     });
 
     test(
-      'rejects short detail evidence and out-of-order lifecycle evidence',
+      'accepts concise detail evidence and rejects out-of-order lifecycle evidence',
       () {
-        expect(
-          () => CriticalAlarm.fromFirestore(
-            raisedAlarm(details: 'x', detailsPending: false),
-            'alarm-1',
-          ),
-          throwsA(isA<PersistedDataFormatException>()),
+        final concise = CriticalAlarm.fromFirestore(
+          raisedAlarm(details: 'x', detailsPending: false),
+          'alarm-1',
         );
+        expect(concise.details, 'x');
         final raised = raisedAlarm(
           details: 'Visible flame beside the transfer path',
           detailsPending: false,

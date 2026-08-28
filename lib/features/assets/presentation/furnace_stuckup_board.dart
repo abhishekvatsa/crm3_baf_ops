@@ -345,8 +345,10 @@ class _FurnaceStuckupNotesDialogState
 
   void _submit() {
     final notes = _notesController.text.trim();
-    if (notes.length < 8 || notes.length > 1000) {
-      setState(() => _error = 'Enter 8-1,000 characters of verified evidence.');
+    if (notes.isEmpty || notes.length > 1000) {
+      setState(
+        () => _error = 'Enter verified evidence within 1,000 characters.',
+      );
       return;
     }
     Navigator.pop(context, notes);
@@ -740,7 +742,7 @@ class _AdjudicationDialogState extends State<_AdjudicationDialog> {
       FilledButton(
         onPressed: () {
           final notes = _notes.text.trim();
-          if (notes.length >= 8 && notes.length <= 2000) {
+          if (notes.isNotEmpty && notes.length <= 2000) {
             Navigator.pop(
               context,
               _AdjudicationInput(cause: _cause, notes: notes),

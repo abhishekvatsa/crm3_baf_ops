@@ -221,7 +221,7 @@ class _ContactStatusReasonDialogState
         validator:
             (value) => _bounded(
               value,
-              minimum: 5,
+              minimum: 1,
               maximum: 500,
               missingMessage: 'Enter an audit reason',
             ),
@@ -457,7 +457,7 @@ class _ContactEditorState extends State<_ContactEditor> {
                 validator:
                     (value) => _bounded(
                       value,
-                      minimum: 2,
+                      minimum: 1,
                       maximum: 120,
                       missingMessage: 'Enter a contact label',
                     ),
@@ -546,7 +546,7 @@ class _ContactEditorState extends State<_ContactEditor> {
                 validator:
                     (value) => _bounded(
                       value,
-                      minimum: 5,
+                      minimum: 1,
                       maximum: 500,
                       missingMessage: 'Enter an audit reason',
                     ),

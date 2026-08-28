@@ -216,7 +216,7 @@ export const releaseFurnaceStuckup = async ({
   context,
 }: HandlerArgs): Promise<HandlerResult> => {
   exactKeys(command.payload, ["releaseNotes"], "payload");
-  const notes = boundedText(command.payload.releaseNotes, "releaseNotes", 8, 1000);
+  const notes = boundedText(command.payload.releaseNotes, "releaseNotes", 1, 1000);
   const {caseData, version} = await requireCase(tx, command);
   if (caseData.obstructionStatus !== "active") {
     throw new WorkflowError(
@@ -317,7 +317,7 @@ export const adjudicateFurnaceStuckup = async ({
   const notes = boundedText(
     command.payload.adjudicationNotes,
     "adjudicationNotes",
-    8,
+    1,
     2000,
   );
   const {caseData, version} = await requireCase(tx, command);

@@ -302,10 +302,8 @@ void main() {
           registry,
           'class _RegistryReasonDialog extends StatefulWidget',
         );
-        _expectContains(
-          registry,
-          'final canSubmit = value.length >= widget.minLength;',
-        );
+        _expectContains(registry, 'final canSubmit = value.isNotEmpty;');
+        _expectNotContains(registry, 'widget.minLength');
 
         _expectNotContains(governance, 'DefaultTabController');
         _expectContains(governance, 'late final TabController _tab;');
@@ -462,7 +460,8 @@ void main() {
         );
         _expectContains(rowEditor, "initialValue: textValue ?? ''");
         _expectContains(rowEditor, 'final errorText =');
-        _expectContains(rowEditor, 'reason.isEmpty || canSubmit');
+        _expectContains(rowEditor, 'final canSubmit = reason.isNotEmpty');
+        _expectContains(rowEditor, "reason.isEmpty ? 'Enter a change reason.'");
         _expectContains(rowEditor, 'errorText: errorText');
         _expectContains(
           rowEditor,

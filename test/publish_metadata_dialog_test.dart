@@ -106,90 +106,86 @@ void main() {
     expect(result.safetyClass, 'gasRisk');
   });
 
-  testWidgets(
-    'publish is disabled until reason is long enough while save draft works',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1200, 1400));
-      addTearDown(() async {
-        await tester.binding.setSurfaceSize(null);
-      });
+  testWidgets('publish requires a nonblank reason while save draft does not', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1400));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
 
-      TemplateVersion? savedDraft;
-      TemplateVersion? published;
-      String? capturedReason;
+    TemplateVersion? savedDraft;
+    TemplateVersion? published;
+    String? capturedReason;
 
-      final actions = PublishMetadataDialogActions(
-        savePackage: (package, actor) async {
-          package.firestoreId ??= 'pkg-fresh';
-        },
-        saveVersionDraft: (version, actor) async {
-          savedDraft = version;
-          return version;
-        },
-        publishVersion: (version, actor, reason) async {
-          published = version;
-          capturedReason = reason;
-          return version;
-        },
-        nextVersionNumberFor: (package) async => 3,
-      );
+    final actions = PublishMetadataDialogActions(
+      savePackage: (package, actor) async {
+        package.firestoreId ??= 'pkg-fresh';
+      },
+      saveVersionDraft: (version, actor) async {
+        savedDraft = version;
+        return version;
+      },
+      publishVersion: (version, actor, reason) async {
+        published = version;
+        capturedReason = reason;
+        return version;
+      },
+      nextVersionNumberFor: (package) async => 3,
+    );
 
-      await _pumpDialog(
-        tester,
-        actor: _admin(),
-        draft: _draft(),
-        packages: [_package()],
-        actions: actions,
-      );
+    await _pumpDialog(
+      tester,
+      actor: _admin(),
+      draft: _draft(),
+      packages: [_package()],
+      actions: actions,
+    );
 
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('publish-publish')))
-            .onPressed,
-        isNull,
-      );
-      expect(
-        tester
-            .widget<OutlinedButton>(find.byKey(const Key('publish-save-draft')))
-            .onPressed,
-        isNotNull,
-      );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('publish-publish')))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('publish-save-draft')))
+          .onPressed,
+      isNotNull,
+    );
 
-      await tester.enterText(
-        find.byKey(const Key('publish-reason')),
-        'too short',
-      );
-      await tester.pump();
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('publish-publish')))
-            .onPressed,
-        isNull,
-      );
+    await tester.enterText(find.byKey(const Key('publish-reason')), 'x');
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('publish-publish')))
+          .onPressed,
+      isNotNull,
+    );
 
-      await tester.enterText(
-        find.byKey(const Key('publish-reason')),
-        'Adequate publish reason text',
-      );
-      await tester.pump();
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('publish-publish')))
-            .onPressed,
-        isNotNull,
-      );
+    await tester.enterText(
+      find.byKey(const Key('publish-reason')),
+      'Adequate publish reason text',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('publish-publish')))
+          .onPressed,
+      isNotNull,
+    );
 
-      await tester.tap(find.byKey(const Key('publish-publish')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('publish-publish')));
+    await tester.pumpAndSettle();
 
-      expect(published, isNotNull);
-      expect(savedDraft, isNull);
-      expect(capturedReason, 'Adequate publish reason text');
-      expect(published!.packageFirestoreId, 'pkg-std');
-      expect(published!.versionNumber, 3);
-      expect(published!.status, TemplateVersionStatus.draft);
-    },
-  );
+    expect(published, isNotNull);
+    expect(savedDraft, isNull);
+    expect(capturedReason, 'Adequate publish reason text');
+    expect(published!.packageFirestoreId, 'pkg-std');
+    expect(published!.versionNumber, 3);
+    expect(published!.status, TemplateVersionStatus.draft);
+  });
 
   testWidgets('save draft builds composer payload version', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1400));

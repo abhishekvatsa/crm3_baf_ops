@@ -191,10 +191,8 @@ class _PilotPurgeDialogState extends State<_PilotPurgeDialog> {
   void _submit() {
     final reason = _reason.text.trim();
     final confirmation = _confirmation.text.trim();
-    if (reason.length < 12) {
-      setState(
-        () => _error = 'Enter a clear reason of at least 12 characters.',
-      );
+    if (reason.isEmpty) {
+      setState(() => _error = 'Enter a reason for this purge.');
       return;
     }
     if (confirmation != widget.confirmation) {

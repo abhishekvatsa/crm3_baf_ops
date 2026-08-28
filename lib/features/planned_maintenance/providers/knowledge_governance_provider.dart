@@ -297,9 +297,7 @@ class KnowledgeGovernanceController {
         );
     final composedReason = reason.trim();
     if (composedReason.length < _changeReasonMinLength) {
-      throw const KnowledgeGovernanceException(
-        'Promotion reason must be at least $_changeReasonMinLength characters.',
-      );
+      throw const KnowledgeGovernanceException('Promotion reason is required.');
     }
     draft.changeSummary = composedReason;
     return createRow(
@@ -417,7 +415,7 @@ class KnowledgeGovernanceController {
     final composedReason = reason.trim();
     if (composedReason.length < _changeReasonMinLength) {
       throw const KnowledgeGovernanceException(
-        'Lifecycle change reason must be at least $_changeReasonMinLength characters.',
+        'Lifecycle change reason is required.',
       );
     }
     final priorStatus = KnowledgeLifecycleStatusX.parse(before.lifecycleStatus);

@@ -441,7 +441,7 @@ class _HistoricalMaintenanceEditorState
             if (selectedClass == null ||
                 definition == null ||
                 asset == null ||
-                evidence.length < 5 ||
+                evidence.isEmpty ||
                 _completedOn.isAfter(DateTime.now())) {
               return;
             }

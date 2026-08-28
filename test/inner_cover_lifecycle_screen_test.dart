@@ -194,10 +194,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Enter an Inner Cover serial number.'), findsOneWidget);
-    expect(
-      find.text('Explain the registration in at least 8 characters.'),
-      findsOneWidget,
-    );
+    expect(find.text('Explain the registration.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

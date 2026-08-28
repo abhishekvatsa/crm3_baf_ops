@@ -158,10 +158,10 @@ class UserAuthorityCommandService {
     String? requestId,
   }) async {
     final cleanReason = reason.trim();
-    if (cleanReason.length < 8 || cleanReason.length > 500) {
+    if (cleanReason.isEmpty || cleanReason.length > 500) {
       throw const UserAuthorityMutationException(
         code: 'invalid-argument',
-        message: 'Enter a reason between 8 and 500 characters.',
+        message: 'Enter a reason of no more than 500 characters.',
         reasonCode: 'authority-reason-invalid',
       );
     }

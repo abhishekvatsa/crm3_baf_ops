@@ -188,7 +188,7 @@ class _MaintenanceTicketCorrectionDialogState
                   decoration: const InputDecoration(labelText: 'Description'),
                   validator: (value) {
                     final length = value?.trim().length ?? 0;
-                    if (length < 5) return 'Enter at least 5 characters';
+                    if (length == 0) return 'Enter a description';
                     if (length > 2000) return 'Use at most 2000 characters';
                     return null;
                   },
@@ -238,7 +238,7 @@ class _MaintenanceTicketCorrectionDialogState
                           (value?.trim().isEmpty ?? true)) {
                         return 'Enter the accountable department';
                       }
-                      return _optionalLength(value, minimum: 2, maximum: 80);
+                      return _optionalLength(value, minimum: 1, maximum: 80);
                     },
                   ),
                 ],
@@ -288,7 +288,7 @@ class _MaintenanceTicketCorrectionDialogState
                   validator: (value) {
                     final message = _optionalLength(
                       value,
-                      minimum: 2,
+                      minimum: 1,
                       maximum: 120,
                     );
                     if (message != null) return message;
@@ -347,9 +347,7 @@ class _MaintenanceTicketCorrectionDialogState
                   ),
                   validator: (value) {
                     final length = value?.trim().length ?? 0;
-                    if (length < 12) {
-                      return 'Give a clear reason of at least 12 characters';
-                    }
+                    if (length == 0) return 'Give a reason for the correction';
                     if (length > 2000) return 'Use at most 2000 characters';
                     return null;
                   },

@@ -203,7 +203,7 @@ class _InspectionDefinitionEditorState
                   ),
                   validator:
                       (value) =>
-                          (value?.trim().length ?? 0) >= 3
+                          (value?.trim().isNotEmpty ?? false)
                               ? null
                               : 'Enter a clear title.',
                 ),
@@ -217,7 +217,7 @@ class _InspectionDefinitionEditorState
                   ),
                   validator:
                       (value) =>
-                          (value?.trim().length ?? 0) >= 5
+                          (value?.trim().isNotEmpty ?? false)
                               ? null
                               : 'Describe the inspection purpose.',
                 ),
@@ -439,7 +439,7 @@ class _InspectionDefinitionEditorState
                   ),
                   validator:
                       (value) =>
-                          (value?.trim().length ?? 0) >= 5
+                          (value?.trim().isNotEmpty ?? false)
                               ? null
                               : 'Record a reason.',
                 ),
@@ -644,7 +644,7 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                   ),
                   validator:
                       (value) =>
-                          (value?.trim().length ?? 0) >= 5
+                          (value?.trim().isNotEmpty ?? false)
                               ? null
                               : 'Describe the campaign purpose.',
                 ),
@@ -735,7 +735,7 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                   ),
                   validator:
                       (value) =>
-                          (value?.trim().length ?? 0) >= 5
+                          (value?.trim().isNotEmpty ?? false)
                               ? null
                               : 'Record a reason.',
                 ),

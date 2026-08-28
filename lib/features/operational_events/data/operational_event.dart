@@ -510,7 +510,7 @@ class OperationalEvent {
           ) ||
           intervalResolvedByUid.length > 128 ||
           intervalResolvedByName.length > 200 ||
-          intervalResolutionNote.length < 8 ||
+          intervalResolutionNote.isEmpty ||
           intervalResolutionNote.length > 1000) {
         throw PersistedDataFormatException(
           field: 'completedIntervals[$index]',
@@ -587,11 +587,11 @@ class OperationalEvent {
             'resolution evidence must be absent while open and complete after closure',
       );
     }
-    if (resolutionNote != null && resolutionNote.length < 8) {
+    if (resolutionNote != null && resolutionNote.isEmpty) {
       throw PersistedDataFormatException(
         field: 'resolutionNote',
         source: source,
-        detail: 'must contain at least 8 characters',
+        detail: 'must not be empty',
       );
     }
     if (resolvedAt != null && resolvedAt.isBefore(startedAt)) {

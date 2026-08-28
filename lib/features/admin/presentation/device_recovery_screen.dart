@@ -519,8 +519,8 @@ class _RecoveryConfirmationDialogState
               decoration: const InputDecoration(labelText: 'Audited reason'),
               validator:
                   (value) =>
-                      (value?.trim().length ?? 0) < 12
-                          ? 'Enter at least 12 characters.'
+                      (value?.trim().isEmpty ?? true)
+                          ? 'Enter a reason.'
                           : null,
             ),
             const SizedBox(height: 8),

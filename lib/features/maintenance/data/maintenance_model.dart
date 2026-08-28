@@ -384,7 +384,7 @@ class MaintenanceRecord {
     final cleanOtherDepartment = otherDepartment?.trim();
     final hasValidOtherDepartment =
         cleanOtherDepartment != null &&
-        cleanOtherDepartment.length >= 2 &&
+        cleanOtherDepartment.isNotEmpty &&
         cleanOtherDepartment.length <= 80;
     final otherDepartmentMatches =
         plan.assignedLanes.contains(RoutedTo.others.name)

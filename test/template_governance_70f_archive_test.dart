@@ -363,7 +363,7 @@ void main() {
           await repository.saveVersion(draft, actor: si);
 
           await expectLater(
-            repository.archiveDraftVersion(draft, actor: si, reason: 'short'),
+            repository.archiveDraftVersion(draft, actor: si, reason: '   '),
             throwsStateError,
           );
           expect(

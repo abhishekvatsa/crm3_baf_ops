@@ -209,6 +209,18 @@ If `Burner block changed` is Yes, the server requires the matching structured re
 
 At closure, the server revalidates the Furnace, hierarchy node, tag evidence, Mechanical work context, burner number and supply-source fields. Valid evidence appends an immutable lifecycle event and updates the server-controlled current condition for that Furnace and burner position.
 
+### Record a UV-detector installation or replacement
+
+1. Work within a Furnace maintenance issue or any planned-maintenance route.
+2. Ensure I&A / Instrumentation is included in the work evidence.
+3. Add a **Replacement** component action.
+4. Select the governed UV detector, flame detector, sensor or scanner component from the Furnace hierarchy.
+5. Choose the physical Burner / UV position 1 through 8.
+6. Choose whether the installed detector is new, repaired or revised.
+7. Mark the action resolved and complete the parent issue, module or job.
+
+At closure, the server revalidates the Furnace and hierarchy identities, numbered position, optional tag, I&A work context and chronology. It appends immutable UV lifecycle history and projects that UV position to **In service**. This works for issue resolution, legacy planned maintenance and governed planned workflows. A later condition audit remains authoritative for the subsequently observed condition.
+
 ## 10. What changes the burner audit
 
 ### Condition round
@@ -230,6 +242,16 @@ At closure, the server revalidates the Furnace, hierarchy node, tag evidence, Me
 - Captures RED-made or purchased provenance.
 - Updates the burner-block lifecycle and current condition only after governed closure.
 
+### UV-detector replacement
+
+- Records physical detector installation through I&A work.
+- Requires the governed Furnace UV component and Burner / UV position.
+- Updates the UV lifecycle and current condition only after governed closure.
+- In burner-lockout attendance, marks the UV **In service** only when the
+  terminal outcome is **Returned to service**. A locked-out or isolated result
+  stays in the work dossier and awaits successful attendance or a fresh audit.
+- Does not imply that a burner block was changed.
+
 ### Re-audit
 
 A later authoritative condition round may record the observed condition again. It does not erase immutable replacement history.
@@ -240,7 +262,9 @@ A later authoritative condition round may record the observed condition again. I
 2. Select the Furnace or relevant view.
 3. Review the condition tabs for burner blocks and UV status.
 4. Open **Block lifecycle** to see replacement history and current installed-state evidence.
-5. Confirm:
+5. Open **UV lifecycle** to see detector installation history, position,
+   disposition, performer and originating issue or planned-maintenance route.
+6. Confirm:
    - Furnace and burner position;
    - event time;
    - replacement source;

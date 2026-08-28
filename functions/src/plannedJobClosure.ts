@@ -21,6 +21,10 @@ import {
   applyBurnerBlockLifecycleWritePlan,
   prepareBurnerBlockLifecycleWritePlan,
 } from "./maintenanceWorkflow/burnerBlockLifecycle";
+import {
+  applyUvDetectorLifecycleWritePlan,
+  prepareUvDetectorLifecycleWritePlan,
+} from "./maintenanceWorkflow/uvDetectorLifecycle";
 
 export type HttpsErrorCode =
   | "ok"
@@ -1152,6 +1156,38 @@ export async function completePlannedJobWithDb(params: {
       }
       throw error;
     });
+    const uvDetectorLifecyclePlan = await prepareUvDetectorLifecycleWritePlan({
+      tx: maintenanceTx,
+      sourceType: "legacyPlannedJob",
+      sourceId: executionId,
+      assetType: beforeData.assetType,
+      assetNumber: beforeData.assetNumber,
+      actionSources: [
+        {
+          sourceModuleId: null,
+          actionsJson: actionsJson ?? beforeData.actionsJson,
+        },
+        ...modules.map((module) => ({
+          sourceModuleId:
+            typeof module.firestoreId === "string" ? module.firestoreId : null,
+          discipline: module.discipline,
+          actionsJson: module.actionsJson,
+        })),
+      ],
+      completedAt,
+      completedBy: completionActor,
+      executionLevelInstrumentationEvidence:
+        teamsInvolved.includes("instrumentation"),
+    }).catch((error: unknown) => {
+      if (error instanceof WorkflowError) {
+        throw new ClosureValidationError(
+          error.code as HttpsErrorCode,
+          error.message,
+          error.details,
+        );
+      }
+      throw error;
+    });
     const attestation = buildClosureAttestation({
       executionFirestoreId: executionId,
       modules,
@@ -1193,6 +1229,7 @@ export async function completePlannedJobWithDb(params: {
     transaction.update(executionRef, updateData);
     applyMaintenanceCompletionWritePlan(maintenanceTx, maintenanceCompletionPlan);
     applyBurnerBlockLifecycleWritePlan(maintenanceTx, burnerBlockLifecyclePlan);
+    applyUvDetectorLifecycleWritePlan(maintenanceTx, uvDetectorLifecyclePlan);
 
     const afterData: JsonMap = {...beforeData, ...updateData, firestoreId: executionId};
     const auditRef = db

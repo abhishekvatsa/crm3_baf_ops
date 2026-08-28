@@ -47,8 +47,7 @@ class _SeedCloudKnowledgeBaselineDialogState
                   labelText: 'Change reason / audit justification',
                   hintText:
                       'Example: Initial governed seed of BAF Knowledge Matrix v0.1 after SI review.',
-                  helperText:
-                      'Minimum ${BafKnowledgeRepository.changeReasonMinLength} characters required.',
+                  helperText: 'Required for the audit trail.',
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) => setState(() => _currentReason = value),
@@ -950,7 +949,7 @@ class _ArchiveTemplateDraftReasonDialog extends StatefulWidget {
 
 class _ArchiveTemplateDraftReasonDialogState
     extends State<_ArchiveTemplateDraftReasonDialog> {
-  static const _minimumReasonLength = 10;
+  static const _minimumReasonLength = 1;
 
   final _reasonController = TextEditingController();
   String _reason = '';
@@ -989,7 +988,7 @@ class _ArchiveTemplateDraftReasonDialogState
               onChanged: (value) => setState(() => _reason = value),
               decoration: const InputDecoration(
                 labelText: 'Mandatory archive reason',
-                helperText: 'Enter at least 10 characters.',
+                helperText: 'Required for the audit record.',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -1026,7 +1025,7 @@ class _RestoreTemplateDraftReasonDialog extends StatefulWidget {
 
 class _RestoreTemplateDraftReasonDialogState
     extends State<_RestoreTemplateDraftReasonDialog> {
-  static const _minimumReasonLength = 10;
+  static const _minimumReasonLength = 1;
 
   final _reasonController = TextEditingController();
   String _reason = '';
@@ -1065,7 +1064,7 @@ class _RestoreTemplateDraftReasonDialogState
               onChanged: (value) => setState(() => _reason = value),
               decoration: const InputDecoration(
                 labelText: 'Mandatory restore reason',
-                helperText: 'Enter at least 10 characters.',
+                helperText: 'Required for the audit record.',
                 border: OutlineInputBorder(),
               ),
             ),

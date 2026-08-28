@@ -28,8 +28,10 @@ WorkflowCommand buildMaintenanceIssueAdministrativeClosureCommand({
     throw StateError('Only an active issue can be closed without resolution.');
   }
   final cleanReason = reason.trim();
-  if (cleanReason.length < 12 || cleanReason.length > 2000) {
-    throw StateError('Closure reason must contain 12 to 2000 characters.');
+  if (cleanReason.isEmpty || cleanReason.length > 2000) {
+    throw StateError(
+      'Closure reason is required and cannot exceed 2000 characters.',
+    );
   }
   return WorkflowCommandFactory.create(
     type: WorkflowCommandType.closeMaintenanceTicketWithoutResolution,

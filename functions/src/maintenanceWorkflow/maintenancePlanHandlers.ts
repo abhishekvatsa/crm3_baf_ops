@@ -150,8 +150,8 @@ export const upsertMaintenancePlan: CommandHandler = async ({tx, command, contex
     );
   }
   const reason = optionalText(command.payload.reason, "reason", 500);
-  if (reason == null || reason.length < 5) {
-    throw new WorkflowError("invalid-argument", "reason must contain at least 5 characters.");
+  if (reason == null) {
+    throw new WorkflowError("invalid-argument", "reason is required.");
   }
   const [current, definition, assetClass, assetInstance, audit] = await Promise.all([
     tx.get(planPath(planId)),
@@ -295,8 +295,8 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
     throw new WorkflowError("invalid-argument", "status is unsupported.");
   }
   const reason = optionalText(command.payload.reason, "reason", 500);
-  if (reason == null || reason.length < 5) {
-    throw new WorkflowError("invalid-argument", "reason must contain at least 5 characters.");
+  if (reason == null) {
+    throw new WorkflowError("invalid-argument", "reason is required.");
   }
   const executionId = optionalDocumentId(command.payload.executionId, "executionId");
   if (executionId != null) {
@@ -373,14 +373,14 @@ export const completeMaintenancePlan: CommandHandler = async ({tx, command, cont
     2000,
   );
   const reason = optionalText(command.payload.reason, "reason", 500);
-  if (completionEvidence == null || completionEvidence.length < 10) {
+  if (completionEvidence == null) {
     throw new WorkflowError(
       "invalid-argument",
-      "completionEvidence must contain at least 10 characters.",
+      "completionEvidence is required.",
     );
   }
-  if (reason == null || reason.length < 5) {
-    throw new WorkflowError("invalid-argument", "reason must contain at least 5 characters.");
+  if (reason == null) {
+    throw new WorkflowError("invalid-argument", "reason is required.");
   }
   const current = await tx.get(planPath(planId));
   if (!current.exists || current.data == null) {

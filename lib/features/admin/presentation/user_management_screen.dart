@@ -729,12 +729,12 @@ class _RoleAssignmentDialogState extends State<_RoleAssignmentDialog> {
 
   void _submit() {
     final reason = _reasonController.text.trim();
-    if (_selectedRoles.isEmpty || reason.length < 8) {
+    if (_selectedRoles.isEmpty || reason.isEmpty) {
       setState(() {
         _validationMessage =
             _selectedRoles.isEmpty
                 ? 'Select at least one role.'
-                : 'Enter a reason of at least 8 characters.';
+                : 'Enter a reason.';
       });
       return;
     }
@@ -805,9 +805,9 @@ class _AuthorityReasonDialogState extends State<_AuthorityReasonDialog> {
 
   void _submit() {
     final reason = _controller.text.trim();
-    if (reason.length < 8) {
+    if (reason.isEmpty) {
       setState(() {
-        _validationMessage = 'Enter a reason of at least 8 characters.';
+        _validationMessage = 'Enter a reason.';
       });
       return;
     }

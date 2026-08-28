@@ -358,8 +358,6 @@ String _governedReason(String value) {
   var cleaned = value.trim();
   if (cleaned.isEmpty) {
     cleaned = 'Charge abnormality admin mutation';
-  } else if (cleaned.length < 8) {
-    cleaned = 'Reason: $cleaned';
   }
   if (cleaned.length > 500) {
     throw const ChargeAbnormalityMutationException(

@@ -28,9 +28,9 @@ class FrequentIssueSelection {
 
   factory FrequentIssueSelection.unlisted(String reason) {
     final cleaned = reason.trim();
-    if (cleaned.length < 5 || cleaned.length > 500) {
+    if (cleaned.isEmpty || cleaned.length > 500) {
       throw const FormatException(
-        'Describe the unlisted issue in 5-500 characters.',
+        'Describe the unlisted issue in no more than 500 characters.',
       );
     }
     return FrequentIssueSelection._(
@@ -124,7 +124,7 @@ class FrequentIssueSelection {
     if ((type == FrequentIssueSelectionType.definition &&
             (!definitionComplete || reason != null)) ||
         (type == FrequentIssueSelectionType.unlisted &&
-            (!definitionAbsent || reason == null || reason.length < 5))) {
+            (!definitionAbsent || reason == null))) {
       throw PersistedDataFormatException(
         field: 'frequentIssueSelection',
         source: source,

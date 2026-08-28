@@ -84,11 +84,11 @@ class IssueAdministrativeClosure {
       field: 'issueClosureReason',
       source: source,
     );
-    if (reason.length < 12 || reason.length > 2000) {
+    if (reason.length > 2000) {
       throw PersistedDataFormatException(
         field: 'issueClosureReason',
         source: source,
-        detail: 'must contain 12 to 2000 characters',
+        detail: 'must not exceed 2000 characters',
       );
     }
     return IssueAdministrativeClosure(disposition: disposition, reason: reason);

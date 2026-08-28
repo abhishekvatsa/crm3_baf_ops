@@ -11,6 +11,7 @@ import 'package:crm3_baf_ops/features/assets/data/burner_block_lifecycle_event.d
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/assets/data/furnace_stuckup_record.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
+import 'package:crm3_baf_ops/features/assets/data/uv_detector_lifecycle_event.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/domain/critical_alarm_models.dart';
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
@@ -34,6 +35,8 @@ const _supportedCollections = <String>{
   'burner_block_lifecycle_events',
   'burner_block_lifecycle_current',
   'burner_condition_rounds',
+  'uv_detector_lifecycle_events',
+  'uv_detector_lifecycle_current',
   'critical_alarm_contacts',
   'critical_alarm_definitions',
   'critical_alarms',
@@ -114,6 +117,10 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         BurnerBlockLifecycleEvent.fromMap(data, documentId);
       case 'burner_block_lifecycle_current':
         BurnerBlockLifecycleEvent.fromCurrentMap(data, documentId);
+      case 'uv_detector_lifecycle_events':
+        UvDetectorLifecycleEvent.fromMap(data, documentId);
+      case 'uv_detector_lifecycle_current':
+        UvDetectorLifecycleEvent.fromCurrentMap(data, documentId);
       case 'critical_alarm_contacts':
         CriticalAlarmContact.fromFirestore(data, documentId);
       case 'critical_alarm_definitions':

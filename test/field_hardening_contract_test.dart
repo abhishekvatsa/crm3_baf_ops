@@ -61,7 +61,7 @@ void main() {
       );
       expect(source, contains('final KnowledgeRowDraft draftPreview;'));
       expect(source, isNot(contains('final BafKnowledgeRow draftPreview;')));
-      expect(source, contains('static const int _minReasonLength = 15'));
+      expect(source, contains('static const int _minReasonLength = 1'));
       expect(
         source,
         contains('late final TextEditingController _reasonController;'),

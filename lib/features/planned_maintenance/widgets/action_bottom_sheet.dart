@@ -32,11 +32,13 @@ class ActionBottomSheet extends ConsumerStatefulWidget {
     required this.target,
     this.performedAt,
     this.performedBy,
+    this.workDiscipline,
   });
 
   final GovernedActionContext target;
   final DateTime? performedAt;
   final String? performedBy;
+  final String? workDiscipline;
 
   @override
   ConsumerState<ActionBottomSheet> createState() => _ActionBottomSheetState();
@@ -355,9 +357,10 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
     final tag = _tagController.text.trim();
     final replacementReady =
         _actionType != ActionType.replacement || _replacementType != null;
+    final numberedBurnerReady =
+        !_usesNumberedBurnerPosition || _burnerPosition != null;
     final burnerBlockReady =
-        !_isBurnerBlockReplacement ||
-        (_burnerPosition != null && _burnerBlockSupplyMode != null);
+        !_isBurnerBlockReplacement || _burnerBlockSupplyMode != null;
     return !_loadingTarget &&
         _targetLoadError == null &&
         !_resolvingTag &&
@@ -366,7 +369,9 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
         asset != null &&
         hierarchyReference != null &&
         replacementReady &&
+        numberedBurnerReady &&
         burnerBlockReady &&
+        _disciplineReady &&
         (tag.isEmpty ||
             (hierarchyReference!.scope ==
                     AssetHierarchyReferenceScope.installedComponent &&
@@ -420,7 +425,7 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
       isAutoResolved: _isAutoResolved,
       createdAt: widget.performedAt ?? DateTime.now(),
       performedBy: widget.performedBy,
-      burnerPosition: _isBurnerBlockReplacement ? _burnerPosition : null,
+      burnerPosition: _usesNumberedBurnerPosition ? _burnerPosition : null,
       burnerBlockSupplyMode:
           _isBurnerBlockReplacement ? _burnerBlockSupplyMode : null,
       burnerBlockSupplierName:
@@ -622,6 +627,49 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                   },
                 ),
               ],
+              if (_isUvDetectorReplacement) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.instrument.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: BafColors.instrument.withValues(alpha: 0.24),
+                    ),
+                    borderRadius: BorderRadius.circular(BafRadius.small),
+                  ),
+                  child: const Text(
+                    'A completed UV-detector replacement is I&A work. It creates lifecycle evidence and returns the selected burner UV to In service when the parent work closes; a later condition audit remains authoritative.',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  initialValue: _burnerPosition,
+                  isExpanded: true,
+                  decoration: _inputDecoration(
+                    'Burner position',
+                    icon: Icons.sensors_rounded,
+                  ),
+                  hint: const Text('Select burner 1-8'),
+                  items: <DropdownMenuItem<int>>[
+                    for (var position = 1; position <= 8; position++)
+                      DropdownMenuItem<int>(
+                        value: position,
+                        child: Text('Burner $position'),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _burnerPosition = value);
+                  },
+                ),
+              ],
               if (_isBurnerBlockReplacement) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -760,6 +808,29 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                   governed: hierarchyReference != null,
                 ),
               ],
+              if (_disciplineMismatchMessage case final message?) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.danger.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: BafColors.danger.withValues(alpha: 0.24),
+                    ),
+                    borderRadius: BorderRadius.circular(BafRadius.small),
+                  ),
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: BafColors.danger,
+                      fontSize: 12,
+                      height: 1.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -888,6 +959,44 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
   bool get _isPurchasedBurnerBlock =>
       _isBurnerBlockReplacement &&
       _burnerBlockSupplyMode == BurnerBlockSupplyMode.purchased;
+
+  bool get _usesNumberedBurnerPosition =>
+      _isBurnerBlockReplacement || _isUvDetectorReplacement;
+
+  bool get _disciplineReady => _disciplineMismatchMessage == null;
+
+  String? get _disciplineMismatchMessage {
+    final discipline = widget.workDiscipline?.trim().toLowerCase();
+    if (discipline == null || discipline.isEmpty) return null;
+    if (_isUvDetectorReplacement && discipline != 'instrumentation') {
+      return 'Record UV-detector installation in an I&A module so its lifecycle evidence can be accepted at closure.';
+    }
+    if (_isBurnerBlockReplacement && discipline != 'mechanical') {
+      return 'Record burner-block installation in a Mechanical module so its lifecycle evidence can be accepted at closure.';
+    }
+    return null;
+  }
+
+  bool get _isUvDetectorReplacement {
+    if (_actionType != ActionType.replacement ||
+        widget.target.assetTypeKey != 'furnace') {
+      return false;
+    }
+    final reference = hierarchyReference;
+    if (reference == null) return false;
+    final identity =
+        <String>[
+          reference.nodeName,
+          ...reference.hierarchyPath,
+        ].join(' ').toLowerCase();
+    return (identity.contains('uv') &&
+            const <String>[
+              'detector',
+              'sensor',
+              'scanner',
+            ].any(identity.contains)) ||
+        identity.contains('flame detector');
+  }
 }
 
 class _ResolvedTagPanel extends StatelessWidget {

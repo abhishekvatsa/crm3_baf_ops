@@ -263,16 +263,11 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
     invalid("expectedVersion", "must be a non-negative integer");
   }
   const reason = requiredString(raw.reason, "reason", 1000);
-  if (reason.length < 8) invalid("reason", "must contain at least 8 characters");
   const hasDraft = operation === "CREATE_OPERATIONAL_EVENT" ||
     operation === "UPDATE_OPERATIONAL_EVENT";
   const eventDraft = hasDraft ? parseDraft(raw.eventDraft) : null;
   const resolutionNote = operation === "RESOLVE_OPERATIONAL_EVENT" ?
     requiredString(raw.resolutionNote, "resolutionNote", 1000) : null;
-  if (operation === "RESOLVE_OPERATIONAL_EVENT" &&
-      resolutionNote!.length < 8) {
-    invalid("resolutionNote", "must contain at least 8 characters");
-  }
   if (!hasDraft && raw.eventDraft != null) {
     invalid("eventDraft", "is not allowed for this operation");
   }
@@ -442,7 +437,7 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
         typeof resolvedByUid !== "string" || resolvedByUid.length === 0 ||
         resolvedByUid.length > 128 || typeof resolvedByName !== "string" ||
         resolvedByName.length === 0 || resolvedByName.length > 200 ||
-        typeof resolutionNote !== "string" || resolutionNote.length < 8 ||
+        typeof resolutionNote !== "string" || resolutionNote.trim().length === 0 ||
         resolutionNote.length > 1000 ||
         resolvedAt.getTime() < startedAt.getTime() ||
         (previousResolvedAt != null &&
@@ -540,7 +535,8 @@ export function validateCurrentEvent(
   const resolutionComplete = resolvedAt != null &&
     typeof data.resolvedByUid === "string" && data.resolvedByUid.length > 0 &&
     typeof data.resolvedByName === "string" && data.resolvedByName.length > 0 &&
-    typeof data.resolutionNote === "string" && data.resolutionNote.length >= 8;
+    typeof data.resolutionNote === "string" &&
+    data.resolutionNote.trim().length > 0;
   const scopeValid = scopeProjectionIsValid(data.scope, classIds, assetIds);
   const statusValid = data.status === "open" ? resolutionAbsent :
     data.status === "resolved" && resolutionComplete;

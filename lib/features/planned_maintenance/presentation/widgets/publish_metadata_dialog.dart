@@ -398,7 +398,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         _error = <String>[
           ...validation.errors,
           if (reason.length < kPublishReasonMinLength)
-            'Publish reason must be at least $kPublishReasonMinLength characters.',
+            'Publish reason is required.',
         ].join('\n');
       });
       return;

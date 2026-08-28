@@ -177,7 +177,7 @@ class _PromotionReasonDialog extends StatefulWidget {
 }
 
 class _PromotionReasonDialogState extends State<_PromotionReasonDialog> {
-  static const int _minReasonLength = 15;
+  static const int _minReasonLength = 1;
   late final TextEditingController _reasonController;
 
   @override
@@ -237,11 +237,9 @@ class _PromotionReasonDialogState extends State<_PromotionReasonDialog> {
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
                   labelText: 'Promotion reason',
-                  helperText: 'Minimum $_minReasonLength characters.',
+                  helperText: 'Required for the audit trail.',
                   errorText:
-                      reason.isEmpty || canPromote
-                          ? null
-                          : 'Enter at least $_minReasonLength characters.',
+                      reason.isEmpty || canPromote ? null : 'Enter a reason.',
                   border: const OutlineInputBorder(),
                 ),
               ),

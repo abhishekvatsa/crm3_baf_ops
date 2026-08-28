@@ -463,13 +463,6 @@ export function parseChargeAbnormalityMutationRequest(
     "expectedVersion",
   );
   const reason = cleanRequiredString(raw.reason, "reason", 500);
-  if (reason.length < 8) {
-    return invalidField(
-      "reason",
-      "reason must contain at least 8 characters.",
-      "abnormality-reason-too-short",
-    );
-  }
   const update = operation === "UPDATE" ? parseUpdate(raw) : null;
   const canonicalPayload = {
     requestId,

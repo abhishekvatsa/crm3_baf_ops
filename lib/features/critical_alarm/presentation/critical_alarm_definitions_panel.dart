@@ -281,7 +281,7 @@ class _DefinitionEditorState extends State<_DefinitionEditor> {
                 ),
                 validator: (value) {
                   final length = value?.trim().length ?? 0;
-                  if (length < 2) return 'Enter the alarm reason';
+                  if (length == 0) return 'Enter the alarm reason';
                   return length > 120
                       ? 'Keep this within 120 characters'
                       : null;
@@ -323,7 +323,7 @@ class _DefinitionEditorState extends State<_DefinitionEditor> {
                 ),
                 validator: (value) {
                   final length = value?.trim().length ?? 0;
-                  if (length < 5) return 'Enter an audit reason';
+                  if (length == 0) return 'Enter an audit reason';
                   return length > 500
                       ? 'Keep this within 500 characters'
                       : null;
@@ -400,7 +400,7 @@ class _DefinitionStatusDialogState extends State<_DefinitionStatusDialog> {
         ),
         validator:
             (value) =>
-                (value?.trim().length ?? 0) < 5
+                (value?.trim().isEmpty ?? true)
                     ? 'Enter an audit reason'
                     : null,
       ),

@@ -130,7 +130,7 @@ const ALLOWED_REQUEST_FIELDS = new Set([
   "reason",
 ]);
 const MAX_REASON_LENGTH = 500;
-const MIN_REASON_LENGTH = 8;
+const MIN_REASON_LENGTH = 1;
 
 export class UserAuthorityMutationError extends Error {
   readonly code: UserAuthorityMutationHttpsErrorCode;
@@ -284,7 +284,7 @@ export function parseUserAuthorityMutationRequest(
   if (reason.length < MIN_REASON_LENGTH) {
     throw new UserAuthorityMutationError(
       "invalid-argument",
-      `reason must contain at least ${MIN_REASON_LENGTH} characters.`,
+      "reason is required.",
       {reasonCode: "authority-reason-too-short"},
     );
   }

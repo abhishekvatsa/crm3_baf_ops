@@ -30,6 +30,10 @@ import {
   applyBurnerBlockLifecycleWritePlan,
   prepareBurnerBlockLifecycleWritePlan,
 } from "./burnerBlockLifecycle";
+import {
+  applyUvDetectorLifecycleWritePlan,
+  prepareUvDetectorLifecycleWritePlan,
+} from "./uvDetectorLifecycle";
 
 const ROUTES = new Set([
   "operations", "electrical", "mechanical", "instrumentation",
@@ -571,7 +575,7 @@ const parseFrequentIssueSelectionShape = (value: unknown): JsonMap => {
         "An unlisted issue cannot claim a governed definition.",
       );
     }
-    boundedText(selection.unlistedReason, "unlistedReason", 5, 500);
+    boundedText(selection.unlistedReason, "unlistedReason", 1, 500);
   }
   return selection;
 };
@@ -1851,7 +1855,7 @@ export const createMaintenanceTicket = async ({
   const otherDepartment = optionalBoundedText(
     input.otherDepartment,
     "otherDepartment",
-    2,
+    1,
     80,
   );
   if ((lanePlan.assigned.includes("others")) !== (otherDepartment != null)) {
@@ -1861,12 +1865,12 @@ export const createMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-route-department-invalid"},
     );
   }
-  const component = boundedText(input.component, "component", 2, 120);
+  const component = boundedText(input.component, "component", 1, 120);
   const subsystem = optionalText(input.subsystem, "subsystem", 200);
   const tag = optionalText(input.tag, "tag", 160)?.toUpperCase() ?? null;
   optionalStringList(input.hierarchyPath, "hierarchyPath", 20, 200);
   const classification = optionalText(input.classification, "classification", 120);
-  const description = boundedText(input.description, "description", 5, 2000);
+  const description = boundedText(input.description, "description", 1, 2000);
   const isCritical = requiredBoolean(input.isCritical, "isCritical");
   const startDate = parseIsoInstant(input.startDate, "startDate", context.serverNow);
   const chargeNoAtEvent = input.chargeNoAtEvent == null ? null :
@@ -1902,7 +1906,7 @@ export const createMaintenanceTicket = async ({
       512,
     ) : null;
   if (suspected ?
-    (qualityWarningReason == null || qualityWarningReason.length < 8 ||
+    (qualityWarningReason == null ||
       chargeNoAtEvent == null) : qualityWarningReason != null) {
     throw new WorkflowError(
       "invalid-argument",
@@ -2697,6 +2701,19 @@ export const resolveMaintenanceTicket = async ({
     completedBy: context.actor,
     executionLevelMechanicalEvidence: plan.assigned.includes("mechanical"),
   });
+  const uvDetectorLifecyclePlan = await prepareUvDetectorLifecycleWritePlan({
+    tx,
+    sourceType: "maintenanceIssue",
+    sourceId: command.aggregateId,
+    sourceAssetReferenceJson: ticket.assetHierarchyRefJson,
+    assetType: ticket.assetType,
+    assetNumber: ticket.assetNumber,
+    actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
+    completedAt: endDate.toISOString(),
+    completedBy: context.actor,
+    executionLevelInstrumentationEvidence:
+      plan.assigned.includes("instrumentation"),
+  });
 
   const nextPlan = {
     ...plan,
@@ -2747,6 +2764,7 @@ export const resolveMaintenanceTicket = async ({
   });
   tx.update(maintenancePath(command.aggregateId), update);
   applyBurnerBlockLifecycleWritePlan(tx, burnerBlockLifecyclePlan);
+  applyUvDetectorLifecycleWritePlan(tx, uvDetectorLifecyclePlan);
   if (burner != null) {
     tx.set(`maintenance_burner_closures/${command.aggregateId}`, {
       firestoreId: command.aggregateId,
@@ -2782,7 +2800,7 @@ export const closeMaintenanceTicketWithoutResolution = async ({
       {reasonCode: "maintenance-ticket-administrative-closure-disposition-invalid"},
     );
   }
-  const reason = boundedText(command.payload.reason, "reason", 12, 2000);
+  const reason = boundedText(command.payload.reason, "reason", 1, 2000);
   const {ticket, version} = await requireTicket(tx, command, {
     allowDeferred: true,
   });
@@ -3132,12 +3150,12 @@ export const reconfigureMaintenanceTicketLanes = async ({
   context,
 }: HandlerArgs): Promise<HandlerResult> => {
   exactKeys(command.payload, ["lanes", "otherDepartment", "reason"], "payload");
-  const reason = boundedText(command.payload.reason, "reason", 12, 2000);
+  const reason = boundedText(command.payload.reason, "reason", 1, 2000);
   const lanes = requestedTicketLanes(command.payload.lanes);
   const otherDepartment = optionalBoundedText(
     command.payload.otherDepartment,
     "otherDepartment",
-    2,
+    1,
     80,
   );
   if (lanes.includes("others") !== (otherDepartment != null)) {
@@ -3251,7 +3269,7 @@ const normalizeCorrections = (
     const value = raw[key];
     switch (key) {
     case "description":
-      corrections[key] = boundedText(value, key, 5, 2000);
+      corrections[key] = boundedText(value, key, 1, 2000);
       break;
     case "routedTo": {
       const route = cleanText(value, key);
@@ -3279,7 +3297,7 @@ const normalizeCorrections = (
       corrections[key] = value;
       break;
     case "component":
-      corrections[key] = boundedText(value, key, 2, 120);
+      corrections[key] = boundedText(value, key, 1, 120);
       break;
     case "tag": {
       const text = optionalText(value, key, 80);
@@ -3287,7 +3305,7 @@ const normalizeCorrections = (
       break;
     }
     case "otherDepartment":
-      corrections[key] = optionalBoundedText(value, key, 2, 80);
+      corrections[key] = optionalBoundedText(value, key, 1, 80);
       break;
     case "remarks":
       corrections[key] = optionalText(value, key, 4000);
@@ -3305,7 +3323,7 @@ export const correctMaintenanceTicket = async ({
   context,
 }: HandlerArgs): Promise<HandlerResult> => {
   exactKeys(command.payload, ["corrections", "reason"], "payload");
-  const reason = boundedText(command.payload.reason, "reason", 12, 2000);
+  const reason = boundedText(command.payload.reason, "reason", 1, 2000);
   const corrections = normalizeCorrections(
     record(command.payload.corrections, "corrections"),
   );
@@ -3433,7 +3451,7 @@ export const correctMaintenanceTicket = async ({
     "otherDepartment",
   ) ? changed.otherDepartment : ticket.otherDepartment ?? null;
   const validOtherDepartment = typeof effectiveOtherDepartment === "string" &&
-    effectiveOtherDepartment.trim().length >= 2 &&
+    effectiveOtherDepartment.trim().length >= 1 &&
     effectiveOtherDepartment.length <= 80;
   if ((effectiveLanes.includes("others") ?
         !validOtherDepartment : effectiveOtherDepartment != null)) {
@@ -3615,7 +3633,7 @@ export const verifyMaintenanceTicketAudit = async (args: {
     const reason = boundedText(
       args.command.payload.reason,
       "reason",
-      12,
+      1,
       2000,
     );
     const cancelledCoordination = args.receipt.result.cancelledCoordination;

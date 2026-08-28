@@ -196,8 +196,8 @@ class KnowledgeGovernanceExport {
         messages.add('taskText missing');
       }
       final reason = (raw['changeSummary'] ?? '').toString().trim();
-      if (reason.length < 15) {
-        messages.add('changeSummary missing or shorter than 15 characters');
+      if (reason.isEmpty) {
+        messages.add('changeSummary missing');
       }
       if (messages.isNotEmpty) {
         rejected.add(

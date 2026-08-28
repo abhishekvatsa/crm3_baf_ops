@@ -757,7 +757,7 @@ class _TicketClassificationDialogState
               (item) => item.id == _definitionId,
             );
             final reason = _reason.text.trim();
-            if (reason.length < 5) return;
+            if (reason.isEmpty) return;
             Navigator.pop(
               context,
               _TicketClassificationDraft(

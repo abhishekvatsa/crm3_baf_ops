@@ -676,6 +676,18 @@
       "reArmCondition": "any burner-block lifecycle event or current-projection timestamp schema change"
     },
     {
+      "id": "uv-detector-lifecycle-record",
+      "readerFile": "lib/features/assets/data/uv_detector_lifecycle_event.dart",
+      "readerMarker": "factory UvDetectorLifecycleEvent.fromMap",
+      "requiredFields": ["actionPerformedAt", "completedAt", "recordedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "restore the immutable UV-detector intervention, closure, and recording chronology used by lifecycle history and the current-state projection",
+      "authorityBoundary": "remote-uv-detector-lifecycle-record",
+      "regression": "test/planned_maintenance_burner_block_lifecycle_test.dart; functions/test/uvDetectorLifecycle.test.js",
+      "reArmCondition": "any UV-detector lifecycle event or current-projection timestamp schema change"
+    },
+    {
       "id": "burner-condition-round-command-response",
       "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
       "readerMarker": "factory BurnerConditionRoundResult.fromMap",

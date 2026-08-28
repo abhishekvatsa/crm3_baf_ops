@@ -186,10 +186,10 @@ export const purgePilotBusinessRecord: CommandHandler = async (args) => {
     );
   }
   const reason = cleanText(command.payload.reason, "reason");
-  if (reason.length < 12 || reason.length > 1000) {
+  if (reason.length > 1000) {
     throw new WorkflowError(
       "invalid-argument",
-      "A clear purge reason of 12 to 1000 characters is required.",
+      "The purge reason cannot exceed 1000 characters.",
     );
   }
   const expectedConfirmation = `DELETE ${sourceDocumentId}`;
@@ -321,7 +321,7 @@ export async function isAuthorizedPilotRecordPurge(args: {
     typeof data.commandId === "string" && data.commandId.trim().length > 0 &&
     typeof data.purgedByUid === "string" && data.purgedByUid.trim().length > 0 &&
     typeof data.purgedByName === "string" && data.purgedByName.trim().length > 0 &&
-    typeof data.reason === "string" && data.reason.trim().length >= 12 &&
+    typeof data.reason === "string" && data.reason.trim().length > 0 &&
     timestampIsPresent(data.purgedAt);
 }
 

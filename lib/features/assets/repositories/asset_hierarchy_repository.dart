@@ -1567,9 +1567,9 @@ class AssetHierarchyRepository {
 
   String _validateReason(String reason) {
     final cleaned = reason.trim();
-    if (cleaned.length < 8 || cleaned.length > 500) {
+    if (cleaned.isEmpty || cleaned.length > 500) {
       throw const AssetHierarchyException(
-        'Enter a change reason between 8 and 500 characters.',
+        'Enter a change reason of no more than 500 characters.',
       );
     }
     return cleaned;
@@ -1577,9 +1577,9 @@ class AssetHierarchyRepository {
 
   String _validateConditionReason(String reason) {
     final cleaned = reason.trim();
-    if (cleaned.length < 8 || cleaned.length > 1000) {
+    if (cleaned.isEmpty || cleaned.length > 1000) {
       throw const AssetHierarchyException(
-        'Enter an operational reason between 8 and 1,000 characters.',
+        'Enter an operational reason of no more than 1,000 characters.',
       );
     }
     return cleaned;

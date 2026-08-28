@@ -204,10 +204,8 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
             _raCharges.text,
             maximum: _hasLinkedAbnormality ? 1 : 20,
           );
-          if (reason.length < 8) {
-            setState(
-              () => _error = 'Decision evidence needs at least 8 characters.',
-            );
+          if (reason.isEmpty) {
+            setState(() => _error = 'Decision evidence is required.');
             return;
           }
           if (charges == null) {

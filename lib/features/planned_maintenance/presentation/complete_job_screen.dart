@@ -497,6 +497,9 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       if (result.burnerBlockSupplyMode != null) {
         _teamsInvolved.add('mechanical');
       }
+      if (result.isGovernedUvDetectorReplacement) {
+        _teamsInvolved.add('instrumentation');
+      }
     });
   }
 

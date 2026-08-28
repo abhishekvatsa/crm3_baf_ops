@@ -97,7 +97,7 @@ void main() {
           'frequency': 'sometimes',
           'discipline': 'unknown-discipline',
           'requiredForClosure': 'maybe',
-          'changeSummary': 'too short',
+          'changeSummary': ' ',
           'isDeleted': 'false',
         };
 
@@ -192,7 +192,7 @@ void main() {
         <String, dynamic>{..._validMeta(), 'knowledgeRowCount': '4'},
         <String, dynamic>{..._validMeta(), 'tagRowCount': 5},
         <String, dynamic>{..._validMeta(), 'schemaVersion': 2},
-        <String, dynamic>{..._validMeta(), 'changeSummary': 'short'},
+        <String, dynamic>{..._validMeta(), 'changeSummary': ' '},
       ];
       for (final malformed in cases) {
         expect(

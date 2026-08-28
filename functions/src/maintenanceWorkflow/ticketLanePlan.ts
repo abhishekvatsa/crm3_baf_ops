@@ -159,7 +159,7 @@ export const ticketLanePlan = (
   const otherDepartment = typeof ticket.otherDepartment === "string" ?
     ticket.otherDepartment.trim() : null;
   const hasValidOtherDepartment = otherDepartment != null &&
-    otherDepartment.length >= 2 && otherDepartment.length <= 80;
+    otherDepartment.trim().length >= 1 && otherDepartment.length <= 80;
   const otherDepartmentMatches = plan.assigned.includes("others") ?
     hasValidOtherDepartment : ticket.otherDepartment == null;
   if (plan.assigned[0] !== route ||
