@@ -18,18 +18,19 @@ The governed manifest `governance/a04-persisted-schema-v1.json` classifies 53
 fields: 47 JSON strings and six nested dynamic values. Three are registered
 extension bags. The current extension registry contains zero fields, so an
 unknown key cannot silently acquire authority or business meaning. The
-inventory now inherits all 75 strict A-05 decoder surfaces, including the
+inventory now inherits all 76 strict A-05 decoder surfaces, including the
 business-function tranche added on 21 August 2026 and the strict issue-lane
 topology plus strict asset-hierarchy and workflow command receipts added on
 23 August 2026, and the administrative issue-closure envelope added on 24
-August 2026, plus the strict server-maintained burner current-round pointer
-added on 28 August 2026. The strict remote business mirror and account-owned local
-recovery catches and the exact-device reset journal, including its SHA-256-bound
-original and supplemental backup evidence, are separately classified without
-adding a persisted dynamic field. Text-file authority is
+August 2026, plus the strict server-maintained burner current-round pointer and
+UV-detector lifecycle records added on 28 August 2026. The strict remote
+business mirror and account-owned local recovery catches and the exact-device
+reset journal, including its SHA-256-bound original and supplemental backup
+evidence, are separately classified without adding a persisted dynamic field.
+Text-file authority is
 canonicalized to LF before hashing so the same tracked content has one digest
 on Windows and Linux. Its current stable digest is
-`B16D0DD047E50C8B09199CE0EB628A86994A54A6A5BE52D83BEFB84816C573F7`.
+`A0727B47C22542EE2626EBCC2B6AA1D1424941CA07F3AE4BC3A0D68ED9F4D612`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing

@@ -302,10 +302,8 @@ void main() {
           registry,
           'class _RegistryReasonDialog extends StatefulWidget',
         );
-        _expectContains(
-          registry,
-          'final canSubmit = value.length >= widget.minLength;',
-        );
+        _expectContains(registry, 'final canSubmit = value.isNotEmpty;');
+        _expectNotContains(registry, 'widget.minLength');
 
         _expectNotContains(governance, 'DefaultTabController');
         _expectContains(governance, 'late final TabController _tab;');

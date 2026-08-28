@@ -104,21 +104,20 @@ void main() {
   });
 
   test('67B.3 reason dialog validates inline before confirming', () {
+    expect(source, contains('final canSubmit = value.isNotEmpty;'));
+    expect(source, contains("helperText: 'Required for the audit record.'"));
     expect(
       source,
-      contains('final canSubmit = value.length >= widget.minLength;'),
+      contains("errorText: value.isEmpty ? 'Enter a reason.' : null"),
     );
-    expect(
-      source,
-      contains('helperText: \'Minimum \${widget.minLength} characters.\''),
-    );
-    expect(source, contains('Enter at least \${widget.minLength} characters.'));
     expect(
       compact,
       contains(
         'onPressed: canSubmit ? () => Navigator.pop(context, value) : null',
       ),
     );
+    expect(source, isNot(contains('minLength')));
+    expect(source, isNot(contains('Minimum')));
     expect(source, isNot(contains('Reason must be at least')));
   });
 

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "B16D0DD047E50C8B09199CE0EB628A86994A54A6A5BE52D83BEFB84816C573F7",
+  "inventoryDigest": "A0727B47C22542EE2626EBCC2B6AA1D1424941CA07F3AE4BC3A0D68ED9F4D612",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "E09C98105FE934A91D9B03E8BCD5CE7E699BDE50204DF17A7DEDCF60C4CFF937",
+  "a05ManifestSha256": "64DF1EF064B8BC98E4580E087CA59388A308658E2AFECD0D1DE1DB9C1C831B83",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1380,6 +1380,15 @@
       "malformedDisposition": "quarantine local record and report sync failure",
       "compatibility": "none",
       "regression": "test/a05_template_governance_integrity_test.dart"
+    },
+    {
+      "id": "uv-detector-lifecycle-record",
+      "file": "lib/features/assets/data/uv_detector_lifecycle_event.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "append-only Furnace UV-detector replacement evidence and its server-maintained per-position current-state projection",
+      "malformedDisposition": "fail closed before malformed lifecycle or current-projection evidence changes UV condition reporting",
+      "compatibility": "schema version 1 only; exact Furnace and burner identity, governed hierarchy, I&A installation, source provenance, chronology, and projection binding",
+      "regression": "test/planned_maintenance_burner_block_lifecycle_test.dart; functions/test/uvDetectorLifecycle.test.js"
     },
     {
       "id": "workflow-command-receipt",

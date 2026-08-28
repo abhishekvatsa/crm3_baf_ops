@@ -228,7 +228,6 @@ class _ModuleRegistryAuthoringScreenState
       title: 'Create registry draft',
       label: 'Reason / authoring note',
       initialValue: 'Create governed registry draft from ${module.moduleCode}.',
-      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -257,7 +256,6 @@ class _ModuleRegistryAuthoringScreenState
       title: 'Update registry draft',
       label: 'Reason / change note',
       initialValue: 'Update registry draft from ${module.moduleCode}.',
-      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -281,7 +279,6 @@ class _ModuleRegistryAuthoringScreenState
       label: 'Publish reason',
       initialValue:
           'Approve ${module.moduleCode} as governed registry revision.',
-      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -305,7 +302,6 @@ class _ModuleRegistryAuthoringScreenState
       label: 'Retire reason',
       initialValue:
           'Retire registry revision ${source.revision.revisionNumber} for ${module.moduleCode}.',
-      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -327,7 +323,6 @@ class _ModuleRegistryAuthoringScreenState
       title: 'Retire registry family',
       label: 'Retire reason',
       initialValue: 'Retire registry family ${family.moduleCode}.',
-      minLength: 1,
     );
     if (!mounted || reason == null) {
       return;
@@ -348,7 +343,6 @@ class _ModuleRegistryAuthoringScreenState
     required String title,
     required String label,
     required String initialValue,
-    required int minLength,
   }) {
     return showDialog<String>(
       context: context,
@@ -357,7 +351,6 @@ class _ModuleRegistryAuthoringScreenState
             title: title,
             label: label,
             initialValue: initialValue,
-            minLength: minLength,
           ),
     );
   }
@@ -543,13 +536,11 @@ class _RegistryReasonDialog extends StatefulWidget {
   final String title;
   final String label;
   final String initialValue;
-  final int minLength;
 
   const _RegistryReasonDialog({
     required this.title,
     required this.label,
     required this.initialValue,
-    required this.minLength,
   });
 
   @override
@@ -582,7 +573,7 @@ class _RegistryReasonDialogState extends State<_RegistryReasonDialog> {
   @override
   Widget build(BuildContext context) {
     final value = _controller.text.trim();
-    final canSubmit = value.length >= widget.minLength;
+    final canSubmit = value.isNotEmpty;
 
     return AlertDialog(
       title: Text(widget.title),
@@ -597,7 +588,7 @@ class _RegistryReasonDialogState extends State<_RegistryReasonDialog> {
             decoration: InputDecoration(
               labelText: widget.label,
               helperText: 'Required for the audit record.',
-              errorText: value.isEmpty || canSubmit ? null : 'Enter a reason.',
+              errorText: value.isEmpty ? 'Enter a reason.' : null,
               border: const OutlineInputBorder(),
             ),
           ),
