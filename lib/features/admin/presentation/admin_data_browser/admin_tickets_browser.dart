@@ -471,10 +471,23 @@ class _TicketCard extends ConsumerStatefulWidget {
 }
 
 class _TicketCardState extends ConsumerState<_TicketCard> {
+  bool _descriptionExpanded = false;
+
+  @override
+  void didUpdateWidget(covariant _TicketCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ticket.firestoreId != widget.ticket.firestoreId ||
+        oldWidget.ticket.id != widget.ticket.id ||
+        oldWidget.ticket.description != widget.ticket.description) {
+      _descriptionExpanded = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ticket = widget.ticket;
     final statusColor = _adminTicketStatusColor(ticket.status);
+    final canExpandDescription = ticket.description.trim().length > 120;
     final evidenceIsValid =
         ticket.actionsReadResult.isValid &&
         ticket.resolutionHistoryReadResult.isValid;
@@ -495,6 +508,35 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
     final actionButtons = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (!evidenceIsValid)
+          const Tooltip(
+            message: 'Saved ticket evidence is malformed',
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Icon(
+                Icons.warning_amber_rounded,
+                color: BafColors.danger,
+                size: 20,
+              ),
+            ),
+          ),
+        if (canExpandDescription)
+          IconButton(
+            key: const ValueKey('admin-ticket-description-toggle'),
+            tooltip:
+                _descriptionExpanded
+                    ? 'Collapse full description'
+                    : 'View full description',
+            icon: Icon(
+              _descriptionExpanded
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
+            ),
+            onPressed:
+                () => setState(
+                  () => _descriptionExpanded = !_descriptionExpanded,
+                ),
+          ),
         IconButton(
           tooltip:
               evidenceIsValid
@@ -583,8 +625,11 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                   Text(
                     ticket.description,
                     key: const ValueKey('admin-ticket-description-preview'),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: _descriptionExpanded ? null : 2,
+                    overflow:
+                        _descriptionExpanded
+                            ? TextOverflow.visible
+                            : TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: BafColors.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -601,17 +646,6 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                       fontSize: 12,
                     ),
                   ),
-                  if (!evidenceIsValid) ...[
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Saved evidence needs repair before correction',
-                      style: TextStyle(
-                        color: BafColors.danger,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
                   Align(alignment: Alignment.centerRight, child: actionButtons),
                 ],
               ),
@@ -620,8 +654,11 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
           return ListTile(
             title: Text(
               '$assetLabel – ${ticket.description}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              maxLines: _descriptionExpanded ? null : 2,
+              overflow:
+                  _descriptionExpanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
               style: const TextStyle(
                 color: BafColors.textPrimary,
                 fontWeight: FontWeight.w700,

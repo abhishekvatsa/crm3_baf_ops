@@ -102,6 +102,27 @@ void main() {
     final previewText = tester.widget<Text>(preview);
     expect(previewText.maxLines, 2);
     expect(previewText.overflow, TextOverflow.ellipsis);
+    expect(
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.edit))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      find.byTooltip('Repair saved evidence before correction'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('admin-ticket-description-toggle')),
+    );
+    await tester.pumpAndSettle();
+
+    final expandedText = tester.widget<Text>(preview);
+    expect(expandedText.maxLines, isNull);
+    expect(expandedText.overflow, TextOverflow.visible);
+    expect(expandedText.data, ticket.description);
+    expect(find.byTooltip('Collapse full description'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
@@ -169,6 +190,7 @@ MaintenanceRecord _longTicket(DateTime now) =>
       ..startDate = now
       ..createdAt = now
       ..updatedAt = now
+      ..actionsJson = '{not-json'
       ..isSynced = true;
 
 AppUser _admin(DateTime now) => AppUser(
