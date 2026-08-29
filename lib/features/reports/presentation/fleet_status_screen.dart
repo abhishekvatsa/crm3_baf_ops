@@ -9,11 +9,16 @@ import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
+import '../../assets/data/burner_condition_round.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/providers/burner_condition_round_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../assets/presentation/asset_condition_board.dart';
 import '../../abnormalities/presentation/abnormalities_home_screen.dart';
+import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../critical_alarm/providers/critical_alarm_providers.dart';
+import '../../critical_alarm/presentation/critical_alarm_screen.dart';
 import '../../directives/presentation/directives_screen.dart';
 import '../../directives/providers/operational_directive_provider.dart';
 import '../../inspections/data/inspection_campaign.dart';
@@ -31,12 +36,16 @@ import '../../planned_maintenance/presentation/maintenance_intelligence_screen.d
 import '../../planned_maintenance/presentation/templates_screen.dart';
 import '../../quality/presentation/quality_home_screen.dart';
 import '../../quality/providers/quality_provider.dart';
+import '../domain/operations_report_document.dart';
 import '../models/operations_report.dart';
 import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';
+import 'operations_report_pdf_screen.dart';
+import 'report_provenance_builder.dart';
 
 part 'fleet_status_insight_widgets.dart';
 part 'fleet_status_control_widgets.dart';
+part 'fleet_status_pdf_actions.dart';
 
 class FleetStatusScreen extends ConsumerStatefulWidget {
   const FleetStatusScreen({super.key});
@@ -131,6 +140,20 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     );
     final reportScope = (actorUid: actor.uid, filter: filter);
     final reportAsync = ref.watch(operationsReportProvider(reportScope));
+    final readyReport = reportAsync.asData?.value;
+    final createPdfReport =
+        readyReport == null
+            ? null
+            : () => _createPdfReport(
+              report: readyReport,
+              actorUid: actor.uid,
+              actorName: actor.name,
+              actorEmail: actor.email,
+              initialPreset: _recommendedReportPreset(actor),
+              classes: classes,
+              assets: assets,
+              selection: selection,
+            );
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -142,6 +165,11 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
           accent: BafColors.planned,
         ),
         actions: [
+          IconButton(
+            onPressed: createPdfReport,
+            tooltip: 'Create PDF report',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+          ),
           IconButton(
             onPressed:
                 () => Navigator.of(context).push(
@@ -173,6 +201,8 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                 children: [
+                  ReportLibraryBand(onOpen: createPdfReport),
+                  const SizedBox(height: BafSpacing.md),
                   _ReportFilters(
                     classes: classes,
                     assets: assets,
@@ -249,6 +279,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     const SizedBox(height: BafSpacing.lg),
     OperationsDecisionBrief(
       report: report,
+      onSafetyCriticalAlarms: () => _open(const CriticalAlarmScreen()),
       onPlantCondition: () => _open(const AssetConditionBoard()),
       onIssues: () => _open(const TicketScreen()),
       onOperationalEvents: () => _open(const OperationalEventsScreen()),
@@ -442,62 +473,6 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       _DisruptionSection(occurrences: report.eventOccurrences),
     ],
   ];
-
-  List<Widget> _assuranceSections(OperationsReport report) => [
-    const _SectionTitle(
-      title: 'Maintenance assurance',
-      subtitle: 'Cadence, inspection follow-through and verification',
-    ),
-    const SizedBox(height: BafSpacing.sm),
-    _MetricGrid(
-      metrics: [
-        _MetricData(
-          'Overdue cadence',
-          report.overdueMaintenanceCount,
-          Icons.event_busy_outlined,
-          BafColors.danger,
-        ),
-        _MetricData(
-          'Due in 7 days',
-          report.dueSoonMaintenanceCount,
-          Icons.upcoming_outlined,
-          BafColors.warning,
-        ),
-        _MetricData(
-          'Active findings',
-          report.activeInspectionFindingCount,
-          Icons.fact_check_outlined,
-          BafColors.maintenance,
-        ),
-        _MetricData(
-          'Awaiting verification',
-          report.awaitingInspectionVerificationCount,
-          Icons.verified_outlined,
-          BafColors.planned,
-        ),
-        _MetricData(
-          'Quality decisions',
-          report.qualityClosureRequestCount,
-          Icons.gavel_outlined,
-          BafColors.charges,
-        ),
-        _MetricData(
-          'RA follow-through',
-          report.pendingReannealingCount,
-          Icons.replay_circle_filled_outlined,
-          BafColors.instrument,
-        ),
-      ],
-    ),
-    if (report.activeInspectionFindings.isNotEmpty) ...[
-      const SizedBox(height: BafSpacing.xl),
-      _InspectionFindingsSection(findings: report.activeInspectionFindings),
-    ],
-  ];
-
-  void _open(Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
-  }
 }
 
 class _ReportFilters extends StatelessWidget {

@@ -34,6 +34,28 @@ final qualityWarningsProvider = StreamProvider<List<QualityWarning>>((ref) {
   return _combineQualityWarningWindows(nonClosed, recent);
 });
 
+/// Complete quality-warning population for period-bound reports.
+///
+/// The interactive workspace intentionally combines active records with a
+/// bounded recent window. Reports cannot use that window because an older
+/// closed warning may still fall inside a historical reporting period.
+final qualityWarningsForReportsProvider = StreamProvider<List<QualityWarning>>((
+  ref,
+) {
+  return _watchQualityWarningsForReports();
+});
+
+Stream<List<QualityWarning>> _watchQualityWarningsForReports() async* {
+  await for (final snapshot in FirebaseFirestore.instance
+      .collection('quality_warnings')
+      .snapshots(includeMetadataChanges: true)) {
+    if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
+      continue;
+    }
+    yield _decodeQualityWarnings(snapshot);
+  }
+}
+
 List<QualityWarning> _decodeQualityWarnings(
   QuerySnapshot<Map<String, dynamic>> snapshot,
 ) => snapshot.docs
@@ -119,11 +141,20 @@ final qualityMonitoringRequestsProvider =
 /// a closed request overlapping a historical period remains decision-relevant.
 final qualityMonitoringRequestsForReportsProvider =
     StreamProvider<List<QualityMonitoringRequest>>((ref) {
-      return FirebaseFirestore.instance
-          .collection('quality_monitoring_requests')
-          .snapshots()
-          .map(_decodeQualityMonitoringRequests);
+      return _watchQualityMonitoringRequestsForReports();
     });
+
+Stream<List<QualityMonitoringRequest>>
+_watchQualityMonitoringRequestsForReports() async* {
+  await for (final snapshot in FirebaseFirestore.instance
+      .collection('quality_monitoring_requests')
+      .snapshots(includeMetadataChanges: true)) {
+    if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
+      continue;
+    }
+    yield _decodeQualityMonitoringRequests(snapshot);
+  }
+}
 
 List<QualityMonitoringRequest> _decodeQualityMonitoringRequests(
   QuerySnapshot<Map<String, dynamic>> snapshot,

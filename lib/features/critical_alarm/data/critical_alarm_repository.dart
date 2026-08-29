@@ -42,6 +42,28 @@ class CriticalAlarmRepository {
     }
   }
 
+  /// Complete alarm population for explicit period-bound reporting.
+  ///
+  /// The operational alarm feed remains capped for screen performance. A
+  /// report must not silently inherit that cap.
+  Stream<List<CriticalAlarm>> watchAlarmsForReports() async* {
+    await for (final snapshot in firestore
+        .collection('critical_alarms')
+        .snapshots(includeMetadataChanges: true)) {
+      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
+        continue;
+      }
+      final alarms = snapshot.docs
+          .map(
+            (document) =>
+                CriticalAlarm.fromFirestore(document.data(), document.id),
+          )
+          .toList(growable: false)
+        ..sort((left, right) => right.raisedAt.compareTo(left.raisedAt));
+      yield List.unmodifiable(alarms);
+    }
+  }
+
   Stream<List<CriticalAlarmContact>> watchContacts() async* {
     await for (final snapshot in firestore
         .collection('critical_alarm_contacts')

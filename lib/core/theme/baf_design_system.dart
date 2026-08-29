@@ -10,6 +10,9 @@ class BafBrand {
   static const makerName = 'A ManMithas Productions';
   static const makerLabel = 'A MANMITHAS PRODUCTIONS';
   static const markAsset = 'assets/brand/manmithas_mark.png';
+  static const sailMarkAsset = 'assets/brand/sail_mark.png';
+  static const reportFontAsset = 'assets/fonts/Roboto-Regular.ttf';
+  static const reportFontMediumAsset = 'assets/fonts/Roboto-Medium.ttf';
 }
 
 class BafColors {

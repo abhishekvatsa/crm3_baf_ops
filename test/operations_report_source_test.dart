@@ -116,6 +116,11 @@ void main() {
         File(
           'lib/features/reports/providers/operations_report_provider.dart',
         ).readAsStringSync();
+    final lifecycleSource =
+        File(
+          'lib/features/reports/providers/'
+          'operations_report_authority_lifecycle.dart',
+        ).readAsStringSync();
     final mainSource = File('lib/main.dart').readAsStringSync();
     final burnerSource =
         File(
@@ -140,7 +145,7 @@ void main() {
       lessThan(source.indexOf('ref.watch(currentAppUserProvider)')),
     );
     expect(
-      source,
+      lifecycleSource,
       contains(
         'final operationsReportAuthorityLifecycleProvider = Provider<void>',
       ),
@@ -164,14 +169,15 @@ void main() {
     expect(burnerScreenSource, contains('key: ValueKey(actor.uid)'));
     for (final provider in [
       'operationalEventsForReportsProvider',
-      'qualityWarningsProvider',
+      'qualityWarningsForReportsProvider',
       'workflowAllComplianceProvider',
       'assetClassesProvider',
       'burnerConditionRoundsProvider',
       'burnerConditionRoundCacheTrustProvider',
+      'criticalAlarmsForReportsProvider',
       'operationsReportClockProvider',
     ]) {
-      expect(source, contains('ref.invalidate($provider)'));
+      expect(lifecycleSource, contains('ref.invalidate($provider)'));
     }
   });
 }

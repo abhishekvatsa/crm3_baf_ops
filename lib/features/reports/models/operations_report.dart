@@ -1,5 +1,6 @@
 import '../../assets/domain/plant_asset_overview.dart';
 import '../../abnormalities/data/abnormality_model.dart';
+import '../../critical_alarm/domain/critical_alarm_models.dart';
 import '../../directives/data/operational_directive_model.dart';
 import '../../inspections/data/inspection_campaign.dart';
 import '../../maintenance/data/maintenance_model.dart';
@@ -52,6 +53,7 @@ class CountedReportLabel {
 }
 
 enum OperationsManagementSignalType {
+  safetyCriticalAlarms,
   unavailableAssets,
   criticalIssues,
   operationalDisruptions,
@@ -167,12 +169,14 @@ class OperationsReport {
     this.directives = const [],
     this.workflowLanes = const [],
     this.complianceRequests = const [],
+    this.criticalAlarms = const [],
     this.sourceQualityWarningCount = 0,
     this.sourceQualityMonitoringCount = 0,
     this.sourceAbnormalityCount = 0,
     this.sourceDirectiveCount = 0,
     this.sourceWorkflowLaneCount = 0,
     this.sourceComplianceRequestCount = 0,
+    this.sourceCriticalAlarmCount = 0,
   });
 
   final OperationsReportFilter filter;
@@ -206,12 +210,14 @@ class OperationsReport {
   final List<OperationalDirective> directives;
   final List<JobLaneRecord> workflowLanes;
   final List<ComplianceRequestRecord> complianceRequests;
+  final List<CriticalAlarm> criticalAlarms;
   final int sourceQualityWarningCount;
   final int sourceQualityMonitoringCount;
   final int sourceAbnormalityCount;
   final int sourceDirectiveCount;
   final int sourceWorkflowLaneCount;
   final int sourceComplianceRequestCount;
+  final int sourceCriticalAlarmCount;
 
   int get issueCount => tickets.length;
   int get openIssueCount =>
@@ -270,18 +276,24 @@ class OperationsReport {
   Duration get issueImpactDuration {
     var microseconds = 0;
     for (final ticket in tickets) {
-      for (final interval in _issueImpactIntervals(ticket)) {
-        final clippedStart =
-            interval.start.isAfter(filter.startInclusive)
-                ? interval.start
-                : filter.startInclusive;
-        final clippedEnd =
-            interval.end.isBefore(filter.endExclusive)
-                ? interval.end
-                : filter.endExclusive;
-        if (clippedEnd.isAfter(clippedStart)) {
-          microseconds += clippedEnd.difference(clippedStart).inMicroseconds;
-        }
+      microseconds += issueImpactDurationFor(ticket).inMicroseconds;
+    }
+    return Duration(microseconds: microseconds);
+  }
+
+  Duration issueImpactDurationFor(MaintenanceRecord ticket) {
+    var microseconds = 0;
+    for (final interval in _issueImpactIntervals(ticket)) {
+      final clippedStart =
+          interval.start.isAfter(filter.startInclusive)
+              ? interval.start
+              : filter.startInclusive;
+      final clippedEnd =
+          interval.end.isBefore(filter.endExclusive)
+              ? interval.end
+              : filter.endExclusive;
+      if (clippedEnd.isAfter(clippedStart)) {
+        microseconds += clippedEnd.difference(clippedStart).inMicroseconds;
       }
     }
     return Duration(microseconds: microseconds);
@@ -372,6 +384,23 @@ class OperationsReport {
     eventOccurrences.expand((occurrence) => occurrence.interval.linkedIssueIds),
   );
   int get linkedDisruptionIssueCount => linkedDisruptionIssueIds.length;
+
+  int get activeCriticalAlarmCount =>
+      criticalAlarms.where((alarm) => alarm.isActive).length;
+  int get highestActiveCriticalAlarmCount =>
+      criticalAlarms.where((alarm) => alarm.isActive && alarm.isHighest).length;
+  int get awaitingCriticalAlarmSupportCount =>
+      criticalAlarms.where((alarm) => alarm.isRinging).length;
+  int get resolvedCriticalAlarmCount =>
+      criticalAlarms
+          .where((alarm) => alarm.status == CriticalAlarmStatus.resolved)
+          .length;
+  int get withdrawnCriticalAlarmCount =>
+      criticalAlarms
+          .where(
+            (alarm) => alarm.status == CriticalAlarmStatus.withdrawnInError,
+          )
+          .length;
 
   int get openQualityWarningCount =>
       qualityWarnings.where((warning) => warning.isOpen).length;
@@ -477,7 +506,8 @@ class OperationsReport {
       openDisruptionCount +
       activeDirectiveCount +
       workflowObligationCount +
-      openQualityWarningCount;
+      openQualityWarningCount +
+      activeCriticalAlarmCount;
 
   int get assuranceBacklogCount =>
       overdueMaintenanceCount +
@@ -487,6 +517,18 @@ class OperationsReport {
 
   List<OperationsManagementSignal> get managementSignals {
     final signals = <OperationsManagementSignal>[
+      if (activeCriticalAlarmCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.safetyCriticalAlarms,
+          level: OperationsManagementSignalLevel.critical,
+          title:
+              '$activeCriticalAlarmCount safety-critical '
+              '${activeCriticalAlarmCount == 1 ? 'alarm is' : 'alarms are'} active',
+          detail:
+              '$highestActiveCriticalAlarmCount highest-criticality; '
+              '$awaitingCriticalAlarmSupportCount await support confirmation.',
+          count: activeCriticalAlarmCount,
+        ),
       if (openCriticalIssueCount > 0)
         OperationsManagementSignal(
           type: OperationsManagementSignalType.criticalIssues,

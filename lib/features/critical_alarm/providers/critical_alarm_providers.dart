@@ -43,6 +43,27 @@ final criticalAlarmFeedProvider = StreamProvider<List<CriticalAlarm>>((ref) {
       );
 });
 
+final criticalAlarmsForReportsProvider = StreamProvider<List<CriticalAlarm>>((
+  ref,
+) {
+  return ref
+      .watch(currentAppUserProvider)
+      .when(
+        data: (actor) {
+          if (actor == null || !actor.canViewReports) {
+            return Stream<List<CriticalAlarm>>.error(
+              StateError('Approved report access is required.'),
+            );
+          }
+          return ref
+              .watch(criticalAlarmRepositoryProvider)
+              .watchAlarmsForReports();
+        },
+        loading: () => const Stream<List<CriticalAlarm>>.empty(),
+        error: Stream<List<CriticalAlarm>>.error,
+      );
+});
+
 final activeCriticalAlarmsProvider = StreamProvider<List<CriticalAlarm>>((ref) {
   return ref
       .watch(currentAppUserProvider)

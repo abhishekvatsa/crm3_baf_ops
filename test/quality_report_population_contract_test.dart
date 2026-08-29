@@ -15,10 +15,12 @@ void main() {
 
     final completeProvider = RegExp(
       r'qualityMonitoringRequestsForReportsProvider[\s\S]*?'
-      r"collection\('quality_monitoring_requests'\)[\s\S]*?snapshots\(\)",
+      r"collection\('quality_monitoring_requests'\)[\s\S]*?snapshots\([^)]*\)",
     ).firstMatch(quality);
     expect(completeProvider, isNotNull);
     expect(completeProvider!.group(0), isNot(contains('.limit(')));
+    expect(quality, contains('snapshot.metadata.isFromCache'));
+    expect(quality, contains('snapshot.metadata.hasPendingWrites'));
     expect(reports, contains('qualityMonitoringRequestsForReportsProvider'));
     expect(
       reports,
