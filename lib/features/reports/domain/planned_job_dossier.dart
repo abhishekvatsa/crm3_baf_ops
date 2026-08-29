@@ -664,7 +664,7 @@ List<String> _eventRow(WorkflowEventRecord event) => <String>[
   _label(event.eventTypeKey),
   _label(event.laneKey ?? 'aggregate'),
   _value(event.actorName),
-  _prettyJson(event.payloadJson),
+  event.payloadJson,
 ];
 
 String _responseValue(Object? value) {
@@ -674,14 +674,6 @@ String _responseValue(Object? value) {
   if (value is bool) return value ? 'Yes' : 'No';
   final text = '$value'.trim();
   return text.isEmpty ? 'Blank response' : text;
-}
-
-String _prettyJson(String raw) {
-  try {
-    return const JsonEncoder.withIndent('  ').convert(jsonDecode(raw));
-  } on Object {
-    return raw;
-  }
 }
 
 String _dateTime(DateTime value) => value.toLocal().toIso8601String();

@@ -69,9 +69,9 @@ regression instead of replacing named coverage with a generic test. The
 seven-day operational retention stream for closed quality-monitoring requests
 adds two read-only stream operations under the already classified quality
 provider; the complete reporting provider continues to retain full history.
-The current manifest therefore covers 547 operations and 1,897 sites across 57
+The current manifest therefore covers 549 operations and 1,899 sites across 57
 surfaces with digest
-`E93B4C7F5A207901298103C5387AAAA373354197D7B824B86C738250F4355B9B`;
+`9611BC81E6650378D6C991C13D986D8344ECE22CF1A2237CE18F412450D93DC6`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.
