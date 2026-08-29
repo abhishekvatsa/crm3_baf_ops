@@ -23,11 +23,10 @@ final operationsReportAuthorityLifecycleProvider = Provider<void>((ref) {
     if (ref.exists(allInspectionFindingsProvider)) {
       ref.invalidate(allInspectionFindingsProvider);
     }
-    if (ref.exists(qualityWarningsForReportsProvider)) {
-      ref.invalidate(qualityWarningsForReportsProvider);
-    }
-    if (ref.exists(qualityMonitoringRequestsForReportsProvider)) {
-      ref.invalidate(qualityMonitoringRequestsForReportsProvider);
+    ref.invalidate(qualityWarningsForReportsProvider);
+    ref.invalidate(qualityMonitoringRequestsForReportsProvider);
+    if (ref.exists(qualityReportCacheTrustProvider)) {
+      ref.invalidate(qualityReportCacheTrustProvider);
     }
     ref.invalidate(operationsReportAbnormalitiesProvider);
     if (ref.exists(openDirectivesProvider)) {
@@ -61,8 +60,9 @@ final operationsReportAuthorityLifecycleProvider = Provider<void>((ref) {
     if (ref.exists(burnerConditionRoundCacheTrustProvider)) {
       ref.invalidate(burnerConditionRoundCacheTrustProvider);
     }
-    if (ref.exists(criticalAlarmsForReportsProvider)) {
-      ref.invalidate(criticalAlarmsForReportsProvider);
+    ref.invalidate(criticalAlarmsForReportsProvider);
+    if (ref.exists(criticalAlarmReportCacheTrustProvider)) {
+      ref.invalidate(criticalAlarmReportCacheTrustProvider);
     }
     if (ref.exists(operationsReportClockProvider)) {
       ref.invalidate(operationsReportClockProvider);

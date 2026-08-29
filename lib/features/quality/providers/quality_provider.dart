@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/security/actor_session_cache_trust.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../data/quality_warning.dart';
 import '../services/quality_command_service.dart';
 
@@ -13,6 +16,27 @@ const qualityMonitoringOperationalRetention = Duration(days: 7);
 final qualityCommandServiceProvider = Provider<QualityCommandService>(
   (ref) => QualityCommandService(),
 );
+
+final qualityReportCacheTrustProvider = Provider<ActorSessionCacheTrust>((ref) {
+  final trust = ActorSessionCacheTrust();
+
+  void observeAuthority(AsyncValue<AppUser?> authority) {
+    if (authority.isLoading || authority.hasError) {
+      trust.observeActor(null);
+      return;
+    }
+    final actor = authority.value;
+    trust.observeActor(
+      actor != null && actor.canViewReports ? actor.uid : null,
+    );
+  }
+
+  observeAuthority(ref.read(currentAppUserProvider));
+  ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (_, next) {
+    observeAuthority(next);
+  });
+  return trust;
+});
 
 final qualityWarningsProvider = StreamProvider<List<QualityWarning>>((ref) {
   final warnings = FirebaseFirestore.instance.collection('quality_warnings');
@@ -39,22 +63,22 @@ final qualityWarningsProvider = StreamProvider<List<QualityWarning>>((ref) {
 /// The interactive workspace intentionally combines active records with a
 /// bounded recent window. Reports cannot use that window because an older
 /// closed warning may still fall inside a historical reporting period.
-final qualityWarningsForReportsProvider = StreamProvider<List<QualityWarning>>((
-  ref,
-) {
-  return _watchQualityWarningsForReports();
-});
-
-Stream<List<QualityWarning>> _watchQualityWarningsForReports() async* {
-  await for (final snapshot in FirebaseFirestore.instance
-      .collection('quality_warnings')
-      .snapshots(includeMetadataChanges: true)) {
-    if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
-      continue;
-    }
-    yield _decodeQualityWarnings(snapshot);
-  }
-}
+final qualityWarningsForReportsProvider = StreamProvider.autoDispose
+    .family<List<QualityWarning>, String>((ref, actorUid) {
+      _requireQualityReportActor(ref.watch(currentAppUserProvider), actorUid);
+      final snapshots = FirebaseFirestore.instance
+          .collection('quality_warnings')
+          .snapshots(includeMetadataChanges: true);
+      return admitActorSessionSnapshots(
+        snapshots,
+        trust: ref.watch(qualityReportCacheTrustProvider)
+          ..observeActor(actorUid),
+        actorUid: actorUid,
+        queryKey: 'quality-warnings:reports',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
+      ).map(_decodeQualityWarnings);
+    });
 
 List<QualityWarning> _decodeQualityWarnings(
   QuerySnapshot<Map<String, dynamic>> snapshot,
@@ -139,20 +163,39 @@ final qualityMonitoringRequestsProvider =
 /// The interactive list intentionally keeps a recent window. Reports must
 /// filter only after receiving every request because an old active request or
 /// a closed request overlapping a historical period remains decision-relevant.
-final qualityMonitoringRequestsForReportsProvider =
-    StreamProvider<List<QualityMonitoringRequest>>((ref) {
-      return _watchQualityMonitoringRequestsForReports();
+final qualityMonitoringRequestsForReportsProvider = StreamProvider.autoDispose
+    .family<List<QualityMonitoringRequest>, String>((ref, actorUid) {
+      _requireQualityReportActor(ref.watch(currentAppUserProvider), actorUid);
+      final snapshots = FirebaseFirestore.instance
+          .collection('quality_monitoring_requests')
+          .snapshots(includeMetadataChanges: true);
+      return admitActorSessionSnapshots(
+        snapshots,
+        trust: ref.watch(qualityReportCacheTrustProvider)
+          ..observeActor(actorUid),
+        actorUid: actorUid,
+        queryKey: 'quality-monitoring:reports',
+        isFromCache: (snapshot) => snapshot.metadata.isFromCache,
+        hasPendingWrites: (snapshot) => snapshot.metadata.hasPendingWrites,
+      ).map(_decodeQualityMonitoringRequests);
     });
 
-Stream<List<QualityMonitoringRequest>>
-_watchQualityMonitoringRequestsForReports() async* {
-  await for (final snapshot in FirebaseFirestore.instance
-      .collection('quality_monitoring_requests')
-      .snapshots(includeMetadataChanges: true)) {
-    if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
-      continue;
-    }
-    yield _decodeQualityMonitoringRequests(snapshot);
+void _requireQualityReportActor(
+  AsyncValue<AppUser?> actorAsync,
+  String actorUid,
+) {
+  if (actorAsync.isLoading) {
+    throw StateError('Quality-report access is still being verified.');
+  }
+  if (actorAsync.hasError) {
+    throw StateError('Quality-report access could not be verified.');
+  }
+  final actor = actorAsync.value;
+  if (actor == null ||
+      !actor.canViewReports ||
+      actor.uid != actorUid ||
+      actorUid.trim().isEmpty) {
+    throw StateError('Approved quality-report access is required.');
   }
 }
 

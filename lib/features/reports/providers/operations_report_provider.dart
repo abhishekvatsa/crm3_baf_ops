@@ -107,9 +107,11 @@ final operationsReportProvider = Provider.autoDispose.family<
   final events = ref.watch(operationalEventsForReportsProvider(scope.actorUid));
   final dueStates = ref.watch(maintenanceDueStatesProvider);
   final inspectionFindings = ref.watch(allInspectionFindingsProvider);
-  final qualityWarnings = ref.watch(qualityWarningsForReportsProvider);
+  final qualityWarnings = ref.watch(
+    qualityWarningsForReportsProvider(scope.actorUid),
+  );
   final qualityMonitoring = ref.watch(
-    qualityMonitoringRequestsForReportsProvider,
+    qualityMonitoringRequestsForReportsProvider(scope.actorUid),
   );
   final abnormalities = ref.watch(
     operationsReportAbnormalitiesProvider(scope.actorUid),
@@ -117,7 +119,9 @@ final operationsReportProvider = Provider.autoDispose.family<
   final directives = ref.watch(openDirectivesProvider);
   final workflowLanes = ref.watch(workflowAllLanesProvider);
   final complianceRequests = ref.watch(workflowAllComplianceProvider);
-  final criticalAlarms = ref.watch(criticalAlarmsForReportsProvider);
+  final criticalAlarms = ref.watch(
+    criticalAlarmsForReportsProvider(scope.actorUid),
+  );
   final classes = ref.watch(assetClassesProvider);
   final assets = ref.watch(allAssetInstancesProvider);
   final innerCovers = ref.watch(innerCoverProfilesProvider);

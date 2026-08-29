@@ -588,9 +588,10 @@ class OperationsReportPdfService {
             'Closed',
           ],
           rows: jobs
-              .map(
-                (job) => <String>[
-                  _date.format(job.createdAt),
+              .map((job) {
+                final lifecycleDates = _plannedJobLifecycleDateCells(job);
+                return <String>[
+                  lifecycleDates[0],
                   _assetLabel(job.assetType, job.assetNumber),
                   job.templateName?.trim().isNotEmpty == true
                       ? job.templateName!.trim()
@@ -599,13 +600,9 @@ class OperationsReportPdfService {
                       ? 'Not recorded'
                       : job.assignedAgencies.join(', '),
                   _jobStatus(job),
-                  job.completedAt == null
-                      ? job.cancelledAt == null
-                          ? '-'
-                          : _date.format(job.cancelledAt!)
-                      : _date.format(job.completedAt!),
-                ],
-              )
+                  lifecycleDates[1],
+                ];
+              })
               .toList(growable: false),
           widths: const <int, pw.TableColumnWidth>{
             0: pw.FixedColumnWidth(62),
@@ -1315,7 +1312,7 @@ class OperationsReportPdfService {
                 ];
                 return <String>[
                   round.assetName,
-                  _dateTime.format(round.observedAt),
+                  _burnerObservationTime(round.observedAt),
                   round.redHotPositions.isEmpty
                       ? 'None recorded'
                       : round.redHotPositions
@@ -1505,6 +1502,22 @@ class OperationsReportPdfService {
   static String _formatLocalDateTime(DateTime value) =>
       _dateTime.format(value.toLocal());
 
+  static String _formatLocalDate(DateTime value) =>
+      _date.format(value.toLocal());
+
+  static List<String> _plannedJobLifecycleDateCells(JobExecution job) =>
+      <String>[
+        _formatLocalDate(job.createdAt),
+        job.completedAt == null
+            ? job.cancelledAt == null
+                ? '-'
+                : _formatLocalDate(job.cancelledAt!)
+            : _formatLocalDate(job.completedAt!),
+      ];
+
+  static String _burnerObservationTime(DateTime observedAt) =>
+      _formatLocalDateTime(observedAt);
+
   static List<String> _plantDisruptionTimeCells({
     required DateTime startedAt,
     required DateTime resolvedAt,
@@ -1537,6 +1550,15 @@ class OperationsReportPdfService {
     asOf: asOf,
     isOpen: isOpen,
   );
+
+  @visibleForTesting
+  static List<String> plannedJobLifecycleDateCellsForTesting(
+    JobExecution job,
+  ) => _plannedJobLifecycleDateCells(job);
+
+  @visibleForTesting
+  static String burnerObservationTimeForTesting(DateTime observedAt) =>
+      _burnerObservationTime(observedAt);
 
   static pw.Widget _rankedList(String title, List<CountedReportLabel> values) =>
       pw.Container(

@@ -130,6 +130,19 @@ void main() {
         File(
           'lib/features/reports/presentation/burner_reliability_screen.dart',
         ).readAsStringSync();
+    final qualitySource =
+        File(
+          'lib/features/quality/providers/quality_provider.dart',
+        ).readAsStringSync();
+    final criticalProviderSource =
+        File(
+          'lib/features/critical_alarm/providers/'
+          'critical_alarm_providers.dart',
+        ).readAsStringSync();
+    final criticalRepositorySource =
+        File(
+          'lib/features/critical_alarm/data/critical_alarm_repository.dart',
+        ).readAsStringSync();
 
     expect(
       source,
@@ -167,14 +180,41 @@ void main() {
     expect(burnerSource, contains('snapshot.metadata.hasPendingWrites'));
     expect(burnerScreenSource, contains('actorUid: widget.actor.uid'));
     expect(burnerScreenSource, contains('key: ValueKey(actor.uid)'));
+    expect(
+      source,
+      contains('qualityWarningsForReportsProvider(scope.actorUid)'),
+    );
+    expect(
+      source,
+      contains('qualityMonitoringRequestsForReportsProvider(scope.actorUid)'),
+    );
+    expect(
+      source,
+      contains('criticalAlarmsForReportsProvider(scope.actorUid)'),
+    );
+    for (final reportSource in [qualitySource, criticalRepositorySource]) {
+      expect(reportSource, contains('admitActorSessionSnapshots('));
+      expect(reportSource, contains('includeMetadataChanges: true'));
+      expect(reportSource, contains('snapshot.metadata.isFromCache'));
+      expect(reportSource, contains('snapshot.metadata.hasPendingWrites'));
+    }
+    expect(qualitySource, contains('.family<List<QualityWarning>, String>'));
+    expect(qualitySource, contains('actor.uid != actorUid'));
+    expect(
+      criticalProviderSource,
+      contains('.family<List<CriticalAlarm>, String>'),
+    );
+    expect(criticalProviderSource, contains('actor.uid != actorUid'));
     for (final provider in [
       'operationalEventsForReportsProvider',
       'qualityWarningsForReportsProvider',
+      'qualityReportCacheTrustProvider',
       'workflowAllComplianceProvider',
       'assetClassesProvider',
       'burnerConditionRoundsProvider',
       'burnerConditionRoundCacheTrustProvider',
       'criticalAlarmsForReportsProvider',
+      'criticalAlarmReportCacheTrustProvider',
       'operationsReportClockProvider',
     ]) {
       expect(lifecycleSource, contains('ref.invalidate($provider)'));

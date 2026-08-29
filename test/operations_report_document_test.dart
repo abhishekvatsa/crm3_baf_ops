@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -125,6 +126,34 @@ void main() {
       expect(closed[0], format.format(startedAt.toLocal()));
       expect(closed[1], format.format(resolvedAt.toLocal()));
       expect(open[1], 'Open at ${format.format(asOf.toLocal())}');
+    });
+
+    test('planned-work lifecycle dates use the device local timezone', () {
+      final assignedAt = DateTime.utc(2026, 8, 29, 23, 45);
+      final completedAt = assignedAt.add(const Duration(hours: 2));
+      final job =
+          JobExecution()
+            ..createdAt = assignedAt
+            ..completedAt = completedAt;
+      final format = DateFormat('dd MMM yyyy');
+
+      expect(
+        OperationsReportPdfService.plannedJobLifecycleDateCellsForTesting(job),
+        <String>[
+          format.format(assignedAt.toLocal()),
+          format.format(completedAt.toLocal()),
+        ],
+      );
+    });
+
+    test('Burner observation timestamps use the device local timezone', () {
+      final observedAt = DateTime.utc(2026, 8, 29, 23, 45);
+      final format = DateFormat('dd MMM yyyy, HH:mm');
+
+      expect(
+        OperationsReportPdfService.burnerObservationTimeForTesting(observedAt),
+        format.format(observedAt.toLocal()),
+      );
     });
 
     test('generated PDF has a valid document signature', () async {
