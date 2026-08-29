@@ -1,12 +1,14 @@
 import 'dart:convert';
 
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
+import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:crm3_baf_ops/features/reports/domain/operations_report_document.dart';
+import 'package:crm3_baf_ops/features/reports/domain/maintenance_ticket_dossier.dart';
 import 'package:crm3_baf_ops/features/reports/domain/report_provenance.dart';
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/operations_report_pdf_screen.dart';
@@ -155,6 +157,23 @@ void main() {
         OperationsReportPdfService.burnerObservationTimeForTesting(observedAt),
         format.format(observedAt.toLocal()),
       );
+    });
+
+    test('ticket correction evidence is numbered oldest first', () {
+      AuditEvent correction(String id, DateTime timestamp) => AuditEvent(
+        entityType: 'maintenance_ticket',
+        entityId: id,
+        action: AuditAction.update,
+        performedByUid: 'admin-uid',
+      )..timestamp = timestamp;
+      final first = correction('ticket-1', DateTime.utc(2026, 8, 20, 9));
+      final second = correction('ticket-1', DateTime.utc(2026, 8, 21, 9));
+
+      final ordered = maintenanceTicketCorrectionEventsInDossierOrder(
+        <AuditEvent>[second, first],
+      );
+
+      expect(ordered, <AuditEvent>[first, second]);
     });
 
     test('generated PDF has a valid document signature', () async {

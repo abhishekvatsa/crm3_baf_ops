@@ -44,6 +44,8 @@ StructuredReportDocument buildMaintenanceTicketDossier({
   }
   final stuckup = ticket.furnaceStuckupCase;
   final assetLabel = _ticketAssetLabel(ticket);
+  final orderedCorrectionEvents =
+      maintenanceTicketCorrectionEventsInDossierOrder(correctionEvents);
   final currentActions = actionsRead.entries;
   final priorActions = <({int cycle, ComponentAction action})>[];
   for (var index = 0; index < historyRead.entries.length; index++) {
@@ -283,11 +285,18 @@ StructuredReportDocument buildMaintenanceTicketDossier({
         subtitle:
             'Before-and-after payloads are preserved verbatim from the available audit events.',
         paragraphs:
-            correctionEvents.isEmpty
+            orderedCorrectionEvents.isEmpty
                 ? const <String>['No governed Admin/SI correction is recorded.']
                 : <String>[
-                  for (var index = 0; index < correctionEvents.length; index++)
-                    _correctionParagraph(index + 1, correctionEvents[index]),
+                  for (
+                    var index = 0;
+                    index < orderedCorrectionEvents.length;
+                    index++
+                  )
+                    _correctionParagraph(
+                      index + 1,
+                      orderedCorrectionEvents[index],
+                    ),
                 ],
       ),
       StructuredReportSection(
@@ -318,6 +327,16 @@ StructuredReportDocument buildMaintenanceTicketDossier({
       ),
     ],
   );
+}
+
+List<AuditEvent> maintenanceTicketCorrectionEventsInDossierOrder(
+  Iterable<AuditEvent> events,
+) {
+  final ordered = events.toList(growable: false)..sort((left, right) {
+    final timestampOrder = left.timestamp.compareTo(right.timestamp);
+    return timestampOrder != 0 ? timestampOrder : left.id.compareTo(right.id);
+  });
+  return List<AuditEvent>.unmodifiable(ordered);
 }
 
 List<List<String>> _timelineRows(
