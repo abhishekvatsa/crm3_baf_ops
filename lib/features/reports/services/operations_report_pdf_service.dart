@@ -989,20 +989,20 @@ class OperationsReportPdfService {
                   alarm.supportConfirmedAt == null
                       ? 'Awaiting confirmation'
                       : '${_supportBasisLabel(alarm.supportBasis)} at '
-                          '${_dateTime.format(alarm.supportConfirmedAt!)} by '
+                          '${_formatLocalDateTime(alarm.supportConfirmedAt!)} by '
                           '${alarm.supportConfirmedByName}';
               final terminal =
                   alarm.resolvedAt != null
-                      ? 'Resolved ${_dateTime.format(alarm.resolvedAt!)} by '
+                      ? 'Resolved ${_formatLocalDateTime(alarm.resolvedAt!)} by '
                           '${alarm.resolvedByName}: ${alarm.resolutionSummary}'
                       : alarm.withdrawnAt != null
-                      ? 'Withdrawn ${_dateTime.format(alarm.withdrawnAt!)} by '
+                      ? 'Withdrawn ${_formatLocalDateTime(alarm.withdrawnAt!)} by '
                           '${alarm.withdrawnByName}: ${alarm.withdrawalReason}'
                       : 'Active';
               return <String>[
                 '${alarm.definition.name} / ${alarm.definition.criticalityLabel}',
                 '${alarm.location}\n$asset',
-                '${_dateTime.format(alarm.raisedAt)} by ${alarm.raisedByName}',
+                '${_formatLocalDateTime(alarm.raisedAt)} by ${alarm.raisedByName}',
                 support,
                 terminal,
                 _criticalAlarmStatusLabel(alarm.status),
@@ -1485,23 +1485,29 @@ class OperationsReportPdfService {
     final segments = <String>[];
     var remaining = value;
     while (remaining.length > maximumSegmentCharacters) {
-      final splitAt = remaining.lastIndexOf(' ', maximumSegmentCharacters);
-      if (splitAt <= 0) {
-        break;
-      }
+      final wordBoundary = remaining.lastIndexOf(' ', maximumSegmentCharacters);
+      final splitAt =
+          wordBoundary > 0 ? wordBoundary : maximumSegmentCharacters;
       segments.add(remaining.substring(0, splitAt));
-      remaining = remaining.substring(splitAt + 1);
+      remaining = remaining.substring(splitAt).trimLeft();
     }
-    segments.add(remaining);
+    if (remaining.isNotEmpty) segments.add(remaining);
     return segments;
   }
 
   static String _reportCellText(String value) =>
       value.replaceAll(RegExp(r'\s+'), ' ').trim();
 
+  static String _formatLocalDateTime(DateTime value) =>
+      _dateTime.format(value.toLocal());
+
   @visibleForTesting
   static String normalizeReportCellTextForTesting(String value) =>
       _reportCellText(value);
+
+  @visibleForTesting
+  static List<List<String>> segmentReportRowForTesting(List<String> row) =>
+      _reportRowSegments(row);
 
   static pw.Widget _rankedList(String title, List<CountedReportLabel> values) =>
       pw.Container(

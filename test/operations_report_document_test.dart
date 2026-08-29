@@ -82,6 +82,24 @@ void main() {
       expect(normalized.length, greaterThan(180));
     });
 
+    test('report cells safely segment unbroken retained evidence', () {
+      final narrative = '${List<String>.filled(900, 'X').join()}-FINAL';
+
+      final segments = OperationsReportPdfService.segmentReportRowForTesting(
+        <String>['Evidence', narrative],
+      );
+
+      expect(segments.length, greaterThan(1));
+      expect(
+        segments.every((row) => row.every((cell) => cell.length <= 360)),
+        isTrue,
+      );
+      expect(
+        segments.map((row) => row[1]).where((cell) => cell.isNotEmpty).join(),
+        narrative,
+      );
+    });
+
     test('generated PDF has a valid document signature', () async {
       final generatedAt = DateTime.utc(2026, 8, 29, 10, 11, 12);
       final report = OperationsReport(

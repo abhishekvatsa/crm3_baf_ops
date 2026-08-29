@@ -58,4 +58,58 @@ void main() {
     expect(bytes.length, greaterThan(12000));
     expect(report.fileName, contains('maintenance_evidence_dossier'));
   });
+
+  test(
+    'structured report segments oversized cells without losing evidence',
+    () async {
+      final generatedAt = DateTime.utc(2026, 8, 29, 12);
+      final narrative =
+          '${List<String>.filled(220, 'complete retained intervention evidence').join(' ')} '
+          'FINAL-DOSSIER-EVIDENCE';
+      final segments = StructuredReportPdfService.segmentTableRowForTesting(
+        <String>['Observation', narrative],
+      );
+
+      expect(segments.length, greaterThan(1));
+      expect(
+        segments
+            .map((row) => row[1])
+            .where((cell) => cell.isNotEmpty)
+            .join(' '),
+        narrative,
+      );
+      expect(
+        segments.every((row) => row.every((cell) => cell.length <= 360)),
+        isTrue,
+      );
+
+      final report = StructuredReportDocument(
+        title: 'Oversized evidence dossier',
+        subtitle: 'Complete governed record',
+        reportId: createStructuredReportId('LONG', generatedAt),
+        generatedAt: generatedAt,
+        generatedByName: 'Test Supervisor',
+        scopeLabel: 'Furnace 01',
+        provenance: const ReportProvenance.applicationSnapshot(),
+        sections: <StructuredReportSection>[
+          StructuredReportSection(
+            title: 'Retained evidence',
+            tables: <StructuredReportTable>[
+              StructuredReportTable(
+                headers: const <String>['Type', 'Evidence'],
+                rows: <List<String>>[
+                  <String>['Observation', narrative],
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final bytes = await StructuredReportPdfService.build(report);
+
+      expect(ascii.decode(bytes.take(5).toList()), '%PDF-');
+      expect(bytes.length, greaterThan(10000));
+    },
+  );
 }

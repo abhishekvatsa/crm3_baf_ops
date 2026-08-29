@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -363,10 +364,12 @@ class StructuredReportPdfService {
     }
     const rowsPerBlock = 8;
     final rows = table.rows
-        .map(
-          (row) => row
-              .map((cell) => _cellText(cell, table.cellCharacterLimit))
-              .toList(growable: false),
+        .expand(
+          (row) => _rowSegments(
+            row
+                .map((cell) => _cellText(cell, table.cellCharacterLimit))
+                .toList(growable: false),
+          ),
         )
         .toList(growable: false);
     final widths =
@@ -427,6 +430,52 @@ class StructuredReportPdfService {
     }
     return '${normalized.substring(0, characterLimit - 3).trimRight()}...';
   }
+
+  static List<List<String>> _rowSegments(List<String> row) {
+    final cells = row.map(_cellSegments).toList(growable: false);
+    final segmentCount = cells.fold<int>(
+      1,
+      (maximum, segments) =>
+          segments.length > maximum ? segments.length : maximum,
+    );
+    return List<List<String>>.generate(
+      segmentCount,
+      (segmentIndex) => cells
+          .map(
+            (segments) =>
+                segmentIndex < segments.length ? segments[segmentIndex] : '',
+          )
+          .toList(growable: false),
+      growable: false,
+    );
+  }
+
+  static List<String> _cellSegments(String value) {
+    const maximumSegmentCharacters = 360;
+    if (value.length <= maximumSegmentCharacters) {
+      return <String>[value];
+    }
+
+    final segments = <String>[];
+    var remaining = value;
+    while (remaining.length > maximumSegmentCharacters) {
+      final wordBoundary = remaining.lastIndexOf(' ', maximumSegmentCharacters);
+      final splitAt =
+          wordBoundary > 0 ? wordBoundary : maximumSegmentCharacters;
+      segments.add(remaining.substring(0, splitAt).trimRight());
+      remaining = remaining.substring(splitAt).trimLeft();
+    }
+    if (remaining.isNotEmpty) segments.add(remaining);
+    return segments;
+  }
+
+  @visibleForTesting
+  static List<List<String>> segmentTableRowForTesting(
+    List<String> row, {
+    int? characterLimit,
+  }) => _rowSegments(
+    row.map((cell) => _cellText(cell, characterLimit)).toList(growable: false),
+  );
 
   static PdfColor _tone(StructuredReportMetricTone tone) => switch (tone) {
     StructuredReportMetricTone.neutral => _muted,
