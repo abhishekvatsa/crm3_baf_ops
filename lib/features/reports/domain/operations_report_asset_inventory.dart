@@ -96,6 +96,10 @@ OperationsReportAssetInventory buildOperationsReportAssetInventory({
       )
       .where(_countsAsInnerCoverInventory)
       .toList(growable: false);
+  innerCovers.sort(
+    (left, right) =>
+        left.normalizedSerialNumber.compareTo(right.normalizedSerialNumber),
+  );
   final numberedAssetStates = assetStates
       .where((state) => !innerCoverClassIds.contains(state.asset.assetClassId))
       .toList(growable: false);

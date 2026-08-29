@@ -845,7 +845,8 @@ OperationsReport buildOperationsReport({
     inspectionFindings: List<InspectionFinding>.unmodifiable(
       filteredInspectionFindings,
     ),
-    assetStates: List<PlantAssetState>.unmodifiable(filteredStates),
+    assetStates: inventory.numberedAssetStates,
+    innerCoverProfiles: inventory.innerCovers,
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
     topComponents: rank(componentDimension),
     topSubsystemPaths: rank(recordedSubsystemPathDimension),

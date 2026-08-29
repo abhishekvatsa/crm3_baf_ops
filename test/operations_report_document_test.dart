@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter/material.dart';
@@ -158,6 +159,29 @@ void main() {
 
     test('generated PDF has a valid document signature', () async {
       final generatedAt = DateTime.utc(2026, 8, 29, 10, 11, 12);
+      final innerCover = InnerCoverProfile(
+        id: 'inner-cover-gr4',
+        assetClassId: 'inner-cover-class',
+        assetClassCode: 'INNER_COVER',
+        assetClassName: 'Inner Cover',
+        serialNumber: 'GR4',
+        normalizedSerialNumber: 'GR4',
+        sourceType: InnerCoverSourceType.fabricated,
+        originClassification:
+            InnerCoverOriginClassification.ownerDeclaredFabricated,
+        lifecycleState: InnerCoverLifecycleState.installed,
+        traceabilityGrade: InnerCoverTraceabilityGrade.t1,
+        supplierOrFabricator: 'RED fabrication shop',
+        incorporatedOn: DateTime.utc(2025, 11, 8),
+        currentBaseAssetInstanceId: 'base-201',
+        currentBaseAssetNumber: 201,
+        currentBaseAssetName: 'Base 201',
+        currentLinkageId: 'link-gr4-base-201',
+        version: 2,
+        createdAt: DateTime.utc(2025, 11, 8),
+        updatedAt: DateTime.utc(2026, 8, 29, 8, 30),
+        lastMutationId: 'mutation-gr4',
+      );
       final report = OperationsReport(
         filter: OperationsReportFilter(
           startDate: DateTime.utc(2026, 8, 1),
@@ -171,6 +195,7 @@ void main() {
         dueStates: const [],
         inspectionFindings: const [],
         assetStates: const [],
+        innerCoverProfiles: <InnerCoverProfile>[innerCover],
         classSummaries: const [],
         topComponents: const [],
         topSubsystemPaths: const [],
@@ -183,6 +208,8 @@ void main() {
         openDisruptionCount: 0,
         disruptionDuration: Duration.zero,
       );
+      final conditionRows =
+          OperationsReportPdfService.assetConditionRowsForTesting(report);
       final request = OperationsReportDocumentRequest.forPreset(
         preset: OperationsReportDocumentPreset.complete,
         generatedAt: generatedAt,
@@ -201,6 +228,13 @@ void main() {
 
       expect(ascii.decode(bytes.take(5).toList()), '%PDF-');
       expect(bytes.length, greaterThan(5000));
+      expect(conditionRows, hasLength(1));
+      expect(conditionRows.single[0], contains('Inner Cover GR4'));
+      expect(conditionRows.single[1], 'Installed');
+      expect(conditionRows.single[2], contains('owner-declared'));
+      expect(conditionRows.single[3], contains('Base 201'));
+      expect(conditionRows.single[4], contains('RED fabrication shop'));
+      expect(conditionRows.single[5], contains('Incorporated'));
     });
 
     test('large maintenance report paginates without overflow', () async {

@@ -567,6 +567,11 @@ void main() {
     expect(report.classSummaries.single.availableCount, 2);
     expect(report.classSummaries.single.underMaintenanceCount, 1);
     expect(report.classSummaries.single.unfitCount, 1);
+    expect(report.assetStates, isEmpty);
+    expect(
+      report.innerCoverProfiles.map((profile) => profile.serialNumber),
+      <String>['G97', 'GR19', 'GR4', 'N16'],
+    );
   });
 
   test('administrative closures remain distinct from technical repairs', () {

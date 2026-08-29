@@ -1,4 +1,5 @@
 import '../../assets/domain/plant_asset_overview.dart';
+import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../critical_alarm/domain/critical_alarm_models.dart';
 import '../../directives/data/operational_directive_model.dart';
@@ -147,6 +148,7 @@ class OperationsReport {
     required this.dueStates,
     required this.inspectionFindings,
     required this.assetStates,
+    this.innerCoverProfiles = const [],
     required this.classSummaries,
     required this.topComponents,
     required this.topSubsystemPaths,
@@ -188,6 +190,7 @@ class OperationsReport {
   final List<MaintenanceDueState> dueStates;
   final List<InspectionFinding> inspectionFindings;
   final List<PlantAssetState> assetStates;
+  final List<InnerCoverProfile> innerCoverProfiles;
   final List<AssetClassReportSummary> classSummaries;
   final List<CountedReportLabel> topComponents;
   final List<CountedReportLabel> topSubsystemPaths;

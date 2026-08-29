@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/burner_condition_round.dart';
 import '../../assets/domain/plant_asset_overview.dart';
@@ -428,8 +429,10 @@ class OperationsReportPdfService {
             .toList(growable: false),
       ),
     pw.SizedBox(height: 12),
-    if (report.assetStates.isEmpty)
-      _emptyStatement('No physical asset row is present in this scope.')
+    if (_assetConditionRows(report).isEmpty)
+      _emptyStatement(
+        'No governed asset condition row is present in this scope.',
+      )
     else
       ..._simpleTables(
         headers: const <String>[
@@ -440,18 +443,7 @@ class OperationsReportPdfService {
           'Maintenance exposure',
           'Since / updated',
         ],
-        rows: report.assetStates
-            .map(
-              (state) => <String>[
-                '${state.asset.name}\n${state.asset.assetClassName}',
-                _plantAssetStateLabel(state),
-                _assetConditionEvidence(state),
-                _assetConditionReason(state),
-                _assetMaintenanceExposure(state),
-                _assetStateTime(state),
-              ],
-            )
-            .toList(growable: false),
+        rows: _assetConditionRows(report),
         widths: const <int, pw.TableColumnWidth>{
           0: pw.FlexColumnWidth(1.15),
           1: pw.FlexColumnWidth(0.9),
@@ -1560,6 +1552,11 @@ class OperationsReportPdfService {
   static String burnerObservationTimeForTesting(DateTime observedAt) =>
       _burnerObservationTime(observedAt);
 
+  @visibleForTesting
+  static List<List<String>> assetConditionRowsForTesting(
+    OperationsReport report,
+  ) => _assetConditionRows(report);
+
   static pw.Widget _rankedList(String title, List<CountedReportLabel> values) =>
       pw.Container(
         padding: const pw.EdgeInsets.all(9),
@@ -1640,6 +1637,72 @@ class OperationsReportPdfService {
     ),
     child: pw.Text(text, style: const pw.TextStyle(color: _muted, fontSize: 8)),
   );
+
+  static List<List<String>> _assetConditionRows(OperationsReport report) =>
+      <List<String>>[
+        ...report.assetStates.map(
+          (state) => <String>[
+            '${state.asset.name}\n${state.asset.assetClassName}',
+            _plantAssetStateLabel(state),
+            _assetConditionEvidence(state),
+            _assetConditionReason(state),
+            _assetMaintenanceExposure(state),
+            _assetStateTime(state),
+          ],
+        ),
+        ...report.innerCoverProfiles.map(_innerCoverConditionRow),
+      ];
+
+  static List<String> _innerCoverConditionRow(InnerCoverProfile profile) {
+    final condition = <String>[
+      'Origin: ${profile.originClassification.label}',
+      'Traceability: ${profile.traceabilityGrade.label}',
+      if (profile.retirementCondition != null)
+        'Retirement: ${profile.retirementCondition!.label}',
+    ];
+    final linkage =
+        profile.currentBaseAssetNumber == null
+            ? profile.lifecycleState == InnerCoverLifecycleState.available
+                ? 'Available pool; no current Base linkage'
+                : 'No current Base linkage'
+            : 'Linked to Base ${profile.currentBaseAssetNumber}'
+                '${profile.currentBaseAssetName == null ? '' : ' (${profile.currentBaseAssetName})'}';
+    final maintenance = switch (profile.lifecycleState) {
+      InnerCoverLifecycleState.awaitingInspection ||
+      InnerCoverLifecycleState.underInspection ||
+      InnerCoverLifecycleState.underRepair ||
+      InnerCoverLifecycleState.underFabrication => profile.lifecycleState.label,
+      InnerCoverLifecycleState.quarantined ||
+      InnerCoverLifecycleState.rejected ||
+      InnerCoverLifecycleState.retiredForSalvage ||
+      InnerCoverLifecycleState.partiallyDismantled =>
+        'Unavailable: ${profile.lifecycleState.label}',
+      InnerCoverLifecycleState.installed => 'In service on linked Base',
+      _ => 'Pool status: ${profile.lifecycleState.label}',
+    };
+    final times = <String>[
+      if (profile.receivedOrCompletedOn != null)
+        'Received/completed ${_formatLocalDate(profile.receivedOrCompletedOn!)}',
+      if (profile.incorporatedOn != null)
+        'Incorporated ${_formatLocalDate(profile.incorporatedOn!)}',
+      if (profile.acceptedAt != null)
+        'Accepted ${_formatLocalDateTime(profile.acceptedAt!)}',
+      'Updated ${_formatLocalDateTime(profile.updatedAt)}',
+    ];
+    return <String>[
+      'Inner Cover ${profile.serialNumber}\n${profile.assetClassName}',
+      profile.lifecycleState.label,
+      condition.join('\n'),
+      linkage,
+      <String>[
+        maintenance,
+        'Source: ${profile.sourceType.label}',
+        if (profile.supplierOrFabricator != null)
+          'Source party: ${profile.supplierOrFabricator}',
+      ].join('\n'),
+      times.join('\n'),
+    ];
+  }
 
   static String _plantAssetStateLabel(PlantAssetState state) {
     final labels = <String>[
