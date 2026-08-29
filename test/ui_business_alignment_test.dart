@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'dart:async';
+
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
@@ -148,11 +150,34 @@ List<JobDiaryEntry> _diaryEntries(int count) {
 }
 
 class _StaticJobModuleRepository implements JobModuleRepository {
-  _StaticJobModuleRepository([this.modules = const <JobModuleInstance>[]]);
+  _StaticJobModuleRepository([
+    this.modules = const <JobModuleInstance>[],
+    this.holdReportRead = false,
+  ]);
 
   final List<JobModuleInstance> modules;
+  final bool holdReportRead;
+  final Completer<List<JobModuleInstance>> _reportRead = Completer();
   bool? lastIncludeDeleted;
   int? lastLimit;
+  bool? lastReportIncludeDeleted;
+  int? lastReportLimit;
+
+  @override
+  Future<List<JobModuleInstance>> getModulesForJob({
+    String? jobExecutionFirestoreId,
+    int? jobExecutionLocalId,
+    JobModuleDiscipline? discipline,
+    int? limit,
+    bool includeDeleted = false,
+  }) async {
+    lastReportIncludeDeleted = includeDeleted;
+    lastReportLimit = limit;
+    if (holdReportRead) return _reportRead.future;
+    return includeDeleted
+        ? modules
+        : modules.where((module) => !module.isDeleted).toList();
+  }
 
   @override
   Stream<List<JobModuleInstance>> watchModulesForJob({
@@ -176,10 +201,32 @@ class _StaticJobModuleRepository implements JobModuleRepository {
 }
 
 class _StaticJobDiaryRepository implements JobDiaryRepository {
-  _StaticJobDiaryRepository([this.entries = const <JobDiaryEntry>[]]);
+  _StaticJobDiaryRepository([
+    this.entries = const <JobDiaryEntry>[],
+    this.holdReportRead = false,
+  ]);
 
   final List<JobDiaryEntry> entries;
+  final bool holdReportRead;
+  final Completer<List<JobDiaryEntry>> _reportRead = Completer();
   int? lastLimit;
+  bool? lastReportIncludeDeleted;
+  int? lastReportLimit;
+
+  @override
+  Future<List<JobDiaryEntry>> getEntriesForJob({
+    String? jobExecutionFirestoreId,
+    int? jobExecutionLocalId,
+    int? limit,
+    bool includeDeleted = false,
+  }) async {
+    lastReportIncludeDeleted = includeDeleted;
+    lastReportLimit = limit;
+    if (holdReportRead) return _reportRead.future;
+    return includeDeleted
+        ? entries
+        : entries.where((entry) => !entry.isDeleted).toList();
+  }
 
   @override
   Stream<List<JobDiaryEntry>> watchEntriesForJob({
@@ -424,6 +471,47 @@ void main() {
       expect(find.text('Checklist responses'), findsNothing);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'planned-job PDF requests complete report-only diary and module evidence',
+      (tester) async {
+        final diaryRepository = _StaticJobDiaryRepository(
+          _diaryEntries(51),
+          true,
+        );
+        final moduleRepository = _StaticJobModuleRepository(
+          List<JobModuleInstance>.generate(
+            101,
+            (index) =>
+                _openModule()
+                  ..id = index + 1
+                  ..firestoreId = 'module-${index + 1}',
+          ),
+          true,
+        );
+        await _pumpDetail(
+          tester,
+          actor: _actor(AppRole.admin),
+          size: const Size(360, 760),
+          moduleRepository: moduleRepository,
+          diaryRepository: diaryRepository,
+        );
+
+        expect(diaryRepository.lastLimit, 50);
+        expect(moduleRepository.lastLimit, 100);
+        expect(moduleRepository.lastIncludeDeleted, isFalse);
+
+        await tester.tap(
+          find.byKey(const ValueKey('planned-job-complete-report')),
+        );
+
+        expect(diaryRepository.lastReportLimit, isNull);
+        expect(diaryRepository.lastReportIncludeDeleted, isTrue);
+        expect(moduleRepository.lastReportLimit, isNull);
+        expect(moduleRepository.lastReportIncludeDeleted, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     for (final location in <String>['execution', 'module']) {
       testWidgets(

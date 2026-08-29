@@ -71,11 +71,13 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     int? limit,
+    bool includeDeleted = false,
   }) async {
     final entries =
         await _baseJobQuery(
           jobExecutionFirestoreId: jobExecutionFirestoreId,
           jobExecutionLocalId: jobExecutionLocalId,
+          includeDeleted: includeDeleted,
         ).findAll();
 
     entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -104,30 +106,31 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
   }
 
   QueryBuilder<JobDiaryEntry, JobDiaryEntry, QAfterFilterCondition>
-  _baseJobQuery({String? jobExecutionFirestoreId, int? jobExecutionLocalId}) {
+  _baseJobQuery({
+    String? jobExecutionFirestoreId,
+    int? jobExecutionLocalId,
+    bool includeDeleted = false,
+  }) {
     final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
 
     if (cleanedFirestoreId != null) {
-      return isar.jobDiaryEntrys
-          .filter()
-          .jobExecutionFirestoreIdEqualTo(cleanedFirestoreId)
-          .and()
-          .isDeletedEqualTo(false);
+      final query = isar.jobDiaryEntrys.filter().jobExecutionFirestoreIdEqualTo(
+        cleanedFirestoreId,
+      );
+      return includeDeleted ? query : query.and().isDeletedEqualTo(false);
     }
 
     if (jobExecutionLocalId != null) {
-      return isar.jobDiaryEntrys
-          .filter()
-          .jobExecutionLocalIdEqualTo(jobExecutionLocalId)
-          .and()
-          .isDeletedEqualTo(false);
+      final query = isar.jobDiaryEntrys.filter().jobExecutionLocalIdEqualTo(
+        jobExecutionLocalId,
+      );
+      return includeDeleted ? query : query.and().isDeletedEqualTo(false);
     }
 
-    return isar.jobDiaryEntrys
-        .filter()
-        .firestoreIdEqualTo('__no_matching_job_diary_entry__')
-        .and()
-        .isDeletedEqualTo(false);
+    final query = isar.jobDiaryEntrys.filter().firestoreIdEqualTo(
+      '__no_matching_job_diary_entry__',
+    );
+    return includeDeleted ? query : query.and().isDeletedEqualTo(false);
   }
 
   @override

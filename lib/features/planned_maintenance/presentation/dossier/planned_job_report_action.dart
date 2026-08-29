@@ -1,27 +1,32 @@
 part of '../planned_job_detail_screen.dart';
 
-class _PlannedJobReportAction extends ConsumerWidget {
+class _PlannedJobReportAction extends ConsumerStatefulWidget {
   const _PlannedJobReportAction({
     required this.execution,
     required this.template,
     required this.actor,
     required this.templateLoading,
-    required this.diaryEntries,
-    required this.modules,
   });
 
   final JobExecution execution;
   final JobTemplate? template;
   final AppUser actor;
   final bool templateLoading;
-  final AsyncValue<List<JobDiaryEntry>> diaryEntries;
-  final AsyncValue<List<JobModuleInstance>> modules;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PlannedJobReportAction> createState() =>
+      _PlannedJobReportActionState();
+}
+
+class _PlannedJobReportActionState
+    extends ConsumerState<_PlannedJobReportAction> {
+  bool _building = false;
+
+  @override
+  Widget build(BuildContext context) {
     final workflowId =
-        execution.workflowSchemaVersion == 1
-            ? _cleanOptionalString(execution.firestoreId)
+        widget.execution.workflowSchemaVersion == 1
+            ? _cleanOptionalString(widget.execution.firestoreId)
             : null;
     final lanes =
         workflowId == null
@@ -46,64 +51,91 @@ class _PlannedJobReportAction extends ConsumerWidget {
             ? const <WorkflowEventRecord>[]
             : events?.asData?.value;
     final failed =
-        diaryEntries.hasError ||
-        modules.hasError ||
         (lanes?.hasError ?? false) ||
         (compliance?.hasError ?? false) ||
         (events?.hasError ?? false);
     final ready =
-        !templateLoading &&
-        diaryEntries.asData != null &&
-        modules.asData != null &&
+        !widget.templateLoading &&
         laneEvidence != null &&
         complianceEvidence != null &&
         eventEvidence != null;
 
     return IconButton(
+      key: const ValueKey('planned-job-complete-report'),
       tooltip:
           failed
               ? 'Report evidence could not be loaded'
+              : _building
+              ? 'Loading complete report evidence'
               : ready
               ? 'Preview complete PDF dossier'
               : 'Loading complete report evidence',
       onPressed:
-          !ready
+          !ready || _building
               ? null
-              : () => _openReport(
-                context,
-                ref,
-                laneEvidence,
-                complianceEvidence,
-                eventEvidence,
-              ),
-      icon: const Icon(Icons.picture_as_pdf_outlined),
+              : () =>
+                  _openReport(laneEvidence, complianceEvidence, eventEvidence),
+      icon:
+          _building
+              ? const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : const Icon(Icons.picture_as_pdf_outlined),
     );
   }
 
-  void _openReport(
-    BuildContext context,
-    WidgetRef ref,
+  Future<void> _openReport(
     List<JobLaneRecord> workflowLanes,
     List<ComplianceRequestRecord> complianceRequests,
     List<WorkflowEventRecord> workflowEvents,
-  ) {
+  ) async {
+    setState(() => _building = true);
     try {
+      final execution = widget.execution;
+      final diaryRequest = ref
+          .read(jobDiaryRepositoryProvider)
+          .getEntriesForJob(
+            jobExecutionFirestoreId: _cleanOptionalString(
+              execution.firestoreId,
+            ),
+            jobExecutionLocalId: kIsWeb ? null : execution.id,
+            includeDeleted: true,
+          );
+      final moduleRequest = ref
+          .read(jobModuleRepositoryProvider)
+          .getModulesForJob(
+            jobExecutionFirestoreId: _cleanOptionalString(
+              execution.firestoreId,
+            ),
+            jobExecutionLocalId: kIsWeb ? null : execution.id,
+            includeDeleted: true,
+          );
+      final childEvidence = await Future.wait<Object>(<Future<Object>>[
+        diaryRequest,
+        moduleRequest,
+      ]);
+      final diaryEntries = childEvidence[0] as List<JobDiaryEntry>;
+      final modules = childEvidence[1] as List<JobModuleInstance>;
+      if (!mounted) return;
+
       final report = buildPlannedJobDossier(
         execution: execution,
-        template: template,
-        modules: modules.requireValue,
-        diaryEntries: diaryEntries.requireValue,
+        template: widget.template,
+        modules: modules,
+        diaryEntries: diaryEntries,
         workflowLanes: workflowLanes,
         complianceRequests: complianceRequests,
         workflowEvents: workflowEvents,
         generatedAt: DateTime.now(),
-        generatedByName: actor.name,
+        generatedByName: widget.actor.name,
         provenance: readApplicationReportProvenance(
           ref,
           completenessNotes: const <String>[
             'This dossier preserves the complete locally available execution, '
-                'module, diary, lane, compliance and component-action evidence; '
-                'its synchronization and version state are stated in the document.',
+                'module (including removed modules), diary (including removed '
+                'entries), lane, compliance and component-action evidence; its '
+                'synchronization and version state are stated in the document.',
           ],
         ),
       );
@@ -113,6 +145,7 @@ class _PlannedJobReportAction extends ConsumerWidget {
         ),
       );
     } on Object catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -121,6 +154,10 @@ class _PlannedJobReportAction extends ConsumerWidget {
           backgroundColor: BafColors.danger,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _building = false);
+      }
     }
   }
 }

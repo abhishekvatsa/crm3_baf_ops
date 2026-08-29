@@ -117,7 +117,8 @@ StructuredReportDocument buildPlannedJobDossier({
           ? 'Completed'
           : 'Open';
   final openModules = modules.where((module) => module.isOpenForWork).length;
-  final openBlockers = diary.where((entry) => entry.isOpenBlocker).length;
+  final openBlockers =
+      diary.where((entry) => !entry.isDeleted && entry.isOpenBlocker).length;
   final activeCompliance =
       compliance
           .where(
@@ -613,6 +614,9 @@ List<String> _diaryRow(JobDiaryEntry entry) {
     if (_clean(entry.actionTaken) != null) 'Action: ${entry.actionTaken}',
     if (_clean(entry.pendingIssue) != null) 'Pending: ${entry.pendingIssue}',
     if (entry.requiresFollowUp) 'Follow-up required',
+    if (entry.isDeleted)
+      'Removed ${entry.deletedAt == null ? 'time not recorded' : _dateTime(entry.deletedAt!)} '
+          'by ${_value(entry.deletedByName)}: ${_value(entry.deleteReason)}',
   ];
   return <String>[
     _dateTime(entry.createdAt),

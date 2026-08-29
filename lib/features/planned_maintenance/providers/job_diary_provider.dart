@@ -235,6 +235,7 @@ abstract class JobDiaryRepository {
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     int? limit,
+    bool includeDeleted = false,
   });
 
   Stream<List<JobDiaryEntry>> watchEntriesForJob({

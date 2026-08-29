@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -1409,7 +1410,7 @@ class OperationsReportPdfService {
   }) {
     const rowsPerBlock = 8;
     final normalizedRows = rows
-        .map((row) => row.map(_reportCellText).toList(growable: false))
+        .expand(_reportRowSegments)
         .toList(growable: false);
     final tables = <pw.Widget>[];
     for (var start = 0; start < normalizedRows.length; start += rowsPerBlock) {
@@ -1421,12 +1422,10 @@ class OperationsReportPdfService {
               ? start + rowsPerBlock
               : normalizedRows.length;
       tables.add(
-        pw.Container(
-          child: _simpleTable(
-            headers: headers,
-            rows: normalizedRows.sublist(start, end),
-            widths: widths,
-          ),
+        _simpleTable(
+          headers: headers,
+          rows: normalizedRows.sublist(start, end),
+          widths: widths,
         ),
       );
     }
@@ -1455,14 +1454,54 @@ class OperationsReportPdfService {
     headerAlignment: pw.Alignment.centerLeft,
   );
 
-  static String _reportCellText(String value) {
-    final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
-    const maxCharacters = 180;
-    if (normalized.length <= maxCharacters) {
-      return normalized;
-    }
-    return '${normalized.substring(0, maxCharacters - 3).trimRight()}...';
+  static List<List<String>> _reportRowSegments(List<String> row) {
+    final cells = row
+        .map(_reportCellText)
+        .map(_reportCellSegments)
+        .toList(growable: false);
+    final segmentCount = cells.fold<int>(
+      1,
+      (maximum, segments) =>
+          segments.length > maximum ? segments.length : maximum,
+    );
+    return List<List<String>>.generate(
+      segmentCount,
+      (segmentIndex) => cells
+          .map(
+            (segments) =>
+                segmentIndex < segments.length ? segments[segmentIndex] : '',
+          )
+          .toList(growable: false),
+      growable: false,
+    );
   }
+
+  static List<String> _reportCellSegments(String value) {
+    const maximumSegmentCharacters = 360;
+    if (value.length <= maximumSegmentCharacters) {
+      return <String>[value];
+    }
+
+    final segments = <String>[];
+    var remaining = value;
+    while (remaining.length > maximumSegmentCharacters) {
+      final splitAt = remaining.lastIndexOf(' ', maximumSegmentCharacters);
+      if (splitAt <= 0) {
+        break;
+      }
+      segments.add(remaining.substring(0, splitAt));
+      remaining = remaining.substring(splitAt + 1);
+    }
+    segments.add(remaining);
+    return segments;
+  }
+
+  static String _reportCellText(String value) =>
+      value.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  @visibleForTesting
+  static String normalizeReportCellTextForTesting(String value) =>
+      _reportCellText(value);
 
   static pw.Widget _rankedList(String title, List<CountedReportLabel> values) =>
       pw.Container(

@@ -94,6 +94,89 @@ void main() {
         throwsStateError,
       );
     });
+
+    test('retains evidence beyond screen limits and removed child records', () {
+      final createdAt = DateTime.utc(2026, 8, 28, 8);
+      final modules = List<JobModuleInstance>.generate(101, (index) {
+        final module =
+            JobModuleInstance()
+              ..id = index + 1
+              ..firestoreId = 'module-${index + 1}'
+              ..jobExecutionFirestoreId = 'execution-1'
+              ..moduleTitle = 'Module evidence ${index + 1}'
+              ..moduleCode = 'M-${index + 1}'
+              ..assetType = AssetType.furnace
+              ..assetNumber = 1
+              ..status = JobModuleStatus.inProgress
+              ..discipline = JobModuleDiscipline.mechanical
+              ..createdAt = createdAt.add(Duration(minutes: index))
+              ..updatedAt = createdAt.add(Duration(minutes: index))
+              ..isSynced = true;
+        if (index == 100) {
+          module
+            ..isDeleted = true
+            ..deletedAt = createdAt.add(const Duration(hours: 3))
+            ..deletedByName = 'Maintenance Supervisor'
+            ..deleteReason = 'Removed after governed correction.';
+        }
+        return module;
+      });
+      final diaryEntries = List<JobDiaryEntry>.generate(51, (index) {
+        final entry =
+            JobDiaryEntry()
+              ..id = index + 1
+              ..firestoreId = 'diary-${index + 1}'
+              ..jobExecutionFirestoreId = 'execution-1'
+              ..assetType = AssetType.furnace
+              ..assetNumber = 1
+              ..kind = JobDiaryKind.note
+              ..discipline = JobDiaryDiscipline.shared
+              ..title = 'Diary evidence ${index + 1}'
+              ..note = 'Preserved report evidence ${index + 1}'
+              ..createdByName = 'Maintenance User'
+              ..createdAt = createdAt.add(Duration(minutes: index))
+              ..updatedAt = createdAt.add(Duration(minutes: index))
+              ..isSynced = true;
+        if (index == 50) {
+          entry
+            ..isDeleted = true
+            ..deletedAt = createdAt.add(const Duration(hours: 3))
+            ..deletedByName = 'Maintenance Supervisor'
+            ..deleteReason = 'Removed after governed correction.';
+        }
+        return entry;
+      });
+
+      final report = buildPlannedJobDossier(
+        execution: _execution(createdAt),
+        template: null,
+        modules: modules,
+        diaryEntries: diaryEntries,
+        workflowLanes: const [],
+        complianceRequests: const [],
+        workflowEvents: const [],
+        generatedAt: DateTime.utc(2026, 8, 29, 12),
+        generatedByName: 'Admin User',
+        provenance: const ReportProvenance.applicationSnapshot(),
+      );
+
+      final moduleSection = report.sections.singleWhere(
+        (section) => section.title == 'Runtime modules',
+      );
+      final diarySection = report.sections.singleWhere(
+        (section) => section.title == 'Job diary chronology',
+      );
+      expect(moduleSection.tables.first.rows, hasLength(101));
+      expect(
+        moduleSection.tables.first.rows.last.last,
+        contains('Removed after governed correction.'),
+      );
+      expect(diarySection.tables.single.rows, hasLength(51));
+      expect(
+        diarySection.tables.single.rows.last[4],
+        contains('Removed after governed correction.'),
+      );
+    });
   });
 }
 

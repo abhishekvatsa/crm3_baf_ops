@@ -67,6 +67,21 @@ void main() {
       expect(sections, contains(OperationsReportSection.operationalControl));
     });
 
+    test('report cell normalization preserves the complete evidence text', () {
+      final narrative =
+          '${List<String>.filled(80, 'complete maintenance evidence').join(' ')} '
+          'FINAL-RETAINED-EVIDENCE';
+
+      final normalized =
+          OperationsReportPdfService.normalizeReportCellTextForTesting(
+            narrative,
+          );
+
+      expect(normalized, narrative);
+      expect(normalized, endsWith('FINAL-RETAINED-EVIDENCE'));
+      expect(normalized.length, greaterThan(180));
+    });
+
     test('generated PDF has a valid document signature', () async {
       final generatedAt = DateTime.utc(2026, 8, 29, 10, 11, 12);
       final report = OperationsReport(
@@ -116,6 +131,9 @@ void main() {
 
     test('large maintenance report paginates without overflow', () async {
       final generatedAt = DateTime.utc(2026, 8, 29, 10, 11, 12);
+      final longNarrative =
+          '${List<String>.filled(120, 'full retained maintenance narrative').join(' ')} '
+          'FINAL-RETAINED-EVIDENCE';
       final tickets = List<MaintenanceRecord>.generate(
         120,
         (index) =>
@@ -125,8 +143,11 @@ void main() {
               ..assetNumber = (index % 26) + 1
               ..maintenanceType = MaintenanceType.breakdown
               ..description =
-                  'Governed maintenance summary row $index with enough narrative '
-                  'content to exercise wrapping and bounded table pagination.'
+                  index == 0
+                      ? longNarrative
+                      : 'Governed maintenance summary row $index with enough '
+                          'narrative content to exercise wrapping and bounded '
+                          'table pagination.'
               ..routedTo = RoutedTo.mechanical
               ..status = TicketStatus.resolved
               ..isResolved = true

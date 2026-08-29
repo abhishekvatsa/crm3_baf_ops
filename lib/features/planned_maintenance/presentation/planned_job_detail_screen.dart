@@ -750,8 +750,6 @@ class _PlannedJobDetailScreenState
               template: _template,
               actor: actor!,
               templateLoading: _isLoadingTemplate,
-              diaryEntries: diaryAsync,
-              modules: modulesAsync,
             ),
         ],
       ),
