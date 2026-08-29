@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
@@ -93,6 +94,46 @@ void main() {
         ),
         throwsStateError,
       );
+    });
+
+    test('counts only canonical non-terminal compliance as active', () {
+      final createdAt = DateTime.utc(2026, 8, 28, 8);
+      ComplianceRequestRecord request(String id, String status) =>
+          ComplianceRequestRecord()
+            ..firestoreId = id
+            ..linkedWorkflowId = 'execution-1'
+            ..title = 'Operations support'
+            ..description = 'Controlled support request.'
+            ..targetLaneKey = 'oprn'
+            ..statusKey = status
+            ..createdAt = createdAt;
+
+      final report = buildPlannedJobDossier(
+        execution: _execution(createdAt),
+        template: null,
+        modules: const [],
+        diaryEntries: const [],
+        workflowLanes: const [],
+        complianceRequests: <ComplianceRequestRecord>[
+          request('active', 'acknowledged'),
+          request('confirmed', 'confirmedClosed'),
+          request('superseded', 'superseded'),
+          request('cancelled', 'cancelled'),
+        ],
+        workflowEvents: const [],
+        generatedAt: DateTime.utc(2026, 8, 29, 12),
+        generatedByName: 'Admin User',
+        provenance: const ReportProvenance.applicationSnapshot(),
+      );
+
+      final identity = report.sections.singleWhere(
+        (section) => section.title == 'Execution identity and status',
+      );
+      final compliance = identity.metrics.singleWhere(
+        (metric) => metric.label == 'Compliance',
+      );
+      expect(compliance.value, '4');
+      expect(compliance.detail, '1 active');
     });
 
     test('retains evidence beyond screen limits and removed child records', () {

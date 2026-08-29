@@ -897,11 +897,15 @@ class OperationsReportPdfService {
                 OperationalEventScope.assets =>
                   '${interval.scope.label} (${interval.affectedAssetInstanceIds.length})',
               };
+              final timeCells = _plantDisruptionTimeCells(
+                startedAt: interval.startedAt,
+                resolvedAt: interval.resolvedAt,
+                asOf: report.asOf,
+                isOpen: occurrence.isOpen,
+              );
               return <String>[
-                _dateTime.format(interval.startedAt),
-                occurrence.isOpen
-                    ? 'Open at ${_dateTime.format(report.asOf)}'
-                    : _dateTime.format(interval.resolvedAt),
+                timeCells[0],
+                timeCells[1],
                 '${interval.eventType.label} / ${interval.severity.label}',
                 '${interval.title}\n${interval.description}',
                 scopeDetail,
@@ -1501,6 +1505,18 @@ class OperationsReportPdfService {
   static String _formatLocalDateTime(DateTime value) =>
       _dateTime.format(value.toLocal());
 
+  static List<String> _plantDisruptionTimeCells({
+    required DateTime startedAt,
+    required DateTime resolvedAt,
+    required DateTime asOf,
+    required bool isOpen,
+  }) => <String>[
+    _formatLocalDateTime(startedAt),
+    isOpen
+        ? 'Open at ${_formatLocalDateTime(asOf)}'
+        : _formatLocalDateTime(resolvedAt),
+  ];
+
   @visibleForTesting
   static String normalizeReportCellTextForTesting(String value) =>
       _reportCellText(value);
@@ -1508,6 +1524,19 @@ class OperationsReportPdfService {
   @visibleForTesting
   static List<List<String>> segmentReportRowForTesting(List<String> row) =>
       _reportRowSegments(row);
+
+  @visibleForTesting
+  static List<String> plantDisruptionTimeCellsForTesting({
+    required DateTime startedAt,
+    required DateTime resolvedAt,
+    required DateTime asOf,
+    required bool isOpen,
+  }) => _plantDisruptionTimeCells(
+    startedAt: startedAt,
+    resolvedAt: resolvedAt,
+    asOf: asOf,
+    isOpen: isOpen,
+  );
 
   static pw.Widget _rankedList(String title, List<CountedReportLabel> values) =>
       pw.Container(

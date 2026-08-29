@@ -124,8 +124,8 @@ StructuredReportDocument buildPlannedJobDossier({
           .where(
             (request) =>
                 !request.isDeleted &&
-                request.statusKey != 'confirmed' &&
-                request.statusKey != 'withdrawn' &&
+                request.statusKey != 'confirmedClosed' &&
+                request.statusKey != 'superseded' &&
                 request.statusKey != 'cancelled',
           )
           .length;

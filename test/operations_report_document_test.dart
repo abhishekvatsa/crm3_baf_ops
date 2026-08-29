@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:crm3_baf_ops/features/reports/domain/operations_report_document.dart';
 import 'package:crm3_baf_ops/features/reports/domain/report_provenance.dart';
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
@@ -98,6 +99,32 @@ void main() {
         segments.map((row) => row[1]).where((cell) => cell.isNotEmpty).join(),
         narrative,
       );
+    });
+
+    test('plant disruption timestamps use the device local timezone', () {
+      final startedAt = DateTime.utc(2026, 8, 29, 23, 45);
+      final resolvedAt = startedAt.add(const Duration(hours: 2));
+      final asOf = startedAt.add(const Duration(hours: 1));
+      final format = DateFormat('dd MMM yyyy, HH:mm');
+
+      final closed =
+          OperationsReportPdfService.plantDisruptionTimeCellsForTesting(
+            startedAt: startedAt,
+            resolvedAt: resolvedAt,
+            asOf: asOf,
+            isOpen: false,
+          );
+      final open =
+          OperationsReportPdfService.plantDisruptionTimeCellsForTesting(
+            startedAt: startedAt,
+            resolvedAt: resolvedAt,
+            asOf: asOf,
+            isOpen: true,
+          );
+
+      expect(closed[0], format.format(startedAt.toLocal()));
+      expect(closed[1], format.format(resolvedAt.toLocal()));
+      expect(open[1], 'Open at ${format.format(asOf.toLocal())}');
     });
 
     test('generated PDF has a valid document signature', () async {
