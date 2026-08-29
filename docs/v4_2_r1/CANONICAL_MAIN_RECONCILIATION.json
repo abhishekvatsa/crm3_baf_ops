@@ -1366,9 +1366,9 @@
     {
       "path": "lib/features/audit/models/audit_event_model.dart",
       "canonicalSha256": "40C0BD81E8820E6AE5C8E8884AF62E3A37F69156201246EEDB6AF6CABCC9EE42",
-      "candidateSha256": "CE6ADBE9267214596043FF39DFB54399E43CBCD75334A3C23AB375893C99907E",
+      "candidateSha256": "FBB947E6BDFBF42D37D271295505F59EA7942D6C6CEC1D0EAE690028E55F14E8",
       "canonicalBytes": 8516,
-      "candidateBytes": 8590,
+      "candidateBytes": 8927,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1398,9 +1398,9 @@
     {
       "path": "lib/features/audit/repositories/audit_repository.dart",
       "canonicalSha256": "BDED27B6D116605660E09768484F9E5B1499F1F579FAE1253183C1D83ED7E1DB",
-      "candidateSha256": "B1BD3BBD0EFE61AC504DDD73D8098E98F7C2CC141769B1B90C471F0CC8A98B02",
+      "candidateSha256": "4B7FC57DADC6565DD81519A62B3FE1D7FB9612DD004B73486F9913C231C24169",
       "canonicalBytes": 17977,
-      "candidateBytes": 18623,
+      "candidateBytes": 18663,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

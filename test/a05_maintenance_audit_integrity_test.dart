@@ -606,6 +606,7 @@ void main() {
       expect(decoded.before, {'isResolved': false});
       expect(decoded.after, {'isResolved': true});
       expect(decoded.isSynced, isTrue);
+      expect(decoded.remoteDocumentId, 'audit-1');
 
       for (final malformed in <Map<String, dynamic>>[
         {...valid}..remove('timestamp'),

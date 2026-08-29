@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
+import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter/material.dart';
@@ -174,6 +175,37 @@ void main() {
       );
 
       expect(ordered, <AuditEvent>[first, second]);
+    });
+
+    test('equal-time remote corrections use stable document order', () {
+      final timestamp = DateTime.utc(2026, 8, 21, 9);
+      Map<String, dynamic> persisted(String summary) => <String, dynamic>{
+        'entityType': 'maintenance',
+        'entityId': 'ticket-1',
+        'action': 'update',
+        'performedByUid': 'admin-uid',
+        'timestamp': timestamp.toIso8601String(),
+        'summary': summary,
+        'severity': 'low',
+      };
+      final second = decodePersistedAuditEvent(
+        persisted('Second correction'),
+        documentId: 'correction-b',
+      );
+      final first = decodePersistedAuditEvent(
+        persisted('First correction'),
+        documentId: 'correction-a',
+      );
+
+      final ordered = maintenanceTicketCorrectionEventsInDossierOrder(
+        <AuditEvent>[second, first],
+      );
+
+      expect(ordered, <AuditEvent>[first, second]);
+      expect(ordered.map((event) => event.remoteDocumentId), <String?>[
+        'correction-a',
+        'correction-b',
+      ]);
     });
 
     test('generated PDF has a valid document signature', () async {

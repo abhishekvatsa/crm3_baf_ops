@@ -334,7 +334,13 @@ List<AuditEvent> maintenanceTicketCorrectionEventsInDossierOrder(
 ) {
   final ordered = events.toList(growable: false)..sort((left, right) {
     final timestampOrder = left.timestamp.compareTo(right.timestamp);
-    return timestampOrder != 0 ? timestampOrder : left.id.compareTo(right.id);
+    if (timestampOrder != 0) return timestampOrder;
+    final leftRemoteId = left.remoteDocumentId;
+    final rightRemoteId = right.remoteDocumentId;
+    if (leftRemoteId != null || rightRemoteId != null) {
+      return (leftRemoteId ?? '').compareTo(rightRemoteId ?? '');
+    }
+    return left.id.compareTo(right.id);
   });
   return List<AuditEvent>.unmodifiable(ordered);
 }

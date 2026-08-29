@@ -81,6 +81,14 @@ class AuditContext {
 class AuditEvent {
   Id id = Isar.autoIncrement;
 
+  /// Stable Firestore identity for remotely decoded events.
+  ///
+  /// This is intentionally not persisted in Isar. Local events already have
+  /// their durable [id], while remote report ordering needs the document ID as
+  /// a deterministic tie-breaker when multiple events share a timestamp.
+  @ignore
+  String? remoteDocumentId;
+
   // ───────── Core identity ─────────
 
   @Index()
