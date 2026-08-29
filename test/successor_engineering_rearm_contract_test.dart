@@ -507,9 +507,9 @@ void main() {
       expect(
         artifact['runtimeValidation'],
         runtimeValidationPassed
-            ? 'PASSED_EXACT_BUILD18_PHYSICAL_IN_PLACE_'
+            ? 'PASSED_EXACT_BUILD${finalizedBuildNumber}_PHYSICAL_IN_PLACE_'
                 'AUTHENTICATED_READ_ONLY_SURFACES'
-            : 'NOT_ADJUDICATED_FOR_EXACT_BUILD18',
+            : 'NOT_ADJUDICATED_FOR_EXACT_BUILD$finalizedBuildNumber',
       );
       if (runtimeValidationPassed) {
         expect(

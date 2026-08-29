@@ -1333,6 +1333,11 @@ void main() {
         final build18DeviceAcceptance =
             jsonDecode(read('release/evidence/build-18-device-acceptance.json'))
                 as Map<String, dynamic>;
+        final build19Receipt =
+            jsonDecode(
+                  read('release/evidence/build-19-finalization-closure.json'),
+                )
+                as Map<String, dynamic>;
         final receipt =
             jsonDecode(
                   read('release/evidence/build-11-finalization-closure.json'),
@@ -1441,6 +1446,34 @@ void main() {
               : 'completed-non-distributable',
         );
         expect(finalization['dualCustodyCompleted'], !pendingConstruction);
+        expect(build19Receipt['schemaVersion'], 1);
+        expect(build19Receipt['status'], 'passed-non-distributable');
+        expect(
+          (build19Receipt['release'] as Map<String, dynamic>)['buildNumber'],
+          19,
+        );
+        expect(
+          (build19Receipt['governedPackage'] as Map<String, dynamic>)['sha256'],
+          '914573AC394581D234EA605AF91F33C0CD54514473971951F7112B3FD2436394',
+        );
+        expect(
+          (build19Receipt['releaseBoundary']
+              as Map<String, dynamic>)['controlledPilotApproved'],
+          isFalse,
+        );
+        expect(
+          finalizedBuild['completionReceiptFile'],
+          'release/evidence/build-19-finalization-closure.json',
+        );
+        expect(
+          _sha256(finalizedBuild['completionReceiptFile'] as String),
+          finalizedBuild['completionReceiptSha256'],
+        );
+        expect(finalizedBuild['runtimeValidationPassed'], isFalse);
+        expect(
+          finalizedBuild['runtimeDisposition'],
+          'not-adjudicated-by-build-finalization',
+        );
         expect(build18Receipt['schemaVersion'], 1);
         expect(build18Receipt['status'], 'passed-non-distributable');
         expect(
@@ -1456,22 +1489,25 @@ void main() {
               as Map<String, dynamic>)['controlledPilotApproved'],
           isFalse,
         );
+        final priorCompletedBuild =
+            finalization['priorCompletedBuild'] as Map<String, dynamic>;
+        expect(priorCompletedBuild['buildNumber'], 18);
         expect(
-          finalizedBuild['completionReceiptFile'],
+          priorCompletedBuild['completionReceiptFile'],
           'release/evidence/build-18-finalization-closure.json',
         );
-        expect(finalizedBuild['runtimeValidationPassed'], isTrue);
+        expect(priorCompletedBuild['runtimeValidationPassed'], isTrue);
         expect(
-          finalizedBuild['runtimeDisposition'],
+          priorCompletedBuild['runtimeDisposition'],
           'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces',
         );
         expect(
-          finalizedBuild['deviceAcceptanceReceiptFile'],
+          priorCompletedBuild['deviceAcceptanceReceiptFile'],
           'release/evidence/build-18-device-acceptance.json',
         );
         expect(
-          _sha256(finalizedBuild['deviceAcceptanceReceiptFile'] as String),
-          finalizedBuild['deviceAcceptanceReceiptSha256'],
+          _sha256(priorCompletedBuild['deviceAcceptanceReceiptFile'] as String),
+          priorCompletedBuild['deviceAcceptanceReceiptSha256'],
         );
         expect(
           build18DeviceAcceptance['status'],
