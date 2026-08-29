@@ -68,10 +68,12 @@ displace an active emergency. It preserves every previously registered feature
 regression instead of replacing named coverage with a generic test. The
 seven-day operational retention stream for closed quality-monitoring requests
 adds two read-only stream operations under the already classified quality
-provider; the complete reporting provider continues to retain full history.
-The current manifest therefore covers 547 operations and 1,897 sites across 57
+provider. Complete quality and critical-alarm report feeds retain full history,
+bind reads to the current approved actor, and admit offline cache only after the
+same query has been server-confirmed in that actor session. The current manifest
+therefore covers 550 operations and 1,901 sites across 57
 surfaces with digest
-`E93B4C7F5A207901298103C5387AAAA373354197D7B824B86C738250F4355B9B`;
+`0D8CED594C54442D59D3FBC4545602E1637EFBB78B6A570E3956E17B0CB1D962`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

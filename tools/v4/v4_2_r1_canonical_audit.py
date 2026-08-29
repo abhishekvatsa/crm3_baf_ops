@@ -9011,6 +9011,8 @@ ui_burner_round_provider_source = text(
 )
 ui_operations_report_provider_source = text(
     "lib/features/reports/providers/operations_report_provider.dart"
+) + text(
+    "lib/features/reports/providers/operations_report_authority_lifecycle.dart"
 )
 ui_planned_detail_source = text(
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart"
@@ -10821,10 +10823,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 547
-    and a03_inventory_report.get("siteCount") == 1897
+    and a03_inventory_report.get("operationCount") == 550
+    and a03_inventory_report.get("siteCount") == 1901
     and a03_inventory_report.get("inventoryDigest")
-        == "E93B4C7F5A207901298103C5387AAAA373354197D7B824B86C738250F4355B9B"
+        == "0D8CED594C54442D59D3FBC4545602E1637EFBB78B6A570E3956E17B0CB1D962"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -10877,7 +10879,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 76
     and a04_inventory_report.get("inventoryDigest")
-        == "A0727B47C22542EE2626EBCC2B6AA1D1424941CA07F3AE4BC3A0D68ED9F4D612"
+        == "CF84BB4C32A51E41C9AE903CCC1FBADAB1429AFA52D98793A5D715C2D74D12A9"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -11200,7 +11202,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 49
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 51
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 38
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 393
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 394
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []

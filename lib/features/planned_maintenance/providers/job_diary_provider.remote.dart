@@ -63,21 +63,36 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     int? limit,
+    bool includeDeleted = false,
   }) async {
     final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
     if (cleanedFirestoreId == null) return [];
 
-    Query<Map<String, dynamic>> query = _entries
-        .where('jobExecutionFirestoreId', isEqualTo: cleanedFirestoreId)
-        .where('isDeleted', isEqualTo: false)
-        .orderBy('createdAt', descending: true);
+    Future<List<JobDiaryEntry>> loadDeletedState(bool isDeleted) async {
+      Query<Map<String, dynamic>> query = _entries
+          .where('jobExecutionFirestoreId', isEqualTo: cleanedFirestoreId)
+          .where('isDeleted', isEqualTo: isDeleted)
+          .orderBy('createdAt', descending: true);
 
-    if (limit != null) query = query.limit(limit);
+      if (limit != null) query = query.limit(limit);
 
-    final snap = await query.get();
-    return snap.docs
-        .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
-        .toList();
+      final snap = await query.get();
+      return snap.docs
+          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+          .toList();
+    }
+
+    if (!includeDeleted) {
+      return loadDeletedState(false);
+    }
+
+    final activeRequest = loadDeletedState(false);
+    final deletedRequest = loadDeletedState(true);
+    final entries = <JobDiaryEntry>[
+      ...await activeRequest,
+      ...await deletedRequest,
+    ]..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    return limit == null ? entries : entries.take(limit).toList();
   }
 
   @override

@@ -1063,7 +1063,7 @@
       "compatibility": "absent pre-feature metadata and unrelated opaque metadata only",
       "regression": "test/ui_business_alignment_test.dart",
       "reArmCondition": "metadata display output becomes command authority or malformed metadata enables a mutation",
-      "riskFingerprint": "51b6019dff6ea1087397760c1a5ff60cf763e26136e3d9f2a098cdbad7539d5b"
+      "riskFingerprint": "3c85da2ff8db6a35eb5936c522150600eb9d9e6eb2da70f17bd349683b70ef24"
     },
     {
       "id": "closed-ticket-maintenance-metadata-display",

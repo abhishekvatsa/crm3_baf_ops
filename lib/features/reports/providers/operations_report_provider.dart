@@ -14,6 +14,8 @@ import '../../assets/providers/burner_condition_round_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../critical_alarm/domain/critical_alarm_models.dart';
+import '../../critical_alarm/providers/critical_alarm_providers.dart';
 import '../../directives/data/operational_directive_model.dart';
 import '../../directives/providers/operational_directive_provider.dart';
 import '../../inspections/data/inspection_campaign.dart';
@@ -36,6 +38,8 @@ import '../domain/operations_report_asset_inventory.dart';
 import '../models/operations_report.dart';
 
 export '../../../core/providers/operations_report_clock_provider.dart';
+
+part 'operations_report_authority_lifecycle.dart';
 
 typedef OperationsReportPeriod =
     ({DateTime startInclusive, DateTime endExclusive});
@@ -73,43 +77,6 @@ final operationsReportAbnormalitiesProvider = FutureProvider.autoDispose
       return ref.watch(abnormalityRepositoryProvider).getAllAbnormalities();
     });
 
-/// Clears retained report inputs whenever the approved actor session changes.
-///
-/// The app root watches this provider continuously. Keeping it non-auto-dispose
-/// ensures that a sign-out, revocation, or direct account switch is observed
-/// even when no report screen is mounted.
-final operationsReportAuthorityLifecycleProvider = Provider<void>((ref) {
-  ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (previous, next) {
-    final previousActor = previous?.asData?.value;
-    if (previousActor == null) return;
-    final nextActor = next.asData?.value;
-    if (nextActor?.uid == previousActor.uid &&
-        nextActor?.canViewReports == true) {
-      return;
-    }
-    ref.invalidate(operationsReportTicketsProvider);
-    ref.invalidate(operationsReportExecutionsProvider);
-    ref.invalidate(operationalEventsForReportsProvider);
-    ref.invalidate(maintenanceDueStatesProvider);
-    ref.invalidate(allInspectionFindingsProvider);
-    ref.invalidate(qualityWarningsProvider);
-    ref.invalidate(qualityMonitoringRequestsForReportsProvider);
-    ref.invalidate(operationsReportAbnormalitiesProvider);
-    ref.invalidate(openDirectivesProvider);
-    ref.invalidate(workflowAllLanesProvider);
-    ref.invalidate(workflowAllComplianceProvider);
-    ref.invalidate(assetClassesProvider);
-    ref.invalidate(allAssetInstancesProvider);
-    ref.invalidate(innerCoverProfilesProvider);
-    ref.invalidate(assetOperationalConditionsProvider);
-    ref.invalidate(equipmentStatusProvider(null));
-    ref.invalidate(plantAssetOverviewProvider);
-    ref.invalidate(burnerConditionRoundsProvider);
-    ref.invalidate(burnerConditionRoundCacheTrustProvider);
-    ref.invalidate(operationsReportClockProvider);
-  });
-});
-
 final operationsReportProvider = Provider.autoDispose.family<
   AsyncValue<OperationsReport>,
   OperationsReportScope
@@ -140,9 +107,11 @@ final operationsReportProvider = Provider.autoDispose.family<
   final events = ref.watch(operationalEventsForReportsProvider(scope.actorUid));
   final dueStates = ref.watch(maintenanceDueStatesProvider);
   final inspectionFindings = ref.watch(allInspectionFindingsProvider);
-  final qualityWarnings = ref.watch(qualityWarningsProvider);
+  final qualityWarnings = ref.watch(
+    qualityWarningsForReportsProvider(scope.actorUid),
+  );
   final qualityMonitoring = ref.watch(
-    qualityMonitoringRequestsForReportsProvider,
+    qualityMonitoringRequestsForReportsProvider(scope.actorUid),
   );
   final abnormalities = ref.watch(
     operationsReportAbnormalitiesProvider(scope.actorUid),
@@ -150,6 +119,9 @@ final operationsReportProvider = Provider.autoDispose.family<
   final directives = ref.watch(openDirectivesProvider);
   final workflowLanes = ref.watch(workflowAllLanesProvider);
   final complianceRequests = ref.watch(workflowAllComplianceProvider);
+  final criticalAlarms = ref.watch(
+    criticalAlarmsForReportsProvider(scope.actorUid),
+  );
   final classes = ref.watch(assetClassesProvider);
   final assets = ref.watch(allAssetInstancesProvider);
   final innerCovers = ref.watch(innerCoverProfilesProvider);
@@ -167,6 +139,7 @@ final operationsReportProvider = Provider.autoDispose.family<
       directives.asError ??
       workflowLanes.asError ??
       complianceRequests.asError ??
+      criticalAlarms.asError ??
       classes.asError ??
       assets.asError ??
       innerCovers.asError ??
@@ -183,6 +156,7 @@ final operationsReportProvider = Provider.autoDispose.family<
       directives.isLoading ||
       workflowLanes.isLoading ||
       complianceRequests.isLoading ||
+      criticalAlarms.isLoading ||
       classes.isLoading ||
       assets.isLoading ||
       innerCovers.isLoading ||
@@ -204,6 +178,7 @@ final operationsReportProvider = Provider.autoDispose.family<
         directives: directives.requireValue,
         workflowLanes: workflowLanes.requireValue,
         complianceRequests: complianceRequests.requireValue,
+        criticalAlarms: criticalAlarms.requireValue,
         actor: authorizedActor,
         assetClasses: classes.requireValue,
         assetInstances: assets.requireValue,
@@ -236,6 +211,7 @@ OperationsReport buildOperationsReport({
   List<OperationalDirective> directives = const [],
   List<JobLaneRecord> workflowLanes = const [],
   List<ComplianceRequestRecord> complianceRequests = const [],
+  List<CriticalAlarm> criticalAlarms = const [],
   AppUser? actor,
   required List<AssetClassRecord> assetClasses,
   required List<AssetInstanceRecord> assetInstances,
@@ -567,6 +543,28 @@ OperationsReport buildOperationsReport({
           .toList()
         ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
 
+  bool criticalAlarmMatchesIdentity(CriticalAlarm alarm) {
+    if (effectiveClassId == null && filter.assetInstanceId == null) return true;
+    final assetTypeKey = alarm.assetTypeKey;
+    final assetNumber = alarm.assetNumber;
+    return assetTypeKey != null &&
+        assetNumber != null &&
+        legacyRecordMatches(assetTypeKey, assetNumber);
+  }
+
+  final filteredCriticalAlarms =
+      criticalAlarms
+          .where(
+            (alarm) =>
+                overlaps(
+                  alarm.raisedAt,
+                  alarm.resolvedAt ?? alarm.withdrawnAt,
+                ) &&
+                criticalAlarmMatchesIdentity(alarm),
+          )
+          .toList()
+        ..sort((left, right) => right.raisedAt.compareTo(left.raisedAt));
+
   bool isOverdue(MaintenanceDueState state) =>
       state.nextDueAt != null && state.nextDueAt!.isBefore(reportAsOf);
   bool isDueSoon(MaintenanceDueState state) {
@@ -847,7 +845,8 @@ OperationsReport buildOperationsReport({
     inspectionFindings: List<InspectionFinding>.unmodifiable(
       filteredInspectionFindings,
     ),
-    assetStates: List<PlantAssetState>.unmodifiable(filteredStates),
+    assetStates: inventory.numberedAssetStates,
+    innerCoverProfiles: inventory.innerCovers,
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
     topComponents: rank(componentDimension),
     topSubsystemPaths: rank(recordedSubsystemPathDimension),
@@ -883,11 +882,13 @@ OperationsReport buildOperationsReport({
     complianceRequests: List<ComplianceRequestRecord>.unmodifiable(
       filteredComplianceRequests,
     ),
+    criticalAlarms: List<CriticalAlarm>.unmodifiable(filteredCriticalAlarms),
     sourceQualityWarningCount: qualityWarnings.length,
     sourceQualityMonitoringCount: qualityMonitoringRequests.length,
     sourceAbnormalityCount: abnormalities.length,
     sourceDirectiveCount: directives.length,
     sourceWorkflowLaneCount: workflowLanes.length,
     sourceComplianceRequestCount: complianceRequests.length,
+    sourceCriticalAlarmCount: criticalAlarms.length,
   );
 }

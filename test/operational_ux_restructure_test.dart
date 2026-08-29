@@ -96,7 +96,7 @@ void main() {
       'operationsReportClockProvider',
       'maintenanceDueStatesProvider',
       'allInspectionFindingsProvider',
-      'qualityWarningsProvider',
+      'qualityWarningsForReportsProvider',
       'qualityMonitoringRequestsForReportsProvider',
       'operationsReportAbnormalitiesProvider',
       'openDirectivesProvider',

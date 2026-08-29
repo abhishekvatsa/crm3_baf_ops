@@ -1140,38 +1140,6 @@
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
-      "path": "lib/features/reports/providers/operations_report_provider.dart",
-      "disposition": "bounded-exception",
-      "owner": "Architecture / reports",
-      "purpose": "Owns authority-first composition and pure asset/date/actor scoping for the cross-domain operations report.",
-      "responsibilities": [
-        "authority",
-        "provider-wiring",
-        "serialization",
-        "state-orchestration"
-      ],
-      "authorityBoundary": "Resolves an approved report-capable AppUser before subscribing to any business-data provider, then reuses canonical directive and workflow visibility policy.",
-      "persistenceOwnership": "No direct persistence is admitted; feature repositories and read providers own every source query while this file combines immutable read results.",
-      "transactionOwnership": "No database or cross-source transaction is owned by report assembly.",
-      "rationale": "The provider is a cohesive read-model boundary: common period overlap, governed asset identity, actor visibility and completeness handling must be applied once across every management domain. It remains bounded below the general size threshold and has no direct datastore API.",
-      "regressionTests": [
-        "test/operations_report_test.dart",
-        "test/operations_report_source_test.dart"
-      ],
-      "maximumLines": 900,
-      "requiredMarkers": [
-        "final operationsReportProvider",
-        "OperationsReport buildOperationsReport"
-      ],
-      "forbiddenMarkers": [
-        "FirebaseFirestore.instance",
-        "Isar.getInstance()",
-        "writeTxn(",
-        "runTransaction("
-      ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, authority no longer resolves before business reads, observed responsibilities change, direct persistence appears, or either report regression suite stops passing."
-    },
-    {
       "path": "lib/features/inspections/presentation/inspection_programmes_editors.dart",
       "disposition": "bounded-exception",
       "owner": "Architecture / inspections",

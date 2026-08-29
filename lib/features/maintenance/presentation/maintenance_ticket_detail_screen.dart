@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../audit/models/audit_event_model.dart';
+import '../../audit/providers/audit_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
+import '../../reports/domain/maintenance_ticket_dossier.dart';
+import '../../reports/presentation/report_provenance_builder.dart';
+import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/maintenance_model.dart';
 import 'maintenance_ticket_correction_history.dart';
 
-class MaintenanceTicketDetailScreen extends StatelessWidget {
+class MaintenanceTicketDetailScreen extends ConsumerWidget {
   const MaintenanceTicketDetailScreen({
     super.key,
     required this.ticket,
@@ -19,7 +26,15 @@ class MaintenanceTicketDetailScreen extends StatelessWidget {
   final VoidCallback? onCorrect;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actor = ref.watch(currentAppUserProvider).asData?.value;
+    final cleanTicketId = ticket.firestoreId?.trim();
+    final correctionAudit =
+        cleanTicketId == null || cleanTicketId.isEmpty
+            ? const AsyncData<List<AuditEvent>>(<AuditEvent>[])
+            : ref.watch(
+              maintenanceTicketCorrectionAuditProvider(cleanTicketId),
+            );
     final laneRead = ticket.issueLanePlanReadResult;
     final lanePlan = laneRead.value;
     final actionsRead = ticket.actionsReadResult;
@@ -39,6 +54,26 @@ class MaintenanceTicketDetailScreen extends StatelessWidget {
           accent: BafColors.maintenance,
         ),
         actions: [
+          if (actor?.canViewReports == true)
+            IconButton(
+              key: const ValueKey('ticket-detail-pdf'),
+              tooltip:
+                  correctionAudit.isLoading
+                      ? 'Verifying correction evidence'
+                      : correctionAudit.hasError
+                      ? 'Correction evidence is unavailable'
+                      : 'Create complete PDF dossier',
+              onPressed:
+                  correctionAudit.asData == null
+                      ? null
+                      : () => _openPdfDossier(
+                        context,
+                        ref,
+                        actor!.name,
+                        correctionAudit.requireValue,
+                      ),
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+            ),
           if (onCorrect != null)
             IconButton(
               key: const ValueKey('ticket-detail-correct'),
@@ -318,6 +353,42 @@ class MaintenanceTicketDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _openPdfDossier(
+    BuildContext context,
+    WidgetRef ref,
+    String actorName,
+    List<AuditEvent> correctionEvents,
+  ) {
+    try {
+      final report = buildMaintenanceTicketDossier(
+        ticket: ticket,
+        correctionEvents: correctionEvents,
+        generatedAt: DateTime.now(),
+        generatedByName: actorName,
+        provenance: readApplicationReportProvenance(
+          ref,
+          completenessNotes: const <String>[
+            'This dossier preserves the complete locally available issue '
+                'lifecycle, structured work actions and correction evidence; '
+                'its synchronization and version state are stated in the document.',
+          ],
+        ),
+      );
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => StructuredReportPdfPreviewScreen(report: report),
+        ),
+      );
+    } on Object catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('The issue dossier could not be generated: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    }
   }
 
   static bool _hasText(String? value) => value?.trim().isNotEmpty == true;

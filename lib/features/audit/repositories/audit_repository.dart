@@ -80,6 +80,7 @@ AuditEvent decodePersistedAuditEvent(
           source: source,
           allowEpochMilliseconds: true,
         )
+        ..remoteDocumentId = documentId
         ..isSynced = true;
   return event;
 }

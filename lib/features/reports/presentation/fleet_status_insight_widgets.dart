@@ -1,5 +1,89 @@
 part of 'fleet_status_screen.dart';
 
+class ReportLibraryBand extends StatelessWidget {
+  const ReportLibraryBand({super.key, required this.onOpen});
+
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(BafSpacing.lg),
+    decoration: BoxDecoration(
+      color: BafColors.surfaceTint,
+      border: Border.all(color: BafColors.border),
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+    ),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final copy = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: BafColors.maintenance.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(BafRadius.medium),
+              ),
+              child: const Icon(
+                Icons.picture_as_pdf_outlined,
+                color: BafColors.maintenance,
+              ),
+            ),
+            const SizedBox(width: BafSpacing.md),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'PDF report library',
+                    style: TextStyle(
+                      color: BafColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Executive, asset condition, maintenance, reliability, quality, safety and integrated packs',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+        final action = FilledButton.icon(
+          onPressed: onOpen,
+          icon: const Icon(Icons.library_books_outlined),
+          label: const Text('Open library'),
+        );
+        if (constraints.maxWidth < 540) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              copy,
+              const SizedBox(height: BafSpacing.md),
+              action,
+            ],
+          );
+        }
+        return Row(
+          children: <Widget>[
+            Expanded(child: copy),
+            const SizedBox(width: BafSpacing.lg),
+            action,
+          ],
+        );
+      },
+    ),
+  );
+}
+
 enum OperationsReportView { overview, control, work, reliability, assurance }
 
 class OperationsReportViewSelector extends StatelessWidget {
@@ -284,6 +368,7 @@ class OperationsDecisionBrief extends StatelessWidget {
   const OperationsDecisionBrief({
     super.key,
     required this.report,
+    required this.onSafetyCriticalAlarms,
     required this.onPlantCondition,
     required this.onIssues,
     required this.onOperationalEvents,
@@ -298,6 +383,7 @@ class OperationsDecisionBrief extends StatelessWidget {
   });
 
   final OperationsReport report;
+  final VoidCallback onSafetyCriticalAlarms;
   final VoidCallback onPlantCondition;
   final VoidCallback onIssues;
   final VoidCallback onOperationalEvents;
@@ -390,6 +476,8 @@ class OperationsDecisionBrief extends StatelessWidget {
   VoidCallback _actionFor(
     OperationsManagementSignalType type,
   ) => switch (type) {
+    OperationsManagementSignalType.safetyCriticalAlarms =>
+      onSafetyCriticalAlarms,
     OperationsManagementSignalType.unavailableAssets => onPlantCondition,
     OperationsManagementSignalType.criticalIssues => onIssues,
     OperationsManagementSignalType.operationalDisruptions =>
@@ -460,6 +548,8 @@ class _DecisionSignalRow extends StatelessWidget {
 
   static IconData _signalIcon(OperationsManagementSignalType type) =>
       switch (type) {
+        OperationsManagementSignalType.safetyCriticalAlarms =>
+          Icons.notification_important_outlined,
         OperationsManagementSignalType.unavailableAssets =>
           Icons.precision_manufacturing_outlined,
         OperationsManagementSignalType.criticalIssues =>
@@ -599,12 +689,13 @@ void _invalidateReportSources(
   ref.invalidate(operationalEventsForReportsProvider);
   ref.invalidate(maintenanceDueStatesProvider);
   ref.invalidate(allInspectionFindingsProvider);
-  ref.invalidate(qualityWarningsProvider);
+  ref.invalidate(qualityWarningsForReportsProvider);
   ref.invalidate(qualityMonitoringRequestsForReportsProvider);
   ref.invalidate(operationsReportAbnormalitiesProvider);
   ref.invalidate(openDirectivesProvider);
   ref.invalidate(workflowAllLanesProvider);
   ref.invalidate(workflowAllComplianceProvider);
+  ref.invalidate(criticalAlarmsForReportsProvider);
   ref.invalidate(assetClassesProvider);
   ref.invalidate(allAssetInstancesProvider);
   ref.invalidate(assetOperationalConditionsProvider);

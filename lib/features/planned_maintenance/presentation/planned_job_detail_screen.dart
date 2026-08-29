@@ -16,10 +16,16 @@ import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance_workflow/data/compliance_request_record.dart';
+import '../../maintenance_workflow/data/job_lane_record.dart';
+import '../../maintenance_workflow/data/workflow_event_record.dart';
 import '../../maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../reports/domain/planned_job_dossier.dart';
+import '../../reports/presentation/report_provenance_builder.dart';
+import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/baf_module_catalogue_seed.dart';
 import '../data/job_diary_model.dart';
 import '../data/job_module_model.dart';
@@ -42,6 +48,7 @@ import 'widgets/job_module_response_summary.dart';
 part 'dossier/planned_job_detail_common.dart';
 part 'dossier/planned_job_diary_dossier.dart';
 part 'dossier/planned_job_module_dossier.dart';
+part 'dossier/planned_job_report_action.dart';
 
 /// Planned-maintenance dossier for legacy and governed job executions.
 ///
@@ -727,7 +734,6 @@ class _PlannedJobDetailScreenState
         ),
       ),
     );
-
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -737,6 +743,15 @@ class _PlannedJobDetailScreenState
           icon: Icons.work_history_outlined,
           accent: BafColors.planned,
         ),
+        actions: [
+          if (actor?.canViewReports ?? false)
+            _PlannedJobReportAction(
+              execution: execution,
+              template: _template,
+              actor: actor!,
+              templateLoading: _isLoadingTemplate,
+            ),
+        ],
       ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(

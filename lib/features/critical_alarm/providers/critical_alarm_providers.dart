@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/security/actor_session_cache_trust.dart';
+import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../data/critical_alarm_repository.dart';
@@ -28,6 +30,29 @@ final criticalAlarmPlatformServiceProvider =
       (ref) => const CriticalAlarmPlatformService(),
     );
 
+final criticalAlarmReportCacheTrustProvider = Provider<ActorSessionCacheTrust>((
+  ref,
+) {
+  final trust = ActorSessionCacheTrust();
+
+  void observeAuthority(AsyncValue<AppUser?> authority) {
+    if (authority.isLoading || authority.hasError) {
+      trust.observeActor(null);
+      return;
+    }
+    final actor = authority.value;
+    trust.observeActor(
+      actor != null && actor.canViewReports ? actor.uid : null,
+    );
+  }
+
+  observeAuthority(ref.read(currentAppUserProvider));
+  ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (_, next) {
+    observeAuthority(next);
+  });
+  return trust;
+});
+
 final criticalAlarmFeedProvider = StreamProvider<List<CriticalAlarm>>((ref) {
   return ref
       .watch(currentAppUserProvider)
@@ -42,6 +67,33 @@ final criticalAlarmFeedProvider = StreamProvider<List<CriticalAlarm>>((ref) {
         error: Stream<List<CriticalAlarm>>.error,
       );
 });
+
+final criticalAlarmsForReportsProvider = StreamProvider.autoDispose
+    .family<List<CriticalAlarm>, String>((ref, actorUid) {
+      final actorAsync = ref.watch(currentAppUserProvider);
+      if (actorAsync.isLoading) {
+        throw StateError(
+          'Critical-alarm report access is still being verified.',
+        );
+      }
+      if (actorAsync.hasError) {
+        throw StateError('Critical-alarm report access could not be verified.');
+      }
+      final actor = actorAsync.value;
+      if (actor == null ||
+          !actor.canViewReports ||
+          actor.uid != actorUid ||
+          actorUid.trim().isEmpty) {
+        throw StateError('Approved critical-alarm report access is required.');
+      }
+      return ref
+          .watch(criticalAlarmRepositoryProvider)
+          .watchAlarmsForReports(
+            trust: ref.watch(criticalAlarmReportCacheTrustProvider)
+              ..observeActor(actorUid),
+            actorUid: actorUid,
+          );
+    });
 
 final activeCriticalAlarmsProvider = StreamProvider<List<CriticalAlarm>>((ref) {
   return ref

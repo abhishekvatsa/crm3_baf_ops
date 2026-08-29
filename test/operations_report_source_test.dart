@@ -116,6 +116,11 @@ void main() {
         File(
           'lib/features/reports/providers/operations_report_provider.dart',
         ).readAsStringSync();
+    final lifecycleSource =
+        File(
+          'lib/features/reports/providers/'
+          'operations_report_authority_lifecycle.dart',
+        ).readAsStringSync();
     final mainSource = File('lib/main.dart').readAsStringSync();
     final burnerSource =
         File(
@@ -124,6 +129,19 @@ void main() {
     final burnerScreenSource =
         File(
           'lib/features/reports/presentation/burner_reliability_screen.dart',
+        ).readAsStringSync();
+    final qualitySource =
+        File(
+          'lib/features/quality/providers/quality_provider.dart',
+        ).readAsStringSync();
+    final criticalProviderSource =
+        File(
+          'lib/features/critical_alarm/providers/'
+          'critical_alarm_providers.dart',
+        ).readAsStringSync();
+    final criticalRepositorySource =
+        File(
+          'lib/features/critical_alarm/data/critical_alarm_repository.dart',
         ).readAsStringSync();
 
     expect(
@@ -140,7 +158,7 @@ void main() {
       lessThan(source.indexOf('ref.watch(currentAppUserProvider)')),
     );
     expect(
-      source,
+      lifecycleSource,
       contains(
         'final operationsReportAuthorityLifecycleProvider = Provider<void>',
       ),
@@ -162,16 +180,44 @@ void main() {
     expect(burnerSource, contains('snapshot.metadata.hasPendingWrites'));
     expect(burnerScreenSource, contains('actorUid: widget.actor.uid'));
     expect(burnerScreenSource, contains('key: ValueKey(actor.uid)'));
+    expect(
+      source,
+      contains('qualityWarningsForReportsProvider(scope.actorUid)'),
+    );
+    expect(
+      source,
+      contains('qualityMonitoringRequestsForReportsProvider(scope.actorUid)'),
+    );
+    expect(
+      source,
+      contains('criticalAlarmsForReportsProvider(scope.actorUid)'),
+    );
+    for (final reportSource in [qualitySource, criticalRepositorySource]) {
+      expect(reportSource, contains('admitActorSessionSnapshots('));
+      expect(reportSource, contains('includeMetadataChanges: true'));
+      expect(reportSource, contains('snapshot.metadata.isFromCache'));
+      expect(reportSource, contains('snapshot.metadata.hasPendingWrites'));
+    }
+    expect(qualitySource, contains('.family<List<QualityWarning>, String>'));
+    expect(qualitySource, contains('actor.uid != actorUid'));
+    expect(
+      criticalProviderSource,
+      contains('.family<List<CriticalAlarm>, String>'),
+    );
+    expect(criticalProviderSource, contains('actor.uid != actorUid'));
     for (final provider in [
       'operationalEventsForReportsProvider',
-      'qualityWarningsProvider',
+      'qualityWarningsForReportsProvider',
+      'qualityReportCacheTrustProvider',
       'workflowAllComplianceProvider',
       'assetClassesProvider',
       'burnerConditionRoundsProvider',
       'burnerConditionRoundCacheTrustProvider',
+      'criticalAlarmsForReportsProvider',
+      'criticalAlarmReportCacheTrustProvider',
       'operationsReportClockProvider',
     ]) {
-      expect(source, contains('ref.invalidate($provider)'));
+      expect(lifecycleSource, contains('ref.invalidate($provider)'));
     }
   });
 }

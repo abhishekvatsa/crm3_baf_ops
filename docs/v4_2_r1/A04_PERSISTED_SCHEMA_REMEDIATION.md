@@ -30,7 +30,7 @@ evidence, are separately classified without adding a persisted dynamic field.
 Text-file authority is
 canonicalized to LF before hashing so the same tracked content has one digest
 on Windows and Linux. Its current stable digest is
-`A0727B47C22542EE2626EBCC2B6AA1D1424941CA07F3AE4BC3A0D68ED9F4D612`.
+`CF84BB4C32A51E41C9AE903CCC1FBADAB1429AFA52D98793A5D715C2D74D12A9`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing
