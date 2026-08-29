@@ -1267,7 +1267,7 @@ void main() {
     });
 
     test(
-      'current candidate preserves builds 14-18 and the historical build 10 failure',
+      'current candidate preserves finalized predecessors and the historical build 10 failure',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
@@ -1429,6 +1429,11 @@ void main() {
 
         final pendingConstruction =
             finalization['status'] == 'pending-source-authorized';
+        final finalizedBuild =
+            (pendingConstruction
+                    ? finalization['priorCompletedBuild']
+                    : finalization)
+                as Map<String, dynamic>;
         expect(
           finalization['status'],
           pendingConstruction
@@ -1452,21 +1457,21 @@ void main() {
           isFalse,
         );
         expect(
-          finalization['completionReceiptFile'],
+          finalizedBuild['completionReceiptFile'],
           'release/evidence/build-18-finalization-closure.json',
         );
-        expect(finalization['runtimeValidationPassed'], isTrue);
+        expect(finalizedBuild['runtimeValidationPassed'], isTrue);
         expect(
-          finalization['runtimeDisposition'],
+          finalizedBuild['runtimeDisposition'],
           'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces',
         );
         expect(
-          finalization['deviceAcceptanceReceiptFile'],
+          finalizedBuild['deviceAcceptanceReceiptFile'],
           'release/evidence/build-18-device-acceptance.json',
         );
         expect(
-          _sha256(finalization['deviceAcceptanceReceiptFile'] as String),
-          finalization['deviceAcceptanceReceiptSha256'],
+          _sha256(finalizedBuild['deviceAcceptanceReceiptFile'] as String),
+          finalizedBuild['deviceAcceptanceReceiptSha256'],
         );
         expect(
           build18DeviceAcceptance['status'],
