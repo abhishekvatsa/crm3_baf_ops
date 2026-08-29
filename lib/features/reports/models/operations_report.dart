@@ -477,19 +477,32 @@ class OperationsReport {
   int get workflowObligationCount =>
       pendingLaneAcknowledgementCount + dueComplianceRequestCount;
 
-  int get assetCount => inventoryAssetCount ?? assetStates.length;
+  Iterable<InnerCoverProfile> get _inventoryInnerCovers =>
+      innerCoverProfiles.where((profile) => profile.countsAsAssetInventory);
+
+  int get assetCount =>
+      inventoryAssetCount ?? assetStates.length + _inventoryInnerCovers.length;
   int get availableAssetCount =>
       inventoryAvailableAssetCount ??
-      assetStates.where((state) => state.isAvailable).length;
+      assetStates.where((state) => state.isAvailable).length +
+          _inventoryInnerCovers
+              .where((profile) => profile.isAvailableForPlantCondition)
+              .length;
   int get underMaintenanceAssetCount =>
       inventoryUnderMaintenanceAssetCount ??
-      assetStates.where((state) => state.isUnderMaintenance).length;
+      assetStates.where((state) => state.isUnderMaintenance).length +
+          _inventoryInnerCovers
+              .where((profile) => profile.isUnderMaintenanceForPlantCondition)
+              .length;
   int get downAssetCount =>
       inventoryDownAssetCount ??
       assetStates.where((state) => state.isDown).length;
   int get unfitAssetCount =>
       inventoryUnfitAssetCount ??
-      assetStates.where((state) => state.isUnfit).length;
+      assetStates.where((state) => state.isUnfit).length +
+          _inventoryInnerCovers
+              .where((profile) => profile.isUnfitForPlantCondition)
+              .length;
 
   double? get assetAvailabilityRate =>
       assetCount == 0 ? null : availableAssetCount / assetCount;

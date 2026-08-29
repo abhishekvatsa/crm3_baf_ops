@@ -33,14 +33,18 @@ class OperationsReportAssetInventory {
   int get total => numberedAssetStates.length + innerCovers.length;
   int get available =>
       numberedAssetStates.where((state) => state.isAvailable).length +
-      innerCovers.where(_innerCoverIsAvailable).length;
+      innerCovers
+          .where((profile) => profile.isAvailableForPlantCondition)
+          .length;
   int get underMaintenance =>
       numberedAssetStates.where((state) => state.isUnderMaintenance).length +
-      innerCovers.where(_innerCoverIsUnderMaintenance).length;
+      innerCovers
+          .where((profile) => profile.isUnderMaintenanceForPlantCondition)
+          .length;
   int get down => numberedAssetStates.where((state) => state.isDown).length;
   int get unfit =>
       numberedAssetStates.where((state) => state.isUnfit).length +
-      innerCovers.where(_innerCoverIsUnfit).length;
+      innerCovers.where((profile) => profile.isUnfitForPlantCondition).length;
 
   OperationsReportAssetCounts forAssetClass({
     required AssetClassRecord assetClass,
@@ -61,11 +65,19 @@ class OperationsReportAssetInventory {
     );
     return OperationsReportAssetCounts(
       total: classInnerCovers.length,
-      available: classInnerCovers.where(_innerCoverIsAvailable).length,
+      available:
+          classInnerCovers
+              .where((profile) => profile.isAvailableForPlantCondition)
+              .length,
       underMaintenance:
-          classInnerCovers.where(_innerCoverIsUnderMaintenance).length,
+          classInnerCovers
+              .where((profile) => profile.isUnderMaintenanceForPlantCondition)
+              .length,
       down: 0,
-      unfit: classInnerCovers.where(_innerCoverIsUnfit).length,
+      unfit:
+          classInnerCovers
+              .where((profile) => profile.isUnfitForPlantCondition)
+              .length,
     );
   }
 }
@@ -94,7 +106,7 @@ OperationsReportAssetInventory buildOperationsReportAssetInventory({
             (selectedAssetClassId == null ||
                 profile.assetClassId == selectedAssetClassId),
       )
-      .where(_countsAsInnerCoverInventory)
+      .where((profile) => profile.countsAsAssetInventory)
       .toList(growable: false);
   innerCovers.sort(
     (left, right) =>
@@ -140,27 +152,3 @@ List<AssetInstanceRecord> furnaceAssetsForOperationsReport({
     ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
   return List<AssetInstanceRecord>.unmodifiable(rows);
 }
-
-bool _countsAsInnerCoverInventory(InnerCoverProfile profile) =>
-    !const {
-      InnerCoverLifecycleState.fullyConsumedAsDonor,
-      InnerCoverLifecycleState.disposed,
-    }.contains(profile.lifecycleState);
-
-bool _innerCoverIsAvailable(InnerCoverProfile profile) => const {
-  InnerCoverLifecycleState.available,
-  InnerCoverLifecycleState.installed,
-}.contains(profile.lifecycleState);
-
-bool _innerCoverIsUnderMaintenance(InnerCoverProfile profile) => const {
-  InnerCoverLifecycleState.underInspection,
-  InnerCoverLifecycleState.underRepair,
-  InnerCoverLifecycleState.underFabrication,
-}.contains(profile.lifecycleState);
-
-bool _innerCoverIsUnfit(InnerCoverProfile profile) => const {
-  InnerCoverLifecycleState.quarantined,
-  InnerCoverLifecycleState.rejected,
-  InnerCoverLifecycleState.retiredForSalvage,
-  InnerCoverLifecycleState.partiallyDismantled,
-}.contains(profile.lifecycleState);

@@ -586,6 +586,32 @@ class InnerCoverProfile {
   }
 }
 
+extension InnerCoverPlantCondition on InnerCoverProfile {
+  bool get countsAsAssetInventory =>
+      !const {
+        InnerCoverLifecycleState.fullyConsumedAsDonor,
+        InnerCoverLifecycleState.disposed,
+      }.contains(lifecycleState);
+
+  bool get isAvailableForPlantCondition => const {
+    InnerCoverLifecycleState.available,
+    InnerCoverLifecycleState.installed,
+  }.contains(lifecycleState);
+
+  bool get isUnderMaintenanceForPlantCondition => const {
+    InnerCoverLifecycleState.underInspection,
+    InnerCoverLifecycleState.underRepair,
+    InnerCoverLifecycleState.underFabrication,
+  }.contains(lifecycleState);
+
+  bool get isUnfitForPlantCondition => const {
+    InnerCoverLifecycleState.quarantined,
+    InnerCoverLifecycleState.rejected,
+    InnerCoverLifecycleState.retiredForSalvage,
+    InnerCoverLifecycleState.partiallyDismantled,
+  }.contains(lifecycleState);
+}
+
 class BaseInnerCoverAssignment {
   final String baseAssetInstanceId;
   final String baseAssetClassId;

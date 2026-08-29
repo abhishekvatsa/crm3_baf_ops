@@ -228,6 +228,12 @@ void main() {
 
       expect(ascii.decode(bytes.take(5).toList()), '%PDF-');
       expect(bytes.length, greaterThan(5000));
+      expect(report.assetCount, 1);
+      expect(report.availableAssetCount, 1);
+      expect(report.underMaintenanceAssetCount, 0);
+      expect(report.downAssetCount, 0);
+      expect(report.unfitAssetCount, 0);
+      expect(report.assetAvailabilityRate, 1);
       expect(conditionRows, hasLength(1));
       expect(conditionRows.single[0], contains('Inner Cover GR4'));
       expect(conditionRows.single[1], 'Installed');
