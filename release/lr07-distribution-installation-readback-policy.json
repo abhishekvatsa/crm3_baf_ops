@@ -92,6 +92,11 @@
       "sha256": "716453DF8A3620A30584E89877AF5E7DBEBD99CB7C883C060A4BC1641A1AADD4"
     },
     {
+      "path": "release/evidence/build-19-finalization-closure.json",
+      "bytes": 4266,
+      "sha256": "CD6A795265D1F4E581ADDA49863CC8A178AE22444C95EFA4BB8639006795D82A"
+    },
+    {
       "path": "release/evidence/build-18-device-acceptance.json",
       "bytes": 4974,
       "sha256": "ABFF0F813901FDE7816DD404615DA74F83CD26ECA5EE5FBE6462E70F1FCA3809"
@@ -319,6 +324,20 @@
       "governedPackageSha256": "951DF1C961E08CD78B52B0B588CAEE5A767CF182BF4063F7F4DEBCA0010AD911",
       "authorityReceiptPath": "release/evidence/build-18-finalization-closure.json",
       "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_ACCEPTED_MUTATING_FLOW_PENDING_NON_DISTRIBUTABLE"
+    },
+    {
+      "buildNumber": 19,
+      "id": 9717908539,
+      "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.9-b19-5221cc8dbfe41b1119ef1cdc1695900556eac739-run-33262283846",
+      "sizeBytes": 166821128,
+      "digest": "sha256:6a46c90b55c03bf80d1fac17972c76335321ed866e619b305d2d0550cbfd45f0",
+      "workflowRunId": 33262283846,
+      "headSha": "5221cc8dbfe41b1119ef1cdc1695900556eac739",
+      "ledgerDisposition": "successful-build-finalized-non-distributable",
+      "dualCustodyCompleted": true,
+      "governedPackageSha256": "914573AC394581D234EA605AF91F33C0CD54514473971951F7112B3FD2436394",
+      "authorityReceiptPath": "release/evidence/build-19-finalization-closure.json",
+      "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {
@@ -334,9 +353,9 @@
   },
   "executionAuthority": {
     "artifactDeletionRequiresExplicitOwnerApproval": true,
-    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9683214490",
+    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9717908539",
     "requiredPresentArtifactIds": [
-      9683214490
+      9717908539
     ],
     "deleteOnlyExactArtifactIds": true,
     "workflowRunsAndLogsPreserved": true,

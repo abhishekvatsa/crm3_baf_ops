@@ -34,6 +34,7 @@ void main() {
         ),
         containsAll(<String>[
           '.github/workflows/production-artifact.yml',
+          'release/evidence/build-19-finalization-closure.json',
           'release/evidence/build-18-device-acceptance.json',
         ]),
       );
@@ -58,6 +59,7 @@ void main() {
         16,
         17,
         18,
+        19,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -75,10 +77,11 @@ void main() {
         9567065107,
         9614787514,
         9683214490,
+        9717908539,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(13),
+        hasLength(14),
       );
       expect(
         artifacts.singleWhere(
@@ -141,9 +144,15 @@ void main() {
         'FINALIZED_DUAL_CUSTODY_DEVICE_ACCEPTED_MUTATING_FLOW_PENDING_NON_DISTRIBUTABLE',
       );
       expect(
+        artifacts.singleWhere(
+          (entry) => entry['buildNumber'] == 19,
+        )['deletionBasis'],
+        'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
+      );
+      expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredPresentArtifactIds'],
-        <int>[9683214490],
+        <int>[9717908539],
       );
 
       final installation =

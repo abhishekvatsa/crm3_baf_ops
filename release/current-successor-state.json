@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-29",
   "asOfDate": "2026-08-29",
-  "status": "BUILD19_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+  "status": "BUILD19_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.9+19",
-      "relationshipToLatestFinalizedArtifact": "BUILD19_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD18",
+      "relationshipToLatestFinalizedArtifact": "BUILD19_SOURCE_CONTAINS_FINALIZED_BUILD19",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": true,
+      "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -25,15 +25,13 @@
       }
     },
     "latestFinalizedArtifact": {
-      "buildNumber": 18,
-      "version": "1.0.0-rc.8+18",
-      "sourceCommit": "2a2520e075c44c6b347bc9f1c6bcc4343e62713b",
+      "buildNumber": 19,
+      "version": "1.0.0-rc.9+19",
+      "sourceCommit": "5221cc8dbfe41b1119ef1cdc1695900556eac739",
       "status": "COMPLETED_NON_DISTRIBUTABLE",
-      "completionReceiptFile": "release/evidence/build-18-finalization-closure.json",
-      "completionReceiptSha256": "716453DF8A3620A30584E89877AF5E7DBEBD99CB7C883C060A4BC1641A1AADD4",
-      "runtimeValidation": "PASSED_EXACT_BUILD18_PHYSICAL_IN_PLACE_AUTHENTICATED_READ_ONLY_SURFACES",
-      "deviceAcceptanceReceiptFile": "release/evidence/build-18-device-acceptance.json",
-      "deviceAcceptanceReceiptSha256": "ABFF0F813901FDE7816DD404615DA74F83CD26ECA5EE5FBE6462E70F1FCA3809",
+      "completionReceiptFile": "release/evidence/build-19-finalization-closure.json",
+      "completionReceiptSha256": "CD6A795265D1F4E581ADDA49863CC8A178AE22444C95EFA4BB8639006795D82A",
+      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD19",
       "fullBusinessFlowValidation": "MUTATING_FLOWS_NOT_ADJUDICATED",
       "pilotPromotion": "NOT_AUTHORIZED",
       "unrestrictedDistribution": "NOT_AUTHORIZED"
@@ -63,10 +61,8 @@
       "appliesToBuild19": false
     },
     "nextCandidate": {
-      "minimumBuildNumber": 19,
-      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD19_CONSTRUCTION",
-      "sourceApprovalFile": "release/approvals/build-number-19-successor-approval.json",
-      "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-19.json",
+      "minimumBuildNumber": 20,
+      "status": "AWAITING_FRESH_GOVERNED_BUILD20_APPROVAL",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
@@ -84,8 +80,7 @@
   "authoritativeSources": [
     "release/production-release-policy.json",
     "release/build-number-ledger.json",
-    "release/evidence/build-18-finalization-closure.json",
-    "release/evidence/build-18-device-acceptance.json",
+    "release/evidence/build-19-finalization-closure.json",
     "release/evidence/build19-backend-deployment-closure.json",
     "release/evidence/build19-function-fleet-runtime-identity-readback.json",
     "release/evidence/build19-functions-iam-dependencies-readback.json",
