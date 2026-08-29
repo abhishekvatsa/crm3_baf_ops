@@ -37,6 +37,7 @@ import '../../planned_maintenance/presentation/templates_screen.dart';
 import '../../quality/presentation/quality_home_screen.dart';
 import '../../quality/providers/quality_provider.dart';
 import '../domain/operations_report_document.dart';
+import '../domain/operations_report_asset_inventory.dart';
 import '../models/operations_report.dart';
 import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';

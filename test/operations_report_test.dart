@@ -16,6 +16,7 @@ import 'package:crm3_baf_ops/features/operational_events/data/operational_event.
 import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
+import 'package:crm3_baf_ops/features/reports/domain/operations_report_asset_inventory.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
@@ -394,6 +395,45 @@ void main() {
     );
     expect(retiredAssetSelection.assetClassId, furnace.id);
     expect(retiredAssetSelection.assetInstanceId, isNull);
+  });
+
+  test('Burner report scope follows the governed Furnace class mapping', () {
+    final furnace = assetClass(
+      'annealing-shell-class',
+      'Annealing shell',
+      'furnace',
+    );
+    final misleading = assetClass(
+      'support-cart-class',
+      'Furnace support cart',
+      null,
+    );
+    final retiredFurnace = assetClass(
+      'retired-shell-class',
+      'Old annealing shell',
+      'furnace',
+      status: AssetHierarchyStatus.retired,
+    );
+    final furnace2 = asset('shell-2', furnace, 2);
+    final furnace1 = asset('shell-1', furnace, 1);
+    final supportCart = asset('support-cart-1', misleading, 1);
+    final retired = asset('retired-shell-1', retiredFurnace, 1);
+
+    final all = furnaceAssetsForOperationsReport(
+      assetClasses: [furnace, misleading, retiredFurnace],
+      assets: [furnace2, supportCart, retired, furnace1],
+      selectedAssetClassId: null,
+      selectedAssetInstanceId: null,
+    );
+    final selected = furnaceAssetsForOperationsReport(
+      assetClasses: [furnace, misleading, retiredFurnace],
+      assets: [furnace2, supportCart, retired, furnace1],
+      selectedAssetClassId: furnace.id,
+      selectedAssetInstanceId: furnace2.id,
+    );
+
+    expect(all.map((item) => item.id), ['shell-1', 'shell-2']);
+    expect(selected.map((item) => item.id), ['shell-2']);
   });
 
   test('builds dynamic class report with overlap and failure rankings', () {

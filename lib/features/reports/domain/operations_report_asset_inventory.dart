@@ -1,5 +1,6 @@
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
+import '../../assets/data/asset_registry_model.dart';
 import '../../assets/domain/plant_asset_overview.dart';
 
 class OperationsReportAssetCounts {
@@ -105,6 +106,35 @@ OperationsReportAssetInventory buildOperationsReportAssetInventory({
       numberedAssetStates,
     ),
   );
+}
+
+List<AssetInstanceRecord> furnaceAssetsForOperationsReport({
+  required List<AssetClassRecord> assetClasses,
+  required List<AssetInstanceRecord> assets,
+  required String? selectedAssetClassId,
+  required String? selectedAssetInstanceId,
+}) {
+  final activeClassesById = <String, AssetClassRecord>{
+    for (final assetClass in assetClasses)
+      if (assetClass.isActive) assetClass.id: assetClass,
+  };
+  final rows = assets
+      .where((asset) {
+        if (!asset.isActive) return false;
+        if (selectedAssetClassId != null &&
+            asset.assetClassId != selectedAssetClassId) {
+          return false;
+        }
+        if (selectedAssetInstanceId != null &&
+            asset.id != selectedAssetInstanceId) {
+          return false;
+        }
+        return activeClassesById[asset.assetClassId]?.legacyAssetTypeKey ==
+            'furnace';
+      })
+      .toList(growable: false)
+    ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
+  return List<AssetInstanceRecord>.unmodifiable(rows);
 }
 
 bool _countsAsInnerCoverInventory(InnerCoverProfile profile) =>

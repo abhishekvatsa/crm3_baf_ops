@@ -67,7 +67,12 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
     required List<AssetInstanceRecord> assets,
     required OperationsReportSelection selection,
   }) async {
-    final furnaceAssets = _furnaceAssetsForReport(assets, selection);
+    final furnaceAssets = furnaceAssetsForOperationsReport(
+      assetClasses: classes,
+      assets: assets,
+      selectedAssetClassId: selection.assetClassId,
+      selectedAssetInstanceId: selection.assetInstanceId,
+    );
     final provenance = readApplicationReportProvenance(
       ref,
       completenessNotes: const <String>[
@@ -173,30 +178,6 @@ OperationsReportDocumentPreset _recommendedReportPreset(AppUser actor) {
     return OperationsReportDocumentPreset.maintenance;
   }
   return OperationsReportDocumentPreset.executive;
-}
-
-List<AssetInstanceRecord> _furnaceAssetsForReport(
-  List<AssetInstanceRecord> assets,
-  OperationsReportSelection selection,
-) {
-  final rows = assets
-      .where((asset) {
-        if (!asset.isActive) return false;
-        if (selection.assetClassId != null &&
-            asset.assetClassId != selection.assetClassId) {
-          return false;
-        }
-        if (selection.assetInstanceId != null &&
-            asset.id != selection.assetInstanceId) {
-          return false;
-        }
-        final classIdentity =
-            '${asset.assetClassCode} ${asset.assetClassName}'.toLowerCase();
-        return classIdentity.contains('furnace');
-      })
-      .toList(growable: false)
-    ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
-  return List<AssetInstanceRecord>.unmodifiable(rows);
 }
 
 String _assetClassScopeLabel(
