@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,15 +12,28 @@ import '../providers/critical_alarm_providers.dart';
 import '../services/critical_alarm_platform_service.dart';
 import 'critical_alarm_screen.dart';
 
+class CriticalAlarmLauncherRouteObserver extends NavigatorObserver {
+  final ValueNotifier<bool> obscured = ValueNotifier<bool>(false);
+
+  @override
+  void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
+    obscured.value = topRoute is PopupRoute<dynamic>;
+  }
+
+  void dispose() => obscured.dispose();
+}
+
 class CriticalAlarmHost extends ConsumerStatefulWidget {
   const CriticalAlarmHost({
     super.key,
     required this.child,
     required this.navigatorKey,
+    this.launcherObscuredListenable,
   });
 
   final Widget child;
   final GlobalKey<NavigatorState> navigatorKey;
+  final ValueListenable<bool>? launcherObscuredListenable;
 
   @override
   ConsumerState<CriticalAlarmHost> createState() => _CriticalAlarmHostState();
@@ -135,50 +149,54 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
               Positioned(
                 left: launcherOffset.dx,
                 top: launcherOffset.dy,
-                child: SafeArea(
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      final next = Offset(
-                        (launcherOffset.dx + details.delta.dx).clamp(
-                          bounds.left,
-                          bounds.right,
-                        ),
-                        (launcherOffset.dy + details.delta.dy).clamp(
-                          bounds.top,
-                          bounds.bottom,
-                        ),
-                      );
-                      setState(() {
-                        _launcherFraction = Offset(
-                          bounds.width == 0
-                              ? 0
-                              : (next.dx - bounds.left) / bounds.width,
-                          bounds.height == 0
-                              ? 0
-                              : (next.dy - bounds.top) / bounds.height,
+                child: _LauncherModalGuard(
+                  obscuredListenable: widget.launcherObscuredListenable,
+                  child: SafeArea(
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        final next = Offset(
+                          (launcherOffset.dx + details.delta.dx).clamp(
+                            bounds.left,
+                            bounds.right,
+                          ),
+                          (launcherOffset.dy + details.delta.dy).clamp(
+                            bounds.top,
+                            bounds.bottom,
+                          ),
                         );
-                      });
-                    },
-                    onPanEnd: (_) => unawaited(_saveLauncherPosition()),
-                    child: Semantics(
-                      label: 'Critical safety alarms. Drag to reposition.',
-                      button: true,
-                      child: FloatingActionButton.small(
-                        heroTag: 'global-critical-alarm-launcher',
-                        backgroundColor: BafColors.danger,
-                        foregroundColor: Colors.white,
-                        onPressed: _open,
-                        child:
-                            active.isEmpty
-                                ? const Icon(
-                                  Icons.notification_important_outlined,
-                                )
-                                : Badge(
-                                  label: Text('${active.length}'),
-                                  child: const Icon(
-                                    Icons.notification_important,
+                        setState(() {
+                          _launcherFraction = Offset(
+                            bounds.width == 0
+                                ? 0
+                                : (next.dx - bounds.left) / bounds.width,
+                            bounds.height == 0
+                                ? 0
+                                : (next.dy - bounds.top) / bounds.height,
+                          );
+                        });
+                      },
+                      onPanEnd: (_) => unawaited(_saveLauncherPosition()),
+                      child: Semantics(
+                        key: const Key('global-critical-alarm-launcher'),
+                        label: 'Critical safety alarms. Drag to reposition.',
+                        button: true,
+                        child: FloatingActionButton.small(
+                          heroTag: 'global-critical-alarm-launcher',
+                          backgroundColor: BafColors.danger,
+                          foregroundColor: Colors.white,
+                          onPressed: _open,
+                          child:
+                              active.isEmpty
+                                  ? const Icon(
+                                    Icons.notification_important_outlined,
+                                  )
+                                  : Badge(
+                                    label: Text('${active.length}'),
+                                    child: const Icon(
+                                      Icons.notification_important,
+                                    ),
                                   ),
-                                ),
+                        ),
                       ),
                     ),
                   ),
@@ -298,6 +316,29 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     } else {
       await platform.cancelNotification(alarm.id);
     }
+  }
+}
+
+class _LauncherModalGuard extends StatelessWidget {
+  const _LauncherModalGuard({
+    required this.obscuredListenable,
+    required this.child,
+  });
+
+  final ValueListenable<bool>? obscuredListenable;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final listenable = obscuredListenable;
+    if (listenable == null) return child;
+    return ValueListenableBuilder<bool>(
+      valueListenable: listenable,
+      builder:
+          (context, obscured, child) =>
+              obscured ? const SizedBox.shrink() : child!,
+      child: child,
+    );
   }
 }
 

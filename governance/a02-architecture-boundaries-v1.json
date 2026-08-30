@@ -485,7 +485,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 924,
+      "maximumLines": 926,
       "requiredMarkers": [
         "part of '"
       ],

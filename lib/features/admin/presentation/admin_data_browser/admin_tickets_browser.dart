@@ -12,6 +12,7 @@ import '../../../maintenance/data/maintenance_model.dart';
 import '../../../maintenance/domain/burner_lockout_case.dart';
 import '../../../maintenance/domain/furnace_stuckup_case.dart';
 import '../../../maintenance/providers/maintenance_provider.dart';
+import '../../../maintenance/services/maintenance_issue_command_reconciler.dart';
 import '../../../maintenance_workflow/domain/workflow_types.dart';
 import '../../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../../maintenance_workflow/services/workflow_command_factory.dart';
@@ -847,8 +848,8 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
     );
     if (!mounted || decision == null) return;
 
-    final id = kIsWeb ? ticket.firestoreId : ticket.id;
-    if (id == null) {
+    final firestoreId = ticket.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty) {
       showAdminDataSnack(context, 'Ticket is missing its sync identifier.');
       return;
     }
@@ -857,20 +858,32 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       if (!appUser.canSoftDeleteMaintenanceTicket) {
         throw StateError('Admin authority required to delete tickets.');
       }
-      final repository = ref.read(maintenanceRepositoryProvider);
-      final syncCoordinator = ref.read(syncCoordinatorProvider);
-
-      await repository.deleteTicket(
-        id,
-        actor: appUser,
-        auditContext: AuditContext(
-          performedByUid: appUser.uid,
-          performedByName: appUser.name,
-          reason: decision.reason,
-          reasonNotes: decision.notes,
-          before: ticket.toAuditMap(),
-        ),
+      final remoteRepository = ref.read(firestoreMaintenanceRepo);
+      final deletionReconciler = ref.read(
+        maintenanceIssueCommandReconcilerProvider,
       );
+      final syncCoordinator = ref.read(syncCoordinatorProvider);
+      final auditContext = AuditContext(
+        performedByUid: appUser.uid,
+        performedByName: appUser.name,
+        reason: decision.reason,
+        reasonNotes: decision.notes,
+        before: ticket.toAuditMap(),
+      );
+
+      if (kIsWeb) {
+        await remoteRepository.deleteTicket(
+          firestoreId,
+          actor: appUser,
+          auditContext: auditContext,
+        );
+      } else {
+        await deletionReconciler.softDeleteServerFirst(
+          localRecord: ticket,
+          actor: appUser,
+          auditContext: auditContext,
+        );
+      }
 
       final syncOutcome = await syncCoordinator.runFullSyncWithResult(
         reason: 'admin_ticket_deleted',

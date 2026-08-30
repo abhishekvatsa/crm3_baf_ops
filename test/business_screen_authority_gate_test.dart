@@ -204,7 +204,7 @@ void main() {
       tester,
       screen: ComplianceDetailScreen(record: record),
       overrides: [
-        workflowAggregateProvider.overrideWith((ref, workflowId) {
+        workflowAuthoritativeRecordProvider.overrideWith((ref, scope) {
           aggregateReads++;
           return Future.value(null);
         }),
@@ -236,7 +236,7 @@ void main() {
           currentAppUserProvider.overrideWith(
             (ref) => Stream<AppUser?>.value(_approvedActor()),
           ),
-          workflowAggregateProvider.overrideWith((ref, workflowId) {
+          workflowAuthoritativeRecordProvider.overrideWith((ref, scope) {
             aggregateReads++;
             return Future.value(null);
           }),

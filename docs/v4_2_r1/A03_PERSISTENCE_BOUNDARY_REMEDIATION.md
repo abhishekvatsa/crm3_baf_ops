@@ -70,10 +70,12 @@ seven-day operational retention stream for closed quality-monitoring requests
 adds two read-only stream operations under the already classified quality
 provider. Complete quality and critical-alarm report feeds retain full history,
 bind reads to the current approved actor, and admit offline cache only after the
-same query has been server-confirmed in that actor session. The current manifest
-therefore covers 550 operations and 1,901 sites across 57
+same query has been server-confirmed in that actor session. The Build 19 device
+convergence re-arm adds one server-first maintenance deletion readback operation
+and two persistence sites under the existing maintenance remote adapter. The
+current manifest therefore covers 551 operations and 1,903 sites across 57
 surfaces with digest
-`0D8CED594C54442D59D3FBC4545602E1637EFBB78B6A570E3956E17B0CB1D962`;
+`539DCAEAED194D6AA1671A5E8D5E4CD8B4612671574B88A98F15377778071767`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

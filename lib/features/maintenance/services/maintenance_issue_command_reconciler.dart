@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../audit/models/audit_event_model.dart';
+import '../../auth/data/user_model.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../data/maintenance_model.dart';
@@ -156,6 +158,55 @@ class MaintenanceIssueCommandReconciler {
     throw const MaintenanceIssueCommandConvergenceException(
       'This device could not verify the exact refreshed server version.',
     );
+  }
+
+  Future<MaintenanceRecord> softDeleteServerFirst({
+    required MaintenanceRecord localRecord,
+    required AppUser actor,
+    AuditContext? auditContext,
+  }) async {
+    final firestoreId = localRecord.firestoreId?.trim() ?? '';
+    if (firestoreId.isEmpty ||
+        localRecord.version < 1 ||
+        localRecord.isDeleted ||
+        !localRecord.isSynced) {
+      throw const MaintenanceIssueCommandConvergenceException(
+        'Synchronize this issue before requesting its governed deletion.',
+      );
+    }
+    final originalVersion = localRecord.version;
+    final originalUpdatedAt = localRecord.updatedAt;
+
+    try {
+      await remoteRepository.deleteTicket(
+        firestoreId,
+        actor: actor,
+        auditContext: auditContext,
+      );
+    } catch (_) {
+      throw const MaintenanceIssueCommandConvergenceException(
+        'The plant system did not accept this issue deletion. The device record was left unchanged.',
+      );
+    }
+
+    MaintenanceRecord adopted;
+    try {
+      adopted = await refreshServerState(
+        firestoreId: firestoreId,
+        expectedLocalVersion: originalVersion,
+        expectedLocalUpdatedAt: originalUpdatedAt,
+      );
+    } catch (_) {
+      throw const MaintenanceIssueCommandConvergenceException(
+        'The issue was deleted in the plant system, but this device could not yet adopt the exact tombstone.',
+      );
+    }
+    if (!adopted.isDeleted || adopted.version <= originalVersion) {
+      throw const MaintenanceIssueCommandConvergenceException(
+        'The issue deletion did not return a newer authoritative tombstone.',
+      );
+    }
+    return adopted;
   }
 }
 

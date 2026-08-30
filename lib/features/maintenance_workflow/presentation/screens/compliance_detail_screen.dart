@@ -14,13 +14,23 @@ import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
 import '../widgets/workflow_action_guard.dart';
 
-class ComplianceDetailScreen extends ConsumerWidget {
+class ComplianceDetailScreen extends ConsumerStatefulWidget {
   final ComplianceRequestRecord record;
 
   const ComplianceDetailScreen({super.key, required this.record});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ComplianceDetailScreen> createState() =>
+      _ComplianceDetailScreenState();
+}
+
+class _ComplianceDetailScreenState
+    extends ConsumerState<ComplianceDetailScreen> {
+  String? _receiptWorkflowId;
+  int? _receiptAggregateVersion;
+
+  @override
+  Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
@@ -41,7 +51,61 @@ class ComplianceDetailScreen extends ConsumerWidget {
       );
     }
     final actor = actorAsync.value;
-    if (actor == null || !canUserSeeComplianceRequest(record, actor)) {
+    if (actor == null || !canUserSeeComplianceRequest(widget.record, actor)) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Approved compliance access only',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        title: 'Compliance access required',
+        message:
+            'This compliance request is outside your approved operational scope.',
+      );
+    }
+
+    final complianceId = widget.record.firestoreId?.trim() ?? '';
+    if (complianceId.isEmpty) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Verifying the authoritative compliance record',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'This compliance request has no governed server identity.',
+      );
+    }
+    final complianceScope = (actorUid: actor.uid, complianceId: complianceId);
+    final recordAsync = ref.watch(
+      workflowComplianceRecordProvider(complianceScope),
+    );
+    if (recordAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current compliance evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        label: 'Reading the authoritative compliance request',
+      );
+    }
+    if (recordAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current compliance evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'The authoritative compliance request is unavailable.',
+      );
+    }
+    final record = recordAsync.value;
+    if (record == null) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current compliance evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'This compliance request is no longer available.',
+      );
+    }
+    if (!canUserSeeComplianceRequest(record, actor)) {
       return BafScreenStateScaffold.access(
         appBarTitle: 'Compliance detail',
         appBarSubtitle: 'Approved compliance access only',
@@ -54,10 +118,19 @@ class ComplianceDetailScreen extends ConsumerWidget {
     }
     final workflowId =
         record.linkedWorkflowId ?? record.linkedExecutionFirestoreId ?? '';
-    final aggregate =
-        workflowId.isEmpty
-            ? const AsyncValue.data(null)
-            : ref.watch(workflowAggregateProvider(workflowId));
+    if (workflowId.isEmpty) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current workflow evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'This compliance request has no governed workflow identity.',
+      );
+    }
+    final workflowScope = (actorUid: actor.uid, workflowId: workflowId);
+    final aggregate = ref.watch(
+      workflowAuthoritativeRecordProvider(workflowScope),
+    );
     final commandState = ref.watch(workflowCommandControllerProvider);
 
     return Scaffold(
@@ -83,15 +156,26 @@ class ComplianceDetailScreen extends ConsumerWidget {
                 title: 'Workflow state is unavailable',
                 message: '$error',
                 onPrimary:
-                    workflowId.isEmpty
-                        ? null
-                        : () => ref.invalidate(
-                          workflowAggregateProvider(workflowId),
-                        ),
+                    () => ref.invalidate(
+                      workflowAuthoritativeRecordProvider(workflowScope),
+                    ),
               ),
-          data: (snapshot) {
-            final version = snapshot?.workflow.version;
-            final workflowFinal = snapshot?.workflow.isFinal ?? false;
+          data: (workflow) {
+            final snapshotVersion = workflow?.version;
+            final receiptVersion =
+                _receiptWorkflowId == workflowId
+                    ? _receiptAggregateVersion
+                    : null;
+            final version =
+                snapshotVersion == null
+                    ? receiptVersion
+                    : receiptVersion == null ||
+                        snapshotVersion >= receiptVersion
+                    ? snapshotVersion
+                    : receiptVersion;
+            final workflowFinal =
+                workflow?.statusKey == 'completed' ||
+                workflow?.statusKey == 'cancelled';
             return ListView(
               children: [
                 BafScreenIntro(
@@ -113,7 +197,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                   subtitle: 'Ownership, purpose and activation evidence',
                 ),
                 const SizedBox(height: BafSpacing.sm),
-                BafRecordSurface(child: Column(children: _contextRows())),
+                BafRecordSurface(child: Column(children: _contextRows(record))),
                 if (record.counterRevisedDescription != null) ...[
                   const SizedBox(height: BafSpacing.lg),
                   BafRecordSurface(
@@ -172,6 +256,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                   ..._actions(
                     context,
                     ref,
+                    record: record,
                     workflowId: workflowId,
                     expectedVersion: version,
                     busy: commandState.isLoading,
@@ -186,7 +271,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
     );
   }
 
-  List<Widget> _contextRows() {
+  List<Widget> _contextRows(ComplianceRequestRecord record) {
     final values = <(String, String)>[
       ('Request type', record.requestPurposeLabel),
       ('Target lane', record.targetLaneKey.toUpperCase()),
@@ -250,10 +335,11 @@ class ComplianceDetailScreen extends ConsumerWidget {
   List<Widget> _actions(
     BuildContext context,
     WidgetRef ref, {
+    required ComplianceRequestRecord record,
     required String workflowId,
     required int expectedVersion,
     required bool busy,
-    required AppUser? actor,
+    required AppUser actor,
   }) {
     final widgets = <Widget>[];
     void add(Widget widget) {
@@ -261,20 +347,16 @@ class ComplianceDetailScreen extends ConsumerWidget {
       widgets.add(widget);
     }
 
-    final mayWorkTarget =
-        actor?.canAcknowledgeOrWorkMaintenanceLane(record.targetLaneKey) ??
-        false;
+    final mayWorkTarget = actor.canAcknowledgeOrWorkMaintenanceLane(
+      record.targetLaneKey,
+    );
     final mayWorkOrigin =
         record.originLaneKey == null
-            ? actor?.isModuleLifecycleSupervisor == true
+            ? actor.isModuleLifecycleSupervisor
             : (record.raisedUnderCoordination &&
-                    actor?.canCoordinateMaintenanceCompliance == true) ||
-                (actor?.canAcknowledgeOrWorkMaintenanceLane(
-                      record.originLaneKey,
-                    ) ??
-                    false);
-    final mayMarkCondition =
-        actor?.canMarkMaintenanceWorkflowConditionDue ?? false;
+                    actor.canCoordinateMaintenanceCompliance) ||
+                actor.canAcknowledgeOrWorkMaintenanceLane(record.originLaneKey);
+    final mayMarkCondition = actor.canMarkMaintenanceWorkflowConditionDue;
 
     if ((record.statusKey == 'raised' || record.statusKey == 'acknowledged') &&
         record.conditionTypeKey != 'manual') {
@@ -297,6 +379,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
               workflowId,
               expectedVersion,
               WorkflowCommandType.confirmConditionAndReactivate,
+              actorUid: actor.uid,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -317,6 +400,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                 workflowId,
                 expectedVersion,
                 WorkflowCommandType.acknowledgeCompliance,
+                actorUid: actor.uid,
               ),
         ),
       );
@@ -341,6 +425,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
               workflowId,
               expectedVersion,
               WorkflowCommandType.markComplianceComplied,
+              actorUid: actor.uid,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -365,6 +450,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                         workflowId,
                         expectedVersion,
                         WorkflowCommandType.proposeCounterCondition,
+                        actorUid: actor.uid,
                         extra: <String, Object?>{'revisedDescription': revised},
                       );
                     },
@@ -394,6 +480,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                       workflowId,
                       expectedVersion,
                       WorkflowCommandType.decideCounterCondition,
+                      actorUid: actor.uid,
                       extra: <String, Object?>{
                         'accepted': true,
                         'note': note,
@@ -423,6 +510,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                       workflowId,
                       expectedVersion,
                       WorkflowCommandType.decideCounterCondition,
+                      actorUid: actor.uid,
                       extra: <String, Object?>{'accepted': false, 'note': note},
                     );
                   },
@@ -452,6 +540,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
               workflowId,
               expectedVersion,
               WorkflowCommandType.confirmComplianceClosed,
+              actorUid: actor.uid,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -474,6 +563,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                       workflowId,
                       expectedVersion,
                       WorkflowCommandType.returnComplianceForCorrection,
+                      actorUid: actor.uid,
                       extra: <String, Object?>{'reason': reason},
                     );
                   },
@@ -491,9 +581,10 @@ class ComplianceDetailScreen extends ConsumerWidget {
     String workflowId,
     int expectedVersion,
     WorkflowCommandType type, {
+    required String actorUid,
     Map<String, Object?> extra = const <String, Object?>{},
   }) async {
-    await ref
+    final receipt = await ref
         .read(workflowCommandControllerProvider.notifier)
         .execute(
           WorkflowCommandFactory.create(
@@ -501,11 +592,40 @@ class ComplianceDetailScreen extends ConsumerWidget {
             aggregateId: workflowId,
             expectedVersion: expectedVersion,
             payload: <String, Object?>{
-              'complianceId': record.firestoreId,
+              'complianceId': widget.record.firestoreId,
               ...extra,
             },
           ),
         );
+    if (!mounted) return;
+    setState(() {
+      final sameWorkflow = _receiptWorkflowId == workflowId;
+      final current = sameWorkflow ? _receiptAggregateVersion : null;
+      _receiptWorkflowId = workflowId;
+      _receiptAggregateVersion =
+          current == null || receipt.aggregateVersion > current
+              ? receipt.aggregateVersion
+              : current;
+    });
+    final authorizedActorUid = actorUid.trim();
+    final complianceId = widget.record.firestoreId?.trim();
+    if (authorizedActorUid.isNotEmpty &&
+        complianceId != null &&
+        complianceId.isNotEmpty) {
+      ref.invalidate(
+        workflowComplianceRecordProvider((
+          actorUid: authorizedActorUid,
+          complianceId: complianceId,
+        )),
+      );
+      ref.invalidate(
+        workflowAuthoritativeRecordProvider((
+          actorUid: authorizedActorUid,
+          workflowId: workflowId,
+        )),
+      );
+    }
+    ref.invalidate(workflowAggregateProvider(workflowId));
   }
 
   Future<String?> _askText(

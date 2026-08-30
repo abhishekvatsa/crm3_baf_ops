@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
+import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
@@ -517,7 +519,98 @@ void main() {
       );
     },
   );
+
+  test(
+    'mobile soft delete reaches the server before local tombstone adoption',
+    () async {
+      final localTime = DateTime.utc(2026, 8, 30, 4);
+      final remoteTime = localTime.add(const Duration(minutes: 1));
+      final operations = <String>[];
+      final local = _FakeMaintenanceRepository(
+        _record(version: 3, updatedAt: localTime, isSynced: true),
+        label: 'local',
+        operationLog: operations,
+      );
+      final remote = _FakeMaintenanceRepository(
+        _record(version: 3, updatedAt: localTime, isSynced: false),
+        label: 'remote',
+        operationLog: operations,
+        deleteAt: remoteTime,
+      );
+
+      final deleted = await MaintenanceIssueCommandReconciler(
+        localRepository: local,
+        remoteRepository: remote,
+      ).softDeleteServerFirst(
+        localRecord: local.record!,
+        actor: _adminActor(),
+        auditContext: const AuditContext(
+          performedByUid: 'admin-1',
+          performedByName: 'Admin One',
+          reason: AuditReason.other,
+          reasonNotes: 'Build 19 labelled trial cleanup',
+        ),
+      );
+
+      expect(operations, <String>[
+        'remote.delete',
+        'remote.read',
+        'local.apply-refresh',
+        'local.verify',
+      ]);
+      expect(deleted.isDeleted, isTrue);
+      expect(deleted.version, 4);
+      expect(deleted.updatedAt, remoteTime);
+      expect(deleted.isSynced, isTrue);
+      expect(deleted.deleteReason, AuditReason.other.name);
+    },
+  );
+
+  test(
+    'rejected server delete leaves the synchronized local issue untouched',
+    () async {
+      final localTime = DateTime.utc(2026, 8, 30, 4);
+      final operations = <String>[];
+      final local = _FakeMaintenanceRepository(
+        _record(version: 3, updatedAt: localTime, isSynced: true),
+        label: 'local',
+        operationLog: operations,
+      );
+      final remote = _FakeMaintenanceRepository(
+        _record(version: 3, updatedAt: localTime, isSynced: false),
+        label: 'remote',
+        operationLog: operations,
+        deleteError: StateError('permission denied'),
+      );
+
+      await expectLater(
+        MaintenanceIssueCommandReconciler(
+          localRepository: local,
+          remoteRepository: remote,
+        ).softDeleteServerFirst(
+          localRecord: local.record!,
+          actor: _adminActor(),
+        ),
+        throwsA(isA<MaintenanceIssueCommandConvergenceException>()),
+      );
+
+      expect(operations, <String>['remote.delete']);
+      expect(local.record!.isDeleted, isFalse);
+      expect(local.record!.version, 3);
+      expect(local.record!.isSynced, isTrue);
+      expect(local.applyCalls, 0);
+    },
+  );
 }
+
+AppUser _adminActor() => AppUser(
+  uid: 'admin-1',
+  name: 'Admin One',
+  email: 'admin@example.com',
+  roles: const <AppRole>[AppRole.admin],
+  isApproved: true,
+  createdAt: DateTime.utc(2026, 8, 30),
+);
 
 MaintenanceRecord _record({
   required int version,
@@ -550,20 +643,59 @@ MaintenanceRecord _record({
 }
 
 class _FakeMaintenanceRepository implements MaintenanceRepository {
-  _FakeMaintenanceRepository(this.record, {this.applyReadbackResult = true});
+  _FakeMaintenanceRepository(
+    this.record, {
+    this.applyReadbackResult = true,
+    this.label = 'repository',
+    this.operationLog,
+    this.deleteAt,
+    this.deleteError,
+  });
 
   MaintenanceRecord? record;
   final bool applyReadbackResult;
+  final String label;
+  final List<String>? operationLog;
+  final DateTime? deleteAt;
+  final Object? deleteError;
   int applyCalls = 0;
 
   @override
-  Future<MaintenanceRecord?> getByFirestoreId(String firestoreId) async =>
-      record?.firestoreId == firestoreId ? record : null;
+  Future<MaintenanceRecord?> getByFirestoreId(String firestoreId) async {
+    operationLog?.add('$label.verify');
+    return record?.firestoreId == firestoreId ? record : null;
+  }
 
   @override
   Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(
     String firestoreId,
-  ) async => record?.firestoreId == firestoreId ? record : null;
+  ) async {
+    operationLog?.add('$label.read');
+    return record?.firestoreId == firestoreId ? record : null;
+  }
+
+  @override
+  Future<void> deleteTicket(
+    dynamic id, {
+    required AppUser actor,
+    AuditContext? auditContext,
+  }) async {
+    operationLog?.add('$label.delete');
+    final error = deleteError;
+    if (error != null) throw error;
+    final current = record;
+    if (current == null || current.isDeleted) return;
+    final deletedAt =
+        deleteAt ?? current.updatedAt.add(const Duration(minutes: 1));
+    current
+      ..isDeleted = true
+      ..deletedAt = deletedAt
+      ..deletedByUid = auditContext?.performedByUid
+      ..deletedByName = auditContext?.performedByName
+      ..deleteReason = auditContext?.reason?.name ?? auditContext?.reasonNotes
+      ..updatedAt = deletedAt
+      ..version += 1;
+  }
 
   @override
   Future<bool> applyMaintenanceIssueCommandReadback({
@@ -571,6 +703,7 @@ class _FakeMaintenanceRepository implements MaintenanceRepository {
     required int expectedLocalVersion,
     required DateTime expectedLocalUpdatedAt,
   }) async {
+    operationLog?.add('$label.apply-command');
     applyCalls += 1;
     if (!applyReadbackResult) return false;
     record = remote..isSynced = true;
@@ -583,6 +716,7 @@ class _FakeMaintenanceRepository implements MaintenanceRepository {
     required int expectedLocalVersion,
     required DateTime expectedLocalUpdatedAt,
   }) async {
+    operationLog?.add('$label.apply-refresh');
     applyCalls += 1;
     if (!applyReadbackResult) return false;
     record = remote..isSynced = true;

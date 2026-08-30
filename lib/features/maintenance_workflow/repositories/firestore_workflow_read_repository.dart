@@ -825,6 +825,21 @@ class FirestoreWorkflowReadRepository implements WorkflowRemoteReadRepository {
     map: _compliance,
   );
 
+  Future<WorkflowAggregateRecord?> fetchWorkflowById(String workflowId) async {
+    final id = workflowId.trim();
+    if (id.isEmpty) return null;
+    final document = await firestore
+        .collection('maintenance_workflows')
+        .doc(id)
+        .get(const GetOptions(source: Source.server));
+    if (document.metadata.hasPendingWrites) {
+      throw StateError(
+        'Workflow server read contains uncommitted local mutations.',
+      );
+    }
+    return document.exists ? _workflow(document) : null;
+  }
+
   Future<ComplianceRequestRecord?> fetchComplianceById(
     String complianceId,
   ) async {
