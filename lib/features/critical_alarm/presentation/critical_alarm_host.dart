@@ -52,7 +52,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
       const <String, CriticalAlarm>{};
   bool _liveAlarmStateVerified = false;
   StreamSubscription<String>? _openedAlarmSubscription;
-  late final ProviderSubscription<AsyncValue<List<CriticalAlarm>>>
+  late final ProviderSubscription<AsyncValue<CriticalAlarmLiveSnapshot>>
   _alarmFeedSubscription;
   String? _pendingOpenedAlarmId;
   Offset _launcherFraction = const Offset(1, 0.78);
@@ -65,18 +65,17 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     _openedAlarmSubscription = platform.openedAlarmIds.listen(
       _queueOpenedAlarm,
     );
-    _alarmFeedSubscription = ref.listenManual<AsyncValue<List<CriticalAlarm>>>(
+    _alarmFeedSubscription =
+        ref.listenManual<AsyncValue<CriticalAlarmLiveSnapshot>>(
       activeCriticalAlarmsProvider,
       (previous, next) {
-        final verified = next.asData;
-        if (verified == null) {
+        final snapshot = next.asData?.value;
+        if (snapshot == null || !snapshot.isServerVerified) {
           _liveAlarmStateVerified = false;
-          _latestRingingIds = const <String>{};
-          _latestRingingAlarms = const <String, CriticalAlarm>{};
           return;
         }
         _liveAlarmStateVerified = true;
-        _reconcileNotifications(verified.value);
+        _reconcileNotifications(snapshot.alarms);
       },
       fireImmediately: true,
     );
@@ -110,8 +109,15 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   Widget build(BuildContext context) {
     final user = ref.watch(currentAppUserProvider).asData?.value;
     final feed = ref.watch(activeCriticalAlarmsProvider);
-    final active = feed.asData?.value ?? const <CriticalAlarm>[];
-    final primary = active.isEmpty ? null : _primary(active);
+    final liveSnapshot = feed.asData?.value;
+    final active = liveSnapshot?.alarms ?? const <CriticalAlarm>[];
+    final isServerVerified = liveSnapshot?.isServerVerified == true;
+    final primary =
+        !isServerVerified || active.isEmpty ? null : _primary(active);
+    final showUnverifiedBanner =
+        user?.isApproved == true &&
+        (feed.hasError ||
+            (liveSnapshot != null && !liveSnapshot.isServerVerified));
     if (user?.isApproved == true && _pendingOpenedAlarmId != null) {
       final alarmId = _pendingOpenedAlarmId;
       _pendingOpenedAlarmId = null;
@@ -125,7 +131,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         final bounds = _launcherBounds(
           constraints,
           media,
-          hasBanner: primary != null,
+          hasBanner: primary != null || showUnverifiedBanner,
         );
         final launcherOffset = Offset(
           bounds.left + bounds.width * _launcherFraction.dx,
@@ -141,6 +147,11 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                     alarm: primary,
                     count: active.length,
                     onTap: () => _open(initialAlarmId: primary.id),
+                  ),
+                if (showUnverifiedBanner)
+                  _UnverifiedAlarmBanner(
+                    lastKnownCount: active.length,
+                    onTap: _open,
                   ),
                 Expanded(child: widget.child),
               ],
@@ -182,11 +193,18 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                         button: true,
                         child: FloatingActionButton.small(
                           heroTag: 'global-critical-alarm-launcher',
-                          backgroundColor: BafColors.danger,
+                          backgroundColor:
+                              showUnverifiedBanner
+                                  ? BafColors.warning
+                                  : BafColors.danger,
                           foregroundColor: Colors.white,
                           onPressed: _open,
-                          child:
-                              active.isEmpty
+                          child: showUnverifiedBanner
+                              ? const Badge(
+                                label: Text('!'),
+                                child: Icon(Icons.cloud_off_outlined),
+                              )
+                              : active.isEmpty
                                   ? const Icon(
                                     Icons.notification_important_outlined,
                                   )
@@ -373,6 +391,52 @@ class _ActiveAlarmBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   '${alarm.definition.name} - ${alarm.location}${count > 1 ? '  +${count - 1} more' : ''}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _UnverifiedAlarmBanner extends StatelessWidget {
+  const _UnverifiedAlarmBanner({
+    required this.lastKnownCount,
+    required this.onTap,
+  });
+
+  final int lastKnownCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: BafColors.warning,
+    child: SafeArea(
+      bottom: false,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.cloud_off_outlined, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  lastKnownCount == 0
+                      ? 'Critical alarm feed is not live'
+                      : 'Critical alarm feed is not live - '
+                          '$lastKnownCount last-known active '
+                          '${lastKnownCount == 1 ? 'alarm' : 'alarms'}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

@@ -259,8 +259,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
                 .length ??
             0;
-        final activeCriticalAlarmCount = criticalAlarmsAsync.value?.length ?? 0;
-        final criticalAlarmsUnavailable = criticalAlarmsAsync.value == null;
+        final criticalAlarmSnapshot = criticalAlarmsAsync.asData?.value;
+        final criticalAlarmsUnavailable =
+            criticalAlarmSnapshot?.isServerVerified != true;
+        final activeCriticalAlarmCount =
+            criticalAlarmsUnavailable
+                ? 0
+                : criticalAlarmSnapshot!.alarms.length;
         final operationalEventsUnavailable =
             operationalEventsAsync.value == null;
         final qualityWarningsUnavailable = qualityWarningsAsync.value == null;

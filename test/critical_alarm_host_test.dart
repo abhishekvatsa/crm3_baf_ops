@@ -85,6 +85,18 @@ AppUser _user({bool approved = true}) => AppUser(
   createdAt: DateTime.utc(2026),
 );
 
+CriticalAlarmLiveSnapshot _verified(List<CriticalAlarm> alarms) =>
+    CriticalAlarmLiveSnapshot.serverVerified(
+      alarms: alarms,
+      verifiedAt: DateTime.utc(2026, 8, 26, 1, 5),
+    );
+
+CriticalAlarmLiveSnapshot _stale(List<CriticalAlarm> alarms) =>
+    CriticalAlarmLiveSnapshot.staleLastKnown(
+      alarms: alarms,
+      lastVerifiedAt: DateTime.utc(2026, 8, 26, 1, 5),
+    );
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -109,7 +121,7 @@ void main() {
           overrides: [
             currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
             activeCriticalAlarmsProvider.overrideWith(
-              (_) => Stream.value([_supportConfirmedAlarm()]),
+              (_) => Stream.value(_verified([_supportConfirmedAlarm()])),
             ),
           ],
           child: MaterialApp(
@@ -187,7 +199,7 @@ void main() {
   testWidgets('failed native notification is retried after settings resume', (
     tester,
   ) async {
-    final alarmFeed = StreamController<List<CriticalAlarm>>();
+    final alarmFeed = StreamController<CriticalAlarmLiveSnapshot>();
     addTearDown(alarmFeed.close);
     var showAttempts = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -220,7 +232,7 @@ void main() {
     );
     await tester.pump();
 
-    alarmFeed.add([_raisedAlarm()]);
+    alarmFeed.add(_verified([_raisedAlarm()]));
     await tester.pumpAndSettle();
     expect(showAttempts, 1);
 
@@ -229,6 +241,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(showAttempts, 2);
   });
+
+  testWidgets(
+    'stale alarm feed is labelled and cannot reconcile notifications',
+    (tester) async {
+      final calls = <MethodCall>[];
+      final alarmFeed = StreamController<CriticalAlarmLiveSnapshot>();
+      addTearDown(alarmFeed.close);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            calls.add(call);
+            if (call.method == 'showActiveNotification') return true;
+            if (call.method == 'reconcileActiveNotifications') return 0;
+            return null;
+          });
+      final navigatorKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+            activeCriticalAlarmsProvider.overrideWith((_) => alarmFeed.stream),
+          ],
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            builder:
+                (context, child) => CriticalAlarmHost(
+                  navigatorKey: navigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+            home: const Scaffold(body: Text('Operations')),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      alarmFeed.add(_verified([_raisedAlarm()]));
+      await tester.pumpAndSettle();
+      final verifiedReconciliations = calls
+          .where((call) => call.method == 'reconcileActiveNotifications')
+          .length;
+      expect(verifiedReconciliations, 1);
+
+      alarmFeed.add(_stale([_raisedAlarm()]));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('alarm feed is not live'), findsOneWidget);
+      expect(
+        calls.where((call) => call.method == 'reconcileActiveNotifications'),
+        hasLength(verifiedReconciliations),
+      );
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(
+        calls.where((call) => call.method == 'reconcileActiveNotifications'),
+        hasLength(verifiedReconciliations),
+      );
+
+      alarmFeed.add(_verified(const <CriticalAlarm>[]));
+      await tester.pumpAndSettle();
+      expect(
+        calls.where((call) => call.method == 'reconcileActiveNotifications'),
+        hasLength(verifiedReconciliations + 1),
+      );
+    },
+  );
 
   testWidgets('global alarm launcher yields interaction to modal routes', (
     tester,
@@ -247,7 +325,7 @@ void main() {
         overrides: [
           currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
           activeCriticalAlarmsProvider.overrideWith(
-            (_) => Stream.value(const <CriticalAlarm>[]),
+            (_) => Stream.value(_verified(const <CriticalAlarm>[])),
           ),
         ],
         child: MaterialApp(

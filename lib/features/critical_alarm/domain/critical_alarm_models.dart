@@ -20,6 +20,48 @@ enum CriticalAlarmSupportBasis {
   raiserContactedDirectly,
 }
 
+enum CriticalAlarmFeedAuthority { serverVerified, staleLastKnown, unavailable }
+
+class CriticalAlarmLiveSnapshot {
+  CriticalAlarmLiveSnapshot({
+    required List<CriticalAlarm> alarms,
+    required this.authority,
+    required this.lastVerifiedAt,
+  }) : alarms = List<CriticalAlarm>.unmodifiable(alarms);
+
+  factory CriticalAlarmLiveSnapshot.serverVerified({
+    required List<CriticalAlarm> alarms,
+    required DateTime verifiedAt,
+  }) => CriticalAlarmLiveSnapshot(
+    alarms: alarms,
+    authority: CriticalAlarmFeedAuthority.serverVerified,
+    lastVerifiedAt: verifiedAt,
+  );
+
+  factory CriticalAlarmLiveSnapshot.staleLastKnown({
+    required List<CriticalAlarm> alarms,
+    required DateTime lastVerifiedAt,
+  }) => CriticalAlarmLiveSnapshot(
+    alarms: alarms,
+    authority: CriticalAlarmFeedAuthority.staleLastKnown,
+    lastVerifiedAt: lastVerifiedAt,
+  );
+
+  factory CriticalAlarmLiveSnapshot.unavailable() =>
+      CriticalAlarmLiveSnapshot(
+        alarms: const <CriticalAlarm>[],
+        authority: CriticalAlarmFeedAuthority.unavailable,
+        lastVerifiedAt: null,
+      );
+
+  final List<CriticalAlarm> alarms;
+  final CriticalAlarmFeedAuthority authority;
+  final DateTime? lastVerifiedAt;
+
+  bool get isServerVerified =>
+      authority == CriticalAlarmFeedAuthority.serverVerified;
+}
+
 class CriticalAlarmDefinition {
   const CriticalAlarmDefinition({
     required this.key,
