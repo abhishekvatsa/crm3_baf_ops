@@ -128,6 +128,8 @@ const OPERATIONS = new Set<QualityMutationOperation>([
   "CREATE_QUALITY_MONITORING_REQUEST",
   "CLOSE_QUALITY_MONITORING_REQUEST",
 ]);
+export const QUALITY_MONITORING_OPERATIONAL_RETENTION_MS =
+  7 * 24 * 60 * 60 * 1000;
 const REQUEST_ROLES = new Set([
   "admin",
   "si",
@@ -222,6 +224,9 @@ const MONITORING_FIELDS = new Set([
   "chargeNumbers",
   "reason",
   "status",
+  "visibilityState",
+  "visibleUntil",
+  "archivedAt",
   "createdAt",
   "createdByUid",
   "createdByName",
@@ -235,6 +240,11 @@ const MONITORING_FIELDS = new Set([
   "version",
   "lastMutationId",
   "_globalPullServerUpdatedAt",
+]);
+const MONITORING_VISIBILITY_FIELDS = new Set([
+  "visibilityState",
+  "visibleUntil",
+  "archivedAt",
 ]);
 
 export class QualityMutationError extends Error {
@@ -473,6 +483,26 @@ function validDate(value: unknown): boolean {
   return typeof timestamp.toDate === "function" ||
     (Number.isSafeInteger(timestamp.seconds) &&
       Number.isSafeInteger(timestamp.nanoseconds));
+}
+
+function dateMillis(value: unknown, field: string, entity: string): number {
+  if (value instanceof Date) return value.valueOf();
+  if (typeof value === "string") return Date.parse(value);
+  if (value == null || typeof value !== "object") malformed(entity, field);
+  const timestamp = value as {
+    toDate?: () => Date;
+    seconds?: unknown;
+    nanoseconds?: unknown;
+  };
+  if (typeof timestamp.toDate === "function") {
+    return timestamp.toDate().valueOf();
+  }
+  if (Number.isSafeInteger(timestamp.seconds) &&
+      Number.isSafeInteger(timestamp.nanoseconds)) {
+    return (timestamp.seconds as number) * 1000 +
+      (timestamp.nanoseconds as number) / 1_000_000;
+  }
+  return malformed(entity, field);
 }
 
 function malformed(entity: string, field?: string): never {
@@ -818,20 +848,34 @@ async function linkedAbnormalityForWarning(args: {
   };
 }
 
-function validateMonitoring(
+export function validateQualityMonitoringRecord(
   data: UserAuthorityJsonMap,
   requestId: string,
 ): UserAuthorityJsonMap {
   for (const key of Object.keys(data)) {
     if (!MONITORING_FIELDS.has(key)) malformed("quality-monitoring", key);
   }
+  const schemaVersion = data.schemaVersion;
+  if (schemaVersion !== 1 && schemaVersion !== 2) {
+    malformed("quality-monitoring", "schemaVersion");
+  }
+  const visibilityFieldCount = [...MONITORING_VISIBILITY_FIELDS]
+    .filter((field) => Object.prototype.hasOwnProperty.call(data, field)).length;
+  if ((schemaVersion === 1 && visibilityFieldCount !== 0) ||
+      (schemaVersion === 2 &&
+        visibilityFieldCount !== MONITORING_VISIBILITY_FIELDS.size)) {
+    malformed("quality-monitoring", "visibilityState");
+  }
   for (const field of [...MONITORING_FIELDS].filter((value) =>
     value !== "_globalPullServerUpdatedAt")) {
+    if (schemaVersion === 1 && MONITORING_VISIBILITY_FIELDS.has(field)) {
+      continue;
+    }
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       malformed("quality-monitoring", field);
     }
   }
-  if (data.schemaVersion !== 1 || data.requestId !== requestId) {
+  if (data.requestId !== requestId) {
     malformed("quality-monitoring", "requestId");
   }
   positiveExistingInteger(data.baseNumber, "baseNumber", "quality-monitoring");
@@ -868,8 +912,13 @@ function validateMonitoring(
       !validDate(data._globalPullServerUpdatedAt)) {
     malformed("quality-monitoring", "_globalPullServerUpdatedAt");
   }
+  const closedAt = optionalExistingDate(
+    data.closedAt,
+    "closedAt",
+    "quality-monitoring",
+  );
   const closureEvidence = [
-    optionalExistingDate(data.closedAt, "closedAt", "quality-monitoring"),
+    closedAt,
     optionalExistingString(data.closedByUid, "closedByUid", "quality-monitoring"),
     optionalExistingString(data.closedByName, "closedByName", "quality-monitoring"),
     optionalExistingString(data.closeReason, "closeReason", "quality-monitoring"),
@@ -880,7 +929,50 @@ function validateMonitoring(
         closureEvidenceCount !== closureEvidence.length)) {
     malformed("quality-monitoring", "status");
   }
-  return {...data};
+  const visibilityState = schemaVersion === 1 ?
+    (data.status === "active" ? "active" : "recent") : data.visibilityState;
+  if (visibilityState !== "active" &&
+      visibilityState !== "recent" &&
+      visibilityState !== "archived") {
+    malformed("quality-monitoring", "visibilityState");
+  }
+  const visibleUntil = schemaVersion === 1 ?
+    (closedAt == null ? null : new Date(
+      dateMillis(closedAt, "closedAt", "quality-monitoring") +
+        QUALITY_MONITORING_OPERATIONAL_RETENTION_MS,
+    )) : optionalExistingDate(
+      data.visibleUntil,
+      "visibleUntil",
+      "quality-monitoring",
+    );
+  const archivedAt = schemaVersion === 1 ? null : optionalExistingDate(
+    data.archivedAt,
+    "archivedAt",
+    "quality-monitoring",
+  );
+  if (data.status === "active") {
+    if (visibilityState !== "active" ||
+        visibleUntil != null || archivedAt != null) {
+      malformed("quality-monitoring", "visibilityState");
+    }
+  } else if (visibilityState === "recent") {
+    if (closedAt == null || visibleUntil == null || archivedAt != null ||
+        dateMillis(visibleUntil, "visibleUntil", "quality-monitoring") !==
+          dateMillis(closedAt, "closedAt", "quality-monitoring") +
+            QUALITY_MONITORING_OPERATIONAL_RETENTION_MS) {
+      malformed("quality-monitoring", "visibleUntil");
+    }
+  } else if (visibilityState === "archived") {
+    if (closedAt == null || visibleUntil != null || archivedAt == null ||
+        dateMillis(archivedAt, "archivedAt", "quality-monitoring") <
+          dateMillis(closedAt, "closedAt", "quality-monitoring") +
+            QUALITY_MONITORING_OPERATIONAL_RETENTION_MS) {
+      malformed("quality-monitoring", "archivedAt");
+    }
+  } else {
+    malformed("quality-monitoring", "visibilityState");
+  }
+  return {...data, visibilityState, visibleUntil, archivedAt};
 }
 
 function requiredExistingString(
@@ -965,7 +1057,7 @@ function replayResult(args: {
   }
   const current = "warningId" in request ?
     validateQualityWarningRecord(target, entityId) :
-    validateMonitoring(target, entityId);
+    validateQualityMonitoringRecord(target, entityId);
   const hasLinkedEvidence = Object.prototype.hasOwnProperty.call(
     receipt,
     "linkedAbnormalityId",
@@ -1271,7 +1363,7 @@ export async function mutateQualityWithDb(args: {
       }
       resultVersion = 1;
       after = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         requestId: request.monitoringRequestId,
         baseNumber: request.baseNumber,
         grade: request.grade,
@@ -1279,6 +1371,9 @@ export async function mutateQualityWithDb(args: {
         chargeNumbers: request.chargeNumbers,
         reason: request.reason,
         status: "active",
+        visibilityState: "active",
+        visibleUntil: null,
+        archivedAt: null,
         createdAt: committedAt,
         createdByUid: actorUid,
         createdByName: actor.name,
@@ -1300,7 +1395,7 @@ export async function mutateQualityWithDb(args: {
           {reasonCode: "quality-monitoring-not-found"},
         );
       }
-      before = validateMonitoring(
+      before = validateQualityMonitoringRecord(
         targetSnapshot.data() ?? {},
         request.monitoringRequestId,
       );
@@ -1324,7 +1419,13 @@ export async function mutateQualityWithDb(args: {
       resultVersion = request.expectedVersion + 1;
       after = {
         ...before,
+        schemaVersion: 2,
         status: "closed",
+        visibilityState: "recent",
+        visibleUntil: timestampFromDate(new Date(
+          committedDate.valueOf() + QUALITY_MONITORING_OPERATIONAL_RETENTION_MS,
+        )),
+        archivedAt: null,
         closedAt: committedAt,
         closedByUid: actorUid,
         closedByName: actor.name,

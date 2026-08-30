@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
+import {archiveDueQualityMonitoringRequests} from "../qualityMonitoringRetention";
 import {eventPlan} from "./events";
 import {
   escalationEventId,
@@ -229,6 +230,8 @@ export const maintenanceWorkflowEscalationSweep = onSchedule(
       TRANSACTION_CONCURRENCY,
       (candidate) => processCandidate(db, candidate, now),
     );
+    const qualityMonitoringRetention =
+      await archiveDueQualityMonitoringRequests({db, now});
 
     logger.info("maintenanceWorkflowEscalationSweep completed", {
       laneCandidates: lanes.length,
@@ -236,6 +239,7 @@ export const maintenanceWorkflowEscalationSweep = onSchedule(
       complianceDueCandidates: complianceDue.length,
       candidateCount: candidates.length,
       changed,
+      qualityMonitoringRetention,
       cappedQueries: {
         lanes: lanes.length >= MAX_PER_QUERY_PER_SWEEP,
         complianceAck: complianceAck.length >= MAX_PER_QUERY_PER_SWEEP,

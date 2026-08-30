@@ -30,6 +30,7 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
   required RoutedTo routedTo,
   required MaintenanceType maintenanceType,
   required bool isCritical,
+  MaintenanceIssuePlantConditionEffect? plantConditionEffect,
   required String? component,
   required String? subsystem,
   required String? tag,
@@ -43,6 +44,12 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
   routedTo: routedTo,
   maintenanceType: maintenanceType,
   isCritical: isCritical,
+  plantConditionEffect:
+      plantConditionEffect ??
+      (source.effectivePlantConditionEffect ==
+              MaintenanceIssuePlantConditionEffect.none
+          ? MaintenanceIssuePlantConditionEffect.unfit
+          : source.effectivePlantConditionEffect),
   component: component,
   subsystem: subsystem,
   tag: tag,

@@ -16,6 +16,7 @@ void _overwriteLocalMaintenanceRecord(
     ..maintenanceType = remote.maintenanceType
     ..classification = remote.classification
     ..description = remote.description
+    ..plantConditionEffect = remote.plantConditionEffect
     ..routedTo = remote.routedTo
     ..otherDepartment = remote.otherDepartment
     ..status = remote.status

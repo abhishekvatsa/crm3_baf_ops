@@ -66,16 +66,16 @@ alarm state is deliberately never persisted to Isar; the unbounded active feed
 is separate from the bounded recent-history feed so historical volume cannot
 displace an active emergency. It preserves every previously registered feature
 regression instead of replacing named coverage with a generic test. The
-seven-day operational retention stream for closed quality-monitoring requests
-adds two read-only stream operations under the already classified quality
-provider. Complete quality and critical-alarm report feeds retain full history,
+server-governed seven-day retention for closed quality-monitoring requests now
+uses one active/recent read stream, removing the former client-clock and bounded
+recent-window reads. Complete quality and critical-alarm report feeds retain full history,
 bind reads to the current approved actor, and admit offline cache only after the
 same query has been server-confirmed in that actor session. The Build 19 device
 convergence re-arm adds one server-first maintenance deletion readback operation
 and two persistence sites under the existing maintenance remote adapter. The
-current manifest therefore covers 551 operations and 1,903 sites across 57
+current manifest therefore covers 553 operations and 1,907 sites across 57
 surfaces with digest
-`539DCAEAED194D6AA1671A5E8D5E4CD8B4612671574B88A98F15377778071767`;
+`3FB048327896FD851986CBE412C7E4AE4120F78041740019B7602E7B118A1525`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

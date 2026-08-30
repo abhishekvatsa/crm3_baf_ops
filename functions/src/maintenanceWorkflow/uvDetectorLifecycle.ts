@@ -374,6 +374,17 @@ const currentStateId = (assetInstanceId: string, burnerPosition: number): string
     .digest("hex").slice(0, 40)}`;
 
 const isLaterLifecycleData = (candidate: JsonMap, current: JsonMap): boolean => {
+  const candidateRecordedAt = Date.parse(parseInstant(
+    candidate.recordedAt,
+    "current.recordedAt",
+  ));
+  const currentRecordedAt = Date.parse(parseInstant(
+    current.recordedAt,
+    "current.recordedAt",
+  ));
+  if (candidateRecordedAt !== currentRecordedAt) {
+    return candidateRecordedAt > currentRecordedAt;
+  }
   const candidatePerformedAt = Date.parse(parseInstant(
     candidate.actionPerformedAt,
     "current.actionPerformedAt",
@@ -384,17 +395,6 @@ const isLaterLifecycleData = (candidate: JsonMap, current: JsonMap): boolean => 
   ));
   if (candidatePerformedAt !== currentPerformedAt) {
     return candidatePerformedAt > currentPerformedAt;
-  }
-  const candidateCompletedAt = Date.parse(parseInstant(
-    candidate.completedAt,
-    "current.completedAt",
-  ));
-  const currentCompletedAt = Date.parse(parseInstant(
-    current.completedAt,
-    "current.completedAt",
-  ));
-  if (candidateCompletedAt !== currentCompletedAt) {
-    return candidateCompletedAt > currentCompletedAt;
   }
   return requiredText(candidate.eventId, "current.eventId") >
     requiredText(current.eventId, "current.eventId");
@@ -409,6 +409,7 @@ export const prepareUvDetectorLifecycleWritePlan = async (args: {
   readonly assetNumber: unknown;
   readonly actionSources: readonly UvLifecycleActionSource[];
   readonly completedAt: string;
+  readonly recordedAt: string;
   readonly completedBy: Actor;
   readonly executionLevelInstrumentationEvidence?: boolean;
 }): Promise<UvDetectorLifecycleWritePlan> => {
@@ -457,6 +458,14 @@ export const prepareUvDetectorLifecycleWritePlan = async (args: {
   const assetType = requiredText(args.assetType, "source.assetType");
   const assetNumber = positiveInteger(args.assetNumber, "source.assetNumber");
   const completedAt = parseInstant(args.completedAt, "completedAt");
+  const recordedAt = parseInstant(args.recordedAt, "recordedAt");
+  if (recordedAt !== completedAt) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "UV-detector lifecycle time must match its authoritative closure time.",
+      {reasonCode: "uv-detector-lifecycle-closure-time-mismatch"},
+    );
+  }
   if (assetType !== "furnace") {
     throw new WorkflowError(
       "failed-precondition",
@@ -537,7 +546,7 @@ export const prepareUvDetectorLifecycleWritePlan = async (args: {
         completedAt,
         completedByUid: args.completedBy.uid,
         completedByName: args.completedBy.name,
-        recordedAt: completedAt,
+        recordedAt,
         version: 1,
         isDeleted: false,
       },

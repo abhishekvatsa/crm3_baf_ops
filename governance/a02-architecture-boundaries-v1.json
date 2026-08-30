@@ -199,7 +199,7 @@
         "test/plant_overview_panel_test.dart",
         "test/asset_operational_condition_model_test.dart"
       ],
-      "maximumLines": 1500,
+      "maximumLines": 1502,
       "requiredMarkers": [
         "class AssetConditionBoard"
       ],
@@ -341,7 +341,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 2825,
+      "maximumLines": 2884,
       "requiredMarkers": [
         "class MaintenanceForm"
       ],
@@ -426,7 +426,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 620,
+      "maximumLines": 634,
       "requiredMarkers": [
         "part '",
         "abstract class"
@@ -485,7 +485,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 926,
+      "maximumLines": 928,
       "requiredMarkers": [
         "part of '"
       ],

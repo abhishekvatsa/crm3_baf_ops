@@ -141,18 +141,20 @@ def verify_migration() -> None:
     guard=(ROOT/'lib/core/services/isar_schema_guard_io.dart').read_text(encoding="utf-8")
     startup=(ROOT/'lib/main.dart').read_text(encoding="utf-8")
     identity_repair=(ROOT/'lib/core/services/governed_asset_identity_local_repair.dart').read_text(encoding="utf-8")
-    if 'currentSchemaVersion = 8' not in text: fail('Isar schema version is not v8')
+    if 'currentSchemaVersion = 9' not in text: fail('Isar schema version is not v9')
     if "'v4:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v4 schema fingerprint missing')
     if "'v5:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v5 schema fingerprint missing')
     if "'v6:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks" not in text: fail('v6 schema fingerprint missing')
     if "'v7:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'" not in text: fail('v7 schema fingerprint missing')
     if "'v8:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'" not in text: fail('v8 schema fingerprint missing')
+    if "'v9:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'" not in text: fail('v9 schema fingerprint missing')
     if '3: _reconcileV4WorkflowPersistence' not in text: fail('v2->v3 migration step missing')
     if '4: _addOperationalAssuranceRequestFields' not in text: fail('v3->v4 migration step missing')
     if '5: _addGovernedAssetIdentityFields' not in text: fail('v4->v5 migration step missing')
     if '6: _addOperationalEventIssueLinkProjection' not in text: fail('v5->v6 migration step missing')
     if '7: _addMaintenanceReopenEvidenceFields' not in text: fail('v6->v7 migration step missing')
     if '8: _addSyncRejectionOriginatingUid' not in text: fail('v7->v8 migration step missing')
+    if '9: _addMaintenancePlantConditionEffect' not in text: fail('v8->v9 migration step missing')
     if 'repairLegacyOperationalAssuranceRequests(' not in startup:
         fail('v4 operational-assurance post-open repair missing')
     if 'repairLegacyGovernedAssetIdentityProjections(' not in identity_repair:
@@ -224,7 +226,7 @@ def main() -> int:
         if MARKER in path.read_text(encoding='utf-8', errors='ignore'): marked.append(path.relative_to(ROOT))
     if args.release and marked:
         fail('Pinned build_runner output required before release; provisional files: '+', '.join(map(str,marked)))
-    print(f"PASS: v8 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
+    print(f"PASS: v9 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
     return 0
 
 if __name__=='__main__':

@@ -543,6 +543,31 @@ final openTicketsProvider = StreamProvider<List<MaintenanceRecord>>((ref) {
   return ref.watch(maintenanceRepositoryProvider).watchOpenTickets();
 });
 
+/// Tickets that can still affect Plant Condition. A pending local closure or
+/// deletion remains included until exact server state is adopted, preventing
+/// an optimistic local transition from making an asset appear available.
+final plantConditionTicketsProvider = StreamProvider<List<MaintenanceRecord>>((
+  ref,
+) {
+  if (kIsWeb) {
+    return ref.watch(maintenanceRepositoryProvider).watchOpenTickets();
+  }
+  return isar.maintenanceRecords
+      .filter()
+      .group(
+        (query) => query.isResolvedEqualTo(false).and().isDeletedEqualTo(false),
+      )
+      .or()
+      .isSyncedEqualTo(false)
+      .watch(fireImmediately: true)
+      .map((tickets) {
+        tickets.sort(
+          (left, right) => right.createdAt.compareTo(left.createdAt),
+        );
+        return tickets;
+      });
+});
+
 /// Home badge count provider. On mobile/desktop it avoids materialising the
 /// full open-ticket list just to compute the badge count. List screens should
 /// keep using [openTicketsProvider].

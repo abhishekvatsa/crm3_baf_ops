@@ -402,12 +402,12 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "11331d2291c2c7617647c691320a8563f36059e9"
+        == "538dad04b33e92245ba3613dfdd067ca1b82eef9"
     and post_codegen_refresh.get("sourceTree")
-        == "f84fecd17404205b539e5498b2d2dd92a88ca57e"
+        == "6659e510cfc83d7c4ccadbfd712618b231564327"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
-        "lib/features/audit/models/audit_event_model.g.dart",
+        "lib/features/maintenance/data/maintenance_model.g.dart",
     ]
     and len(post_codegen_bindings) == 19
     and all(
@@ -3103,12 +3103,13 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 8" in isar_migration
+    and "currentSchemaVersion = 9" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
     and "v5SchemaFingerprint" in isar_migration
     and "6: _addOperationalEventIssueLinkProjection" in isar_migration
     and "7: _addMaintenanceReopenEvidenceFields" in isar_migration
     and "8: _addSyncRejectionOriginatingUid" in isar_migration
+    and "9: _addMaintenancePlantConditionEffect" in isar_migration
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
@@ -3173,10 +3174,10 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v8" in isar_fixture_test
-    and "populated v3 compliance request migrates through v8"
+    and "repository-proven populated v1 migrates to v9" in isar_fixture_test
+    and "populated v3 compliance request migrates through v9"
         in isar_fixture_test
-    and "populated v6 maintenance ticket migrates to v8"
+    and "populated v6 maintenance ticket migrates to v9"
         in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
@@ -11034,10 +11035,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 551
-    and a03_inventory_report.get("siteCount") == 1903
+    and a03_inventory_report.get("operationCount") == 553
+    and a03_inventory_report.get("siteCount") == 1907
     and a03_inventory_report.get("inventoryDigest")
-        == "539DCAEAED194D6AA1671A5E8D5E4CD8B4612671574B88A98F15377778071767"
+        == "3FB048327896FD851986CBE412C7E4AE4120F78041740019B7602E7B118A1525"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -11368,9 +11369,9 @@ check(
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
     and a05_timestamp_inventory_report.get("readerCount") == 76
-    and a05_timestamp_inventory_report.get("directCallCount") == 185
+    and a05_timestamp_inventory_report.get("directCallCount") == 187
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 113
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 70
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 72
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28

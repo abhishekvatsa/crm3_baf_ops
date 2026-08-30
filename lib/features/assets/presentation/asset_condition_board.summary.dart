@@ -19,6 +19,11 @@ class _PlantClassConditionSummary extends StatelessWidget {
         assets: summary.assets.where((asset) => asset.isTemporarilyBlocked),
       ),
       _statusMetric(
+        label: 'Unavailable',
+        color: BafColors.cobalt,
+        assets: summary.assets.where((asset) => asset.isIssueUnavailable),
+      ),
+      _statusMetric(
         label: 'Down',
         color: BafColors.danger,
         assets: summary.assets.where((asset) => asset.isDown),
@@ -91,12 +96,10 @@ class _PlantClassConditionSummary extends StatelessWidget {
     required Color color,
     required Iterable<PlantAssetState> assets,
   }) {
-    final rows = assets.toList(growable: false)
-      ..sort(
-        (left, right) => left.asset.assetNumber.compareTo(
-          right.asset.assetNumber,
-        ),
-      );
+    final rows = assets.toList(growable: false)..sort(
+      (left, right) =>
+          left.asset.assetNumber.compareTo(right.asset.assetNumber),
+    );
     if (rows.isEmpty) return null;
     return Container(
       constraints: const BoxConstraints(maxWidth: 480),
@@ -108,7 +111,11 @@ class _PlantClassConditionSummary extends StatelessWidget {
       ),
       child: Text(
         '$label ${rows.length}: ${rows.map(_assetIdentity).join(', ')}',
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

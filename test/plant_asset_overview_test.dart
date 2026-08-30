@@ -4,6 +4,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.da
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/equipment_status_record.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _time = DateTime.utc(2026, 8, 14);
@@ -112,6 +113,37 @@ AssetAvailabilityRecord blocked({required AssetInstanceRecord asset}) =>
       updatedAt: _time,
       version: 1,
     );
+
+MaintenanceRecord issueCondition({
+  required String id,
+  required AssetInstanceRecord asset,
+  required MaintenanceIssuePlantConditionEffect effect,
+  String description = 'Cooling-water leakage requires repair',
+  bool resolved = false,
+  bool synced = true,
+}) =>
+    MaintenanceRecord()
+      ..firestoreId = id
+      ..version = resolved ? 2 : 1
+      ..isSynced = synced
+      ..assetType = AssetType.values.byName(
+        asset.assetClassCode.toLowerCase() == 'forced_cooler'
+            ? 'forceCooler'
+            : asset.assetClassCode.toLowerCase(),
+      )
+      ..assetNumber = asset.assetNumber
+      ..assetHierarchyRefJson = asset.toReference().encode()
+      ..maintenanceType = MaintenanceType.breakdown
+      ..description = description
+      ..plantConditionEffect = effect
+      ..routedTo = RoutedTo.mechanical
+      ..status = resolved ? TicketStatus.resolved : TicketStatus.open
+      ..isResolved = resolved
+      ..startDate = _time
+      ..createdAt = _time
+      ..updatedAt = _time
+      ..loggedByUid = 'operator-1'
+      ..loggedByName = 'Operator One';
 
 void main() {
   test('preserves overlapping down and maintenance facts', () {
@@ -401,5 +433,186 @@ void main() {
     expect(overview.down, 1);
     expect(overview.classes.single.assetClass.name, 'Annealing Base');
     expect(overview.assets.single.asset.name, 'Annealing Base 1');
+  });
+
+  test('open maintenance issue derives unfit state and visible provenance', () {
+    final furnace = assetClass(
+      id: 'furnace-class',
+      code: 'furnace',
+      name: 'Furnace',
+      legacyKey: 'furnace',
+    );
+    final furnace7 = asset(id: 'furnace-7', assetClass: furnace, number: 7);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+      maintenanceTickets: [
+        issueCondition(
+          id: 'ticket-plant-1',
+          asset: furnace7,
+          effect: MaintenanceIssuePlantConditionEffect.unfit,
+        ),
+      ],
+    );
+
+    final state = overview.assets.single;
+    expect(state.isUnfit, isTrue);
+    expect(state.isManuallyUnfit, isFalse);
+    expect(state.isAvailable, isFalse);
+    expect(
+      state.issueConditionContributions.single.comment,
+      contains('Unfit due to maintenance issue'),
+    );
+    expect(
+      state.issueConditionContributions.single.comment,
+      contains('Cooling-water leakage requires repair'),
+    );
+  });
+
+  test('issue unavailable is distinct and survives an unsynced closure', () {
+    final base = assetClass(
+      id: 'base-class',
+      code: 'base',
+      name: 'Base',
+      legacyKey: 'base',
+    );
+    final base201 = asset(id: 'base-201', assetClass: base, number: 201);
+    final pendingClosure = issueCondition(
+      id: 'ticket-pending-close',
+      asset: base201,
+      effect: MaintenanceIssuePlantConditionEffect.unavailable,
+      resolved: true,
+      synced: false,
+    );
+    final overview = PlantAssetOverview.build(
+      assetClasses: [base],
+      assetInstances: [base201],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+      maintenanceTickets: [pendingClosure],
+    );
+
+    final state = overview.assets.single;
+    expect(state.isIssueUnavailable, isTrue);
+    expect(state.isUnfit, isFalse);
+    expect(state.isAvailable, isFalse);
+    expect(
+      state.issueConditionContributions.single.awaitingServerClosure,
+      isTrue,
+    );
+    expect(
+      state.issueConditionContributions.single.comment,
+      contains('awaiting server confirmation'),
+    );
+  });
+
+  test(
+    'server-confirmed issue closure preserves an independent manual state',
+    () {
+      final furnace = assetClass(
+        id: 'furnace-class',
+        code: 'furnace',
+        name: 'Furnace',
+        legacyKey: 'furnace',
+      );
+      final furnace8 = asset(id: 'furnace-8', assetClass: furnace, number: 8);
+      final overview = PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace8],
+        operationalConditions: [
+          condition(asset: furnace8, condition: AssetOperationalCondition.down),
+        ],
+        workflowStatuses: const [],
+        maintenanceTickets: [
+          issueCondition(
+            id: 'ticket-closed',
+            asset: furnace8,
+            effect: MaintenanceIssuePlantConditionEffect.unfit,
+            resolved: true,
+            synced: true,
+          ),
+        ],
+      );
+
+      final state = overview.assets.single;
+      expect(state.isDown, isTrue);
+      expect(state.isUnfit, isFalse);
+      expect(state.issueConditionContributions, isEmpty);
+      expect(state.isAvailable, isFalse);
+    },
+  );
+
+  test('issue effects compose and clear independently', () {
+    final base = assetClass(
+      id: 'base-class',
+      code: 'base',
+      name: 'Base',
+      legacyKey: 'base',
+    );
+    final base201 = asset(id: 'base-201', assetClass: base, number: 201);
+    final remainingIssue = issueCondition(
+      id: 'ticket-unavailable',
+      asset: base201,
+      effect: MaintenanceIssuePlantConditionEffect.unavailable,
+      description: 'Inner cover is unavailable',
+    );
+    final resolvedIssue = issueCondition(
+      id: 'ticket-unfit',
+      asset: base201,
+      effect: MaintenanceIssuePlantConditionEffect.unfit,
+      description: 'Base fan motor needs repair',
+      resolved: true,
+      synced: true,
+    );
+    final overview = PlantAssetOverview.build(
+      assetClasses: [base],
+      assetInstances: [base201],
+      operationalConditions: [
+        condition(asset: base201, condition: AssetOperationalCondition.unfit),
+      ],
+      workflowStatuses: const [],
+      maintenanceTickets: [resolvedIssue, remainingIssue],
+    );
+
+    final state = overview.assets.single;
+    expect(state.isManuallyUnfit, isTrue);
+    expect(state.isIssueUnavailable, isTrue);
+    expect(state.issueConditionContributions, hasLength(1));
+    expect(
+      state.issueConditionContributions.single.comment,
+      'Unavailable due to maintenance issue ticket-u: Inner cover is unavailable.',
+    );
+    expect(state.isAvailable, isFalse);
+  });
+
+  test('stuck-up ticket remains represented by its specialized projection', () {
+    final furnace = assetClass(
+      id: 'furnace-class',
+      code: 'furnace',
+      name: 'Furnace',
+      legacyKey: 'furnace',
+    );
+    final furnace8 = asset(id: 'furnace-8', assetClass: furnace, number: 8);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [furnace],
+      assetInstances: [furnace8],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+      availabilityProjections: [blocked(asset: furnace8)],
+      maintenanceTickets: [
+        issueCondition(
+          id: 'ticket-stuck-up',
+          asset: furnace8,
+          effect: MaintenanceIssuePlantConditionEffect.stuckUp,
+        ),
+      ],
+    );
+
+    final state = overview.assets.single;
+    expect(state.isTemporarilyBlocked, isTrue);
+    expect(state.issueConditionContributions, isEmpty);
+    expect(state.isAvailable, isFalse);
   });
 }

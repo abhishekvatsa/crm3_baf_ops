@@ -415,6 +415,8 @@ class QualityWarning {
 
 enum QualityMonitoringStatus { active, closed }
 
+enum QualityMonitoringVisibilityState { active, recent, archived }
+
 class QualityMonitoringRequest {
   const QualityMonitoringRequest({
     required this.requestId,
@@ -424,6 +426,9 @@ class QualityMonitoringRequest {
     required this.chargeNumbers,
     required this.reason,
     required this.status,
+    required this.visibilityState,
+    required this.visibleUntil,
+    required this.archivedAt,
     required this.createdAt,
     required this.createdByUid,
     required this.updatedAt,
@@ -444,6 +449,9 @@ class QualityMonitoringRequest {
   final List<int> chargeNumbers;
   final String reason;
   final QualityMonitoringStatus status;
+  final QualityMonitoringVisibilityState visibilityState;
+  final DateTime? visibleUntil;
+  final DateTime? archivedAt;
   final DateTime createdAt;
   final String createdByUid;
   final String? createdByName;
@@ -467,7 +475,7 @@ class QualityMonitoringRequest {
       source: source,
       minimum: 1,
     );
-    if (schemaVersion != 1) {
+    if (schemaVersion != 1 && schemaVersion != 2) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
@@ -554,6 +562,94 @@ class QualityMonitoringRequest {
         detail: 'monitoring status and closure evidence are inconsistent',
       );
     }
+    const retention = Duration(days: 7);
+    const visibilityFields = <String>{
+      'visibilityState',
+      'visibleUntil',
+      'archivedAt',
+    };
+    final visibilityFieldCount = visibilityFields.where(map.containsKey).length;
+    final isLegacyVisibility = schemaVersion == 1;
+    if ((isLegacyVisibility && visibilityFieldCount != 0) ||
+        (!isLegacyVisibility &&
+            visibilityFieldCount != visibilityFields.length)) {
+      throw PersistedDataFormatException(
+        field: 'visibilityState',
+        source: source,
+        detail:
+            isLegacyVisibility
+                ? 'legacy schema must omit the complete visibility projection'
+                : 'schema v2 requires the complete visibility projection',
+      );
+    }
+    final visibilityState =
+        isLegacyVisibility
+            ? status == QualityMonitoringStatus.active
+                ? QualityMonitoringVisibilityState.active
+                : QualityMonitoringVisibilityState.recent
+            : readRequiredPersistedEnum(
+              QualityMonitoringVisibilityState.values,
+              map['visibilityState'],
+              field: 'visibilityState',
+              source: source,
+            );
+    final visibleUntil =
+        isLegacyVisibility
+            ? status == QualityMonitoringStatus.closed
+                ? closedAt!.toUtc().add(retention)
+                : null
+            : readOptionalPersistedDateTime(
+              map['visibleUntil'],
+              field: 'visibleUntil',
+              source: source,
+            );
+    final archivedAt =
+        isLegacyVisibility
+            ? null
+            : readOptionalPersistedDateTime(
+              map['archivedAt'],
+              field: 'archivedAt',
+              source: source,
+            );
+    if (status == QualityMonitoringStatus.active) {
+      if (visibilityState != QualityMonitoringVisibilityState.active ||
+          visibleUntil != null ||
+          archivedAt != null) {
+        throw PersistedDataFormatException(
+          field: 'visibilityState',
+          source: source,
+          detail: 'active monitoring visibility is inconsistent',
+        );
+      }
+    } else if (visibilityState == QualityMonitoringVisibilityState.recent) {
+      if (closedAt == null ||
+          visibleUntil == null ||
+          archivedAt != null ||
+          visibleUntil.toUtc() != closedAt.toUtc().add(retention)) {
+        throw PersistedDataFormatException(
+          field: 'visibleUntil',
+          source: source,
+          detail: 'recent monitoring visibility deadline is inconsistent',
+        );
+      }
+    } else if (visibilityState == QualityMonitoringVisibilityState.archived) {
+      if (closedAt == null ||
+          visibleUntil != null ||
+          archivedAt == null ||
+          archivedAt.toUtc().isBefore(closedAt.toUtc().add(retention))) {
+        throw PersistedDataFormatException(
+          field: 'archivedAt',
+          source: source,
+          detail: 'archived monitoring evidence is inconsistent',
+        );
+      }
+    } else {
+      throw PersistedDataFormatException(
+        field: 'visibilityState',
+        source: source,
+        detail: 'closed monitoring must be recent or archived',
+      );
+    }
     return QualityMonitoringRequest(
       requestId: id,
       baseNumber: readRequiredPersistedInt(
@@ -579,6 +675,9 @@ class QualityMonitoringRequest {
         source: source,
       ),
       status: status,
+      visibilityState: visibilityState,
+      visibleUntil: visibleUntil,
+      archivedAt: archivedAt,
       createdAt: readRequiredPersistedDateTime(
         map['createdAt'],
         field: 'createdAt',

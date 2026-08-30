@@ -27,4 +27,22 @@ void main() {
       isNot(contains('ref.watch(qualityMonitoringRequestsProvider)')),
     );
   });
+
+  test('operational monitoring visibility is server governed and unbounded', () {
+    final quality = File(
+      'lib/features/quality/providers/quality_provider.dart',
+    ).readAsStringSync();
+    final operationalProvider = RegExp(
+      r'qualityMonitoringRequestsProvider[\s\S]*?'
+      r'_decodeQualityMonitoringRequests\);',
+    ).firstMatch(quality);
+
+    expect(operationalProvider, isNotNull);
+    expect(
+      operationalProvider!.group(0),
+      contains("'visibilityState'"),
+    );
+    expect(operationalProvider.group(0), isNot(contains('.limit(')));
+    expect(operationalProvider.group(0), isNot(contains('DateTime.now')));
+  });
 }

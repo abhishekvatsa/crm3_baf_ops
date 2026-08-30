@@ -877,6 +877,8 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     'maintenanceType': t.maintenanceType.name,
     'classification': t.classification,
     'description': t.description,
+    if (t.plantConditionEffect != MaintenanceIssuePlantConditionEffect.none)
+      'plantConditionEffect': t.plantConditionEffect.name,
     'routedTo': t.routedTo.name,
     'otherDepartment': t.otherDepartment,
     'status': t.status.name,

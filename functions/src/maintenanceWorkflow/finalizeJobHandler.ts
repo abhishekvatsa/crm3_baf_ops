@@ -358,6 +358,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       })),
     ],
     completedAt: now,
+    recordedAt: now,
     completedBy: context.actor,
     executionLevelMechanicalEvidence: teamsInvolved.includes("mechanical"),
   });
@@ -377,6 +378,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       })),
     ],
     completedAt: now,
+    recordedAt: now,
     completedBy: context.actor,
     executionLevelInstrumentationEvidence:
       teamsInvolved.includes("instrumentation"),

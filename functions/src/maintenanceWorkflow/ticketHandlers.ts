@@ -98,7 +98,9 @@ const BURNER_OBSERVATIONS = new Set(["seen", "notSeen", "notChecked"]);
 const CORRECTABLE_FIELDS = new Set([
   "description", "routedTo", "maintenanceType", "isCritical", "component",
   "subsystem", "tag", "classification", "otherDepartment", "remarks",
+  "plantConditionEffect",
 ]);
+const PLANT_CONDITION_EFFECTS = new Set(["unfit", "unavailable"]);
 const BURNER_LOCKOUT_CLASSIFICATION = "furnaceBurnerLockout";
 const FURNACE_STUCKUP_CLASSIFICATION = "furnaceStuckup";
 const STUCKUP_CAUSES = new Set([
@@ -139,6 +141,7 @@ const CREATE_TICKET_FIELDS = [
   "qualityWarningReason",
 ] as const;
 const QUALITY_ABNORMALITY_TYPE_FIELD = "qualityAbnormalityTypeId";
+const PLANT_CONDITION_EFFECT_FIELD = "plantConditionEffect";
 const CREATE_BURNER_FIELDS = [
   "burnerLockoutSchemaVersion", "burnerPositions", "burnerCommonMode",
   "burnerCycleStage", "burnerHmiAlarm", "burnerFlameObservation",
@@ -1450,6 +1453,7 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   assetNumber: ticket.assetNumber ?? null,
   maintenanceType: ticket.maintenanceType ?? null,
   description: ticket.description ?? null,
+  plantConditionEffect: ticket.plantConditionEffect ?? null,
   routedTo: ticket.routedTo ?? null,
   status: ticket.status ?? null,
   isResolved: ticket.isResolved ?? null,
@@ -1807,20 +1811,27 @@ export const createMaintenanceTicket = async ({
     input,
     QUALITY_ABNORMALITY_TYPE_FIELD,
   );
+  const hasPlantConditionEffect = Object.prototype.hasOwnProperty.call(
+    input,
+    PLANT_CONDITION_EFFECT_FIELD,
+  );
   exactKeys(
     input,
     burner ? [...CREATE_TICKET_FIELDS,
       ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+      ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
       ...CREATE_BURNER_FIELDS,
       ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
       ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
       stuckup ? [...CREATE_TICKET_FIELDS,
         ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+        ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
         ...CREATE_STUCKUP_FIELDS,
         ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
         ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
         [...CREATE_TICKET_FIELDS,
           ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
+          ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
           ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
           ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])],
     "ticket",
@@ -1871,6 +1882,19 @@ export const createMaintenanceTicket = async ({
   optionalStringList(input.hierarchyPath, "hierarchyPath", 20, 200);
   const classification = optionalText(input.classification, "classification", 120);
   const description = boundedText(input.description, "description", 1, 2000);
+  const requestedPlantConditionEffect = hasPlantConditionEffect ?
+    cleanText(input.plantConditionEffect, "plantConditionEffect") : null;
+  const plantConditionEffect = stuckup ?
+    "stuckUp" : requestedPlantConditionEffect ?? "unfit";
+  if ((stuckup && requestedPlantConditionEffect != null &&
+        requestedPlantConditionEffect !== "stuckUp") ||
+      (!stuckup && !PLANT_CONDITION_EFFECTS.has(plantConditionEffect))) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "The maintenance issue Plant Condition effect is invalid.",
+      {reasonCode: "maintenance-ticket-plant-condition-effect-invalid"},
+    );
+  }
   const isCritical = requiredBoolean(input.isCritical, "isCritical");
   const startDate = parseIsoInstant(input.startDate, "startDate", context.serverNow);
   const chargeNoAtEvent = input.chargeNoAtEvent == null ? null :
@@ -2145,6 +2169,7 @@ export const createMaintenanceTicket = async ({
     maintenanceType,
     classification,
     description,
+    plantConditionEffect,
     routedTo,
     otherDepartment,
     status: "open",
@@ -2690,6 +2715,7 @@ export const resolveMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-burner-resolution-incomplete"},
     );
   }
+  const lifecycleCompletedAt = endDate.toISOString();
   const burnerBlockLifecyclePlan = await prepareBurnerBlockLifecycleWritePlan({
     tx,
     sourceType: "maintenanceIssue",
@@ -2697,7 +2723,8 @@ export const resolveMaintenanceTicket = async ({
     assetType: ticket.assetType,
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
-    completedAt: endDate.toISOString(),
+    completedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleCompletedAt,
     completedBy: context.actor,
     executionLevelMechanicalEvidence: plan.assigned.includes("mechanical"),
   });
@@ -2709,7 +2736,8 @@ export const resolveMaintenanceTicket = async ({
     assetType: ticket.assetType,
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
-    completedAt: endDate.toISOString(),
+    completedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleCompletedAt,
     completedBy: context.actor,
     executionLevelInstrumentationEvidence:
       plan.assigned.includes("instrumentation"),
@@ -3296,6 +3324,17 @@ const normalizeCorrections = (
       }
       corrections[key] = value;
       break;
+    case "plantConditionEffect": {
+      const effect = cleanText(value, key);
+      if (!PLANT_CONDITION_EFFECTS.has(effect) && effect !== "stuckUp") {
+        throw new WorkflowError(
+          "invalid-argument",
+          "plantConditionEffect is unsupported.",
+        );
+      }
+      corrections[key] = effect;
+      break;
+    }
     case "component":
       corrections[key] = boundedText(value, key, 1, 120);
       break;
@@ -3409,15 +3448,35 @@ export const correctMaintenanceTicket = async ({
     ) ? changed.component : ticket.component;
     const nextTag = Object.prototype.hasOwnProperty.call(changed, "tag") ?
       changed.tag : ticket.tag ?? null;
+    const nextPlantConditionEffect = Object.prototype.hasOwnProperty.call(
+      changed,
+      "plantConditionEffect",
+    ) ? changed.plantConditionEffect : ticket.plantConditionEffect ?? "stuckUp";
     if (nextClassification !== FURNACE_STUCKUP_CLASSIFICATION ||
         nextRoute !== "mechanical" || nextType !== "breakdown" ||
-        nextComponent !== "Furnace / Inner Cover interface" || nextTag != null) {
+        nextComponent !== "Furnace / Inner Cover interface" || nextTag != null ||
+        nextPlantConditionEffect !== "stuckUp") {
       throw new WorkflowError(
         "failed-precondition",
         "Furnace stuck-up identity, Mechanical routing, and breakdown type are immutable.",
         {reasonCode: "maintenance-stuckup-specialization-immutable"},
       );
     }
+  }
+  const nextPlantConditionEffect = Object.prototype.hasOwnProperty.call(
+    changed,
+    "plantConditionEffect",
+  ) ? changed.plantConditionEffect : ticket.plantConditionEffect ??
+    (currentClassification === FURNACE_STUCKUP_CLASSIFICATION ?
+      "stuckUp" : "unfit");
+  if (currentClassification !== FURNACE_STUCKUP_CLASSIFICATION &&
+      (typeof nextPlantConditionEffect !== "string" ||
+        !PLANT_CONDITION_EFFECTS.has(nextPlantConditionEffect))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A standard maintenance issue must remain Unfit or Unavailable.",
+      {reasonCode: "maintenance-ticket-plant-condition-effect-invalid"},
+    );
   }
   if (Object.prototype.hasOwnProperty.call(changed, "routedTo") &&
       (ticket.status !== "open" ||

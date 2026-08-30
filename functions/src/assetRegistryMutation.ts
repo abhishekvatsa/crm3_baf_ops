@@ -556,6 +556,65 @@ function parsedJsonObject(value: unknown, field: string): JsonMap {
   );
 }
 
+function maintenanceTicketAssetTypesForClass(classData: JsonMap): ReadonlyArray<string> {
+  const legacyKey = classData.legacyAssetTypeKey;
+  if (legacyKey == null) return ["governedCustom"];
+  if (!["base", "furnace", "forceCooler", "innerCover"].includes(legacyKey as string)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition", "The asset class has a malformed maintenance identity.",
+      {reasonCode: "asset-class-maintenance-identity-malformed"},
+    );
+  }
+  // Inner Cover issues use the operationally familiar Base number and carry
+  // the exact Base identity in their governed hierarchy reference.
+  return legacyKey === "base" ? ["base", "innerCover"] : [legacyKey as string];
+}
+
+function conditionTicketTargetsAsset(
+  snapshot: SnapshotLike,
+  target: {assetClassId: string; assetInstanceId: string; assetNumber: number},
+): boolean {
+  const data = snapshot.data() ?? {};
+  if (data.plantConditionEffect !== "unfit" &&
+      data.plantConditionEffect !== "unavailable") {
+    return false;
+  }
+  let reference: unknown;
+  try {
+    reference = typeof data.assetHierarchyRefJson === "string" ?
+      JSON.parse(data.assetHierarchyRefJson) : null;
+  } catch {
+    reference = null;
+  }
+  if (reference == null || typeof reference !== "object" || Array.isArray(reference)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "Reconcile the open condition-changing issue before retiring this asset.",
+      {
+        reasonCode: "asset-instance-open-condition-ticket-malformed",
+        ticketId: snapshot.id ?? null,
+      },
+    );
+  }
+  const identity = reference as JsonMap;
+  if ((identity.scope !== "physicalAsset" && identity.scope !== "installedComponent") ||
+      typeof identity.assetClassId !== "string" ||
+      typeof identity.assetInstanceId !== "string" ||
+      !Number.isSafeInteger(identity.assetNumber)) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "Reconcile the open condition-changing issue before retiring this asset.",
+      {
+        reasonCode: "asset-instance-open-condition-ticket-malformed",
+        ticketId: snapshot.id ?? null,
+      },
+    );
+  }
+  return identity.assetClassId === target.assetClassId &&
+    identity.assetInstanceId === target.assetInstanceId &&
+    identity.assetNumber === target.assetNumber;
+}
+
 function requireReplacementEvidenceIdentity(args: {
   reference: JsonMap;
   asset: JsonMap;
@@ -1095,6 +1154,22 @@ export async function mutateAssetRegistryWithDb(args: {
         await transaction.get(operationalConditionRef),
         "Asset operational-condition lookup",
       ) : null;
+    const openConditionTicketQueries: QuerySnapshotLike[] = [];
+    if (request.operation === "SET_ASSET_INSTANCE_STATUS" &&
+        request.status === "retired" && classData != null && assetData != null &&
+        Number.isSafeInteger(assetData.assetNumber)) {
+      for (const assetType of maintenanceTicketAssetTypesForClass(classData)) {
+        openConditionTicketQueries.push(asQuery(
+          await transaction.get(
+            maintenanceIssues.where("assetType", "==", assetType)
+              .where("assetNumber", "==", assetData.assetNumber)
+              .where("isResolved", "==", false)
+              .where("isDeleted", "==", false),
+          ),
+          "Open condition-changing maintenance-ticket lookup",
+        ));
+      }
+    }
 
     const acceptedEvidenceSnapshot = request.evidenceReference == null ? null :
       verifyReplacementEvidence({
@@ -1212,6 +1287,23 @@ export async function mutateAssetRegistryWithDb(args: {
             "failed-precondition",
             "Restore the active operational condition before retiring this asset.",
             {reasonCode: "asset-instance-active-operational-condition"},
+          );
+        }
+        const openConditionTicket = openConditionTicketQueries
+          .flatMap((query) => query.docs)
+          .find((ticket) => conditionTicketTargetsAsset(ticket, {
+            assetClassId: request.assetClassId,
+            assetInstanceId: request.assetInstanceId,
+            assetNumber: current.assetNumber as number,
+          }));
+        if (openConditionTicket != null) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "Close or delete the open condition-changing issue before retiring this asset.",
+            {
+              reasonCode: "asset-instance-open-condition-ticket",
+              ticketId: openConditionTicket.id ?? null,
+            },
           );
         }
         const draft = request.assetDraft ?? {

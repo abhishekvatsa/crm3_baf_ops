@@ -161,7 +161,7 @@ Map<String, dynamic> _monitoringResult({
   'committedAt': '2026-08-14T12:00:00.000Z',
   'idempotentReplay': false,
   'entity': <String, dynamic>{
-    'schemaVersion': 1,
+    'schemaVersion': 2,
     'requestId': monitoringId,
     'baseNumber': 4,
     'grade': 'CRCA',
@@ -169,6 +169,9 @@ Map<String, dynamic> _monitoringResult({
     'chargeNumbers': <int>[12345, 12346],
     'reason': 'Monitor temperature uniformity',
     'status': 'active',
+    'visibilityState': 'active',
+    'visibleUntil': null,
+    'archivedAt': null,
     'createdAt': '2026-08-14T12:00:00.000Z',
     'createdByUid': 'si-1',
     'createdByName': 'SI One',

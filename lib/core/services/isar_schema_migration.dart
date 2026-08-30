@@ -573,7 +573,7 @@ class IsarSchemaOpenPreparation {
 }
 
 class IsarSchemaMigrator {
-  static const int currentSchemaVersion = 8;
+  static const int currentSchemaVersion = 9;
 
   static const String v1SchemaFingerprint =
       'v1:Charge,MaintenanceRecord,JobTemplate,JobExecution,JobDiaryEntry,'
@@ -639,13 +639,26 @@ class IsarSchemaMigrator {
       'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
       'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
 
-  static const String currentSchemaFingerprint =
+  static const String v8SchemaFingerprint =
       'v8:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'
       'ReopenEvidence,JobTemplate,JobExecution+WorkflowTerminalState,'
       'JobDiaryEntry+EMD+RED,JobModuleInstance+EMD+RED,TemplatePackage,'
       'TemplateVersion,TemplatePublishAudit,BafKnowledgeRow,'
       'BafKnowledgeMatrixMetaStore,OperationalDirective,AuditEvent,'
       'SyncRejection+OriginatingUid,AbnormalityType,ChargeAbnormality,'
+      'WorkflowAggregateRecord+GovernedAssetIdentity,JobLaneRecord,'
+      'ComplianceRequestRecord+OperationalAssurance,ComplianceAttemptRecord,'
+      'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
+      'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
+
+  static const String currentSchemaFingerprint =
+      'v9:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'
+      'ReopenEvidence+PlantConditionEffect,JobTemplate,'
+      'JobExecution+WorkflowTerminalState,JobDiaryEntry+EMD+RED,'
+      'JobModuleInstance+EMD+RED,TemplatePackage,TemplateVersion,'
+      'TemplatePublishAudit,BafKnowledgeRow,BafKnowledgeMatrixMetaStore,'
+      'OperationalDirective,AuditEvent,SyncRejection+OriginatingUid,'
+      'AbnormalityType,ChargeAbnormality,'
       'WorkflowAggregateRecord+GovernedAssetIdentity,JobLaneRecord,'
       'ComplianceRequestRecord+OperationalAssurance,ComplianceAttemptRecord,'
       'EquipmentStatusRecord+GovernedAssetIdentity,EquipmentPromptRecord,'
@@ -663,7 +676,8 @@ class IsarSchemaMigrator {
       5: <String>{v5SchemaFingerprint},
       6: <String>{v6SchemaFingerprint},
       7: <String>{v7SchemaFingerprint},
-      8: <String>{currentSchemaFingerprint},
+      8: <String>{v8SchemaFingerprint},
+      9: <String>{currentSchemaFingerprint},
     },
     stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
       2: _registerMaintenanceWorkflowCollections,
@@ -673,6 +687,7 @@ class IsarSchemaMigrator {
       6: _addOperationalEventIssueLinkProjection,
       7: _addMaintenanceReopenEvidenceFields,
       8: _addSyncRejectionOriginatingUid,
+      9: _addMaintenancePlantConditionEffect,
     },
   );
 
@@ -791,6 +806,23 @@ class IsarSchemaMigrator {
     }
     // Isar adds the nullable provenance field during open. Existing rows stay
     // null and cannot be removed through user-owned recovery without proof.
+  }
+
+  static Future<void> _addMaintenancePlantConditionEffect(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 8 || context.toVersion != 9) {
+      throw IsarSchemaMigrationException(
+        'Unexpected maintenance Plant Condition schema transition.',
+        reasonCode: 'unexpected-v8-v9-transition',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+        hasExistingLocalStore: context.hasExistingLocalStore,
+        markerDisposition: 'migration-prepared',
+      );
+    }
+    // Isar adds the enum during open. Legacy rows decode to none; their old
+    // server documents are not rewritten until an admitted ticket mutation.
   }
 
   const IsarSchemaMigrator._();

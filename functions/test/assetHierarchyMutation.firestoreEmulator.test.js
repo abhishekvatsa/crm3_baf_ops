@@ -593,6 +593,67 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       .toBe(2);
   });
 
+  test('asset retirement waits for its open condition-changing issue to close', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    const issue = db.collection('maintenance_records').doc('open-condition-issue');
+    await issue.set({
+      firestoreId: 'open-condition-issue',
+      assetType: 'furnace',
+      assetNumber: 1,
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 3,
+        scope: 'physicalAsset',
+        assetClassId: IDS.classId,
+        assetInstanceId: IDS.firstAsset,
+        assetNumber: 1,
+      }),
+      plantConditionEffect: 'unfit',
+      status: 'open',
+      isResolved: false,
+      isDeleted: false,
+      createdAt: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:30:00.000Z'),
+      ),
+    });
+
+    const retirement = {
+      requestId: IDS.assetStatusRequest,
+      operation: 'SET_ASSET_INSTANCE_STATUS',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 1,
+      status: 'retired',
+      reason: 'Retire the physical furnace after controlled verification.',
+    };
+    await expect(invokeRegistry(retirement)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-instance-open-condition-ticket',
+        ticketId: 'open-condition-issue',
+      }),
+    });
+
+    await issue.update({
+      status: 'resolved',
+      isResolved: true,
+      updatedAt: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:45:00.000Z'),
+      ),
+    });
+    await expect(invokeRegistry(retirement)).resolves.toMatchObject({
+      ok: true,
+      operation: 'SET_ASSET_INSTANCE_STATUS',
+      nodeId: IDS.firstAsset,
+      version: 2,
+    });
+  });
+
   test('a linked issue resolved before commit is rejected transactionally', async () => {
     await invoke(classRequest());
     await invokeRegistry(assetRequest({

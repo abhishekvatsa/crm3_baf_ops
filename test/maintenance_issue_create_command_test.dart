@@ -56,6 +56,7 @@ void main() {
       expect(ticket, containsPair('version', 1));
       expect(ticket, containsPair('assetType', 'furnace'));
       expect(ticket, containsPair('qualityImpactAssessment', 'notSuspected'));
+      expect(ticket, containsPair('plantConditionEffect', 'unfit'));
       expect(ticket, containsPair('assetHierarchyRefJson', isNotEmpty));
       expect(ticket, isNot(contains('loggedByUid')));
       expect(ticket, isNot(contains('loggedByName')));

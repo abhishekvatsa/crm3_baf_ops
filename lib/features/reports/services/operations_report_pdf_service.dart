@@ -1708,6 +1708,7 @@ class OperationsReportPdfService {
     final labels = <String>[
       if (state.isDown) 'Down',
       if (state.isUnfit) 'Unfit',
+      if (state.isIssueUnavailable) 'Unavailable by open issue',
       if (state.isTemporarilyBlocked) 'Temporarily blocked',
       if (state.isUnderMaintenance) 'Under maintenance',
       if (state.isAdministrativelyOutOfService) 'Out of service',
@@ -1731,6 +1732,8 @@ class OperationsReportPdfService {
         condition!.componentReference!.hierarchyPath.join(' > '),
       if (availability?.isTemporarilyBlocked == true)
         'Availability: ${_reportLabel(availability!.reasonType ?? 'blocked')}',
+      for (final issue in state.issueConditionContributions)
+        '${issue.effect.label}: maintenance issue ${issue.ticketId}',
     ];
     return details.isEmpty
         ? 'No active condition declaration'
@@ -1748,6 +1751,7 @@ class OperationsReportPdfService {
         'Constraint issue: ${availability!.linkedTicketId}',
       if (availability?.linkedCaseId != null)
         'Case: ${availability!.linkedCaseId}',
+      ...state.issueConditionContributions.map((issue) => issue.comment),
     ];
     return details.isEmpty ? 'No active exception' : details.join('\n');
   }
@@ -1768,6 +1772,8 @@ class OperationsReportPdfService {
         'Blocked ${_dateTime.format(state.availability!.since!.toLocal())}',
       if (state.workflowStatus?.lastTransitionAt != null)
         'Workflow ${_dateTime.format(state.workflowStatus!.lastTransitionAt!.toLocal())}',
+      for (final issue in state.issueConditionContributions)
+        'Issue ${issue.ticketId}: ${_dateTime.format(issue.startedAt.toLocal())}',
     ];
     return details.isEmpty ? 'No active-state timestamp' : details.join('\n');
   }

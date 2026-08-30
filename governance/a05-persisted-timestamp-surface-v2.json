@@ -632,9 +632,9 @@
       "readerFile": "lib/features/quality/data/quality_warning.dart",
       "readerMarker": "factory QualityMonitoringRequest.fromMap",
       "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["closedAt"],
+      "optionalFields": ["closedAt", "visibleUntil", "archivedAt"],
       "owner": "quality-assurance",
-      "purpose": "restore monitoring request creation, update, and closure chronology",
+      "purpose": "restore monitoring request creation, update, closure, recent-visibility, and archival chronology",
       "authorityBoundary": "remote-quality-monitoring-record",
       "regression": "test/quality_warning_lifecycle_test.dart",
       "reArmCondition": "any quality monitoring timestamp schema change"

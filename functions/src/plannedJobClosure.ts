@@ -1144,6 +1144,7 @@ export async function completePlannedJobWithDb(params: {
         })),
       ],
       completedAt,
+      recordedAt: completedAt,
       completedBy: completionActor,
       executionLevelMechanicalEvidence: teamsInvolved.includes("mechanical"),
     }).catch((error: unknown) => {
@@ -1175,6 +1176,7 @@ export async function completePlannedJobWithDb(params: {
         })),
       ],
       completedAt,
+      recordedAt: completedAt,
       completedBy: completionActor,
       executionLevelInstrumentationEvidence:
         teamsInvolved.includes("instrumentation"),
