@@ -56,6 +56,7 @@ export const planQualityMonitoringArchive = (args: {
   }
   const timestampFromDate = args.timestampFromDate ?? ((date: Date) => date);
   return {
+    schemaVersion: 2,
     visibilityState: "archived",
     visibleUntil: null,
     archivedAt: timestampFromDate(args.now),

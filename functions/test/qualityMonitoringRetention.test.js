@@ -8,7 +8,7 @@ const visibleUntil = new Date('2026-08-21T12:00:00.000Z');
 
 function monitoring(overrides = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     requestId,
     baseNumber: 12,
     grade: 'CRGO M4',
@@ -52,12 +52,31 @@ describe('quality monitoring operational retention', () => {
     });
 
     expect(patch).toEqual({
+      schemaVersion: 2,
       visibilityState: 'archived',
       visibleUntil: null,
       archivedAt: visibleUntil,
     });
     expect(patch).not.toHaveProperty('version');
     expect(patch).not.toHaveProperty('lastMutationId');
+  });
+
+  test('archives an exact legacy closure through a schema-v2 upgrade', () => {
+    const legacy = monitoring({schemaVersion: 1});
+    delete legacy.visibilityState;
+    delete legacy.visibleUntil;
+    delete legacy.archivedAt;
+
+    expect(planQualityMonitoringArchive({
+      data: legacy,
+      requestId,
+      now: visibleUntil,
+    })).toEqual({
+      schemaVersion: 2,
+      visibilityState: 'archived',
+      visibleUntil: null,
+      archivedAt: visibleUntil,
+    });
   });
 
   test('an archived record is idempotently ignored', () => {

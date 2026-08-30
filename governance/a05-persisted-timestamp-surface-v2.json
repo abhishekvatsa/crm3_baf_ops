@@ -632,7 +632,7 @@
       "readerFile": "lib/features/quality/data/quality_warning.dart",
       "readerMarker": "factory QualityMonitoringRequest.fromMap",
       "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["visibleUntil", "archivedAt", "closedAt"],
+      "optionalFields": ["closedAt", "visibleUntil", "archivedAt"],
       "owner": "quality-assurance",
       "purpose": "restore monitoring request creation, update, closure, recent-visibility, and archival chronology",
       "authorityBoundary": "remote-quality-monitoring-record",

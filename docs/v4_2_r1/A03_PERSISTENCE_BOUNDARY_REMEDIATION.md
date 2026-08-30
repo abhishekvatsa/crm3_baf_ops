@@ -73,9 +73,9 @@ bind reads to the current approved actor, and admit offline cache only after the
 same query has been server-confirmed in that actor session. The Build 19 device
 convergence re-arm adds one server-first maintenance deletion readback operation
 and two persistence sites under the existing maintenance remote adapter. The
-current manifest therefore covers 550 operations and 1,908 sites across 57
+current manifest therefore covers 553 operations and 1,907 sites across 57
 surfaces with digest
-`73154262F459603CF72DEE94011838D0A9F1565E2CCA6A41030E09A73A1FEBE4`;
+`3FB048327896FD851986CBE412C7E4AE4120F78041740019B7602E7B118A1525`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

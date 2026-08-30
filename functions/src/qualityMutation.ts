@@ -241,6 +241,11 @@ const MONITORING_FIELDS = new Set([
   "lastMutationId",
   "_globalPullServerUpdatedAt",
 ]);
+const MONITORING_VISIBILITY_FIELDS = new Set([
+  "visibilityState",
+  "visibleUntil",
+  "archivedAt",
+]);
 
 export class QualityMutationError extends Error {
   readonly code: QualityMutationErrorCode;
@@ -850,13 +855,27 @@ export function validateQualityMonitoringRecord(
   for (const key of Object.keys(data)) {
     if (!MONITORING_FIELDS.has(key)) malformed("quality-monitoring", key);
   }
+  const schemaVersion = data.schemaVersion;
+  if (schemaVersion !== 1 && schemaVersion !== 2) {
+    malformed("quality-monitoring", "schemaVersion");
+  }
+  const visibilityFieldCount = [...MONITORING_VISIBILITY_FIELDS]
+    .filter((field) => Object.prototype.hasOwnProperty.call(data, field)).length;
+  if ((schemaVersion === 1 && visibilityFieldCount !== 0) ||
+      (schemaVersion === 2 &&
+        visibilityFieldCount !== MONITORING_VISIBILITY_FIELDS.size)) {
+    malformed("quality-monitoring", "visibilityState");
+  }
   for (const field of [...MONITORING_FIELDS].filter((value) =>
     value !== "_globalPullServerUpdatedAt")) {
+    if (schemaVersion === 1 && MONITORING_VISIBILITY_FIELDS.has(field)) {
+      continue;
+    }
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       malformed("quality-monitoring", field);
     }
   }
-  if (data.schemaVersion !== 1 || data.requestId !== requestId) {
+  if (data.requestId !== requestId) {
     malformed("quality-monitoring", "requestId");
   }
   positiveExistingInteger(data.baseNumber, "baseNumber", "quality-monitoring");
@@ -878,11 +897,6 @@ export function validateQualityMonitoringRecord(
   if (data.status !== "active" && data.status !== "closed") {
     malformed("quality-monitoring", "status");
   }
-  if (data.visibilityState !== "active" &&
-      data.visibilityState !== "recent" &&
-      data.visibilityState !== "archived") {
-    malformed("quality-monitoring", "visibilityState");
-  }
   positiveExistingInteger(data.version, "version", "quality-monitoring");
   requiredExistingString(data.createdByUid, "createdByUid", "quality-monitoring");
   requiredExistingString(data.createdByName, "createdByName", "quality-monitoring");
@@ -903,16 +917,6 @@ export function validateQualityMonitoringRecord(
     "closedAt",
     "quality-monitoring",
   );
-  const visibleUntil = optionalExistingDate(
-    data.visibleUntil,
-    "visibleUntil",
-    "quality-monitoring",
-  );
-  const archivedAt = optionalExistingDate(
-    data.archivedAt,
-    "archivedAt",
-    "quality-monitoring",
-  );
   const closureEvidence = [
     closedAt,
     optionalExistingString(data.closedByUid, "closedByUid", "quality-monitoring"),
@@ -925,19 +929,40 @@ export function validateQualityMonitoringRecord(
         closureEvidenceCount !== closureEvidence.length)) {
     malformed("quality-monitoring", "status");
   }
+  const visibilityState = schemaVersion === 1 ?
+    (data.status === "active" ? "active" : "recent") : data.visibilityState;
+  if (visibilityState !== "active" &&
+      visibilityState !== "recent" &&
+      visibilityState !== "archived") {
+    malformed("quality-monitoring", "visibilityState");
+  }
+  const visibleUntil = schemaVersion === 1 ?
+    (closedAt == null ? null : new Date(
+      dateMillis(closedAt, "closedAt", "quality-monitoring") +
+        QUALITY_MONITORING_OPERATIONAL_RETENTION_MS,
+    )) : optionalExistingDate(
+      data.visibleUntil,
+      "visibleUntil",
+      "quality-monitoring",
+    );
+  const archivedAt = schemaVersion === 1 ? null : optionalExistingDate(
+    data.archivedAt,
+    "archivedAt",
+    "quality-monitoring",
+  );
   if (data.status === "active") {
-    if (data.visibilityState !== "active" ||
+    if (visibilityState !== "active" ||
         visibleUntil != null || archivedAt != null) {
       malformed("quality-monitoring", "visibilityState");
     }
-  } else if (data.visibilityState === "recent") {
+  } else if (visibilityState === "recent") {
     if (closedAt == null || visibleUntil == null || archivedAt != null ||
         dateMillis(visibleUntil, "visibleUntil", "quality-monitoring") !==
           dateMillis(closedAt, "closedAt", "quality-monitoring") +
             QUALITY_MONITORING_OPERATIONAL_RETENTION_MS) {
       malformed("quality-monitoring", "visibleUntil");
     }
-  } else if (data.visibilityState === "archived") {
+  } else if (visibilityState === "archived") {
     if (closedAt == null || visibleUntil != null || archivedAt == null ||
         dateMillis(archivedAt, "archivedAt", "quality-monitoring") <
           dateMillis(closedAt, "closedAt", "quality-monitoring") +
@@ -947,7 +972,7 @@ export function validateQualityMonitoringRecord(
   } else {
     malformed("quality-monitoring", "visibilityState");
   }
-  return {...data};
+  return {...data, visibilityState, visibleUntil, archivedAt};
 }
 
 function requiredExistingString(
@@ -1338,7 +1363,7 @@ export async function mutateQualityWithDb(args: {
       }
       resultVersion = 1;
       after = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         requestId: request.monitoringRequestId,
         baseNumber: request.baseNumber,
         grade: request.grade,
@@ -1394,6 +1419,7 @@ export async function mutateQualityWithDb(args: {
       resultVersion = request.expectedVersion + 1;
       after = {
         ...before,
+        schemaVersion: 2,
         status: "closed",
         visibilityState: "recent",
         visibleUntil: timestampFromDate(new Date(

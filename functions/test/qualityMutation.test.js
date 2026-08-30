@@ -179,7 +179,7 @@ function linkedIssueSeed(overrides = {}) {
 
 function monitoring(overrides = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     requestId: IDS.monitoring,
     baseNumber: 12,
     grade: 'CRGO M4',
@@ -204,6 +204,14 @@ function monitoring(overrides = {}) {
     lastMutationId: IDS.monitoring,
     ...overrides,
   };
+}
+
+function legacyMonitoring(overrides = {}) {
+  const value = monitoring({schemaVersion: 1, ...overrides});
+  delete value.visibilityState;
+  delete value.visibleUntil;
+  delete value.archivedAt;
+  return value;
 }
 
 function requestClosure(overrides = {}) {
@@ -602,6 +610,48 @@ describe('quality mutation', () => {
     expect(memory.writes).toHaveLength(0);
   });
 
+  test('legacy monitoring closes through a governed schema-v2 upgrade', async () => {
+    const legacySeed = seed();
+    legacySeed[`quality_monitoring_requests/${IDS.monitoring}`] =
+      legacyMonitoring();
+    const memory = fakeDb(legacySeed);
+
+    await invoke(memory, 'admin-1', {
+      requestId: IDS.monitoringClose,
+      operation: 'CLOSE_QUALITY_MONITORING_REQUEST',
+      monitoringRequestId: IDS.monitoring,
+      expectedVersion: 1,
+      reason: 'Legacy monitoring evidence reviewed and closed.',
+    });
+
+    expect(memory.store.get(
+      `quality_monitoring_requests/${IDS.monitoring}`,
+    )).toMatchObject({
+      schemaVersion: 2,
+      status: 'closed',
+      visibilityState: 'recent',
+      visibleUntil: new Date('2026-08-21T12:00:00.000Z'),
+    });
+  });
+
+  test('partial legacy visibility projection fails closed', async () => {
+    const legacySeed = seed();
+    legacySeed[`quality_monitoring_requests/${IDS.monitoring}`] = {
+      ...legacyMonitoring(),
+      visibilityState: 'active',
+    };
+    const memory = fakeDb(legacySeed);
+
+    await expect(invoke(memory, 'admin-1', {
+      requestId: IDS.monitoringClose,
+      operation: 'CLOSE_QUALITY_MONITORING_REQUEST',
+      monitoringRequestId: IDS.monitoring,
+      expectedVersion: 1,
+      reason: 'This malformed legacy record must not be closed.',
+    })).rejects.toMatchObject({code: 'failed-precondition'});
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('SI creates and closes a bounded Base/Grade/cycle monitoring request', async () => {
     const memory = fakeDb(seed());
     const created = await invoke(memory, 'si-1', {
@@ -619,6 +669,7 @@ describe('quality mutation', () => {
     expect(memory.store.get(
       `quality_monitoring_requests/${IDS.monitoring}`,
     )).toMatchObject({
+      schemaVersion: 2,
       status: 'active',
       visibilityState: 'active',
       visibleUntil: null,

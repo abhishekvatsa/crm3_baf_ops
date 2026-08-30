@@ -475,7 +475,7 @@ class QualityMonitoringRequest {
       source: source,
       minimum: 1,
     );
-    if (schemaVersion != 1) {
+    if (schemaVersion != 1 && schemaVersion != 2) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
@@ -523,35 +523,6 @@ class QualityMonitoringRequest {
       field: 'status',
       source: source,
     );
-    for (final field in <String>[
-      'visibilityState',
-      'visibleUntil',
-      'archivedAt',
-    ]) {
-      if (!map.containsKey(field)) {
-        throw PersistedDataFormatException(
-          field: field,
-          source: source,
-          detail: 'required server-governed visibility field is missing',
-        );
-      }
-    }
-    final visibilityState = readRequiredPersistedEnum(
-      QualityMonitoringVisibilityState.values,
-      map['visibilityState'],
-      field: 'visibilityState',
-      source: source,
-    );
-    final visibleUntil = readOptionalPersistedDateTime(
-      map['visibleUntil'],
-      field: 'visibleUntil',
-      source: source,
-    );
-    final archivedAt = readOptionalPersistedDateTime(
-      map['archivedAt'],
-      field: 'archivedAt',
-      source: source,
-    );
     final closedAt = readOptionalPersistedDateTime(
       map['closedAt'],
       field: 'closedAt',
@@ -592,6 +563,54 @@ class QualityMonitoringRequest {
       );
     }
     const retention = Duration(days: 7);
+    const visibilityFields = <String>{
+      'visibilityState',
+      'visibleUntil',
+      'archivedAt',
+    };
+    final visibilityFieldCount = visibilityFields.where(map.containsKey).length;
+    final isLegacyVisibility = schemaVersion == 1;
+    if ((isLegacyVisibility && visibilityFieldCount != 0) ||
+        (!isLegacyVisibility &&
+            visibilityFieldCount != visibilityFields.length)) {
+      throw PersistedDataFormatException(
+        field: 'visibilityState',
+        source: source,
+        detail:
+            isLegacyVisibility
+                ? 'legacy schema must omit the complete visibility projection'
+                : 'schema v2 requires the complete visibility projection',
+      );
+    }
+    final visibilityState =
+        isLegacyVisibility
+            ? status == QualityMonitoringStatus.active
+                ? QualityMonitoringVisibilityState.active
+                : QualityMonitoringVisibilityState.recent
+            : readRequiredPersistedEnum(
+              QualityMonitoringVisibilityState.values,
+              map['visibilityState'],
+              field: 'visibilityState',
+              source: source,
+            );
+    final visibleUntil =
+        isLegacyVisibility
+            ? status == QualityMonitoringStatus.closed
+                ? closedAt!.toUtc().add(retention)
+                : null
+            : readOptionalPersistedDateTime(
+              map['visibleUntil'],
+              field: 'visibleUntil',
+              source: source,
+            );
+    final archivedAt =
+        isLegacyVisibility
+            ? null
+            : readOptionalPersistedDateTime(
+              map['archivedAt'],
+              field: 'archivedAt',
+              source: source,
+            );
     if (status == QualityMonitoringStatus.active) {
       if (visibilityState != QualityMonitoringVisibilityState.active ||
           visibleUntil != null ||

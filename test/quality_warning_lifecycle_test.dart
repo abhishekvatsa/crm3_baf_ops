@@ -192,6 +192,39 @@ void main() {
   });
 
   group('quality monitoring strict reader', () {
+    test('derives exact legacy visibility without accepting partial shape', () {
+      final active = QualityMonitoringRequest.fromMap(
+        _legacyMonitoring(),
+        'monitoring-1',
+      );
+      final closedAt = DateTime.utc(2026, 8, 14, 10);
+      final closed = QualityMonitoringRequest.fromMap(
+        _legacyMonitoring()
+          ..['status'] = 'closed'
+          ..['closedAt'] = closedAt
+          ..['closedByUid'] = 'si-2'
+          ..['closedByName'] = 'SI Two'
+          ..['closeReason'] = 'Legacy monitoring evidence was reviewed.'
+          ..['updatedAt'] = closedAt
+          ..['updatedByUid'] = 'si-2'
+          ..['updatedByName'] = 'SI Two'
+          ..['version'] = 2,
+        'monitoring-1',
+      );
+
+      expect(active.visibilityState, QualityMonitoringVisibilityState.active);
+      expect(active.visibleUntil, isNull);
+      expect(closed.visibilityState, QualityMonitoringVisibilityState.recent);
+      expect(closed.visibleUntil, closedAt.add(const Duration(days: 7)));
+      expect(
+        () => QualityMonitoringRequest.fromMap(
+          _legacyMonitoring()..['visibilityState'] = 'active',
+          'monitoring-1',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('rejects duplicate charge numbers', () {
       final monitoring = _monitoring()..['chargeNumbers'] = <int>[12001, 12001];
 
@@ -282,6 +315,41 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test(
+      'operational windows include legacy rows and remove expired closure',
+      () {
+        final now = DateTime.utc(2026, 8, 22, 12);
+        final active = QualityMonitoringRequest.fromMap(
+          _legacyMonitoring(),
+          'monitoring-1',
+        );
+        const expiredId = 'monitoring-expired';
+        final expiredClosedAt = DateTime.utc(2026, 8, 14, 8);
+        final expired = QualityMonitoringRequest.fromMap(
+          _legacyMonitoring()
+            ..['requestId'] = expiredId
+            ..['status'] = 'closed'
+            ..['closedAt'] = expiredClosedAt
+            ..['closedByUid'] = 'si-2'
+            ..['closedByName'] = 'SI Two'
+            ..['closeReason'] = 'Legacy campaign is complete.'
+            ..['updatedAt'] = expiredClosedAt
+            ..['updatedByUid'] = 'si-2'
+            ..['updatedByName'] = 'SI Two'
+            ..['version'] = 2,
+          expiredId,
+        );
+
+        final merged = mergeQualityMonitoringWindows(
+          [active],
+          [active, expired],
+          now: now,
+        );
+
+        expect(merged.map((request) => request.requestId), ['monitoring-1']);
+      },
+    );
   });
 
   testWidgets(
@@ -669,7 +737,7 @@ Map<String, dynamic> _warning() {
 Map<String, dynamic> _monitoring() {
   final createdAt = DateTime.utc(2026, 8, 14, 8);
   return <String, dynamic>{
-    'schemaVersion': 1,
+    'schemaVersion': 2,
     'requestId': 'monitoring-1',
     'baseNumber': 12,
     'grade': 'CRGO M4',
@@ -692,4 +760,12 @@ Map<String, dynamic> _monitoring() {
     'updatedByName': 'SI One',
     'version': 1,
   };
+}
+
+Map<String, dynamic> _legacyMonitoring() {
+  final value = _monitoring()..['schemaVersion'] = 1;
+  value.remove('visibilityState');
+  value.remove('visibleUntil');
+  value.remove('archivedAt');
+  return value;
 }
