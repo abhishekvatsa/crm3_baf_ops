@@ -8,19 +8,32 @@ class CriticalAlarmRepository {
 
   final FirebaseFirestore firestore;
 
-  Stream<List<CriticalAlarm>> watchActiveAlarms() async* {
+  Stream<CriticalAlarmLiveSnapshot> watchActiveAlarms() async* {
+    List<CriticalAlarm> lastVerifiedAlarms = const <CriticalAlarm>[];
+    DateTime? lastVerifiedAt;
     await for (final snapshot in firestore
         .collection('critical_alarms')
         .where('status', whereIn: const ['raised', 'supportConfirmed'])
         .snapshots(includeMetadataChanges: true)) {
       if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
+        yield lastVerifiedAt == null
+            ? CriticalAlarmLiveSnapshot.unavailable()
+            : CriticalAlarmLiveSnapshot.staleLastKnown(
+              alarms: lastVerifiedAlarms,
+              lastVerifiedAt: lastVerifiedAt,
+            );
         continue;
       }
-      yield List.unmodifiable(
+      lastVerifiedAlarms = List.unmodifiable(
         snapshot.docs.map(
           (document) =>
               CriticalAlarm.fromFirestore(document.data(), document.id),
         ),
+      );
+      lastVerifiedAt = DateTime.now().toUtc();
+      yield CriticalAlarmLiveSnapshot.serverVerified(
+        alarms: lastVerifiedAlarms,
+        verifiedAt: lastVerifiedAt,
       );
     }
   }

@@ -95,18 +95,27 @@ final criticalAlarmsForReportsProvider = StreamProvider.autoDispose
           );
     });
 
-final activeCriticalAlarmsProvider = StreamProvider<List<CriticalAlarm>>((ref) {
+final activeCriticalAlarmsProvider =
+    StreamProvider<CriticalAlarmLiveSnapshot>((ref) {
   return ref
       .watch(currentAppUserProvider)
       .when(
         data: (user) {
           if (user == null || !user.isApproved) {
-            return Stream.value(const <CriticalAlarm>[]);
+            // A server-verified actor revocation is authoritative for this
+            // device and must clear alarm notifications it can no longer
+            // govern.
+            return Stream.value(
+              CriticalAlarmLiveSnapshot.serverVerified(
+                alarms: const <CriticalAlarm>[],
+                verifiedAt: DateTime.now().toUtc(),
+              ),
+            );
           }
           return ref.watch(criticalAlarmRepositoryProvider).watchActiveAlarms();
         },
-        loading: () => const Stream<List<CriticalAlarm>>.empty(),
-        error: Stream<List<CriticalAlarm>>.error,
+        loading: () => const Stream<CriticalAlarmLiveSnapshot>.empty(),
+        error: Stream<CriticalAlarmLiveSnapshot>.error,
       );
 });
 

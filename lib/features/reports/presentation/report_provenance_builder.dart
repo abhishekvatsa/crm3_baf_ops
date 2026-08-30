@@ -18,7 +18,7 @@ ReportProvenance readApplicationReportProvenance(
             : ReportSourceMode.hybridApplicationSnapshot,
     lastSyncCompletedAt: kIsWeb ? null : syncHealth.lastCompletedAt,
     lastSyncSucceeded: kIsWeb ? null : syncHealth.lastSucceeded,
-    pendingLocalWrites: kIsWeb ? 0 : pendingWrites,
+    pendingLocalWrites: kIsWeb ? null : pendingWrites,
     completenessNotes: List<String>.unmodifiable(completenessNotes),
   );
 }

@@ -133,6 +133,7 @@ Future<void> _pump(
   AppUser? user,
   Stream<AppUser?>? userStream,
   String? initialAlarmId,
+  CriticalAlarmLiveSnapshot? activeSnapshot,
 }) async {
   await tester.binding.setSurfaceSize(const Size(320, 640));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -144,7 +145,13 @@ Future<void> _pump(
         ),
         criticalAlarmFeedProvider.overrideWith((_) => Stream.value(alarms)),
         activeCriticalAlarmsProvider.overrideWith(
-          (_) => Stream.value(alarms.where((alarm) => alarm.isActive).toList()),
+          (_) => Stream.value(
+            activeSnapshot ??
+                CriticalAlarmLiveSnapshot.serverVerified(
+                  alarms: alarms.where((alarm) => alarm.isActive).toList(),
+                  verifiedAt: DateTime.utc(2026, 8, 26, 1, 5),
+                ),
+          ),
         ),
         criticalAlarmContactsProvider.overrideWith(
           (_) => Stream.value(contacts),
@@ -245,6 +252,37 @@ void main() {
     expect(find.text('Gas response room'), findsNothing);
     expect(find.text('Confirm support'), findsNothing);
     expect(find.text('Raised in error'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('stale active alarms remain readable but are not labelled live', (
+    tester,
+  ) async {
+    final alarm = _raisedFire();
+    await _pump(
+      tester,
+      alarms: [alarm],
+      activeSnapshot: CriticalAlarmLiveSnapshot.staleLastKnown(
+        alarms: [alarm],
+        lastVerifiedAt: DateTime.utc(2026, 8, 26, 1, 5),
+      ),
+    );
+
+    expect(find.text('Active (?)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('critical-alarm-stale-feed-notice')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Not live:'), findsOneWidget);
+    expect(find.text('Visible flame near the utility gallery'), findsOneWidget);
+    expect(find.text('Raised in error'), findsNothing);
+    expect(find.text('Add details'), findsNothing);
+    expect(
+      find.text(
+        'Live server verification is required before changing this alarm.',
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

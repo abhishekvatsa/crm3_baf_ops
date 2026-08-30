@@ -13,6 +13,9 @@ import '../providers/critical_alarm_providers.dart';
 import 'critical_alarm_contacts_panel.dart';
 import 'critical_alarm_definitions_panel.dart';
 import 'critical_alarm_feed_state.dart';
+import 'critical_alarm_stale_notice.dart';
+
+part 'critical_alarm_screen.feed.dart';
 
 class CriticalAlarmScreen extends ConsumerWidget {
   const CriticalAlarmScreen({super.key, this.initialAlarmId});
@@ -83,7 +86,9 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
             .toList() ??
         const <CriticalAlarmDefinition>[];
     final showDefinitions = user.isAdmin;
-    final active = activeFeed.asData?.value ?? const <CriticalAlarm>[];
+    final activeSnapshot = activeFeed.asData?.value;
+    final active = activeSnapshot?.alarms ?? const <CriticalAlarm>[];
+    final activeAlarmRows = activeFeed.whenData((snapshot) => snapshot.alarms);
     final recentRows = recentFeed.asData?.value ?? const <CriticalAlarm>[];
     final history = recentRows.where((alarm) => !alarm.isActive).toList();
     final contactRows =
@@ -109,7 +114,12 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
           ),
           bottom: TabBar(
             tabs: [
-              Tab(text: 'Active (${active.length})'),
+              Tab(
+                text:
+                    activeSnapshot?.isServerVerified == true
+                        ? 'Active (${active.length})'
+                        : 'Active (?)',
+              ),
               Tab(text: 'History (${history.length})'),
               Tab(
                 text:
@@ -127,11 +137,13 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
                 children: [
                   _AlarmList(
                     alarms: active,
-                    feed: activeFeed,
+                    feed: activeAlarmRows,
                     contacts: contacts,
                     user: user,
                     initialAlarmId: initialAlarmId,
                     emptyTitle: 'No active alarms',
+                    liveAuthority: activeSnapshot?.authority,
+                    lastVerifiedAt: activeSnapshot?.lastVerifiedAt,
                   ),
                   _AlarmList(
                     alarms: history,
@@ -267,108 +279,20 @@ class _ScopeBoundary extends StatelessWidget {
   );
 }
 
-class _AlarmList extends ConsumerWidget {
-  const _AlarmList({
-    required this.alarms,
-    required this.feed,
-    required this.contacts,
-    required this.user,
-    required this.emptyTitle,
-    this.initialAlarmId,
-  });
-
-  final List<CriticalAlarm> alarms;
-  final AsyncValue<List<CriticalAlarm>> feed;
-  final AsyncValue<List<CriticalAlarmContact>> contacts;
-  final AppUser? user;
-  final String emptyTitle;
-  final String? initialAlarmId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (feed.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (feed.hasError) {
-      return CriticalAlarmFeedState(
-        icon: Icons.cloud_off_outlined,
-        title: 'Live alarm state unavailable',
-        message:
-            'CRM3 could not verify the server alarm feed. Do not rely on cached information. Follow the plant emergency procedure.',
-        action: OutlinedButton.icon(
-          onPressed: () {
-            ref.invalidate(criticalAlarmFeedProvider);
-            ref.invalidate(activeCriticalAlarmsProvider);
-            ref.invalidate(criticalAlarmContactsProvider);
-          },
-          icon: const Icon(Icons.refresh),
-          label: const Text('Retry live check'),
-        ),
-      );
-    }
-    if (alarms.isEmpty) {
-      return CriticalAlarmFeedState(
-        icon: Icons.verified_user_outlined,
-        title: emptyTitle,
-        message:
-            'Only server-confirmed alarm records appear here. Continue to follow normal plant safety procedures.',
-      );
-    }
-    final ordered = [...alarms]..sort((left, right) {
-      if (left.id == initialAlarmId) return -1;
-      if (right.id == initialAlarmId) return 1;
-      return right.raisedAt.compareTo(left.raisedAt);
-    });
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(criticalAlarmFeedProvider);
-        ref.invalidate(activeCriticalAlarmsProvider);
-        ref.invalidate(criticalAlarmContactsProvider);
-      },
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(
-          BafSpacing.md,
-          BafSpacing.md,
-          BafSpacing.md,
-          96,
-        ),
-        itemCount: ordered.length,
-        separatorBuilder: (_, _) => const SizedBox(height: BafSpacing.md),
-        itemBuilder: (context, index) {
-          final alarm = ordered[index];
-          final exactContacts =
-              contacts.asData?.value
-                  .where(
-                    (contact) =>
-                        contact.isActive &&
-                        contact.alarmTypeKeys.contains(alarm.definition.key),
-                  )
-                  .toList() ??
-              const <CriticalAlarmContact>[];
-          return _AlarmCard(
-            alarm: alarm,
-            contacts: exactContacts,
-            contactsVerified: contacts.asData != null,
-            user: user,
-          );
-        },
-      ),
-    );
-  }
-}
-
 class _AlarmCard extends ConsumerWidget {
   const _AlarmCard({
     required this.alarm,
     required this.contacts,
     required this.contactsVerified,
     required this.user,
+    required this.lifecycleActionsEnabled,
   });
 
   final CriticalAlarm alarm;
   final List<CriticalAlarmContact> contacts;
   final bool contactsVerified;
   final AppUser? user;
+  final bool lifecycleActionsEnabled;
 
   bool get _canGovern => user?.isAdmin == true || user?.isSI == true;
   bool get _canEditDetails => _canGovern || user?.uid == alarm.raisedByUid;
@@ -536,23 +460,47 @@ class _AlarmCard extends ConsumerWidget {
                           .toList(),
                 ),
               const SizedBox(height: BafSpacing.md),
+              if (!lifecycleActionsEnabled) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: BafColors.warning.withValues(alpha: 0.1),
+                    border: Border.all(
+                      color: BafColors.warning.withValues(alpha: 0.35),
+                    ),
+                    borderRadius: BorderRadius.circular(BafRadius.small),
+                  ),
+                  child: const Text(
+                    'Live server verification is required before changing this alarm.',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.sm),
+              ],
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (alarm.isActive && alarm.detailsPending && _canEditDetails)
+                  if (lifecycleActionsEnabled &&
+                      alarm.isActive &&
+                      alarm.detailsPending &&
+                      _canEditDetails)
                     OutlinedButton.icon(
                       onPressed: () => _provideDetails(context, ref),
                       icon: const Icon(Icons.edit_note_outlined),
                       label: const Text('Add details'),
                     ),
-                  if (alarm.status == CriticalAlarmStatus.raised && _canGovern)
+                  if (lifecycleActionsEnabled &&
+                      alarm.status == CriticalAlarmStatus.raised &&
+                      _canGovern)
                     FilledButton.icon(
                       onPressed: () => _confirmSupport(context, ref),
                       icon: const Icon(Icons.support_agent),
                       label: const Text('Confirm support'),
                     ),
-                  if (alarm.status == CriticalAlarmStatus.supportConfirmed &&
+                  if (lifecycleActionsEnabled &&
+                      alarm.status == CriticalAlarmStatus.supportConfirmed &&
                       _canGovern)
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
@@ -562,7 +510,9 @@ class _AlarmCard extends ConsumerWidget {
                       icon: const Icon(Icons.task_alt),
                       label: const Text('Resolve'),
                     ),
-                  if (alarm.isActive && _canEditDetails)
+                  if (lifecycleActionsEnabled &&
+                      alarm.isActive &&
+                      _canEditDetails)
                     TextButton.icon(
                       onPressed: () => _withdraw(context, ref),
                       icon: const Icon(Icons.cancel_outlined),

@@ -290,6 +290,9 @@ void main() {
         contains("whereIn: const ['raised', 'supportConfirmed']"),
       );
       expect(activeBody, isNot(contains('.limit(')));
+      expect(activeBody, contains('CriticalAlarmLiveSnapshot.unavailable()'));
+      expect(activeBody, contains('CriticalAlarmLiveSnapshot.staleLastKnown'));
+      expect(activeBody, contains('CriticalAlarmLiveSnapshot.serverVerified'));
       expect(repository, isNot(contains('.limit(100)')));
 
       final providers =
