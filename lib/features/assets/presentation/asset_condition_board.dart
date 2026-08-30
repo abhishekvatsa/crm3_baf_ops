@@ -21,6 +21,7 @@ import 'inner_cover_lifecycle_screen.dart';
 import 'widgets/governed_asset_target_picker.dart';
 
 part 'asset_condition_board.filters.dart';
+part 'asset_condition_board.summary.dart';
 
 enum AssetConditionFilter { all, available, maintenance, stuckUp, down, unfit }
 
@@ -294,22 +295,7 @@ class PlantOverviewPanel extends StatelessWidget {
                       const SizedBox(height: BafSpacing.sm),
                       ...value.classes
                           .where((summary) => summary.total > 0)
-                          .map(
-                            (summary) => Padding(
-                              padding: const EdgeInsets.only(
-                                top: BafSpacing.xs,
-                              ),
-                              child: Text(
-                                '${summary.assetClass.name}: ${summary.total} total, ${summary.underMaintenance} maintenance, ${summary.temporarilyBlocked} stuck-up, ${summary.down + summary.unfit} unavailable',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: BafColors.textSecondary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
+                          .map(_PlantClassConditionSummary.new),
                     ],
                   ],
                 ),

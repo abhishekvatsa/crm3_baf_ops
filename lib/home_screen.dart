@@ -486,8 +486,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onManualSync: () => _retryAttentionData(context, appUser),
             ),
         destination: const NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home_rounded),
+          icon: Icon(Icons.dashboard_outlined),
+          selectedIcon: Icon(Icons.dashboard_rounded, color: BafColors.teal),
           label: 'Home',
         ),
       ),
@@ -503,7 +503,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           selectedIcon: Badge(
             isLabelVisible: ticketCount > 0,
             label: Text('$ticketCount'),
-            child: const Icon(Icons.report_problem_rounded),
+            child: const Icon(
+              Icons.report_problem_rounded,
+              color: BafColors.danger,
+            ),
           ),
           label: 'Issues',
         ),
@@ -523,12 +526,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           icon: Badge(
             isLabelVisible: executionCount + workflowAttentionCount > 0,
             label: Text('${executionCount + workflowAttentionCount}'),
-            child: const Icon(Icons.work_outline_rounded),
+            child: const Icon(Icons.handyman_outlined),
           ),
           selectedIcon: Badge(
             isLabelVisible: executionCount + workflowAttentionCount > 0,
             label: Text('${executionCount + workflowAttentionCount}'),
-            child: const Icon(Icons.work_rounded),
+            child: const Icon(Icons.handyman_rounded, color: BafColors.planned),
           ),
           label: 'Work',
         ),
@@ -579,7 +582,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: Text(
               '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount + activeCriticalAlarmCount}',
             ),
-            child: const Icon(Icons.radar_outlined),
+            child: const Icon(Icons.hub_outlined),
           ),
           selectedIcon: Badge(
             isLabelVisible:
@@ -593,7 +596,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: Text(
               '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeQualityMonitoringCount + activeInspectionFindingCount + activeCriticalAlarmCount}',
             ),
-            child: const Icon(Icons.radar_rounded),
+            child: const Icon(Icons.hub_rounded, color: BafColors.directives),
           ),
           label: 'Control',
         ),
@@ -648,8 +651,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const LocalDiagnosticsScreen()),
             ),
         destination: const NavigationDestination(
-          icon: Icon(Icons.apps_outlined),
-          selectedIcon: Icon(Icons.apps_rounded),
+          icon: Icon(Icons.grid_view_outlined),
+          selectedIcon: Icon(
+            Icons.grid_view_rounded,
+            color: BafColors.graphite,
+          ),
           label: 'More',
         ),
       ),
