@@ -162,6 +162,51 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'workflow read failure keeps trusted compliance evidence readable',
+    (tester) async {
+      final record = _compliance(status: 'acknowledged', version: 2);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream<AppUser?>.value(_instrumentationActor()),
+            ),
+            workflowComplianceRecordProvider.overrideWith(
+              (ref, scope) async => record,
+            ),
+            workflowAuthoritativeRecordProvider.overrideWith(
+              (ref, scope) => Future<WorkflowAggregateRecord?>.error(
+                StateError('server read unavailable'),
+              ),
+            ),
+            workflowCommandControllerProvider.overrideWith((ref) {
+              return WorkflowCommandController.forTesting(
+                executeCommand: (command) async {
+                  throw StateError('Actions must remain disabled.');
+                },
+                pullProjections: () async {},
+              );
+            }),
+          ],
+          child: MaterialApp(
+            theme: BafAppTheme.light,
+            home: ComplianceDetailScreen(record: record),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Build 19 operations support'), findsWidgets);
+      expect(find.text('Software-only device validation.'), findsOneWidget);
+      expect(find.text('Request context'), findsOneWidget);
+      expect(find.text('Actions temporarily unavailable'), findsOneWidget);
+      expect(find.text('Mark complied'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 AppUser _instrumentationActor() => AppUser(

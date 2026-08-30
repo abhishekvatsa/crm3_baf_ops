@@ -87,7 +87,8 @@ describe('whole-app maintenance workflow bridge source contract', () => {
 
   test('compliance UI suppresses actions after workflow terminal state', () => {
     const detail = read('lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart');
-    expect(detail).toContain('snapshot?.workflow.isFinal');
+    expect(detail).toContain("workflow?.statusKey == 'completed'");
+    expect(detail).toContain("workflow?.statusKey == 'cancelled'");
     expect(detail).toContain('This workflow is completed or cancelled');
     expect(detail.indexOf('else if (workflowFinal)')).toBeLessThan(detail.indexOf('..._actions('));
   });
