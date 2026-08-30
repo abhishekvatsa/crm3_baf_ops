@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
@@ -348,6 +350,57 @@ void main() {
         );
 
         expect(merged.map((request) => request.requestId), ['monitoring-1']);
+      },
+    );
+
+    test(
+      'operational stream expires legacy closure without a new snapshot',
+      () async {
+        const requestId = 'monitoring-expiring';
+        final closedAt = DateTime.now().toUtc().subtract(
+          const Duration(days: 6, hours: 23, minutes: 59, seconds: 59),
+        );
+        final legacyClosed = QualityMonitoringRequest.fromMap(
+          _legacyMonitoring()
+            ..['requestId'] = requestId
+            ..['status'] = 'closed'
+            ..['closedAt'] = closedAt
+            ..['closedByUid'] = 'si-2'
+            ..['closedByName'] = 'SI Two'
+            ..['closeReason'] = 'Legacy campaign is complete.'
+            ..['updatedAt'] = closedAt
+            ..['updatedByUid'] = 'si-2'
+            ..['updatedByName'] = 'SI Two'
+            ..['version'] = 2,
+          requestId,
+        );
+        final current = StreamController<List<QualityMonitoringRequest>>();
+        final legacy = StreamController<List<QualityMonitoringRequest>>();
+        final observed = <List<QualityMonitoringRequest>>[];
+        final expired = Completer<void>();
+        final subscription = combineQualityMonitoringWindows(
+          current.stream,
+          legacy.stream,
+        ).listen((requests) {
+          observed.add(requests);
+          if (observed.length >= 2 &&
+              requests.isEmpty &&
+              !expired.isCompleted) {
+            expired.complete();
+          }
+        });
+        addTearDown(() async {
+          await subscription.cancel();
+          await current.close();
+          await legacy.close();
+        });
+
+        current.add(const <QualityMonitoringRequest>[]);
+        legacy.add([legacyClosed]);
+        await expired.future.timeout(const Duration(seconds: 3));
+
+        expect(observed.first.map((request) => request.requestId), [requestId]);
+        expect(observed.last, isEmpty);
       },
     );
   });

@@ -156,7 +156,7 @@ final qualityMonitoringRequestsProvider =
           .where('schemaVersion', isEqualTo: 1)
           .snapshots()
           .map(_decodeQualityMonitoringRequests);
-      return _combineQualityMonitoringWindows(current, legacy);
+      return combineQualityMonitoringWindows(current, legacy);
     });
 
 /// Complete quality-monitoring population for date- and asset-bound reports.
@@ -243,21 +243,48 @@ List<QualityMonitoringRequest> mergeQualityMonitoringWindows(
   );
 }
 
-Stream<List<QualityMonitoringRequest>> _combineQualityMonitoringWindows(
+Stream<List<QualityMonitoringRequest>> combineQualityMonitoringWindows(
   Stream<List<QualityMonitoringRequest>> current,
   Stream<List<QualityMonitoringRequest>> legacy,
 ) {
   late StreamController<List<QualityMonitoringRequest>> controller;
   StreamSubscription<List<QualityMonitoringRequest>>? currentSubscription;
   StreamSubscription<List<QualityMonitoringRequest>>? legacySubscription;
+  Timer? expiryTimer;
   List<QualityMonitoringRequest>? latestCurrent;
   List<QualityMonitoringRequest>? latestLegacy;
 
   void emitWhenReady() {
     if (latestCurrent == null || latestLegacy == null) return;
-    controller.add(
-      mergeQualityMonitoringWindows(latestCurrent!, latestLegacy!),
+    final now = DateTime.now().toUtc();
+    final merged = mergeQualityMonitoringWindows(
+      latestCurrent!,
+      latestLegacy!,
+      now: now,
     );
+    controller.add(merged);
+
+    expiryTimer?.cancel();
+    DateTime? nextExpiry;
+    final byId = <String, QualityMonitoringRequest>{
+      for (final request in latestLegacy!) request.requestId: request,
+      for (final request in latestCurrent!) request.requestId: request,
+    };
+    for (final request in byId.values) {
+      final visibleUntil = request.visibleUntil?.toUtc();
+      if (request.status != QualityMonitoringStatus.closed ||
+          request.visibilityState != QualityMonitoringVisibilityState.recent ||
+          visibleUntil == null ||
+          !visibleUntil.isAfter(now)) {
+        continue;
+      }
+      if (nextExpiry == null || visibleUntil.isBefore(nextExpiry)) {
+        nextExpiry = visibleUntil;
+      }
+    }
+    if (nextExpiry != null) {
+      expiryTimer = Timer(nextExpiry.difference(now), emitWhenReady);
+    }
   }
 
   controller = StreamController<List<QualityMonitoringRequest>>(
@@ -272,6 +299,7 @@ Stream<List<QualityMonitoringRequest>> _combineQualityMonitoringWindows(
       }, onError: controller.addError);
     },
     onCancel: () async {
+      expiryTimer?.cancel();
       await currentSubscription?.cancel();
       await legacySubscription?.cancel();
     },
