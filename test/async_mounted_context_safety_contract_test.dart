@@ -225,14 +225,6 @@ void main() {
         for (final expectation in <_AdminMutationExpectation>[
           const _AdminMutationExpectation(
             sectionMarker:
-                'class TicketsBrowser extends ConsumerStatefulWidget',
-            methodMarker: 'Future<void> _confirmDelete',
-            repositoryProvider: 'maintenanceRepositoryProvider',
-            awaitMarker: 'await repository.deleteTicket(',
-            syncReason: 'admin_ticket_deleted',
-          ),
-          const _AdminMutationExpectation(
-            sectionMarker:
                 'class DirectivesBrowser extends ConsumerStatefulWidget',
             methodMarker: 'Future<void> _showEditDialog',
             repositoryProvider: 'directiveRepositoryProvider',
@@ -285,6 +277,30 @@ void main() {
           expect(body, contains('syncCoordinator.runFullSync'));
           expect(body, contains(expectation.syncReason));
         }
+
+        final ticketSectionStart = source.indexOf(
+          'class TicketsBrowser extends ConsumerStatefulWidget',
+        );
+        final ticketDeleteBody = _bodyStartingAt(
+          source.substring(ticketSectionStart),
+          'Future<void> _confirmDelete',
+        );
+        const deleteAwait = 'await deletionReconciler.softDeleteServerFirst(';
+        _expectBefore(
+          ticketDeleteBody,
+          'final deletionReconciler = ref.read(',
+          deleteAwait,
+        );
+        _expectBefore(
+          ticketDeleteBody,
+          'final syncCoordinator = ref.read(syncCoordinatorProvider);',
+          deleteAwait,
+        );
+        expect(
+          ticketDeleteBody,
+          contains('await remoteRepository.deleteTicket('),
+        );
+        expect(ticketDeleteBody, contains('admin_ticket_deleted'));
 
         final executionSection = source.substring(
           source.indexOf(

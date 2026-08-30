@@ -229,4 +229,77 @@ void main() {
     await tester.pumpAndSettle();
     expect(showAttempts, 2);
   });
+
+  testWidgets('global alarm launcher yields interaction to modal routes', (
+    tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, (call) async {
+          if (call.method == 'reconcileActiveNotifications') return 0;
+          return null;
+        });
+    final navigatorKey = GlobalKey<NavigatorState>();
+    final routeObserver = CriticalAlarmLauncherRouteObserver();
+    addTearDown(routeObserver.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+          activeCriticalAlarmsProvider.overrideWith(
+            (_) => Stream.value(const <CriticalAlarm>[]),
+          ),
+        ],
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          navigatorObservers: <NavigatorObserver>[routeObserver],
+          builder:
+              (context, child) => CriticalAlarmHost(
+                navigatorKey: navigatorKey,
+                launcherObscuredListenable: routeObserver.obscured,
+                child: child ?? const SizedBox.shrink(),
+              ),
+          home: Builder(
+            builder:
+                (context) => Scaffold(
+                  body: Center(
+                    child: FilledButton(
+                      onPressed:
+                          () => showDialog<void>(
+                            context: context,
+                            builder:
+                                (context) => const AlertDialog(
+                                  title: Text('Governed hierarchy picker'),
+                                ),
+                          ),
+                      child: const Text('Open modal'),
+                    ),
+                  ),
+                ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('global-critical-alarm-launcher')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Open modal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Governed hierarchy picker'), findsOneWidget);
+    expect(
+      find.byKey(const Key('global-critical-alarm-launcher')),
+      findsNothing,
+    );
+
+    navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('global-critical-alarm-launcher')),
+      findsOneWidget,
+    );
+  });
 }

@@ -568,6 +568,7 @@ class _KeyboardPredictiveBackEntry extends PopEntry<Object?> {
 class _CrmBafAppState extends ConsumerState<CrmBafApp>
     with WidgetsBindingObserver {
   final _navigatorObserver = _KeyboardBackNavigatorObserver();
+  final _criticalAlarmRouteObserver = CriticalAlarmLauncherRouteObserver();
   final _navigatorKey = GlobalKey<NavigatorState>();
   StartupFailure? _startupFailure;
   bool _isRetryingLocalDatabaseOpen = false;
@@ -588,6 +589,7 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
   @override
   void dispose() {
     _clearPredictiveKeyboardBack();
+    _criticalAlarmRouteObserver.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -935,13 +937,20 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
       debugShowCheckedModeBanner: false,
       theme: BafAppTheme.light,
       navigatorKey: _navigatorKey,
-      navigatorObservers: <NavigatorObserver>[_navigatorObserver],
+      navigatorObservers: <NavigatorObserver>[
+        _navigatorObserver,
+        _criticalAlarmRouteObserver,
+      ],
       builder: (context, child) {
         final app = child ?? const SizedBox.shrink();
         if (_startupFailure != null) {
           return app;
         }
-        return CriticalAlarmHost(navigatorKey: _navigatorKey, child: app);
+        return CriticalAlarmHost(
+          navigatorKey: _navigatorKey,
+          launcherObscuredListenable: _criticalAlarmRouteObserver.obscured,
+          child: app,
+        );
       },
       home: _buildStartupHome(),
     );

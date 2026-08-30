@@ -14,13 +14,23 @@ import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
 import '../widgets/workflow_action_guard.dart';
 
-class ComplianceDetailScreen extends ConsumerWidget {
+class ComplianceDetailScreen extends ConsumerStatefulWidget {
   final ComplianceRequestRecord record;
 
   const ComplianceDetailScreen({super.key, required this.record});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ComplianceDetailScreen> createState() =>
+      _ComplianceDetailScreenState();
+}
+
+class _ComplianceDetailScreenState
+    extends ConsumerState<ComplianceDetailScreen> {
+  String? _receiptWorkflowId;
+  int? _receiptAggregateVersion;
+
+  @override
+  Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
@@ -41,7 +51,61 @@ class ComplianceDetailScreen extends ConsumerWidget {
       );
     }
     final actor = actorAsync.value;
-    if (actor == null || !canUserSeeComplianceRequest(record, actor)) {
+    if (actor == null || !canUserSeeComplianceRequest(widget.record, actor)) {
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Approved compliance access only',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        title: 'Compliance access required',
+        message:
+            'This compliance request is outside your approved operational scope.',
+      );
+    }
+
+    final complianceId = widget.record.firestoreId?.trim() ?? '';
+    if (complianceId.isEmpty) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Verifying the authoritative compliance record',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'This compliance request has no governed server identity.',
+      );
+    }
+    final complianceScope = (actorUid: actor.uid, complianceId: complianceId);
+    final recordAsync = ref.watch(
+      workflowComplianceRecordProvider(complianceScope),
+    );
+    if (recordAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current compliance evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        label: 'Reading the authoritative compliance request',
+      );
+    }
+    if (recordAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current compliance evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'The authoritative compliance request is unavailable.',
+      );
+    }
+    final record = recordAsync.value;
+    if (record == null) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current compliance evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'This compliance request is no longer available.',
+      );
+    }
+    if (!canUserSeeComplianceRequest(record, actor)) {
       return BafScreenStateScaffold.access(
         appBarTitle: 'Compliance detail',
         appBarSubtitle: 'Approved compliance access only',
@@ -54,10 +118,19 @@ class ComplianceDetailScreen extends ConsumerWidget {
     }
     final workflowId =
         record.linkedWorkflowId ?? record.linkedExecutionFirestoreId ?? '';
-    final aggregate =
-        workflowId.isEmpty
-            ? const AsyncValue.data(null)
-            : ref.watch(workflowAggregateProvider(workflowId));
+    if (workflowId.isEmpty) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Compliance detail',
+        appBarSubtitle: 'Loading current workflow evidence',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.directives,
+        message: 'This compliance request has no governed workflow identity.',
+      );
+    }
+    final workflowScope = (actorUid: actor.uid, workflowId: workflowId);
+    final aggregate = ref.watch(
+      workflowAuthoritativeRecordProvider(workflowScope),
+    );
     final commandState = ref.watch(workflowCommandControllerProvider);
 
     return Scaffold(
@@ -74,111 +147,61 @@ class ComplianceDetailScreen extends ConsumerWidget {
         maxWidth: 840,
         child: aggregate.when(
           loading:
-              () => const BafLoadingPanel(
-                label: 'Loading authoritative workflow state',
-                color: BafColors.directives,
+              () => _detailBody(
+                context,
+                ref,
+                record: record,
+                workflowId: workflowId,
+                actor: actor,
+                busy: commandState.isLoading,
+                actionOverride: const BafLoadingPanel(
+                  label: 'Loading authoritative workflow state',
+                  color: BafColors.directives,
+                ),
               ),
           error:
-              (error, _) => BafStatePanel.error(
-                title: 'Workflow state is unavailable',
-                message: '$error',
-                onPrimary:
-                    workflowId.isEmpty
-                        ? null
-                        : () => ref.invalidate(
-                          workflowAggregateProvider(workflowId),
-                        ),
+              (error, _) => _detailBody(
+                context,
+                ref,
+                record: record,
+                workflowId: workflowId,
+                actor: actor,
+                busy: commandState.isLoading,
+                actionOverride: BafStatePanel.error(
+                  title: 'Actions temporarily unavailable',
+                  message:
+                      'Current workflow state could not be verified. The compliance evidence below remains readable, but lifecycle actions stay disabled.\n\n$error',
+                  onPrimary:
+                      () => ref.invalidate(
+                        workflowAuthoritativeRecordProvider(workflowScope),
+                      ),
+                ),
               ),
-          data: (snapshot) {
-            final version = snapshot?.workflow.version;
-            final workflowFinal = snapshot?.workflow.isFinal ?? false;
-            return ListView(
-              children: [
-                BafScreenIntro(
-                  title: record.title,
-                  subtitle:
-                      record.description.trim().isEmpty
-                          ? 'No additional description was recorded.'
-                          : record.description,
-                  icon: Icons.assignment_turned_in_outlined,
-                  accent: BafColors.directives,
-                  trailing: StatusBadge(
-                    label: _businessLabel(record.statusKey),
-                    color: _statusColor(record.statusKey),
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                const BafSectionLabel(
-                  title: 'Request context',
-                  subtitle: 'Ownership, purpose and activation evidence',
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                BafRecordSurface(child: Column(children: _contextRows())),
-                if (record.counterRevisedDescription != null) ...[
-                  const SizedBox(height: BafSpacing.lg),
-                  BafRecordSurface(
-                    accent: BafColors.warning,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Revised condition proposed',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: BafSpacing.sm),
-                        Text(record.counterRevisedDescription!),
-                        if (record.counterProposedByName != null) ...[
-                          const SizedBox(height: BafSpacing.xs),
-                          Text(
-                            'Proposed by ${record.counterProposedByName}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: BafSpacing.xl),
-                const BafSectionLabel(
-                  title: 'Available actions',
-                  subtitle: 'Actions follow lane authority and current state',
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                if (version == null)
-                  const BafStatePanel(
-                    icon: Icons.cloud_off_outlined,
-                    color: BafColors.warning,
-                    title: 'Actions temporarily unavailable',
-                    message:
-                        'Actions are disabled until the authoritative workflow version is available.',
-                  )
-                else if (workflowFinal)
-                  const BafRecordSurface(
-                    accent: BafColors.audit,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.lock_clock_outlined, color: BafColors.audit),
-                        SizedBox(width: BafSpacing.md),
-                        Expanded(
-                          child: Text(
-                            'This workflow is completed or cancelled. Compliance evidence remains readable, but no further lifecycle action is permitted.',
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  ..._actions(
-                    context,
-                    ref,
-                    workflowId: workflowId,
-                    expectedVersion: version,
-                    busy: commandState.isLoading,
-                    actor: actor,
-                  ),
-                const SizedBox(height: BafSpacing.xl),
-              ],
+          data: (workflow) {
+            final snapshotVersion = workflow?.version;
+            final receiptVersion =
+                _receiptWorkflowId == workflowId
+                    ? _receiptAggregateVersion
+                    : null;
+            final version =
+                snapshotVersion == null
+                    ? receiptVersion
+                    : receiptVersion == null ||
+                        snapshotVersion >= receiptVersion
+                    ? snapshotVersion
+                    : receiptVersion;
+            final workflowFinal =
+                workflow?.statusKey == 'completed' ||
+                workflow?.statusKey == 'cancelled';
+            return _detailBody(
+              context,
+              ref,
+              record: record,
+              workflowId: workflowId,
+              actor: actor,
+              busy: commandState.isLoading,
+              version: version,
+              workflowFinal: workflowFinal,
             );
           },
         ),
@@ -186,7 +209,111 @@ class ComplianceDetailScreen extends ConsumerWidget {
     );
   }
 
-  List<Widget> _contextRows() {
+  Widget _detailBody(
+    BuildContext context,
+    WidgetRef ref, {
+    required ComplianceRequestRecord record,
+    required String workflowId,
+    required AppUser actor,
+    required bool busy,
+    int? version,
+    bool workflowFinal = false,
+    Widget? actionOverride,
+  }) {
+    return ListView(
+      children: [
+        BafScreenIntro(
+          title: record.title,
+          subtitle:
+              record.description.trim().isEmpty
+                  ? 'No additional description was recorded.'
+                  : record.description,
+          icon: Icons.assignment_turned_in_outlined,
+          accent: BafColors.directives,
+          trailing: StatusBadge(
+            label: _businessLabel(record.statusKey),
+            color: _statusColor(record.statusKey),
+          ),
+        ),
+        const SizedBox(height: BafSpacing.lg),
+        const BafSectionLabel(
+          title: 'Request context',
+          subtitle: 'Ownership, purpose and activation evidence',
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        BafRecordSurface(child: Column(children: _contextRows(record))),
+        if (record.counterRevisedDescription != null) ...[
+          const SizedBox(height: BafSpacing.lg),
+          BafRecordSurface(
+            accent: BafColors.warning,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Revised condition proposed',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                Text(record.counterRevisedDescription!),
+                if (record.counterProposedByName != null) ...[
+                  const SizedBox(height: BafSpacing.xs),
+                  Text(
+                    'Proposed by ${record.counterProposedByName}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: BafSpacing.xl),
+        const BafSectionLabel(
+          title: 'Available actions',
+          subtitle: 'Actions follow lane authority and current state',
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        if (actionOverride != null)
+          actionOverride
+        else if (version == null)
+          const BafStatePanel(
+            icon: Icons.cloud_off_outlined,
+            color: BafColors.warning,
+            title: 'Actions temporarily unavailable',
+            message:
+                'Actions are disabled until the authoritative workflow version is available.',
+          )
+        else if (workflowFinal)
+          const BafRecordSurface(
+            accent: BafColors.audit,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lock_clock_outlined, color: BafColors.audit),
+                SizedBox(width: BafSpacing.md),
+                Expanded(
+                  child: Text(
+                    'This workflow is completed or cancelled. Compliance evidence remains readable, but no further lifecycle action is permitted.',
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ..._actions(
+            context,
+            ref,
+            record: record,
+            workflowId: workflowId,
+            expectedVersion: version,
+            busy: busy,
+            actor: actor,
+          ),
+        const SizedBox(height: BafSpacing.xl),
+      ],
+    );
+  }
+
+  List<Widget> _contextRows(ComplianceRequestRecord record) {
     final values = <(String, String)>[
       ('Request type', record.requestPurposeLabel),
       ('Target lane', record.targetLaneKey.toUpperCase()),
@@ -250,10 +377,11 @@ class ComplianceDetailScreen extends ConsumerWidget {
   List<Widget> _actions(
     BuildContext context,
     WidgetRef ref, {
+    required ComplianceRequestRecord record,
     required String workflowId,
     required int expectedVersion,
     required bool busy,
-    required AppUser? actor,
+    required AppUser actor,
   }) {
     final widgets = <Widget>[];
     void add(Widget widget) {
@@ -261,20 +389,16 @@ class ComplianceDetailScreen extends ConsumerWidget {
       widgets.add(widget);
     }
 
-    final mayWorkTarget =
-        actor?.canAcknowledgeOrWorkMaintenanceLane(record.targetLaneKey) ??
-        false;
+    final mayWorkTarget = actor.canAcknowledgeOrWorkMaintenanceLane(
+      record.targetLaneKey,
+    );
     final mayWorkOrigin =
         record.originLaneKey == null
-            ? actor?.isModuleLifecycleSupervisor == true
+            ? actor.isModuleLifecycleSupervisor
             : (record.raisedUnderCoordination &&
-                    actor?.canCoordinateMaintenanceCompliance == true) ||
-                (actor?.canAcknowledgeOrWorkMaintenanceLane(
-                      record.originLaneKey,
-                    ) ??
-                    false);
-    final mayMarkCondition =
-        actor?.canMarkMaintenanceWorkflowConditionDue ?? false;
+                    actor.canCoordinateMaintenanceCompliance) ||
+                actor.canAcknowledgeOrWorkMaintenanceLane(record.originLaneKey);
+    final mayMarkCondition = actor.canMarkMaintenanceWorkflowConditionDue;
 
     if ((record.statusKey == 'raised' || record.statusKey == 'acknowledged') &&
         record.conditionTypeKey != 'manual') {
@@ -297,6 +421,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
               workflowId,
               expectedVersion,
               WorkflowCommandType.confirmConditionAndReactivate,
+              actorUid: actor.uid,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -317,6 +442,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                 workflowId,
                 expectedVersion,
                 WorkflowCommandType.acknowledgeCompliance,
+                actorUid: actor.uid,
               ),
         ),
       );
@@ -341,6 +467,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
               workflowId,
               expectedVersion,
               WorkflowCommandType.markComplianceComplied,
+              actorUid: actor.uid,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -365,6 +492,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                         workflowId,
                         expectedVersion,
                         WorkflowCommandType.proposeCounterCondition,
+                        actorUid: actor.uid,
                         extra: <String, Object?>{'revisedDescription': revised},
                       );
                     },
@@ -394,6 +522,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                       workflowId,
                       expectedVersion,
                       WorkflowCommandType.decideCounterCondition,
+                      actorUid: actor.uid,
                       extra: <String, Object?>{
                         'accepted': true,
                         'note': note,
@@ -423,6 +552,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                       workflowId,
                       expectedVersion,
                       WorkflowCommandType.decideCounterCondition,
+                      actorUid: actor.uid,
                       extra: <String, Object?>{'accepted': false, 'note': note},
                     );
                   },
@@ -452,6 +582,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
               workflowId,
               expectedVersion,
               WorkflowCommandType.confirmComplianceClosed,
+              actorUid: actor.uid,
               extra: <String, Object?>{'note': note},
             );
           },
@@ -474,6 +605,7 @@ class ComplianceDetailScreen extends ConsumerWidget {
                       workflowId,
                       expectedVersion,
                       WorkflowCommandType.returnComplianceForCorrection,
+                      actorUid: actor.uid,
                       extra: <String, Object?>{'reason': reason},
                     );
                   },
@@ -491,9 +623,10 @@ class ComplianceDetailScreen extends ConsumerWidget {
     String workflowId,
     int expectedVersion,
     WorkflowCommandType type, {
+    required String actorUid,
     Map<String, Object?> extra = const <String, Object?>{},
   }) async {
-    await ref
+    final receipt = await ref
         .read(workflowCommandControllerProvider.notifier)
         .execute(
           WorkflowCommandFactory.create(
@@ -501,11 +634,40 @@ class ComplianceDetailScreen extends ConsumerWidget {
             aggregateId: workflowId,
             expectedVersion: expectedVersion,
             payload: <String, Object?>{
-              'complianceId': record.firestoreId,
+              'complianceId': widget.record.firestoreId,
               ...extra,
             },
           ),
         );
+    if (!mounted) return;
+    setState(() {
+      final sameWorkflow = _receiptWorkflowId == workflowId;
+      final current = sameWorkflow ? _receiptAggregateVersion : null;
+      _receiptWorkflowId = workflowId;
+      _receiptAggregateVersion =
+          current == null || receipt.aggregateVersion > current
+              ? receipt.aggregateVersion
+              : current;
+    });
+    final authorizedActorUid = actorUid.trim();
+    final complianceId = widget.record.firestoreId?.trim();
+    if (authorizedActorUid.isNotEmpty &&
+        complianceId != null &&
+        complianceId.isNotEmpty) {
+      ref.invalidate(
+        workflowComplianceRecordProvider((
+          actorUid: authorizedActorUid,
+          complianceId: complianceId,
+        )),
+      );
+      ref.invalidate(
+        workflowAuthoritativeRecordProvider((
+          actorUid: authorizedActorUid,
+          workflowId: workflowId,
+        )),
+      );
+    }
+    ref.invalidate(workflowAggregateProvider(workflowId));
   }
 
   Future<String?> _askText(

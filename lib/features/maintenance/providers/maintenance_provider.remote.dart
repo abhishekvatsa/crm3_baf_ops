@@ -311,6 +311,8 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     final docId = id as String;
     final doc = await _collection.doc(docId).get();
     if (!doc.exists || doc.data() == null) return;
+    final current = _mapTicket(doc);
+    if (current.isDeleted) return;
     _requireMaintenanceWorkflowMapAllowsAction(
       doc.data()!,
       'delete this ticket',

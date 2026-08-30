@@ -184,8 +184,11 @@ WorkflowAttentionSummary summarizeWorkflowAttention({
 
 typedef WorkflowComplianceRecordScope =
     ({String actorUid, String complianceId});
+typedef WorkflowServerRecordScope = ({String actorUid, String workflowId});
 typedef WorkflowCompliancePointReader =
     Future<ComplianceRequestRecord?> Function(String complianceId);
+typedef WorkflowAggregatePointReader =
+    Future<WorkflowAggregateRecord?> Function(String workflowId);
 typedef ActorSessionComplianceLookup =
     ({bool isTrusted, ComplianceRequestRecord? record});
 
@@ -194,6 +197,13 @@ final workflowCompliancePointReaderProvider =
       return ref
           .watch(firestoreWorkflowReadRepositoryProvider)
           .fetchComplianceById;
+    });
+
+final workflowAggregatePointReaderProvider =
+    Provider<WorkflowAggregatePointReader>((ref) {
+      return ref
+          .watch(firestoreWorkflowReadRepositoryProvider)
+          .fetchWorkflowById;
     });
 
 final workflowComplianceSessionCacheProvider =
@@ -276,7 +286,7 @@ final workflowComplianceRecordProvider = FutureProvider.autoDispose.family<
   final actorUid = scope.actorUid.trim();
   final id = scope.complianceId.trim();
   if (id.isEmpty) return null;
-  _requireApprovedComplianceActor(ref.watch(currentAppUserProvider), actorUid);
+  _requireApprovedWorkflowActor(ref.watch(currentAppUserProvider), actorUid);
   final cache = ref.watch(workflowComplianceSessionCacheProvider);
   try {
     final remote = await ref.watch(workflowCompliancePointReaderProvider)(id);
@@ -299,7 +309,18 @@ final workflowComplianceRecordProvider = FutureProvider.autoDispose.family<
   }
 });
 
-void _requireApprovedComplianceActor(
+final workflowAuthoritativeRecordProvider = FutureProvider.autoDispose.family<
+  WorkflowAggregateRecord?,
+  WorkflowServerRecordScope
+>((ref, scope) async {
+  final actorUid = scope.actorUid.trim();
+  final id = scope.workflowId.trim();
+  if (id.isEmpty) return null;
+  _requireApprovedWorkflowActor(ref.watch(currentAppUserProvider), actorUid);
+  return ref.watch(workflowAggregatePointReaderProvider)(id);
+});
+
+void _requireApprovedWorkflowActor(
   AsyncValue<AppUser?> authority,
   String actorUid,
 ) {
