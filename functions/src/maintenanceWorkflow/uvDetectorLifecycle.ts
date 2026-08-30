@@ -459,6 +459,13 @@ export const prepareUvDetectorLifecycleWritePlan = async (args: {
   const assetNumber = positiveInteger(args.assetNumber, "source.assetNumber");
   const completedAt = parseInstant(args.completedAt, "completedAt");
   const recordedAt = parseInstant(args.recordedAt, "recordedAt");
+  if (recordedAt !== completedAt) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "UV-detector lifecycle time must match its authoritative closure time.",
+      {reasonCode: "uv-detector-lifecycle-closure-time-mismatch"},
+    );
+  }
   if (assetType !== "furnace") {
     throw new WorkflowError(
       "failed-precondition",

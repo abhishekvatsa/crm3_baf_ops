@@ -517,6 +517,13 @@ export const prepareBurnerBlockLifecycleWritePlan = async (args: {
   const assetNumber = positiveInteger(args.assetNumber, "source.assetNumber");
   const completedAt = parseInstant(args.completedAt, "completedAt");
   const recordedAt = parseInstant(args.recordedAt, "recordedAt");
+  if (recordedAt !== completedAt) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Burner-block lifecycle time must match its authoritative closure time.",
+      {reasonCode: "burner-block-lifecycle-closure-time-mismatch"},
+    );
+  }
   if (assetType !== "furnace") {
     throw new WorkflowError(
       "failed-precondition",

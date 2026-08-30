@@ -163,6 +163,19 @@ async function prepare(store, row = action(), overrides = {}) {
 }
 
 describe('UV-detector lifecycle projection', () => {
+  test('rejects a receipt time that differs from authoritative closure', async () => {
+    const store = seedStore();
+
+    await expect(prepare(store, action(), {
+      recordedAt: '2026-08-28T09:01:00.000Z',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'uv-detector-lifecycle-closure-time-mismatch',
+      },
+    });
+  });
+
   test('projects a governed numbered UV replacement to In service', async () => {
     const store = seedStore();
     const plan = await prepare(store);

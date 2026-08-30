@@ -2715,6 +2715,7 @@ export const resolveMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-burner-resolution-incomplete"},
     );
   }
+  const lifecycleCompletedAt = endDate.toISOString();
   const burnerBlockLifecyclePlan = await prepareBurnerBlockLifecycleWritePlan({
     tx,
     sourceType: "maintenanceIssue",
@@ -2722,8 +2723,8 @@ export const resolveMaintenanceTicket = async ({
     assetType: ticket.assetType,
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
-    completedAt: endDate.toISOString(),
-    recordedAt: iso(context.serverNow),
+    completedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleCompletedAt,
     completedBy: context.actor,
     executionLevelMechanicalEvidence: plan.assigned.includes("mechanical"),
   });
@@ -2735,8 +2736,8 @@ export const resolveMaintenanceTicket = async ({
     assetType: ticket.assetType,
     assetNumber: ticket.assetNumber,
     actionSources: [{sourceModuleId: null, actionsJson: actions.text}],
-    completedAt: endDate.toISOString(),
-    recordedAt: iso(context.serverNow),
+    completedAt: lifecycleCompletedAt,
+    recordedAt: lifecycleCompletedAt,
     completedBy: context.actor,
     executionLevelInstrumentationEvidence:
       plan.assigned.includes("instrumentation"),

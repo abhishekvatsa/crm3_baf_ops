@@ -1757,6 +1757,8 @@ describe('governed maintenance-ticket supervision', () => {
       purchaseOrderNumber: 'PO-2026-411',
       sourceType: 'maintenanceIssue',
       sourceId: 'ticket-1',
+      completedAt: '2026-08-14T16:00:00.000Z',
+      recordedAt: '2026-08-14T16:00:00.000Z',
     });
   });
 

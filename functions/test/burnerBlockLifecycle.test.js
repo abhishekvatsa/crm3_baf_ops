@@ -149,6 +149,19 @@ async function prepare(store, row = action(), overrides = {}) {
 }
 
 describe('burner-block lifecycle projection', () => {
+  test('rejects a receipt time that differs from authoritative closure', async () => {
+    const store = seedStore();
+
+    await expect(prepare(store, action(), {
+      recordedAt: '2026-08-28T09:01:00.000Z',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'burner-block-lifecycle-closure-time-mismatch',
+      },
+    });
+  });
+
   test('atomically projects governed SAIL/RED replacement evidence', async () => {
     const store = seedStore();
     const plan = await prepare(store);
