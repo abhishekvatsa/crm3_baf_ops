@@ -76,6 +76,8 @@ class ResolutionHistory {
   double? downtimeHours;
   List<String> teamsInvolved;
   @ignore
+  IssueLanePlan? lanePlan;
+  @ignore
   String? reopenedByUid;
   @ignore
   String? reopenedByName;
@@ -94,6 +96,7 @@ class ResolutionHistory {
     this.remarks,
     this.downtimeHours,
     this.teamsInvolved = const [],
+    this.lanePlan,
     this.reopenedByUid,
     this.reopenedByName,
     this.reopenedAt,
@@ -109,6 +112,7 @@ class ResolutionHistory {
     'remarks': remarks,
     'downtimeHours': downtimeHours,
     'teamsInvolved': teamsInvolved,
+    ...?lanePlan?.toSynchronizedFields(),
     if (reopenedByUid != null) 'reopenedByUid': reopenedByUid,
     if (reopenedByName != null) 'reopenedByName': reopenedByName,
     if (reopenedAt != null) 'reopenedAt': reopenedAt!.toIso8601String(),
@@ -181,6 +185,10 @@ class ResolutionHistory {
         detail: 'reopening cannot precede the closure it follows',
       );
     }
+    final lanePlan = IssueLanePlan.readOptionalSynchronizedFields(
+      map,
+      source: source ?? 'maintenance resolution history',
+    );
 
     return ResolutionHistory(
       resolvedByUid: readOptionalPersistedString(
@@ -211,6 +219,7 @@ class ResolutionHistory {
         field: 'teamsInvolved',
         source: source,
       ),
+      lanePlan: lanePlan,
       reopenedByUid: reopenedByUid,
       reopenedByName: reopenedByName,
       reopenedAt: reopenedAt,

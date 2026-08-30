@@ -10,6 +10,8 @@ const issueLaneSynchronizedFieldNames = <String>{
   'issueCompletedLanes',
 };
 
+const issueLaneCompletionEvidenceFieldName = 'issueLaneCompletionEvidence';
+
 const issueRouteKeys = <String>{
   'operations',
   'electrical',
@@ -21,12 +23,84 @@ const issueRouteKeys = <String>{
   'others',
 };
 
+class IssueLaneCompletionEvidence {
+  const IssueLaneCompletionEvidence({
+    required this.completedAt,
+    required this.completedByUid,
+    required this.completedByName,
+  });
+
+  final DateTime completedAt;
+  final String completedByUid;
+  final String completedByName;
+
+  factory IssueLaneCompletionEvidence.fromMap(
+    dynamic value, {
+    required String source,
+    required String lane,
+  }) {
+    if (value is! Map) {
+      throw PersistedDataFormatException(
+        field: '$issueLaneCompletionEvidenceFieldName.$lane',
+        source: source,
+        detail: 'expected an object (${value.runtimeType})',
+      );
+    }
+    final map = Map<String, dynamic>.from(value);
+    if (map.keys.toSet().difference(const <String>{
+          'completedAt',
+          'completedByUid',
+          'completedByName',
+        }).isNotEmpty ||
+        map.length != 3) {
+      throw PersistedDataFormatException(
+        field: '$issueLaneCompletionEvidenceFieldName.$lane',
+        source: source,
+        detail: 'completion evidence fields are not exact',
+      );
+    }
+    final completedByUid = readRequiredPersistedString(
+      map['completedByUid'],
+      field: '$issueLaneCompletionEvidenceFieldName.$lane.completedByUid',
+      source: source,
+    );
+    final completedByName = readRequiredPersistedString(
+      map['completedByName'],
+      field: '$issueLaneCompletionEvidenceFieldName.$lane.completedByName',
+      source: source,
+    );
+    if (completedByUid.length > 160 || completedByName.length > 160) {
+      throw PersistedDataFormatException(
+        field: '$issueLaneCompletionEvidenceFieldName.$lane',
+        source: source,
+        detail: 'completion authority exceeds 160 characters',
+      );
+    }
+    return IssueLaneCompletionEvidence(
+      completedAt: readRequiredPersistedDateTime(
+        map['completedAt'],
+        field: '$issueLaneCompletionEvidenceFieldName.$lane.completedAt',
+        source: source,
+      ),
+      completedByUid: completedByUid,
+      completedByName: completedByName,
+    );
+  }
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'completedAt': completedAt.toUtc().toIso8601String(),
+    'completedByUid': completedByUid,
+    'completedByName': completedByName,
+  };
+}
+
 class IssueLanePlan {
   const IssueLanePlan._({
     required this.revision,
     required this.assignedLanes,
     required this.acknowledgedLanes,
     required this.completedLanes,
+    required this.completionEvidence,
   });
 
   factory IssueLanePlan.initial(Iterable<String> lanes) => IssueLanePlan._read(
@@ -34,6 +108,7 @@ class IssueLanePlan {
     assignedLanes: lanes.toList(growable: false),
     acknowledgedLanes: const <String>[],
     completedLanes: const <String>[],
+    completionEvidence: const <String, IssueLaneCompletionEvidence>{},
     source: 'new maintenance issue',
   );
 
@@ -51,6 +126,7 @@ class IssueLanePlan {
       assignedLanes: <String>[primaryLane],
       acknowledgedLanes: acknowledged ? <String>[primaryLane] : const [],
       completedLanes: completed ? <String>[primaryLane] : const [],
+      completionEvidence: const <String, IssueLaneCompletionEvidence>{},
       source: 'legacy maintenance issue',
     );
   }
@@ -59,6 +135,7 @@ class IssueLanePlan {
   final List<String> assignedLanes;
   final List<String> acknowledgedLanes;
   final List<String> completedLanes;
+  final Map<String, IssueLaneCompletionEvidence> completionEvidence;
 
   String get primaryLane => assignedLanes.first;
   bool get isMultiLane => assignedLanes.length > 1;
@@ -83,11 +160,12 @@ class IssueLanePlan {
       assignedLanes: assignedLanes,
       acknowledgedLanes: <String>[...acknowledgedLanes, lane],
       completedLanes: completedLanes,
+      completionEvidence: completionEvidence,
       source: 'maintenance issue acknowledgement',
     );
   }
 
-  IssueLanePlan complete(String lane) {
+  IssueLanePlan complete(String lane, {IssueLaneCompletionEvidence? evidence}) {
     _requireAssigned(lane);
     if (!acknowledgedLanes.contains(lane)) {
       throw StateError(
@@ -100,23 +178,61 @@ class IssueLanePlan {
       assignedLanes: assignedLanes,
       acknowledgedLanes: acknowledgedLanes,
       completedLanes: <String>[...completedLanes, lane],
+      completionEvidence: <String, IssueLaneCompletionEvidence>{
+        ...completionEvidence,
+        if (evidence != null) lane: evidence,
+      },
       source: 'maintenance issue lane completion',
     );
   }
 
-  IssueLanePlan completeAll() => IssueLanePlan._read(
-    revision: revision,
-    assignedLanes: assignedLanes,
-    acknowledgedLanes: assignedLanes,
-    completedLanes: assignedLanes,
-    source: 'maintenance issue final closure',
-  );
+  IssueLanePlan completeAll({
+    DateTime? completedAt,
+    String? completedByUid,
+    String? completedByName,
+  }) {
+    final supplied =
+        <Object?>[
+          completedAt,
+          completedByUid,
+          completedByName,
+        ].where((value) => value != null).length;
+    if (supplied != 0 && supplied != 3) {
+      throw StateError(
+        'Lane completion time, UID and name must be supplied together.',
+      );
+    }
+    final nextEvidence = <String, IssueLaneCompletionEvidence>{
+      ...completionEvidence,
+    };
+    if (supplied == 3) {
+      final evidence = IssueLaneCompletionEvidence(
+        completedAt: completedAt!,
+        completedByUid: completedByUid!,
+        completedByName: completedByName!,
+      );
+      for (final lane in assignedLanes) {
+        if (!completedLanes.contains(lane)) {
+          nextEvidence.putIfAbsent(lane, () => evidence);
+        }
+      }
+    }
+    return IssueLanePlan._read(
+      revision: revision,
+      assignedLanes: assignedLanes,
+      acknowledgedLanes: assignedLanes,
+      completedLanes: assignedLanes,
+      completionEvidence: nextEvidence,
+      source: 'maintenance issue final closure',
+    );
+  }
 
   IssueLanePlan reopen() => IssueLanePlan._read(
     revision: revision,
     assignedLanes: assignedLanes,
     acknowledgedLanes: const <String>[],
     completedLanes: const <String>[],
+    completionEvidence: const <String, IssueLaneCompletionEvidence>{},
     source: 'reopened maintenance issue',
   );
 
@@ -132,6 +248,11 @@ class IssueLanePlan {
       completedLanes: completedLanes
           .where(nextSet.contains)
           .toList(growable: false),
+      completionEvidence: <String, IssueLaneCompletionEvidence>{
+        for (final entry in completionEvidence.entries)
+          if (nextSet.contains(entry.key) && completedLanes.contains(entry.key))
+            entry.key: entry.value,
+      },
       source: 'maintenance issue lane reconfiguration',
     );
   }
@@ -142,7 +263,17 @@ class IssueLanePlan {
     'issueAssignedLanes': assignedLanes,
     'issueAcknowledgedLanes': acknowledgedLanes,
     'issueCompletedLanes': completedLanes,
+    issueLaneCompletionEvidenceFieldName: <String, dynamic>{
+      for (final entry in completionEvidence.entries)
+        entry.key: entry.value.toMap(),
+    },
   };
+
+  Map<String, dynamic> toClientWriteFields() {
+    final fields = toSynchronizedFields();
+    fields.remove(issueLaneCompletionEvidenceFieldName);
+    return fields;
+  }
 
   Map<String, dynamic> toLocalMap() => <String, dynamic>{
     'schemaVersion': 1,
@@ -150,6 +281,10 @@ class IssueLanePlan {
     'assignedLanes': assignedLanes,
     'acknowledgedLanes': acknowledgedLanes,
     'completedLanes': completedLanes,
+    'completionEvidence': <String, dynamic>{
+      for (final entry in completionEvidence.entries)
+        entry.key: entry.value.toMap(),
+    },
   };
 
   static IssueLanePlan fromSynchronizedFields(
@@ -195,6 +330,10 @@ class IssueLanePlan {
         field: 'issueCompletedLanes',
         source: source,
       ),
+      completionEvidence: _readCompletionEvidence(
+        map[issueLaneCompletionEvidenceFieldName],
+        source: source,
+      ),
       source: source,
     );
   }
@@ -205,7 +344,16 @@ class IssueLanePlan {
   }) {
     final present =
         issueLaneSynchronizedFieldNames.where(map.containsKey).toSet();
-    if (present.isEmpty) return null;
+    if (present.isEmpty) {
+      if (map.containsKey(issueLaneCompletionEvidenceFieldName)) {
+        throw PersistedDataFormatException(
+          field: issueLaneCompletionEvidenceFieldName,
+          source: source,
+          detail: 'completion evidence requires the issue lane field set',
+        );
+      }
+      return null;
+    }
     return fromSynchronizedFields(map, source: source);
   }
 
@@ -234,6 +382,7 @@ class IssueLanePlan {
       'issueAssignedLanes': local['assignedLanes'],
       'issueAcknowledgedLanes': local['acknowledgedLanes'],
       'issueCompletedLanes': local['completedLanes'],
+      issueLaneCompletionEvidenceFieldName: local['completionEvidence'],
     }, source: 'local maintenance metadata');
   }
 
@@ -242,6 +391,7 @@ class IssueLanePlan {
     required List<String> assignedLanes,
     required List<String> acknowledgedLanes,
     required List<String> completedLanes,
+    required Map<String, IssueLaneCompletionEvidence> completionEvidence,
     required String source,
   }) {
     if (revision < 1 ||
@@ -252,7 +402,8 @@ class IssueLanePlan {
         completedLanes.toSet().length != completedLanes.length ||
         !assignedLanes.every(issueRouteKeys.contains) ||
         !assignedLanes.toSet().containsAll(acknowledgedLanes) ||
-        !acknowledgedLanes.toSet().containsAll(completedLanes)) {
+        !acknowledgedLanes.toSet().containsAll(completedLanes) ||
+        !completedLanes.toSet().containsAll(completionEvidence.keys)) {
       throw PersistedDataFormatException(
         field: 'issueAssignedLanes',
         source: source,
@@ -264,6 +415,9 @@ class IssueLanePlan {
       assignedLanes: List<String>.unmodifiable(assignedLanes),
       acknowledgedLanes: List<String>.unmodifiable(acknowledgedLanes),
       completedLanes: List<String>.unmodifiable(completedLanes),
+      completionEvidence: Map<String, IssueLaneCompletionEvidence>.unmodifiable(
+        completionEvidence,
+      ),
     );
   }
 
@@ -290,6 +444,37 @@ String mergeIssueLanePlanIntoMaintenanceMetadata(
   final root = _readMetadataRoot(existing);
   root['issueLanePlan'] = value.toLocalMap();
   return jsonEncode(root);
+}
+
+Map<String, IssueLaneCompletionEvidence> _readCompletionEvidence(
+  dynamic value, {
+  required String source,
+}) {
+  if (value == null) return <String, IssueLaneCompletionEvidence>{};
+  if (value is! Map) {
+    throw PersistedDataFormatException(
+      field: issueLaneCompletionEvidenceFieldName,
+      source: source,
+      detail: 'expected an object (${value.runtimeType})',
+    );
+  }
+  final map = Map<String, dynamic>.from(value);
+  if (map.length > issueRouteKeys.length ||
+      map.keys.any((lane) => !issueRouteKeys.contains(lane))) {
+    throw PersistedDataFormatException(
+      field: issueLaneCompletionEvidenceFieldName,
+      source: source,
+      detail: 'contains an unsupported lane or too many entries',
+    );
+  }
+  return <String, IssueLaneCompletionEvidence>{
+    for (final entry in map.entries)
+      entry.key: IssueLaneCompletionEvidence.fromMap(
+        entry.value,
+        source: source,
+        lane: entry.key,
+      ),
+  };
 }
 
 List<String> _readLaneList(

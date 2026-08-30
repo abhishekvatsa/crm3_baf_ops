@@ -412,23 +412,25 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
             'Burner outcomes cannot be attached to a standard issue.',
           );
         }
-        final completedLanePlan = t.issueLanePlan.completeAll();
-        t.issueLanePlan = completedLanePlan;
+        final closureAt = endDate ?? DateTime.now();
+        final completionUid = closedByUid ?? actor.uid;
+        final completionName =
+            closedByName ?? (actor.name.isNotEmpty ? actor.name : actor.uid);
+        t.issueLanePlan = t.issueLanePlan.completeAll();
         if (t.acknowledgedByUid == null) {
-          t.acknowledgedByUid = closedByUid ?? actor.uid;
-          t.acknowledgedByName =
-              closedByName ?? (actor.name.isNotEmpty ? actor.name : actor.uid);
-          t.acknowledgedAt = endDate ?? DateTime.now();
+          t.acknowledgedByUid = completionUid;
+          t.acknowledgedByName = completionName;
+          t.acknowledgedAt = closureAt;
         }
         t.isResolved = true;
         t.status = TicketStatus.resolved;
-        t.endDate = endDate ?? DateTime.now();
+        t.endDate = closureAt;
         t.closedByUid = closedByUid;
         t.closedByName = closedByName;
         t.remarks = remarks;
         t.downtimeHours = downtimeHours;
         t.teamsInvolved = <String>{
-          ...completedLanePlan.assignedLanes,
+          ...t.issueLanePlan.assignedLanes,
           ...?teamsInvolved,
         }.toList(growable: false);
         if (actions != null) t.actions = actions;
@@ -475,12 +477,12 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
           remarks: t.remarks,
           downtimeHours: t.downtimeHours,
           teamsInvolved: t.teamsInvolved,
+          lanePlan: t.issueLanePlan,
           reopenedByUid: reopen.uid,
           reopenedByName: reopen.name,
           reopenedAt: reopenedAt,
           reopenReason: reopen.reason,
         );
-
         final historyPayload = readValidatedResolutionHistoryPayload(
           t.resolutionHistoryJson,
           source: 'local maintenance ${t.id}',

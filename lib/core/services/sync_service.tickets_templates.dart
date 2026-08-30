@@ -720,6 +720,8 @@ extension _SyncServiceTicketsTemplates on SyncService {
         source: 'maintenance replay ${local.firestoreId} closure',
       ),
     );
+    // Exact per-lane evidence belongs to governed backend commands. Replay
+    // preserves any remote evidence and does not manufacture a local version.
     final completedLanePlan = local.issueLanePlan.completeAll();
     final acknowledgementUid =
         remote?.acknowledgedByUid ?? evidence.closedByUid;
@@ -794,6 +796,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'issueAssignedLanes': reopenedLanePlan.assignedLanes,
       'issueAcknowledgedLanes': reopenedLanePlan.acknowledgedLanes,
       'issueCompletedLanes': reopenedLanePlan.completedLanes,
+      'issueLaneCompletionEvidence': <String, dynamic>{},
       'acknowledgedByUid': null,
       'acknowledgedByName': null,
       'acknowledgedAt': null,

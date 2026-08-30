@@ -496,6 +496,9 @@ void main() {
           'resolutionNote',
           'resolutionNotes',
           'resolutionDetails',
+          // Per-lane authority/time is backend-owned. Direct replay preserves
+          // the remote field by omitting it from the update payload.
+          'issueLaneCompletionEvidence',
         });
         for (final field in closeReplayFields) {
           expect(
@@ -526,6 +529,21 @@ void main() {
         expect(payload, contains('withResolutionFromActions'));
         expect(payload, contains('evidence.actionsJson'));
         expect(payload, contains("'burnerResolutionEvidence'"));
+        expect(payload, isNot(contains("'issueLaneCompletionEvidence'")));
+        final finalClosureRules = _blockStartingAt(
+          rules,
+          'function validMaintenanceIssueLaneFinalClosure',
+        );
+        expect(
+          finalClosureRules,
+          contains(
+            "request.resource.data.get('issueLaneCompletionEvidence', null)",
+          ),
+        );
+        expect(
+          finalClosureRules,
+          contains("resource.data.get('issueLaneCompletionEvidence', null)"),
+        );
         expect(payload, isNot(contains('remote!')));
       },
     );

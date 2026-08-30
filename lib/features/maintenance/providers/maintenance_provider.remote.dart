@@ -431,7 +431,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         ...ticket.issueLanePlan.assignedLanes,
         ...?teamsInvolved,
       }.toList(growable: false),
-      ...ticket.issueLanePlan.completeAll().toSynchronizedFields(),
+      ...ticket.issueLanePlan.completeAll().toClientWriteFields(),
       if (ticket.acknowledgedByUid == null)
         'acknowledgedByUid': closedByUid ?? actor.uid,
       if (ticket.acknowledgedByUid == null)
@@ -517,6 +517,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         'remarks': data['remarks'],
         'downtimeHours': data['downtimeHours'],
         'teamsInvolved': data['teamsInvolved'] ?? const <String>[],
+        ...current.issueLanePlan.toSynchronizedFields(),
         'reopenedByUid': reopen.uid,
         'reopenedByName': reopen.name,
         'reopenedAt': reopenedAt,
@@ -526,7 +527,6 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     final newHistoryJson = jsonEncode(historyPayload.rows);
     final burnerLockout = current.burnerLockoutCase;
     final reopenedLanePlan = current.issueLanePlan.reopen();
-
     await _collection.doc(docId).update({
       'isResolved': false,
       'status': TicketStatus.open.name,
@@ -863,7 +863,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   Map<String, dynamic> _ticketToMap(MaintenanceRecord t) => {
     ...t.qualityIntentSynchronizedFields,
     ...t.burnerLockoutSynchronizedFields,
-    ...t.issueLaneSynchronizedFields,
+    ...t.issueLanePlan.toClientWriteFields(),
     ...t.administrativeClosureSynchronizedFields,
     'firestoreId': t.firestoreId,
     'version': t.version,

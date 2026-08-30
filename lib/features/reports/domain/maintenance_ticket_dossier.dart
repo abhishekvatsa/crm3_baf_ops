@@ -1,6 +1,7 @@
 import '../../audit/models/audit_event_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/furnace_stuckup_case.dart';
+import '../../maintenance/domain/issue_lane_plan.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import 'report_provenance.dart';
 import 'structured_report_document.dart';
@@ -133,7 +134,8 @@ StructuredReportDocument buildMaintenanceTicketDossier({
       ),
       StructuredReportSection(
         title: 'Lane accountability',
-        subtitle: 'Canonical lane revision ${lanePlan.revision}.',
+        subtitle:
+            'Canonical lane revision ${lanePlan.revision}. Completion times are retained per lane for governed closures.',
         fields: <StructuredReportField>[
           StructuredReportField(
             label: 'First acknowledgement',
@@ -157,18 +159,31 @@ StructuredReportDocument buildMaintenanceTicketDossier({
         ],
         tables: <StructuredReportTable>[
           StructuredReportTable(
-            headers: const <String>['Lane', 'Acknowledged', 'Completed'],
-            rows: lanePlan.assignedLanes
-                .map(
-                  (lane) => <String>[
-                    _enumLabel(lane),
-                    lanePlan.acknowledgedLanes.contains(lane) ? 'Yes' : 'No',
-                    lanePlan.completedLanes.contains(lane) ? 'Yes' : 'No',
-                  ],
-                )
-                .toList(growable: false),
-            columnFlex: const <double>[1.5, 1, 1],
+            title: ticket.isClosed ? 'Current closure' : 'Current cycle',
+            headers: const <String>[
+              'Lane',
+              'Acknowledged',
+              'Completed',
+              'Completion time / authority',
+            ],
+            rows: _laneAccountabilityRows(lanePlan),
+            columnFlex: const <double>[1.25, 0.8, 0.8, 2.4],
           ),
+          for (var index = 0; index < historyRead.entries.length; index++)
+            if (historyRead.entries[index].lanePlan != null)
+              StructuredReportTable(
+                title: 'Earlier closure ${index + 1}',
+                headers: const <String>[
+                  'Lane',
+                  'Acknowledged',
+                  'Completed',
+                  'Completion time / authority',
+                ],
+                rows: _laneAccountabilityRows(
+                  historyRead.entries[index].lanePlan!,
+                ),
+                columnFlex: const <double>[1.25, 0.8, 0.8, 2.4],
+              ),
         ],
       ),
       StructuredReportSection(
@@ -328,6 +343,22 @@ StructuredReportDocument buildMaintenanceTicketDossier({
     ],
   );
 }
+
+List<List<String>> _laneAccountabilityRows(IssueLanePlan lanePlan) => lanePlan
+    .assignedLanes
+    .map(
+      (lane) => <String>[
+        _enumLabel(lane),
+        lanePlan.acknowledgedLanes.contains(lane) ? 'Yes' : 'No',
+        lanePlan.completedLanes.contains(lane) ? 'Yes' : 'No',
+        !lanePlan.completedLanes.contains(lane)
+            ? '-'
+            : lanePlan.completionEvidence[lane] == null
+            ? 'Exact lane completion time was not retained for this record'
+            : '${_dateTime(lanePlan.completionEvidence[lane]!.completedAt)} by ${lanePlan.completionEvidence[lane]!.completedByName}',
+      ],
+    )
+    .toList(growable: false);
 
 List<AuditEvent> maintenanceTicketCorrectionEventsInDossierOrder(
   Iterable<AuditEvent> events,

@@ -11368,9 +11368,9 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 76
-    and a05_timestamp_inventory_report.get("directCallCount") == 187
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 113
+    and a05_timestamp_inventory_report.get("readerCount") == 77
+    and a05_timestamp_inventory_report.get("directCallCount") == 188
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 114
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 72
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
@@ -11385,7 +11385,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 76
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 77
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
