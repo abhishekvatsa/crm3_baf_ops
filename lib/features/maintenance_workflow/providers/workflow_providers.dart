@@ -172,7 +172,7 @@ WorkflowAttentionSummary summarizeWorkflowAttention({
                 (request.statusKey == 'raised' ||
                     request.statusKey == 'acknowledged' ||
                     request.statusKey == 'complied') &&
-                canUserSeeComplianceRequest(request, actor),
+                isComplianceRequestRelevantToUser(request, actor),
           )
           .length;
 

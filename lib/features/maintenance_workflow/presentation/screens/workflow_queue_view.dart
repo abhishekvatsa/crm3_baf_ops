@@ -78,7 +78,7 @@ class WorkflowQueueView extends ConsumerWidget {
               (record) =>
                   !record.isDeleted &&
                   !_terminalComplianceStates.contains(record.statusKey) &&
-                  canUserSeeComplianceRequest(record, actor) &&
+                  isComplianceRequestRelevantToUser(record, actor) &&
                   _complianceMatches(record, needle),
             )
             .toList()

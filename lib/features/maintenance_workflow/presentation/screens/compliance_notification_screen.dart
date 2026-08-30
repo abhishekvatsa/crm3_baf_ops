@@ -93,7 +93,7 @@ class ComplianceNotificationScreen extends ConsumerWidget {
                 ),
           );
         }
-        if (!canUserSeeComplianceRequest(record, actor)) {
+        if (!isComplianceRequestRelevantToUser(record, actor)) {
           return BafScreenStateScaffold.access(
             appBarTitle: 'Compliance update',
             appBarSubtitle: 'Operational obligation and response status',
