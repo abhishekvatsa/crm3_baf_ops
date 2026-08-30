@@ -51,6 +51,18 @@ enum InnerCoverSourceType {
     fabricated => 'Fabricated',
     legacyExisting => 'Existing legacy cover',
   };
+
+  String get receiptOrCompletionDateLabel => switch (this) {
+    purchased => 'Received on',
+    fabricated => 'Fabrication completed on',
+    legacyExisting => 'Known receipt or completion date',
+  };
+
+  String get receiptOrCompletionDateHelp => switch (this) {
+    purchased => 'Optional supplier receipt date',
+    fabricated => 'Optional historical fabrication completion date',
+    legacyExisting => 'Optional date when supported by historical evidence',
+  };
 }
 
 enum InnerCoverOriginClassification {
@@ -113,8 +125,23 @@ enum InnerCoverTraceabilityGrade {
   };
 }
 
-DateTime innerCoverIncorporationInstantForLocalDate(DateTime selectedDate) =>
+DateTime innerCoverRegistrationInstantForLocalDate(DateTime selectedDate) =>
     DateTime(selectedDate.year, selectedDate.month, selectedDate.day).toUtc();
+
+DateTime innerCoverIncorporationInstantForLocalDate(DateTime selectedDate) =>
+    innerCoverRegistrationInstantForLocalDate(selectedDate);
+
+String? innerCoverRegistrationChronologyError({
+  required DateTime? receivedOrCompletedOn,
+  required DateTime? incorporatedOn,
+}) {
+  if (receivedOrCompletedOn != null &&
+      incorporatedOn != null &&
+      receivedOrCompletedOn.isAfter(incorporatedOn)) {
+    return 'Date incorporated cannot be before receipt or fabrication completion.';
+  }
+  return null;
+}
 
 InnerCoverTraceabilityGrade _readTraceabilityGrade(
   dynamic value, {

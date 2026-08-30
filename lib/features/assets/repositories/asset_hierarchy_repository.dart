@@ -890,6 +890,11 @@ class AssetHierarchyRepository {
     if (!originMatchesSource) {
       errors.add('The Inner Cover origin does not match its source envelope.');
     }
+    final chronologyError = innerCoverRegistrationChronologyError(
+      receivedOrCompletedOn: receivedOrCompletedOn,
+      incorporatedOn: incorporatedOn,
+    );
+    if (chronologyError != null) errors.add(chronologyError);
     if (sourceType == InnerCoverSourceType.fabricated) {
       final types = fabricationSections.map((section) => section.type).toSet();
       for (final requiredType in const {

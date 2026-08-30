@@ -11,6 +11,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_registry_model.dart';
 import '../data/inner_cover_lifecycle.dart';
+import 'widgets/inner_cover_registration_date_field.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../repositories/asset_hierarchy_repository.dart';
 
@@ -936,6 +937,11 @@ class _CoverDetailsSheet extends ConsumerWidget {
               label: 'Origin',
               value: cover.originClassification.label,
             ),
+            if (cover.receivedOrCompletedOn != null)
+              _DetailRow(
+                label: cover.sourceType.receiptOrCompletionDateLabel,
+                value: _formatInnerCoverDate(cover.receivedOrCompletedOn!),
+              ),
             if (cover.incorporatedOn != null)
               _DetailRow(
                 label: 'Date incorporated',
@@ -1532,8 +1538,10 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
   String? _serialError;
   String? _reasonError;
   String? _sectionsError;
+  String? _dateError;
   InnerCoverOriginClassification _origin =
       InnerCoverOriginClassification.documentedPurchase;
+  DateTime? _receivedOrCompletedOn;
   DateTime? _incorporatedOn;
   late final Map<InnerCoverFabricationSectionType, _SectionEditorState>
   _sections = {
@@ -1606,7 +1614,11 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                         .toList(),
                 onChanged:
                     (value) => setState(() {
-                      _origin = value ?? _origin;
+                      final nextOrigin = value ?? _origin;
+                      final sourceChanged =
+                          _sourceTypeForOrigin(nextOrigin) != _sourceType;
+                      _origin = nextOrigin;
+                      if (sourceChanged) _receivedOrCompletedOn = null;
                       if (_origin ==
                           InnerCoverOriginClassification
                               .ownerDeclaredFabricated) {
@@ -1621,38 +1633,36 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
                         }
                       }
                       _sectionsError = null;
+                      _dateError = null;
                     }),
               ),
               const SizedBox(height: BafSpacing.sm),
-              InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Date incorporated',
-                  helperText: 'Optional plant incorporation date',
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _incorporatedOn == null
-                            ? 'Not recorded'
-                            : DateFormat(
-                              'dd MMM yyyy',
-                            ).format(_incorporatedOn!),
-                      ),
-                    ),
-                    if (_incorporatedOn != null)
-                      IconButton(
-                        tooltip: 'Clear incorporation date',
-                        onPressed: () => setState(() => _incorporatedOn = null),
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
-                    IconButton(
-                      tooltip: 'Choose incorporation date',
-                      onPressed: _pickIncorporationDate,
-                      icon: const Icon(Icons.calendar_month_rounded),
-                    ),
-                  ],
-                ),
+              InnerCoverRegistrationDateField(
+                label: _sourceType.receiptOrCompletionDateLabel,
+                helperText: _sourceType.receiptOrCompletionDateHelp,
+                value: _receivedOrCompletedOn,
+                clearTooltip: 'Clear historical date',
+                chooseTooltip: 'Choose historical date',
+                onClear:
+                    () => setState(() {
+                      _receivedOrCompletedOn = null;
+                      _dateError = null;
+                    }),
+                onChoose: _pickReceivedOrCompletedDate,
+              ),
+              InnerCoverRegistrationDateField(
+                label: 'Date incorporated',
+                helperText: 'Optional plant incorporation date',
+                value: _incorporatedOn,
+                errorText: _dateError,
+                clearTooltip: 'Clear incorporation date',
+                chooseTooltip: 'Choose incorporation date',
+                onClear:
+                    () => setState(() {
+                      _incorporatedOn = null;
+                      _dateError = null;
+                    }),
+                onChoose: _pickIncorporationDate,
               ),
               TextField(
                 controller: _supplier,
@@ -1769,12 +1779,18 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
             ? 'Enter an Inner Cover serial number.'
             : null;
     final reasonError = reason.isEmpty ? 'Explain the registration.' : null;
+    final dateError = innerCoverRegistrationChronologyError(
+      receivedOrCompletedOn: _receivedOrCompletedOn,
+      incorporatedOn: _incorporatedOn,
+    );
     if (serialError != null ||
         reasonError != null ||
-        sectionErrors.isNotEmpty) {
+        sectionErrors.isNotEmpty ||
+        dateError != null) {
       setState(() {
         _serialError = serialError;
         _reasonError = reasonError;
+        _dateError = dateError;
         _sectionsError =
             sectionErrors.isEmpty
                 ? null
@@ -1789,7 +1805,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
         sourceType: _sourceType,
         originClassification: _origin,
         supplierOrFabricator: optional(_supplier),
-        receivedOrCompletedOn: null,
+        receivedOrCompletedOn: _receivedOrCompletedOn,
         incorporatedOn: _incorporatedOn,
         drawingReference: optional(_drawing),
         materialGrade: optional(_material),
@@ -1798,6 +1814,25 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
         sections: sections,
       ),
     );
+  }
+
+  Future<void> _pickReceivedOrCompletedDate() async {
+    final now = DateTime.now();
+    final current = _receivedOrCompletedOn?.toLocal() ?? now;
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(now) ? now : current,
+      firstDate: DateTime(1950),
+      lastDate: now,
+      helpText: _sourceType.receiptOrCompletionDateLabel,
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _receivedOrCompletedOn = innerCoverRegistrationInstantForLocalDate(
+        selected,
+      );
+      _dateError = null;
+    });
   }
 
   Future<void> _pickIncorporationDate() async {
@@ -1813,6 +1848,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     if (selected == null || !mounted) return;
     setState(() {
       _incorporatedOn = innerCoverIncorporationInstantForLocalDate(selected);
+      _dateError = null;
     });
   }
 
@@ -1821,17 +1857,21 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
     InnerCoverOriginClassification.ownerDeclaredFabricated,
   }.contains(_origin);
 
-  InnerCoverSourceType get _sourceType => switch (_origin) {
-    InnerCoverOriginClassification.documentedPurchase =>
-      InnerCoverSourceType.purchased,
-    InnerCoverOriginClassification.documentedFabrication ||
-    InnerCoverOriginClassification
-        .ownerDeclaredFabricated => InnerCoverSourceType.fabricated,
-    InnerCoverOriginClassification.ownerDeclaredNew ||
-    InnerCoverOriginClassification
-        .legacyUndocumented => InnerCoverSourceType.legacyExisting,
-  };
+  InnerCoverSourceType get _sourceType => _sourceTypeForOrigin(_origin);
 }
+
+InnerCoverSourceType _sourceTypeForOrigin(
+  InnerCoverOriginClassification origin,
+) => switch (origin) {
+  InnerCoverOriginClassification.documentedPurchase =>
+    InnerCoverSourceType.purchased,
+  InnerCoverOriginClassification.documentedFabrication ||
+  InnerCoverOriginClassification
+      .ownerDeclaredFabricated => InnerCoverSourceType.fabricated,
+  InnerCoverOriginClassification.ownerDeclaredNew ||
+  InnerCoverOriginClassification
+      .legacyUndocumented => InnerCoverSourceType.legacyExisting,
+};
 
 class _SectionEditorState {
   final InnerCoverFabricationSectionType type;
