@@ -212,7 +212,9 @@ class IssueLanePlan {
         completedByName: completedByName!,
       );
       for (final lane in assignedLanes) {
-        nextEvidence.putIfAbsent(lane, () => evidence);
+        if (!completedLanes.contains(lane)) {
+          nextEvidence.putIfAbsent(lane, () => evidence);
+        }
       }
     }
     return IssueLanePlan._read(

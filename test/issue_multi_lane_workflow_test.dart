@@ -129,6 +129,29 @@ void main() {
           'Contract Supervisor',
         );
         expect(completed.reopen().completionEvidence, isEmpty);
+
+        final legacyCompleted = IssueLanePlan.fromSynchronizedFields(
+          const <String, dynamic>{
+            'issueLaneSchemaVersion': 1,
+            'issueLaneRevision': 1,
+            'issueAssignedLanes': <String>['electrical', 'mechanical'],
+            'issueAcknowledgedLanes': <String>['electrical', 'mechanical'],
+            'issueCompletedLanes': <String>['electrical'],
+          },
+          source: 'legacy partially completed issue',
+        ).completeAll(
+          completedAt: finalAt,
+          completedByUid: 'supervisor-1',
+          completedByName: 'Contract Supervisor',
+        );
+        expect(
+          legacyCompleted.completionEvidence,
+          isNot(contains('electrical')),
+        );
+        expect(
+          legacyCompleted.completionEvidence['mechanical']!.completedAt,
+          finalAt,
+        );
       },
     );
 

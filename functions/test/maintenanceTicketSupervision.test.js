@@ -1165,6 +1165,49 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('final resolution does not invent evidence for a legacy-completed lane', async () => {
+    const seeded = serviceFor(contractSupervisor, {
+      startDate: '2026-08-14T14:30:00.000Z',
+      status: 'inProgress',
+      acknowledgedByUid: electrical.uid,
+      acknowledgedByName: electrical.name,
+      acknowledgedAt: '2026-08-14T15:00:00.000Z',
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 2,
+      issueAssignedLanes: ['electrical', 'mechanical'],
+      issueAcknowledgedLanes: ['electrical', 'mechanical'],
+      issueCompletedLanes: ['electrical'],
+    });
+
+    await seeded.service.execute({
+      commandId: 'resolve-legacy-completed-lane',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Remaining mechanical work completed.',
+        teamsInvolved: ['electrical', 'mechanical'],
+        actionsJson: '[]',
+      },
+    }, seeded.context);
+
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      issueCompletedLanes: ['electrical', 'mechanical'],
+      issueLaneCompletionEvidence: {
+        mechanical: {
+          completedAt: at.toISOString(),
+          completedByUid: contractSupervisor.uid,
+          completedByName: contractSupervisor.name,
+        },
+      },
+    });
+    expect(
+      seeded.store.read('maintenance_records/ticket-1')
+        .issueLaneCompletionEvidence.electrical,
+    ).toBeUndefined();
+  });
+
   test('reopened issue downtime starts at the latest reopen', async () => {
     const seeded = serviceFor(contractSupervisor, {
       startDate: '2026-08-14T10:00:00.000Z',

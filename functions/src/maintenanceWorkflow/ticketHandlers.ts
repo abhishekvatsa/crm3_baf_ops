@@ -2760,14 +2760,18 @@ export const resolveMaintenanceTicket = async ({
     acknowledged: [...plan.assigned],
     completed: [...plan.assigned],
     completionEvidence: Object.fromEntries(
-      plan.assigned.map((lane) => [
-        lane,
-        plan.completionEvidence[lane] ?? {
-          completedAt: iso(context.serverNow),
-          completedByUid: context.actor.uid,
-          completedByName: context.actor.name,
-        },
-      ]),
+      plan.assigned
+        .filter((lane) =>
+          plan.completionEvidence[lane] != null ||
+          !plan.completed.includes(lane))
+        .map((lane) => [
+          lane,
+          plan.completionEvidence[lane] ?? {
+            completedAt: iso(context.serverNow),
+            completedByUid: context.actor.uid,
+            completedByName: context.actor.name,
+          },
+        ]),
     ),
   };
   const nextVersion = version + 1;
