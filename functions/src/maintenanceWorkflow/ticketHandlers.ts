@@ -1472,6 +1472,7 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   issueAssignedLanes: ticket.issueAssignedLanes ?? null,
   issueAcknowledgedLanes: ticket.issueAcknowledgedLanes ?? null,
   issueCompletedLanes: ticket.issueCompletedLanes ?? null,
+  issueLaneCompletionEvidence: ticket.issueLaneCompletionEvidence ?? null,
   endDate: instantText(ticket.endDate),
   closedByUid: ticket.closedByUid ?? null,
   closedByName: ticket.closedByName ?? null,
@@ -2600,7 +2601,18 @@ export const completeMaintenanceTicketLane = async ({
       {reasonCode: "maintenance-ticket-lane-not-ready-for-completion"},
     );
   }
-  const nextPlan = {...plan, completed: [...plan.completed, lane]};
+  const nextPlan = {
+    ...plan,
+    completed: [...plan.completed, lane],
+    completionEvidence: {
+      ...plan.completionEvidence,
+      [lane]: {
+        completedAt: iso(context.serverNow),
+        completedByUid: context.actor.uid,
+        completedByName: context.actor.name,
+      },
+    },
+  };
   const nextVersion = version + 1;
   const update: JsonMap = {
     status: ticketLaneStatus(nextPlan),
@@ -2747,6 +2759,16 @@ export const resolveMaintenanceTicket = async ({
     ...plan,
     acknowledged: [...plan.assigned],
     completed: [...plan.assigned],
+    completionEvidence: Object.fromEntries(
+      plan.assigned.map((lane) => [
+        lane,
+        plan.completionEvidence[lane] ?? {
+          completedAt: iso(context.serverNow),
+          completedByUid: context.actor.uid,
+          completedByName: context.actor.name,
+        },
+      ]),
+    ),
   };
   const nextVersion = version + 1;
   const updatedAt = iso(context.serverNow);
@@ -3106,6 +3128,7 @@ export const reopenMaintenanceTicket = async ({
     ...plan,
     acknowledged: [] as string[],
     completed: [] as string[],
+    completionEvidence: {},
   };
   const remarks = optionalText(command.payload.remarks, "remarks", 4000);
   const resolutionHistoryJson =
@@ -3234,6 +3257,10 @@ export const reconfigureMaintenanceTicketLanes = async ({
     assigned: lanes,
     acknowledged: plan.acknowledged.filter((lane) => selected.has(lane)),
     completed: plan.completed.filter((lane) => selected.has(lane)),
+    completionEvidence: Object.fromEntries(
+      Object.entries(plan.completionEvidence)
+        .filter(([lane]) => selected.has(lane) && plan.completed.includes(lane)),
+    ),
   };
   if (JSON.stringify(plan.assigned) === JSON.stringify(lanes) &&
       (ticket.otherDepartment ?? null) === otherDepartment) {
@@ -3529,10 +3556,11 @@ export const correctMaintenanceTicket = async ({
   }
   const nextVersion = version + 1;
   const laneProjectionUpdate = routeChanged ? ticketLaneProjection({
-      revision: currentLanePlan.revision + 1,
-      assigned: effectiveLanes,
-      acknowledged: [],
-      completed: [],
+    revision: currentLanePlan.revision + 1,
+    assigned: effectiveLanes,
+    acknowledged: [],
+    completed: [],
+    completionEvidence: {},
     }) : {};
   const update: JsonMap = {
     ...changed,

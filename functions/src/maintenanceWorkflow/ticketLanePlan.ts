@@ -19,6 +19,13 @@ export interface TicketLanePlan {
   readonly assigned: readonly string[];
   readonly acknowledged: readonly string[];
   readonly completed: readonly string[];
+  readonly completionEvidence: Readonly<Record<string, TicketLaneCompletion>>;
+}
+
+export interface TicketLaneCompletion extends JsonMap {
+  readonly completedAt: string;
+  readonly completedByUid: string;
+  readonly completedByName: string;
 }
 
 const laneList = (
@@ -84,20 +91,99 @@ const parseFields = (
       {reasonCode: "maintenance-ticket-lane-plan-invalid"},
     );
   }
+  const completionEvidence = parseCompletionEvidence(
+    source.issueLaneCompletionEvidence,
+    completed,
+    code,
+  );
   return {
     revision: source.issueLaneRevision as number,
     assigned,
     acknowledged,
     completed,
+    completionEvidence,
   };
+};
+
+const parseCompletionEvidence = (
+  value: unknown,
+  completed: readonly string[],
+  code: "invalid-argument" | "failed-precondition",
+): Readonly<Record<string, TicketLaneCompletion>> => {
+  if (value == null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new WorkflowError(
+      code,
+      "Issue lane completion evidence must be an object.",
+      {reasonCode: "maintenance-ticket-lane-completion-evidence-invalid"},
+    );
+  }
+  const raw = value as JsonMap;
+  const lanes = Object.keys(raw);
+  if (lanes.length > ROUTES.size ||
+      lanes.some((lane) => !completed.includes(lane))) {
+    throw new WorkflowError(
+      code,
+      "Issue lane completion evidence must belong to completed lanes.",
+      {reasonCode: "maintenance-ticket-lane-completion-evidence-invalid"},
+    );
+  }
+  const evidence: Record<string, TicketLaneCompletion> = {};
+  for (const lane of lanes) {
+    const entry = raw[lane];
+    if (entry == null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new WorkflowError(
+        code,
+        "Issue lane completion evidence entry is malformed.",
+        {reasonCode: "maintenance-ticket-lane-completion-evidence-invalid"},
+      );
+    }
+    const map = entry as JsonMap;
+    const keys = Object.keys(map).sort();
+    if (JSON.stringify(keys) !== JSON.stringify([
+      "completedAt", "completedByName", "completedByUid",
+    ]) || typeof map.completedAt !== "string" ||
+        !Number.isFinite(Date.parse(map.completedAt)) ||
+        typeof map.completedByUid !== "string" ||
+        map.completedByUid.trim().length === 0 ||
+        map.completedByUid.length > 160 ||
+        typeof map.completedByName !== "string" ||
+        map.completedByName.trim().length === 0 ||
+        map.completedByName.length > 160) {
+      throw new WorkflowError(
+        code,
+        "Issue lane completion actor or time evidence is malformed.",
+        {reasonCode: "maintenance-ticket-lane-completion-evidence-invalid"},
+      );
+    }
+    evidence[lane] = {
+      completedAt: map.completedAt,
+      completedByUid: map.completedByUid.trim(),
+      completedByName: map.completedByName.trim(),
+    };
+  }
+  return evidence;
 };
 
 const presentLaneFields = (source: JsonMap): readonly string[] =>
   TICKET_LANE_FIELDS.filter((field) =>
     Object.prototype.hasOwnProperty.call(source, field));
 
+const hasCompletionEvidenceField = (source: JsonMap): boolean =>
+  Object.prototype.hasOwnProperty.call(
+    source,
+    "issueLaneCompletionEvidence",
+  );
+
 export const hasCompleteTicketLaneFields = (source: JsonMap): boolean => {
   const present = presentLaneFields(source);
+  if (present.length === 0 && hasCompletionEvidenceField(source)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Issue lane completion evidence requires the complete lane field set.",
+      {reasonCode: "maintenance-ticket-lane-plan-partial"},
+    );
+  }
   if (present.length !== 0 && present.length !== TICKET_LANE_FIELDS.length) {
     throw new WorkflowError(
       "failed-precondition",
@@ -113,8 +199,21 @@ export const createTicketLanePlan = (
   routedTo: string,
 ): TicketLanePlan => {
   const present = presentLaneFields(input);
+  if (present.length === 0 && hasCompletionEvidenceField(input)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Issue lane completion evidence requires the complete lane field set.",
+      {reasonCode: "maintenance-ticket-lane-plan-partial"},
+    );
+  }
   if (present.length === 0) {
-    return {revision: 1, assigned: [routedTo], acknowledged: [], completed: []};
+    return {
+      revision: 1,
+      assigned: [routedTo],
+      acknowledged: [],
+      completed: [],
+      completionEvidence: {},
+    };
   }
   if (present.length !== TICKET_LANE_FIELDS.length) {
     throw new WorkflowError(
@@ -155,6 +254,7 @@ export const ticketLanePlan = (
     acknowledged: status === "acknowledged" || status === "inProgress" ||
       status === "resolved" ? [route] : [],
     completed: status === "resolved" ? [route] : [],
+    completionEvidence: {},
   };
   const otherDepartment = typeof ticket.otherDepartment === "string" ?
     ticket.otherDepartment.trim() : null;
@@ -214,6 +314,7 @@ export const ticketLaneProjection = (plan: TicketLanePlan): JsonMap => ({
   issueAssignedLanes: [...plan.assigned],
   issueAcknowledgedLanes: [...plan.acknowledged],
   issueCompletedLanes: [...plan.completed],
+  issueLaneCompletionEvidence: {...plan.completionEvidence},
 });
 
 export const ticketLanePlanComplete = (plan: TicketLanePlan): boolean =>

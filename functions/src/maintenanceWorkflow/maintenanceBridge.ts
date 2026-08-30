@@ -390,6 +390,7 @@ const maintenanceClosureResetProjection = (maintenance: JsonMap): JsonMap => {
       ...plan,
       acknowledged: [],
       completed: [],
+      completionEvidence: {},
     });
   })() : {};
   const burnerProjection =

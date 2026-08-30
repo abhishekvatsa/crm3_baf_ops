@@ -133,7 +133,8 @@ StructuredReportDocument buildMaintenanceTicketDossier({
       ),
       StructuredReportSection(
         title: 'Lane accountability',
-        subtitle: 'Canonical lane revision ${lanePlan.revision}.',
+        subtitle:
+            'Canonical lane revision ${lanePlan.revision}. Completion times are retained per lane for governed closures.',
         fields: <StructuredReportField>[
           StructuredReportField(
             label: 'First acknowledgement',
@@ -157,17 +158,27 @@ StructuredReportDocument buildMaintenanceTicketDossier({
         ],
         tables: <StructuredReportTable>[
           StructuredReportTable(
-            headers: const <String>['Lane', 'Acknowledged', 'Completed'],
+            headers: const <String>[
+              'Lane',
+              'Acknowledged',
+              'Completed',
+              'Completion time / authority',
+            ],
             rows: lanePlan.assignedLanes
                 .map(
                   (lane) => <String>[
                     _enumLabel(lane),
                     lanePlan.acknowledgedLanes.contains(lane) ? 'Yes' : 'No',
                     lanePlan.completedLanes.contains(lane) ? 'Yes' : 'No',
+                    !lanePlan.completedLanes.contains(lane)
+                        ? '-'
+                        : lanePlan.completionEvidence[lane] == null
+                        ? 'Exact lane completion time was not retained for this record'
+                        : '${_dateTime(lanePlan.completionEvidence[lane]!.completedAt)} by ${lanePlan.completionEvidence[lane]!.completedByName}',
                   ],
                 )
                 .toList(growable: false),
-            columnFlex: const <double>[1.5, 1, 1],
+            columnFlex: const <double>[1.25, 0.8, 0.8, 2.4],
           ),
         ],
       ),

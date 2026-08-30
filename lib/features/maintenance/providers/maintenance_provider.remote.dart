@@ -431,7 +431,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         ...ticket.issueLanePlan.assignedLanes,
         ...?teamsInvolved,
       }.toList(growable: false),
-      ...ticket.issueLanePlan.completeAll().toSynchronizedFields(),
+      ...ticket.issueLanePlan.completeAll().toClientWriteFields(),
       if (ticket.acknowledgedByUid == null)
         'acknowledgedByUid': closedByUid ?? actor.uid,
       if (ticket.acknowledgedByUid == null)
@@ -863,7 +863,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   Map<String, dynamic> _ticketToMap(MaintenanceRecord t) => {
     ...t.qualityIntentSynchronizedFields,
     ...t.burnerLockoutSynchronizedFields,
-    ...t.issueLaneSynchronizedFields,
+    ...t.issueLanePlan.toClientWriteFields(),
     ...t.administrativeClosureSynchronizedFields,
     'firestoreId': t.firestoreId,
     'version': t.version,

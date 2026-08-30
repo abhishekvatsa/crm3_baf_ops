@@ -19,6 +19,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final closedAt = DateTime.utc(2026, 8, 23, 12);
+    final laneCompletedAt = closedAt.subtract(const Duration(minutes: 35));
     final reopenedAt = closedAt.subtract(const Duration(days: 1));
     final startedAt = closedAt.subtract(const Duration(days: 3));
     final raisedAt = startedAt.add(const Duration(hours: 6));
@@ -115,7 +116,14 @@ void main() {
                 RoutedTo.instrumentation.name,
               ])
               .acknowledge(RoutedTo.instrumentation.name)
-              .complete(RoutedTo.instrumentation.name);
+              .complete(
+                RoutedTo.instrumentation.name,
+                evidence: IssueLaneCompletionEvidence(
+                  completedAt: laneCompletedAt,
+                  completedByUid: 'ia-1',
+                  completedByName: 'I&A One',
+                ),
+              );
     expect(
       ticket.actionsReadResult.entries
           .singleWhere((action) => action.component == 'Burner control relay')
@@ -164,6 +172,12 @@ void main() {
 
     expect(find.text('Issue context'), findsOneWidget);
     expect(find.text('Accountability'), findsOneWidget);
+    expect(
+      find.text(
+        '${DateFormat('dd MMM yyyy, HH:mm').format(laneCompletedAt.toLocal())} · I&A One',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Timeline and people'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Issue started'),

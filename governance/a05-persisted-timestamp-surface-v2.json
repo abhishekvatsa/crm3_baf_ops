@@ -340,6 +340,18 @@
       "reArmCondition": "any maintenance-ticket timestamp schema change"
     },
     {
+      "id": "maintenance-issue-lane-completion-evidence",
+      "readerFile": "lib/features/maintenance/domain/issue_lane_plan.dart",
+      "readerMarker": "factory IssueLaneCompletionEvidence.fromMap(",
+      "requiredFields": ["$issueLaneCompletionEvidenceFieldName.$lane.completedAt"],
+      "optionalFields": [],
+      "owner": "maintenance",
+      "purpose": "restore the exact server-certified completion instant for one maintenance issue lane",
+      "authorityBoundary": "persisted-nested-operational-state",
+      "regression": "test/issue_multi_lane_workflow_test.dart; test/maintenance_ticket_detail_screen_test.dart; test/maintenance_ticket_dossier_test.dart",
+      "reArmCondition": "any issue-lane completion evidence timestamp or authority schema change"
+    },
+    {
       "id": "resolution-history",
       "readerFile": "lib/features/maintenance/data/maintenance_model.dart",
       "readerMarker": "factory ResolutionHistory.fromMap",

@@ -968,6 +968,13 @@ describe('governed maintenance-ticket supervision', () => {
       status: 'inProgress',
       issueAcknowledgedLanes: ['electrical'],
       issueCompletedLanes: ['electrical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: at.toISOString(),
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+      },
     });
   });
 
@@ -981,7 +988,14 @@ describe('governed maintenance-ticket supervision', () => {
       issueLaneRevision: 2,
       issueAssignedLanes: ['electrical', 'mechanical'],
       issueAcknowledgedLanes: ['electrical'],
-      issueCompletedLanes: [],
+      issueCompletedLanes: ['electrical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T15:15:00.000Z',
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+      },
     });
     const receipt = await seeded.service.execute({
       commandId: 'reconfigure-ticket-lanes',
@@ -1006,7 +1020,14 @@ describe('governed maintenance-ticket supervision', () => {
       issueLaneRevision: 3,
       issueAssignedLanes: ['electrical', 'instrumentation'],
       issueAcknowledgedLanes: ['electrical'],
-      issueCompletedLanes: [],
+      issueCompletedLanes: ['electrical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T15:15:00.000Z',
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+      },
     });
   });
 
@@ -1077,7 +1098,14 @@ describe('governed maintenance-ticket supervision', () => {
       issueLaneRevision: 2,
       issueAssignedLanes: ['electrical', 'mechanical'],
       issueAcknowledgedLanes: ['electrical'],
-      issueCompletedLanes: [],
+      issueCompletedLanes: ['electrical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T15:15:00.000Z',
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+      },
     });
     const command = {
       commandId: 'resolve-multi-lane-ticket',
@@ -1110,6 +1138,18 @@ describe('governed maintenance-ticket supervision', () => {
       issueAssignedLanes: ['electrical', 'mechanical'],
       issueAcknowledgedLanes: ['electrical', 'mechanical'],
       issueCompletedLanes: ['electrical', 'mechanical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T15:15:00.000Z',
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+        mechanical: {
+          completedAt: at.toISOString(),
+          completedByUid: contractSupervisor.uid,
+          completedByName: contractSupervisor.name,
+        },
+      },
       closedByUid: contractSupervisor.uid,
       endDate: '2026-08-14T16:00:00.000Z',
       downtimeHours: 1.5,
@@ -1915,6 +1955,18 @@ describe('governed maintenance-ticket supervision', () => {
       issueAssignedLanes: ['electrical', 'mechanical'],
       issueAcknowledgedLanes: ['electrical', 'mechanical'],
       issueCompletedLanes: ['electrical', 'mechanical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T15:00:00.000Z',
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+        mechanical: {
+          completedAt: '2026-08-14T15:20:00.000Z',
+          completedByUid: mechanical.uid,
+          completedByName: mechanical.name,
+        },
+      },
       endDate: '2026-08-14T15:30:00.000Z',
       closedByUid: contractSupervisor.uid,
       closedByName: contractSupervisor.name,
@@ -1949,6 +2001,7 @@ describe('governed maintenance-ticket supervision', () => {
       isResolved: false,
       issueAcknowledgedLanes: [],
       issueCompletedLanes: [],
+      issueLaneCompletionEvidence: {},
       endDate: null,
       closedByUid: null,
       teamsInvolved: [],
@@ -2140,6 +2193,13 @@ describe('governed maintenance-ticket supervision', () => {
     }), context)).rejects.toMatchObject({
       code: 'invalid-argument',
     });
+    await expect(service.execute(createCommand({
+      commandId: 'detached-lane-evidence-create',
+      ticketId: 'detached-lane-evidence-create',
+      ticket: {issueLaneCompletionEvidence: {}},
+    }), context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+    });
   });
 
   test('acknowledgement fails closed on stale, deferred, or partial evidence', async () => {
@@ -2157,6 +2217,20 @@ describe('governed maintenance-ticket supervision', () => {
         issueAssignedLanes: ['electrical', 'mechanical'],
         issueAcknowledgedLanes: ['electrical'],
         issueCompletedLanes: [],
+      },
+      {
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['electrical'],
+        issueAcknowledgedLanes: [],
+        issueCompletedLanes: [],
+        issueLaneCompletionEvidence: {
+          electrical: {
+            completedAt: at.toISOString(),
+            completedByUid: electrical.uid,
+            completedByName: electrical.name,
+          },
+        },
       },
     ]) {
       const {service, context} = serviceFor(electrical, ticket);

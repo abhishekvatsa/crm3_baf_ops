@@ -2680,7 +2680,8 @@ service cloud.firestore {
         'issueLaneRevision',
         'issueAssignedLanes',
         'issueAcknowledgedLanes',
-        'issueCompletedLanes'
+        'issueCompletedLanes',
+        'issueLaneCompletionEvidence'
       ]);
     }
 
@@ -2717,6 +2718,48 @@ service cloud.firestore {
         && value.toSet().size() == value.size();
     }
 
+    function validMaintenanceIssueLaneCompletionEntry(entry) {
+      return entry is map
+          && entry.keys().size() == 3
+          && entry.keys().hasOnly([
+            'completedAt',
+            'completedByUid',
+            'completedByName'
+          ])
+          && validNonEmptyString(entry.get('completedAt', null), 50)
+          && validNonEmptyString(entry.get('completedByUid', null), 160)
+          && validNonEmptyString(entry.get('completedByName', null), 160);
+    }
+
+    function validMaintenanceIssueLaneCompletionAt(data, index) {
+      let completed = data.get('issueCompletedLanes', []);
+      let evidence = data.get('issueLaneCompletionEvidence', {});
+      return completed.size() <= index
+        || validMaintenanceIssueLaneCompletionEntry(
+          evidence.get(completed[index], {})
+        );
+    }
+
+    function validMaintenanceIssueLaneCompletionEvidence(data) {
+      let completed = data.get('issueCompletedLanes', []);
+      let evidence = data.get('issueLaneCompletionEvidence', {});
+      return data.get('issueLaneCompletionEvidence', null) ==
+          resource.data.get('issueLaneCompletionEvidence', null)
+        || !data.keys().hasAny(['issueLaneCompletionEvidence'])
+        || (evidence is map
+          && evidence.keys().size() <= 8
+          && evidence.keys().size() == completed.size()
+          && evidence.keys().hasOnly(completed)
+          && validMaintenanceIssueLaneCompletionAt(data, 0)
+          && validMaintenanceIssueLaneCompletionAt(data, 1)
+          && validMaintenanceIssueLaneCompletionAt(data, 2)
+          && validMaintenanceIssueLaneCompletionAt(data, 3)
+          && validMaintenanceIssueLaneCompletionAt(data, 4)
+          && validMaintenanceIssueLaneCompletionAt(data, 5)
+          && validMaintenanceIssueLaneCompletionAt(data, 6)
+          && validMaintenanceIssueLaneCompletionAt(data, 7));
+    }
+
     function validMaintenanceIssueLaneProjection(data) {
       let assigned = data.get('issueAssignedLanes', []);
       let acknowledged = data.get('issueAcknowledgedLanes', []);
@@ -2729,6 +2772,7 @@ service cloud.firestore {
           && validMaintenanceIssueLaneList(assigned, false)
           && validMaintenanceIssueProgressList(acknowledged)
           && validMaintenanceIssueProgressList(completed)
+          && validMaintenanceIssueLaneCompletionEvidence(data)
           && assigned.hasAll(acknowledged)
           && acknowledged.hasAll(completed)
           && assigned[0] == data.get('routedTo', null)
@@ -2772,6 +2816,10 @@ service cloud.firestore {
       let assigned = request.resource.data.get('issueAssignedLanes', []);
       return validMaintenanceIssueLaneProjection(request.resource.data)
         && maintenanceIssueLaneTopologyPreserved()
+        // Direct clients may preserve backend-certified lane evidence but may
+        // not manufacture or rewrite it during final closure.
+        && request.resource.data.get('issueLaneCompletionEvidence', null) ==
+          resource.data.get('issueLaneCompletionEvidence', null)
         && (isMaintenanceIssueSupervisor()
           || (assigned.size() == 1
             && canCloseMaintenanceIssueRoute(assigned[0])));
@@ -2812,6 +2860,7 @@ service cloud.firestore {
         'issueAssignedLanes',
         'issueAcknowledgedLanes',
         'issueCompletedLanes',
+        'issueLaneCompletionEvidence',
         'updatedAt',
         'updatedByUid',
         'updatedByName',
@@ -2855,6 +2904,7 @@ service cloud.firestore {
         'issueAssignedLanes',
         'issueAcknowledgedLanes',
         'issueCompletedLanes',
+        'issueLaneCompletionEvidence',
         'remarks',
         'resolutionHistoryJson',
         'updatedAt',

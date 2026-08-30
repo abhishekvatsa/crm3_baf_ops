@@ -466,9 +466,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "C7CBB00B418A691B1FBD3378A2A42B8669A5227D6EB6A110446D88EE7C325D94",
+      "candidateSha256": "679B6E7F9AB9158543CA42A033D11BAA708E34802B73D1F1131392CBD854C2CD",
       "canonicalBytes": 111981,
-      "candidateBytes": 179943,
+      "candidateBytes": 182283,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1078,9 +1078,9 @@
     {
       "path": "lib/core/services/sync_service.tickets_templates.dart",
       "canonicalSha256": "234C8A55AC89596929E0BBDA8FDA197809502505CD803C814085B37A5B883290",
-      "candidateSha256": "0A589050D4D33C04AFF542263E8D06AF93EB31A1DBD914A60DC276B86403FC4E",
+      "candidateSha256": "67B20E365171A1B38DAE6B23C5472AF35C68EA89C239FDF091640FB13FF16017",
       "canonicalBytes": 20107,
-      "candidateBytes": 44341,
+      "candidateBytes": 44554,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2730,9 +2730,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "477997407463C2827EED37E8BD0531D72C3CD02489A800073C4710B03ED90B4D",
+      "candidateSha256": "F97743E6CE2AEAB073657E62FFE1C4F04C4BB113A4B5241E6F26203CE866970B",
       "canonicalBytes": 78841,
-      "candidateBytes": 169800,
+      "candidateBytes": 171219,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2826,9 +2826,9 @@
     {
       "path": "test/maintenance_lifecycle_replay_contract_test.dart",
       "canonicalSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
-      "candidateSha256": "9FAC44BBFD6403A5266DAE7BD5E383970793940546792E05422A1B5191C8AEF5",
+      "candidateSha256": "9C4384B49C9816FAD646FA8EFA1AD59027BBF8D391FCCD26B999A34A509B3632",
       "canonicalBytes": 21051,
-      "candidateBytes": 43340,
+      "candidateBytes": 44046,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

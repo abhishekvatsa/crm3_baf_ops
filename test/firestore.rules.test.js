@@ -1519,6 +1519,13 @@ describe("maintenance_records", () => {
       issueAssignedLanes: ["mechanical", "electrical"],
       issueAcknowledgedLanes: ["mechanical", "electrical"],
       issueCompletedLanes: ["mechanical"],
+      issueLaneCompletionEvidence: {
+        mechanical: {
+          completedAt: createdAt,
+          completedByUid: "seniorMech",
+          completedByName: "Senior Mechanical",
+        },
+      },
       createdAt,
       updatedAt: createdAt,
       isDeleted: false,
@@ -1534,6 +1541,13 @@ describe("maintenance_records", () => {
       actionsJson: "[]",
       issueAcknowledgedLanes: ["mechanical", "electrical"],
       issueCompletedLanes: ["mechanical", "electrical"],
+      issueLaneCompletionEvidence: {
+        mechanical: {
+          completedAt: createdAt,
+          completedByUid: "seniorMech",
+          completedByName: "Senior Mechanical",
+        },
+      },
       updatedAt: closedAt,
       version: 4,
     };
@@ -1544,6 +1558,37 @@ describe("maintenance_records", () => {
         closedByUid: "seniorMech",
         updatedByUid: "seniorMech",
         updatedByName: "Senior Mechanical",
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("supervisor1"), "maintenance_records/ticketMultiLane"), {
+        ...close,
+        closedByUid: "supervisor1",
+        updatedByUid: "supervisor1",
+        updatedByName: "Contract Supervisor",
+        issueLaneCompletionEvidence: {
+          ...close.issueLaneCompletionEvidence,
+          operations: {
+            completedAt: closedAt,
+            completedByUid: "supervisor1",
+            completedByName: "Contract Supervisor",
+          },
+        },
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("supervisor1"), "maintenance_records/ticketMultiLane"), {
+        ...close,
+        closedByUid: "supervisor1",
+        updatedByUid: "supervisor1",
+        updatedByName: "Contract Supervisor",
+        issueLaneCompletionEvidence: {
+          ...close.issueLaneCompletionEvidence,
+          electrical: {
+            ...close.issueLaneCompletionEvidence.electrical,
+            note: "Unexpected field",
+          },
+        },
       })
     );
     await assertSucceeds(

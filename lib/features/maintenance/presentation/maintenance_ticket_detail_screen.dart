@@ -13,6 +13,7 @@ import '../../reports/domain/maintenance_ticket_dossier.dart';
 import '../../reports/presentation/report_provenance_builder.dart';
 import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/maintenance_model.dart';
+import '../domain/issue_lane_plan.dart';
 import 'maintenance_ticket_correction_history.dart';
 
 class MaintenanceTicketDetailScreen extends ConsumerWidget {
@@ -144,6 +145,7 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                     lane: lane,
                     acknowledged: lanePlan.acknowledgedLanes.contains(lane),
                     completed: lanePlan.completedLanes.contains(lane),
+                    completionEvidence: lanePlan.completionEvidence[lane],
                   ),
               if (_hasText(ticket.otherDepartment))
                 _DetailValue(
@@ -622,11 +624,13 @@ class _LaneProgressRow extends StatelessWidget {
     required this.lane,
     required this.acknowledged,
     required this.completed,
+    required this.completionEvidence,
   });
 
   final String lane;
   final bool acknowledged;
   final bool completed;
+  final IssueLaneCompletionEvidence? completionEvidence;
 
   @override
   Widget build(BuildContext context) {
@@ -642,36 +646,62 @@ class _LaneProgressRow extends StatelessWidget {
             : acknowledged
             ? BafColors.warning
             : BafColors.textSecondary;
+    final evidenceText =
+        !completed
+            ? null
+            : completionEvidence == null
+            ? 'Exact lane completion time was not retained for this record'
+            : '${MaintenanceTicketDetailScreen._dateTime(completionEvidence!.completedAt)} · ${completionEvidence!.completedByName}';
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          completed
-              ? Icons.task_alt_rounded
-              : acknowledged
-              ? Icons.verified_rounded
-              : Icons.schedule_rounded,
-          size: 20,
-          color: color,
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(
+            completed
+                ? Icons.task_alt_rounded
+                : acknowledged
+                ? Icons.verified_rounded
+                : Icons.schedule_rounded,
+            size: 20,
+            color: color,
+          ),
         ),
         const SizedBox(width: BafSpacing.sm),
         Expanded(
-          child: Text(
-            _routeLabel(RoutedTo.values.byName(lane)),
-            style: const TextStyle(
-              color: BafColors.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _routeLabel(RoutedTo.values.byName(lane)),
+                style: const TextStyle(
+                  color: BafColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (evidenceText != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  evidenceText,
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 11,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-        Flexible(
-          child: Text(
-            state,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
+        const SizedBox(width: BafSpacing.sm),
+        Text(
+          state,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],
