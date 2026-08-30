@@ -78,6 +78,10 @@ void main() {
       serial: 'GR30',
       state: InnerCoverLifecycleState.available,
       now: now,
+      sourceType: InnerCoverSourceType.fabricated,
+      originClassification:
+          InnerCoverOriginClassification.documentedFabrication,
+      receivedOrCompletedOn: DateTime.utc(2025, 12, 5, 12),
       incorporatedOn: DateTime.utc(2025, 12, 13, 12),
     );
     final assignment = BaseInnerCoverAssignment(
@@ -130,6 +134,10 @@ void main() {
     expect(find.text('GR30'), findsOneWidget);
     expect(find.textContaining('Available'), findsOneWidget);
     expect(find.textContaining('Incorporated 13 Dec 2025'), findsOneWidget);
+    await tester.tap(find.text('GR30'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fabrication completed on'), findsOneWidget);
+    expect(find.text('05 Dec 2025'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -181,13 +189,15 @@ void main() {
     await tester.tap(find.byTooltip('Register Inner Cover'));
     await tester.pumpAndSettle();
     expect(find.text('Register Inner Cover'), findsOneWidget);
+    expect(find.text('Received on'), findsOneWidget);
     expect(find.text('Date incorporated'), findsOneWidget);
-    expect(find.text('Not recorded'), findsOneWidget);
+    expect(find.text('Not recorded'), findsNWidgets(2));
     await tester.tap(find.text('Purchased · documented'));
     await tester.pumpAndSettle();
     expect(find.text('New · owner-declared'), findsOneWidget);
     await tester.tap(find.text('New · owner-declared'));
     await tester.pumpAndSettle();
+    expect(find.text('Known receipt or completion date'), findsOneWidget);
     expect(find.text('Fabrication sections'), findsNothing);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Register'));
@@ -249,6 +259,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fabricated · documented').last);
     await tester.pumpAndSettle();
+    expect(find.text('Fabrication completed on'), findsOneWidget);
     await tester.enterText(
       find.widgetWithText(TextField, 'Serial number'),
       'GR44',
@@ -281,6 +292,10 @@ InnerCoverProfile _profile({
   required String serial,
   required InnerCoverLifecycleState state,
   required DateTime now,
+  InnerCoverSourceType sourceType = InnerCoverSourceType.purchased,
+  InnerCoverOriginClassification originClassification =
+      InnerCoverOriginClassification.documentedPurchase,
+  DateTime? receivedOrCompletedOn,
   DateTime? incorporatedOn,
   String? baseId,
   int? baseNumber,
@@ -293,9 +308,11 @@ InnerCoverProfile _profile({
   assetClassName: 'Inner Cover',
   serialNumber: serial,
   normalizedSerialNumber: serial,
-  sourceType: InnerCoverSourceType.purchased,
+  sourceType: sourceType,
+  originClassification: originClassification,
   lifecycleState: state,
   traceabilityGrade: InnerCoverTraceabilityGrade.t3,
+  receivedOrCompletedOn: receivedOrCompletedOn,
   incorporatedOn: incorporatedOn,
   currentBaseAssetInstanceId: baseId,
   currentBaseAssetNumber: baseNumber,

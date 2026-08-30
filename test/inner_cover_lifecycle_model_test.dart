@@ -159,10 +159,35 @@ void main() {
   test('selected incorporation day persists from local midnight', () {
     final selected = DateTime(2026, 8, 22, 18, 45);
 
-    final persisted = innerCoverIncorporationInstantForLocalDate(selected);
+    final persisted = innerCoverRegistrationInstantForLocalDate(selected);
 
     expect(persisted.toLocal(), DateTime(2026, 8, 22));
     expect(persisted.isAfter(selected.toUtc()), isFalse);
+    expect(innerCoverIncorporationInstantForLocalDate(selected), persisted);
+  });
+
+  test('registration chronology rejects incorporation before completion', () {
+    expect(
+      innerCoverRegistrationChronologyError(
+        receivedOrCompletedOn: DateTime.utc(2026, 8, 14),
+        incorporatedOn: DateTime.utc(2026, 8, 13),
+      ),
+      'Date incorporated cannot be before receipt or fabrication completion.',
+    );
+    expect(
+      innerCoverRegistrationChronologyError(
+        receivedOrCompletedOn: DateTime.utc(2026, 8, 14),
+        incorporatedOn: DateTime.utc(2026, 8, 14),
+      ),
+      isNull,
+    );
+    expect(
+      innerCoverRegistrationChronologyError(
+        receivedOrCompletedOn: DateTime.utc(2026, 8, 14),
+        incorporatedOn: null,
+      ),
+      isNull,
+    );
   });
 
   test('linkage closure requires complete removal evidence', () {
