@@ -19,6 +19,22 @@ void main() {
             ),
           ),
     );
+    final earlierCompletedAt = DateTime.utc(2026, 8, 29, 9, 15);
+    ticket.resolutionHistory = <ResolutionHistory>[
+      ResolutionHistory(
+        resolvedAt: DateTime.utc(2026, 8, 29, 9, 30),
+        lanePlan: IssueLanePlan.initial(const <String>['mechanical'])
+            .acknowledge('mechanical')
+            .complete(
+              'mechanical',
+              evidence: IssueLaneCompletionEvidence(
+                completedAt: earlierCompletedAt,
+                completedByUid: 'mechanical-1',
+                completedByName: 'Mechanical One',
+              ),
+            ),
+      ),
+    ];
 
     final exactDocument = buildMaintenanceTicketDossier(
       ticket: ticket,
@@ -27,11 +43,10 @@ void main() {
       generatedByName: 'Supervisor One',
       provenance: const ReportProvenance.applicationSnapshot(),
     );
-    final exactTable =
-        exactDocument.sections
-            .singleWhere((section) => section.title == 'Lane accountability')
-            .tables
-            .single;
+    final exactTable = exactDocument.sections
+        .singleWhere((section) => section.title == 'Lane accountability')
+        .tables
+        .singleWhere((table) => table.title == 'Current closure');
     final local = completedAt.toLocal();
     String two(int value) => value.toString().padLeft(2, '0');
     final expectedTime =
@@ -40,6 +55,18 @@ void main() {
 
     expect(exactTable.headers, contains('Completion time / authority'));
     expect(exactTable.rows.single[3], '$expectedTime by Electrical One');
+    final earlierTable = exactDocument.sections
+        .singleWhere((section) => section.title == 'Lane accountability')
+        .tables
+        .singleWhere((table) => table.title == 'Earlier closure 1');
+    final earlierLocal = earlierCompletedAt.toLocal();
+    final expectedEarlierTime =
+        '${two(earlierLocal.day)}-${two(earlierLocal.month)}-${earlierLocal.year} '
+        '${two(earlierLocal.hour)}:${two(earlierLocal.minute)}';
+    expect(
+      earlierTable.rows.single[3],
+      '$expectedEarlierTime by Mechanical One',
+    );
 
     ticket.issueLanePlan = IssueLanePlan.initial(const <String>[
       'electrical',
@@ -51,11 +78,10 @@ void main() {
       generatedByName: 'Supervisor One',
       provenance: const ReportProvenance.applicationSnapshot(),
     );
-    final legacyTable =
-        legacyDocument.sections
-            .singleWhere((section) => section.title == 'Lane accountability')
-            .tables
-            .single;
+    final legacyTable = legacyDocument.sections
+        .singleWhere((section) => section.title == 'Lane accountability')
+        .tables
+        .singleWhere((table) => table.title == 'Current closure');
     expect(
       legacyTable.rows.single[3],
       'Exact lane completion time was not retained for this record',

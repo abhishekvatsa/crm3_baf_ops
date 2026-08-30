@@ -517,6 +517,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         'remarks': data['remarks'],
         'downtimeHours': data['downtimeHours'],
         'teamsInvolved': data['teamsInvolved'] ?? const <String>[],
+        ...current.issueLanePlan.toSynchronizedFields(),
         'reopenedByUid': reopen.uid,
         'reopenedByName': reopen.name,
         'reopenedAt': reopenedAt,
@@ -526,7 +527,6 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     final newHistoryJson = jsonEncode(historyPayload.rows);
     final burnerLockout = current.burnerLockoutCase;
     final reopenedLanePlan = current.issueLanePlan.reopen();
-
     await _collection.doc(docId).update({
       'isResolved': false,
       'status': TicketStatus.open.name,

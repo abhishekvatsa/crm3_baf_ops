@@ -6,6 +6,7 @@ import {
 import {DocSnapshot} from "./store";
 import {
   hasCompleteTicketLaneFields,
+  optionalTicketLanePlanSnapshot,
   ticketLanePlan,
   ticketLaneProjection,
 } from "./ticketLanePlan";
@@ -339,6 +340,11 @@ const readResolutionHistory = (value: unknown): JsonMap[] => {
       `${field}.actionsJson`,
       !Object.prototype.hasOwnProperty.call(row, "actionsJson"),
     );
+    try {
+      optionalTicketLanePlanSnapshot(row);
+    } catch (_) {
+      return maintenanceHistoryError(`${field}.issueLaneSchemaVersion`);
+    }
     return row;
   });
 };
@@ -371,6 +377,7 @@ export const maintenanceResolutionHistoryWithCurrentClosure = (
       remarks: maintenance.remarks ?? null,
       downtimeHours: maintenance.downtimeHours ?? null,
       teamsInvolved: historyTeams(maintenance.teamsInvolved, "teamsInvolved"),
+      ...ticketLaneProjection(ticketLanePlan(maintenance)),
       ...(reopening == null ? {} : {
         reopenedByUid: reopening.actorUid,
         reopenedByName: reopening.actorName,

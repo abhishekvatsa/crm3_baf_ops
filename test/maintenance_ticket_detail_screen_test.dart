@@ -20,6 +20,9 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final closedAt = DateTime.utc(2026, 8, 23, 12);
     final laneCompletedAt = closedAt.subtract(const Duration(minutes: 35));
+    final earlierLaneCompletedAt = closedAt.subtract(
+      const Duration(days: 2, minutes: 25),
+    );
     final reopenedAt = closedAt.subtract(const Duration(days: 1));
     final startedAt = closedAt.subtract(const Duration(days: 3));
     final raisedAt = startedAt.add(const Duration(hours: 6));
@@ -104,6 +107,16 @@ void main() {
               remarks: 'Reopened after the lockout recurred.',
               downtimeHours: 1.5,
               teamsInvolved: const ['I&A', 'Electrical'],
+              lanePlan: IssueLanePlan.initial(const <String>['instrumentation'])
+                  .acknowledge('instrumentation')
+                  .complete(
+                    'instrumentation',
+                    evidence: IssueLaneCompletionEvidence(
+                      completedAt: earlierLaneCompletedAt,
+                      completedByUid: 'ia-previous',
+                      completedByName: 'I&A Previous',
+                    ),
+                  ),
               reopenedByUid: 'operations-1',
               reopenedByName: 'Operations One',
               reopenedAt: closedAt.subtract(
@@ -273,6 +286,15 @@ void main() {
     expect(find.text('Earlier closure 1'), findsOneWidget);
     expect(find.text('1.50 hours'), findsOneWidget);
     expect(find.text('I&A, Electrical'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('earlier-closure-1')),
+        matching: find.text(
+          '${DateFormat('dd MMM yyyy, HH:mm').format(earlierLaneCompletedAt.toLocal())} · I&A Previous',
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('Burner 3'), findsOneWidget);
     expect(find.textContaining('2.875 µA'), findsOneWidget);
     expect(

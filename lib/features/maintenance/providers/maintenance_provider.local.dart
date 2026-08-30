@@ -477,12 +477,12 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
           remarks: t.remarks,
           downtimeHours: t.downtimeHours,
           teamsInvolved: t.teamsInvolved,
+          lanePlan: t.issueLanePlan,
           reopenedByUid: reopen.uid,
           reopenedByName: reopen.name,
           reopenedAt: reopenedAt,
           reopenReason: reopen.reason,
         );
-
         final historyPayload = readValidatedResolutionHistoryPayload(
           t.resolutionHistoryJson,
           source: 'local maintenance ${t.id}',

@@ -845,6 +845,21 @@ class _ResolutionHistoryView extends StatelessWidget {
                 label: 'Teams involved',
                 value: entry.teamsInvolved.join(', '),
               ),
+            if (entry.lanePlan != null) ...[
+              const _DetailValue(
+                label: 'Lane accountability',
+                value: 'Completion evidence retained for this closure',
+              ),
+              for (final lane in entry.lanePlan!.assignedLanes)
+                _LaneProgressRow(
+                  lane: lane,
+                  acknowledged: entry.lanePlan!.acknowledgedLanes.contains(
+                    lane,
+                  ),
+                  completed: entry.lanePlan!.completedLanes.contains(lane),
+                  completionEvidence: entry.lanePlan!.completionEvidence[lane],
+                ),
+            ],
             if (_text(entry.remarks) != null)
               _DetailValue(
                 label: 'Closure remarks',

@@ -194,6 +194,12 @@ export const hasCompleteTicketLaneFields = (source: JsonMap): boolean => {
   return present.length === TICKET_LANE_FIELDS.length;
 };
 
+export const optionalTicketLanePlanSnapshot = (
+  source: JsonMap,
+): TicketLanePlan | null =>
+  hasCompleteTicketLaneFields(source) ?
+    parseFields(source, "failed-precondition") : null;
+
 export const createTicketLanePlan = (
   input: JsonMap,
   routedTo: string,

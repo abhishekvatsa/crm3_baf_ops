@@ -1601,6 +1601,105 @@ describe("maintenance_records", () => {
     );
   });
 
+  test("reopen clears active lane evidence after archiving the closure", async () => {
+    const closedAt = new Date(Date.now() - 60000).toISOString();
+    const reopenedAt = new Date().toISOString();
+    const completionEvidence = {
+      mechanical: {
+        completedAt: closedAt,
+        completedByUid: "seniorMech",
+        completedByName: "Senior Mechanical",
+      },
+    };
+    await seedDoc("maintenance_records/ticketLaneEvidenceReopen", {
+      firestoreId: "ticketLaneEvidenceReopen",
+      version: 2,
+      assetType: "base",
+      assetNumber: 101,
+      maintenanceType: "breakdown",
+      description: "Closed ticket with exact lane evidence.",
+      routedTo: "mechanical",
+      status: "resolved",
+      isResolved: true,
+      isCritical: false,
+      loggedByUid: "ops1",
+      acknowledgedByUid: "seniorMech",
+      acknowledgedByName: "Senior Mechanical",
+      acknowledgedAt: closedAt,
+      issueLaneSchemaVersion: 1,
+      issueLaneRevision: 1,
+      issueAssignedLanes: ["mechanical"],
+      issueAcknowledgedLanes: ["mechanical"],
+      issueCompletedLanes: ["mechanical"],
+      issueLaneCompletionEvidence: completionEvidence,
+      createdAt: closedAt,
+      updatedAt: closedAt,
+      endDate: closedAt,
+      closedByUid: "seniorMech",
+      closedByName: "Senior Mechanical",
+      remarks: "Resolved after inspection.",
+      downtimeHours: 1.5,
+      teamsInvolved: ["mechanical"],
+      actionsJson: "[]",
+      resolutionHistoryJson: "[]",
+      isDeleted: false,
+    });
+    const archivedClosure = JSON.stringify([
+      {
+        resolvedByUid: "seniorMech",
+        resolvedByName: "Senior Mechanical",
+        resolvedAt: closedAt,
+        actionsJson: "[]",
+        remarks: "Resolved after inspection.",
+        downtimeHours: 1.5,
+        teamsInvolved: ["mechanical"],
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ["mechanical"],
+        issueAcknowledgedLanes: ["mechanical"],
+        issueCompletedLanes: ["mechanical"],
+        issueLaneCompletionEvidence: completionEvidence,
+      },
+    ]);
+    const reopen = {
+      isResolved: false,
+      status: "open",
+      issueAcknowledgedLanes: [],
+      issueCompletedLanes: [],
+      acknowledgedByUid: null,
+      acknowledgedByName: null,
+      acknowledgedAt: null,
+      reopenedByUid: "ops1",
+      reopenedByName: "Operations User",
+      reopenedAt,
+      reopenReason: "Issue recurred during operation.",
+      endDate: null,
+      closedByUid: null,
+      closedByName: null,
+      downtimeHours: null,
+      teamsInvolved: [],
+      actionsJson: "[]",
+      remarks: "Issue recurred during operation.",
+      resolutionHistoryJson: archivedClosure,
+      updatedAt: reopenedAt,
+      updatedByUid: "ops1",
+      updatedByName: "Operations User",
+      version: 3,
+    };
+    const reference = doc(
+      dbAs("ops1"),
+      "maintenance_records/ticketLaneEvidenceReopen"
+    );
+
+    await assertFails(updateDoc(reference, reopen));
+    await assertSucceeds(
+      updateDoc(reference, {
+        ...reopen,
+        issueLaneCompletionEvidence: {},
+      })
+    );
+  });
+
   test("Other-department lane projection requires nonempty text", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const closedAt = new Date().toISOString();

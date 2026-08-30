@@ -2740,24 +2740,26 @@ service cloud.firestore {
         );
     }
 
-    function validMaintenanceIssueLaneCompletionEvidence(data) {
+    function validMaintenanceIssueLaneCompletionEvidence(data, status) {
       let completed = data.get('issueCompletedLanes', []);
       let evidence = data.get('issueLaneCompletionEvidence', {});
-      return data.get('issueLaneCompletionEvidence', null) ==
-          resource.data.get('issueLaneCompletionEvidence', null)
+      return (status != 'open'
+          && data.get('issueLaneCompletionEvidence', null) ==
+            resource.data.get('issueLaneCompletionEvidence', null))
         || !data.keys().hasAny(['issueLaneCompletionEvidence'])
         || (evidence is map
           && evidence.keys().size() <= 8
           && evidence.keys().size() == completed.size()
           && evidence.keys().hasOnly(completed)
-          && validMaintenanceIssueLaneCompletionAt(data, 0)
-          && validMaintenanceIssueLaneCompletionAt(data, 1)
-          && validMaintenanceIssueLaneCompletionAt(data, 2)
-          && validMaintenanceIssueLaneCompletionAt(data, 3)
-          && validMaintenanceIssueLaneCompletionAt(data, 4)
-          && validMaintenanceIssueLaneCompletionAt(data, 5)
-          && validMaintenanceIssueLaneCompletionAt(data, 6)
-          && validMaintenanceIssueLaneCompletionAt(data, 7));
+          && (completed.size() == 0
+            || (validMaintenanceIssueLaneCompletionAt(data, 0)
+              && validMaintenanceIssueLaneCompletionAt(data, 1)
+              && validMaintenanceIssueLaneCompletionAt(data, 2)
+              && validMaintenanceIssueLaneCompletionAt(data, 3)
+              && validMaintenanceIssueLaneCompletionAt(data, 4)
+              && validMaintenanceIssueLaneCompletionAt(data, 5)
+              && validMaintenanceIssueLaneCompletionAt(data, 6)
+              && validMaintenanceIssueLaneCompletionAt(data, 7))));
     }
 
     function validMaintenanceIssueLaneProjection(data) {
@@ -2772,7 +2774,7 @@ service cloud.firestore {
           && validMaintenanceIssueLaneList(assigned, false)
           && validMaintenanceIssueProgressList(acknowledged)
           && validMaintenanceIssueProgressList(completed)
-          && validMaintenanceIssueLaneCompletionEvidence(data)
+          && validMaintenanceIssueLaneCompletionEvidence(data, status)
           && assigned.hasAll(acknowledged)
           && acknowledged.hasAll(completed)
           && assigned[0] == data.get('routedTo', null)
@@ -2780,7 +2782,7 @@ service cloud.firestore {
             ? validNonEmptyString(data.get('otherDepartment', null), 80)
             : data.get('otherDepartment', null) == null)
           && (status == 'open'
-            ? acknowledged.size() == 0 && completed.size() == 0
+            ? acknowledged.size() == 0
             : (status == 'acknowledged'
               ? (acknowledged.size() == assigned.size()
                 && completed.size() == 0)

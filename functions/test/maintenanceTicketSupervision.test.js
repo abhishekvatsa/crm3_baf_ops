@@ -2059,6 +2059,23 @@ describe('governed maintenance-ticket supervision', () => {
         remarks: 'Initial repair completed.',
         downtimeHours: 2.5,
         teamsInvolved: ['electrical', 'mechanical'],
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 2,
+        issueAssignedLanes: ['electrical', 'mechanical'],
+        issueAcknowledgedLanes: ['electrical', 'mechanical'],
+        issueCompletedLanes: ['electrical', 'mechanical'],
+        issueLaneCompletionEvidence: {
+          electrical: {
+            completedAt: '2026-08-14T15:00:00.000Z',
+            completedByUid: electrical.uid,
+            completedByName: electrical.name,
+          },
+          mechanical: {
+            completedAt: '2026-08-14T15:20:00.000Z',
+            completedByUid: mechanical.uid,
+            completedByName: mechanical.name,
+          },
+        },
         reopenedByUid: operations.uid,
         reopenedByName: operations.name,
         reopenedAt: at.toISOString(),
@@ -2080,6 +2097,13 @@ describe('governed maintenance-ticket supervision', () => {
       issueAssignedLanes: ['electrical'],
       issueAcknowledgedLanes: ['electrical'],
       issueCompletedLanes: ['electrical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T15:20:00.000Z',
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+      },
       endDate: '2026-08-14T15:30:00.000Z',
       closedByUid: electrical.uid,
       closedByName: electrical.name,
@@ -2105,6 +2129,13 @@ describe('governed maintenance-ticket supervision', () => {
       isResolved: true,
       issueAcknowledgedLanes: ['electrical'],
       issueCompletedLanes: ['electrical'],
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T16:55:00.000Z',
+          completedByUid: contractSupervisor.uid,
+          completedByName: contractSupervisor.name,
+        },
+      },
       acknowledgedByUid: electrical.uid,
       acknowledgedByName: electrical.name,
       acknowledgedAt: '2026-08-14T16:45:00.000Z',
@@ -2133,12 +2164,26 @@ describe('governed maintenance-ticket supervision', () => {
       reopenedByUid: operations.uid,
       reopenedAt: at.toISOString(),
       reopenReason: 'First recurrence after returning to service.',
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T15:20:00.000Z',
+          completedByUid: electrical.uid,
+          completedByName: electrical.name,
+        },
+      },
     });
     expect(history[1]).toMatchObject({
       resolvedAt: '2026-08-14T17:00:00.000Z',
       reopenedByUid: admin.uid,
       reopenedAt: secondAt.toISOString(),
       reopenReason: 'Second recurrence after the follow-up repair.',
+      issueLaneCompletionEvidence: {
+        electrical: {
+          completedAt: '2026-08-14T16:55:00.000Z',
+          completedByUid: contractSupervisor.uid,
+          completedByName: contractSupervisor.name,
+        },
+      },
     });
     expect(reopened).toMatchObject({
       reopenedByUid: admin.uid,
