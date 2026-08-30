@@ -51,7 +51,8 @@ class _ComplianceDetailScreenState
       );
     }
     final actor = actorAsync.value;
-    if (actor == null || !canUserSeeComplianceRequest(widget.record, actor)) {
+    if (actor == null ||
+        !isComplianceRequestRelevantToUser(widget.record, actor)) {
       return BafScreenStateScaffold.access(
         appBarTitle: 'Compliance detail',
         appBarSubtitle: 'Approved compliance access only',
@@ -105,7 +106,7 @@ class _ComplianceDetailScreenState
         message: 'This compliance request is no longer available.',
       );
     }
-    if (!canUserSeeComplianceRequest(record, actor)) {
+    if (!isComplianceRequestRelevantToUser(record, actor)) {
       return BafScreenStateScaffold.access(
         appBarTitle: 'Compliance detail',
         appBarSubtitle: 'Approved compliance access only',

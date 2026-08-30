@@ -3,7 +3,12 @@ import '../data/compliance_request_record.dart';
 
 enum ComplianceRequestView { forMyLane, raisedByUs, all }
 
-bool canUserSeeComplianceRequest(
+/// Returns whether this request is relevant to the actor's current work.
+///
+/// This is a presentation/workload filter, not a confidentiality boundary.
+/// Firestore intentionally allows every approved internal user to read the
+/// workflow collections used by the controlled pilot.
+bool isComplianceRequestRelevantToUser(
   ComplianceRequestRecord request,
   AppUser actor,
 ) {

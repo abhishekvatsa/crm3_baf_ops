@@ -40,7 +40,7 @@ void main() {
 
     for (final (actor, expected) in cases) {
       expect(
-        canUserSeeComplianceRequest(request, actor),
+        isComplianceRequestRelevantToUser(request, actor),
         expected,
         reason: actor.uid,
       );

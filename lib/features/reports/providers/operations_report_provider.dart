@@ -537,7 +537,7 @@ OperationsReport buildOperationsReport({
             (request) =>
                 !request.isDeleted &&
                 (actor == null ||
-                    canUserSeeComplianceRequest(request, actor)) &&
+                    isComplianceRequestRelevantToUser(request, actor)) &&
                 legacyRecordMatches(request.assetTypeKey, request.assetNumber),
           )
           .toList()
