@@ -436,5 +436,52 @@ void main() {
       expect(projection.replacementsByPosition[3]?.eventId, 'event-new');
       expect(projection.replacementsByPosition, hasLength(1));
     });
+
+    test('server receipt order defeats a backdated replacement action', () {
+      final first = _event(
+        id: 'event-first',
+        position: 3,
+        actionPerformedAt: DateTime.utc(2026, 8, 28, 8),
+        completedAt: DateTime.utc(2026, 8, 28, 9),
+      );
+      final laterRecorded = _event(
+        id: 'event-later-recorded',
+        position: 3,
+        actionPerformedAt: DateTime.utc(2026, 8, 27, 8),
+        completedAt: DateTime.utc(2026, 8, 28, 10),
+      );
+      final firstUv = _uvEvent(
+        id: 'uv-first',
+        position: 3,
+        actionPerformedAt: DateTime.utc(2026, 8, 28, 8),
+        completedAt: DateTime.utc(2026, 8, 28, 9),
+      );
+      final laterRecordedUv = _uvEvent(
+        id: 'uv-later-recorded',
+        position: 3,
+        actionPerformedAt: DateTime.utc(2026, 8, 27, 8),
+        completedAt: DateTime.utc(2026, 8, 28, 10),
+      );
+
+      final projection = projectBurnerBlockCondition(
+        round: null,
+        newerRedHotObservations: const <int, DateTime>{},
+        lifecycleEvents: <BurnerBlockLifecycleEvent>[first, laterRecorded],
+        uvLifecycleEvents: <UvDetectorLifecycleEvent>[
+          firstUv,
+          laterRecordedUv,
+        ],
+        assetInstanceId: 'furnace-7',
+      );
+
+      expect(
+        projection.replacementsByPosition[3]?.eventId,
+        'event-later-recorded',
+      );
+      expect(
+        projection.uvReplacementsByPosition[3]?.eventId,
+        'uv-later-recorded',
+      );
+    });
   });
 }

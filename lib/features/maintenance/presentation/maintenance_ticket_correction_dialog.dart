@@ -29,6 +29,7 @@ class _MaintenanceTicketCorrectionDialogState
   late final TextEditingController _reason;
   late RoutedTo _route;
   late MaintenanceType _maintenanceType;
+  late MaintenanceIssuePlantConditionEffect _plantConditionEffect;
   late bool _critical;
   String? _submissionError;
 
@@ -73,6 +74,13 @@ class _MaintenanceTicketCorrectionDialogState
     _reason = TextEditingController();
     _route = ticket.routedTo;
     _maintenanceType = ticket.maintenanceType;
+    _plantConditionEffect =
+        ticket.classification == furnaceStuckupClassification
+            ? MaintenanceIssuePlantConditionEffect.stuckUp
+            : ticket.effectivePlantConditionEffect ==
+                MaintenanceIssuePlantConditionEffect.none
+            ? MaintenanceIssuePlantConditionEffect.unfit
+            : ticket.effectivePlantConditionEffect;
     _critical = ticket.isCritical;
   }
 
@@ -112,6 +120,7 @@ class _MaintenanceTicketCorrectionDialogState
         routedTo: _route,
         maintenanceType: _maintenanceType,
         isCritical: _critical,
+        plantConditionEffect: _plantConditionEffect,
         component: cleanMaintenanceOptionalText(_component.text),
         subsystem: cleanMaintenanceOptionalText(_subsystem.text),
         tag: cleanMaintenanceTagText(_tag.text),
@@ -278,6 +287,40 @@ class _MaintenanceTicketCorrectionDialogState
                       _hasRedHotBurner
                           ? null
                           : (value) => setState(() => _critical = value),
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                DropdownButtonFormField<MaintenanceIssuePlantConditionEffect>(
+                  key: const ValueKey('ticket-correction-plant-condition'),
+                  initialValue: _plantConditionEffect,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Plant condition while issue is open',
+                    helperText:
+                        'The originating issue and correction remain audited.',
+                  ),
+                  items: [
+                    for (final effect
+                        in _isFurnaceStuckup
+                            ? const [
+                              MaintenanceIssuePlantConditionEffect.stuckUp,
+                            ]
+                            : const [
+                              MaintenanceIssuePlantConditionEffect.unfit,
+                              MaintenanceIssuePlantConditionEffect.unavailable,
+                            ])
+                      DropdownMenuItem(
+                        value: effect,
+                        child: Text(effect.label),
+                      ),
+                  ],
+                  onChanged:
+                      _isFurnaceStuckup
+                          ? null
+                          : (value) {
+                            if (value != null) {
+                              setState(() => _plantConditionEffect = value);
+                            }
+                          },
                 ),
                 TextFormField(
                   controller: _component,

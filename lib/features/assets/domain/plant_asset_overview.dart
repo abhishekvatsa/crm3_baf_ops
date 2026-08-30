@@ -1,20 +1,52 @@
 import '../../maintenance_workflow/data/equipment_status_record.dart';
+import '../../maintenance/data/maintenance_model.dart';
 import '../data/asset_availability_record.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
+
+class PlantIssueConditionContribution {
+  final String ticketId;
+  final MaintenanceIssuePlantConditionEffect effect;
+  final String description;
+  final DateTime startedAt;
+  final String? raisedByName;
+  final bool awaitingServerClosure;
+
+  const PlantIssueConditionContribution({
+    required this.ticketId,
+    required this.effect,
+    required this.description,
+    required this.startedAt,
+    required this.raisedByName,
+    required this.awaitingServerClosure,
+  });
+
+  String get comment {
+    final source = ticketId.length <= 8 ? ticketId : ticketId.substring(0, 8);
+    final detail = description.trim();
+    final reason = detail.endsWith('.') ? detail : '$detail.';
+    final pending =
+        awaitingServerClosure
+            ? ' Closure is awaiting server confirmation.'
+            : '';
+    return '${effect.label} due to maintenance issue $source: $reason$pending';
+  }
+}
 
 class PlantAssetState {
   final AssetInstanceRecord asset;
   final AssetOperationalConditionRecord? operationalCondition;
   final AssetAvailabilityRecord? availability;
   final EquipmentStatusRecord? workflowStatus;
+  final List<PlantIssueConditionContribution> issueConditionContributions;
 
   const PlantAssetState({
     required this.asset,
     required this.operationalCondition,
     required this.availability,
     required this.workflowStatus,
+    this.issueConditionContributions = const [],
   });
 
   bool get isUnderMaintenance =>
@@ -27,9 +59,19 @@ class PlantAssetState {
       operationalCondition?.active == true &&
       operationalCondition?.condition == AssetOperationalCondition.down;
 
-  bool get isUnfit =>
+  bool get isManuallyUnfit =>
       operationalCondition?.active == true &&
       operationalCondition?.condition == AssetOperationalCondition.unfit;
+
+  bool get isIssueUnfit => issueConditionContributions.any(
+    (item) => item.effect == MaintenanceIssuePlantConditionEffect.unfit,
+  );
+
+  bool get isIssueUnavailable => issueConditionContributions.any(
+    (item) => item.effect == MaintenanceIssuePlantConditionEffect.unavailable,
+  );
+
+  bool get isUnfit => isManuallyUnfit || isIssueUnfit;
 
   bool get isTemporarilyBlocked => availability?.isTemporarilyBlocked == true;
 
@@ -44,6 +86,7 @@ class PlantAssetState {
       !isUnderMaintenance &&
       !isDown &&
       !isUnfit &&
+      !isIssueUnavailable &&
       !isTemporarilyBlocked;
 }
 
@@ -62,6 +105,8 @@ class PlantAssetClassSummary {
       assets.where((asset) => asset.isUnderMaintenance).length;
   int get down => assets.where((asset) => asset.isDown).length;
   int get unfit => assets.where((asset) => asset.isUnfit).length;
+  int get issueUnavailable =>
+      assets.where((asset) => asset.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
@@ -73,6 +118,7 @@ class PlantAssetClassSummary {
             (asset) =>
                 asset.isDown ||
                 asset.isUnfit ||
+                asset.isIssueUnavailable ||
                 asset.isTemporarilyBlocked ||
                 asset.isUnderMaintenance ||
                 asset.isAdministrativelyOutOfService,
@@ -92,6 +138,8 @@ class PlantAssetOverview {
       assets.where((asset) => asset.isUnderMaintenance).length;
   int get down => assets.where((asset) => asset.isDown).length;
   int get unfit => assets.where((asset) => asset.isUnfit).length;
+  int get issueUnavailable =>
+      assets.where((asset) => asset.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
@@ -104,6 +152,7 @@ class PlantAssetOverview {
     required List<AssetOperationalConditionRecord> operationalConditions,
     required List<EquipmentStatusRecord> workflowStatuses,
     List<AssetAvailabilityRecord> availabilityProjections = const [],
+    List<MaintenanceRecord> maintenanceTickets = const [],
   }) {
     final classesById = <String, AssetClassRecord>{};
     for (final assetClass in assetClasses.where((item) => item.isActive)) {
@@ -142,6 +191,63 @@ class PlantAssetOverview {
       availabilityByAssetId[projection.assetInstanceId] = projection;
     }
 
+    final activeAssetsById = <String, AssetInstanceRecord>{};
+    for (final asset in assetInstances.where((item) => item.isActive)) {
+      if (activeAssetsById.containsKey(asset.id)) {
+        throw StateError('Duplicate governed asset ${asset.id}.');
+      }
+      activeAssetsById[asset.id] = asset;
+    }
+    final issueConditionsByAssetId =
+        <String, List<PlantIssueConditionContribution>>{};
+    for (final ticket in maintenanceTickets) {
+      final activeUntilServerConfirmed =
+          (!ticket.isResolved && !ticket.isDeleted) || !ticket.isSynced;
+      final effect = ticket.effectivePlantConditionEffect;
+      if (!activeUntilServerConfirmed ||
+          effect == MaintenanceIssuePlantConditionEffect.none ||
+          effect == MaintenanceIssuePlantConditionEffect.stuckUp) {
+        continue;
+      }
+      final ticketId = ticket.firestoreId?.trim();
+      final reference = ticket.assetHierarchyReference;
+      if (ticketId == null ||
+          ticketId.isEmpty ||
+          reference == null ||
+          reference.scope == AssetHierarchyReferenceScope.definition ||
+          reference.assetInstanceId == null) {
+        throw StateError(
+          'Issue-derived Plant Condition evidence lacks an exact asset identity.',
+        );
+      }
+      final asset = activeAssetsById[reference.assetInstanceId];
+      if (asset == null ||
+          reference.assetClassId != asset.assetClassId ||
+          reference.assetNumber != asset.assetNumber) {
+        throw StateError(
+          'Issue-derived Plant Condition evidence for $ticketId disagrees with the asset registry.',
+        );
+      }
+      issueConditionsByAssetId
+          .putIfAbsent(asset.id, () => <PlantIssueConditionContribution>[])
+          .add(
+            PlantIssueConditionContribution(
+              ticketId: ticketId,
+              effect: effect,
+              description: ticket.description.trim(),
+              startedAt: ticket.startDate,
+              raisedByName: ticket.loggedByName?.trim(),
+              awaitingServerClosure:
+                  (ticket.isResolved || ticket.isDeleted) && !ticket.isSynced,
+            ),
+          );
+    }
+    for (final contributions in issueConditionsByAssetId.values) {
+      contributions.sort(
+        (left, right) => right.startedAt.compareTo(left.startedAt),
+      );
+    }
+
     final states = <PlantAssetState>[];
     for (final asset in assetInstances.where((item) => item.isActive)) {
       final assetClass = classesById[asset.assetClassId];
@@ -177,6 +283,9 @@ class PlantAssetOverview {
               legacyKey == null
                   ? workflowByKey['governedCustom:${asset.assetClassId}:${asset.id}']
                   : workflowByKey['$legacyKey:${asset.assetNumber}'],
+          issueConditionContributions: List.unmodifiable(
+            issueConditionsByAssetId[asset.id] ?? const [],
+          ),
         ),
       );
     }

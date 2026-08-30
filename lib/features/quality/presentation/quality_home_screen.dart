@@ -271,13 +271,6 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                       label: const Text('New monitoring request'),
                     ),
                   ),
-                if (items.length >= qualityMonitoringLiveWindowLimit) ...[
-                  const SizedBox(height: BafSpacing.sm),
-                  const _WindowScopeNotice(
-                    text:
-                        'Showing every active request plus up to 250 recent requests',
-                  ),
-                ],
                 const SizedBox(height: BafSpacing.lg),
                 if (items.isEmpty)
                   const _EmptyState(

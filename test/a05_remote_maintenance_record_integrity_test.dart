@@ -19,9 +19,40 @@ void main() {
       expect(record.assetType, AssetType.base);
       expect(record.assetNumber, 101);
       expect(record.status, TicketStatus.open);
+      expect(
+        record.plantConditionEffect,
+        MaintenanceIssuePlantConditionEffect.unfit,
+      );
       expect(record.workflowQueueState, 'independent');
       expect(record.actionsJson, '[]');
       expect(record.resolutionHistoryJson, '[]');
+    });
+
+    test('Plant Condition effect is strict while legacy absence stays neutral', () {
+      final legacy = _validRecord()..remove('plantConditionEffect');
+      expect(
+        readRemoteMaintenanceRecord(
+          legacy,
+          documentId: 'ticket-1',
+        ).plantConditionEffect,
+        MaintenanceIssuePlantConditionEffect.none,
+      );
+      for (final value in <Object?>['unknown', 1, true]) {
+        expect(
+          () => readRemoteMaintenanceRecord(
+            _validRecord()..['plantConditionEffect'] = value,
+            documentId: 'ticket-1',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      }
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()..['plantConditionEffect'] = 'stuckUp',
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
     });
 
     test('reopening actor, time, and optional reason decode together', () {
@@ -571,6 +602,7 @@ void main() {
             ..['assetNumber'] = 7
             ..['component'] = 'Furnace / Inner Cover interface'
             ..['classification'] = furnaceStuckupClassification
+            ..['plantConditionEffect'] = 'stuckUp'
             ..['routedTo'] = 'mechanical'
             ..addAll(_stuckupCase().toSynchronizedFields());
 
@@ -733,6 +765,7 @@ Map<String, dynamic> _validRecord() => <String, dynamic>{
   'assetNumber': 101,
   'maintenanceType': 'breakdown',
   'description': 'Inspect furnace base alignment',
+  'plantConditionEffect': 'unfit',
   'routedTo': 'mechanical',
   'status': 'open',
   'isResolved': false,

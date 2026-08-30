@@ -711,7 +711,7 @@ void main() {
       expect(next['constructionRequiresFreshGovernedApproval'], isTrue);
       expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
       expect(next['pilotPromotionRequiresSeparateDecision'], isTrue);
-      expect(state['localStore']['schemaVersion'], 8);
+      expect(state['localStore']['schemaVersion'], 9);
       expect(state['appCheck']['mutatingCallableSourceDefault'], isFalse);
 
       final readme = File('README.md').readAsStringSync();

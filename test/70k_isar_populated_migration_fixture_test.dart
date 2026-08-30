@@ -388,14 +388,15 @@ List<CollectionSchema<dynamic>> _loadRepositoryProvenV3Schemas() =>
     ];
 
 CollectionSchema<MaintenanceRecord> _v6MaintenanceRecordSchema() {
-  const v7Fields = <String>{
+  const postV6Fields = <String>{
+    'plantConditionEffect',
     'reopenReason',
     'reopenedAt',
     'reopenedByName',
     'reopenedByUid',
   };
   final retained = MaintenanceRecordSchema.properties.entries
-      .where((entry) => !v7Fields.contains(entry.key))
+      .where((entry) => !postV6Fields.contains(entry.key))
       .toList(growable: false);
   final properties = <String, PropertySchema>{};
   for (var index = 0; index < retained.length; index++) {
@@ -553,7 +554,7 @@ void main() {
   });
 
   test(
-    'repository-proven populated v1 migrates to v8 with rows and relationships intact',
+    'repository-proven populated v1 migrates to v9 with rows and relationships intact',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_populated_v1_',
@@ -668,7 +669,7 @@ void main() {
   );
 
   test(
-    'populated v3 compliance request migrates through v8 without evidence loss',
+    'populated v3 compliance request migrates through v9 without evidence loss',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_operational_assurance_v3_',
@@ -745,7 +746,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 8);
+        expect(preparation.result.toVersion, 9);
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.databaseGenerationId, _generationId);
 
@@ -796,7 +797,7 @@ void main() {
         expect(migrated.raisedUnderCoordination, isFalse);
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 8);
+        expect(committed.schemaVersion, 9);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -812,7 +813,7 @@ void main() {
   );
 
   test(
-    'populated v6 maintenance ticket migrates to v8 and pending reopen remains replayable',
+    'populated v6 maintenance ticket migrates to v9 and pending reopen remains replayable',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_maintenance_reopen_v6_',
@@ -898,7 +899,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 6);
-        expect(preparation.result.toVersion, 8);
+        expect(preparation.result.toVersion, 9);
 
         isar = await Isar.open(
           _currentSchemas,
@@ -938,7 +939,7 @@ void main() {
         );
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 8);
+        expect(committed.schemaVersion, 9);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -1011,7 +1012,8 @@ void main() {
             5: <String>{IsarSchemaMigrator.v5SchemaFingerprint},
             6: <String>{IsarSchemaMigrator.v6SchemaFingerprint},
             7: <String>{IsarSchemaMigrator.v7SchemaFingerprint},
-            8: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
+            8: <String>{IsarSchemaMigrator.v8SchemaFingerprint},
+            9: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
           },
           stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
             3: (context) async {
@@ -1039,6 +1041,10 @@ void main() {
             8: (context) async {
               expect(context.fromVersion, 7);
               expect(context.toVersion, 8);
+            },
+            9: (context) async {
+              expect(context.fromVersion, 8);
+              expect(context.toVersion, 9);
             },
           },
         );

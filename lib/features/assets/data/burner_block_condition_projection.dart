@@ -116,14 +116,14 @@ bool _isLaterReplacement(
   BurnerBlockLifecycleEvent candidate,
   BurnerBlockLifecycleEvent current,
 ) {
+  final recordedComparison = candidate.recordedAt.compareTo(
+    current.recordedAt,
+  );
+  if (recordedComparison != 0) return recordedComparison > 0;
   final performedComparison = candidate.actionPerformedAt.compareTo(
     current.actionPerformedAt,
   );
   if (performedComparison != 0) return performedComparison > 0;
-  final completionComparison = candidate.completedAt.compareTo(
-    current.completedAt,
-  );
-  if (completionComparison != 0) return completionComparison > 0;
   return candidate.eventId.compareTo(current.eventId) > 0;
 }
 
@@ -131,13 +131,13 @@ bool _isLaterUvReplacement(
   UvDetectorLifecycleEvent candidate,
   UvDetectorLifecycleEvent current,
 ) {
+  final recordedComparison = candidate.recordedAt.compareTo(
+    current.recordedAt,
+  );
+  if (recordedComparison != 0) return recordedComparison > 0;
   final performedComparison = candidate.actionPerformedAt.compareTo(
     current.actionPerformedAt,
   );
   if (performedComparison != 0) return performedComparison > 0;
-  final completionComparison = candidate.completedAt.compareTo(
-    current.completedAt,
-  );
-  if (completionComparison != 0) return completionComparison > 0;
   return candidate.eventId.compareTo(current.eventId) > 0;
 }

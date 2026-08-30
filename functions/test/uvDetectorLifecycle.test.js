@@ -153,6 +153,7 @@ async function prepare(store, row = action(), overrides = {}) {
         actionsJson: JSON.stringify([row]),
       }],
       completedAt: '2026-08-28T09:00:00.000Z',
+      recordedAt: '2026-08-28T09:00:00.000Z',
       completedBy: actor,
       ...overrides,
     });
@@ -290,5 +291,32 @@ describe('UV-detector lifecycle projection', () => {
       path.startsWith('uv_detector_lifecycle_current/'))[1];
 
     expect(after.currentEventId).toBe(before.currentEventId);
+  });
+
+  test('a later server receipt wins even when its device action time is older', async () => {
+    const store = seedStore();
+    await prepare(store, action({
+      id: 'first-recorded',
+      createdAt: '2026-08-28T08:00:00.000Z',
+    }), {
+      sourceId: 'execution-first-recorded',
+      completedAt: '2026-08-28T09:00:00.000Z',
+      recordedAt: '2026-08-28T09:00:00.000Z',
+    });
+
+    await prepare(store, action({
+      id: 'later-recorded-backdated-action',
+      createdAt: '2026-08-27T08:00:00.000Z',
+    }), {
+      sourceId: 'execution-later-recorded',
+      completedAt: '2026-08-28T10:00:00.000Z',
+      recordedAt: '2026-08-28T10:00:00.000Z',
+    });
+    const current = store.entries().find(([path]) =>
+      path.startsWith('uv_detector_lifecycle_current/'))[1];
+
+    expect(current.sourceId).toBe('execution-later-recorded');
+    expect(current.actionPerformedAt).toBe('2026-08-27T08:00:00.000Z');
+    expect(current.recordedAt).toBe('2026-08-28T10:00:00.000Z');
   });
 });

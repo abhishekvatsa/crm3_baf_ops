@@ -26,6 +26,12 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
   final burnerLockout = record.burnerLockoutCase;
   final furnaceStuckup = record.furnaceStuckupCase;
   final frequentIssueSelection = record.frequentIssueSelection;
+  final plantConditionEffect =
+      record.plantConditionEffect != MaintenanceIssuePlantConditionEffect.none
+          ? record.plantConditionEffect
+          : record.classification == furnaceStuckupClassification
+          ? MaintenanceIssuePlantConditionEffect.stuckUp
+          : MaintenanceIssuePlantConditionEffect.unfit;
   final createLanePlan = IssueLanePlan.initial(
     record.issueLanePlan.assignedLanes,
   );
@@ -42,6 +48,7 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     'maintenanceType': record.maintenanceType.name,
     'classification': record.classification,
     'description': record.description,
+    'plantConditionEffect': plantConditionEffect.name,
     'routedTo': record.routedTo.name,
     'otherDepartment': record.otherDepartment,
     ...createLanePlan.toSynchronizedFields(),

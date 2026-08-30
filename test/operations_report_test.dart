@@ -236,6 +236,15 @@ QualityMonitoringRequest qualityMonitoringRequest({
   chargeNumbers: const [41001],
   reason: 'Monitor the cycle after a quality concern.',
   status: status,
+  visibilityState:
+      status == QualityMonitoringStatus.closed
+          ? QualityMonitoringVisibilityState.recent
+          : QualityMonitoringVisibilityState.active,
+  visibleUntil:
+      status == QualityMonitoringStatus.closed
+          ? closedAt?.add(const Duration(days: 7))
+          : null,
+  archivedAt: null,
   createdAt: createdAt,
   createdByUid: 'si',
   createdByName: 'SI',

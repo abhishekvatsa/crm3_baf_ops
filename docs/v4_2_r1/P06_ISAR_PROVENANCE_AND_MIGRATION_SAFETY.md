@@ -86,6 +86,12 @@ file is data-bearing and prevents fresh-install treatment.
 Migration steps remain idempotent because a crash can leave `PREPARED` and
 cause the same step sequence to run again.
 
+The current source advances the local schema to v9 for the additive
+`MaintenanceRecord.plantConditionEffect` field. The exact v8 fingerprint is
+retained as accepted ancestry, and the registered v8-to-v9 step commits the
+new provenance only after Isar opens successfully. Legacy rows decode the
+field as `none`; no historical ticket condition is invented during migration.
+
 ## Database Generation
 
 Every fresh or replacement store receives a UUID database generation. A normal

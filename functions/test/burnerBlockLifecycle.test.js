@@ -139,6 +139,7 @@ async function prepare(store, row = action(), overrides = {}) {
         actionsJson: JSON.stringify([row]),
       }],
       completedAt: '2026-08-28T09:00:00.000Z',
+      recordedAt: '2026-08-28T09:00:00.000Z',
       completedBy: actor,
       ...overrides,
     });
@@ -220,6 +221,33 @@ describe('burner-block lifecycle projection', () => {
     expect(after.currentEventId).toBe(before.currentEventId);
     expect(store.entries().filter(([path]) =>
       path.startsWith('burner_block_lifecycle_events/'))).toHaveLength(2);
+  });
+
+  test('a later server receipt wins even when its device action time is older', async () => {
+    const store = seedStore();
+    await prepare(store, action({
+      id: 'first-recorded',
+      createdAt: '2026-08-28T08:00:00.000Z',
+    }), {
+      sourceId: 'execution-first-recorded',
+      completedAt: '2026-08-28T09:00:00.000Z',
+      recordedAt: '2026-08-28T09:00:00.000Z',
+    });
+
+    await prepare(store, action({
+      id: 'later-recorded-backdated-action',
+      createdAt: '2026-08-27T08:00:00.000Z',
+    }), {
+      sourceId: 'execution-later-recorded',
+      completedAt: '2026-08-28T10:00:00.000Z',
+      recordedAt: '2026-08-28T10:00:00.000Z',
+    });
+    const current = store.entries().find(([path]) =>
+      path.startsWith('burner_block_lifecycle_current/'))[1];
+
+    expect(current.sourceId).toBe('execution-later-recorded');
+    expect(current.actionPerformedAt).toBe('2026-08-27T08:00:00.000Z');
+    expect(current.recordedAt).toBe('2026-08-28T10:00:00.000Z');
   });
 
   test('retains optional purchased supplier and purchase-order evidence', async () => {
@@ -349,6 +377,7 @@ describe('burner-block lifecycle projection', () => {
           actionsJson: JSON.stringify([ordinary, attendance]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }));
 
@@ -375,6 +404,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }));
 
@@ -404,6 +434,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }))).rejects.toMatchObject({
       code: 'failed-precondition',
@@ -434,6 +465,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }))).rejects.toMatchObject({
       code: 'failed-precondition',
@@ -467,6 +499,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }));
 
@@ -497,6 +530,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }))).rejects.toMatchObject({
       code: 'failed-precondition',
@@ -533,6 +567,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
         executionLevelMechanicalEvidence: true,
       }))).rejects.toMatchObject({
@@ -570,6 +605,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
         executionLevelMechanicalEvidence: true,
       }));
@@ -605,6 +641,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
         executionLevelMechanicalEvidence: true,
       }));
@@ -632,6 +669,7 @@ describe('burner-block lifecycle projection', () => {
           }]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }))).rejects.toMatchObject({
       code: 'failed-precondition',
@@ -654,6 +692,7 @@ describe('burner-block lifecycle projection', () => {
           actionsJson: JSON.stringify([action()]),
         }],
         completedAt: '2026-08-28T09:00:00.000Z',
+        recordedAt: '2026-08-28T09:00:00.000Z',
         completedBy: actor,
       }))).rejects.toMatchObject({
       code: 'failed-precondition',

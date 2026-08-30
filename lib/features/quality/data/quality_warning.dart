@@ -415,6 +415,8 @@ class QualityWarning {
 
 enum QualityMonitoringStatus { active, closed }
 
+enum QualityMonitoringVisibilityState { active, recent, archived }
+
 class QualityMonitoringRequest {
   const QualityMonitoringRequest({
     required this.requestId,
@@ -424,6 +426,9 @@ class QualityMonitoringRequest {
     required this.chargeNumbers,
     required this.reason,
     required this.status,
+    required this.visibilityState,
+    required this.visibleUntil,
+    required this.archivedAt,
     required this.createdAt,
     required this.createdByUid,
     required this.updatedAt,
@@ -444,6 +449,9 @@ class QualityMonitoringRequest {
   final List<int> chargeNumbers;
   final String reason;
   final QualityMonitoringStatus status;
+  final QualityMonitoringVisibilityState visibilityState;
+  final DateTime? visibleUntil;
+  final DateTime? archivedAt;
   final DateTime createdAt;
   final String createdByUid;
   final String? createdByName;
@@ -515,6 +523,35 @@ class QualityMonitoringRequest {
       field: 'status',
       source: source,
     );
+    for (final field in <String>[
+      'visibilityState',
+      'visibleUntil',
+      'archivedAt',
+    ]) {
+      if (!map.containsKey(field)) {
+        throw PersistedDataFormatException(
+          field: field,
+          source: source,
+          detail: 'required server-governed visibility field is missing',
+        );
+      }
+    }
+    final visibilityState = readRequiredPersistedEnum(
+      QualityMonitoringVisibilityState.values,
+      map['visibilityState'],
+      field: 'visibilityState',
+      source: source,
+    );
+    final visibleUntil = readOptionalPersistedDateTime(
+      map['visibleUntil'],
+      field: 'visibleUntil',
+      source: source,
+    );
+    final archivedAt = readOptionalPersistedDateTime(
+      map['archivedAt'],
+      field: 'archivedAt',
+      source: source,
+    );
     final closedAt = readOptionalPersistedDateTime(
       map['closedAt'],
       field: 'closedAt',
@@ -554,6 +591,46 @@ class QualityMonitoringRequest {
         detail: 'monitoring status and closure evidence are inconsistent',
       );
     }
+    const retention = Duration(days: 7);
+    if (status == QualityMonitoringStatus.active) {
+      if (visibilityState != QualityMonitoringVisibilityState.active ||
+          visibleUntil != null ||
+          archivedAt != null) {
+        throw PersistedDataFormatException(
+          field: 'visibilityState',
+          source: source,
+          detail: 'active monitoring visibility is inconsistent',
+        );
+      }
+    } else if (visibilityState == QualityMonitoringVisibilityState.recent) {
+      if (closedAt == null ||
+          visibleUntil == null ||
+          archivedAt != null ||
+          visibleUntil.toUtc() != closedAt.toUtc().add(retention)) {
+        throw PersistedDataFormatException(
+          field: 'visibleUntil',
+          source: source,
+          detail: 'recent monitoring visibility deadline is inconsistent',
+        );
+      }
+    } else if (visibilityState == QualityMonitoringVisibilityState.archived) {
+      if (closedAt == null ||
+          visibleUntil != null ||
+          archivedAt == null ||
+          archivedAt.toUtc().isBefore(closedAt.toUtc().add(retention))) {
+        throw PersistedDataFormatException(
+          field: 'archivedAt',
+          source: source,
+          detail: 'archived monitoring evidence is inconsistent',
+        );
+      }
+    } else {
+      throw PersistedDataFormatException(
+        field: 'visibilityState',
+        source: source,
+        detail: 'closed monitoring must be recent or archived',
+      );
+    }
     return QualityMonitoringRequest(
       requestId: id,
       baseNumber: readRequiredPersistedInt(
@@ -579,6 +656,9 @@ class QualityMonitoringRequest {
         source: source,
       ),
       status: status,
+      visibilityState: visibilityState,
+      visibleUntil: visibleUntil,
+      archivedAt: archivedAt,
       createdAt: readRequiredPersistedDateTime(
         map['createdAt'],
         field: 'createdAt',

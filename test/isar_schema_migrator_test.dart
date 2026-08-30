@@ -267,7 +267,7 @@ void main() {
       expect(store.canonicalWriteCount, 0);
     });
 
-    test('repository-proven v1 legacy marker reaches prepared v8', () async {
+    test('repository-proven v1 legacy marker reaches prepared v9', () async {
       final store = InMemoryIsarSchemaProvenanceStore(
         legacyVersion: 1,
         legacyFingerprint: IsarSchemaMigrator.v1SchemaFingerprint,
@@ -279,7 +279,7 @@ void main() {
       );
 
       expect(preparation.result.fromVersion, 1);
-      expect(preparation.result.toVersion, 8);
+      expect(preparation.result.toVersion, 9);
       expect(preparation.marker.sourceSchemaVersion, 1);
       expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
       await preparation.commitAfterSuccessfulOpen();
@@ -332,7 +332,7 @@ void main() {
     });
 
     test(
-      'repository-proven v3 marker advances through v4 to v8 steps',
+      'repository-proven v3 marker advances through v4 to v9 steps',
       () async {
         final store = InMemoryIsarSchemaProvenanceStore(
           canonicalMarkerJson:
@@ -348,7 +348,7 @@ void main() {
         );
 
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 8);
+        expect(preparation.result.toVersion, 9);
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.sourceSchemaVersion, 3);
         expect(
@@ -359,7 +359,7 @@ void main() {
       },
     );
 
-    test('repository-proven v6 marker advances through v7 and v8', () async {
+    test('repository-proven v6 marker advances through v7 to v9', () async {
       final store = InMemoryIsarSchemaProvenanceStore(
         canonicalMarkerJson:
             _marker(
@@ -374,7 +374,7 @@ void main() {
       );
 
       expect(preparation.result.fromVersion, 6);
-      expect(preparation.result.toVersion, 8);
+      expect(preparation.result.toVersion, 9);
       expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
       expect(preparation.marker.sourceSchemaVersion, 6);
       expect(
@@ -401,7 +401,7 @@ void main() {
         );
 
         expect(preparation.result.fromVersion, 7);
-        expect(preparation.result.toVersion, 8);
+        expect(preparation.result.toVersion, 9);
         expect(preparation.marker.sourceSchemaVersion, 7);
         expect(
           preparation.marker.sourceSchemaFingerprint,
@@ -410,6 +410,30 @@ void main() {
         await preparation.commitAfterSuccessfulOpen();
       },
     );
+
+    test('repository-proven v8 marker gains Plant Condition effect', () async {
+      final store = InMemoryIsarSchemaProvenanceStore(
+        canonicalMarkerJson:
+            _marker(
+              schemaVersion: 8,
+              schemaFingerprint: IsarSchemaMigrator.v8SchemaFingerprint,
+            ).encode(),
+      );
+
+      final preparation = await _prepare(
+        store: store,
+        hasExistingLocalStore: true,
+      );
+
+      expect(preparation.result.fromVersion, 8);
+      expect(preparation.result.toVersion, 9);
+      expect(preparation.marker.sourceSchemaVersion, 8);
+      expect(
+        preparation.marker.sourceSchemaFingerprint,
+        IsarSchemaMigrator.v8SchemaFingerprint,
+      );
+      await preparation.commitAfterSuccessfulOpen();
+    });
 
     test('committed migration source evidence must also be proven', () async {
       final store = InMemoryIsarSchemaProvenanceStore(

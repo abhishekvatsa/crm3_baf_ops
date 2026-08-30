@@ -210,37 +210,28 @@ void main() {
       );
     });
 
-    test('live window retains every active request and removes duplicates', () {
-      final oldActive = QualityMonitoringRequest.fromMap(
-        _monitoring()
-          ..['requestId'] = 'monitoring-old-active'
-          ..['createdAt'] = DateTime.utc(2025, 1, 1)
-          ..['updatedAt'] = DateTime.utc(2025, 1, 1),
-        'monitoring-old-active',
-      );
-      final recentActive = QualityMonitoringRequest.fromMap(
-        _monitoring()
-          ..['requestId'] = 'monitoring-recent-active'
-          ..['createdAt'] = DateTime.utc(2026, 8, 15)
-          ..['updatedAt'] = DateTime.utc(2026, 8, 15),
-        'monitoring-recent-active',
-      );
-      final merged = mergeQualityMonitoringWindows(
-        <QualityMonitoringRequest>[oldActive, recentActive],
-        <QualityMonitoringRequest>[recentActive],
-      );
+    test('operational ordering retains more than 250 server-visible rows', () {
+      final requests = List<QualityMonitoringRequest>.generate(300, (index) {
+        final id = 'monitoring-$index';
+        return QualityMonitoringRequest.fromMap(
+          _monitoring()
+            ..['requestId'] = id
+            ..['createdAt'] = DateTime.utc(2026, 8, 15, 0, index)
+            ..['updatedAt'] = DateTime.utc(2026, 8, 15, 0, index),
+          id,
+        );
+      });
 
-      expect(merged.map((request) => request.requestId), <String>[
-        'monitoring-recent-active',
-        'monitoring-old-active',
-      ]);
+      expect(sortQualityMonitoringRequests(requests), hasLength(300));
     });
 
-    test('operational window expires closed requests after seven days', () {
+    test('server-governed recent and archived states are strict', () {
       final closedAt = DateTime.utc(2026, 8, 14, 8);
-      final closed = QualityMonitoringRequest.fromMap(
+      final recent = QualityMonitoringRequest.fromMap(
         _monitoring()
           ..['status'] = 'closed'
+          ..['visibilityState'] = 'recent'
+          ..['visibleUntil'] = closedAt.add(const Duration(days: 7))
           ..['closedAt'] = closedAt
           ..['closedByUid'] = 'si-2'
           ..['closedByName'] = 'SI Two'
@@ -251,27 +242,44 @@ void main() {
           ..['version'] = 2,
         'monitoring-1',
       );
-      final active = QualityMonitoringRequest.fromMap(
+      final archived = QualityMonitoringRequest.fromMap(
         _monitoring()
-          ..['requestId'] = 'monitoring-active'
-          ..['createdAt'] = DateTime.utc(2025, 1, 1)
-          ..['updatedAt'] = DateTime.utc(2025, 1, 1),
-        'monitoring-active',
+          ..['requestId'] = 'monitoring-archived'
+          ..['status'] = 'closed'
+          ..['visibilityState'] = 'archived'
+          ..['visibleUntil'] = null
+          ..['archivedAt'] = closedAt.add(const Duration(days: 7))
+          ..['closedAt'] = closedAt
+          ..['closedByUid'] = 'si-2'
+          ..['closedByName'] = 'SI Two'
+          ..['closeReason'] = 'The monitored campaign is complete.'
+          ..['updatedAt'] = closedAt
+          ..['updatedByUid'] = 'si-2'
+          ..['updatedByName'] = 'SI Two'
+          ..['version'] = 2,
+        'monitoring-archived',
       );
 
+      expect(recent.visibilityState, QualityMonitoringVisibilityState.recent);
       expect(
-        retainQualityMonitoringOperationalWindow(
-          <QualityMonitoringRequest>[closed, active],
-          now: closedAt.add(const Duration(days: 6, hours: 23)),
-        ).map((request) => request.requestId),
-        <String>['monitoring-1', 'monitoring-active'],
+        archived.visibilityState,
+        QualityMonitoringVisibilityState.archived,
       );
       expect(
-        retainQualityMonitoringOperationalWindow(
-          <QualityMonitoringRequest>[closed, active],
-          now: closedAt.add(qualityMonitoringOperationalRetention),
-        ).map((request) => request.requestId),
-        <String>['monitoring-active'],
+        () => QualityMonitoringRequest.fromMap(
+          _monitoring()
+            ..['status'] = 'closed'
+            ..['visibilityState'] = 'recent'
+            ..['visibleUntil'] = closedAt.add(
+              const Duration(days: 6, hours: 23),
+            )
+            ..['closedAt'] = closedAt
+            ..['closedByUid'] = 'si-2'
+            ..['closedByName'] = 'SI Two'
+            ..['closeReason'] = 'The monitored campaign is complete.',
+          'monitoring-1',
+        ),
+        throwsFormatException,
       );
     });
   });
@@ -375,6 +383,8 @@ void main() {
     final closed = QualityMonitoringRequest.fromMap(
       _monitoring()
         ..['status'] = 'closed'
+        ..['visibilityState'] = 'recent'
+        ..['visibleUntil'] = closedAt.add(const Duration(days: 7))
         ..['closedAt'] = closedAt
         ..['closedByUid'] = 'si-2'
         ..['closedByName'] = 'SI Two'
@@ -667,6 +677,9 @@ Map<String, dynamic> _monitoring() {
     'chargeNumbers': <int>[12001, 12002],
     'reason': 'Monitor atmosphere stability during the campaign.',
     'status': 'active',
+    'visibilityState': 'active',
+    'visibleUntil': null,
+    'archivedAt': null,
     'createdAt': createdAt,
     'createdByUid': 'si-1',
     'createdByName': 'SI One',

@@ -128,6 +128,8 @@ const OPERATIONS = new Set<QualityMutationOperation>([
   "CREATE_QUALITY_MONITORING_REQUEST",
   "CLOSE_QUALITY_MONITORING_REQUEST",
 ]);
+export const QUALITY_MONITORING_OPERATIONAL_RETENTION_MS =
+  7 * 24 * 60 * 60 * 1000;
 const REQUEST_ROLES = new Set([
   "admin",
   "si",
@@ -222,6 +224,9 @@ const MONITORING_FIELDS = new Set([
   "chargeNumbers",
   "reason",
   "status",
+  "visibilityState",
+  "visibleUntil",
+  "archivedAt",
   "createdAt",
   "createdByUid",
   "createdByName",
@@ -473,6 +478,26 @@ function validDate(value: unknown): boolean {
   return typeof timestamp.toDate === "function" ||
     (Number.isSafeInteger(timestamp.seconds) &&
       Number.isSafeInteger(timestamp.nanoseconds));
+}
+
+function dateMillis(value: unknown, field: string, entity: string): number {
+  if (value instanceof Date) return value.valueOf();
+  if (typeof value === "string") return Date.parse(value);
+  if (value == null || typeof value !== "object") malformed(entity, field);
+  const timestamp = value as {
+    toDate?: () => Date;
+    seconds?: unknown;
+    nanoseconds?: unknown;
+  };
+  if (typeof timestamp.toDate === "function") {
+    return timestamp.toDate().valueOf();
+  }
+  if (Number.isSafeInteger(timestamp.seconds) &&
+      Number.isSafeInteger(timestamp.nanoseconds)) {
+    return (timestamp.seconds as number) * 1000 +
+      (timestamp.nanoseconds as number) / 1_000_000;
+  }
+  return malformed(entity, field);
 }
 
 function malformed(entity: string, field?: string): never {
@@ -818,7 +843,7 @@ async function linkedAbnormalityForWarning(args: {
   };
 }
 
-function validateMonitoring(
+export function validateQualityMonitoringRecord(
   data: UserAuthorityJsonMap,
   requestId: string,
 ): UserAuthorityJsonMap {
@@ -853,6 +878,11 @@ function validateMonitoring(
   if (data.status !== "active" && data.status !== "closed") {
     malformed("quality-monitoring", "status");
   }
+  if (data.visibilityState !== "active" &&
+      data.visibilityState !== "recent" &&
+      data.visibilityState !== "archived") {
+    malformed("quality-monitoring", "visibilityState");
+  }
   positiveExistingInteger(data.version, "version", "quality-monitoring");
   requiredExistingString(data.createdByUid, "createdByUid", "quality-monitoring");
   requiredExistingString(data.createdByName, "createdByName", "quality-monitoring");
@@ -868,8 +898,23 @@ function validateMonitoring(
       !validDate(data._globalPullServerUpdatedAt)) {
     malformed("quality-monitoring", "_globalPullServerUpdatedAt");
   }
+  const closedAt = optionalExistingDate(
+    data.closedAt,
+    "closedAt",
+    "quality-monitoring",
+  );
+  const visibleUntil = optionalExistingDate(
+    data.visibleUntil,
+    "visibleUntil",
+    "quality-monitoring",
+  );
+  const archivedAt = optionalExistingDate(
+    data.archivedAt,
+    "archivedAt",
+    "quality-monitoring",
+  );
   const closureEvidence = [
-    optionalExistingDate(data.closedAt, "closedAt", "quality-monitoring"),
+    closedAt,
     optionalExistingString(data.closedByUid, "closedByUid", "quality-monitoring"),
     optionalExistingString(data.closedByName, "closedByName", "quality-monitoring"),
     optionalExistingString(data.closeReason, "closeReason", "quality-monitoring"),
@@ -879,6 +924,28 @@ function validateMonitoring(
       (data.status === "closed" &&
         closureEvidenceCount !== closureEvidence.length)) {
     malformed("quality-monitoring", "status");
+  }
+  if (data.status === "active") {
+    if (data.visibilityState !== "active" ||
+        visibleUntil != null || archivedAt != null) {
+      malformed("quality-monitoring", "visibilityState");
+    }
+  } else if (data.visibilityState === "recent") {
+    if (closedAt == null || visibleUntil == null || archivedAt != null ||
+        dateMillis(visibleUntil, "visibleUntil", "quality-monitoring") !==
+          dateMillis(closedAt, "closedAt", "quality-monitoring") +
+            QUALITY_MONITORING_OPERATIONAL_RETENTION_MS) {
+      malformed("quality-monitoring", "visibleUntil");
+    }
+  } else if (data.visibilityState === "archived") {
+    if (closedAt == null || visibleUntil != null || archivedAt == null ||
+        dateMillis(archivedAt, "archivedAt", "quality-monitoring") <
+          dateMillis(closedAt, "closedAt", "quality-monitoring") +
+            QUALITY_MONITORING_OPERATIONAL_RETENTION_MS) {
+      malformed("quality-monitoring", "archivedAt");
+    }
+  } else {
+    malformed("quality-monitoring", "visibilityState");
   }
   return {...data};
 }
@@ -965,7 +1032,7 @@ function replayResult(args: {
   }
   const current = "warningId" in request ?
     validateQualityWarningRecord(target, entityId) :
-    validateMonitoring(target, entityId);
+    validateQualityMonitoringRecord(target, entityId);
   const hasLinkedEvidence = Object.prototype.hasOwnProperty.call(
     receipt,
     "linkedAbnormalityId",
@@ -1279,6 +1346,9 @@ export async function mutateQualityWithDb(args: {
         chargeNumbers: request.chargeNumbers,
         reason: request.reason,
         status: "active",
+        visibilityState: "active",
+        visibleUntil: null,
+        archivedAt: null,
         createdAt: committedAt,
         createdByUid: actorUid,
         createdByName: actor.name,
@@ -1300,7 +1370,7 @@ export async function mutateQualityWithDb(args: {
           {reasonCode: "quality-monitoring-not-found"},
         );
       }
-      before = validateMonitoring(
+      before = validateQualityMonitoringRecord(
         targetSnapshot.data() ?? {},
         request.monitoringRequestId,
       );
@@ -1325,6 +1395,11 @@ export async function mutateQualityWithDb(args: {
       after = {
         ...before,
         status: "closed",
+        visibilityState: "recent",
+        visibleUntil: timestampFromDate(new Date(
+          committedDate.valueOf() + QUALITY_MONITORING_OPERATIONAL_RETENTION_MS,
+        )),
+        archivedAt: null,
         closedAt: committedAt,
         closedByUid: actorUid,
         closedByName: actor.name,

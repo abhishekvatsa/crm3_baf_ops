@@ -23,7 +23,15 @@ import 'widgets/governed_asset_target_picker.dart';
 part 'asset_condition_board.filters.dart';
 part 'asset_condition_board.summary.dart';
 
-enum AssetConditionFilter { all, available, maintenance, stuckUp, down, unfit }
+enum AssetConditionFilter {
+  all,
+  available,
+  unavailable,
+  maintenance,
+  stuckUp,
+  down,
+  unfit,
+}
 
 class AssetConditionBoard extends ConsumerStatefulWidget {
   final AssetConditionFilter initialFilter;
@@ -77,7 +85,7 @@ class _AssetConditionBoardState extends ConsumerState<AssetConditionBoard> {
       );
     }
     final overview = ref.watch(plantAssetOverviewProvider);
-    final openTickets = ref.watch(openTicketsProvider);
+    final conditionTickets = ref.watch(plantConditionTicketsProvider);
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -104,9 +112,13 @@ class _AssetConditionBoardState extends ConsumerState<AssetConditionBoard> {
                   (value) => _ConditionBoardBody(
                     overview: value,
                     user: user,
-                    openTickets:
-                        openTickets.value ?? const <MaintenanceRecord>[],
-                    ticketLoadFailed: openTickets.hasError,
+                    openTickets: (conditionTickets.value ??
+                            const <MaintenanceRecord>[])
+                        .where(
+                          (ticket) => !ticket.isResolved && !ticket.isDeleted,
+                        )
+                        .toList(growable: false),
+                    ticketLoadFailed: conditionTickets.hasError,
                     selectedFilter: _selectedFilter,
                     selectedAssetClassId: _selectedAssetClassId,
                     onFilterChanged:
@@ -248,6 +260,16 @@ class PlantOverviewPanel extends StatelessWidget {
                                 onTap:
                                     () => _openFilter(
                                       AssetConditionFilter.available,
+                                    ),
+                              ),
+                              _PlantMetric(
+                                width: width,
+                                value: value.issueUnavailable,
+                                label: 'Unavailable',
+                                color: BafColors.cobalt,
+                                onTap:
+                                    () => _openFilter(
+                                      AssetConditionFilter.unavailable,
                                     ),
                               ),
                               _PlantMetric(
@@ -407,6 +429,13 @@ class _ConditionBoardBody extends StatelessWidget {
               onSelected: () => onFilterChanged(AssetConditionFilter.available),
             ),
             _ConditionFilterChip(
+              label: '${overview.issueUnavailable} unavailable',
+              color: BafColors.cobalt,
+              selected: selectedFilter == AssetConditionFilter.unavailable,
+              onSelected:
+                  () => onFilterChanged(AssetConditionFilter.unavailable),
+            ),
+            _ConditionFilterChip(
               label: '${overview.underMaintenance} maintenance',
               color: BafColors.maintenance,
               selected: selectedFilter == AssetConditionFilter.maintenance,
@@ -490,6 +519,7 @@ class _ConditionBoardBody extends StatelessWidget {
       switch (selectedFilter) {
         AssetConditionFilter.all => true,
         AssetConditionFilter.available => asset.isAvailable,
+        AssetConditionFilter.unavailable => asset.isIssueUnavailable,
         AssetConditionFilter.maintenance => asset.isUnderMaintenance,
         AssetConditionFilter.stuckUp => asset.isTemporarilyBlocked,
         AssetConditionFilter.down => asset.isDown,
@@ -586,7 +616,7 @@ class _AssetConditionRow extends ConsumerWidget {
         !state.isAdministrativelyOutOfService;
     final canRestore =
         user?.canRestoreAssetOperationalCondition == true &&
-        (state.isDown || state.isUnfit);
+        (state.isDown || state.isManuallyUnfit);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         BafSpacing.md,
@@ -666,6 +696,40 @@ class _AssetConditionRow extends ConsumerWidget {
                     ),
                   ),
                 ],
+                if (state.issueConditionContributions.isNotEmpty) ...[
+                  const SizedBox(height: BafSpacing.sm),
+                  for (final contribution
+                      in state.issueConditionContributions) ...[
+                    Text(
+                      contribution.comment,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color:
+                            contribution.effect ==
+                                    MaintenanceIssuePlantConditionEffect
+                                        .unavailable
+                                ? BafColors.cobalt
+                                : BafColors.warning,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.xs),
+                    Text(
+                      <String>[
+                        'Raised ${DateFormat('dd MMM, HH:mm').format(contribution.startedAt.toLocal())}',
+                        if (contribution.raisedByName case final name?)
+                          'by $name',
+                      ].join(' '),
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -681,7 +745,7 @@ class _AssetConditionRow extends ConsumerWidget {
                         value: _AssetConditionAction.declareDown,
                         child: Text('Declare down'),
                       ),
-                    if (canDeclare && !state.isUnfit)
+                    if (canDeclare && !state.isManuallyUnfit)
                       const PopupMenuItem(
                         value: _AssetConditionAction.declareUnfit,
                         child: Text('Declare unfit'),
@@ -1346,6 +1410,11 @@ List<Widget> _stateBadges(PlantAssetState state) {
   if (state.isUnfit) {
     output.add(const StatusBadge(label: 'Unfit', color: BafColors.warning));
   }
+  if (state.isIssueUnavailable) {
+    output.add(
+      const StatusBadge(label: 'Unavailable', color: BafColors.cobalt),
+    );
+  }
   if (state.isUnderMaintenance) {
     output.add(
       const StatusBadge(label: 'Maintenance', color: BafColors.maintenance),
@@ -1373,6 +1442,7 @@ List<Widget> _stateBadges(PlantAssetState state) {
 Color _primaryColor(PlantAssetState state) {
   if (state.isTemporarilyBlocked) return BafColors.instrument;
   if (state.isDown) return BafColors.danger;
+  if (state.isIssueUnavailable) return BafColors.cobalt;
   if (state.isUnfit) return BafColors.warning;
   if (state.isUnderMaintenance) return BafColors.maintenance;
   if (state.isAdministrativelyOutOfService) return BafColors.admin;
@@ -1382,6 +1452,7 @@ Color _primaryColor(PlantAssetState state) {
 IconData _primaryIcon(PlantAssetState state) {
   if (state.isTemporarilyBlocked) return Icons.link_off_rounded;
   if (state.isDown) return Icons.power_off_rounded;
+  if (state.isIssueUnavailable) return Icons.block_outlined;
   if (state.isUnfit) return Icons.gpp_bad_outlined;
   if (state.isUnderMaintenance) return Icons.build_outlined;
   if (state.isAdministrativelyOutOfService) return Icons.block_outlined;

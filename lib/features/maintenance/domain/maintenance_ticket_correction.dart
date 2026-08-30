@@ -60,6 +60,7 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
   required RoutedTo routedTo,
   required MaintenanceType maintenanceType,
   required bool isCritical,
+  required MaintenanceIssuePlantConditionEffect plantConditionEffect,
   required String? component,
   required String? subsystem,
   required String? tag,
@@ -117,6 +118,7 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
   if (source.classification == furnaceStuckupClassification) {
     if (routedTo != RoutedTo.mechanical ||
         maintenanceType != MaintenanceType.breakdown ||
+        plantConditionEffect != MaintenanceIssuePlantConditionEffect.stuckUp ||
         cleanMaintenanceOptionalText(component ?? '') !=
             'Furnace / Inner Cover interface' ||
         cleanMaintenanceTagText(tag ?? '') != null ||
@@ -130,6 +132,14 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
       furnaceStuckupClassification) {
     throw StateError(
       'A standard issue cannot be reclassified as a Furnace stuck-up.',
+    );
+  }
+  if (source.classification != furnaceStuckupClassification &&
+      plantConditionEffect != MaintenanceIssuePlantConditionEffect.unfit &&
+      plantConditionEffect !=
+          MaintenanceIssuePlantConditionEffect.unavailable) {
+    throw ArgumentError(
+      'A standard issue must mark the asset Unfit or Unavailable.',
     );
   }
   final effectiveLanes = maintenanceTicketCorrectionLanes(
@@ -148,6 +158,7 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
     'routedTo': routedTo.name,
     'maintenanceType': maintenanceType.name,
     'isCritical': isCritical,
+    'plantConditionEffect': plantConditionEffect.name,
     'component': cleanMaintenanceOptionalText(component ?? ''),
     'subsystem': cleanMaintenanceOptionalText(subsystem ?? ''),
     'tag': cleanMaintenanceTagText(tag ?? ''),
@@ -161,6 +172,7 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
     'routedTo': source.routedTo.name,
     'maintenanceType': source.maintenanceType.name,
     'isCritical': source.isCritical,
+    'plantConditionEffect': source.effectivePlantConditionEffect.name,
     'component': cleanMaintenanceOptionalText(source.component ?? ''),
     'subsystem': cleanMaintenanceOptionalText(source.subsystem ?? ''),
     'tag': cleanMaintenanceTagText(source.tag ?? ''),

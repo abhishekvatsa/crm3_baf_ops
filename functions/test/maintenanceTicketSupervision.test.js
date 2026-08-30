@@ -409,6 +409,7 @@ describe('governed maintenance-ticket supervision', () => {
       loggedByName: mechanical.name,
       status: 'open',
       isResolved: false,
+      plantConditionEffect: 'unfit',
       startDate: '2026-08-14T16:20:00.000Z',
       createdAt: at.toISOString(),
       updatedAt: at.toISOString(),
@@ -438,6 +439,29 @@ describe('governed maintenance-ticket supervision', () => {
       hierarchyPath: ['Furnace', 'Furnace 7'],
       qualityImpactAssessment: 'notSuspected',
       createdAt: at.toISOString(),
+    });
+  });
+
+  test('accepts an explicit unavailable effect and rejects specialized misuse', async () => {
+    const unavailable = createServiceFor(mechanical);
+    await expect(unavailable.service.execute(createCommand({
+      commandId: 'create-unavailable-ticket',
+      ticketId: 'unavailable-ticket',
+      ticket: {plantConditionEffect: 'unavailable'},
+    }), unavailable.context)).resolves.toMatchObject({aggregateVersion: 1});
+    expect(unavailable.store.read('maintenance_records/unavailable-ticket'))
+      .toMatchObject({plantConditionEffect: 'unavailable'});
+
+    const invalid = createServiceFor(mechanical);
+    await expect(invalid.service.execute(createCommand({
+      commandId: 'create-invalid-stuck-up-effect',
+      ticketId: 'invalid-stuck-up-effect',
+      ticket: {plantConditionEffect: 'stuckUp'},
+    }), invalid.context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {
+        reasonCode: 'maintenance-ticket-plant-condition-effect-invalid',
+      },
     });
   });
 
@@ -2232,6 +2256,36 @@ describe('governed maintenance-ticket supervision', () => {
     expect(JSON.parse(audit.afterJson).issueAssignedLanes).toEqual([
       'instrumentation', 'mechanical',
     ]);
+  });
+
+  test('admin correction can audit a standard issue condition change', async () => {
+    const {store, service, context} = serviceFor(admin, {
+      plantConditionEffect: 'unfit',
+    });
+    await expect(service.execute({
+      commandId: 'correct-ticket-condition-effect',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'The equipment cannot be made available during this repair.',
+        corrections: {plantConditionEffect: 'unavailable'},
+      },
+    }, context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-corrected',
+      aggregateVersion: 4,
+      result: {correctedFields: ['plantConditionEffect']},
+    });
+    expect(store.read('maintenance_records/ticket-1')).toMatchObject({
+      plantConditionEffect: 'unavailable',
+      version: 4,
+    });
+    const audit = store.read(
+      'audit_logs/server_maintenance_ticket_correct-ticket-condition-effect',
+    );
+    expect(JSON.parse(audit.beforeJson).plantConditionEffect).toBe('unfit');
+    expect(JSON.parse(audit.afterJson).plantConditionEffect)
+      .toBe('unavailable');
   });
 
   test('admin correction preserves burner specialization and red-hot criticality', async () => {

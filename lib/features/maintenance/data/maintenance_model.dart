@@ -26,6 +26,18 @@ enum TicketStatus {
   closedWithoutResolution,
 }
 
+enum MaintenanceIssuePlantConditionEffect { none, unfit, unavailable, stuckUp }
+
+extension MaintenanceIssuePlantConditionEffectLabel
+    on MaintenanceIssuePlantConditionEffect {
+  String get label => switch (this) {
+    MaintenanceIssuePlantConditionEffect.none => 'No automatic effect',
+    MaintenanceIssuePlantConditionEffect.unfit => 'Unfit',
+    MaintenanceIssuePlantConditionEffect.unavailable => 'Unavailable',
+    MaintenanceIssuePlantConditionEffect.stuckUp => 'Stuck-up',
+  };
+}
+
 enum RoutedTo {
   operations,
   electrical,
@@ -326,6 +338,26 @@ class MaintenanceRecord {
 
   String? classification;
   late String description;
+
+  @Enumerated(EnumType.name)
+  MaintenanceIssuePlantConditionEffect plantConditionEffect =
+      MaintenanceIssuePlantConditionEffect.none;
+
+  @ignore
+  MaintenanceIssuePlantConditionEffect get effectivePlantConditionEffect {
+    if (plantConditionEffect != MaintenanceIssuePlantConditionEffect.none) {
+      return plantConditionEffect;
+    }
+    if (classification == furnaceStuckupClassification) {
+      return MaintenanceIssuePlantConditionEffect.stuckUp;
+    }
+    // A pre-upgrade locally queued issue still needs the conservative default
+    // that the compatible server command will persist on first acceptance.
+    if (!isSynced && !isResolved && !isDeleted) {
+      return MaintenanceIssuePlantConditionEffect.unfit;
+    }
+    return MaintenanceIssuePlantConditionEffect.none;
+  }
 
   @Enumerated(EnumType.name)
   late RoutedTo routedTo;
@@ -824,6 +856,7 @@ class MaintenanceRecord {
     'assetType': assetType.name,
     'assetNumber': assetNumber,
     'description': description,
+    'plantConditionEffect': plantConditionEffect.name,
     'status': status.name,
     'isResolved': isResolved,
     'isCritical': isCritical,

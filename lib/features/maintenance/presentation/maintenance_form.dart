@@ -69,6 +69,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   bool _burnerCommonMode = false;
   bool _burnerRemainsLockedOut = true;
   IssueQualityAssessment? _qualityAssessment;
+  MaintenanceIssuePlantConditionEffect _plantConditionEffect =
+      MaintenanceIssuePlantConditionEffect.unfit;
   String? _qualityAbnormalityTypeId;
   BurnerCycleStage _burnerCycleStage = BurnerCycleStage.notRecorded;
   BurnerObservation _burnerFlameObservation = BurnerObservation.notChecked;
@@ -1103,6 +1105,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     ? _cleanOptionalText(_otherDepartmentController.text)
                     : null
             ..description = _cleanRequiredText(_descController.text)
+            ..plantConditionEffect =
+                furnaceStuckup != null
+                    ? MaintenanceIssuePlantConditionEffect.stuckUp
+                    : _plantConditionEffect
             ..loggedByUid = reporterUid
             ..loggedByName = reporterName
             ..reportedBy = reporterName
@@ -1652,6 +1658,74 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                         value,
                       ).messageFor('description'),
                 ),
+                const SizedBox(height: BafSpacing.md),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Plant condition while this issue is open',
+                    style: TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                if (_isFurnaceStuckup)
+                  const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.vertical_align_top_rounded,
+                        color: BafColors.instrument,
+                        size: 20,
+                      ),
+                      SizedBox(width: BafSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'Stuck-up is governed automatically for the selected Furnace, Base and linked Inner Cover.',
+                          style: TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 12,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  SegmentedButton<MaintenanceIssuePlantConditionEffect>(
+                    segments: const [
+                      ButtonSegment(
+                        value: MaintenanceIssuePlantConditionEffect.unfit,
+                        icon: Icon(Icons.gpp_bad_outlined),
+                        label: Text('Unfit'),
+                      ),
+                      ButtonSegment(
+                        value: MaintenanceIssuePlantConditionEffect.unavailable,
+                        icon: Icon(Icons.block_outlined),
+                        label: Text('Unavailable'),
+                      ),
+                    ],
+                    selected: <MaintenanceIssuePlantConditionEffect>{
+                      _plantConditionEffect,
+                    },
+                    onSelectionChanged: (selection) {
+                      setState(() => _plantConditionEffect = selection.first);
+                    },
+                  ),
+                  const SizedBox(height: BafSpacing.xs),
+                  Text(
+                    _plantConditionEffect ==
+                            MaintenanceIssuePlantConditionEffect.unfit
+                        ? 'Default: the selected asset is shown as unfit, with this issue description as the reason.'
+                        : 'The selected asset is shown as unavailable until this issue is closed by the plant system.',
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: BafSpacing.md),
                 _CriticalIssueToggle(
                   value:

@@ -89,6 +89,14 @@ unreadable journal state remains fail-closed and is retried on a later listener
 check, including app resume. The current inventories again report no
 unclassified file, catch site, timestamp call, direct parser or stale policy.
 
+The 30 August 2026 quality-monitoring retention re-arm brings the current
+inventory to 76 decoder surfaces, 49 decoder catch sites, 76 timestamp readers,
+187 direct strict-reader calls, 72 optional timestamp fields and 394 risk
+candidates. The monitoring decoder now treats the server-authored recent-
+visibility deadline and archive time as governed optional chronology; a present
+malformed value fails closed. The inventories report no unclassified file,
+catch site, timestamp call, direct parser or stale policy.
+
 Shared strict readers and domain validators now distinguish absent optional
 state from malformed present state. Required persisted authority is not
 manufactured. Maintenance and workflow synchronization quarantine or reject

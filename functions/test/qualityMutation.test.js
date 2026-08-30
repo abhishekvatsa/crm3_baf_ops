@@ -4,6 +4,9 @@ const {
   qualityAuditActionForOperation,
   userCanMutateQuality,
 } = require('../lib/qualityMutation');
+const {
+  planQualityMonitoringArchive,
+} = require('../lib/qualityMonitoringRetention');
 
 function clone(value) {
   if (value == null || typeof value !== 'object') return value;
@@ -184,6 +187,9 @@ function monitoring(overrides = {}) {
     chargeNumbers: [12001, 12002],
     reason: 'Monitor atmosphere stability during the campaign.',
     status: 'active',
+    visibilityState: 'active',
+    visibleUntil: null,
+    archivedAt: null,
     createdAt: new Date('2026-08-14T08:00:00.000Z'),
     createdByUid: 'si-1',
     createdByName: 'SI One',
@@ -612,7 +618,14 @@ describe('quality mutation', () => {
     expect(created).toMatchObject({version: 1});
     expect(memory.store.get(
       `quality_monitoring_requests/${IDS.monitoring}`,
-    )).toMatchObject({status: 'active', baseNumber: 12, grade: 'CRGO M4'});
+    )).toMatchObject({
+      status: 'active',
+      visibilityState: 'active',
+      visibleUntil: null,
+      archivedAt: null,
+      baseNumber: 12,
+      grade: 'CRGO M4',
+    });
 
     const closed = await invoke(memory, 'admin-1', {
       requestId: IDS.monitoringClose,
@@ -624,6 +637,32 @@ describe('quality mutation', () => {
     expect(closed).toMatchObject({version: 2});
     expect(memory.store.get(
       `quality_monitoring_requests/${IDS.monitoring}`,
-    )).toMatchObject({status: 'closed', closedByUid: 'admin-1'});
+    )).toMatchObject({
+      status: 'closed',
+      visibilityState: 'recent',
+      visibleUntil: new Date('2026-08-21T12:00:00.000Z'),
+      archivedAt: null,
+      closedByUid: 'admin-1',
+    });
+
+    const path = `quality_monitoring_requests/${IDS.monitoring}`;
+    const archivedPatch = planQualityMonitoringArchive({
+      data: memory.store.get(path),
+      requestId: IDS.monitoring,
+      now: new Date('2026-08-21T12:00:00.000Z'),
+    });
+    memory.store.set(path, {...memory.store.get(path), ...archivedPatch});
+    const replay = await invoke(memory, 'admin-1', {
+      requestId: IDS.monitoringClose,
+      operation: 'CLOSE_QUALITY_MONITORING_REQUEST',
+      monitoringRequestId: IDS.monitoring,
+      expectedVersion: 1,
+      reason: 'The planned monitoring campaign has been completed.',
+    });
+    expect(replay).toMatchObject({
+      idempotentReplay: true,
+      version: 2,
+      entity: {visibilityState: 'archived'},
+    });
   });
 });

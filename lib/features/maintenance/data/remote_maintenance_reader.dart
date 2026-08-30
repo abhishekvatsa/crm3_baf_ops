@@ -226,6 +226,14 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     );
   }
   final classification = _optionalString(map, 'classification', source);
+  final plantConditionEffect =
+      readOptionalPersistedEnum(
+        MaintenanceIssuePlantConditionEffect.values,
+        map['plantConditionEffect'],
+        field: 'plantConditionEffect',
+        source: source,
+      ) ??
+      MaintenanceIssuePlantConditionEffect.none;
   final burnerLockout = BurnerLockoutCase.readOptionalSynchronizedFields(
     map,
     source: source,
@@ -260,6 +268,19 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     );
   }
   final isFurnaceStuckup = classification == furnaceStuckupClassification;
+  if ((isFurnaceStuckup &&
+          plantConditionEffect != MaintenanceIssuePlantConditionEffect.none &&
+          plantConditionEffect !=
+              MaintenanceIssuePlantConditionEffect.stuckUp) ||
+      (!isFurnaceStuckup &&
+          plantConditionEffect ==
+              MaintenanceIssuePlantConditionEffect.stuckUp)) {
+    throw PersistedDataFormatException(
+      field: 'plantConditionEffect',
+      source: source,
+      detail: 'must agree with the specialized Furnace stuck-up state',
+    );
+  }
   if (isFurnaceStuckup != (furnaceStuckup != null)) {
     throw PersistedDataFormatException(
       field: 'classification',
@@ -409,6 +430,7 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       field: 'description',
       source: source,
     )
+    ..plantConditionEffect = plantConditionEffect
     ..routedTo = routedTo
     ..otherDepartment = otherDepartment
     ..status = status
