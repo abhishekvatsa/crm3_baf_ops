@@ -107,9 +107,19 @@ class _PlantClassConditionSummary extends StatelessWidget {
         borderRadius: BorderRadius.circular(BafRadius.small),
       ),
       child: Text(
-        '$label ${rows.length}: ${rows.map((row) => row.asset.name).join(', ')}',
+        '$label ${rows.length}: ${rows.map(_assetIdentity).join(', ')}',
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
       ),
     );
+  }
+
+  String _assetIdentity(PlantAssetState row) {
+    final asset = row.asset;
+    final permanentIdentity = '${asset.assetClassName} ${asset.assetNumber}';
+    final name = asset.name.trim();
+    if (name.isEmpty || name.toLowerCase() == permanentIdentity.toLowerCase()) {
+      return permanentIdentity;
+    }
+    return '$permanentIdentity - $name';
   }
 }

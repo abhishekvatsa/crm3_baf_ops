@@ -231,7 +231,7 @@ void main() {
         assetClassCode: assetClass.code,
         assetClassName: assetClass.name,
         assetNumber: index + 1,
-        name: 'Furnace ${index + 1}',
+        name: 'Annealing unit',
         serviceState: AssetServiceState.inService,
         ownershipStatus: AssetOwnershipStatus.confirmed,
         ownerDiscipline: 'Operations',
@@ -295,7 +295,12 @@ void main() {
     );
 
     expect(
-      find.text('Down 4: Furnace 1, Furnace 2, Furnace 3, Furnace 4'),
+      find.text(
+        'Down 4: Furnace 1 - Annealing unit, '
+        'Furnace 2 - Annealing unit, '
+        'Furnace 3 - Annealing unit, '
+        'Furnace 4 - Annealing unit',
+      ),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
