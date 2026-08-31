@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-current-source-backend-deployment-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-08-31T20:19:02Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalEvidence": {
+    "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
+    "codexTurnId": "01a05979-b119-7151-b13b-1429808f42fd",
+    "turnStartedAtUnixSeconds": 1788207542,
+    "authorityType": "project-owner instruction",
+    "instructionSummary": "Complete the next governed build by 07:00 IST while the owner may be unavailable, using the established preservation boundaries.",
+    "timestampSource": "Codex task history turn.startedAt"
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceAuthority": {
+    "commit": "01ba63ffc62ac281e99df2cb9d9192a57f65779a",
+    "tree": "79e0ea25b248c7a2145159e3412763709a94d924",
+    "functionTree": "21b94e8ab114a6e6a0f0cd598c6b93510bcee39c"
+  },
+  "approvedDeployment": {
+    "functionCount": 15,
+    "existingDedicatedServiceAccountsRequired": true,
+    "preserveExistingIamRequired": true,
+    "appCheckEnforcement": false,
+    "firestoreRulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+    "firestoreIndexCount": 66,
+    "firestoreIndexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "strictLiveReadbackRequired": true
+  },
+  "notAuthorized": [
+    "IAM mutation",
+    "App Check activation",
+    "production business-data deletion or mutation",
+    "device-data mutation",
+    "distribution",
+    "unrestricted distribution"
+  ]
+}
