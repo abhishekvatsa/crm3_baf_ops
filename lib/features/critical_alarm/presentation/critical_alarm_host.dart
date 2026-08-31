@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,6 +57,8 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   _alarmFeedSubscription;
   String? _pendingOpenedAlarmId;
   Offset _launcherFraction = const Offset(1, 0.78);
+  Offset? _dragStartGlobalPosition;
+  Offset? _dragStartLauncherOffset;
 
   @override
   void initState() {
@@ -65,20 +68,20 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     _openedAlarmSubscription = platform.openedAlarmIds.listen(
       _queueOpenedAlarm,
     );
-    _alarmFeedSubscription =
-        ref.listenManual<AsyncValue<CriticalAlarmLiveSnapshot>>(
-      activeCriticalAlarmsProvider,
-      (previous, next) {
-        final snapshot = next.asData?.value;
-        if (snapshot == null || !snapshot.isServerVerified) {
-          _liveAlarmStateVerified = false;
-          return;
-        }
-        _liveAlarmStateVerified = true;
-        _reconcileNotifications(snapshot.alarms);
-      },
-      fireImmediately: true,
-    );
+    _alarmFeedSubscription = ref
+        .listenManual<AsyncValue<CriticalAlarmLiveSnapshot>>(
+          activeCriticalAlarmsProvider,
+          (previous, next) {
+            final snapshot = next.asData?.value;
+            if (snapshot == null || !snapshot.isServerVerified) {
+              _liveAlarmStateVerified = false;
+              return;
+            }
+            _liveAlarmStateVerified = true;
+            _reconcileNotifications(snapshot.alarms);
+          },
+          fireImmediately: true,
+        );
     unawaited(
       platform.initializeAlarmOpenListener().then((alarmId) {
         if (alarmId != null) _queueOpenedAlarm(alarmId);
@@ -162,31 +165,20 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                 top: launcherOffset.dy,
                 child: _LauncherModalGuard(
                   obscuredListenable: widget.launcherObscuredListenable,
-                  child: SafeArea(
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        final next = Offset(
-                          (launcherOffset.dx + details.delta.dx).clamp(
-                            bounds.left,
-                            bounds.right,
-                          ),
-                          (launcherOffset.dy + details.delta.dy).clamp(
-                            bounds.top,
-                            bounds.bottom,
-                          ),
-                        );
-                        setState(() {
-                          _launcherFraction = Offset(
-                            bounds.width == 0
-                                ? 0
-                                : (next.dx - bounds.left) / bounds.width,
-                            bounds.height == 0
-                                ? 0
-                                : (next.dy - bounds.top) / bounds.height,
-                          );
-                        });
-                      },
-                      onPanEnd: (_) => unawaited(_saveLauncherPosition()),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    dragStartBehavior: DragStartBehavior.down,
+                    onPanStart: (details) {
+                      _dragStartGlobalPosition = details.globalPosition;
+                      _dragStartLauncherOffset = launcherOffset;
+                    },
+                    onPanUpdate:
+                        (details) =>
+                            _updateLauncherDrag(details.globalPosition, bounds),
+                    onPanEnd: (_) => _endLauncherDrag(),
+                    onPanCancel: _endLauncherDrag,
+                    child: SizedBox.square(
+                      dimension: _launcherSize,
                       child: Semantics(
                         key: const Key('global-critical-alarm-launcher'),
                         label: 'Critical safety alarms. Drag to reposition.',
@@ -199,12 +191,13 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                                   : BafColors.danger,
                           foregroundColor: Colors.white,
                           onPressed: _open,
-                          child: showUnverifiedBanner
-                              ? const Badge(
-                                label: Text('!'),
-                                child: Icon(Icons.cloud_off_outlined),
-                              )
-                              : active.isEmpty
+                          child:
+                              showUnverifiedBanner
+                                  ? const Badge(
+                                    label: Text('!'),
+                                    child: Icon(Icons.cloud_off_outlined),
+                                  )
+                                  : active.isEmpty
                                   ? const Icon(
                                     Icons.notification_important_outlined,
                                   )
@@ -231,16 +224,43 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     MediaQueryData media, {
     required bool hasBanner,
   }) {
-    const left = _launcherMargin;
-    final top = media.padding.top + _launcherMargin + (hasBanner ? 52 : 0);
-    final right = (constraints.maxWidth - _launcherSize - _launcherMargin)
+    final systemPadding = media.viewPadding;
+    final left = systemPadding.left + _launcherMargin;
+    final top = systemPadding.top + _launcherMargin + (hasBanner ? 52 : 0);
+    final right = (constraints.maxWidth -
+            systemPadding.right -
+            _launcherSize -
+            _launcherMargin)
         .clamp(left, double.infinity);
     final bottom = (constraints.maxHeight -
-            media.padding.bottom -
+            systemPadding.bottom -
             _launcherSize -
             84)
         .clamp(top, double.infinity);
     return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  void _updateLauncherDrag(Offset globalPosition, Rect bounds) {
+    final startGlobal = _dragStartGlobalPosition;
+    final startOffset = _dragStartLauncherOffset;
+    if (startGlobal == null || startOffset == null) return;
+    final requested = startOffset + globalPosition - startGlobal;
+    final next = Offset(
+      requested.dx.clamp(bounds.left, bounds.right),
+      requested.dy.clamp(bounds.top, bounds.bottom),
+    );
+    final fraction = Offset(
+      bounds.width == 0 ? 0 : (next.dx - bounds.left) / bounds.width,
+      bounds.height == 0 ? 0 : (next.dy - bounds.top) / bounds.height,
+    );
+    if (fraction == _launcherFraction) return;
+    setState(() => _launcherFraction = fraction);
+  }
+
+  void _endLauncherDrag() {
+    _dragStartGlobalPosition = null;
+    _dragStartLauncherOffset = null;
+    unawaited(_saveLauncherPosition());
   }
 
   Future<void> _restoreLauncherPosition() async {

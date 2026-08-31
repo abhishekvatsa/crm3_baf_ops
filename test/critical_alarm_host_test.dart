@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _channel = MethodChannel('in.co.sail.bsl.crm3.bafops/critical_alarm');
 
@@ -99,6 +100,8 @@ CriticalAlarmLiveSnapshot _stale(List<CriticalAlarm> alarms) =>
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -278,9 +281,10 @@ void main() {
 
       alarmFeed.add(_verified([_raisedAlarm()]));
       await tester.pumpAndSettle();
-      final verifiedReconciliations = calls
-          .where((call) => call.method == 'reconcileActiveNotifications')
-          .length;
+      final verifiedReconciliations =
+          calls
+              .where((call) => call.method == 'reconcileActiveNotifications')
+              .length;
       expect(verifiedReconciliations, 1);
 
       alarmFeed.add(_stale([_raisedAlarm()]));
@@ -380,4 +384,86 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'global alarm launcher retains every high-frequency drag sample',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pumpLauncherHost(tester);
+
+      final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
+      final before = tester.getTopLeft(launcher);
+      final gesture = await tester.startGesture(tester.getCenter(launcher));
+      for (var index = 0; index < 10; index++) {
+        await gesture.moveBy(const Offset(-8, 0));
+      }
+      await gesture.up();
+      await tester.pump();
+
+      final after = tester.getTopLeft(launcher);
+      expect(after.dx, closeTo(before.dx - 80, 1));
+      expect(after.dy, closeTo(before.dy, 1));
+    },
+  );
+
+  testWidgets('global alarm launcher applies device safe insets exactly once', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const systemInsets = EdgeInsets.fromLTRB(16, 44, 12, 34);
+    await _pumpLauncherHost(tester, systemInsets: systemInsets);
+
+    final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
+    final gesture = await tester.startGesture(tester.getCenter(launcher));
+    await gesture.moveBy(const Offset(-1000, -1000));
+    await gesture.up();
+    await tester.pump();
+
+    final position = tester.getTopLeft(launcher);
+    expect(position.dx, closeTo(systemInsets.left + 12, 1));
+    expect(position.dy, closeTo(systemInsets.top + 12, 1));
+    expect(tester.getSize(launcher), const Size.square(48));
+  });
+}
+
+Future<void> _pumpLauncherHost(
+  WidgetTester tester, {
+  EdgeInsets systemInsets = EdgeInsets.zero,
+}) async {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(_channel, (call) async {
+        if (call.method == 'reconcileActiveNotifications') return 0;
+        return null;
+      });
+  final navigatorKey = GlobalKey<NavigatorState>();
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+        activeCriticalAlarmsProvider.overrideWith(
+          (_) => Stream.value(_verified(const <CriticalAlarm>[])),
+        ),
+      ],
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        builder: (context, child) {
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            data: media.copyWith(
+              padding: systemInsets,
+              viewPadding: systemInsets,
+            ),
+            child: CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+        },
+        home: const Scaffold(body: Text('Operations')),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
