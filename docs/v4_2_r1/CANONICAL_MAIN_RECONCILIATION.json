@@ -122,9 +122,9 @@
     {
       "path": "README.md",
       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
-      "candidateSha256": "1947D58E31314969DBA9F08F22D142CC049D37933D8B627699826F6D4EEF5102",
+      "candidateSha256": "14A5833C9D00589634989A3F0D3C1108301A59A1E6F44B2C81188D59C476D800",
       "canonicalBytes": 564,
-      "candidateBytes": 8450,
+      "candidateBytes": 8651,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2450,9 +2450,9 @@
     {
       "path": "pubspec.yaml",
       "canonicalSha256": "AA50252F720ECFF280AEB9703F4602ED76BAD8636EF6922250A80B8733AC58B2",
-      "candidateSha256": "2B6315477285C6464E6E172AEBBA34D18F708A890968C04A39FACBB40E2AB6A1",
+      "candidateSha256": "B5A6D1EFA3BCDB63BC4334AB34E65D40753E654175EC2FA82FBE08772F2F302C",
       "canonicalBytes": 845,
-      "candidateBytes": 1039,
+      "candidateBytes": 1040,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2498,9 +2498,9 @@
     {
       "path": "release/approvals/version-policy-approval.json",
       "canonicalSha256": "40F82419238953032CB2350936D68C179339E5B020DBF5D59105E63BB326CC6D",
-      "candidateSha256": "CBD3C1A0C9B8B665E6FB782C71022CFC7348CF9BA26F4313825D6B8E8612E1EF",
+      "candidateSha256": "67553575BB04A6CFCD4852E5976B3B5A42F95F914C954BDBC5BA3CFF95A57F86",
       "canonicalBytes": 530,
-      "candidateBytes": 618,
+      "candidateBytes": 619,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2570,9 +2570,9 @@
     {
       "path": "release/build-number-ledger.json",
       "canonicalSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
-      "candidateSha256": "869B9C506ABCE502E0ED5E7C4DF469082C887FDD62DBCDD3FAD87E579FC8A92D",
+      "candidateSha256": "0497FF0A184AB0B3F73FCA99F3D9D894C845DEB33C19AD9043DEB87368E389AE",
       "canonicalBytes": 1097,
-      "candidateBytes": 58461,
+      "candidateBytes": 59361,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2594,9 +2594,9 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "93D89F41AF836409EF4222E6E8CA974CE724DA7D3F599185F9C6B7DC23CD295B",
+      "candidateSha256": "FA3DB0C7B3C0F482729708D1C5F12E9C1C22387121ABD3560339210E900EC29C",
       "canonicalBytes": 5884,
-      "candidateBytes": 14585,
+      "candidateBytes": 13489,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

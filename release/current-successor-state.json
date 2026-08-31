@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-31",
   "asOfDate": "2026-08-31",
-  "status": "BUILD19_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
+  "status": "BUILD20_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
-      "packageVersion": "1.0.0-rc.9+19",
-      "relationshipToLatestFinalizedArtifact": "BUILD19_SOURCE_CONTAINS_FINALIZED_BUILD19",
+      "packageVersion": "1.0.0-rc.10+20",
+      "relationshipToLatestFinalizedArtifact": "BUILD20_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD19",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": false,
+      "artifactConstructionAuthority": true,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -62,11 +62,14 @@
       "appliesToBuild16": false,
       "appliesToBuild17": false,
       "appliesToBuild18": false,
-      "appliesToBuild19": false
+      "appliesToBuild19": false,
+      "appliesToBuild20": false
     },
     "nextCandidate": {
       "minimumBuildNumber": 20,
-      "status": "AWAITING_FRESH_GOVERNED_BUILD20_APPROVAL",
+      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD20_CONSTRUCTION",
+      "sourceApprovalFile": "release/approvals/build-number-20-successor-approval.json",
+      "signingEnvironmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-20.json",
       "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
@@ -94,8 +97,8 @@
     "release/evidence/build20-function-fleet-runtime-identity-readback.json",
     "release/evidence/build20-functions-iam-dependencies-readback.json",
     "release/evidence/build20-firestore-rules-indexes-live-readback.json",
-    "release/approvals/build-number-19-successor-approval.json",
-    "release/approvals/public-repository-environment-reviewer-approval-build-19.json",
+    "release/approvals/build-number-20-successor-approval.json",
+    "release/approvals/public-repository-environment-reviewer-approval-build-20.json",
     "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
   ]
 }

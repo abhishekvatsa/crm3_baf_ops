@@ -3884,6 +3884,21 @@ build19_environment_approval = data(
     "release/approvals/"
     "public-repository-environment-reviewer-approval-build-19.json"
 )
+build20_approval_path = (
+    ROOT / "release/approvals/build-number-20-successor-approval.json"
+)
+build20_environment_approval_path = (
+    ROOT
+    / "release/approvals/"
+    / "public-repository-environment-reviewer-approval-build-20.json"
+)
+build20_approval = data(
+    "release/approvals/build-number-20-successor-approval.json"
+)
+build20_environment_approval = data(
+    "release/approvals/"
+    "public-repository-environment-reviewer-approval-build-20.json"
+)
 build10_finalization_block_path = (
     ROOT / "release/evidence/build-10-finalization-block.json"
 )
@@ -4101,9 +4116,25 @@ current_source_firestore = current_successor_planes.get("currentSource", {}).get
     "firestoreRulesAndIndexes", {}
 )
 current_deployed_backend = current_successor_planes.get("deployedBackend", {})
-historical_firestore_authority = combined_policy.get("finalization", {}).get(
-    "exactFirestoreRulesIndexesLiveReadback", {}
-)
+build19_firestore_authority = {
+    "receiptFileSha256": build19_approval.get("requiredSource", {}).get(
+        "exactFirestoreRulesReceiptSha256"
+    ),
+    "receiptCanonicalSha256": build19_approval.get("requiredSource", {}).get(
+        "exactFirestoreRulesReceiptCanonicalSha256"
+    ),
+    "sourceCommit": build19_approval.get("sourceBaseline", {}).get("commit"),
+    "sourceTree": build19_approval.get("sourceBaseline", {}).get("tree"),
+    "rulesSha256": build19_approval.get("requiredSource", {}).get(
+        "exactFirestoreRulesSha256"
+    ),
+    "indexCount": build19_approval.get("requiredSource", {}).get(
+        "exactFirestoreIndexCount"
+    ),
+    "indexSetSha256": build19_approval.get("requiredSource", {}).get(
+        "exactFirestoreIndexSetSha256"
+    ),
+}
 current_backend_deployment_relative = current_deployed_backend.get(
     "functionFleetEvidenceFile", ""
 )
@@ -4332,6 +4363,12 @@ build19_entries = [
     if entry.get("buildNumber") == 19
 ]
 build19_entry = build19_entries[0] if len(build19_entries) == 1 else {}
+build20_entries = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber") == 20
+]
+build20_entry = build20_entries[0] if len(build20_entries) == 1 else {}
 candidate_build_number = combined_policy.get("versionPolicy", {}).get(
     "buildNumber"
 )
@@ -4421,7 +4458,7 @@ candidate_package_version = (
     f"{candidate_build_number}"
 )
 artifact_source_matches_approval = approved_artifact_source_matches(
-    str(build19_approval.get("sourceBaseline", {}).get("commit", "")),
+    str(build20_approval.get("sourceBaseline", {}).get("commit", "")),
     candidate_package_version,
 )
 expected_artifact_construction_authority = (
@@ -4474,6 +4511,29 @@ build19_environment_evidence_chronology_valid = (
     build19_environment_evidence_bound_at is not None
     and build19_evidence_bound_at is not None
     and build19_environment_evidence_bound_at >= build19_evidence_bound_at
+)
+build20_evidence_bound_at = utc_instant(
+    build20_approval.get("evidenceBoundAtUtc")
+)
+build20_bound_evidence_times = [
+    utc_instant(current_function_readback.get("capturedAtUtc")),
+    utc_instant(current_iam_readback.get("capturedAtUtc")),
+    utc_instant(current_firestore_readback.get("capturedAtUtc")),
+    utc_instant(current_backend_deployment.get("recordedAtUtc")),
+]
+build20_evidence_chronology_valid = (
+    build20_evidence_bound_at is not None
+    and all(value is not None for value in build20_bound_evidence_times)
+    and build20_evidence_bound_at
+    >= max(value for value in build20_bound_evidence_times if value is not None)
+)
+build20_environment_evidence_bound_at = utc_instant(
+    build20_environment_approval.get("evidenceBoundAtUtc")
+)
+build20_environment_evidence_chronology_valid = (
+    build20_environment_evidence_bound_at is not None
+    and build20_evidence_bound_at is not None
+    and build20_environment_evidence_bound_at >= build20_evidence_bound_at
 )
 candidate_runtime_accepted = (
     combined_policy.get("finalization", {}).get("runtimeValidationPassed")
@@ -4533,7 +4593,7 @@ else:
         f"AWAITING_FRESH_GOVERNED_BUILD{candidate_build_number + 1}_APPROVAL"
     )
 check(
-    "Builds 6-19 are preserved and Build 19 finalization remains governed",
+    "Builds 6-20 are preserved and Build 20 construction remains governed",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -4726,18 +4786,18 @@ check(
         "environmentReviewControl", {}
     ).get("adminBypassAllowed")
         is False
-    and version_policy_approval.get("reference") == "BAF-REF-003-C18"
-    and version_policy_approval.get("buildNumber") == 19
-    and version_policy_approval.get("versionName") == "1.0.0-rc.9"
-    and combined_policy.get("release", {}).get("buildNumber") == 19
-    and combined_policy.get("release", {}).get("versionName") == "1.0.0-rc.9"
+    and version_policy_approval.get("reference") == "BAF-REF-003-C19"
+    and version_policy_approval.get("buildNumber") == 20
+    and version_policy_approval.get("versionName") == "1.0.0-rc.10"
+    and combined_policy.get("release", {}).get("buildNumber") == 20
+    and combined_policy.get("release", {}).get("versionName") == "1.0.0-rc.10"
     and combined_policy.get("finalization", {}).get("status")
-        == "completed-non-distributable"
+        == "pending-source-authorized"
     and sha(build14_completion_path)
         == build15_approval.get("preservedCompletedBuild", {}).get(
             "completionReceiptSha256"
         )
-    and sha(build18_completion_path)
+    and sha(build19_completion_path)
         == combined_policy.get("finalization", {}).get(
             "priorCompletedBuild", {}
         ).get(
@@ -4745,22 +4805,22 @@ check(
         )
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
-    ).get("buildNumber") == 18
+    ).get("buildNumber") == 19
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("status") == "completed-non-distributable"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("sourceCommit")
-        == "2a2520e075c44c6b347bc9f1c6bcc4343e62713b"
+        == "5221cc8dbfe41b1119ef1cdc1695900556eac739"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("githubRunId")
-        == 33163539650
+        == 33262283846
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("governedPackageSha256")
-        == "951DF1C961E08CD78B52B0B588CAEE5A767CF182BF4063F7F4DEBCA0010AD911"
+        == "914573AC394581D234EA605AF91F33C0CD54514473971951F7112B3FD2436394"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("dualCustodyCompleted")
@@ -4768,9 +4828,9 @@ check(
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("runtimeValidationPassed")
-        is True
+        is False
     and combined_policy.get("finalization", {}).get("dualCustodyCompleted")
-        is True
+        is False
     and build12_completion.get("status") == "passed-non-distributable"
     and build12_completion.get("sourceAuthority", {}).get("commit")
         == "8ba5b237cef151b001d9bea41e16e68015091e43"
@@ -5425,7 +5485,7 @@ check(
     ) is False
     and sha(build12_approval_path)
         == "E7E0F289A99B062F8EECDFCDE944B9C4266F58F00542C34AF49FBB7834469985"
-    and sha(build19_approval_path)
+    and sha(build20_approval_path)
         == combined_policy.get("versionPolicy", {}).get(
             "sourceDocumentSha256"
         )
@@ -5455,7 +5515,7 @@ check(
     and build12_approval.get("distributionApproved") is False
     and sha(build12_environment_approval_path)
         == "552C8A34CEED2A4AFCD71B3521BF8547807761E59537CBA6D87257747638E1DB"
-    and sha(build19_environment_approval_path)
+    and sha(build20_environment_approval_path)
         == combined_policy.get("github", {})
         .get("environmentReviewControl", {})
         .get("approvalReceiptSha256")
@@ -5556,7 +5616,7 @@ check(
     and build14_approval.get("controls", {}).get(
         "exactFirestoreRulesIndexesDeploymentReadbackRequired"
     ) is True
-    and sha(build19_backend_deployment_path)
+    and sha(current_backend_deployment_path)
         == combined_policy.get("finalization", {}).get(
             "exactFunctionFleetDeploymentReceiptSha256"
         )
@@ -6021,11 +6081,13 @@ check(
         "controlledPilotApproved"
     ) is False
     and len(build19_entries) == 1
-    and not candidate_pending
-    and sha(build19_approval_path)
+    and candidate_pending
+    and sha(build20_approval_path)
         == combined_policy.get("versionPolicy", {}).get(
             "sourceDocumentSha256"
         )
+    and sha(build19_approval_path)
+        == "96D8D098A1E772B969134F65A135B44205C729213D7D0B9D9F1FB1C2DADA8361"
     and build19_approval.get("approved") is True
     and build19_approval.get("approvalReference") == "BAF-REF-003-C18"
     and build19_evidence_chronology_valid
@@ -6055,9 +6117,7 @@ check(
     ) is False
     and build19_approval.get("distributionApproved") is False
     and sha(build19_environment_approval_path)
-        == combined_policy.get("github", {})
-        .get("environmentReviewControl", {})
-        .get("approvalReceiptSha256")
+        == "D9BBC334C8A25981858D7E1367292CD0A2CF0348E225EAAF5ADE36779E86A8E6"
     and build19_environment_approval.get("approvalReference")
         == "BAF-GH-ENV-015"
     and build19_environment_evidence_chronology_valid
@@ -6101,27 +6161,37 @@ check(
         == "not-adjudicated-by-build-finalization"
     and build19_entry.get("controlledPilotApproved") is False
     and build19_entry.get("distributionPerformed") is False
-    and combined_policy.get("finalization", {}).get("completionReceiptFile")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("completionReceiptFile")
         == "release/evidence/build-19-finalization-closure.json"
-    and combined_policy.get("finalization", {}).get("completionReceiptSha256")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("completionReceiptSha256")
         == sha(build19_completion_path)
-    and combined_policy.get("finalization", {}).get("sourceCommit")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("sourceCommit")
         == "5221cc8dbfe41b1119ef1cdc1695900556eac739"
-    and combined_policy.get("finalization", {}).get("githubRunId")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("githubRunId")
         == 33262283846
-    and combined_policy.get("finalization", {}).get("remoteBuiltTag")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("remoteBuiltTag")
         == "crm3-build-built/19"
-    and combined_policy.get("finalization", {}).get("governedPackageSha256")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("governedPackageSha256")
         == build19_entry.get("governedPackageSha256")
-    and combined_policy.get("finalization", {}).get("closurePackageSha256")
-        == "42C7530184F6FDDCCD2F0030A72B0D4F21665EEC65E2F4D7A4E99CB5DEC10C7F"
-    and combined_policy.get("finalization", {}).get("custodyRecordSha256")
-        == "B1E3D3E5E39C6CEF619CD6E0EBDD1B6E37B202F0DA3FA15A820B9FA45DE8B4C2"
-    and combined_policy.get("finalization", {}).get("runtimeValidationPassed")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("runtimeValidationPassed")
         is False
     and combined_policy.get("finalization", {}).get(
-        "fullBusinessFlowValidationCompleted"
-    ) is False
+        "priorCompletedBuild", {}
+    ).get("fullBusinessFlowValidationCompleted") is False
     and build19_completion.get("status") == "passed-non-distributable"
     and build19_completion.get("sourceAuthority", {}).get("commit")
         == "5221cc8dbfe41b1119ef1cdc1695900556eac739"
@@ -6148,10 +6218,78 @@ check(
     and build19_completion.get("releaseBoundary", {}).get(
         "controlledPilotApproved"
     ) is False
+    and len(build20_entries) == 1
+    and build20_approval.get("approved") is True
+    and build20_approval.get("approvalReference") == "BAF-REF-003-C19"
+    and build20_evidence_chronology_valid
+    and build20_approval.get("sourceBaseline", {}).get("commit")
+        == "1a76f9b11aa4486abea309243da60a4bb4b8156e"
+    and build20_approval.get("sourceBaseline", {}).get("tree")
+        == "499107c69242a56cdb6427a22dae1954d22df9ac"
+    and build20_approval.get("consumedBuild", {}).get("buildNumber") == 19
+    and build20_approval.get("consumedBuild", {}).get(
+        "completionReceiptSha256"
+    ) == sha(build19_completion_path)
+    and build20_approval.get("nextBuild", {}).get("buildNumber") == 20
+    and build20_approval.get("nextBuild", {}).get("versionName")
+        == "1.0.0-rc.10"
+    and build20_approval.get("requiredSource", {}).get(
+        "successorFreezePullRequest"
+    ) == 327
+    and build20_approval.get("requiredSource", {}).get(
+        "successorFreezePostMergeGithubRunId"
+    ) == 33361793718
+    and build20_approval.get("requiredSource", {}).get(
+        "successorFreezeCanonicalAuditPassCount"
+    ) == 149
+    and build20_approval.get("controls", {}).get(
+        "build19AuthorityPreserved"
+    ) is True
+    and build20_approval.get("controls", {}).get(
+        "deviceDataClearProhibited"
+    ) is True
+    and build20_approval.get("controls", {}).get(
+        "pilotDistributionAuthorized"
+    ) is False
+    and build20_approval.get("distributionApproved") is False
+    and sha(build20_environment_approval_path)
+        == combined_policy.get("github", {})
+        .get("environmentReviewControl", {})
+        .get("approvalReceiptSha256")
+    and build20_environment_approval.get("approvalReference")
+        == "BAF-GH-ENV-016"
+    and build20_environment_evidence_chronology_valid
+    and build20_environment_approval.get("scope", {}).get("buildNumber")
+        == 20
+    and build20_environment_approval.get("controls", {}).get(
+        "requiredSuccessorFreezeCommit"
+    ) == build20_approval.get("sourceBaseline", {}).get("commit")
+    and build20_environment_approval.get("liveStateEvidence", {}).get(
+        "canAdminsBypass"
+    ) is False
+    and build20_environment_approval.get("liveStateEvidence", {}).get(
+        "secretValuesInspected"
+    ) is False
+    and build20_entry.get("baselineCommit")
+        == build20_approval.get("sourceBaseline", {}).get("commit")
+    and build20_entry.get("versionApprovalReference") == "BAF-REF-003-C19"
+    and build20_entry.get("versionApprovalDocumentSha256")
+        == sha(build20_approval_path)
+    and build20_entry.get("remoteReservationTag")
+        == "crm3-build-reserved/20"
+    and build20_entry.get("remoteBuiltTag") == "crm3-build-built/20"
+    and build20_entry.get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and build20_entry.get("failedOrWithdrawnBuildConsumesNumber") is True
+    and build20_entry.get("remoteReservationTagObject") is None
+    and build20_entry.get("remoteBuiltTagObject") is None
+    and build20_entry.get("githubRunId") is None
+    and build20_entry.get("githubArtifactId") is None
+    and build20_entry.get("governedPackageSha256") is None
     and current_successor_state.get("status")
         == expected_successor_state_status
     and current_successor_planes.get("currentSource", {}).get("packageVersion")
-        == "1.0.0-rc.9+19"
+        == "1.0.0-rc.10+20"
     and current_successor_planes.get("currentSource", {}).get(
         "artifactConstructionAuthority"
     ) is expected_artifact_construction_authority
@@ -6179,10 +6317,10 @@ check(
 check(
     "Build 19 backend deployment evidence remains exact and immutable",
     sha(build19_firestore_readback_path)
-        == historical_firestore_authority.get("receiptFileSha256")
+        == build19_firestore_authority.get("receiptFileSha256")
     and build19_firestore_readback.get("receiptSha256", "").upper()
         == str(
-            historical_firestore_authority.get("receiptCanonicalSha256", "")
+            build19_firestore_authority.get("receiptCanonicalSha256", "")
         ).upper()
     and canonical_receipt_sha(build19_firestore_readback)
         == build19_firestore_readback.get("receiptSha256")
@@ -6199,55 +6337,58 @@ check(
     )
     and build19_firestore_readback.get("source", {}).get("before", {}).get(
         "commit"
-    ) == historical_firestore_authority.get("sourceCommit")
+    ) == build19_firestore_authority.get("sourceCommit")
     and build19_firestore_readback.get("source", {}).get("before", {}).get(
         "tree"
-    ) == historical_firestore_authority.get("sourceTree")
+    ) == build19_firestore_authority.get("sourceTree")
     and build19_firestore_readback.get("source", {}).get("after", {}).get(
         "commit"
-    ) == historical_firestore_authority.get("sourceCommit")
+    ) == build19_firestore_authority.get("sourceCommit")
     and build19_firestore_readback.get("outputs", {}).get("rules", {}).get(
         "sourceSha256"
     )
-        == historical_firestore_authority.get("rulesSha256")
+        == build19_firestore_authority.get("rulesSha256")
         == build19_approval.get("requiredSource", {}).get(
             "exactFirestoreRulesSha256"
         )
     and build19_firestore_readback.get("outputs", {}).get("rules", {}).get(
         "activeSha256"
-    ) == historical_firestore_authority.get("rulesSha256")
+    ) == build19_firestore_authority.get("rulesSha256")
     and build19_firestore_readback.get("outputs", {}).get("rules", {}).get(
         "byteExact"
     ) is True
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "sourceCount"
     )
-        == historical_firestore_authority.get("indexCount")
+        == build19_firestore_authority.get("indexCount")
         == build19_approval.get("requiredSource", {}).get(
             "exactFirestoreIndexCount"
         )
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "apiCount"
-    ) == historical_firestore_authority.get("indexCount")
+    ) == build19_firestore_authority.get("indexCount")
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "apiReadyCount"
-    ) == historical_firestore_authority.get("indexCount")
+    ) == build19_firestore_authority.get("indexCount")
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "sourceSetSha256"
     )
-        == historical_firestore_authority.get("indexSetSha256")
+        == build19_firestore_authority.get("indexSetSha256")
         == build19_approval.get("requiredSource", {}).get(
             "exactFirestoreIndexSetSha256"
         )
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "apiSetSha256"
-    ) == historical_firestore_authority.get("indexSetSha256")
+    ) == build19_firestore_authority.get("indexSetSha256")
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "allApiIndexesReady"
     ) is True
-    and historical_firestore_authority.get("allIndexesReady") is True
-    and historical_firestore_authority.get("redundantDeploymentPerformed")
-        is False
+    and all(
+        value is False
+        for value in build19_firestore_readback.get(
+            "mutationBoundary", {}
+        ).values()
+    )
     and sha(build19_backend_deployment_path)
         == build19_approval.get("requiredSource", {}).get(
             "exactFunctionFleetDeploymentReceiptSha256"
@@ -6539,15 +6680,13 @@ check(
             )
             + [
                 (
-                    f"BUILD{candidate_build_number}_MUTATING_BUSINESS_"
-                    "FLOW_VALIDATION"
-                    if candidate_runtime_accepted
-                    else (
-                        f"BUILD{candidate_build_number}_SIGNED_DEVICE_"
-                        "MIGRATION_AND_BUSINESS_FLOW_VALIDATION"
-                    )
+                    f"BUILD{candidate_build_number}_PHYSICAL_DEVICE_AND_"
+                    "TWO_ACCOUNT_CONVERGENCE"
                 ),
-                f"BUILD{candidate_build_number}_EXPLICIT_PILOT_PROMOTION",
+                (
+                    f"BUILD{candidate_build_number}_EXPLICIT_25_PERSON_"
+                    "PILOT_PROMOTION"
+                ),
             ]
         ),
     (
