@@ -1494,24 +1494,18 @@ void main() {
         );
         final priorCompletedBuild =
             finalization['priorCompletedBuild'] as Map<String, dynamic>;
-        expect(priorCompletedBuild['buildNumber'], 18);
+        expect(priorCompletedBuild['buildNumber'], 19);
         expect(
           priorCompletedBuild['completionReceiptFile'],
-          'release/evidence/build-18-finalization-closure.json',
+          'release/evidence/build-19-finalization-closure.json',
         );
-        expect(priorCompletedBuild['runtimeValidationPassed'], isTrue);
+        expect(priorCompletedBuild['runtimeValidationPassed'], isFalse);
         expect(
           priorCompletedBuild['runtimeDisposition'],
-          'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces',
+          'not-adjudicated-by-build-finalization',
         );
-        expect(
-          priorCompletedBuild['deviceAcceptanceReceiptFile'],
-          'release/evidence/build-18-device-acceptance.json',
-        );
-        expect(
-          _sha256(priorCompletedBuild['deviceAcceptanceReceiptFile'] as String),
-          priorCompletedBuild['deviceAcceptanceReceiptSha256'],
-        );
+        expect(priorCompletedBuild['deviceAcceptanceReceiptFile'], isNull);
+        expect(priorCompletedBuild['deviceAcceptanceReceiptSha256'], isNull);
         expect(
           build18DeviceAcceptance['status'],
           'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces',

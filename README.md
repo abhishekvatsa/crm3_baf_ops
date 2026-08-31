@@ -15,16 +15,18 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` records finalized Build 19 (`1.0.0-rc.9+19`) with the exact
-Function fleet, Firestore Rules and all 66 indexes deployed and strictly read
-back, plus protected production signing, independent package verification and
-dual custody. Build 18 remains independently finalized and passed a same-signer
-in-place physical-device upgrade that preserved authenticated local state,
-converged with zero unsynced or rejected rows, and rendered the principal
+Current `main` authorizes Build 20 (`1.0.0-rc.10+20`) for one governed,
+production-signed construction from the exact reconciled source. Its 15-Function
+fleet, Firestore Rules and all 66 indexes are deployed and strictly read back.
+Finalized Build 19 remains immutable, independently verified, dual-custodied and
+non-distributable. Build 18 remains independently finalized and passed a
+same-signer in-place physical-device upgrade that preserved authenticated local
+state, converged with zero unsynced or rejected rows, and rendered the principal
 authenticated read-side business surfaces. No consumed package identity may be
-reused. Exact Build 19 device migration and authenticated business-flow
-validation remain unadjudicated, and a separate controlled-pilot decision is
-still required before any distribution.
+reused. Build 20 construction, independent package verification and dual custody
+must complete before physical-device and two-account convergence evidence can be
+collected; a separate exact-package promotion receipt is then required before
+any handout to the controlled roster of no more than 25 users.
 
 Authoritative status sources:
 
