@@ -590,7 +590,7 @@ void main() {
         _gitTreeObjectId(backendAuthority['commit'] as String, 'functions'),
         backendAuthority['functionsGitObjectId'],
       );
-      expect(backendAuthority['pullRequestNumber'], 323);
+      expect(backendAuthority['pullRequestNumber'], 331);
       final approvalAuthority =
           (liveBackend['approvalAuthority'] as Map).cast<String, dynamic>();
       expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);

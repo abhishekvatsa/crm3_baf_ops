@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "exact-current-source-backend-deployment-closure",
+  "decision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+  "recordedAtUtc": "2026-08-31T22:42:00Z",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "approvalAuthority": {
+    "file": "release/approvals/build21-backend-deployment-approval.json",
+    "sha256": "AE9A7D263313D3B80B29AE0DC2888935FB9316673AB5C8E6C14431A69DF23A96"
+  },
+  "sourceAuthority": {
+    "commit": "01ba63ffc62ac281e99df2cb9d9192a57f65779a",
+    "tree": "79e0ea25b248c7a2145159e3412763709a94d924",
+    "functionsGitObjectId": "21b94e8ab114a6e6a0f0cd598c6b93510bcee39c",
+    "pullRequestNumber": 331,
+    "postMergeReleaseGateRunId": 33444514874,
+    "postMergeReleaseGateConclusion": "success"
+  },
+  "deployment": {
+    "campaign": "function-fleet-runtime-identity",
+    "functionCount": 15,
+    "callableCount": 9,
+    "eventAndProtocolTriggerCount": 5,
+    "schedulerCount": 1,
+    "sourceRuntimeHash": "3fa4127899bc2c1c5399bf21b328af797ed9b43c",
+    "allFunctionsExactSourceVerified": true,
+    "finalRuntimeIdentityReadbackPassed": true,
+    "finalIamDependencyReadbackPassed": true,
+    "schedulerBacklogZeroVerified": true,
+    "existingIamPreservationEnforced": true,
+    "appCheckEnforcement": false
+  },
+  "firestoreDeployment": {
+    "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+    "rulesActiveByteExact": true,
+    "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/f3ebab34-a6fd-43f9-b706-6cca26b1f37a",
+    "rulesetCreateTime": "2026-08-31T22:36:43.580047Z",
+    "indexCount": 66,
+    "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "indexFileSha256": "0479221A5355A9E3E2151B2CCCA7E3A8FFA69B67074A3B50D3A905F70567C800",
+    "fieldOverrideCount": 8,
+    "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
+    "allIndexesReady": true,
+    "indexesAlreadyExactNoMutationRequired": true,
+    "strictLiveReadbackPassed": true
+  },
+  "privacySafeExternalEvidence": {
+    "folderName": "CRM3_BUILD21_BACKEND_EVIDENCE_01BA63F_20260901",
+    "receipts": [
+      {
+        "file": "01-preflight.json",
+        "sha256": "BA2A765EA901F008AA5AD4833924240B13FCFFBB6302497734A2826E48419C60"
+      },
+      {
+        "file": "02-provisioned.json",
+        "sha256": "F669CD66A625B93DACC3CEB9AB165AF8D47E863A22B63E6BAC403145794B103F"
+      },
+      {
+        "file": "03-callables.json",
+        "sha256": "795DC892A5DF48AF979D6B8787A4E49ECF67511002BB2891C169BB798F91015C"
+      },
+      {
+        "file": "04-events.json",
+        "sha256": "EEAF0ECEFDCA8F8A1261507B6EC43ADE8069369DFAE00D0FC71AEA34DA7D6024"
+      },
+      {
+        "file": "05-scheduler-preflight.json",
+        "sha256": "04C6C990C9E7C974105997E5D32F4F9FB828BA76B5EF61648F15AC433E5B3383"
+      },
+      {
+        "file": "06-fleet.json",
+        "sha256": "BC21FAD85C0EF0BB723C6E657B1B31F2B1B7F1D4976E785F009B9364D8220ECD"
+      },
+      {
+        "file": "07-lr03-lr06-prefinal.json",
+        "sha256": "319A5A9BB21BC79392DC541D9AB06EF0D818E07278B200712FD971A051BC3167"
+      },
+      {
+        "file": "08-final.json",
+        "sha256": "A8C9E56E0730751BF4FCD7DF26270DF00AC239FCAE0246E4BEEA236CC4DD19A9"
+      },
+      {
+        "file": "09-lr03-lr06-final.json",
+        "sha256": "82980BAA36830EF780BBB24A3391DE871D6D63FB907598BAE8256C4E585F0BD7"
+      }
+    ]
+  },
+  "cleanMainLiveReadbacks": {
+    "functionFleet": {
+      "file": "release/evidence/build21-function-fleet-runtime-identity-readback.json",
+      "physicalSha256": "A8C9E56E0730751BF4FCD7DF26270DF00AC239FCAE0246E4BEEA236CC4DD19A9",
+      "canonicalReceiptSha256": "BAF784DF8585E05C73DF0A942B3793F4A41AEE1FCED280CED2116D7F938EB0A5",
+      "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+      "failedChecks": 0
+    },
+    "iamDependencies": {
+      "file": "release/evidence/build21-functions-iam-dependencies-readback.json",
+      "physicalSha256": "82980BAA36830EF780BBB24A3391DE871D6D63FB907598BAE8256C4E585F0BD7",
+      "canonicalReceiptSha256": "6EFA2285A8E7BB0BF8DA5FD2FD00C39DAAF0BE4093810D77D48C4592C093D403",
+      "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+      "failedChecks": 0,
+      "postureHolds": 0
+    },
+    "firestoreRulesAndIndexes": {
+      "file": "release/evidence/build21-firestore-rules-indexes-live-readback.json",
+      "verified": true,
+      "physicalSha256": "B45D47C8D385C687173851EB76DA8571D065C4B03F5DD3808AD82483C3A964E4",
+      "canonicalReceiptSha256": "5FB970228B6F9915A4A41F8F9C85BCF52F77BE2B130369DDF102B411F3914D11",
+      "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "sourceCommit": "01ba63ffc62ac281e99df2cb9d9192a57f65779a",
+      "sourceTree": "79e0ea25b248c7a2145159e3412763709a94d924",
+      "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+      "indexCount": 66,
+      "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "allIndexesReady": true,
+      "failedChecks": 0
+    }
+  },
+  "controlBoundary": {
+    "serviceAccountsMutated": false,
+    "iamMutated": false,
+    "appCheckActivated": false,
+    "firestoreDocumentsRead": false,
+    "firestoreDocumentsWritten": false,
+    "productionBusinessDataMutated": false,
+    "deviceDataMutated": false,
+    "artifactConstructed": false,
+    "pilotPromotionPerformed": false,
+    "distributionPerformed": false
+  }
+}
