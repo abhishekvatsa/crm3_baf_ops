@@ -648,6 +648,39 @@ describe('Morning Review governed lifecycle', () => {
       .rejects.toMatchObject({code: 'failed-precondition'});
   });
 
+  test('expired resolved concern history cannot block finalization', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    await invoke(memory, 'si-1', {
+      requestId: IDS.concern,
+      operation: 'CREATE_MORNING_REVIEW_STANDING_CONCERN',
+      sessionId,
+      concernDraft: {
+        title: 'Sheath purge valves',
+        detail: 'Confirm that sheath purge valves remain open on all bases.',
+        criticality: 'safety',
+      },
+    });
+    for (let index = 0; index < 251; index += 1) {
+      memory.store.set(`morning_review_standing_concerns/expired-${index}`, {
+        status: 'resolved',
+        expiresAt: new Date('2026-08-30T00:00:00.000Z'),
+      });
+    }
+
+    const session = memory.store.get(`morning_review_sessions/${sessionId}`);
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.finalize,
+      operation: 'FINALIZE_MORNING_REVIEW',
+      sessionId,
+      expectedVersion: session.version,
+      summary: 'Review completed with the standing safety concern retained.',
+    })).resolves.toMatchObject({status: 'finalized'});
+    expect(memory.store.get(
+      `morning_review_documents/${sessionId}`,
+    ).standingConcerns).toHaveLength(1);
+  });
+
   test('records a not-held day only after the governed window', async () => {
     const memory = fakeDb(baseSeed());
     await expect(invoke(

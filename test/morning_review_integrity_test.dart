@@ -175,6 +175,20 @@ void main() {
       expect(end, greaterThan(start));
       expect(source.substring(start, end), isNot(contains('.limit(')));
     });
+
+    test('filters standing-concern lifecycle before presenting the agenda', () {
+      final source =
+          File(
+            'lib/features/morning_review/data/morning_review_repository.dart',
+          ).readAsStringSync();
+      final start = source.indexOf('watchStandingConcerns()');
+      final end = source.indexOf('watchConcernChecks(', start);
+      expect(start, greaterThanOrEqualTo(0));
+      expect(end, greaterThan(start));
+      final query = source.substring(start, end);
+      expect(query, contains("where('status', whereIn:"));
+      expect(query, isNot(contains('.limit(')));
+    });
   });
 }
 

@@ -132,7 +132,7 @@ class MorningReviewRepository {
   Stream<List<MorningReviewStandingConcern>> watchStandingConcerns() async* {
     await for (final snapshot in firestore
         .collection('morning_review_standing_concerns')
-        .limit(250)
+        .where('status', whereIn: const ['active', 'resolved'])
         .snapshots(includeMetadataChanges: true)) {
       if (!_isServerVerified(snapshot)) continue;
       final now = DateTime.now();

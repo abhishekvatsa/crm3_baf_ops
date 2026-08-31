@@ -1065,15 +1065,34 @@ async function sessionPopulation(args: {
       query("morning_review_actions", MAX_SESSION_ACTIONS + 1),
       query("morning_review_participants", MAX_SESSION_PARTICIPANTS + 1),
       args.db.collection("morning_review_standing_concerns")
-        .limit(MAX_STANDING_CONCERNS + 1)
         .get()
         .then((page) => page.docs),
       query("morning_review_concern_checks", MAX_SESSION_ENTRIES + 1),
     ]);
+  const retainedConcerns = standingConcerns.filter((snapshot) => {
+    const data = snapshot.data() ?? {};
+    if (data.status === "active") return true;
+    if (data.status !== "resolved") {
+      throw new AssetHierarchyMutationError(
+        "data-loss",
+        "A retained Morning Review standing concern has an invalid status.",
+        {reasonCode: "morning-review-standing-concern-status-invalid"},
+      );
+    }
+    const retainedUntil = timestampDate(data.expiresAt);
+    if (retainedUntil == null) {
+      throw new AssetHierarchyMutationError(
+        "data-loss",
+        "A resolved Morning Review standing concern has no retention deadline.",
+        {reasonCode: "morning-review-standing-concern-retention-invalid"},
+      );
+    }
+    return retainedUntil > args.committed;
+  });
   if (entries.length > MAX_SESSION_ENTRIES ||
       actions.length > MAX_SESSION_ACTIONS ||
       participants.length > MAX_SESSION_PARTICIPANTS ||
-      standingConcerns.length > MAX_STANDING_CONCERNS ||
+      retainedConcerns.length > MAX_STANDING_CONCERNS ||
       concernChecks.length > MAX_SESSION_ENTRIES) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
@@ -1081,12 +1100,6 @@ async function sessionPopulation(args: {
       {reasonCode: "morning-review-finalization-capacity-exceeded"},
     );
   }
-  const retainedConcerns = standingConcerns.filter((snapshot) => {
-    const data = snapshot.data() ?? {};
-    if (data.status !== "resolved") return true;
-    const retainedUntil = timestampDate(data.expiresAt);
-    return retainedUntil != null && retainedUntil > args.committed;
-  });
   return {
     entries,
     actions,
@@ -1881,6 +1894,20 @@ export async function mutateMorningReviewWithDb(args: {
           throw new AssetHierarchyMutationError(
             "data-loss",
             "A standing concern exists without its mutation receipt.",
+          );
+        }
+        const activeConcernPage = asQuerySnapshot(
+          await transaction.get(
+            concerns.where("status", "==", "active")
+              .limit(MAX_STANDING_CONCERNS + 1),
+          ),
+          "Morning Review active standing concern capacity lookup",
+        );
+        if (activeConcernPage.docs.length >= MAX_STANDING_CONCERNS) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "Resolve an active standing concern before adding another.",
+            {reasonCode: "morning-review-standing-concern-capacity-reached"},
           );
         }
         const draft = request.concernDraft!;
