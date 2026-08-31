@@ -1749,6 +1749,88 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     }
   }
 
+  if ($policy.finalization.physicalInstallationConditionPassed -eq $true) {
+    $physicalInstallationPath =
+      [string]$policy.finalization.physicalInstallationReceiptFile
+    if (-not (Test-Path -LiteralPath $physicalInstallationPath -PathType Leaf)) {
+      throw 'Physical-installation receipt is missing.'
+    }
+    $physicalInstallation =
+      Get-Content -LiteralPath $physicalInstallationPath -Raw |
+        ConvertFrom-Json
+    $expectedPhysicalStatus =
+      'passed-exact-build' +
+      [string]$policy.release.buildNumber +
+      '-physical-in-place-authenticated-startup-and-local-recovery'
+    $physicalMutationValues = @(
+      $physicalInstallation.businessMutationBoundary.PSObject.Properties |
+        ForEach-Object { $_.Value }
+    )
+    if ((Get-Sha256 $physicalInstallationPath) -ne
+        ([string]$policy.finalization.physicalInstallationReceiptSha256).
+          ToUpperInvariant() -or
+        [string]$physicalInstallation.evidenceType -ne
+          'production-build-physical-installation-acceptance' -or
+        [string]$physicalInstallation.status -ne $expectedPhysicalStatus -or
+        [int64]$physicalInstallation.release.buildNumber -ne
+          [int64]$policy.release.buildNumber -or
+        [string]$physicalInstallation.release.finalizationReceiptSha256 -ne
+          (Get-Sha256 $completionReceiptPath) -or
+        [string]$physicalInstallation.release.apkSha256 -ne
+          [string]$completionReceipt.governedPackage.apkSha256 -or
+        [string]$physicalInstallation.release.certificateSha256 -ne
+          [string]$completionReceipt.governedPackage.certificateSha256 -or
+        $physicalInstallation.physicalDevice.deviceSerialRecorded -ne
+          $false -or
+        $physicalInstallation.physicalDevice.accountIdentifierRecorded -ne
+          $false -or
+        [int64]$physicalInstallation.physicalDevice.installedVersionCode -ne
+          [int64]$policy.release.buildNumber -or
+        $physicalInstallation.physicalDevice.exactGovernedApkMatch -ne
+          $true -or
+        $physicalInstallation.physicalDevice.firstInstallTimePreserved -ne
+          $true -or
+        $physicalInstallation.physicalDevice.applicationDataPreserved -ne
+          $true -or
+        $physicalInstallation.physicalDevice.applicationDataCleared -ne
+          $false -or
+        $physicalInstallation.startup.approvedAuthenticatedSessionPreserved -ne
+          $true -or
+        $physicalInstallation.startup.authenticatedHomeRendered -ne $true -or
+        $physicalInstallation.startup.startupMigrationBlockObserved -ne
+          $false -or
+        $physicalInstallation.localStoreMigration.governedOpenCompleted -ne
+          $true -or
+        [string]$physicalInstallation.synchronizationRecovery.finalSyncResult -ne
+          'success' -or
+        [int64]$physicalInstallation.synchronizationRecovery.finalUnsyncedRows -ne
+          0 -or
+        [int64]$physicalInstallation.synchronizationRecovery.finalUnresolvedRejections -ne
+          0 -or
+        [int64]$physicalInstallation.synchronizationRecovery.finalFullSyncConflicts -ne
+          0 -or
+        $physicalInstallation.synchronizationRecovery.firebaseBusinessRecordMutated -ne
+          $false -or
+        @($physicalMutationValues | Where-Object { $_ -ne $false }).Count -ne
+          0 -or
+        $physicalInstallation.adjudication.minimumHandoutCondition4Passed -ne
+          $true -or
+        $physicalInstallation.adjudication.twoAccountTwoDeviceMutationConvergencePassed -ne
+          $false -or
+        $physicalInstallation.adjudication.separateControlledPilotPromotionPassed -ne
+          $false -or
+        $physicalInstallation.releaseBoundary.controlledPilotApproved -ne
+          $false -or
+        $physicalInstallation.releaseBoundary.pilotHandoutPerformed -ne
+          $false -or
+        $physicalInstallation.releaseBoundary.firebaseBusinessDataChanged -ne
+          $false -or
+        $policy.finalization.runtimeValidationPassed -ne $false -or
+        $policy.finalization.controlledPilotApproved -ne $false) {
+      throw 'Physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
+    }
+  }
+
 } else {
   $prior = $policy.finalization.priorCompletedBuild
   $preserved = $versionSource.preservedCompletedBuild

@@ -3977,6 +3977,12 @@ build20_completion_path = (
 build20_completion = data(
     "release/evidence/build-20-finalization-closure.json"
 )
+build20_physical_installation_path = (
+    ROOT / "release/evidence/build-20-physical-installation-acceptance.json"
+)
+build20_physical_installation = data(
+    "release/evidence/build-20-physical-installation-acceptance.json"
+)
 build18_device_acceptance_path = (
     ROOT / "release/evidence/build-18-device-acceptance.json"
 )
@@ -6301,6 +6307,11 @@ check(
         == "DC93397C1BED3A7F2FE9749C4F4608EE989C4DD06E15C80B1DFADE67E699BDDC"
     and build20_entry.get("completionReceiptSha256")
         == sha(build20_completion_path)
+    and build20_entry.get("physicalInstallationConditionPassed") is True
+    and build20_entry.get("physicalInstallationReceiptFile")
+        == "release/evidence/build-20-physical-installation-acceptance.json"
+    and build20_entry.get("physicalInstallationReceiptSha256")
+        == sha(build20_physical_installation_path)
     and build20_entry.get("dualCustodyCompleted") is True
     and build20_entry.get("runtimeValidationPassed") is False
     and build20_entry.get("runtimeDisposition")
@@ -6312,6 +6323,15 @@ check(
     and combined_policy.get("finalization", {}).get(
         "completionReceiptSha256"
     ) == sha(build20_completion_path)
+    and combined_policy.get("finalization", {}).get(
+        "physicalInstallationConditionPassed"
+    ) is True
+    and combined_policy.get("finalization", {}).get(
+        "physicalInstallationReceiptFile"
+    ) == "release/evidence/build-20-physical-installation-acceptance.json"
+    and combined_policy.get("finalization", {}).get(
+        "physicalInstallationReceiptSha256"
+    ) == sha(build20_physical_installation_path)
     and combined_policy.get("finalization", {}).get("sourceCommit")
         == "24bb7b3de1370c91e14e7cf0d7b8038838872e66"
     and combined_policy.get("finalization", {}).get("githubRunId")
@@ -6351,6 +6371,45 @@ check(
         "runtimeValidationPassed"
     ) is False
     and build20_completion.get("releaseBoundary", {}).get(
+        "controlledPilotApproved"
+    ) is False
+    and build20_physical_installation.get("status")
+        == "passed-exact-build20-physical-in-place-authenticated-startup-and-local-recovery"
+    and build20_physical_installation.get("release", {}).get("buildNumber")
+        == 20
+    and build20_physical_installation.get("release", {}).get(
+        "finalizationReceiptSha256"
+    ) == sha(build20_completion_path)
+    and build20_physical_installation.get("release", {}).get("apkSha256")
+        == build20_completion.get("governedPackage", {}).get("apkSha256")
+    and build20_physical_installation.get("physicalDevice", {}).get(
+        "exactGovernedApkMatch"
+    ) is True
+    and build20_physical_installation.get("physicalDevice", {}).get(
+        "firstInstallTimePreserved"
+    ) is True
+    and build20_physical_installation.get("startup", {}).get(
+        "approvedAuthenticatedSessionPreserved"
+    ) is True
+    and build20_physical_installation.get("synchronizationRecovery", {}).get(
+        "finalSyncResult"
+    ) == "success"
+    and build20_physical_installation.get("synchronizationRecovery", {}).get(
+        "finalUnsyncedRows"
+    ) == 0
+    and build20_physical_installation.get("synchronizationRecovery", {}).get(
+        "finalUnresolvedRejections"
+    ) == 0
+    and build20_physical_installation.get("synchronizationRecovery", {}).get(
+        "firebaseBusinessRecordMutated"
+    ) is False
+    and build20_physical_installation.get("adjudication", {}).get(
+        "minimumHandoutCondition4Passed"
+    ) is True
+    and build20_physical_installation.get("adjudication", {}).get(
+        "twoAccountTwoDeviceMutationConvergencePassed"
+    ) is False
+    and build20_physical_installation.get("releaseBoundary", {}).get(
         "controlledPilotApproved"
     ) is False
     and current_successor_state.get("status")
