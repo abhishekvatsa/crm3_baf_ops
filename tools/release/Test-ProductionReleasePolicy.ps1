@@ -147,6 +147,21 @@ function Get-GitTreeObjectId {
   $tree
 }
 
+function Get-GitCommitTreeObjectId {
+  param([Parameter(Mandatory)][string]$Commit)
+
+  $treeOutput = @(git show -s --format=%T $Commit)
+  if ($LASTEXITCODE -ne 0 -or $treeOutput.Count -ne 1) {
+    throw "Unable to resolve commit tree for $Commit."
+  }
+
+  $tree = $treeOutput[0].Trim().ToLowerInvariant()
+  if ($tree -notmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+    throw "Invalid commit tree identity for $Commit."
+  }
+  $tree
+}
+
 function Get-GitFileText {
   param(
     [Parameter(Mandatory)][string]$Commit,
@@ -893,12 +908,24 @@ $expectedFunctionFleetPullRequest = if ($null -eq $deploymentPullRequestProperty
   }
   $configuredPullRequest
 }
+$deploymentSourceCommitProperty = $versionSource.requiredSource.PSObject.
+  Properties['exactFunctionFleetDeploymentSourceCommit']
+$expectedFunctionFleetSourceCommit = if ($null -eq $deploymentSourceCommitProperty) {
+  [string]$versionSource.sourceBaseline.commit
+} else {
+  [string]$deploymentSourceCommitProperty.Value
+}
+if ([string]::IsNullOrWhiteSpace($expectedFunctionFleetSourceCommit)) {
+  throw 'Exact Function fleet deployment source commit is absent.'
+}
+$expectedFunctionFleetSourceTree =
+  Get-GitCommitTreeObjectId -Commit $expectedFunctionFleetSourceCommit
 if ([string]$functionFleetDeploymentReceipt.decision -ne
       'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
     [string]$functionFleetDeploymentReceipt.sourceAuthority.commit -ne
-      [string]$versionSource.sourceBaseline.commit -or
+      $expectedFunctionFleetSourceCommit -or
     [string]$functionFleetDeploymentReceipt.sourceAuthority.tree -ne
-      [string]$versionSource.sourceBaseline.tree -or
+      $expectedFunctionFleetSourceTree -or
     [int64]$functionFleetDeploymentReceipt.sourceAuthority.pullRequestNumber -ne
       $expectedFunctionFleetPullRequest -or
     $functionFleetDeploymentReceipt.deployment.functionCount -ne 15 -or
