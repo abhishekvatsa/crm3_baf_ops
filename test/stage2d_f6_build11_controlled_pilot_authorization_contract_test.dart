@@ -177,14 +177,38 @@ void main() {
         finalization['status'] == 'pending-source-authorized';
     final runtimeValidationPassed =
         finalization['runtimeValidationPassed'] == true;
+    final versionPolicy = _object(policy['versionPolicy']);
+    final sourceApproval = _object(
+      jsonDecode(
+        File(versionPolicy['sourceDocumentFile'] as String).readAsStringSync(),
+      ),
+    );
+    final pilotIntentValue = sourceApproval['postBuildPilotIntent'];
+    final pilotIntent = pilotIntentValue is Map
+        ? _object(pilotIntentValue)
+        : <String, dynamic>{};
+    final expandedPilot = pilotIntent['maximumRosterSize'] == 25;
+    if (expandedPilot) {
+      expect(pilotIntent['projectOwnerAuthorized'], isTrue);
+      expect(pilotIntent['requiresExactBuild20PackageHash'], isTrue);
+      expect(pilotIntent['requiresPhysicalDeviceStartup'], isTrue);
+      expect(pilotIntent['requiresTwoAccountConvergenceEvidence'], isTrue);
+      expect(pilotIntent['requiresSeparatePromotionReceipt'], isTrue);
+      expect(pilotIntent['unrestrictedPublicDistributionAuthorized'], isFalse);
+    }
     expect(policy['knownOpenGates'], <String>[
       if (pendingConstruction)
         'BUILD${candidateBuild}_PRODUCTION_SIGNED_FINALIZATION',
-      if (runtimeValidationPassed)
+      if (expandedPilot)
+        'BUILD${candidateBuild}_PHYSICAL_DEVICE_AND_TWO_ACCOUNT_CONVERGENCE'
+      else if (runtimeValidationPassed)
         'BUILD${candidateBuild}_MUTATING_BUSINESS_FLOW_VALIDATION'
       else
         'BUILD${candidateBuild}_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
-      'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
+      if (expandedPilot)
+        'BUILD${candidateBuild}_EXPLICIT_25_PERSON_PILOT_PROMOTION'
+      else
+        'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
     ]);
   });
 }
