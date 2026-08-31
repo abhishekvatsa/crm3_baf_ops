@@ -1439,6 +1439,13 @@ void main() {
             finalization['status'] == 'pending-source-authorized';
         final candidateBuildNumber =
             (policy['release'] as Map<String, dynamic>)['buildNumber'] as int;
+        final versionPolicy =
+            policy['versionPolicy'] as Map<String, dynamic>;
+        final versionSource =
+            jsonDecode(read(versionPolicy['sourceDocumentFile'] as String))
+                as Map<String, dynamic>;
+        final preservedCompletedBuild =
+            versionSource['preservedCompletedBuild'] as Map<String, dynamic>;
         final finalizedBuild =
             (pendingConstruction
                     ? finalization['priorCompletedBuild']
@@ -1502,14 +1509,33 @@ void main() {
         final priorCompletionReceipt =
             jsonDecode(read(priorCompletionReceiptFile))
                 as Map<String, dynamic>;
-        expect(priorBuildNumber, candidateBuildNumber - 1);
+        expect(priorBuildNumber, lessThan(candidateBuildNumber));
+        expect(
+          priorBuildNumber,
+          preservedCompletedBuild['buildNumber'],
+        );
+        if (priorBuildNumber != candidateBuildNumber - 1) {
+          final priorFailedAttempt =
+              finalization['priorFailedAttempt'] as Map<String, dynamic>;
+          expect(priorFailedAttempt['buildNumber'], candidateBuildNumber - 1);
+          expect(priorFailedAttempt['status'], 'blocked-non-distributable');
+          expect(versionPolicy['failedOrWithdrawnBuildConsumesNumber'], isTrue);
+        }
         expect(
           priorCompletionReceiptFile,
           'release/evidence/build-$priorBuildNumber-finalization-closure.json',
         );
         expect(
+          priorCompletionReceiptFile,
+          preservedCompletedBuild['completionReceiptFile'],
+        );
+        expect(
           _sha256(priorCompletionReceiptFile),
           priorCompletedBuild['completionReceiptSha256'],
+        );
+        expect(
+          priorCompletedBuild['completionReceiptSha256'],
+          preservedCompletedBuild['completionReceiptSha256'],
         );
         expect(
           (priorCompletionReceipt['release']
