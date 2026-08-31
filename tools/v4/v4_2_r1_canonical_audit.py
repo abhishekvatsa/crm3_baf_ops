@@ -11458,10 +11458,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 553
-    and a03_inventory_report.get("siteCount") == 1907
+    and a03_inventory_report.get("operationCount") == 556
+    and a03_inventory_report.get("siteCount") == 1923
     and a03_inventory_report.get("inventoryDigest")
-        == "3FB048327896FD851986CBE412C7E4AE4120F78041740019B7602E7B118A1525"
+        == "E9CC50F967763C2E554BF5BFC83CE07062B7C07ADDC10AE2B0C665F3471CFA6F"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -11791,9 +11791,9 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 77
-    and a05_timestamp_inventory_report.get("directCallCount") == 188
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 114
+    and a05_timestamp_inventory_report.get("readerCount") == 78
+    and a05_timestamp_inventory_report.get("directCallCount") == 189
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 115
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 72
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
@@ -11808,7 +11808,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 77
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 78
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])

@@ -649,23 +649,17 @@ void main() {
         deployed['rulesAndIndexesSourceCommit'],
         rulesReadbackBefore['commit'],
       );
-      expect(
-        verifiedRules['sourceSha256'],
-        currentFirestoreSource['rulesSha256'],
-      );
+      expect(verifiedRules['sourceSha256'], firestoreAuthority['rulesSha256']);
       expect(currentFirestoreSource['rulesSha256'], currentRulesSha);
       expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
       expect(verifiedRules['byteExact'], isTrue);
-      expect(
-        verifiedIndexes['sourceCount'],
-        currentFirestoreSource['indexCount'],
-      );
+      expect(verifiedIndexes['sourceCount'], firestoreAuthority['indexCount']);
       expect(verifiedIndexes['apiCount'], verifiedIndexes['sourceCount']);
       expect(verifiedIndexes['apiReadyCount'], verifiedIndexes['sourceCount']);
       expect(verifiedIndexes['allApiIndexesReady'], isTrue);
       expect(
         verifiedIndexes['sourceSetSha256'],
-        currentFirestoreSource['indexSetSha256'],
+        firestoreAuthority['indexSetSha256'],
       );
       expect(
         historicalFirestoreAuthority['receiptFile'],

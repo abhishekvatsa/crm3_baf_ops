@@ -3,14 +3,17 @@
 import 'dart:async' show Completer, StreamSubscription, unawaited;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/auth/providers/auth_provider.dart';
 import '../../features/maintenance_workflow/providers/workflow_providers.dart';
 import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import 'app_logger.dart';
 import 'global_pull_service.dart';
 import 'local_recovery_session_guard.dart';
+import 'local_sync_recovery_service.dart';
 import 'sync_service.dart';
 
 enum SyncRequestOutcome { succeeded, failed, queued, throttled }
@@ -314,6 +317,7 @@ class SyncCoordinator {
         recheckPermanentRejections: recheckPermanentRejections,
       );
       await _pull.pullAndReconcile();
+      await _reconcileAuthoritativePurgeManifests();
 
       // Workflow is a supplemental control plane. Its retry/pull health is
       // reported independently so it cannot turn a successful mature
@@ -481,6 +485,31 @@ class SyncCoordinator {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _reconcileAuthoritativePurgeManifests() async {
+    final actor = _ref.read(currentAppUserProvider).value;
+    if (actor == null || !actor.isApproved) return;
+    try {
+      await _ref
+          .read(localSyncRecoveryServiceProvider)
+          .reconcileAuthoritativelyPurgedTombstones(actor: actor);
+    } catch (error, stackTrace) {
+      // Local compaction is best-effort. A failed manifest read must not turn
+      // an otherwise healthy business-data synchronization into a failure.
+      debugPrint('Authoritative purge reconciliation deferred: $error');
+      unawaited(
+        AppLogger.recordNonFatalError(
+          error,
+          stackTrace,
+          reason: 'authoritative_purge_reconciliation_deferred',
+          context: const {
+            'app_area': 'sync',
+            'sync_phase': 'purge_manifest_reconciliation',
+          },
+        ),
+      );
     }
   }
 

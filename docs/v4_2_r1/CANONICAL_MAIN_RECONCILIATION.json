@@ -466,9 +466,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "08E050CC8145941CEA9E174D889DFE164C5B8531FDA79470D3B3311FFF7CCBF4",
+      "candidateSha256": "79AA34B003605CA0CB8839EFB4B43CB659EAE67D1B6BBF27740E7A2D688720CD",
       "canonicalBytes": 111981,
-      "candidateBytes": 182377,
+      "candidateBytes": 182773,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -990,9 +990,9 @@
     {
       "path": "lib/core/services/sync_coordinator.dart",
       "canonicalSha256": "40DD760E71DFB7F297CCBAA439FAD4163EB22A64735277CEF5327E0533B6DBCD",
-      "candidateSha256": "B071CBD94DCFF180C1481275A81DA58796ADF3CC1200077A1DB07A03E94251B9",
+      "candidateSha256": "AD39E40FD451AB7ABA04E34111713103E9D2DC38B8A8C7A611E323AA490AC482",
       "canonicalBytes": 18047,
-      "candidateBytes": 24627,
+      "candidateBytes": 25742,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1198,9 +1198,9 @@
     {
       "path": "lib/features/admin/presentation/admin_data_browser.dart",
       "canonicalSha256": "860890DA19D8A09D08B78B684EF00316574282D8C54B01174D816BC9DCC745D4",
-      "candidateSha256": "740F15F6DEF3AEF746DEE2C3973A2E574D5ABB6E286968E8C5D2B734C53335D3",
+      "candidateSha256": "7AD9993231C9B16385D4BC91999B5D6E326261CB8CAED788CC68F48D55F0A648",
       "canonicalBytes": 7966,
-      "candidateBytes": 12549,
+      "candidateBytes": 13463,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2730,9 +2730,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "3C50A5F4F15BC25FEA5639AD95B39CE74F319F7B088C69D6A7AEA84B325327B2",
+      "candidateSha256": "4F93B4CD377F5996FFE68A08220C195BFD269C99BB25FA1DED098ADCF9C56C03",
       "canonicalBytes": 78841,
-      "candidateBytes": 174351,
+      "candidateBytes": 175256,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

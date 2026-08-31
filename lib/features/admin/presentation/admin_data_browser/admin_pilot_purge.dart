@@ -10,6 +10,63 @@ import '../../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../../maintenance_workflow/services/workflow_command_factory.dart';
 import 'admin_data_browser_shared.dart';
 
+class PilotPurgeTarget {
+  final String collectionId;
+  final String documentId;
+  final int expectedVersion;
+  final String recordLabel;
+
+  const PilotPurgeTarget({
+    required this.collectionId,
+    required this.documentId,
+    required this.expectedVersion,
+    required this.recordLabel,
+  });
+
+  String get selectionKey => '$collectionId/$documentId';
+}
+
+Future<bool> executePilotBusinessRecordPurge({
+  required WidgetRef ref,
+  required PilotPurgeTarget target,
+  required String reason,
+  bool resumeSyncAfterCleanup = true,
+}) async {
+  final actor = ref.read(currentAppUserProvider).value;
+  if (actor == null || !actor.isApproved || !actor.isAdmin) {
+    throw StateError('Fresh Admin authority is required for permanent removal.');
+  }
+  final command = WorkflowCommandFactory.create(
+    type: WorkflowCommandType.purgePilotBusinessRecord,
+    aggregateId: target.documentId,
+    expectedVersion: target.expectedVersion,
+    payload: <String, Object?>{
+      'collectionId': target.collectionId,
+      'documentId': target.documentId,
+      'reason': reason,
+      'confirmation': 'DELETE ${target.documentId}',
+    },
+  );
+  final receipt = await ref
+      .read(workflowCommandControllerProvider.notifier)
+      .execute(command);
+  return ref
+      .read(syncCoordinatorProvider)
+      .runWithSyncPaused(
+        reason: 'admin_pilot_record_purged',
+        resumeSyncAfterRecovery: resumeSyncAfterCleanup,
+        operation:
+            () => ref
+                .read(localSyncRecoveryServiceProvider)
+                .removeAuthoritativelyPurgedTombstone(
+                  actor: actor,
+                  receipt: receipt,
+                  collectionId: target.collectionId,
+                  documentId: target.documentId,
+                ),
+      );
+}
+
 Future<bool> purgePilotBusinessRecord({
   required BuildContext context,
   required WidgetRef ref,
@@ -40,34 +97,16 @@ Future<bool> purgePilotBusinessRecord({
   if (decision == null || !context.mounted) return false;
 
   try {
-    final command = WorkflowCommandFactory.create(
-      type: WorkflowCommandType.purgePilotBusinessRecord,
-      aggregateId: documentId,
-      expectedVersion: expectedVersion,
-      payload: <String, Object?>{
-        'collectionId': collectionId,
-        'documentId': documentId,
-        'reason': decision.reason,
-        'confirmation': decision.confirmation,
-      },
+    final removedLocally = await executePilotBusinessRecordPurge(
+      ref: ref,
+      target: PilotPurgeTarget(
+        collectionId: collectionId,
+        documentId: documentId,
+        expectedVersion: expectedVersion,
+        recordLabel: recordLabel,
+      ),
+      reason: decision.reason,
     );
-    final receipt = await ref
-        .read(workflowCommandControllerProvider.notifier)
-        .execute(command);
-    final removedLocally = await ref
-        .read(syncCoordinatorProvider)
-        .runWithSyncPaused(
-          reason: 'admin_pilot_record_purged',
-          operation:
-              () => ref
-                  .read(localSyncRecoveryServiceProvider)
-                  .removeAuthoritativelyPurgedTombstone(
-                    actor: actor,
-                    receipt: receipt,
-                    collectionId: collectionId,
-                    documentId: documentId,
-                  ),
-        );
     if (!context.mounted) return true;
     showAdminDataSnack(
       context,

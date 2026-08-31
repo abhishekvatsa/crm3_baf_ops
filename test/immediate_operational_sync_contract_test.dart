@@ -9,6 +9,7 @@ void main() {
     late String live;
     late String liveRoot;
     late String coordinator;
+    late String localRecovery;
 
     setUpAll(() {
       automatic =
@@ -23,6 +24,10 @@ void main() {
           ).readAsStringSync();
       coordinator =
           File('lib/core/services/sync_coordinator.dart').readAsStringSync();
+      localRecovery =
+          File(
+            'lib/core/services/local_sync_recovery_service.dart',
+          ).readAsStringSync();
     });
 
     test(
@@ -165,12 +170,22 @@ void main() {
         expect(handler, contains('requireNoDependencies'));
         expect(handler, contains('pilotPurgeSourceDigest(source.data)'));
         expect(handler, contains('tx.create(receiptPath'));
+        expect(handler, contains('PILOT_PURGE_MANIFEST_COLLECTION'));
         expect(handler, contains('tx.delete(sourcePath)'));
         expect(authority, contains('case "pilotRecord.purge":'));
         expect(authority, contains('if (!actor.roles.has("admin")) denied();'));
         expect(
           rules,
           isNot(contains('match /pilot_record_purge_receipts/{docId}')),
+        );
+        expect(rules, contains('match /pilot_record_purge_manifests/{docId}'));
+        expect(
+          localRecovery,
+          contains('reconcileAuthoritativelyPurgedTombstones'),
+        );
+        expect(
+          localRecovery,
+          contains(".collection('pilot_record_purge_manifests')"),
         );
         expect(dialog, contains("confirmation: 'DELETE \$documentId'"));
         expect(dialog, contains('!actor.isAdmin'));

@@ -318,6 +318,35 @@ describe("immutable pilot record purge receipts", () => {
     await assertFails(updateDoc(adminRef, {reason: "tampered"}));
     await assertFails(deleteDoc(adminRef));
   });
+
+  test("approved users can read only the minimal purge manifest", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedUser("ops1", ["operations"]);
+    await seedDoc("pilot_record_purge_manifests/purge-1", {
+      schemaVersion: 1,
+      sourceCollection: "directives",
+      sourceDocumentId: "directive-1",
+      sourceVersion: 2,
+      purgedAt: Timestamp.now(),
+    });
+
+    const opsRef = doc(
+      dbAs("ops1"),
+      "pilot_record_purge_manifests/purge-1",
+    );
+    await assertSucceeds(getDoc(opsRef));
+    await assertFails(
+      getDocs(collection(dbAs("ops1"), "pilot_record_purge_manifests")),
+    );
+    await assertFails(updateDoc(opsRef, {sourceVersion: 3}));
+    await assertFails(deleteDoc(opsRef));
+    await assertFails(
+      getDoc(doc(
+        testEnv.unauthenticatedContext().firestore(),
+        "pilot_record_purge_manifests/purge-1",
+      )),
+    );
+  });
 });
 
 describe("global pull server clock custody", () => {

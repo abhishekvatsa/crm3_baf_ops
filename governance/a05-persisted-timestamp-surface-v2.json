@@ -112,6 +112,18 @@
       "reArmCondition": "any global-pull cursor timestamp schema change"
     },
     {
+      "id": "authoritative-purge-manifest",
+      "readerFile": "lib/core/services/local_sync_recovery_service.dart",
+      "readerMarker": "factory AuthoritativePurgeManifest.fromRemote",
+      "requiredFields": ["purgedAt"],
+      "optionalFields": [],
+      "owner": "synchronization",
+      "purpose": "verify server-authoritative purge chronology before removing a clean local tombstone",
+      "authorityBoundary": "remote-purge-control-record",
+      "regression": "test/local_sync_recovery_service_test.dart",
+      "reArmCondition": "any purge-manifest timestamp or local tombstone reconciliation contract change"
+    },
+    {
       "id": "component-action",
       "readerFile": "lib/features/planned_maintenance/models/component_action_model.dart",
       "readerMarker": "factory ComponentAction.fromMap",

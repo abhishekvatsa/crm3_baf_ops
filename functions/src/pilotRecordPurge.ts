@@ -12,6 +12,8 @@ import {cleanText, intValue, iso} from "./maintenanceWorkflow/utils";
 
 export const PILOT_PURGE_RECEIPT_COLLECTION = "pilot_record_purge_receipts";
 export const PILOT_PURGE_RECEIPT_SCHEMA_VERSION = 1;
+export const PILOT_PURGE_MANIFEST_COLLECTION = "pilot_record_purge_manifests";
+export const PILOT_PURGE_MANIFEST_SCHEMA_VERSION = 1;
 export const PILOT_PURGE_ALLOWED_COLLECTIONS = Object.freeze([
   "maintenance_records",
   "directives",
@@ -260,6 +262,13 @@ export const purgePilotBusinessRecord: CommandHandler = async (args) => {
     reason,
     commandId: command.commandId,
   });
+  tx.create(`${PILOT_PURGE_MANIFEST_COLLECTION}/${receiptId}`, {
+    schemaVersion: PILOT_PURGE_MANIFEST_SCHEMA_VERSION,
+    sourceCollection,
+    sourceDocumentId,
+    sourceVersion: version,
+    purgedAt: iso(context.serverNow),
+  });
   tx.delete(sourcePath);
 
   return {
@@ -352,8 +361,9 @@ export async function verifyPilotPurgeReplay(args: {
       {reasonCode: "pilot-record-purge-replay-evidence-invalid"},
     );
   }
-  const [evidence, source] = await Promise.all([
+  const [evidence, manifest, source] = await Promise.all([
     args.receiptReader(`${PILOT_PURGE_RECEIPT_COLLECTION}/${receiptId}`),
+    args.receiptReader(`${PILOT_PURGE_MANIFEST_COLLECTION}/${receiptId}`),
     args.receiptReader(`${sourceCollection}/${sourceDocumentId}`),
   ]);
   if (!evidence.exists ||
@@ -365,6 +375,21 @@ export async function verifyPilotPurgeReplay(args: {
       evidence.data?.sourceDigest !== sourceDigest ||
       evidence.data?.purgedByUid !== args.actorUid ||
       evidence.data?.commandId !== args.receipt.commandId ||
+      !manifest.exists ||
+      manifest.data == null ||
+      Object.keys(manifest.data).sort().join(",") !== [
+        "purgedAt",
+        "schemaVersion",
+        "sourceCollection",
+        "sourceDocumentId",
+        "sourceVersion",
+      ].sort().join(",") ||
+      manifest.data.schemaVersion !== PILOT_PURGE_MANIFEST_SCHEMA_VERSION ||
+      manifest.data.sourceCollection !== sourceCollection ||
+      manifest.data.sourceDocumentId !== sourceDocumentId ||
+      manifest.data.sourceVersion !== args.receipt.aggregateVersion ||
+      !timestampIsPresent(manifest.data.purgedAt) ||
+      manifest.data.purgedAt !== evidence.data?.purgedAt ||
       source.exists) {
     throw new WorkflowError(
       "failed-precondition",

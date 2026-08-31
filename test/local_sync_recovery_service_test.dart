@@ -377,6 +377,149 @@ void main() {
     },
   );
 
+  test(
+    'server purge manifest removes the exact clean tombstone for every approved user',
+    () async {
+      await _withDatabase((database) async {
+        final local = _directive(version: 4, isSynced: true)..isDeleted = true;
+        await database.writeTxn(
+          () => database.operationalDirectives.put(local),
+        );
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader:
+              (_) async => const <AuthoritativePurgeManifest>[
+                AuthoritativePurgeManifest(
+                  collectionId: 'directives',
+                  documentId: 'directive-1',
+                  sourceVersion: 4,
+                ),
+              ],
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+
+        expect(result.removed, 1);
+        expect(result.preserved, 0);
+        expect(await database.operationalDirectives.get(local.id), isNull);
+      });
+    },
+  );
+
+  test(
+    'purge reconciliation performs no server read without local tombstones',
+    () async {
+      await _withDatabase((database) async {
+        var reads = 0;
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader: (candidates) async {
+            reads += candidates.length;
+            return const <AuthoritativePurgeManifest>[];
+          },
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+
+        expect(reads, 0);
+        expect(result.removed, 0);
+        expect(result.preserved, 0);
+      });
+    },
+  );
+
+  test(
+    'purge reconciliation never queries or removes dirty local evidence',
+    () async {
+      await _withDatabase((database) async {
+        final local = _directive(version: 5, isSynced: false)..isDeleted = true;
+        await database.writeTxn(
+          () => database.operationalDirectives.put(local),
+        );
+        var manifestReads = 0;
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader: (candidates) async {
+            manifestReads += candidates.length;
+            return const <AuthoritativePurgeManifest>[
+              AuthoritativePurgeManifest(
+                collectionId: 'directives',
+                documentId: 'directive-1',
+                sourceVersion: 4,
+              ),
+            ];
+          },
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+
+        expect(result.removed, 0);
+        expect(result.preserved, 0);
+        expect(manifestReads, 0);
+        expect(await database.operationalDirectives.get(local.id), isNotNull);
+      });
+    },
+  );
+
+  test('purge manifest decoder rejects extra or unsupported authority', () {
+    final valid = <String, dynamic>{
+      'schemaVersion': 1,
+      'sourceCollection': 'directives',
+      'sourceDocumentId': 'directive-1',
+      'sourceVersion': 4,
+      'purgedAt': '2026-08-25T12:00:00.000Z',
+    };
+    final manifestId = authoritativePurgeManifestId(
+      'directives',
+      'directive-1',
+    );
+
+    expect(
+      AuthoritativePurgeManifest.fromRemote(
+        valid,
+        manifestId: manifestId,
+      ).documentId,
+      'directive-1',
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(<String, dynamic>{
+        ...valid,
+        'reason': 'must remain server-only',
+      }, manifestId: manifestId),
+      throwsFormatException,
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(<String, dynamic>{
+        ...valid,
+        'sourceCollection': 'users',
+      }, manifestId: manifestId),
+      throwsFormatException,
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(<String, dynamic>{
+        ...valid,
+        'purgedAt': 'not-a-timestamp',
+      }, manifestId: manifestId),
+      throwsFormatException,
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(
+        valid,
+        manifestId: 'purge_${List.filled(64, 'a').join()}',
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('purge receipt never removes a dirty or changed local record', () async {
     await _withDatabase((database) async {
       final local = _directive(version: 5, isSynced: false)..isDeleted = true;
@@ -456,6 +599,7 @@ Future<void> _withDatabase(Future<void> Function(Isar) operation) async {
   );
   final database = await Isar.open(
     [
+      MaintenanceRecordSchema,
       OperationalDirectiveSchema,
       SyncRejectionSchema,
       JobTemplateSchema,

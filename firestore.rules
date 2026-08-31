@@ -4101,6 +4101,15 @@ service cloud.firestore {
     // 🔧 MAINTENANCE RECORDS
     // ─────────────────────────────────────────────
 
+    // Minimal server-authored notice used by installed clients to remove an
+    // exact clean tombstone after its source document was permanently purged.
+    // Actor, reason, digest, and command evidence remain server-only.
+    match /pilot_record_purge_manifests/{docId} {
+      allow get: if isApprovedUser();
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
     match /maintenance_records/{docId} {
       allow read: if isApprovedUser();
       // New issues are created only by the idempotent backend command, which
