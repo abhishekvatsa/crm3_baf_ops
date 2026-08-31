@@ -830,6 +830,13 @@ test('successor business collections have exact app or server authority', () => 
     'maintenance_completion_events',
     'maintenance_due_states',
     'maintenance_plans',
+    'morning_review_actions',
+    'morning_review_concern_checks',
+    'morning_review_documents',
+    'morning_review_entries',
+    'morning_review_participants',
+    'morning_review_sessions',
+    'morning_review_standing_concerns',
   ];
   const serverOnly = [
     'asset_availability_constraints',
@@ -850,6 +857,8 @@ test('successor business collections have exact app or server authority', () => 
     'maintenance_classification_audits',
     'maintenance_completion_sources',
     'maintenance_plan_audits',
+    'morning_review_mutation_receipts',
+    'pilot_record_purge_manifests',
     'pilot_record_purge_receipts',
     'device_recovery_requests',
     'device_recovery_receipts',
@@ -881,6 +890,13 @@ test('every successor app collection reaches a strict Dart decoder', async () =>
     'maintenance_completion_events',
     'maintenance_due_states',
     'maintenance_plans',
+    'morning_review_actions',
+    'morning_review_concern_checks',
+    'morning_review_documents',
+    'morning_review_entries',
+    'morning_review_participants',
+    'morning_review_sessions',
+    'morning_review_standing_concerns',
   ];
   const documents = {...emptyDocuments()};
   for (const collection of successorCollections) {

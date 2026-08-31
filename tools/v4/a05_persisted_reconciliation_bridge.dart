@@ -17,6 +17,7 @@ import 'package:crm3_baf_ops/features/critical_alarm/domain/critical_alarm_model
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
+import 'package:crm3_baf_ops/features/morning_review/domain/morning_review_models.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event_issue_link.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
@@ -55,6 +56,13 @@ const _supportedCollections = <String>{
   'maintenance_due_states',
   'maintenance_plans',
   'maintenance_records',
+  'morning_review_actions',
+  'morning_review_concern_checks',
+  'morning_review_documents',
+  'morning_review_entries',
+  'morning_review_participants',
+  'morning_review_sessions',
+  'morning_review_standing_concerns',
   'operational_events',
   'operational_event_issue_links',
   'quality_monitoring_requests',
@@ -163,6 +171,20 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         MaintenancePlan.fromMap(data, documentId);
       case 'maintenance_records':
         readRemoteMaintenanceRecord(data, documentId: documentId);
+      case 'morning_review_actions':
+        MorningReviewAction.fromMap(data, documentId);
+      case 'morning_review_concern_checks':
+        MorningReviewConcernCheck.fromMap(data, documentId);
+      case 'morning_review_documents':
+        MorningReviewDocument.fromMap(data, documentId);
+      case 'morning_review_entries':
+        MorningReviewEntry.fromMap(data, documentId);
+      case 'morning_review_participants':
+        MorningReviewParticipant.fromMap(data, documentId);
+      case 'morning_review_sessions':
+        MorningReviewSession.fromMap(data, documentId);
+      case 'morning_review_standing_concerns':
+        MorningReviewStandingConcern.fromMap(data, documentId);
       case 'operational_events':
         OperationalEvent.fromMap(data, documentId);
       case 'operational_event_issue_links':
