@@ -77,6 +77,7 @@ interface ParsedRequest {
   reason: string;
   eventDraft: EventDraft | null;
   resolutionNote: string | null;
+  resolvedAtIso: string | null;
   fingerprint: string;
 }
 
@@ -243,7 +244,7 @@ export function isOperationalEventOperation(
 export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedRequest {
   const allowed = new Set([
     "requestId", "operation", "eventId", "expectedVersion", "reason",
-    "eventDraft", "resolutionNote",
+    "eventDraft", "resolutionNote", "resolvedAt",
   ]);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) invalid(key, "is unsupported");
@@ -268,6 +269,10 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
   const eventDraft = hasDraft ? parseDraft(raw.eventDraft) : null;
   const resolutionNote = operation === "RESOLVE_OPERATIONAL_EVENT" ?
     requiredString(raw.resolutionNote, "resolutionNote", 1000) : null;
+  const hasRequestedResolutionTime =
+    operation === "RESOLVE_OPERATIONAL_EVENT" && raw.resolvedAt != null;
+  const resolvedAtIso = hasRequestedResolutionTime ?
+    canonicalIso(raw.resolvedAt, "resolvedAt") : null;
   if (!hasDraft && raw.eventDraft != null) {
     invalid("eventDraft", "is not allowed for this operation");
   }
@@ -275,10 +280,13 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
       raw.resolutionNote != null) {
     invalid("resolutionNote", "is not allowed for this operation");
   }
+  if (operation !== "RESOLVE_OPERATIONAL_EVENT" && raw.resolvedAt != null) {
+    invalid("resolvedAt", "is not allowed for this operation");
+  }
   if (operation === "CREATE_OPERATIONAL_EVENT" && raw.expectedVersion !== 0) {
     invalid("expectedVersion", "must be zero when creating an event");
   }
-  const request = {
+  const requestWithoutResolutionTime = {
     requestId,
     operation,
     eventId,
@@ -287,9 +295,19 @@ export function parseOperationalEventMutationRequest(raw: JsonMap): ParsedReques
     eventDraft,
     resolutionNote,
   };
-  const fingerprint = `operationalevent1-sha256:${createHash("sha256")
-    .update(stableJson(request), "utf8").digest("hex")}`;
-  return {...request, fingerprint};
+  const fingerprintPayload = hasRequestedResolutionTime ? {
+    ...requestWithoutResolutionTime,
+    resolvedAt: resolvedAtIso,
+  } : requestWithoutResolutionTime;
+  const fingerprintVersion = hasRequestedResolutionTime ? 2 : 1;
+  const fingerprint = `operationalevent${fingerprintVersion}-sha256:${
+    createHash("sha256").update(stableJson(fingerprintPayload), "utf8")
+      .digest("hex")}`;
+  return {
+    ...requestWithoutResolutionTime,
+    resolvedAtIso,
+    fingerprint,
+  };
 }
 
 export function userCanMutateOperationalEvent(
@@ -837,6 +855,25 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-started-at-future"},
       );
     }
+    const requestedResolution = request.operation === "RESOLVE_OPERATIONAL_EVENT" ?
+      (request.resolvedAtIso == null ? committed : new Date(request.resolvedAtIso)) :
+      null;
+    if (requestedResolution != null && existingStart != null &&
+        requestedResolution.getTime() < existingStart.getTime()) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "Closure time cannot be before the operational event began.",
+        {reasonCode: "operational-event-resolved-at-before-start"},
+      );
+    }
+    if (requestedResolution != null &&
+        requestedResolution.getTime() > committed.getTime()) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "Closure time cannot be after the current server time.",
+        {reasonCode: "operational-event-resolved-at-future"},
+      );
+    }
     const version = currentVersion + 1;
     let next: JsonMap;
     if (draft != null) {
@@ -872,7 +909,7 @@ export async function mutateOperationalEventWithDb(args: {
       next = {
         ...current!,
         status: "resolved",
-        resolvedAt: committedAt,
+        resolvedAt: timestampFromDate(requestedResolution!),
         resolvedByUid: actorUid,
         resolvedByName: actorName(actorData),
         resolutionNote: request.resolutionNote,

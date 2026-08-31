@@ -96,11 +96,11 @@ class OperationalEventDraft {
     'affectedAssetClassIds': affectedAssetClassIds.toSet().toList()..sort(),
     'affectedAssetInstanceIds':
         affectedAssetInstanceIds.toSet().toList()..sort(),
-    'startedAt': _canonicalCommandTimestamp(startedAt),
+    'startedAt': canonicalOperationalEventCommandTimestamp(startedAt),
   };
 }
 
-String _canonicalCommandTimestamp(DateTime value) {
+String canonicalOperationalEventCommandTimestamp(DateTime value) {
   final utc = value.toUtc();
   return utc
       .subtract(Duration(microseconds: utc.microsecond))

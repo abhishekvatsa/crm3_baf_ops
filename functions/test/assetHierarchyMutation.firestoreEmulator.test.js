@@ -1393,6 +1393,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       reason: 'Close after Operations verifies that crane service is restored.',
       eventDraft: null,
       resolutionNote: 'Crane trial completed and Furnace 1 movement resumed safely.',
+      resolvedAt: '2026-08-13T11:55:00.000Z',
     }, 'shift-1');
     expect(resolved).toMatchObject({status: 'resolved', version: 2});
     expect((await db.collection('operational_events').doc(IDS.eventId).get()).data())
@@ -1400,6 +1401,9 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
         eventType: 'crane',
         scope: 'assets',
         affectedAssetInstanceIds: [IDS.firstAsset],
+        resolvedAt: admin.firestore.Timestamp.fromDate(
+          new Date('2026-08-13T11:55:00.000Z'),
+        ),
         resolvedByUid: 'shift-1',
         version: 2,
       });

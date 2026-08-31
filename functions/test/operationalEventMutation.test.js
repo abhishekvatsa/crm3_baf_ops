@@ -176,6 +176,42 @@ describe('operational event mutation', () => {
     expect(() => parseOperationalEventMutationRequest(request({
       eventDraft: {...request().eventDraft, affectedAssetClassIds: [IDS.assetClass]},
     }))).toThrow('plant-wide scope cannot name specific assets');
+
+    const legacyResolve = parseOperationalEventMutationRequest({
+      requestId: IDS.resolve,
+      operation: 'RESOLVE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Confirm that the disruption has ended.',
+      resolutionNote: 'Supply remained stable through verification.',
+    });
+    expect(legacyResolve.resolvedAtIso).toBeNull();
+    expect(legacyResolve.fingerprint).toMatch(/^operationalevent1-sha256:/);
+
+    const timedResolve = parseOperationalEventMutationRequest({
+      requestId: IDS.resolve,
+      operation: 'RESOLVE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Confirm that the disruption has ended.',
+      resolutionNote: 'Supply remained stable through verification.',
+      resolvedAt: '2026-08-14T11:45:00.000Z',
+    });
+    expect(timedResolve.resolvedAtIso).toBe('2026-08-14T11:45:00.000Z');
+    expect(timedResolve.fingerprint).toMatch(/^operationalevent2-sha256:/);
+    expect(() => parseOperationalEventMutationRequest({
+      ...request(),
+      resolvedAt: '2026-08-14T11:45:00.000Z',
+    })).toThrow('resolvedAt is not allowed');
+    expect(() => parseOperationalEventMutationRequest({
+      requestId: IDS.resolve,
+      operation: 'RESOLVE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Confirm that the disruption has ended.',
+      resolutionNote: 'Supply remained stable through verification.',
+      resolvedAt: '14 Aug 2026 11:45',
+    })).toThrow('resolvedAt must be a canonical UTC instant');
   });
 
   test('contract supervisors can record but cannot resolve plant events', () => {
@@ -383,11 +419,14 @@ describe('operational event mutation', () => {
       expectedVersion: 1,
       reason: 'Confirm restoration after stable utility observation.',
       resolutionNote: 'Incoming supply remained stable through verification.',
+      resolvedAt: '2026-08-14T11:45:00.000Z',
     });
     expect(resolved).toMatchObject({status: 'resolved', version: 2});
     expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
       status: 'resolved',
+      resolvedAt: new Date('2026-08-14T11:45:00.000Z'),
       resolvedByUid: 'ops-1',
+      updatedAt: new Date('2026-08-14T12:00:00.000Z'),
       version: 2,
     });
 
@@ -412,7 +451,7 @@ describe('operational event mutation', () => {
         description: 'Incoming supply was lost across the annealing shop.',
         severity: 'critical',
         startedAt: new Date('2026-08-14T10:00:00.000Z'),
-        resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+        resolvedAt: new Date('2026-08-14T11:45:00.000Z'),
         scope: 'plantWide',
         affectedAssetClassIds: [],
         affectedAssetInstanceIds: [],
@@ -442,7 +481,7 @@ describe('operational event mutation', () => {
           description: 'Incoming supply was lost across the annealing shop.',
           severity: 'critical',
           startedAt: new Date('2026-08-14T10:00:00.000Z'),
-          resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+          resolvedAt: new Date('2026-08-14T11:45:00.000Z'),
           scope: 'plantWide',
           affectedAssetClassIds: [],
           affectedAssetInstanceIds: [],
@@ -495,6 +534,59 @@ describe('operational event mutation', () => {
         resolvedByName: 'Operations One',
         resolutionNote: 'Incoming supply remained stable through verification.',
       }],
+    });
+  });
+
+  test('rejects selected closure time outside the active server interval', async () => {
+    for (const [resolvedAt, reasonCode] of [
+      ['2026-08-14T09:59:00.000Z', 'operational-event-resolved-at-before-start'],
+      ['2026-08-14T12:01:00.000Z', 'operational-event-resolved-at-future'],
+    ]) {
+      const memory = fakeDb({
+        ...baseSeed(),
+        [`operational_events/${IDS.event}`]: persistedEvent(),
+      });
+      await expect(invoke(memory, 'ops-1', {
+        requestId: IDS.resolve,
+        operation: 'RESOLVE_OPERATIONAL_EVENT',
+        eventId: IDS.event,
+        expectedVersion: 1,
+        reason: 'Confirm restoration after stable utility observation.',
+        resolutionNote: 'Incoming supply remained stable through verification.',
+        resolvedAt,
+      })).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode},
+      });
+      expect(memory.writes).toHaveLength(0);
+    }
+  });
+
+  test('legacy resolve omission keeps server-time replay compatibility', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent(),
+    });
+    const legacyRequest = {
+      requestId: IDS.resolve,
+      operation: 'RESOLVE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Confirm restoration after stable utility observation.',
+      resolutionNote: 'Incoming supply remained stable through verification.',
+    };
+    await expect(invoke(memory, 'ops-1', legacyRequest)).resolves.toMatchObject({
+      status: 'resolved',
+      version: 2,
+    });
+    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
+      resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+    });
+    expect(memory.store.get(
+      `operational_event_receipts/${IDS.resolve}`,
+    ).fingerprint).toMatch(/^operationalevent1-sha256:/);
+    await expect(invoke(memory, 'ops-1', legacyRequest)).resolves.toMatchObject({
+      idempotentReplay: true,
     });
   });
 

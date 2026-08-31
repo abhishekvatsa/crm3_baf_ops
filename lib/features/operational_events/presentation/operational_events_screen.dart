@@ -17,6 +17,7 @@ import '../providers/operational_event_provider.dart';
 import 'operational_event_issue_links_screen.dart';
 
 part 'operational_events_screen.summary.dart';
+part 'operational_event_resolution_dialog.dart';
 
 class OperationalEventsScreen extends ConsumerStatefulWidget {
   const OperationalEventsScreen({super.key});
@@ -318,16 +319,19 @@ class _OperationalEventsScreenState
   }
 
   Future<void> _resolveEvent(OperationalEvent event) async {
-    final note = await _askForReason(
-      title: 'Resolve event',
-      label: 'Restoration and verification note',
-      action: 'Resolve',
+    final input = await showDialog<_EventResolutionInput>(
+      context: context,
+      builder: (_) => _ResolveEventDialog(event: event),
     );
-    if (note == null || !mounted) return;
+    if (input == null || !mounted) return;
     await _run(
       () => ref
           .read(operationalEventServiceProvider)
-          .resolve(event: event, resolutionNote: note),
+          .resolve(
+            event: event,
+            resolutionNote: input.note,
+            resolvedAt: input.resolvedAt,
+          ),
       'Event resolved.',
     );
   }
@@ -561,6 +565,9 @@ class _EventCard extends StatelessWidget {
               if (canResolve)
                 event.isOpen
                     ? FilledButton.icon(
+                      key: ValueKey(
+                        'operational-event-resolve-${event.eventId}',
+                      ),
                       onPressed: onResolve,
                       icon: const Icon(Icons.task_alt_rounded),
                       label: const Text('Resolve'),
