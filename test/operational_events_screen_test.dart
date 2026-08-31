@@ -14,7 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('resolution records a selectable operational closure time', (
+  testWidgets('resolution defaults to verified server closure time', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -73,7 +73,6 @@ void main() {
       find.byKey(const ValueKey('operational-event-resolution-note')),
       'Crane operation remained stable after restoration checks.',
     );
-    final submittedAfter = DateTime.now();
     await tester.tap(
       find.byKey(const ValueKey('operational-event-resolution-submit')),
     );
@@ -84,9 +83,7 @@ void main() {
       service.resolutionNote,
       'Crane operation remained stable after restoration checks.',
     );
-    expect(service.resolvedAt, isNotNull);
-    expect(service.resolvedAt!.isBefore(event.startedAt), isFalse);
-    expect(service.resolvedAt!.isAfter(submittedAfter), isFalse);
+    expect(service.resolvedAt, isNull);
     expect(tester.takeException(), isNull);
   });
 
@@ -393,7 +390,7 @@ class _RecordingOperationalEventService extends OperationalEventService {
   Future<OperationalEventCommandResult> resolve({
     required OperationalEvent event,
     required String resolutionNote,
-    required DateTime resolvedAt,
+    DateTime? resolvedAt,
   }) async {
     this.event = event;
     this.resolutionNote = resolutionNote;

@@ -179,7 +179,7 @@ class OperationalEventService {
   Future<OperationalEventCommandResult> resolve({
     required OperationalEvent event,
     required String resolutionNote,
-    required DateTime resolvedAt,
+    DateTime? resolvedAt,
   }) => _call(
     OperationalEventCommand.resolve,
     eventId: event.eventId,

@@ -11,14 +11,8 @@ class _ResolveEventDialog extends StatefulWidget {
 
 class _ResolveEventDialogState extends State<_ResolveEventDialog> {
   final _note = TextEditingController();
-  late DateTime _resolvedAt;
+  DateTime? _resolvedAt;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _resolvedAt = DateTime.now();
-  }
 
   @override
   void dispose() {
@@ -37,7 +31,8 @@ class _ResolveEventDialogState extends State<_ResolveEventDialog> {
     }
     final date = await showDatePicker(
       context: context,
-      initialDate: _resolvedAt.isAfter(now) ? now : _resolvedAt,
+      initialDate:
+          _resolvedAt == null || _resolvedAt!.isAfter(now) ? now : _resolvedAt!,
       firstDate: DateTime(startedAt.year, startedAt.month, startedAt.day),
       lastDate: now,
       helpText: 'Select closure date',
@@ -45,7 +40,7 @@ class _ResolveEventDialogState extends State<_ResolveEventDialog> {
     if (!mounted || date == null) return;
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_resolvedAt),
+      initialTime: TimeOfDay.fromDateTime(_resolvedAt ?? now),
       helpText: 'Select closure time',
     );
     if (!mounted || time == null) return;
@@ -75,13 +70,13 @@ class _ResolveEventDialogState extends State<_ResolveEventDialog> {
   void _submit() {
     final note = _note.text.trim();
     final now = DateTime.now();
-    if (_resolvedAt.isBefore(widget.event.startedAt.toLocal())) {
+    if (_resolvedAt?.isBefore(widget.event.startedAt.toLocal()) == true) {
       setState(
         () => _error = 'Closure time cannot be before the disruption began.',
       );
       return;
     }
-    if (_resolvedAt.isAfter(now)) {
+    if (_resolvedAt?.isAfter(now) == true) {
       setState(() => _error = 'Closure time cannot be in the future.');
       return;
     }
@@ -121,7 +116,9 @@ class _ResolveEventDialogState extends State<_ResolveEventDialog> {
                     suffixIcon: Icon(Icons.edit_calendar_rounded),
                   ),
                   child: Text(
-                    format.format(_resolvedAt),
+                    _resolvedAt == null
+                        ? 'Verified server time (recommended)'
+                        : format.format(_resolvedAt!),
                     style: const TextStyle(
                       color: BafColors.textPrimary,
                       fontWeight: FontWeight.w800,
@@ -129,6 +126,19 @@ class _ResolveEventDialogState extends State<_ResolveEventDialog> {
                   ),
                 ),
               ),
+              if (_resolvedAt != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed:
+                        () => setState(() {
+                          _resolvedAt = null;
+                          _error = null;
+                        }),
+                    icon: const Icon(Icons.cloud_done_outlined),
+                    label: const Text('Use server time'),
+                  ),
+                ),
               const SizedBox(height: BafSpacing.md),
               TextField(
                 key: const ValueKey('operational-event-resolution-note'),
@@ -174,5 +184,5 @@ class _EventResolutionInput {
   const _EventResolutionInput({required this.note, required this.resolvedAt});
 
   final String note;
-  final DateTime resolvedAt;
+  final DateTime? resolvedAt;
 }

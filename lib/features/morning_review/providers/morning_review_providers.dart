@@ -15,15 +15,24 @@ final morningReviewRepositoryProvider = Provider<MorningReviewRepository>((
   return MorningReviewRepository(FirebaseFirestore.instance);
 });
 
-final morningReviewCommandServiceProvider =
-    Provider<MorningReviewCommandService>((ref) {
-      final actorUid = ref.watch(currentAppUserProvider).value?.uid;
+final _morningReviewCommandServiceByActorProvider =
+    Provider.family<MorningReviewCommandService, String>((ref, actorScope) {
       return MorningReviewCommandService(
         functions: FirebaseFunctions.instanceFor(
           region: morningReviewCallableRegion,
         ),
-        actorScope: actorUid ?? 'signed-out',
+        actorScope: actorScope,
       );
+    });
+
+final morningReviewCommandServiceProvider =
+    Provider<MorningReviewCommandService>((ref) {
+      final actorScope = ref.watch(
+        currentAppUserProvider.select(
+          (value) => value.value?.uid ?? 'signed-out',
+        ),
+      );
+      return ref.watch(_morningReviewCommandServiceByActorProvider(actorScope));
     });
 
 final morningReviewPlantDayProvider = Provider<String>((ref) {

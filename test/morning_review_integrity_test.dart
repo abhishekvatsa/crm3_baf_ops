@@ -189,6 +189,32 @@ void main() {
       expect(query, contains("where('status', whereIn:"));
       expect(query, isNot(contains('.limit(')));
     });
+
+    test('retains retry IDs by actor and surfaces unverified snapshots', () {
+      final providers =
+          File(
+            'lib/features/morning_review/providers/morning_review_providers.dart',
+          ).readAsStringSync();
+      final repository =
+          File(
+            'lib/features/morning_review/data/morning_review_repository.dart',
+          ).readAsStringSync();
+      expect(
+        providers,
+        contains('Provider.family<MorningReviewCommandService, String>'),
+      );
+      expect(providers, contains('currentAppUserProvider.select('));
+      expect(
+        providers,
+        contains('_morningReviewCommandServiceByActorProvider'),
+      );
+      expect(repository, contains('MorningReviewFeedUnverifiedException'));
+      expect(repository, contains('yield* Stream<T>.error('));
+      expect(
+        repository,
+        isNot(contains('_isServerVerified(snapshot)) continue')),
+      );
+    });
   });
 }
 

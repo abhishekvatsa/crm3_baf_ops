@@ -2,19 +2,30 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/morning_review_models.dart';
 
+class MorningReviewFeedUnverifiedException implements Exception {
+  const MorningReviewFeedUnverifiedException(this.source);
+
+  final String source;
+
+  @override
+  String toString() =>
+      'Morning Review data is not server verified ($source). '
+      'Check connectivity and refresh.';
+}
+
 class MorningReviewRepository {
   const MorningReviewRepository(this.firestore);
 
   final FirebaseFirestore firestore;
 
   Stream<MorningReviewSession?> watchSession(String sessionId) async* {
-    await for (final snapshot in firestore
-        .collection('morning_review_sessions')
-        .doc(sessionId)
-        .snapshots(includeMetadataChanges: true)) {
-      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
-        continue;
-      }
+    await for (final snapshot in _verifiedDocumentSnapshots(
+      firestore
+          .collection('morning_review_sessions')
+          .doc(sessionId)
+          .snapshots(includeMetadataChanges: true),
+      'today session',
+    )) {
       if (!snapshot.exists) {
         yield null;
         continue;
@@ -28,14 +39,14 @@ class MorningReviewRepository {
   }
 
   Stream<List<MorningReviewSession>> watchRecentSessions() async* {
-    await for (final snapshot in firestore
-        .collection('morning_review_sessions')
-        .orderBy('plantDay', descending: true)
-        .limit(15)
-        .snapshots(includeMetadataChanges: true)) {
-      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
-        continue;
-      }
+    await for (final snapshot in _verifiedQuerySnapshots(
+      firestore
+          .collection('morning_review_sessions')
+          .orderBy('plantDay', descending: true)
+          .limit(15)
+          .snapshots(includeMetadataChanges: true),
+      'recent sessions',
+    )) {
       final now = DateTime.now();
       yield List.unmodifiable(
         snapshot.docs
@@ -55,7 +66,6 @@ class MorningReviewRepository {
       'morning_review_participants',
       sessionId,
     )) {
-      if (!_isServerVerified(snapshot)) continue;
       final values = snapshot.docs
           .map(
             (document) =>
@@ -72,7 +82,6 @@ class MorningReviewRepository {
       'morning_review_entries',
       sessionId,
     )) {
-      if (!_isServerVerified(snapshot)) continue;
       final values = snapshot.docs
           .map(
             (document) =>
@@ -91,7 +100,6 @@ class MorningReviewRepository {
       'morning_review_actions',
       sessionId,
     )) {
-      if (!_isServerVerified(snapshot)) continue;
       final values = snapshot.docs
           .map(
             (document) =>
@@ -104,11 +112,13 @@ class MorningReviewRepository {
   }
 
   Stream<List<MorningReviewAction>> watchActiveActions() async* {
-    await for (final snapshot in firestore
-        .collection('morning_review_actions')
-        .where('status', whereIn: const ['open', 'accepted'])
-        .snapshots(includeMetadataChanges: true)) {
-      if (!_isServerVerified(snapshot)) continue;
+    await for (final snapshot in _verifiedQuerySnapshots(
+      firestore
+          .collection('morning_review_actions')
+          .where('status', whereIn: const ['open', 'accepted'])
+          .snapshots(includeMetadataChanges: true),
+      'active actions',
+    )) {
       final values = snapshot.docs
         .map(
           (document) =>
@@ -130,11 +140,13 @@ class MorningReviewRepository {
   }
 
   Stream<List<MorningReviewStandingConcern>> watchStandingConcerns() async* {
-    await for (final snapshot in firestore
-        .collection('morning_review_standing_concerns')
-        .where('status', whereIn: const ['active', 'resolved'])
-        .snapshots(includeMetadataChanges: true)) {
-      if (!_isServerVerified(snapshot)) continue;
+    await for (final snapshot in _verifiedQuerySnapshots(
+      firestore
+          .collection('morning_review_standing_concerns')
+          .where('status', whereIn: const ['active', 'resolved'])
+          .snapshots(includeMetadataChanges: true),
+      'standing concerns',
+    )) {
       final now = DateTime.now();
       final values = snapshot.docs
         .map(
@@ -168,7 +180,6 @@ class MorningReviewRepository {
       'morning_review_concern_checks',
       sessionId,
     )) {
-      if (!_isServerVerified(snapshot)) continue;
       final values = snapshot.docs
           .map(
             (document) =>
@@ -181,13 +192,13 @@ class MorningReviewRepository {
   }
 
   Stream<MorningReviewDocument?> watchDocument(String sessionId) async* {
-    await for (final snapshot in firestore
-        .collection('morning_review_documents')
-        .doc(sessionId)
-        .snapshots(includeMetadataChanges: true)) {
-      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
-        continue;
-      }
+    await for (final snapshot in _verifiedDocumentSnapshots(
+      firestore
+          .collection('morning_review_documents')
+          .doc(sessionId)
+          .snapshots(includeMetadataChanges: true),
+      'finalized document',
+    )) {
       if (!snapshot.exists) {
         yield null;
         continue;
@@ -203,12 +214,45 @@ class MorningReviewRepository {
   Stream<QuerySnapshot<Map<String, dynamic>>> _sessionQuery(
     String collection,
     String sessionId,
-  ) => firestore
-      .collection(collection)
-      .where('sessionId', isEqualTo: sessionId)
-      .limit(250)
-      .snapshots(includeMetadataChanges: true);
+  ) => _verifiedQuerySnapshots(
+    firestore
+        .collection(collection)
+        .where('sessionId', isEqualTo: sessionId)
+        .limit(250)
+        .snapshots(includeMetadataChanges: true),
+    collection,
+  );
 
-  bool _isServerVerified(QuerySnapshot<Map<String, dynamic>> snapshot) =>
-      !snapshot.metadata.isFromCache && !snapshot.metadata.hasPendingWrites;
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _verifiedDocumentSnapshots(
+    Stream<DocumentSnapshot<Map<String, dynamic>>> snapshots,
+    String source,
+  ) => _verifiedSnapshots(
+    snapshots,
+    metadataOf: (snapshot) => snapshot.metadata,
+    source: source,
+  );
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> _verifiedQuerySnapshots(
+    Stream<QuerySnapshot<Map<String, dynamic>>> snapshots,
+    String source,
+  ) => _verifiedSnapshots(
+    snapshots,
+    metadataOf: (snapshot) => snapshot.metadata,
+    source: source,
+  );
+
+  Stream<T> _verifiedSnapshots<T>(
+    Stream<T> snapshots, {
+    required SnapshotMetadata Function(T snapshot) metadataOf,
+    required String source,
+  }) async* {
+    await for (final snapshot in snapshots) {
+      final metadata = metadataOf(snapshot);
+      if (metadata.isFromCache || metadata.hasPendingWrites) {
+        yield* Stream<T>.error(MorningReviewFeedUnverifiedException(source));
+        continue;
+      }
+      yield snapshot;
+    }
+  }
 }
