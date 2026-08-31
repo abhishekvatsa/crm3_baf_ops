@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "public-repository-required-reviewer-control",
+  "approved": true,
+  "approvedAtUtc": "2026-08-31T03:51:27Z",
+  "evidenceBoundAtUtc": "2026-08-31T06:01:35Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalReference": "BAF-GH-ENV-016",
+  "authorityBasis": "Project-owner authorization for one production-signed Build 20 candidate using the protected GitHub signing environment after exact backend deployment, reconciliation, release-verifier source binding and a successful five-job post-merge release gate.",
+  "scope": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "repositoryVisibility": "public",
+    "environmentName": "crm3-baf-ops-production-signing",
+    "workflowPath": ".github/workflows/production-artifact.yml",
+    "versionName": "1.0.0-rc.10",
+    "buildNumber": 20,
+    "versionApprovalReference": "BAF-REF-003-C19",
+    "singleBuildOnly": true
+  },
+  "liveStateEvidence": {
+    "capturedAtUtc": "2026-08-31T06:01:35Z",
+    "repositoryPrivate": false,
+    "repositoryVisibility": "public",
+    "environmentId": 18899285145,
+    "requiredReviewerRulePresent": true,
+    "requiredReviewerRuleId": 61610617,
+    "requiredReviewer": {
+      "type": "User",
+      "login": "abhishekvatsa",
+      "id": 213690022
+    },
+    "preventSelfReview": false,
+    "canAdminsBypass": false,
+    "deploymentBranchPolicy": {
+      "protectedBranches": false,
+      "customBranchPolicies": true,
+      "ruleId": 56332848,
+      "allowedBranches": [
+        {
+          "name": "main",
+          "type": "branch"
+        }
+      ]
+    },
+    "requiredEnvironmentSecretNames": [
+      "CRM_ANDROID_RELEASE_KEY_ALIAS",
+      "CRM_ANDROID_RELEASE_KEY_PASSWORD",
+      "CRM_ANDROID_RELEASE_KEYSTORE_BASE64",
+      "CRM_ANDROID_RELEASE_STORE_PASSWORD"
+    ],
+    "secretValuesInspected": false,
+    "authenticatedRepositoryOwner": {
+      "login": "abhishekvatsa",
+      "id": 213690022
+    },
+    "authorizedDispatcher": {
+      "login": "abhishekvatsa",
+      "id": 213690022
+    }
+  },
+  "singleOperatorConstraint": {
+    "independentSecondPartyReviewerAvailable": false,
+    "selfReviewPermitted": true,
+    "explicitEnvironmentApprovalStillRequired": true,
+    "interpretation": "The required-reviewer rule creates a deliberate approval event and prevents unattended secret release; it is not represented as independent two-person approval."
+  },
+  "controls": {
+    "exactSourceApprovalMustMergeToMain": true,
+    "pullRequestMergeEvidenceRequired": true,
+    "requiredIntegratedMergeCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
+    "requiredSuccessorFreezePullRequest": 327,
+    "requiredSuccessorFreezeCommit": "1a76f9b11aa4486abea309243da60a4bb4b8156e",
+    "requiredSuccessorFreezePostMergeRunId": 33361793718,
+    "exactLiveMainRequired": true,
+    "mainOnlyEnvironmentDeploymentRequired": true,
+    "requiredReviewerRuleMustRemainPresent": true,
+    "approvedRunReviewByRequiredReviewerRequired": true,
+    "adminBypassMustRemainDisabled": true,
+    "manualDispatchApprovalReferenceRequired": true,
+    "dispatchApprovalReference": "BAF-REF-003-C19",
+    "authorizedDispatcherIdentityRequired": true,
+    "protectedEnvironmentSecretsRequired": true,
+    "environmentSecretNameInventoryRequired": true,
+    "environmentSecretValuesMayNotBeRead": true,
+    "atomicOneTimeRemoteReservationRequired": true,
+    "independentPackageVerificationRequired": true,
+    "dualCustodyRequiredBeforeBuiltTag": true,
+    "distributionApproved": false,
+    "firebaseDeploymentApproved": false,
+    "productionBackfillApproved": false,
+    "runtimeContractActivationApproved": false,
+    "deviceDataClearApproved": false,
+    "productionDataMutationApproved": false
+  },
+  "postBuildPilotIntent": {
+    "projectOwnerAuthorized": true,
+    "maximumRosterSize": 25,
+    "actualHandoutRequiresExactPackagePromotionReceipt": true,
+    "physicalDeviceAndConvergenceEvidenceRequired": true,
+    "unrestrictedDistributionAuthorized": false
+  },
+  "failClosedConditions": [
+    "The approval is invalid for any build other than Build 20.",
+    "The approval is invalid if the dispatch approval reference differs from BAF-REF-003-C19.",
+    "The approval is invalid if 1a76f9b11aa4486abea309243da60a4bb4b8156e is not an ancestor of the dispatch commit.",
+    "The approval is invalid if the workflow actor or triggering actor is not the authorized dispatcher.",
+    "The approval is invalid if the repository is not public or the protected environment differs.",
+    "This construction approval does not itself authorize pilot handout, unrestricted distribution, device-data clearing or production data mutation."
+  ],
+  "expiresWhen": "Build 20 is represented by a verified remote built tag or the governed repository/environment state differs, whichever occurs first."
+}
