@@ -163,6 +163,18 @@ void main() {
       }
       expect(indexes, contains('"ttl": true'));
     });
+
+    test('does not silently cap active actions across meeting days', () {
+      final source =
+          File(
+            'lib/features/morning_review/data/morning_review_repository.dart',
+          ).readAsStringSync();
+      final start = source.indexOf('watchActiveActions()');
+      final end = source.indexOf('watchStandingConcerns()', start);
+      expect(start, greaterThanOrEqualTo(0));
+      expect(end, greaterThan(start));
+      expect(source.substring(start, end), isNot(contains('.limit(')));
+    });
   });
 }
 

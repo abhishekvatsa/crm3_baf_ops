@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../domain/critical_alarm_models.dart';
 import '../providers/critical_alarm_providers.dart';
@@ -57,6 +58,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   String? _verifiedAlarmActorUid;
   Timer? _initialFeedWarningTimer;
   StreamSubscription<String>? _openedAlarmSubscription;
+  late final ProviderSubscription<AsyncValue<AppUser?>> _alarmActorSubscription;
   late final ProviderSubscription<AsyncValue<CriticalAlarmLiveSnapshot>>
   _alarmFeedSubscription;
   String? _pendingOpenedAlarmId;
@@ -72,6 +74,29 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     _openedAlarmSubscription = platform.openedAlarmIds.listen(
       _queueOpenedAlarm,
     );
+    _alarmActorSubscription = ref.listenManual<AsyncValue<AppUser?>>(
+      currentAppUserProvider,
+      (previous, next) {
+        final actor = next.asData?.value;
+        if (actor?.isApproved != true) {
+          _verifiedAlarmActorUid = null;
+          _liveAlarmStateVerified = false;
+          _hideUnverifiedAlarmWarning();
+          return;
+        }
+        final feed = ref.read(activeCriticalAlarmsProvider);
+        final snapshot = feed.asData?.value;
+        if (snapshot?.isServerVerified == true) {
+          _verifiedAlarmActorUid = actor!.uid;
+          _liveAlarmStateVerified = true;
+          _hideUnverifiedAlarmWarning();
+          return;
+        }
+        _liveAlarmStateVerified = false;
+        _scheduleInitialFeedWarning();
+      },
+      fireImmediately: true,
+    );
     _alarmFeedSubscription = ref.listenManual<
       AsyncValue<CriticalAlarmLiveSnapshot>
     >(activeCriticalAlarmsProvider, (previous, next) {
@@ -85,7 +110,6 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         return;
       }
       _liveAlarmStateVerified = false;
-      if (next.isLoading) return;
       final actor = ref.read(currentAppUserProvider).asData?.value;
       final actorUid = actor?.isApproved == true ? actor!.uid : null;
       if (actorUid != null && actorUid == _verifiedAlarmActorUid) {
@@ -107,6 +131,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     WidgetsBinding.instance.removeObserver(this);
     _initialFeedWarningTimer?.cancel();
     unawaited(_openedAlarmSubscription?.cancel());
+    _alarmActorSubscription.close();
     _alarmFeedSubscription.close();
     super.dispose();
   }
@@ -133,8 +158,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     final showUnverifiedBanner =
         user?.isApproved == true &&
         _showUnverifiedAlarmBanner &&
-        (feed.hasError ||
-            (liveSnapshot != null && !liveSnapshot.isServerVerified));
+        (feed.isLoading || feed.hasError || !isServerVerified);
     if (user?.isApproved == true && _pendingOpenedAlarmId != null) {
       final alarmId = _pendingOpenedAlarmId;
       _pendingOpenedAlarmId = null;
@@ -242,7 +266,10 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
       final feed = ref.read(activeCriticalAlarmsProvider);
       final snapshot = feed.asData?.value;
       final remainsUnverified =
-          feed.hasError || (snapshot != null && !snapshot.isServerVerified);
+          feed.isLoading ||
+          feed.hasError ||
+          snapshot == null ||
+          !snapshot.isServerVerified;
       if (actor?.isApproved == true && remainsUnverified) {
         _showUnverifiedAlarmWarningNow();
       }

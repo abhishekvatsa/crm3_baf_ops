@@ -107,7 +107,6 @@ class MorningReviewRepository {
     await for (final snapshot in firestore
         .collection('morning_review_actions')
         .where('status', whereIn: const ['open', 'accepted'])
-        .limit(250)
         .snapshots(includeMetadataChanges: true)) {
       if (!_isServerVerified(snapshot)) continue;
       final values = snapshot.docs
