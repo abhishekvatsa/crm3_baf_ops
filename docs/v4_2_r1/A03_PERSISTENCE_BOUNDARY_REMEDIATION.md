@@ -82,9 +82,11 @@ the original closure evidence remains preserved as historical source and CI
 proof.
 
 The 1 September 2026 Morning Review and issue-sync diagnostics re-arm adds the
-Morning Review read repository and read-only provider boundaries. The current
-manifest covers 563 operations and 1,937 sites across 59 surfaces with digest
-`5457C51792AAAC24CFCA7361F9A1F2D2793484E98BE081F5A3A7AC419738F347`.
+Morning Review read repository and read-only provider boundaries. The purge
+reconciliation follow-up broadens the existing recovery read to synchronized
+active copies and adds an evidence-preserving local quarantine write. The
+current manifest covers 563 operations and 1,934 sites across 59 surfaces with
+digest `5C7EB628B49D5BFF55B4B8C5A61A3150E9374631400B63B64307D21EAD347887`.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.
 
 The audit fails when the operation digest changes, a persistence-owning file is

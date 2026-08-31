@@ -41,11 +41,13 @@ class AuthoritativePurgeManifest {
   final String collectionId;
   final String documentId;
   final int sourceVersion;
+  final DateTime purgedAt;
 
   const AuthoritativePurgeManifest({
     required this.collectionId,
     required this.documentId,
     required this.sourceVersion,
+    required this.purgedAt,
   });
 
   factory AuthoritativePurgeManifest.fromRemote(
@@ -75,7 +77,7 @@ class AuthoritativePurgeManifest {
         manifestId != authoritativePurgeManifestId(collection, document)) {
       throw const FormatException('Malformed authoritative purge manifest.');
     }
-    readRequiredPersistedDateTime(
+    final purgedAt = readRequiredPersistedDateTime(
       data['purgedAt'],
       field: 'purgedAt',
       source: 'authoritative purge manifest',
@@ -84,6 +86,7 @@ class AuthoritativePurgeManifest {
       collectionId: collection,
       documentId: document,
       sourceVersion: version,
+      purgedAt: purgedAt,
     );
   }
 }
@@ -105,12 +108,14 @@ class LocalPurgeCandidate {
 
 class LocalPurgeReconciliationResult {
   final int removed;
+  final int quarantined;
   final int alreadyAbsent;
   final int preserved;
   final List<String> errors;
 
   const LocalPurgeReconciliationResult({
     this.removed = 0,
+    this.quarantined = 0,
     this.alreadyAbsent = 0,
     this.preserved = 0,
     this.errors = const <String>[],
@@ -467,6 +472,7 @@ class LocalSyncRecoveryService {
     if (candidates.isEmpty) return const LocalPurgeReconciliationResult();
     final manifests = await _purgeManifestReader(candidates);
     var removed = 0;
+    var quarantined = 0;
     var alreadyAbsent = 0;
     var preserved = candidates.length - manifests.length;
     final errors = <String>[];
@@ -491,46 +497,57 @@ class LocalSyncRecoveryService {
           alreadyAbsent++;
           continue;
         }
-        if (local.isSynced != true ||
-            local.isDeleted != true ||
-            local.version != manifest.sourceVersion) {
+        if (local.isSynced != true || local.version > manifest.sourceVersion) {
           preserved++;
           continue;
         }
 
         final expectedId = local.id as int;
         final expectedUpdatedAt = local.updatedAt as DateTime;
-        var changed = false;
+        var disposition = _PurgeManifestDisposition.preserved;
         await database.writeTxn(() async {
           final current = await adapter.findByRemoteId(
             database,
             manifest.documentId,
           );
           if (current == null) {
-            changed = true;
+            disposition = _PurgeManifestDisposition.alreadyAbsent;
             return;
           }
           if (current.id != expectedId ||
               current.isSynced != true ||
-              current.isDeleted != true ||
-              current.version != manifest.sourceVersion ||
+              current.version > manifest.sourceVersion ||
               current.updatedAt != expectedUpdatedAt ||
-              _authenticatedUidLookup() != actor.uid ||
-              await _hasDependentLocalRecords(
-                database,
-                entityType: entityType,
-                remoteId: manifest.documentId,
-                localId: expectedId,
-              )) {
+              _authenticatedUidLookup() != actor.uid) {
+            return;
+          }
+          if (await _hasDependentLocalRecords(
+            database,
+            entityType: entityType,
+            remoteId: manifest.documentId,
+            localId: expectedId,
+          )) {
+            current
+              ..isDeleted = true
+              ..deletedAt ??= manifest.purgedAt
+              ..version = manifest.sourceVersion
+              ..isSynced = true;
+            await adapter.put(database, current);
+            disposition = _PurgeManifestDisposition.quarantined;
             return;
           }
           await adapter.delete(database, expectedId);
-          changed = true;
+          disposition = _PurgeManifestDisposition.removed;
         });
-        if (changed) {
-          removed++;
-        } else {
-          preserved++;
+        switch (disposition) {
+          case _PurgeManifestDisposition.removed:
+            removed++;
+          case _PurgeManifestDisposition.quarantined:
+            quarantined++;
+          case _PurgeManifestDisposition.alreadyAbsent:
+            alreadyAbsent++;
+          case _PurgeManifestDisposition.preserved:
+            preserved++;
         }
       } catch (error) {
         preserved++;
@@ -540,6 +557,7 @@ class LocalSyncRecoveryService {
 
     return LocalPurgeReconciliationResult(
       removed: removed,
+      quarantined: quarantined,
       alreadyAbsent: alreadyAbsent,
       preserved: preserved,
       errors: List<String>.unmodifiable(errors),
@@ -550,24 +568,15 @@ class LocalSyncRecoveryService {
     final tickets =
         await database.maintenanceRecords
             .filter()
-            .isDeletedEqualTo(true)
-            .and()
             .isSyncedEqualTo(true)
             .findAll();
     final directives =
         await database.operationalDirectives
             .filter()
-            .isDeletedEqualTo(true)
-            .and()
             .isSyncedEqualTo(true)
             .findAll();
     final templates =
-        await database.jobTemplates
-            .filter()
-            .isDeletedEqualTo(true)
-            .and()
-            .isSyncedEqualTo(true)
-            .findAll();
+        await database.jobTemplates.filter().isSyncedEqualTo(true).findAll();
     final candidates = <LocalPurgeCandidate>[];
     void add(String collectionId, String? documentId) {
       final normalized = documentId?.trim();
@@ -869,6 +878,13 @@ class LocalSyncRecoveryService {
     ),
     _ => null,
   };
+}
+
+enum _PurgeManifestDisposition {
+  removed,
+  quarantined,
+  alreadyAbsent,
+  preserved,
 }
 
 class _LocalRecoveryAdapter {
