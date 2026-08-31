@@ -4101,6 +4101,45 @@ current_source_firestore = current_successor_planes.get("currentSource", {}).get
     "firestoreRulesAndIndexes", {}
 )
 current_deployed_backend = current_successor_planes.get("deployedBackend", {})
+historical_firestore_authority = combined_policy.get("finalization", {}).get(
+    "exactFirestoreRulesIndexesLiveReadback", {}
+)
+current_backend_deployment_relative = current_deployed_backend.get(
+    "functionFleetEvidenceFile", ""
+)
+current_backend_deployment_path = ROOT / current_backend_deployment_relative
+current_backend_deployment = data(current_backend_deployment_relative)
+current_backend_readbacks = current_backend_deployment.get(
+    "cleanMainLiveReadbacks", {}
+)
+current_function_readback_authority = current_backend_readbacks.get(
+    "functionFleet", {}
+)
+current_iam_readback_authority = current_backend_readbacks.get(
+    "iamDependencies", {}
+)
+current_firestore_authority = current_backend_readbacks.get(
+    "firestoreRulesAndIndexes", {}
+)
+current_function_readback_path = ROOT / current_function_readback_authority.get(
+    "file", ""
+)
+current_function_readback = data(
+    current_function_readback_authority.get("file", "")
+)
+current_iam_readback_path = ROOT / current_iam_readback_authority.get(
+    "file", ""
+)
+current_iam_readback = data(current_iam_readback_authority.get("file", ""))
+current_firestore_readback_path = ROOT / current_firestore_authority.get(
+    "file", ""
+)
+current_firestore_readback = data(current_firestore_authority.get("file", ""))
+current_backend_approval_relative = current_deployed_backend.get(
+    "deploymentApprovalFile", ""
+)
+current_backend_approval_path = ROOT / current_backend_approval_relative
+current_backend_approval = data(current_backend_approval_relative)
 build12_custody_reconciliation_path = (
     ROOT
     / "release/evidence/build-12-closure-custody-reconciliation.json"
@@ -4299,9 +4338,6 @@ candidate_build_number = combined_policy.get("versionPolicy", {}).get(
 candidate_pending = (
     combined_policy.get("finalization", {}).get("status")
     == "pending-source-authorized"
-)
-current_firestore_authority = combined_policy.get("finalization", {}).get(
-    "exactFirestoreRulesIndexesLiveReadback", {}
 )
 deployed_functions_tree = git_tree_object_id(
     str(current_deployed_backend.get("functionFleetSourceCommit", "")),
@@ -6141,45 +6177,19 @@ check(
         == expected_next_candidate_status,
 )
 check(
-    "Build 19 source is bound to deployed receipts with drift-sensitive status",
-    current_firestore_authority.get("verified") is True
-    and sha(build14_firestore_readback_path)
-        == "7E1D7ACC72ED094A03691D1AEB5D59AC9E576D3DFE6B6CE595B355DD71595B8D"
-    and canonical_receipt_sha(build14_firestore_readback)
-        == build14_firestore_readback.get("receiptSha256")
-    and sha(build15_firestore_readback_path)
-        == "0690E3A7D48FDF733B7655B44387F5DEA0173D18E96C1E50944C1C90DF6CD313"
-    and canonical_receipt_sha(build15_firestore_readback)
-        == build15_firestore_readback.get("receiptSha256")
-    and sha(build16_firestore_readback_path)
-        == "33C3B98FBCF67A621246C42739BFF230BCF985D69F2B19B232D3B89E35B3B221"
-    and canonical_receipt_sha(build16_firestore_readback)
-        == build16_firestore_readback.get("receiptSha256")
-    and sha(build17_firestore_readback_path)
-        == "BB018F4B7F465E5F25009693BD604DF96A6E89CF01DE8FFC3F08850638346CB4"
-    and canonical_receipt_sha(build17_firestore_readback)
-        == build17_firestore_readback.get("receiptSha256")
-    and sha(build18_firestore_readback_path)
-        == "B855A3405AFD378AFE24F272C8A9C669CF8F14FFC88BE7B7DF8D9AB1B0B79027"
-    and canonical_receipt_sha(build18_firestore_readback)
-        == build18_firestore_readback.get("receiptSha256")
-    and sha(build18_backend_deployment_path)
-        == "EC960F969B79C8C63B60A2E83CD0E29B34CAA3C7F6F370196E5906AE99E35D68"
-    and sha(build18_function_readback_path)
-        == "19F6676107B2C709850A158230870876688A7F4F4B924BCF622DA391296E4547"
-    and sha(build18_iam_readback_path)
-        == "D64CAF4AF3643BC9AA811C70F5FF52C53BD281062338CD0412698BD5E27BAD5F"
-    and sha(build19_firestore_readback_path)
-        == current_firestore_authority.get("receiptFileSha256")
-    and build19_firestore_readback.get("receiptSha256").upper()
-        == str(current_firestore_authority.get("receiptCanonicalSha256", "")).upper()
+    "Build 19 backend deployment evidence remains exact and immutable",
+    sha(build19_firestore_readback_path)
+        == historical_firestore_authority.get("receiptFileSha256")
+    and build19_firestore_readback.get("receiptSha256", "").upper()
+        == str(
+            historical_firestore_authority.get("receiptCanonicalSha256", "")
+        ).upper()
     and canonical_receipt_sha(build19_firestore_readback)
         == build19_firestore_readback.get("receiptSha256")
     and build19_firestore_readback.get("evidenceType")
         == "firestore-rules-indexes-live-readback"
     and build19_firestore_readback.get("mode") == "STRICT"
-    and build19_firestore_readback.get("projectId")
-        == "crm3-baf-ops-b8638"
+    and build19_firestore_readback.get("projectId") == "crm3-baf-ops-b8638"
     and build19_firestore_readback.get("decision")
         == "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
     and build19_firestore_readback.get("failedChecks") == []
@@ -6188,80 +6198,55 @@ check(
         for value in build19_firestore_readback.get("checks", {}).values()
     )
     and build19_firestore_readback.get("source", {}).get("before", {}).get(
-        "branch"
-    )
-        == "main"
-    and build19_firestore_readback.get("source", {}).get("before", {}).get(
         "commit"
-    )
-        == current_firestore_authority.get("sourceCommit")
+    ) == historical_firestore_authority.get("sourceCommit")
     and build19_firestore_readback.get("source", {}).get("before", {}).get(
         "tree"
-    )
-        == current_firestore_authority.get("sourceTree")
-    and build19_firestore_readback.get("source", {}).get("before", {}).get(
-        "originMain"
-    )
-        == current_firestore_authority.get("sourceCommit")
+    ) == historical_firestore_authority.get("sourceTree")
     and build19_firestore_readback.get("source", {}).get("after", {}).get(
         "commit"
-    )
-        == current_firestore_authority.get("sourceCommit")
+    ) == historical_firestore_authority.get("sourceCommit")
     and build19_firestore_readback.get("outputs", {}).get("rules", {}).get(
         "sourceSha256"
     )
-        == current_firestore_authority.get("rulesSha256")
+        == historical_firestore_authority.get("rulesSha256")
         == build19_approval.get("requiredSource", {}).get(
             "exactFirestoreRulesSha256"
         )
     and build19_firestore_readback.get("outputs", {}).get("rules", {}).get(
         "activeSha256"
-    )
-        == current_firestore_authority.get("rulesSha256")
+    ) == historical_firestore_authority.get("rulesSha256")
     and build19_firestore_readback.get("outputs", {}).get("rules", {}).get(
         "byteExact"
-    )
-        is True
+    ) is True
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "sourceCount"
     )
-        == current_firestore_authority.get("indexCount")
+        == historical_firestore_authority.get("indexCount")
         == build19_approval.get("requiredSource", {}).get(
             "exactFirestoreIndexCount"
         )
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
-        "cliCount"
-    )
-        == current_firestore_authority.get("indexCount")
-    and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "apiCount"
-    )
-        == current_firestore_authority.get("indexCount")
+    ) == historical_firestore_authority.get("indexCount")
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "apiReadyCount"
-    )
-        == current_firestore_authority.get("indexCount")
+    ) == historical_firestore_authority.get("indexCount")
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "sourceSetSha256"
     )
-        == current_firestore_authority.get("indexSetSha256")
+        == historical_firestore_authority.get("indexSetSha256")
         == build19_approval.get("requiredSource", {}).get(
             "exactFirestoreIndexSetSha256"
         )
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
-        "cliSetSha256"
-    )
-        == current_firestore_authority.get("indexSetSha256")
-    and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "apiSetSha256"
-    )
-        == current_firestore_authority.get("indexSetSha256")
+    ) == historical_firestore_authority.get("indexSetSha256")
     and build19_firestore_readback.get("outputs", {}).get("indexes", {}).get(
         "allApiIndexesReady"
-    )
-        is True
-    and current_firestore_authority.get("allIndexesReady") is True
-    and current_firestore_authority.get("redundantDeploymentPerformed")
+    ) is True
+    and historical_firestore_authority.get("allIndexesReady") is True
+    and historical_firestore_authority.get("redundantDeploymentPerformed")
         is False
     and sha(build19_backend_deployment_path)
         == build19_approval.get("requiredSource", {}).get(
@@ -6287,12 +6272,6 @@ check(
     and build19_backend_deployment.get("sourceBinding", {}).get(
         "functionSourceByteExactAcrossSuccessor"
     ) is True
-    and build19_backend_deployment.get("sourceBinding", {}).get(
-        "deployedFunctionSourceCommit"
-    ) == "208e7aa6d2d01b17cc353bc543926a2a3b907712"
-    and build19_backend_deployment.get("sourceBinding", {}).get(
-        "cleanMainSourceCommit"
-    ) == build19_approval.get("sourceBaseline", {}).get("commit")
     and build19_backend_deployment.get("sourceBinding", {}).get(
         "deployedFunctionsGitObjectId"
     ) == "50899d7037e59cf3eb2f33adc024f1d7a805c7ce"
@@ -6334,9 +6313,188 @@ check(
         value is True
         for value in build19_iam_readback.get("checks", {}).values()
     )
-    and build19_iam_readback.get("source", {}).get("before", {}).get(
+    and build19_iam_readback.get("source", {}).get("before", {}).get("commit")
+        == build19_approval.get("sourceBaseline", {}).get("commit"),
+)
+check(
+    "Current source is bound to deployed receipts with drift-sensitive status",
+    current_firestore_authority.get("verified") is True
+    and sha(build14_firestore_readback_path)
+        == "7E1D7ACC72ED094A03691D1AEB5D59AC9E576D3DFE6B6CE595B355DD71595B8D"
+    and canonical_receipt_sha(build14_firestore_readback)
+        == build14_firestore_readback.get("receiptSha256")
+    and sha(build15_firestore_readback_path)
+        == "0690E3A7D48FDF733B7655B44387F5DEA0173D18E96C1E50944C1C90DF6CD313"
+    and canonical_receipt_sha(build15_firestore_readback)
+        == build15_firestore_readback.get("receiptSha256")
+    and sha(build16_firestore_readback_path)
+        == "33C3B98FBCF67A621246C42739BFF230BCF985D69F2B19B232D3B89E35B3B221"
+    and canonical_receipt_sha(build16_firestore_readback)
+        == build16_firestore_readback.get("receiptSha256")
+    and sha(build17_firestore_readback_path)
+        == "BB018F4B7F465E5F25009693BD604DF96A6E89CF01DE8FFC3F08850638346CB4"
+    and canonical_receipt_sha(build17_firestore_readback)
+        == build17_firestore_readback.get("receiptSha256")
+    and sha(build18_firestore_readback_path)
+        == "B855A3405AFD378AFE24F272C8A9C669CF8F14FFC88BE7B7DF8D9AB1B0B79027"
+    and canonical_receipt_sha(build18_firestore_readback)
+        == build18_firestore_readback.get("receiptSha256")
+    and sha(build18_backend_deployment_path)
+        == "EC960F969B79C8C63B60A2E83CD0E29B34CAA3C7F6F370196E5906AE99E35D68"
+    and sha(build18_function_readback_path)
+        == "19F6676107B2C709850A158230870876688A7F4F4B924BCF622DA391296E4547"
+    and sha(build18_iam_readback_path)
+        == "D64CAF4AF3643BC9AA811C70F5FF52C53BD281062338CD0412698BD5E27BAD5F"
+    and current_backend_approval.get("approved") is True
+    and current_backend_approval.get("firebaseProjectId")
+        == "crm3-baf-ops-b8638"
+    and sha(current_backend_approval_path)
+        == current_deployed_backend.get("deploymentApprovalSha256")
+        == current_backend_deployment.get("approvalAuthority", {}).get("sha256")
+    and current_backend_approval.get("sourceAuthority", {}).get("commit")
+        == current_backend_deployment.get("sourceAuthority", {}).get("commit")
+    and current_backend_approval.get("approvedDeployment", {}).get(
+        "appCheckEnforcement"
+    ) is False
+    and "distribution" in current_backend_approval.get("notAuthorized", [])
+    and sha(current_backend_deployment_path)
+        == current_deployed_backend.get("functionFleetEvidenceSha256")
+    and current_backend_deployment.get("decision")
+        == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
+    and current_backend_deployment.get("sourceAuthority", {}).get("commit")
+        == current_deployed_backend.get("functionFleetSourceCommit")
+    and current_backend_deployment.get("sourceAuthority", {}).get(
+        "functionsGitObjectId"
+    ) == deployed_functions_tree
+    and current_backend_deployment.get("sourceAuthority", {}).get(
+        "pullRequestNumber"
+    ) == 323
+    and current_backend_deployment.get("deployment", {}).get("functionCount")
+        == 15
+    and current_backend_deployment.get("deployment", {}).get(
+        "allFunctionsExactSourceVerified"
+    ) is True
+    and current_backend_deployment.get("deployment", {}).get(
+        "existingIamPreservationEnforced"
+    ) is True
+    and current_backend_deployment.get("deployment", {}).get(
+        "appCheckEnforcement"
+    ) is False
+    and current_backend_deployment.get("controlBoundary", {}).get("iamMutated")
+        is False
+    and current_backend_deployment.get("controlBoundary", {}).get(
+        "productionBusinessDataMutated"
+    ) is False
+    and current_backend_deployment.get("controlBoundary", {}).get(
+        "distributionPerformed"
+    ) is False
+    and sha(current_function_readback_path)
+        == current_function_readback_authority.get("physicalSha256")
+    and canonical_receipt_sha(current_function_readback)
+        == current_function_readback.get("receiptSha256")
+    and current_function_readback.get("receiptSha256", "").upper()
+        == str(
+            current_function_readback_authority.get(
+                "canonicalReceiptSha256", ""
+            )
+        ).upper()
+    and current_function_readback.get("decision")
+        == "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL"
+    and current_function_readback.get("failedChecks") == []
+    and all(
+        value is True
+        for value in current_function_readback.get("checks", {}).values()
+    )
+    and current_function_readback.get("source", {}).get("before", {}).get(
         "commit"
-    ) == build19_approval.get("sourceBaseline", {}).get("commit")
+    ) == current_deployed_backend.get("functionFleetSourceCommit")
+    and sha(current_iam_readback_path)
+        == current_iam_readback_authority.get("physicalSha256")
+    and canonical_receipt_sha(current_iam_readback)
+        == current_iam_readback.get("receiptSha256")
+    and current_iam_readback.get("receiptSha256", "").upper()
+        == str(
+            current_iam_readback_authority.get("canonicalReceiptSha256", "")
+        ).upper()
+    and current_iam_readback.get("decision")
+        == "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK"
+    and current_iam_readback.get("failedChecks") == []
+    and current_iam_readback.get("posture", {}).get("holds") == []
+    and all(
+        value is True
+        for value in current_iam_readback.get("checks", {}).values()
+    )
+    and current_iam_readback.get("source", {}).get("before", {}).get("commit")
+        == current_deployed_backend.get("functionFleetSourceCommit")
+    and sha(current_firestore_readback_path)
+        == current_deployed_backend.get("rulesAndIndexesEvidenceSha256")
+        == current_firestore_authority.get("physicalSha256")
+    and canonical_receipt_sha(current_firestore_readback)
+        == current_firestore_readback.get("receiptSha256")
+    and current_firestore_readback.get("receiptSha256", "").upper()
+        == str(
+            current_firestore_authority.get("canonicalReceiptSha256", "")
+        ).upper()
+    and current_firestore_readback.get("evidenceType")
+        == "firestore-rules-indexes-live-readback"
+    and current_firestore_readback.get("mode") == "STRICT"
+    and current_firestore_readback.get("projectId") == "crm3-baf-ops-b8638"
+    and current_firestore_readback.get("decision")
+        == "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+    and current_firestore_readback.get("failedChecks") == []
+    and all(
+        value is True
+        for value in current_firestore_readback.get("checks", {}).values()
+    )
+    and current_firestore_readback.get("source", {}).get("before", {}).get(
+        "branch"
+    ) == "main"
+    and current_firestore_readback.get("source", {}).get("before", {}).get(
+        "commit"
+    ) == current_firestore_authority.get("sourceCommit")
+    and current_firestore_readback.get("source", {}).get("before", {}).get(
+        "tree"
+    ) == current_firestore_authority.get("sourceTree")
+    and current_firestore_readback.get("source", {}).get("before", {}).get(
+        "originMain"
+    ) == current_firestore_authority.get("sourceCommit")
+    and current_firestore_readback.get("source", {}).get("after", {}).get(
+        "commit"
+    ) == current_firestore_authority.get("sourceCommit")
+    and current_firestore_readback.get("outputs", {}).get("rules", {}).get(
+        "sourceSha256"
+    ) == current_firestore_authority.get("rulesSha256")
+    and current_firestore_readback.get("outputs", {}).get("rules", {}).get(
+        "activeSha256"
+    ) == current_firestore_authority.get("rulesSha256")
+    and current_firestore_readback.get("outputs", {}).get("rules", {}).get(
+        "byteExact"
+    ) is True
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "sourceCount"
+    ) == current_firestore_authority.get("indexCount")
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "cliCount"
+    ) == current_firestore_authority.get("indexCount")
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "apiCount"
+    ) == current_firestore_authority.get("indexCount")
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "apiReadyCount"
+    ) == current_firestore_authority.get("indexCount")
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "sourceSetSha256"
+    ) == current_firestore_authority.get("indexSetSha256")
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "cliSetSha256"
+    ) == current_firestore_authority.get("indexSetSha256")
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "apiSetSha256"
+    ) == current_firestore_authority.get("indexSetSha256")
+    and current_firestore_readback.get("outputs", {}).get("indexes", {}).get(
+        "allApiIndexesReady"
+    ) is True
+    and current_firestore_authority.get("allIndexesReady") is True
     and deployed_functions_tree is not None
     and current_functions_tree is not None
     and source_index_process.returncode == 0
@@ -6354,21 +6512,21 @@ check(
         "backendDeploymentStatus"
     ) == expected_current_backend_status
     and current_deployed_backend.get("functionFleetEvidenceFile")
-        == "release/evidence/build19-backend-deployment-closure.json"
+        == current_backend_deployment_relative
     and current_deployed_backend.get("functionFleetSourceCommit")
-        == "78c1319070c5c8ef7713d0f6b5510fca8157eda3"
+        == current_backend_deployment.get("sourceAuthority", {}).get("commit")
     and current_deployed_backend.get("functionFleetReadbackDecision")
         == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
     and current_deployed_backend.get("currentSourceFunctionDeployment")
         == expected_current_function_deployment
     and current_deployed_backend.get("rulesAndIndexesEvidenceFile")
-        == "release/evidence/build19-firestore-rules-indexes-live-readback.json"
+        == current_firestore_authority.get("file")
     and current_deployed_backend.get("currentSourceRulesAndIndexesDeployment")
         == expected_current_firestore_deployment
     and current_deployed_backend.get("productionBackendRuntimeAuthorized") is True
     and all(
         value is False
-        for value in build19_firestore_readback.get(
+        for value in current_firestore_readback.get(
             "mutationBoundary", {}
         ).values()
     )

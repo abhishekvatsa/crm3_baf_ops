@@ -273,7 +273,7 @@ void main() {
       final candidateBuildNumber = release['buildNumber'] as int;
       final finalizedBuildNumber =
           finalizedAuthority['buildNumber'] as int? ?? candidateBuildNumber;
-      final firestoreAuthority =
+      final historicalFirestoreAuthority =
           (finalization['exactFirestoreRulesIndexesLiveReadback'] as Map)
               .cast<String, dynamic>();
       final promotion =
@@ -293,6 +293,18 @@ void main() {
       final liveBackend = _readObject(
         deployed['functionFleetEvidenceFile'] as String,
       );
+      final cleanMainLiveReadbacks =
+          (liveBackend['cleanMainLiveReadbacks'] as Map)
+              .cast<String, dynamic>();
+      final functionReadbackAuthority =
+          (cleanMainLiveReadbacks['functionFleet'] as Map)
+              .cast<String, dynamic>();
+      final iamReadbackAuthority =
+          (cleanMainLiveReadbacks['iamDependencies'] as Map)
+              .cast<String, dynamic>();
+      final firestoreAuthority =
+          (cleanMainLiveReadbacks['firestoreRulesAndIndexes'] as Map)
+              .cast<String, dynamic>();
       final rulesReadback = _readObject(
         deployed['rulesAndIndexesEvidenceFile'] as String,
       );
@@ -314,10 +326,11 @@ void main() {
       final requiredSource =
           (nextApproval['requiredSource'] as Map).cast<String, dynamic>();
       final functionReadback = _readObject(
-        requiredSource['exactFunctionFleetCleanMainReadbackFile'] as String,
+        functionReadbackAuthority['file'] as String,
       );
-      final iamReadback = _readObject(
-        requiredSource['exactFunctionsIamDependenciesReadbackFile'] as String,
+      final iamReadback = _readObject(iamReadbackAuthority['file'] as String);
+      final deploymentApproval = _readObject(
+        deployed['deploymentApprovalFile'] as String,
       );
       final nextApprovalBuild =
           (nextApproval['nextBuild'] as Map).cast<String, dynamic>();
@@ -379,8 +392,8 @@ void main() {
         sourceBaseline['commit'] as String,
         '${release['versionName']}+$candidateBuildNumber',
       );
-      final evidenceBoundAt = DateTime.parse(
-        nextApproval['evidenceBoundAtUtc'] as String,
+      final backendApprovedAt = DateTime.parse(
+        deploymentApproval['approvedAtUtc'] as String,
       );
       for (final capturedAt in <String>[
         functionReadback['capturedAtUtc'] as String,
@@ -388,7 +401,7 @@ void main() {
         rulesReadback['capturedAtUtc'] as String,
         liveBackend['recordedAtUtc'] as String,
       ]) {
-        expect(evidenceBoundAt.isBefore(DateTime.parse(capturedAt)), isFalse);
+        expect(DateTime.parse(capturedAt).isBefore(backendApprovedAt), isFalse);
       }
       final expectedFirestoreRelationship = _firestoreRelationship(
         rulesChanged: rulesChanged,
@@ -533,16 +546,18 @@ void main() {
       expect(artifact['unrestrictedDistribution'], 'NOT_AUTHORIZED');
 
       expect(
-        deployed['functionFleetEvidenceFile'],
+        finalization['exactFunctionFleetDeploymentReceiptFile'],
         requiredSource['exactFunctionFleetDeploymentReceiptFile'],
       );
       expect(
-        deployed['functionFleetEvidenceFile'],
-        finalization['exactFunctionFleetDeploymentReceiptFile'],
+        _sha256(
+          finalization['exactFunctionFleetDeploymentReceiptFile'] as String,
+        ),
+        requiredSource['exactFunctionFleetDeploymentReceiptSha256'],
       );
       expect(
         _sha256(deployed['functionFleetEvidenceFile'] as String),
-        requiredSource['exactFunctionFleetDeploymentReceiptSha256'],
+        deployed['functionFleetEvidenceSha256'],
       );
       expect(
         deployed['functionFleetReadbackDecision'],
@@ -566,12 +581,21 @@ void main() {
       );
       expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
       expect(
-        backendAuthority['commit'],
-        (nextApproval['sourceBaseline'] as Map)['commit'],
+        _gitTreeObjectId(backendAuthority['commit'] as String, 'functions'),
+        backendAuthority['functionsGitObjectId'],
       );
+      expect(backendAuthority['pullRequestNumber'], 323);
+      final approvalAuthority =
+          (liveBackend['approvalAuthority'] as Map).cast<String, dynamic>();
+      expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);
       expect(
-        backendAuthority['pullRequestNumber'],
-        requiredSource['exactFunctionFleetDeploymentPullRequest'],
+        _sha256(deployed['deploymentApprovalFile'] as String),
+        approvalAuthority['sha256'],
+      );
+      expect(deploymentApproval['approved'], isTrue);
+      expect(
+        (deploymentApproval['sourceAuthority'] as Map)['commit'],
+        backendAuthority['commit'],
       );
       expect(backendDeployment['functionCount'], 15);
       expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
@@ -586,20 +610,36 @@ void main() {
         hasLength(9),
       );
       expect(
+        _sha256(functionReadbackAuthority['file'] as String),
+        functionReadbackAuthority['physicalSha256'],
+      );
+      expect(
+        (functionReadback['receiptSha256'] as String).toUpperCase(),
+        functionReadbackAuthority['canonicalReceiptSha256'],
+      );
+      expect(
+        _sha256(iamReadbackAuthority['file'] as String),
+        iamReadbackAuthority['physicalSha256'],
+      );
+      expect(
+        (iamReadback['receiptSha256'] as String).toUpperCase(),
+        iamReadbackAuthority['canonicalReceiptSha256'],
+      );
+      expect(
         rulesReadback['decision'],
         deployed['rulesAndIndexesReadbackDecision'],
       );
       expect(
-        firestoreAuthority['receiptFile'],
+        firestoreAuthority['file'],
         deployed['rulesAndIndexesEvidenceFile'],
       );
       expect(
         _sha256(deployed['rulesAndIndexesEvidenceFile'] as String),
-        firestoreAuthority['receiptFileSha256'],
+        firestoreAuthority['physicalSha256'],
       );
       expect(
         (rulesReadback['receiptSha256'] as String).toUpperCase(),
-        (firestoreAuthority['receiptCanonicalSha256'] as String).toUpperCase(),
+        firestoreAuthority['canonicalReceiptSha256'],
       );
       expect(
         deployed['rulesAndIndexesSourceCommit'],
@@ -611,21 +651,25 @@ void main() {
       );
       expect(
         verifiedRules['sourceSha256'],
-        requiredSource['exactFirestoreRulesSha256'],
+        currentFirestoreSource['rulesSha256'],
       );
       expect(currentFirestoreSource['rulesSha256'], currentRulesSha);
       expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
       expect(verifiedRules['byteExact'], isTrue);
       expect(
         verifiedIndexes['sourceCount'],
-        requiredSource['exactFirestoreIndexCount'],
+        currentFirestoreSource['indexCount'],
       );
       expect(verifiedIndexes['apiCount'], verifiedIndexes['sourceCount']);
       expect(verifiedIndexes['apiReadyCount'], verifiedIndexes['sourceCount']);
       expect(verifiedIndexes['allApiIndexesReady'], isTrue);
       expect(
         verifiedIndexes['sourceSetSha256'],
-        requiredSource['exactFirestoreIndexSetSha256'],
+        currentFirestoreSource['indexSetSha256'],
+      );
+      expect(
+        historicalFirestoreAuthority['receiptFile'],
+        requiredSource['exactFirestoreRulesReceiptFile'],
       );
       expect(sourceIndexBinding['count'], currentFirestoreSource['indexCount']);
       expect(

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-current-source-backend-deployment-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-08-31T01:54:35Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalEvidence": {
+    "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
+    "codexTurnId": "01a05586-891d-74d0-a693-a6da80fe5fc4",
+    "turnStartedAtUnixSeconds": 1788141275,
+    "timestampSource": "Codex task history turn.startedAt"
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceAuthority": {
+    "commit": "bbf3a92ae999fa0dee00e32284f9dc75d10d45df",
+    "tree": "f06e65353aa18e34de852428c318f275bec5fcd8",
+    "functionTree": "64997ec26b25499f3c210290ddbadfc04b2bc37a"
+  },
+  "approvedDeployment": {
+    "functionCount": 15,
+    "existingDedicatedServiceAccountsRequired": true,
+    "preserveExistingIamRequired": true,
+    "appCheckEnforcement": false,
+    "firestoreRulesSha256": "08E050CC8145941CEA9E174D889DFE164C5B8531FDA79470D3B3311FFF7CCBF4",
+    "firestoreIndexCount": 66,
+    "firestoreIndexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "strictLiveReadbackRequired": true
+  },
+  "notAuthorized": [
+    "IAM mutation",
+    "App Check activation",
+    "production business-data deletion or mutation",
+    "device-data mutation",
+    "APK or AAB construction",
+    "pilot promotion",
+    "distribution"
+  ]
+}

@@ -914,6 +914,94 @@ if ([string]$functionFleetDeploymentReceipt.decision -ne
       $false) {
   throw 'Exact Function fleet deployment receipt is incomplete.'
 }
+$historicalFunctionFleetDeploymentReceiptPath =
+  $functionFleetDeploymentReceiptPath
+$currentDeployedBackendAuthority =
+  $currentSuccessorState.authorityPlanes.deployedBackend
+$currentFunctionFleetDeploymentReceiptPath =
+  [string]$currentDeployedBackendAuthority.functionFleetEvidenceFile
+$currentFunctionFleetDeploymentReceiptSha256 =
+  [string]$currentDeployedBackendAuthority.functionFleetEvidenceSha256
+$currentDeploymentApprovalPath =
+  [string]$currentDeployedBackendAuthority.deploymentApprovalFile
+$currentDeploymentApprovalSha256 =
+  [string]$currentDeployedBackendAuthority.deploymentApprovalSha256
+if ([string]::IsNullOrWhiteSpace($currentFunctionFleetDeploymentReceiptPath) -or
+    $currentFunctionFleetDeploymentReceiptSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    (Get-Sha256 $currentFunctionFleetDeploymentReceiptPath) -ne
+      $currentFunctionFleetDeploymentReceiptSha256.ToUpperInvariant() -or
+    [string]::IsNullOrWhiteSpace($currentDeploymentApprovalPath) -or
+    $currentDeploymentApprovalSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+    (Get-Sha256 $currentDeploymentApprovalPath) -ne
+      $currentDeploymentApprovalSha256.ToUpperInvariant()) {
+  throw 'Current backend deployment evidence is not hash-bound.'
+}
+$currentFunctionFleetDeploymentReceipt = Get-Content `
+  -LiteralPath $currentFunctionFleetDeploymentReceiptPath -Raw |
+    ConvertFrom-Json
+$currentDeploymentApproval = Get-Content `
+  -LiteralPath $currentDeploymentApprovalPath -Raw | ConvertFrom-Json
+if ($currentDeploymentApproval.approved -ne $true -or
+    [string]$currentDeploymentApproval.firebaseProjectId -ne
+      'crm3-baf-ops-b8638' -or
+    [string]$currentDeploymentApproval.sourceAuthority.commit -ne
+      [string]$currentFunctionFleetDeploymentReceipt.sourceAuthority.commit -or
+    $currentDeploymentApproval.approvedDeployment.
+      preserveExistingIamRequired -ne $true -or
+    $currentDeploymentApproval.approvedDeployment.appCheckEnforcement -ne
+      $false -or
+    [string]$currentFunctionFleetDeploymentReceipt.approvalAuthority.file -ne
+      $currentDeploymentApprovalPath -or
+    [string]$currentFunctionFleetDeploymentReceipt.approvalAuthority.sha256 -ne
+      $currentDeploymentApprovalSha256 -or
+    [string]$currentFunctionFleetDeploymentReceipt.decision -ne
+      'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
+    [string]$currentFunctionFleetDeploymentReceipt.sourceAuthority.commit -ne
+      [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -or
+    $currentFunctionFleetDeploymentReceipt.deployment.functionCount -ne 15 -or
+    $currentFunctionFleetDeploymentReceipt.deployment.
+      allFunctionsExactSourceVerified -ne $true -or
+    $currentFunctionFleetDeploymentReceipt.deployment.
+      existingIamPreservationEnforced -ne $true -or
+    $currentFunctionFleetDeploymentReceipt.deployment.appCheckEnforcement -ne
+      $false -or
+    $currentFunctionFleetDeploymentReceipt.controlBoundary.iamMutated -ne
+      $false -or
+    $currentFunctionFleetDeploymentReceipt.controlBoundary.
+      productionBusinessDataMutated -ne $false -or
+    $currentFunctionFleetDeploymentReceipt.controlBoundary.
+      artifactConstructed -ne $false -or
+    $currentFunctionFleetDeploymentReceipt.controlBoundary.
+      distributionPerformed -ne $false) {
+  throw 'Current Function fleet deployment authority is incomplete.'
+}
+$functionReadbackAuthority =
+  $currentFunctionFleetDeploymentReceipt.cleanMainLiveReadbacks.functionFleet
+$iamReadbackAuthority =
+  $currentFunctionFleetDeploymentReceipt.cleanMainLiveReadbacks.iamDependencies
+foreach ($readbackAuthority in @(
+    $functionReadbackAuthority,
+    $iamReadbackAuthority
+  )) {
+  if ([string]$readbackAuthority.file -eq '' -or
+      [string]$readbackAuthority.physicalSha256 -notmatch
+        '^[0-9A-Fa-f]{64}$' -or
+      (Get-Sha256 ([string]$readbackAuthority.file)) -ne
+        ([string]$readbackAuthority.physicalSha256).ToUpperInvariant()) {
+    throw 'A current Function deployment readback is not hash-bound.'
+  }
+  & node tools/release/collectProductionGlobalPullBackend.js `
+    --verify-receipt ([string]$readbackAuthority.file) `
+    --label 'Current backend deployment readback' | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw 'A current Function deployment readback seal is invalid.'
+  }
+}
+$functionFleetDeploymentReceiptPath =
+  $currentFunctionFleetDeploymentReceiptPath
+$functionFleetDeploymentReceipt =
+  $currentFunctionFleetDeploymentReceipt
 $deployedFunctionsTree = Get-GitTreeObjectId `
   -Commit ([string]$functionFleetDeploymentReceipt.sourceAuthority.commit) `
   -Path 'functions'
@@ -1004,12 +1092,83 @@ if ([string]$firestoreReadback.evidenceType -ne
     $firestoreReadback.mutationBoundary.businessDataMutated -ne $false) {
   throw 'Exact Firestore Rules/index live-readback receipt is incomplete.'
 }
-$requiredRulesShaProperty = $versionSource.requiredSource.
-  PSObject.Properties['exactFirestoreRulesSha256']
-$requiredIndexCountProperty = $versionSource.requiredSource.
-  PSObject.Properties['exactFirestoreIndexCount']
-$requiredIndexSetShaProperty = $versionSource.requiredSource.
-  PSObject.Properties['exactFirestoreIndexSetSha256']
+$historicalFirestoreReadbackPath = $firestoreReadbackPath
+$firestoreReadbackAuthority =
+  $currentFunctionFleetDeploymentReceipt.cleanMainLiveReadbacks.
+    firestoreRulesAndIndexes
+$firestoreReadbackPath = [string]$firestoreReadbackAuthority.file
+if ($firestoreReadbackAuthority.verified -ne $true -or
+    [string]$firestoreReadbackAuthority.physicalSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    (Get-Sha256 $firestoreReadbackPath) -ne
+      ([string]$firestoreReadbackAuthority.physicalSha256).
+        ToUpperInvariant() -or
+    (Get-Sha256 $firestoreReadbackPath) -ne
+      ([string]$currentDeployedBackendAuthority.
+        rulesAndIndexesEvidenceSha256).ToUpperInvariant()) {
+  throw 'Current Firestore Rules/index readback is not hash-bound.'
+}
+$firestoreReadback = Get-Content -LiteralPath $firestoreReadbackPath -Raw |
+  ConvertFrom-Json
+& node tools/release/collectProductionGlobalPullBackend.js `
+  --verify-receipt $firestoreReadbackPath `
+  --label 'Current Firestore Rules/index live readback' | Out-Null
+if ($LASTEXITCODE -ne 0) {
+  throw 'Current Firestore Rules/index readback seal is invalid.'
+}
+$firestoreCheckValues = @(
+  $firestoreReadback.checks.PSObject.Properties |
+    ForEach-Object { $_.Value }
+)
+if ([string]$firestoreReadback.evidenceType -ne
+      'firestore-rules-indexes-live-readback' -or
+    [string]$firestoreReadback.mode -ne 'STRICT' -or
+    [string]$firestoreReadback.projectId -ne 'crm3-baf-ops-b8638' -or
+    [string]$firestoreReadback.decision -ne
+      'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK' -or
+    $firestoreReadback.failedChecks.Count -ne 0 -or
+    $firestoreCheckValues.Count -eq 0 -or
+    @($firestoreCheckValues | Where-Object { $_ -ne $true }).Count -ne 0 -or
+    [string]$firestoreReadback.receiptSha256 -ne
+      [string]$firestoreReadbackAuthority.canonicalReceiptSha256 -or
+    [string]$firestoreReadback.source.before.branch -ne 'main' -or
+    [string]$firestoreReadback.source.before.commit -ne
+      [string]$firestoreReadbackAuthority.sourceCommit -or
+    [string]$firestoreReadback.source.before.tree -ne
+      [string]$firestoreReadbackAuthority.sourceTree -or
+    [string]$firestoreReadback.source.before.originMain -ne
+      [string]$firestoreReadbackAuthority.sourceCommit -or
+    [string]$firestoreReadback.source.after.commit -ne
+      [string]$firestoreReadbackAuthority.sourceCommit -or
+    [string]$firestoreReadback.outputs.rules.sourceSha256 -ne
+      [string]$firestoreReadbackAuthority.rulesSha256 -or
+    [string]$firestoreReadback.outputs.rules.activeSha256 -ne
+      [string]$firestoreReadbackAuthority.rulesSha256 -or
+    $firestoreReadback.outputs.rules.byteExact -ne $true -or
+    [int64]$firestoreReadback.outputs.indexes.sourceCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [int64]$firestoreReadback.outputs.indexes.cliCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [int64]$firestoreReadback.outputs.indexes.apiCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [int64]$firestoreReadback.outputs.indexes.apiReadyCount -ne
+      [int64]$firestoreReadbackAuthority.indexCount -or
+    [string]$firestoreReadback.outputs.indexes.sourceSetSha256 -ne
+      [string]$firestoreReadbackAuthority.indexSetSha256 -or
+    [string]$firestoreReadback.outputs.indexes.cliSetSha256 -ne
+      [string]$firestoreReadbackAuthority.indexSetSha256 -or
+    [string]$firestoreReadback.outputs.indexes.apiSetSha256 -ne
+      [string]$firestoreReadbackAuthority.indexSetSha256 -or
+    $firestoreReadback.outputs.indexes.allApiIndexesReady -ne $true -or
+    $firestoreReadbackAuthority.allIndexesReady -ne $true) {
+  throw 'Current Firestore Rules/index live-readback receipt is incomplete.'
+}
+$requiredRulesShaProperty =
+  $firestoreReadbackAuthority.PSObject.Properties['rulesSha256']
+$requiredIndexCountProperty =
+  $firestoreReadbackAuthority.PSObject.Properties['indexCount']
+$requiredIndexSetShaProperty =
+  $firestoreReadbackAuthority.PSObject.Properties['indexSetSha256']
 if (($null -eq $requiredRulesShaProperty) -ne
       ($null -eq $requiredIndexCountProperty) -or
     ($null -eq $requiredRulesShaProperty) -ne
@@ -1121,7 +1280,7 @@ if ($null -ne $requiredRulesShaProperty) {
       [string]$currentDeployedBackendAuthority.functionFleetEvidenceFile -ne
         $functionFleetDeploymentReceiptPath -or
       [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -ne
-        [string]$versionSource.sourceBaseline.commit -or
+        [string]$functionFleetDeploymentReceipt.sourceAuthority.commit -or
       [string]$currentDeployedBackendAuthority.functionFleetReadbackDecision -ne
         'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' -or
       [string]$currentDeployedBackendAuthority.
