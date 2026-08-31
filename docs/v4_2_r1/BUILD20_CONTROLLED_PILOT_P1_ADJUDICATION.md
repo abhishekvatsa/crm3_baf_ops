@@ -45,3 +45,21 @@ and APK:
    App Check, repository-policy and public-repository limitations as accepted
    pilot constraints with an expiry.
 
+## Current progress
+
+The exact Build 20 physical-installation condition is now proved by
+`release/evidence/build-20-physical-installation-acceptance.json`.
+
+| Condition | Status | Evidence or remaining work |
+| --- | --- | --- |
+| 1. Frozen-source release gate | Complete | Post-merge run `33369959682` passed all five jobs. |
+| 2. Exact backend and Rules readback | Complete | Existing Build 20 deployment and live-readback receipts remain authoritative. |
+| 3. Governed signed construction and finalization | Complete | Build 20 finalization receipt and dual custody are complete. |
+| 4. Physical in-place installation and authenticated startup | Complete | Exact APK hash matched the installed package; first-install time, app data and the approved session were preserved. One pre-existing actor-owned rejected local edit was restored from authoritative server state and final diagnostics reported zero unsynced rows, zero unresolved rejections and zero conflicts. |
+| 5. Two-account/two-device mutating convergence | Open | Requires separately authorized production trial records and a second approved account/device witness. |
+| 6. Named-roster pilot promotion | Open | Requires a separate promotion receipt after condition 5. |
+
+This progress record does not promote Build 20, authorize handout, activate App
+Check or mutate production business data. The backend-identity support callable
+also remains unreadable from this App Check-disabled client under the existing
+governed deferral; authenticated Firestore synchronization itself passed.
