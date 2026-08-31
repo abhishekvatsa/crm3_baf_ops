@@ -382,7 +382,13 @@ void main() {
       final indexesChanged =
           sourceIndexBinding['count'] != firestoreAuthority['indexCount'] ||
           sourceIndexBinding['indexSetSha256'] !=
-              firestoreAuthority['indexSetSha256'];
+              firestoreAuthority['indexSetSha256'] ||
+          sourceIndexBinding['sourceFileSha256'] !=
+              verifiedIndexes['sourceFileSha256'] ||
+          sourceIndexBinding['fieldOverrideCount'] !=
+              verifiedIndexes['sourceFieldOverrideCount'] ||
+          sourceIndexBinding['fieldOverrideSetSha256'] !=
+              verifiedIndexes['sourceFieldOverrideSha256'];
       final firestoreMatchesDeployed = !rulesChanged && !indexesChanged;
       final backendMatchesDeployed =
           functionsMatchDeployed && firestoreMatchesDeployed;
@@ -649,23 +655,17 @@ void main() {
         deployed['rulesAndIndexesSourceCommit'],
         rulesReadbackBefore['commit'],
       );
-      expect(
-        verifiedRules['sourceSha256'],
-        currentFirestoreSource['rulesSha256'],
-      );
+      expect(verifiedRules['sourceSha256'], firestoreAuthority['rulesSha256']);
       expect(currentFirestoreSource['rulesSha256'], currentRulesSha);
       expect(verifiedRules['activeSha256'], verifiedRules['sourceSha256']);
       expect(verifiedRules['byteExact'], isTrue);
-      expect(
-        verifiedIndexes['sourceCount'],
-        currentFirestoreSource['indexCount'],
-      );
+      expect(verifiedIndexes['sourceCount'], firestoreAuthority['indexCount']);
       expect(verifiedIndexes['apiCount'], verifiedIndexes['sourceCount']);
       expect(verifiedIndexes['apiReadyCount'], verifiedIndexes['sourceCount']);
       expect(verifiedIndexes['allApiIndexesReady'], isTrue);
       expect(
         verifiedIndexes['sourceSetSha256'],
-        currentFirestoreSource['indexSetSha256'],
+        firestoreAuthority['indexSetSha256'],
       );
       expect(
         historicalFirestoreAuthority['receiptFile'],
@@ -675,6 +675,18 @@ void main() {
       expect(
         sourceIndexBinding['indexSetSha256'],
         currentFirestoreSource['indexSetSha256'],
+      );
+      expect(
+        sourceIndexBinding['sourceFileSha256'],
+        currentFirestoreSource['indexFileSha256'],
+      );
+      expect(
+        sourceIndexBinding['fieldOverrideCount'],
+        currentFirestoreSource['fieldOverrideCount'],
+      );
+      expect(
+        sourceIndexBinding['fieldOverrideSetSha256'],
+        currentFirestoreSource['fieldOverrideSetSha256'],
       );
       expect(
         currentFirestoreSource['relationshipToDeployedBackend'],

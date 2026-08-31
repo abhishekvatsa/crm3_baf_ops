@@ -377,6 +377,246 @@ void main() {
     },
   );
 
+  test(
+    'server purge manifest removes the exact clean tombstone for every approved user',
+    () async {
+      await _withDatabase((database) async {
+        final local = _directive(version: 4, isSynced: true)..isDeleted = true;
+        await database.writeTxn(
+          () => database.operationalDirectives.put(local),
+        );
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader:
+              (_) async => <AuthoritativePurgeManifest>[
+                AuthoritativePurgeManifest(
+                  collectionId: 'directives',
+                  documentId: 'directive-1',
+                  sourceVersion: 4,
+                  purgedAt: DateTime.utc(2026, 8, 25, 12),
+                ),
+              ],
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+
+        expect(result.removed, 1);
+        expect(result.preserved, 0);
+        expect(await database.operationalDirectives.get(local.id), isNull);
+      });
+    },
+  );
+
+  test(
+    'server purge manifest removes a clean active copy that missed the tombstone',
+    () async {
+      await _withDatabase((database) async {
+        final local = _directive(version: 3, isSynced: true);
+        await database.writeTxn(
+          () => database.operationalDirectives.put(local),
+        );
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader:
+              (_) async => <AuthoritativePurgeManifest>[
+                AuthoritativePurgeManifest(
+                  collectionId: 'directives',
+                  documentId: 'directive-1',
+                  sourceVersion: 4,
+                  purgedAt: DateTime.utc(2026, 8, 25, 12),
+                ),
+              ],
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+
+        expect(result.removed, 1);
+        expect(result.quarantined, 0);
+        expect(await database.operationalDirectives.get(local.id), isNull);
+      });
+    },
+  );
+
+  test(
+    'purge reconciliation performs no server read without synchronized candidates',
+    () async {
+      await _withDatabase((database) async {
+        var reads = 0;
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader: (candidates) async {
+            reads += candidates.length;
+            return const <AuthoritativePurgeManifest>[];
+          },
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+
+        expect(reads, 0);
+        expect(result.removed, 0);
+        expect(result.preserved, 0);
+      });
+    },
+  );
+
+  test(
+    'purge reconciliation never queries or removes dirty local evidence',
+    () async {
+      await _withDatabase((database) async {
+        final local = _directive(version: 5, isSynced: false)..isDeleted = true;
+        await database.writeTxn(
+          () => database.operationalDirectives.put(local),
+        );
+        var manifestReads = 0;
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader: (candidates) async {
+            manifestReads += candidates.length;
+            return <AuthoritativePurgeManifest>[
+              AuthoritativePurgeManifest(
+                collectionId: 'directives',
+                documentId: 'directive-1',
+                sourceVersion: 4,
+                purgedAt: DateTime.utc(2026, 8, 25, 12),
+              ),
+            ];
+          },
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+
+        expect(result.removed, 0);
+        expect(result.preserved, 0);
+        expect(manifestReads, 0);
+        expect(await database.operationalDirectives.get(local.id), isNotNull);
+      });
+    },
+  );
+
+  test(
+    'manifest quarantines an active stale template while local evidence depends on it',
+    () async {
+      await _withDatabase((database) async {
+        final created = DateTime.utc(2026, 8, 25, 9);
+        final template =
+            JobTemplate()
+              ..firestoreId = 'template-1'
+              ..jobName = 'Governed maintenance template'
+              ..applicableAssetType = AssetType.furnace
+              ..createdAt = created
+              ..updatedAt = created
+              ..version = 3
+              ..isDeleted = false
+              ..isSynced = true;
+        final diary =
+            JobDiaryEntry()
+              ..firestoreId = 'diary-local-1'
+              ..templateFirestoreId = 'template-1'
+              ..note = 'Pending maintenance evidence must be retained.'
+              ..createdAt = created
+              ..updatedAt = created
+              ..isSynced = false;
+        await database.writeTxn(() async {
+          await database.jobTemplates.put(template);
+          await database.jobDiaryEntrys.put(diary);
+        });
+        final service = LocalSyncRecoveryService(
+          databaseLookup: () => database,
+          authenticatedUidLookup: () => 'operator-1',
+          purgeManifestReader:
+              (_) async => <AuthoritativePurgeManifest>[
+                AuthoritativePurgeManifest(
+                  collectionId: 'job_templates',
+                  documentId: 'template-1',
+                  sourceVersion: 4,
+                  purgedAt: DateTime.utc(2026, 8, 25, 12),
+                ),
+              ],
+        );
+
+        final result = await service.reconcileAuthoritativelyPurgedTombstones(
+          actor: _actor(),
+        );
+        final quarantined = await database.jobTemplates.get(template.id);
+
+        expect(result.removed, 0);
+        expect(result.quarantined, 1);
+        expect(result.preserved, 0);
+        expect(quarantined, isNotNull);
+        expect(quarantined!.isDeleted, isTrue);
+        expect(quarantined.isSynced, isTrue);
+        expect(quarantined.version, 4);
+        expect(
+          quarantined.deletedAt?.toUtc(),
+          DateTime.utc(2026, 8, 25, 12),
+        );
+        expect(await database.jobDiaryEntrys.get(diary.id), isNotNull);
+      });
+    },
+  );
+
+  test('purge manifest decoder rejects extra or unsupported authority', () {
+    final valid = <String, dynamic>{
+      'schemaVersion': 1,
+      'sourceCollection': 'directives',
+      'sourceDocumentId': 'directive-1',
+      'sourceVersion': 4,
+      'purgedAt': '2026-08-25T12:00:00.000Z',
+    };
+    final manifestId = authoritativePurgeManifestId(
+      'directives',
+      'directive-1',
+    );
+
+    expect(
+      AuthoritativePurgeManifest.fromRemote(
+        valid,
+        manifestId: manifestId,
+      ).documentId,
+      'directive-1',
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(<String, dynamic>{
+        ...valid,
+        'reason': 'must remain server-only',
+      }, manifestId: manifestId),
+      throwsFormatException,
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(<String, dynamic>{
+        ...valid,
+        'sourceCollection': 'users',
+      }, manifestId: manifestId),
+      throwsFormatException,
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(<String, dynamic>{
+        ...valid,
+        'purgedAt': 'not-a-timestamp',
+      }, manifestId: manifestId),
+      throwsFormatException,
+    );
+    expect(
+      () => AuthoritativePurgeManifest.fromRemote(
+        valid,
+        manifestId: 'purge_${List.filled(64, 'a').join()}',
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('purge receipt never removes a dirty or changed local record', () async {
     await _withDatabase((database) async {
       final local = _directive(version: 5, isSynced: false)..isDeleted = true;
@@ -456,6 +696,7 @@ Future<void> _withDatabase(Future<void> Function(Isar) operation) async {
   );
   final database = await Isar.open(
     [
+      MaintenanceRecordSchema,
       OperationalDirectiveSchema,
       SyncRejectionSchema,
       JobTemplateSchema,

@@ -229,8 +229,29 @@ void main() {
         expect(submit, contains('firebaseUser.uid != appUser.uid'));
         expect(submit, contains('SyncRequestOutcome.succeeded'));
         expect(submit, contains('SyncRequestOutcome.failed'));
+        expect(
+          submit,
+          contains(
+            'final synchronizedTicket = await repository.getByFirestoreId(',
+          ),
+        );
+        expect(
+          submit,
+          contains(
+            'final issueAccepted = synchronizedTicket?.isSynced == true;',
+          ),
+        );
         expect(submit, contains('synchronization is queued'));
-        expect(submit, contains('cloud synchronization needs attention'));
+        expect(
+          submit,
+          contains(
+            'Issue accepted by the plant system. Another saved item still needs sync attention.',
+          ),
+        );
+        expect(
+          submit,
+          contains('Do not raise it again; retry the SYNC PENDING issue.'),
+        );
         expect(submit, isNot(contains('Issue raised successfully')));
         expect(
           submit,

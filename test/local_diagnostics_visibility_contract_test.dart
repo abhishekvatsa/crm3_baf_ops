@@ -50,6 +50,10 @@ void main() {
           contains(r'latest full sync: $syncConflictCount conflicts'),
         );
         expect(source, contains('syncFailureDetailSummary'));
+        expect(source, contains("'syncFailureDetails':"));
+        expect(source, contains('detail.shortLabel'));
+        expect(source, contains('detail.displayMessage'));
+        expect(source, contains('automatic retry held'));
         expect(source, contains("title: 'Runtime support context'"));
         expect(source, contains("label: 'Storage bucket'"));
         expect(source, contains("label: 'Failure details'"));

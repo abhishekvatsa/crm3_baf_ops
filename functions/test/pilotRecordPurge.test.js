@@ -6,6 +6,7 @@ const {
 } = require('../lib/maintenanceWorkflow/memoryStore');
 const {
   PILOT_PURGE_RECEIPT_COLLECTION,
+  PILOT_PURGE_MANIFEST_COLLECTION,
   isAuthorizedPilotRecordPurge,
   pilotPurgeReceiptId,
   pilotPurgeSourceDigest,
@@ -84,6 +85,9 @@ describe('Admin-only permanent pilot record removal', () => {
       const evidence = current.store.read(
         `${PILOT_PURGE_RECEIPT_COLLECTION}/${id}`,
       );
+      const manifest = current.store.read(
+        `${PILOT_PURGE_MANIFEST_COLLECTION}/${id}`,
+      );
 
       expect(current.store.read(`${collection}/record-1`)).toBeNull();
       expect(evidence).toEqual({
@@ -98,6 +102,13 @@ describe('Admin-only permanent pilot record removal', () => {
         purgedByName: 'Approved Actor',
         reason: current.command.payload.reason,
         commandId: current.command.commandId,
+      });
+      expect(manifest).toEqual({
+        schemaVersion: 1,
+        sourceCollection: collection,
+        sourceDocumentId: 'record-1',
+        sourceVersion: 7,
+        purgedAt: now.toISOString(),
       });
       expect(result.resultKey).toBe('pilot-record-permanently-removed');
       expect(result.result.purgeReceiptId).toBe(id);
@@ -273,7 +284,7 @@ describe('Admin-only permanent pilot record removal', () => {
     ).rejects.toMatchObject({code: 'permission-denied'});
   });
 
-  test('replay refuses a changed purge receipt or a recreated source record', async () => {
+  test('replay refuses changed purge evidence or a recreated source record', async () => {
     const altered = fixture();
     await altered.service.execute(altered.command, altered.context);
     const id = pilotPurgeReceiptId('maintenance_records', 'record-1');
@@ -283,6 +294,24 @@ describe('Admin-only permanent pilot record removal', () => {
 
     await expect(
       altered.service.execute(altered.command, altered.context),
+    ).rejects.toMatchObject({
+      details: {reasonCode: 'pilot-record-purge-replay-evidence-invalid'},
+    });
+
+    const alteredManifest = fixture();
+    await alteredManifest.service.execute(
+      alteredManifest.command,
+      alteredManifest.context,
+    );
+    const manifestPath = `${PILOT_PURGE_MANIFEST_COLLECTION}/${id}`;
+    const manifest = alteredManifest.store.read(manifestPath);
+    alteredManifest.store.seed(manifestPath, {...manifest, sourceVersion: 8});
+
+    await expect(
+      alteredManifest.service.execute(
+        alteredManifest.command,
+        alteredManifest.context,
+      ),
     ).rejects.toMatchObject({
       details: {reasonCode: 'pilot-record-purge-replay-evidence-invalid'},
     });

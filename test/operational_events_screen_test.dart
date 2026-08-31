@@ -8,11 +8,85 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/operational_events/presentation/operational_events_screen.dart';
 import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
+import 'package:crm3_baf_ops/features/operational_events/services/operational_event_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('resolution defaults to verified server closure time', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final event = _openCraneEvent(now);
+    final service = _RecordingOperationalEventService();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_operationsUser(now)),
+          ),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationalEventsProvider.overrideWith(
+            (ref, actorUid) => Stream.value([event]),
+          ),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref, actorUid) => Stream.value([event]),
+          ),
+          operationsReportClockProvider.overrideWith(
+            (ref) => Stream.value(now),
+          ),
+          operationalEventServiceProvider.overrideWithValue(service),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final resolve = find.byKey(
+      const ValueKey('operational-event-resolve-crane-event-1'),
+    );
+    await tester.ensureVisible(resolve);
+    await tester.pumpAndSettle();
+    await tester.tap(resolve);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('operational-event-resolution-time')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('operational-event-resolution-time')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('operational-event-resolution-note')),
+      'Crane operation remained stable after restoration checks.',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('operational-event-resolution-submit')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(service.event, same(event));
+    expect(
+      service.resolutionNote,
+      'Crane operation remained stable after restoration checks.',
+    );
+    expect(service.resolvedAt, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('phone layout exposes event entry and impact intelligence', (
     tester,
   ) async {
@@ -305,4 +379,31 @@ OperationalEvent _openCraneEvent(
     updatedByName: 'Operations One',
     lastMutationId: 'event-create-1',
   );
+}
+
+class _RecordingOperationalEventService extends OperationalEventService {
+  OperationalEvent? event;
+  String? resolutionNote;
+  DateTime? resolvedAt;
+
+  @override
+  Future<OperationalEventCommandResult> resolve({
+    required OperationalEvent event,
+    required String resolutionNote,
+    DateTime? resolvedAt,
+  }) async {
+    this.event = event;
+    this.resolutionNote = resolutionNote;
+    this.resolvedAt = resolvedAt;
+    return OperationalEventCommandResult(
+      requestId: 'resolution-request',
+      operation: OperationalEventCommand.resolve,
+      eventId: event.eventId,
+      status: OperationalEventStatus.resolved,
+      version: event.version + 1,
+      auditId: 'resolution-audit',
+      committedAt: DateTime.now(),
+      idempotentReplay: false,
+    );
+  }
 }

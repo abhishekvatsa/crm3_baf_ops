@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../domain/critical_alarm_models.dart';
 import '../providers/critical_alarm_providers.dart';
@@ -45,17 +47,24 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   static const _launcherYKey = 'critical_alarm_launcher_y_fraction_v1';
   static const _launcherSize = 48.0;
   static const _launcherMargin = 12.0;
+  static const _initialFeedWarningDelay = Duration(seconds: 3);
   final Set<String> _notifiedRingingIds = <String>{};
   final Set<String> _notificationAttemptsInFlight = <String>{};
   Set<String> _latestRingingIds = const <String>{};
   Map<String, CriticalAlarm> _latestRingingAlarms =
       const <String, CriticalAlarm>{};
   bool _liveAlarmStateVerified = false;
+  bool _showUnverifiedAlarmBanner = false;
+  String? _verifiedAlarmActorUid;
+  Timer? _initialFeedWarningTimer;
   StreamSubscription<String>? _openedAlarmSubscription;
+  late final ProviderSubscription<AsyncValue<AppUser?>> _alarmActorSubscription;
   late final ProviderSubscription<AsyncValue<CriticalAlarmLiveSnapshot>>
   _alarmFeedSubscription;
   String? _pendingOpenedAlarmId;
   Offset _launcherFraction = const Offset(1, 0.78);
+  Offset? _dragStartGlobalPosition;
+  Offset? _dragStartLauncherOffset;
 
   @override
   void initState() {
@@ -65,20 +74,50 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     _openedAlarmSubscription = platform.openedAlarmIds.listen(
       _queueOpenedAlarm,
     );
-    _alarmFeedSubscription =
-        ref.listenManual<AsyncValue<CriticalAlarmLiveSnapshot>>(
-      activeCriticalAlarmsProvider,
+    _alarmActorSubscription = ref.listenManual<AsyncValue<AppUser?>>(
+      currentAppUserProvider,
       (previous, next) {
-        final snapshot = next.asData?.value;
-        if (snapshot == null || !snapshot.isServerVerified) {
+        final actor = next.asData?.value;
+        if (actor?.isApproved != true) {
+          _verifiedAlarmActorUid = null;
           _liveAlarmStateVerified = false;
+          _hideUnverifiedAlarmWarning();
           return;
         }
-        _liveAlarmStateVerified = true;
-        _reconcileNotifications(snapshot.alarms);
+        final feed = ref.read(activeCriticalAlarmsProvider);
+        final snapshot = feed.asData?.value;
+        if (snapshot?.isServerVerified == true) {
+          _verifiedAlarmActorUid = actor!.uid;
+          _liveAlarmStateVerified = true;
+          _hideUnverifiedAlarmWarning();
+          return;
+        }
+        _liveAlarmStateVerified = false;
+        _scheduleInitialFeedWarning();
       },
       fireImmediately: true,
     );
+    _alarmFeedSubscription = ref.listenManual<
+      AsyncValue<CriticalAlarmLiveSnapshot>
+    >(activeCriticalAlarmsProvider, (previous, next) {
+      final snapshot = next.asData?.value;
+      if (snapshot?.isServerVerified == true) {
+        final actor = ref.read(currentAppUserProvider).asData?.value;
+        _verifiedAlarmActorUid = actor?.isApproved == true ? actor!.uid : null;
+        _liveAlarmStateVerified = true;
+        _hideUnverifiedAlarmWarning();
+        _reconcileNotifications(snapshot!.alarms);
+        return;
+      }
+      _liveAlarmStateVerified = false;
+      final actor = ref.read(currentAppUserProvider).asData?.value;
+      final actorUid = actor?.isApproved == true ? actor!.uid : null;
+      if (actorUid != null && actorUid == _verifiedAlarmActorUid) {
+        _showUnverifiedAlarmWarningNow();
+      } else {
+        _scheduleInitialFeedWarning();
+      }
+    }, fireImmediately: true);
     unawaited(
       platform.initializeAlarmOpenListener().then((alarmId) {
         if (alarmId != null) _queueOpenedAlarm(alarmId);
@@ -90,7 +129,9 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _initialFeedWarningTimer?.cancel();
     unawaited(_openedAlarmSubscription?.cancel());
+    _alarmActorSubscription.close();
     _alarmFeedSubscription.close();
     super.dispose();
   }
@@ -116,8 +157,8 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         !isServerVerified || active.isEmpty ? null : _primary(active);
     final showUnverifiedBanner =
         user?.isApproved == true &&
-        (feed.hasError ||
-            (liveSnapshot != null && !liveSnapshot.isServerVerified));
+        _showUnverifiedAlarmBanner &&
+        (feed.isLoading || feed.hasError || !isServerVerified);
     if (user?.isApproved == true && _pendingOpenedAlarmId != null) {
       final alarmId = _pendingOpenedAlarmId;
       _pendingOpenedAlarmId = null;
@@ -162,31 +203,20 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                 top: launcherOffset.dy,
                 child: _LauncherModalGuard(
                   obscuredListenable: widget.launcherObscuredListenable,
-                  child: SafeArea(
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        final next = Offset(
-                          (launcherOffset.dx + details.delta.dx).clamp(
-                            bounds.left,
-                            bounds.right,
-                          ),
-                          (launcherOffset.dy + details.delta.dy).clamp(
-                            bounds.top,
-                            bounds.bottom,
-                          ),
-                        );
-                        setState(() {
-                          _launcherFraction = Offset(
-                            bounds.width == 0
-                                ? 0
-                                : (next.dx - bounds.left) / bounds.width,
-                            bounds.height == 0
-                                ? 0
-                                : (next.dy - bounds.top) / bounds.height,
-                          );
-                        });
-                      },
-                      onPanEnd: (_) => unawaited(_saveLauncherPosition()),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    dragStartBehavior: DragStartBehavior.down,
+                    onPanStart: (details) {
+                      _dragStartGlobalPosition = details.globalPosition;
+                      _dragStartLauncherOffset = launcherOffset;
+                    },
+                    onPanUpdate:
+                        (details) =>
+                            _updateLauncherDrag(details.globalPosition, bounds),
+                    onPanEnd: (_) => _endLauncherDrag(),
+                    onPanCancel: _endLauncherDrag,
+                    child: SizedBox.square(
+                      dimension: _launcherSize,
                       child: Semantics(
                         key: const Key('global-critical-alarm-launcher'),
                         label: 'Critical safety alarms. Drag to reposition.',
@@ -199,12 +229,13 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                                   : BafColors.danger,
                           foregroundColor: Colors.white,
                           onPressed: _open,
-                          child: showUnverifiedBanner
-                              ? const Badge(
-                                label: Text('!'),
-                                child: Icon(Icons.cloud_off_outlined),
-                              )
-                              : active.isEmpty
+                          child:
+                              showUnverifiedBanner
+                                  ? const Badge(
+                                    label: Text('!'),
+                                    child: Icon(Icons.cloud_off_outlined),
+                                  )
+                                  : active.isEmpty
                                   ? const Icon(
                                     Icons.notification_important_outlined,
                                   )
@@ -226,21 +257,81 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     );
   }
 
+  void _scheduleInitialFeedWarning() {
+    if (_initialFeedWarningTimer?.isActive == true) return;
+    _initialFeedWarningTimer = Timer(_initialFeedWarningDelay, () {
+      _initialFeedWarningTimer = null;
+      if (!mounted) return;
+      final actor = ref.read(currentAppUserProvider).asData?.value;
+      final feed = ref.read(activeCriticalAlarmsProvider);
+      final snapshot = feed.asData?.value;
+      final remainsUnverified =
+          feed.isLoading ||
+          feed.hasError ||
+          snapshot == null ||
+          !snapshot.isServerVerified;
+      if (actor?.isApproved == true && remainsUnverified) {
+        _showUnverifiedAlarmWarningNow();
+      }
+    });
+  }
+
+  void _showUnverifiedAlarmWarningNow() {
+    _initialFeedWarningTimer?.cancel();
+    _initialFeedWarningTimer = null;
+    if (!mounted || _showUnverifiedAlarmBanner) return;
+    setState(() => _showUnverifiedAlarmBanner = true);
+  }
+
+  void _hideUnverifiedAlarmWarning() {
+    _initialFeedWarningTimer?.cancel();
+    _initialFeedWarningTimer = null;
+    if (!mounted || !_showUnverifiedAlarmBanner) return;
+    setState(() => _showUnverifiedAlarmBanner = false);
+  }
+
   Rect _launcherBounds(
     BoxConstraints constraints,
     MediaQueryData media, {
     required bool hasBanner,
   }) {
-    const left = _launcherMargin;
-    final top = media.padding.top + _launcherMargin + (hasBanner ? 52 : 0);
-    final right = (constraints.maxWidth - _launcherSize - _launcherMargin)
+    final systemPadding = media.viewPadding;
+    final left = systemPadding.left + _launcherMargin;
+    final top = systemPadding.top + _launcherMargin + (hasBanner ? 52 : 0);
+    final right = (constraints.maxWidth -
+            systemPadding.right -
+            _launcherSize -
+            _launcherMargin)
         .clamp(left, double.infinity);
     final bottom = (constraints.maxHeight -
-            media.padding.bottom -
+            systemPadding.bottom -
             _launcherSize -
             84)
         .clamp(top, double.infinity);
     return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  void _updateLauncherDrag(Offset globalPosition, Rect bounds) {
+    final startGlobal = _dragStartGlobalPosition;
+    final startOffset = _dragStartLauncherOffset;
+    if (startGlobal == null || startOffset == null) return;
+    final requested = startOffset + globalPosition - startGlobal;
+    final next = Offset(
+      requested.dx.clamp(bounds.left, bounds.right),
+      requested.dy.clamp(bounds.top, bounds.bottom),
+    );
+    final fraction = Offset(
+      bounds.width == 0 ? 0 : (next.dx - bounds.left) / bounds.width,
+      bounds.height == 0 ? 0 : (next.dy - bounds.top) / bounds.height,
+    );
+    if (fraction == _launcherFraction) return;
+    setState(() => _launcherFraction = fraction);
+  }
+
+  void _endLauncherDrag() {
+    _dragStartGlobalPosition = null;
+    _dragStartLauncherOffset = null;
+    unawaited(_saveLauncherPosition());
   }
 
   Future<void> _restoreLauncherPosition() async {

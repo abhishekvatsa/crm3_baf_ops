@@ -75,36 +75,23 @@ extension _SyncServicePushInfrastructure on SyncService {
     required Object error,
     String? firestoreId,
   }) {
-    final populationError =
-        error is RuntimeJobModulePopulationException ? error : null;
-    final abnormalityError =
-        error is ChargeAbnormalityMutationException ? error : null;
-    final firebaseError = error is FirebaseException ? error : null;
-    final message =
-        populationError?.operatorMessage ??
-        abnormalityError?.operatorMessage ??
-        (firebaseError?.message?.trim().isNotEmpty == true
-            ? firebaseError!.message!.trim()
-            : error.toString());
-    final errorCode =
-        populationError?.code ?? abnormalityError?.code ?? firebaseError?.code;
-    final isLikelyPermanent =
-        populationError?.isDurableRejection ??
-        abnormalityError?.isDurableRejection ??
-        (firebaseError != null &&
-            (firebaseError.code == 'permission-denied' ||
-                firebaseError.code == 'failed-precondition' ||
-                firebaseError.code == 'invalid-argument'));
+    final classification = classifySyncFailure(error);
     return SyncFailureDetail(
       entityType: entityType,
       entityId: entityId,
-      message: message,
-      errorCode: errorCode,
+      message: classification.message,
+      errorCode: classification.errorCode,
       firestoreId: firestoreId,
       originatingUid: _rejectionOwnerUidLookup(),
-      isLikelyPermanent: isLikelyPermanent,
+      isLikelyPermanent: classification.isLikelyPermanent,
       occurredAt: DateTime.now(),
     );
+  }
+
+  bool _shouldRetryWorkflowCommand(Object error) {
+    if (error is! WorkflowException) return true;
+    return const WorkflowRetryPolicy().classify(error) ==
+        WorkflowRetryDisposition.retryUncertain;
   }
 
   void _appendPushFailureDetail(SyncFailureDetail detail) {

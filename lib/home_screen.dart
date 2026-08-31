@@ -48,6 +48,7 @@ import 'features/maintenance_workflow/presentation/screens/workflow_hub_screen.d
 import 'features/maintenance_workflow/providers/workflow_providers.dart';
 import 'features/critical_alarm/presentation/critical_alarm_screen.dart';
 import 'features/critical_alarm/providers/critical_alarm_providers.dart';
+import 'features/morning_review/presentation/morning_review_screen.dart';
 
 import 'features/auth/data/user_model.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -475,6 +476,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     context,
                     AssetConditionBoard(initialFilter: filter),
                   ),
+              onMorningReview:
+                  () => _push(context, const MorningReviewScreen()),
               onReports: () => _push(context, const FleetStatusScreen()),
               onControl: () => setState(() => _currentIndex = 3),
               onMaintenanceRhythm:
@@ -611,6 +614,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onWork: () => setState(() => _currentIndex = 2),
               onControl: () => setState(() => _currentIndex = 3),
               onDirectives: () => _push(context, const DirectivesScreen()),
+              onMorningReview:
+                  () => _push(context, const MorningReviewScreen()),
               onWorkflow: () => _push(context, const WorkflowHubScreen()),
               onAssetRegistry:
                   () => _push(context, const AssetRegistryScreen()),
@@ -898,6 +903,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
   final ValueChanged<AssetConditionFilter> onPlantConditionFiltered;
+  final VoidCallback onMorningReview;
   final VoidCallback onReports;
   final VoidCallback onControl;
   final VoidCallback onMaintenanceRhythm;
@@ -934,6 +940,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onOperationalEvents,
     required this.onPlantCondition,
     required this.onPlantConditionFiltered,
+    required this.onMorningReview,
     required this.onReports,
     required this.onControl,
     required this.onMaintenanceRhythm,
@@ -989,6 +996,7 @@ class _DashboardHome extends StatelessWidget {
               HomeCommandBar(
                 onRaiseIssue: onRaiseIssue,
                 onPlantCondition: onPlantCondition,
+                onMorningReview: onMorningReview,
                 onReports: onReports,
                 onControl: onControl,
               ),
@@ -1346,6 +1354,7 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onWork;
   final VoidCallback onControl;
   final VoidCallback onDirectives;
+  final VoidCallback onMorningReview;
   final VoidCallback onWorkflow;
   final VoidCallback onAssetRegistry;
   final VoidCallback onPlantCondition;
@@ -1377,6 +1386,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onWork,
     required this.onControl,
     required this.onDirectives,
+    required this.onMorningReview,
     required this.onWorkflow,
     required this.onAssetRegistry,
     required this.onPlantCondition,
@@ -1509,6 +1519,14 @@ class _MoreScreen extends StatelessWidget {
         ),
     ];
     final coordinationDestinations = <_MoreDestinationSpec>[
+      _MoreDestinationSpec(
+        icon: Icons.groups_2_outlined,
+        color: BafColors.cobalt,
+        title: 'Morning Review',
+        subtitle: 'Daily safety, asset status, decisions and owned actions',
+        keywords: 'morning meeting attendance action plan safety asset status',
+        onTap: onMorningReview,
+      ),
       _MoreDestinationSpec(
         icon: Icons.assignment_late_outlined,
         color: BafColors.directives,

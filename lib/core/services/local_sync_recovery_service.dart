@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 
+import '../serialization/persisted_data_reader.dart';
 import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/audit/models/audit_event_model.dart';
 import '../../features/auth/data/user_model.dart';
@@ -33,6 +37,100 @@ typedef LocalSyncRecoveryRemoteReader =
       String documentId,
     );
 
+class AuthoritativePurgeManifest {
+  final String collectionId;
+  final String documentId;
+  final int sourceVersion;
+  final DateTime purgedAt;
+
+  const AuthoritativePurgeManifest({
+    required this.collectionId,
+    required this.documentId,
+    required this.sourceVersion,
+    required this.purgedAt,
+  });
+
+  factory AuthoritativePurgeManifest.fromRemote(
+    Map<String, dynamic> data, {
+    required String manifestId,
+  }) {
+    final keys = data.keys.toSet();
+    const expectedKeys = <String>{
+      'schemaVersion',
+      'sourceCollection',
+      'sourceDocumentId',
+      'sourceVersion',
+      'purgedAt',
+    };
+    final collection = data['sourceCollection'];
+    final document = data['sourceDocumentId'];
+    final version = data['sourceVersion'];
+    if (!keys.containsAll(expectedKeys) ||
+        keys.length != expectedKeys.length ||
+        data['schemaVersion'] != 1 ||
+        collection is! String ||
+        !_purgeManifestEntityTypes.containsKey(collection) ||
+        document is! String ||
+        document.trim().isEmpty ||
+        version is! int ||
+        version < 1 ||
+        manifestId != authoritativePurgeManifestId(collection, document)) {
+      throw const FormatException('Malformed authoritative purge manifest.');
+    }
+    final purgedAt = readRequiredPersistedDateTime(
+      data['purgedAt'],
+      field: 'purgedAt',
+      source: 'authoritative purge manifest',
+    );
+    return AuthoritativePurgeManifest(
+      collectionId: collection,
+      documentId: document,
+      sourceVersion: version,
+      purgedAt: purgedAt,
+    );
+  }
+}
+
+typedef LocalSyncRecoveryPurgeManifestReader =
+    Future<List<AuthoritativePurgeManifest>> Function(
+      List<LocalPurgeCandidate> candidates,
+    );
+
+class LocalPurgeCandidate {
+  final String collectionId;
+  final String documentId;
+
+  const LocalPurgeCandidate({
+    required this.collectionId,
+    required this.documentId,
+  });
+}
+
+class LocalPurgeReconciliationResult {
+  final int removed;
+  final int quarantined;
+  final int alreadyAbsent;
+  final int preserved;
+  final List<String> errors;
+
+  const LocalPurgeReconciliationResult({
+    this.removed = 0,
+    this.quarantined = 0,
+    this.alreadyAbsent = 0,
+    this.preserved = 0,
+    this.errors = const <String>[],
+  });
+}
+
+const _purgeManifestEntityTypes = <String, String>{
+  'maintenance_records': 'maintenance_ticket',
+  'directives': 'directive',
+  'job_templates': 'job_template',
+};
+
+String authoritativePurgeManifestId(String collectionId, String documentId) =>
+    'purge_${sha256.convert(utf8.encode('$collectionId/$documentId'))}';
+
 class LocalSyncRecoveryResult {
   final int restoredFromServer;
   final int removedLocalOnly;
@@ -60,15 +158,19 @@ class LocalSyncRecoveryService {
     Isar? Function()? databaseLookup,
     String? Function()? authenticatedUidLookup,
     LocalSyncRecoveryRemoteReader? remoteReader,
+    LocalSyncRecoveryPurgeManifestReader? purgeManifestReader,
   }) : _databaseLookup = databaseLookup ?? Isar.getInstance,
        _authenticatedUidLookup =
            authenticatedUidLookup ??
            (() => FirebaseAuth.instance.currentUser?.uid),
-       _remoteReader = remoteReader ?? _readAuthoritativeRemote;
+       _remoteReader = remoteReader ?? _readAuthoritativeRemote,
+       _purgeManifestReader =
+           purgeManifestReader ?? _readAuthoritativePurgeManifests;
 
   final Isar? Function() _databaseLookup;
   final String? Function() _authenticatedUidLookup;
   final LocalSyncRecoveryRemoteReader _remoteReader;
+  final LocalSyncRecoveryPurgeManifestReader _purgeManifestReader;
 
   static Future<LocalSyncRecoveryRemoteDocument> _readAuthoritativeRemote(
     String collection,
@@ -81,6 +183,31 @@ class LocalSyncRecoveryService {
     return snapshot.exists
         ? LocalSyncRecoveryRemoteDocument.existing(snapshot.data())
         : const LocalSyncRecoveryRemoteDocument.missing();
+  }
+
+  static Future<List<AuthoritativePurgeManifest>>
+  _readAuthoritativePurgeManifests(List<LocalPurgeCandidate> candidates) async {
+    final manifests = <AuthoritativePurgeManifest>[];
+    for (final candidate in candidates) {
+      final document = await FirebaseFirestore.instance
+          .collection('pilot_record_purge_manifests')
+          .doc(
+            authoritativePurgeManifestId(
+              candidate.collectionId,
+              candidate.documentId,
+            ),
+          )
+          .get(const GetOptions(source: Source.server));
+      if (document.exists && document.data() != null) {
+        manifests.add(
+          AuthoritativePurgeManifest.fromRemote(
+            document.data()!,
+            manifestId: document.id,
+          ),
+        );
+      }
+    }
+    return List<AuthoritativePurgeManifest>.unmodifiable(manifests);
   }
 
   Future<LocalSyncRecoveryResult> discardOwnRejectedChanges({
@@ -323,6 +450,152 @@ class LocalSyncRecoveryService {
       removed = true;
     });
     return removed;
+  }
+
+  Future<LocalPurgeReconciliationResult>
+  reconcileAuthoritativelyPurgedTombstones({required AppUser? actor}) async {
+    if (actor == null || !actor.isApproved || actor.uid.trim().isEmpty) {
+      return const LocalPurgeReconciliationResult();
+    }
+    if (_authenticatedUidLookup() != actor.uid) {
+      throw StateError(
+        'The signed-in account changed before purge reconciliation.',
+      );
+    }
+    if (kIsWeb) return const LocalPurgeReconciliationResult();
+    final database = _databaseLookup();
+    if (database == null) {
+      throw StateError('The local device database is not available.');
+    }
+
+    final candidates = await _localPurgeCandidates(database);
+    if (candidates.isEmpty) return const LocalPurgeReconciliationResult();
+    final manifests = await _purgeManifestReader(candidates);
+    var removed = 0;
+    var quarantined = 0;
+    var alreadyAbsent = 0;
+    var preserved = candidates.length - manifests.length;
+    final errors = <String>[];
+
+    for (final manifest in manifests) {
+      final entityType = _purgeManifestEntityTypes[manifest.collectionId];
+      if (entityType == null) {
+        preserved++;
+        continue;
+      }
+      final adapter = _adapterFor(entityType);
+      if (adapter == null) {
+        preserved++;
+        continue;
+      }
+      try {
+        final local = await adapter.findByRemoteId(
+          database,
+          manifest.documentId,
+        );
+        if (local == null) {
+          alreadyAbsent++;
+          continue;
+        }
+        if (local.isSynced != true || local.version > manifest.sourceVersion) {
+          preserved++;
+          continue;
+        }
+
+        final expectedId = local.id as int;
+        final expectedUpdatedAt = local.updatedAt as DateTime;
+        var disposition = _PurgeManifestDisposition.preserved;
+        await database.writeTxn(() async {
+          final current = await adapter.findByRemoteId(
+            database,
+            manifest.documentId,
+          );
+          if (current == null) {
+            disposition = _PurgeManifestDisposition.alreadyAbsent;
+            return;
+          }
+          if (current.id != expectedId ||
+              current.isSynced != true ||
+              current.version > manifest.sourceVersion ||
+              current.updatedAt != expectedUpdatedAt ||
+              _authenticatedUidLookup() != actor.uid) {
+            return;
+          }
+          if (await _hasDependentLocalRecords(
+            database,
+            entityType: entityType,
+            remoteId: manifest.documentId,
+            localId: expectedId,
+          )) {
+            current
+              ..isDeleted = true
+              ..deletedAt ??= manifest.purgedAt
+              ..version = manifest.sourceVersion
+              ..isSynced = true;
+            await adapter.put(database, current);
+            disposition = _PurgeManifestDisposition.quarantined;
+            return;
+          }
+          await adapter.delete(database, expectedId);
+          disposition = _PurgeManifestDisposition.removed;
+        });
+        switch (disposition) {
+          case _PurgeManifestDisposition.removed:
+            removed++;
+          case _PurgeManifestDisposition.quarantined:
+            quarantined++;
+          case _PurgeManifestDisposition.alreadyAbsent:
+            alreadyAbsent++;
+          case _PurgeManifestDisposition.preserved:
+            preserved++;
+        }
+      } catch (error) {
+        preserved++;
+        errors.add('${manifest.collectionId}/${manifest.documentId}: $error');
+      }
+    }
+
+    return LocalPurgeReconciliationResult(
+      removed: removed,
+      quarantined: quarantined,
+      alreadyAbsent: alreadyAbsent,
+      preserved: preserved,
+      errors: List<String>.unmodifiable(errors),
+    );
+  }
+
+  Future<List<LocalPurgeCandidate>> _localPurgeCandidates(Isar database) async {
+    final tickets =
+        await database.maintenanceRecords
+            .filter()
+            .isSyncedEqualTo(true)
+            .findAll();
+    final directives =
+        await database.operationalDirectives
+            .filter()
+            .isSyncedEqualTo(true)
+            .findAll();
+    final templates =
+        await database.jobTemplates.filter().isSyncedEqualTo(true).findAll();
+    final candidates = <LocalPurgeCandidate>[];
+    void add(String collectionId, String? documentId) {
+      final normalized = documentId?.trim();
+      if (normalized == null || normalized.isEmpty) return;
+      candidates.add(
+        LocalPurgeCandidate(collectionId: collectionId, documentId: normalized),
+      );
+    }
+
+    for (final record in tickets) {
+      add('maintenance_records', record.firestoreId);
+    }
+    for (final record in directives) {
+      add('directives', record.firestoreId);
+    }
+    for (final record in templates) {
+      add('job_templates', record.firestoreId);
+    }
+    return List<LocalPurgeCandidate>.unmodifiable(candidates);
   }
 
   Future<bool> _hasDependentLocalRecords(
@@ -605,6 +878,13 @@ class LocalSyncRecoveryService {
     ),
     _ => null,
   };
+}
+
+enum _PurgeManifestDisposition {
+  removed,
+  quarantined,
+  alreadyAbsent,
+  preserved,
 }
 
 class _LocalRecoveryAdapter {

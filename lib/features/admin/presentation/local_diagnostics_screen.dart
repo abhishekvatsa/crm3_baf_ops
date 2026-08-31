@@ -13,6 +13,7 @@ import '../../../core/release/backend_release_identity_service.dart';
 import '../../../core/services/isar_installed_store_provenance.dart';
 import '../../../core/services/isar_production_recovery.dart';
 import '../../../core/services/sync_coordinator.dart';
+import '../../../core/services/sync_service.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -392,6 +393,7 @@ class LocalDiagnosticsSupportSnapshot {
   final String? syncLastError;
   final int syncFailureDetailCount;
   final int syncFailureDetailOverflowCount;
+  final List<SyncFailureDetail> syncFailureDetails;
   final bool syncHasPendingFollowUp;
   final String? syncPendingFollowUpReason;
   final bool syncPendingFollowUpForce;
@@ -414,6 +416,7 @@ class LocalDiagnosticsSupportSnapshot {
     required this.syncConflictCount,
     required this.syncFailureDetailCount,
     required this.syncFailureDetailOverflowCount,
+    required this.syncFailureDetails,
     required this.syncHasPendingFollowUp,
     required this.syncPendingFollowUpForce,
     required this.callableName,
@@ -455,6 +458,9 @@ class LocalDiagnosticsSupportSnapshot {
       syncLastError: syncHealth.lastError,
       syncFailureDetailCount: syncHealth.failureDetails.length,
       syncFailureDetailOverflowCount: syncHealth.failureDetailOverflowCount,
+      syncFailureDetails: List<SyncFailureDetail>.unmodifiable(
+        syncHealth.failureDetails,
+      ),
       syncHasPendingFollowUp: syncHealth.hasPendingFollowUp,
       syncPendingFollowUpReason: syncHealth.pendingFollowUpReason,
       syncPendingFollowUpForce: syncHealth.pendingFollowUpForce,
@@ -519,6 +525,18 @@ class LocalDiagnosticsSupportSnapshot {
     'syncLastError': syncLastError,
     'syncFailureDetailCount': syncFailureDetailCount,
     'syncFailureDetailOverflowCount': syncFailureDetailOverflowCount,
+    'syncFailureDetails': <Map<String, Object?>>[
+      for (final detail in syncFailureDetails)
+        <String, Object?>{
+          'entityType': detail.entityType,
+          'entityId': detail.entityId,
+          'firestoreId': detail.firestoreId,
+          'errorCode': detail.errorCode,
+          'message': detail.message,
+          'isLikelyPermanent': detail.isLikelyPermanent,
+          'occurredAt': detail.occurredAt.toIso8601String(),
+        },
+    ],
     'syncHasPendingFollowUp': syncHasPendingFollowUp,
     'syncPendingFollowUpReason': syncPendingFollowUpReason,
     'syncPendingFollowUpForce': syncPendingFollowUpForce,
@@ -995,6 +1013,13 @@ class _DiagnosticsSupportPanel extends StatelessWidget {
             label: 'Failure details',
             value: snapshot.syncFailureDetailSummary,
           ),
+          for (final detail in snapshot.syncFailureDetails.take(5))
+            _DiagnosticsInfoRow(
+              label: detail.shortLabel,
+              value:
+                  '${detail.displayMessage}${detail.isLikelyPermanent ? ' · automatic retry held' : ' · retryable'}',
+              isWarning: true,
+            ),
           if (snapshot.syncLastError != null)
             _DiagnosticsInfoRow(
               label: 'Last sync error',

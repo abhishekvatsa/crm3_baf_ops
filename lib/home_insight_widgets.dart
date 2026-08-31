@@ -5,12 +5,14 @@ class HomeCommandBar extends StatelessWidget {
     super.key,
     required this.onRaiseIssue,
     required this.onPlantCondition,
+    required this.onMorningReview,
     required this.onReports,
     required this.onControl,
   });
 
   final VoidCallback onRaiseIssue;
   final VoidCallback onPlantCondition;
+  final VoidCallback onMorningReview;
   final VoidCallback onReports;
   final VoidCallback onControl;
 
@@ -42,6 +44,13 @@ class HomeCommandBar extends StatelessWidget {
         color: BafColors.cobalt,
         onPressed: onReports,
       );
+      final morningReview = _HomeSecondaryCommand(
+        key: const ValueKey('home-morning-review'),
+        icon: Icons.groups_2_outlined,
+        label: 'Review',
+        color: BafColors.cobalt,
+        onPressed: onMorningReview,
+      );
       final control = _HomeSecondaryCommand(
         key: const ValueKey('home-control'),
         icon: Icons.radar_rounded,
@@ -60,6 +69,12 @@ class HomeCommandBar extends StatelessWidget {
               children: [
                 Expanded(child: plant),
                 const SizedBox(width: BafSpacing.sm),
+                Expanded(child: morningReview),
+              ],
+            ),
+            const SizedBox(height: BafSpacing.sm),
+            Row(
+              children: [
                 Expanded(child: control),
                 const SizedBox(width: BafSpacing.sm),
                 Expanded(child: reports),
@@ -73,6 +88,8 @@ class HomeCommandBar extends StatelessWidget {
           Expanded(flex: 3, child: raiseIssue),
           const SizedBox(width: BafSpacing.sm),
           Expanded(flex: 2, child: plant),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(flex: 2, child: morningReview),
           const SizedBox(width: BafSpacing.sm),
           Expanded(flex: 2, child: control),
           const SizedBox(width: BafSpacing.sm),

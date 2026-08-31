@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
-import 'package:printing/printing.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../domain/structured_report_document.dart';
 import '../services/structured_report_pdf_service.dart';
+import 'zoomable_pdf_preview.dart';
 
 class StructuredReportPdfPreviewScreen extends StatelessWidget {
   const StructuredReportPdfPreviewScreen({super.key, required this.report});
@@ -28,14 +28,10 @@ class StructuredReportPdfPreviewScreen extends StatelessWidget {
           accent: BafColors.maintenance,
         ),
       ),
-      body: PdfPreview(
-        initialPageFormat: pageFormat,
-        canChangePageFormat: false,
-        canChangeOrientation: false,
-        allowPrinting: true,
-        allowSharing: true,
-        pdfFileName: report.fileName,
-        build: (_) => StructuredReportPdfService.build(report),
+      body: ZoomablePdfPreview(
+        pageFormat: pageFormat,
+        fileName: report.fileName,
+        documentBuilder: (_) => StructuredReportPdfService.build(report),
       ),
     );
   }

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "clientWriteFields": [
+    "issueLaneSchemaVersion",
+    "issueLaneRevision",
+    "issueAssignedLanes",
+    "issueAcknowledgedLanes",
+    "issueCompletedLanes"
+  ],
+  "serverOwnedFields": [
+    "issueLaneCompletionEvidence"
+  ]
+}

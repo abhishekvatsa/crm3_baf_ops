@@ -9,6 +9,7 @@ import '../../../core/widgets/sync_status_indicator.dart';
 import 'user_management_screen.dart';
 import 'local_diagnostics_screen.dart';
 import 'device_recovery_screen.dart';
+import 'pilot_data_cleanup_screen.dart';
 import 'admin_data_browser/admin_tickets_browser.dart';
 import 'admin_data_browser/admin_directives_browser.dart';
 import 'admin_data_browser/admin_templates_browser.dart';
@@ -55,6 +56,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
       _AdminSupportTool.syncConflicts => const SyncConflictReviewScreen(),
       _AdminSupportTool.localDiagnostics => const LocalDiagnosticsScreen(),
       _AdminSupportTool.deviceRecovery => const DeviceRecoveryScreen(),
+      _AdminSupportTool.pilotDataCleanup => const PilotDataCleanupScreen(),
       _AdminSupportTool.templatePublisher => const TemplatePublisherScreen(),
     };
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
@@ -131,6 +133,13 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                                   label: 'Device recovery',
                                 ),
                               ),
+                              const PopupMenuItem(
+                                value: _AdminSupportTool.pilotDataCleanup,
+                                child: _AdminSupportMenuItem(
+                                  icon: Icons.delete_sweep_outlined,
+                                  label: 'Pilot data cleanup',
+                                ),
+                              ),
                               if (appUser.canManageTemplateGovernance)
                                 const PopupMenuItem(
                                   value: _AdminSupportTool.templatePublisher,
@@ -165,6 +174,14 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                         onPressed:
                             () => _openSupportTool(
                               _AdminSupportTool.deviceRecovery,
+                          ),
+                      ),
+                      IconButton(
+                        tooltip: 'Select deleted pilot records for cleanup',
+                        icon: const Icon(Icons.delete_sweep_outlined),
+                        onPressed:
+                            () => _openSupportTool(
+                              _AdminSupportTool.pilotDataCleanup,
                             ),
                       ),
                       if (appUser.canManageTemplateGovernance)
@@ -233,6 +250,7 @@ enum _AdminSupportTool {
   syncConflicts,
   localDiagnostics,
   deviceRecovery,
+  pilotDataCleanup,
   templatePublisher,
 }
 

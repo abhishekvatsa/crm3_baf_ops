@@ -179,12 +179,14 @@ class OperationalEventService {
   Future<OperationalEventCommandResult> resolve({
     required OperationalEvent event,
     required String resolutionNote,
+    DateTime? resolvedAt,
   }) => _call(
     OperationalEventCommand.resolve,
     eventId: event.eventId,
     expectedVersion: event.version,
     reason: resolutionNote,
     resolutionNote: resolutionNote,
+    resolvedAt: resolvedAt,
   );
 
   Future<OperationalEventCommandResult> reopen({
@@ -204,6 +206,7 @@ class OperationalEventService {
     required String reason,
     OperationalEventDraft? eventDraft,
     String? resolutionNote,
+    DateTime? resolvedAt,
   }) async {
     final requestId = _uuid.v4();
     final request = <String, dynamic>{
@@ -214,6 +217,8 @@ class OperationalEventService {
       'reason': reason.trim(),
       if (eventDraft != null) 'eventDraft': eventDraft.toCommandMap(),
       if (resolutionNote != null) 'resolutionNote': resolutionNote.trim(),
+      if (resolvedAt != null)
+        'resolvedAt': canonicalOperationalEventCommandTimestamp(resolvedAt),
     };
     try {
       final response = await _client

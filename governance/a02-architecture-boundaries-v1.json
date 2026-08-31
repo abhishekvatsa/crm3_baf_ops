@@ -341,7 +341,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 2884,
+      "maximumLines": 2925,
       "requiredMarkers": [
         "class MaintenanceForm"
       ],
@@ -522,6 +522,37 @@
         "Isar.getInstance()"
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/morning_review/presentation/morning_review_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / morning_review",
+      "purpose": "Owns the live morning-review workspace, frozen record view, ordered agenda, attendance, contribution, action and finalization presentation as one route.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved-user, facilitator and role capabilities determine visible commands; the callable backend independently revalidates every mutation and the screen grants no authority from record payloads.",
+      "persistenceOwnership": "No direct persistence is admitted; actor-scoped read providers own Firestore reads and the exact command service owns callable transport.",
+      "transactionOwnership": "No client database or cross-source transaction is owned by this presentation surface; server command handlers own meeting mutations atomically.",
+      "rationale": "The live workspace and frozen record share one agenda vocabulary and interaction state while editors are already extracted; retaining them together keeps session refresh, facilitator controls and archive navigation coherent without mixing persistence into presentation.",
+      "regressionTests": [
+        "test/morning_review_integrity_test.dart",
+        "test/morning_review_ui_test.dart",
+        "test/morning_review_command_contract_test.dart"
+      ],
+      "maximumLines": 2100,
+      "requiredMarkers": [
+        "class MorningReviewScreen",
+        "class MorningReviewRecordScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()",
+        ".writeTxn("
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, callable admission bypasses actor capability, direct persistence appears, or any named Morning Review regression fails."
     },
     {
       "path": "lib/features/operational_events/presentation/operational_events_screen.dart",
