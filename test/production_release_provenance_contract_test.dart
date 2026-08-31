@@ -170,9 +170,12 @@ void main() {
       expect(text, contains('unrestrictedPlantReleaseApproved'));
       expect(text, contains('-LedgerSelectionSelfTest'));
       expect(text, contains('exactFunctionFleetDeploymentPullRequest'));
-      expect(text, contains('exactFirestoreRulesSha256'));
-      expect(text, contains('exactFirestoreIndexCount'));
-      expect(text, contains('exactFirestoreIndexSetSha256'));
+      expect(text, contains('cleanMainLiveReadbacks'));
+      expect(text, contains('firestoreRulesAndIndexes'));
+      expect(text, contains('currentDeployedBackendAuthority'));
+      expect(text, contains("PSObject.Properties['rulesSha256']"));
+      expect(text, contains("PSObject.Properties['indexCount']"));
+      expect(text, contains("PSObject.Properties['indexSetSha256']"));
       expect(text, contains('--source-index-set firestore.indexes.json'));
       expect(text, contains('release/current-successor-state.json'));
       expect(text, contains('firestoreRulesAndIndexes'));

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-29",
-  "asOfDate": "2026-08-29",
-  "status": "BUILD19_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_PILOT_DECISIONS",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-08-31",
+  "asOfDate": "2026-08-31",
+  "status": "BUILD19_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
@@ -13,15 +13,15 @@
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
-      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "backendDeploymentStatus": "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
         "rulesSha256": "08E050CC8145941CEA9E174D889DFE164C5B8531FDA79470D3B3311FFF7CCBF4",
         "indexCount": 66,
         "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
-        "relationshipToDeployedBackend": "RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
-        "productionDeploymentPerformed": false,
-        "productionRuntimeUseAuthorized": false
+        "relationshipToDeployedBackend": "EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED",
+        "productionDeploymentPerformed": true,
+        "productionRuntimeUseAuthorized": true
       }
     },
     "latestFinalizedArtifact": {
@@ -37,14 +37,18 @@
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
     "deployedBackend": {
-      "functionFleetEvidenceFile": "release/evidence/build19-backend-deployment-closure.json",
-      "functionFleetSourceCommit": "78c1319070c5c8ef7713d0f6b5510fca8157eda3",
-      "rulesAndIndexesEvidenceFile": "release/evidence/build19-firestore-rules-indexes-live-readback.json",
-      "rulesAndIndexesSourceCommit": "78c1319070c5c8ef7713d0f6b5510fca8157eda3",
+      "deploymentApprovalFile": "release/approvals/build20-backend-deployment-approval.json",
+      "deploymentApprovalSha256": "38FEF724CF29E6C5A19B8A5893E2F7677950D361107352FFAB94BC683D1D58CA",
+      "functionFleetEvidenceFile": "release/evidence/build20-backend-deployment-closure.json",
+      "functionFleetEvidenceSha256": "178637B404D708A3B45AD716AE4C18788CFBAC30B6910557D12EA3304DD9744D",
+      "functionFleetSourceCommit": "bbf3a92ae999fa0dee00e32284f9dc75d10d45df",
+      "rulesAndIndexesEvidenceFile": "release/evidence/build20-firestore-rules-indexes-live-readback.json",
+      "rulesAndIndexesEvidenceSha256": "6033044959579E0009A022643E411A2D313F0055B8ACCBC6AA85710A8873C647",
+      "rulesAndIndexesSourceCommit": "bbf3a92ae999fa0dee00e32284f9dc75d10d45df",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
-      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
-      "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "productionBackendRuntimeAuthorized": true
     },
     "controlledPilot": {
@@ -85,6 +89,11 @@
     "release/evidence/build19-function-fleet-runtime-identity-readback.json",
     "release/evidence/build19-functions-iam-dependencies-readback.json",
     "release/evidence/build19-firestore-rules-indexes-live-readback.json",
+    "release/approvals/build20-backend-deployment-approval.json",
+    "release/evidence/build20-backend-deployment-closure.json",
+    "release/evidence/build20-function-fleet-runtime-identity-readback.json",
+    "release/evidence/build20-functions-iam-dependencies-readback.json",
+    "release/evidence/build20-firestore-rules-indexes-live-readback.json",
     "release/approvals/build-number-19-successor-approval.json",
     "release/approvals/public-repository-environment-reviewer-approval-build-19.json",
     "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"

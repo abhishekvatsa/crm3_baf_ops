@@ -1,0 +1,1443 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "functions-iam-dependencies-live-readback",
+  "mode": "STRICT",
+  "projectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "gateIds": [
+    "LR-03",
+    "LR-06"
+  ],
+  "source": {
+    "before": {
+      "branch": "main",
+      "commit": "bbf3a92ae999fa0dee00e32284f9dc75d10d45df",
+      "tree": "f06e65353aa18e34de852428c318f275bec5fcd8",
+      "originMain": "bbf3a92ae999fa0dee00e32284f9dc75d10d45df",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    },
+    "after": {
+      "branch": "main",
+      "commit": "bbf3a92ae999fa0dee00e32284f9dc75d10d45df",
+      "tree": "f06e65353aa18e34de852428c318f275bec5fcd8",
+      "originMain": "bbf3a92ae999fa0dee00e32284f9dc75d10d45df",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    }
+  },
+  "commands": [
+    {
+      "kind": "LOCAL_READ",
+      "command": "git status/rev-parse"
+    },
+    {
+      "kind": "CLI_READ",
+      "command": "gcloud projects describe"
+    },
+    {
+      "kind": "CLI_READ",
+      "command": "gcloud projects get-iam-policy"
+    },
+    {
+      "kind": "CLI_READ",
+      "command": "gcloud functions list --v2"
+    },
+    {
+      "kind": "CLI_READ",
+      "command": "gcloud storage cp --if-generation-match",
+      "repetition": "once per deployed Function source archive"
+    },
+    {
+      "kind": "LOCAL_READ",
+      "command": "tar -xOf package.json/package-lock.json"
+    }
+  ],
+  "outputs": {
+    "project": {
+      "projectNumber": "894346496105",
+      "lifecycleState": "ACTIVE"
+    },
+    "iam": {
+      "policyVersion": 1,
+      "policyEtagSha256": "8736B75EE1612CA49464779A0DCB03400B848CB2EAD566C72CE80D7CD2869E55",
+      "runtimeIdentityCount": 15,
+      "identities": [
+        {
+          "email": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.viewer",
+              "conditional": false
+            },
+            {
+              "role": "roles/firebaseappcheck.tokenVerifier",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+              "conditional": false
+            },
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            },
+            {
+              "role": "roles/eventarc.eventReceiver",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+              "conditional": false
+            },
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            },
+            {
+              "role": "roles/eventarc.eventReceiver",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+              "conditional": false
+            },
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            },
+            {
+              "role": "roles/eventarc.eventReceiver",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+              "conditional": false
+            },
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            },
+            {
+              "role": "roles/eventarc.eventReceiver",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.viewer",
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "email": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "grants": [
+            {
+              "role": "roles/datastore.user",
+              "conditional": false
+            },
+            {
+              "role": "roles/eventarc.eventReceiver",
+              "conditional": false
+            }
+          ]
+        }
+      ],
+      "defaultComputeServiceAccount": "894346496105-compute@developer.gserviceaccount.com",
+      "defaultComputeHasUnconditionalEditor": false
+    },
+    "discoveredSourceFunctionExports": [
+      "assignPublishedTemplateVersion",
+      "beginGlobalPullRun",
+      "completePlannedJobExecution",
+      "executeMaintenanceWorkflowCommand",
+      "getBackendReleaseIdentity",
+      "maintenanceWorkflowEscalationSweep",
+      "mutateAssetHierarchy",
+      "mutateChargeAbnormality",
+      "mutateRuntimeJobModulePopulation",
+      "mutateUserAuthority",
+      "onJobAssigned",
+      "onMaintenanceWorkflowEventCreated",
+      "onTicketCreated",
+      "onTicketResolved",
+      "stampGlobalPullServerClock"
+    ],
+    "policySourceFunctionExports": [
+      "assignPublishedTemplateVersion",
+      "beginGlobalPullRun",
+      "completePlannedJobExecution",
+      "executeMaintenanceWorkflowCommand",
+      "getBackendReleaseIdentity",
+      "maintenanceWorkflowEscalationSweep",
+      "mutateAssetHierarchy",
+      "mutateChargeAbnormality",
+      "mutateRuntimeJobModulePopulation",
+      "mutateUserAuthority",
+      "onJobAssigned",
+      "onMaintenanceWorkflowEventCreated",
+      "onTicketCreated",
+      "onTicketResolved",
+      "stampGlobalPullServerClock"
+    ],
+    "currentSourceDependencies": {
+      "packageName": "crm3-baf-ops-functions",
+      "packageVersion": null,
+      "nodeEngine": "22",
+      "lockfileVersion": 3,
+      "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+      "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+      "directDeclarationCount": 7,
+      "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+      "dependencyPathCount": 499,
+      "uniqueDependencyNameCount": 453,
+      "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+      "selectedVersions": {
+        "@grpc/grpc-js": [
+          "1.14.4"
+        ],
+        "brace-expansion": [
+          "5.0.9"
+        ],
+        "firebase-admin": [
+          "13.10.0"
+        ],
+        "firebase-functions": [
+          "7.2.5"
+        ],
+        "form-data": [
+          "2.5.6"
+        ],
+        "js-yaml": [
+          "3.15.1"
+        ],
+        "protobufjs": [
+          "7.6.5"
+        ],
+        "tar": []
+      }
+    },
+    "functions": [
+      {
+        "name": "assignPublishedTemplateVersion",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/assignPublishedTemplateVersion",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "assignPublishedTemplateVersion",
+        "updateTime": "2026-08-31T01:57:52.300163880Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/8e61d3af-afbd-49d6-9cbf-9cf12350a12a",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "assignPublishedTemplateVersion/function-source.zip",
+          "generation": "1788141463463497"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "beginGlobalPullRun",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/beginGlobalPullRun",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "beginGlobalPullRun",
+        "updateTime": "2026-08-31T01:57:49.058654631Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/ff1c9717-8286-4490-bea1-167e9af61264",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "beginGlobalPullRun/function-source.zip",
+          "generation": "1788141421368720"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "completePlannedJobExecution",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/completePlannedJobExecution",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "completePlannedJobExecution",
+        "updateTime": "2026-08-31T01:57:48.498020071Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/8e61d3af-afbd-49d6-9cbf-9cf12350a12a",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "completePlannedJobExecution/function-source.zip",
+          "generation": "1788141421307713"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommand",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/executeMaintenanceWorkflowCommand",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "executeMaintenanceWorkflowCommand",
+        "updateTime": "2026-08-31T01:57:50.879733332Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/8e61d3af-afbd-49d6-9cbf-9cf12350a12a",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "executeMaintenanceWorkflowCommand/function-source.zip",
+          "generation": "1788141463305141"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "getBackendReleaseIdentity",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/getBackendReleaseIdentity",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "getBackendReleaseIdentity",
+        "updateTime": "2026-08-31T01:57:50.788866703Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/ff1c9717-8286-4490-bea1-167e9af61264",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "getBackendReleaseIdentity/function-source.zip",
+          "generation": "1788141462756814"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "maintenanceWorkflowEscalationSweep",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/maintenanceWorkflowEscalationSweep",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "maintenanceWorkflowEscalationSweep",
+        "updateTime": "2026-08-31T02:03:59.301119356Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/f48d5271-dd7c-431a-a584-61b9c087cc03",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "maintenanceWorkflowEscalationSweep/function-source.zip",
+          "generation": "1788141785284709"
+        },
+        "sourceArchive": {
+          "sha256": "10657495349B9700C363B176A1403C02CA75869841F079DD9C4B19B97ECBCB90",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "mutateAssetHierarchy",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateAssetHierarchy",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateAssetHierarchy",
+        "updateTime": "2026-08-31T01:57:50.572086840Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/ff1c9717-8286-4490-bea1-167e9af61264",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "mutateAssetHierarchy/function-source.zip",
+          "generation": "1788141463138471"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "mutateChargeAbnormality",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateChargeAbnormality",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateChargeAbnormality",
+        "updateTime": "2026-08-31T01:57:51.523599727Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/ff1c9717-8286-4490-bea1-167e9af61264",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "mutateChargeAbnormality/function-source.zip",
+          "generation": "1788141463314421"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "mutateRuntimeJobModulePopulation",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateRuntimeJobModulePopulation",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateRuntimeJobModulePopulation",
+        "updateTime": "2026-08-31T01:57:53.114545169Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/8e61d3af-afbd-49d6-9cbf-9cf12350a12a",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "mutateRuntimeJobModulePopulation/function-source.zip",
+          "generation": "1788141463103100"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "mutateUserAuthority",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateUserAuthority",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateUserAuthority",
+        "updateTime": "2026-08-31T01:57:51.665075919Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/ff1c9717-8286-4490-bea1-167e9af61264",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "mutateUserAuthority/function-source.zip",
+          "generation": "1788141462915557"
+        },
+        "sourceArchive": {
+          "sha256": "FD777D92E0C02C0EEDB7296F448C8AE9C51715E8BB7F3E092E7FD69B7926EBC1",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "onJobAssigned",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onJobAssigned",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "onJobAssigned",
+        "updateTime": "2026-08-31T02:00:27.360777050Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/319ea9a0-d9ef-4685-90d0-79d995f2fcd5",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "onJobAssigned/function-source.zip",
+          "generation": "1788141616829322"
+        },
+        "sourceArchive": {
+          "sha256": "FAF2966AC66E72EE6C8314A66E2E946A2F165E03F16782F8671502809C66EE0D",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "onMaintenanceWorkflowEventCreated",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onMaintenanceWorkflowEventCreated",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "onMaintenanceWorkflowEventCreated",
+        "updateTime": "2026-08-31T02:00:27.205486368Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/319ea9a0-d9ef-4685-90d0-79d995f2fcd5",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "onMaintenanceWorkflowEventCreated/function-source.zip",
+          "generation": "1788141616768815"
+        },
+        "sourceArchive": {
+          "sha256": "FAF2966AC66E72EE6C8314A66E2E946A2F165E03F16782F8671502809C66EE0D",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "onTicketCreated",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketCreated",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "onTicketCreated",
+        "updateTime": "2026-08-31T02:00:26.076606759Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/319ea9a0-d9ef-4685-90d0-79d995f2fcd5",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "onTicketCreated/function-source.zip",
+          "generation": "1788141616266756"
+        },
+        "sourceArchive": {
+          "sha256": "FAF2966AC66E72EE6C8314A66E2E946A2F165E03F16782F8671502809C66EE0D",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "onTicketResolved",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketResolved",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "onTicketResolved",
+        "updateTime": "2026-08-31T02:00:26.900596376Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/319ea9a0-d9ef-4685-90d0-79d995f2fcd5",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "onTicketResolved/function-source.zip",
+          "generation": "1788141616635038"
+        },
+        "sourceArchive": {
+          "sha256": "FAF2966AC66E72EE6C8314A66E2E946A2F165E03F16782F8671502809C66EE0D",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      },
+      {
+        "name": "stampGlobalPullServerClock",
+        "resourceName": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/stampGlobalPullServerClock",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "runtime": "nodejs22",
+        "entryPoint": "stampGlobalPullServerClock",
+        "updateTime": "2026-08-31T02:00:14.387619900Z",
+        "build": "projects/894346496105/locations/asia-south1/builds/319ea9a0-d9ef-4685-90d0-79d995f2fcd5",
+        "firebaseFunctionsHash": "46d7bb4db230f0067bed2e8c417ffddef8b3270f",
+        "serviceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "source": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "object": "stampGlobalPullServerClock/function-source.zip",
+          "generation": "1788141564085996"
+        },
+        "sourceArchive": {
+          "sha256": "FAF2966AC66E72EE6C8314A66E2E946A2F165E03F16782F8671502809C66EE0D",
+          "bytes": 1550606,
+          "generationPinnedDownload": true
+        },
+        "dependencies": {
+          "packageName": "crm3-baf-ops-functions",
+          "packageVersion": null,
+          "nodeEngine": "22",
+          "lockfileVersion": 3,
+          "packageManifestSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
+          "packageLockSha256": "3754D6AC2C201732D33546C8EC3C01F6B9926C83448F0C4C4A76EAE4ECB9AD73",
+          "directDeclarationCount": 7,
+          "directDeclarationSha256": "D3E1471437A559DEE8A4D73C1F5880D8F55FE269B8083EABF1BC9FC7C71FBEE9",
+          "dependencyPathCount": 499,
+          "uniqueDependencyNameCount": 453,
+          "dependencyInventorySha256": "6619F72988E2C88D0223D5F22887874778D92B6D788E8F831BFB4F39BC5187EB",
+          "selectedVersions": {
+            "@grpc/grpc-js": [
+              "1.14.4"
+            ],
+            "brace-expansion": [
+              "5.0.9"
+            ],
+            "firebase-admin": [
+              "13.10.0"
+            ],
+            "firebase-functions": [
+              "7.2.5"
+            ],
+            "form-data": [
+              "2.5.6"
+            ],
+            "js-yaml": [
+              "3.15.1"
+            ],
+            "protobufjs": [
+              "7.6.5"
+            ],
+            "tar": []
+          }
+        }
+      }
+    ]
+  },
+  "posture": {
+    "sourceFunctionCount": 15,
+    "deployedFunctionCount": 15,
+    "sourcePendingDeploymentExports": [
+      "mutateAssetHierarchy"
+    ],
+    "missingFromLive": [],
+    "unexpectedLive": [],
+    "fleetMatchesSource": true,
+    "sourceDeclaredRuntimeBindings": [
+      {
+        "name": "assignPublishedTemplateVersion",
+        "expectedServiceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "beginGlobalPullRun",
+        "expectedServiceAccountEmail": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "completePlannedJobExecution",
+        "expectedServiceAccountEmail": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommand",
+        "expectedServiceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "getBackendReleaseIdentity",
+        "expectedServiceAccountEmail": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "maintenanceWorkflowEscalationSweep",
+        "expectedServiceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "mutateAssetHierarchy",
+        "expectedServiceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "mutateChargeAbnormality",
+        "expectedServiceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "mutateRuntimeJobModulePopulation",
+        "expectedServiceAccountEmail": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "mutateUserAuthority",
+        "expectedServiceAccountEmail": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "onJobAssigned",
+        "expectedServiceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "onMaintenanceWorkflowEventCreated",
+        "expectedServiceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "onTicketCreated",
+        "expectedServiceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "onTicketResolved",
+        "expectedServiceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      },
+      {
+        "name": "stampGlobalPullServerClock",
+        "expectedServiceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "deployedServiceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "matches": true
+      }
+    ],
+    "defaultComputeFunctionNames": [],
+    "broadRuntimeRoleGrants": [],
+    "dependencyComparisons": [
+      {
+        "name": "assignPublishedTemplateVersion",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "beginGlobalPullRun",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "completePlannedJobExecution",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommand",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "getBackendReleaseIdentity",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "maintenanceWorkflowEscalationSweep",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "mutateAssetHierarchy",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "mutateChargeAbnormality",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "mutateRuntimeJobModulePopulation",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "mutateUserAuthority",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "onJobAssigned",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "onMaintenanceWorkflowEventCreated",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "onTicketCreated",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "onTicketResolved",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      },
+      {
+        "name": "stampGlobalPullServerClock",
+        "inventoryMatchesCurrent": true,
+        "selectedVersionsMatchCurrent": true
+      }
+    ],
+    "dependencyDriftFunctionNames": [],
+    "advisoryAssessmentPerformed": false,
+    "holds": [],
+    "decision": "PASS_RUNTIME_IDENTITY_DEPENDENCY_POSTURE"
+  },
+  "checks": {
+    "exactProjectAndRegion": true,
+    "policyMatchesTarget": true,
+    "sourceExportInventoryMatchesPolicy": true,
+    "sourceRuntimeBindingInventoryMatchesPolicy": true,
+    "sourcePendingDeploymentExportsValid": true,
+    "sourceStable": true,
+    "governedSourceClean": true,
+    "sourceBranchMain": true,
+    "sourceCommitMatchesOriginMain": true,
+    "projectNumberPresent": true,
+    "iamPolicyMetadataPresent": true,
+    "deployedFunctionsPresent": true,
+    "deployedFunctionNamesUnique": true,
+    "deployedFunctionsActiveGen2": true,
+    "deployedRuntimeIdentitiesPresent": true,
+    "generationPinnedArchivesComplete": true,
+    "dependencySummariesComplete": true,
+    "runtimeIamReducedToDeployedIdentities": true
+  },
+  "failedChecks": [],
+  "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+  "closureScope": {
+    "liveReadbackGateEvidenceOnly": true,
+    "gateIds": [
+      "LR-03",
+      "LR-06"
+    ],
+    "s01Closed": false,
+    "d01Closed": false,
+    "deploymentAuthorized": false,
+    "iamRemediationAuthorized": false
+  },
+  "mutationBoundary": {
+    "functionsDeployed": false,
+    "functionsInvoked": false,
+    "iamMutated": false,
+    "serviceAccountsCreatedOrDeleted": false,
+    "storageObjectsMutated": false,
+    "firestoreReadOrWritePerformed": false,
+    "businessDataReadOrWritten": false
+  },
+  "privacyBoundary": {
+    "operatorAccountIdentityRetained": false,
+    "userOrBusinessDocumentsRead": false,
+    "functionEnvironmentVariablesRetained": false,
+    "sourceArchiveContentRetained": false,
+    "packageManifestOrLockfileContentRetained": false,
+    "dependencyStateRepresentedByHashesCountsAndSelectedVersionsOnly": true
+  },
+  "capturedAtUtc": "2026-08-31T02:09:30.390Z",
+  "receiptSha256": "34401e1c07bd22b618ab35fa4ab4fd69d3268bd3586e369b9bc09ff1e2855b51"
+}
