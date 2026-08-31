@@ -46,12 +46,16 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   static const _launcherYKey = 'critical_alarm_launcher_y_fraction_v1';
   static const _launcherSize = 48.0;
   static const _launcherMargin = 12.0;
+  static const _initialFeedWarningDelay = Duration(seconds: 3);
   final Set<String> _notifiedRingingIds = <String>{};
   final Set<String> _notificationAttemptsInFlight = <String>{};
   Set<String> _latestRingingIds = const <String>{};
   Map<String, CriticalAlarm> _latestRingingAlarms =
       const <String, CriticalAlarm>{};
   bool _liveAlarmStateVerified = false;
+  bool _showUnverifiedAlarmBanner = false;
+  String? _verifiedAlarmActorUid;
+  Timer? _initialFeedWarningTimer;
   StreamSubscription<String>? _openedAlarmSubscription;
   late final ProviderSubscription<AsyncValue<CriticalAlarmLiveSnapshot>>
   _alarmFeedSubscription;
@@ -68,20 +72,28 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     _openedAlarmSubscription = platform.openedAlarmIds.listen(
       _queueOpenedAlarm,
     );
-    _alarmFeedSubscription = ref
-        .listenManual<AsyncValue<CriticalAlarmLiveSnapshot>>(
-          activeCriticalAlarmsProvider,
-          (previous, next) {
-            final snapshot = next.asData?.value;
-            if (snapshot == null || !snapshot.isServerVerified) {
-              _liveAlarmStateVerified = false;
-              return;
-            }
-            _liveAlarmStateVerified = true;
-            _reconcileNotifications(snapshot.alarms);
-          },
-          fireImmediately: true,
-        );
+    _alarmFeedSubscription = ref.listenManual<
+      AsyncValue<CriticalAlarmLiveSnapshot>
+    >(activeCriticalAlarmsProvider, (previous, next) {
+      final snapshot = next.asData?.value;
+      if (snapshot?.isServerVerified == true) {
+        final actor = ref.read(currentAppUserProvider).asData?.value;
+        _verifiedAlarmActorUid = actor?.isApproved == true ? actor!.uid : null;
+        _liveAlarmStateVerified = true;
+        _hideUnverifiedAlarmWarning();
+        _reconcileNotifications(snapshot!.alarms);
+        return;
+      }
+      _liveAlarmStateVerified = false;
+      if (next.isLoading) return;
+      final actor = ref.read(currentAppUserProvider).asData?.value;
+      final actorUid = actor?.isApproved == true ? actor!.uid : null;
+      if (actorUid != null && actorUid == _verifiedAlarmActorUid) {
+        _showUnverifiedAlarmWarningNow();
+      } else {
+        _scheduleInitialFeedWarning();
+      }
+    }, fireImmediately: true);
     unawaited(
       platform.initializeAlarmOpenListener().then((alarmId) {
         if (alarmId != null) _queueOpenedAlarm(alarmId);
@@ -93,6 +105,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _initialFeedWarningTimer?.cancel();
     unawaited(_openedAlarmSubscription?.cancel());
     _alarmFeedSubscription.close();
     super.dispose();
@@ -119,6 +132,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         !isServerVerified || active.isEmpty ? null : _primary(active);
     final showUnverifiedBanner =
         user?.isApproved == true &&
+        _showUnverifiedAlarmBanner &&
         (feed.hasError ||
             (liveSnapshot != null && !liveSnapshot.isServerVerified));
     if (user?.isApproved == true && _pendingOpenedAlarmId != null) {
@@ -217,6 +231,36 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         );
       },
     );
+  }
+
+  void _scheduleInitialFeedWarning() {
+    if (_initialFeedWarningTimer?.isActive == true) return;
+    _initialFeedWarningTimer = Timer(_initialFeedWarningDelay, () {
+      _initialFeedWarningTimer = null;
+      if (!mounted) return;
+      final actor = ref.read(currentAppUserProvider).asData?.value;
+      final feed = ref.read(activeCriticalAlarmsProvider);
+      final snapshot = feed.asData?.value;
+      final remainsUnverified =
+          feed.hasError || (snapshot != null && !snapshot.isServerVerified);
+      if (actor?.isApproved == true && remainsUnverified) {
+        _showUnverifiedAlarmWarningNow();
+      }
+    });
+  }
+
+  void _showUnverifiedAlarmWarningNow() {
+    _initialFeedWarningTimer?.cancel();
+    _initialFeedWarningTimer = null;
+    if (!mounted || _showUnverifiedAlarmBanner) return;
+    setState(() => _showUnverifiedAlarmBanner = true);
+  }
+
+  void _hideUnverifiedAlarmWarning() {
+    _initialFeedWarningTimer?.cancel();
+    _initialFeedWarningTimer = null;
+    if (!mounted || !_showUnverifiedAlarmBanner) return;
+    setState(() => _showUnverifiedAlarmBanner = false);
   }
 
   Rect _launcherBounds(

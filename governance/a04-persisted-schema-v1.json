@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "CF84BB4C32A51E41C9AE903CCC1FBADAB1429AFA52D98793A5D715C2D74D12A9",
+  "inventoryDigest": "7558314CA7CF09AA8F47F4302E17AB754253CDBEDA17794423D2614FC1B6FB2B",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "87812AFF5F4F4185DBD8DD60E3AB9BC9DFBF22545FFCDF516395C3CD2D893C0C",
+  "a05ManifestSha256": "AD77E33FC96E750421ABA760DAB017519C9FA627E2E63ACD5E6D0F62E6DF29F1",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1227,6 +1227,24 @@
       "malformedDisposition": "fail closed",
       "compatibility": "documented historical aliases only",
       "regression": "test/a05_module_registry_integrity_test.dart"
+    },
+    {
+      "id": "morning-review-command-receipt",
+      "file": "lib/features/morning_review/services/morning_review_command_service.dart",
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "authorityBoundary": "request-bound governed Morning Review mutation result",
+      "malformedDisposition": "translate invalid callable evidence to a blocking command error and never report command success",
+      "compatibility": "none for exact fields, request and operation identity, entity identity, status, version, canonical commit time, or replay state",
+      "regression": "test/morning_review_command_contract_test.dart; functions/test/morningReviewMutation.test.js"
+    },
+    {
+      "id": "morning-review-records",
+      "file": "lib/features/morning_review/domain/morning_review_models.dart",
+      "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
+      "authorityBoundary": "server-governed meeting lifecycle, attendance, contributions, actions, standing concerns, source facts, and frozen document",
+      "malformedDisposition": "fail closed before malformed identity, role, lifecycle, chronology, retention, or document evidence reaches the meeting workspace or PDF",
+      "compatibility": "schema version 1 only; exact fields, complete state-specific evidence, bounded nested populations, and retained identity relationships",
+      "regression": "test/morning_review_integrity_test.dart; functions/test/morningReviewMutation.test.js"
     },
     {
       "id": "operational-directive",

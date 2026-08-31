@@ -199,12 +199,26 @@ function setDigest(values) {
   return sha256(canonicalJson(values));
 }
 
-function sourceIndexSetBinding(indexes) {
+function sourceIndexSetBinding(sourceDefinition, sourceRaw) {
+  const indexes = sourceDefinition?.indexes;
   if (!Array.isArray(indexes) || indexes.length === 0) {
     fail("The source Firestore index inventory must be a nonempty array.");
   }
-  const normalized = normalizedIndexSet(indexes);
-  return {count: normalized.length, indexSetSha256: setDigest(normalized)};
+  const fieldOverrides = sourceDefinition?.fieldOverrides ?? [];
+  if (!Array.isArray(fieldOverrides)) {
+    fail("The source Firestore field override inventory must be an array.");
+  }
+  const normalizedIndexes = normalizedIndexSet(indexes);
+  const normalizedOverrides = normalizedObjectSet(fieldOverrides);
+  const exactSource =
+    typeof sourceRaw === "string" ? sourceRaw : canonicalJson(sourceDefinition);
+  return {
+    count: normalizedIndexes.length,
+    indexSetSha256: setDigest(normalizedIndexes),
+    fieldOverrideCount: normalizedOverrides.length,
+    fieldOverrideSetSha256: setDigest(normalizedOverrides),
+    sourceFileSha256: sha256(exactSource),
+  };
 }
 
 function summarizeRules({projectId, release, ruleset, repositoryRules}) {
@@ -428,8 +442,11 @@ async function main() {
     if (argv.length !== 2) {
       fail("--source-index-set requires exactly one source index file.");
     }
-    const source = JSON.parse(fs.readFileSync(path.resolve(argv[1]), "utf8"));
-    process.stdout.write(`${JSON.stringify(sourceIndexSetBinding(source.indexes))}\n`);
+    const sourceRaw = fs.readFileSync(path.resolve(argv[1]), "utf8");
+    const source = JSON.parse(sourceRaw);
+    process.stdout.write(
+      `${JSON.stringify(sourceIndexSetBinding(source, sourceRaw))}\n`,
+    );
     return;
   }
   const options = parseArgs(argv);

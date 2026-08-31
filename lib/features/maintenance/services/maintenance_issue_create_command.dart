@@ -51,7 +51,7 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     'plantConditionEffect': plantConditionEffect.name,
     'routedTo': record.routedTo.name,
     'otherDepartment': record.otherDepartment,
-    ...createLanePlan.toSynchronizedFields(),
+    ...createLanePlan.toClientWriteFields(),
     'isCritical': record.isCritical,
     'startDate': record.startDate.toUtc().toIso8601String(),
     'chargeNoAtEvent': record.chargeNoAtEvent,

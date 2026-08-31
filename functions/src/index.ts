@@ -145,6 +145,15 @@ import type {
   OperationalEventIssueLinkMutationResult,
 } from "./operationalEventIssueLinkMutation";
 import {
+  isMorningReviewOperation,
+  mutateMorningReviewWithDb,
+  userCanMutateMorningReview,
+} from "./morningReviewMutation";
+import type {
+  MorningReviewFirestoreLike,
+  MorningReviewMutationResult,
+} from "./morningReviewMutation";
+import {
   DeviceRecoveryMutationError,
   isDeviceRecoveryOperation,
   mutateDeviceRecoveryWithDb,
@@ -615,12 +624,18 @@ export const mutateAssetHierarchy = onCall(
         BurnerDirectiveComplianceMutationResult |
         OperationalEventMutationResult |
         OperationalEventIssueLinkMutationResult |
+        MorningReviewMutationResult |
         DeviceRecoveryMutationResult
       >({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
         authorize: (userData) =>
+          isMorningReviewOperation(request.data?.operation) ?
+            userCanMutateMorningReview(
+              userData,
+              request.data.operation,
+            ) :
           isDeviceRecoveryOperation(request.data?.operation) ?
             userCanMutateDeviceRecovery(
               userData,
@@ -646,6 +661,14 @@ export const mutateAssetHierarchy = onCall(
             ) :
             userCanMutateAssetHierarchy(userData),
         execute: () => {
+          if (isMorningReviewOperation(request.data?.operation)) {
+            return mutateMorningReviewWithDb({
+              db: db as unknown as MorningReviewFirestoreLike,
+              authUid: request.auth?.uid ?? null,
+              data: request.data ?? {},
+              timestampFromDate: admin.firestore.Timestamp.fromDate,
+            });
+          }
           if (isDeviceRecoveryOperation(request.data?.operation)) {
             return mutateDeviceRecoveryWithDb({
               db,

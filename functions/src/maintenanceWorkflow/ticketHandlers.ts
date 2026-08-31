@@ -142,6 +142,8 @@ const CREATE_TICKET_FIELDS = [
 ] as const;
 const QUALITY_ABNORMALITY_TYPE_FIELD = "qualityAbnormalityTypeId";
 const PLANT_CONDITION_EFFECT_FIELD = "plantConditionEffect";
+const LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD =
+  "issueLaneCompletionEvidence";
 const CREATE_BURNER_FIELDS = [
   "burnerLockoutSchemaVersion", "burnerPositions", "burnerCommonMode",
   "burnerCycleStage", "burnerHmiAlarm", "burnerFlameObservation",
@@ -189,6 +191,28 @@ const exactKeys = (
       {reasonCode: "maintenance-ticket-command-shape-invalid", field},
     );
   }
+};
+
+const hasLegacyEmptyLaneCompletionEvidence = (input: JsonMap): boolean => {
+  if (!Object.prototype.hasOwnProperty.call(
+    input,
+    LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD,
+  )) {
+    return false;
+  }
+  const evidence = input[LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD];
+  if (evidence == null || typeof evidence !== "object" ||
+      Array.isArray(evidence) || Object.keys(evidence).length !== 0) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Client-authored lane completion evidence is prohibited.",
+      {
+        reasonCode:
+          "maintenance-ticket-client-completion-evidence-prohibited",
+      },
+    );
+  }
+  return true;
 };
 
 const record = (value: unknown, field: string): JsonMap => {
@@ -1816,6 +1840,8 @@ export const createMaintenanceTicket = async ({
     input,
     PLANT_CONDITION_EFFECT_FIELD,
   );
+  const hasLegacyEmptyCompletionEvidence =
+    hasLegacyEmptyLaneCompletionEvidence(input);
   exactKeys(
     input,
     burner ? [...CREATE_TICKET_FIELDS,
@@ -1823,17 +1849,23 @@ export const createMaintenanceTicket = async ({
       ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
       ...CREATE_BURNER_FIELDS,
       ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
+      ...(hasLegacyEmptyCompletionEvidence ?
+        [LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD] : []),
       ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
       stuckup ? [...CREATE_TICKET_FIELDS,
         ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
         ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
         ...CREATE_STUCKUP_FIELDS,
         ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
+        ...(hasLegacyEmptyCompletionEvidence ?
+          [LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD] : []),
         ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
         [...CREATE_TICKET_FIELDS,
           ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
           ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
           ...(hasLanePlan ? TICKET_LANE_FIELDS : []),
+          ...(hasLegacyEmptyCompletionEvidence ?
+            [LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD] : []),
           ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])],
     "ticket",
   );

@@ -1208,6 +1208,12 @@ if ($null -ne $requiredRulesShaProperty) {
   $requiredRulesSha = [string]$requiredRulesShaProperty.Value
   $requiredIndexCount = [int64]$requiredIndexCountProperty.Value
   $requiredIndexSetSha = [string]$requiredIndexSetShaProperty.Value
+  $requiredIndexFileSha =
+    [string]$firestoreReadback.outputs.indexes.sourceFileSha256
+  $requiredFieldOverrideCount =
+    [int64]$firestoreReadback.outputs.indexes.sourceFieldOverrideCount
+  $requiredFieldOverrideSetSha =
+    [string]$firestoreReadback.outputs.indexes.sourceFieldOverrideSha256
   $currentSourceAuthority =
     $currentSuccessorState.authorityPlanes.currentSource
   $currentSourceFirestoreAuthority =
@@ -1225,7 +1231,10 @@ if ($null -ne $requiredRulesShaProperty) {
     [string]$sourceIndexBindingOutput[0] | ConvertFrom-Json
   if ($requiredRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $requiredIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
+      $requiredIndexFileSha -notmatch '^[0-9A-Fa-f]{64}$' -or
+      $requiredFieldOverrideSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $requiredIndexCount -le 0 -or
+      $requiredFieldOverrideCount -lt 0 -or
       [string]$firestoreReadbackAuthority.rulesSha256 -ne $requiredRulesSha -or
       [int64]$firestoreReadbackAuthority.indexCount -ne $requiredIndexCount -or
       [string]$firestoreReadbackAuthority.indexSetSha256 -ne
@@ -1243,10 +1252,19 @@ if ($null -ne $requiredRulesShaProperty) {
     [int64]$currentSourceFirestoreAuthority.indexCount
   $currentIndexSetSha =
     [string]$currentSourceFirestoreAuthority.indexSetSha256
+  $currentIndexFileSha =
+    [string]$currentSourceFirestoreAuthority.indexFileSha256
+  $currentFieldOverrideCount =
+    [int64]$currentSourceFirestoreAuthority.fieldOverrideCount
+  $currentFieldOverrideSetSha =
+    [string]$currentSourceFirestoreAuthority.fieldOverrideSetSha256
   $rulesChanged = $currentRulesSha -ne $requiredRulesSha
   $indexesChanged =
     $currentIndexCount -ne $requiredIndexCount -or
-    $currentIndexSetSha -ne $requiredIndexSetSha
+    $currentIndexSetSha -ne $requiredIndexSetSha -or
+    $currentIndexFileSha -ne $requiredIndexFileSha -or
+    $currentFieldOverrideCount -ne $requiredFieldOverrideCount -or
+    $currentFieldOverrideSetSha -ne $requiredFieldOverrideSetSha
   $firestoreMatchesDeployed = -not $rulesChanged -and -not $indexesChanged
   $expectedCurrentSourceRelationship = if ($firestoreMatchesDeployed) {
     'EXACT_SOURCE_RULES_AND_INDEXES_DEPLOYED_AND_VERIFIED'
@@ -1292,11 +1310,19 @@ if ($null -ne $requiredRulesShaProperty) {
       $currentSourceAuthority.productionRuntimeUseAuthorized -ne $false -or
       $currentRulesSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
+      $currentIndexFileSha -notmatch '^[0-9A-Fa-f]{64}$' -or
+      $currentFieldOverrideSetSha -notmatch '^[0-9A-Fa-f]{64}$' -or
       $currentIndexCount -le 0 -or
+      $currentFieldOverrideCount -lt 0 -or
       (Get-Sha256 'firestore.rules') -ne
         $currentRulesSha.ToUpperInvariant() -or
       [int64]$sourceIndexBinding.count -ne $currentIndexCount -or
       [string]$sourceIndexBinding.indexSetSha256 -ne $currentIndexSetSha -or
+      [string]$sourceIndexBinding.sourceFileSha256 -ne $currentIndexFileSha -or
+      [int64]$sourceIndexBinding.fieldOverrideCount -ne
+        $currentFieldOverrideCount -or
+      [string]$sourceIndexBinding.fieldOverrideSetSha256 -ne
+        $currentFieldOverrideSetSha -or
       [string]$currentSourceFirestoreAuthority.
         relationshipToDeployedBackend -ne
         $expectedCurrentSourceRelationship -or

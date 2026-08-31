@@ -5775,3 +5775,48 @@ describe("governed dynamic asset hierarchy", () => {
     );
   });
 });
+
+describe("Morning Review server authority", () => {
+  test("approved users can read governed records but no client can mutate them", async () => {
+    await seedUser("morningAdmin", ["admin"]);
+    await seedUser("morningOps", ["operations"]);
+    await seedUser("morningPending", ["operations"], false);
+    const collections = [
+      "morning_review_sessions",
+      "morning_review_participants",
+      "morning_review_entries",
+      "morning_review_actions",
+      "morning_review_standing_concerns",
+      "morning_review_concern_checks",
+      "morning_review_documents",
+    ];
+    for (const collectionId of collections) {
+      const path = `${collectionId}/record-1`;
+      await seedDoc(path, {schemaVersion: 1, identity: path});
+      await assertSucceeds(getDoc(doc(dbAs("morningOps"), path)));
+      await assertFails(getDoc(doc(dbAs("morningPending"), path)));
+      await assertFails(setDoc(
+        doc(dbAs("morningAdmin"), `${collectionId}/record-2`),
+        {schemaVersion: 1},
+      ));
+      await assertFails(updateDoc(
+        doc(dbAs("morningAdmin"), path),
+        {clientRewrite: true},
+      ));
+      await assertFails(deleteDoc(doc(dbAs("morningAdmin"), path)));
+    }
+  });
+
+  test("Morning Review mutation receipts remain private from every client", async () => {
+    await seedUser("morningAdmin", ["admin"]);
+    await seedUser("morningOps", ["operations"]);
+    const path = "morning_review_mutation_receipts/request-1";
+    await seedDoc(path, {schemaVersion: 1, requestId: "request-1"});
+    await assertFails(getDoc(doc(dbAs("morningAdmin"), path)));
+    await assertFails(getDoc(doc(dbAs("morningOps"), path)));
+    await assertFails(setDoc(
+      doc(dbAs("morningAdmin"), "morning_review_mutation_receipts/request-2"),
+      {schemaVersion: 1, requestId: "request-2"},
+    ));
+  });
+});

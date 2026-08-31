@@ -337,7 +337,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     WorkflowCommandReceipt? receipt;
     await _retry(() async {
       receipt = await _maintenanceCommands.execute(command);
-    });
+    }, shouldRetry: _shouldRetryWorkflowCommand);
     final applied = receipt!;
     validateMaintenanceIssueCreateReceipt(
       command: command,
@@ -358,7 +358,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
           local.firestoreId!,
           close,
         );
-      });
+      }, shouldRetry: _shouldRetryWorkflowCommand);
       return (
         receipt: applied,
         serverRecord: _validateGovernedCreationServerRecord(
@@ -385,7 +385,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
           local.firestoreId!,
           reopen,
         );
-      });
+      }, shouldRetry: _shouldRetryWorkflowCommand);
       return (
         receipt: applied,
         serverRecord: _validateGovernedCreationServerRecord(
@@ -524,7 +524,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             local.firestoreId!,
             stepData,
           );
-        });
+        }, shouldRetry: _shouldRetryWorkflowCommand);
 
         stepVersion = stepData['version'] as int;
       }

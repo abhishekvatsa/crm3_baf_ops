@@ -1209,6 +1209,37 @@
       "regression": "test/local_recovery_session_guard_test.dart; test/device_recovery_listener_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "malformed or cross-device journal identity is ignored, a returned request bypasses complete active-journal validation, the exact current request is retired, a claimed terminal state cannot reconcile after revocation, terminal null is accepted without exact server proof, a registration-unavailable startup check releases sign-out before retained terminal directory evidence is re-synced, or terminal evidence still blocks a later session",
       "riskFingerprint": "b48b221263932ebfadc17db41697f89b595425480ce98a4f90cf526eb435f9bb"
+    },
+    {
+      "id": "morning-review-records",
+      "file": "lib/features/morning_review/domain/morning_review_models.dart",
+      "markers": [
+        "factory MorningReviewSession.fromMap",
+        "factory MorningReviewDocument.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_AND_GOVERNANCE_RECORD",
+      "owner": "morning-review",
+      "authorityBoundary": "server-governed meeting lifecycle, attendance, contributions, actions, standing concerns, source facts, and frozen document",
+      "malformedDisposition": "fail closed before malformed identity, role, lifecycle, chronology, retention, or document evidence reaches the meeting workspace or PDF",
+      "compatibility": "schema version 1 only; exact fields, complete state-specific evidence, bounded nested populations, and retained identity relationships",
+      "regression": "test/morning_review_integrity_test.dart; functions/test/morningReviewMutation.test.js",
+      "reArmCondition": "any Morning Review persisted field is defaulted, weakly parsed, partly populated, or accepted outside its governed lifecycle",
+      "riskFingerprint": "afd0e2dd0e42ce0cb962e54aeeb6a083980f1e4926587afdf39b1cb27003d3aa"
+    },
+    {
+      "id": "morning-review-command-receipt",
+      "file": "lib/features/morning_review/services/morning_review_command_service.dart",
+      "markers": [
+        "factory MorningReviewCommandResult.fromMap"
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "morning-review",
+      "authorityBoundary": "request-bound governed Morning Review mutation result",
+      "malformedDisposition": "translate invalid callable evidence to a blocking command error and never report command success",
+      "compatibility": "none for exact fields, request and operation identity, entity identity, status, version, canonical commit time, or replay state",
+      "regression": "test/morning_review_command_contract_test.dart; functions/test/morningReviewMutation.test.js",
+      "reArmCondition": "any Morning Review callable response field is defaulted, coerced, or accepted without request binding",
+      "riskFingerprint": "9bee0572492df4f1fcc365137fb7dbe1942cab6c46e8fe30e7b3692d79e1aef9"
     }
   ],
   "catchSites": [
@@ -1848,6 +1879,19 @@
       "malformedDisposition": "throw device-recovery-journal-invalid, preserve retained evidence, and withhold server failure acknowledgement because data may already have been cleared",
       "regression": "test/device_local_recovery_reset_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "malformed, cross-user, cross-device, cross-request, corrupted-backup, or incomplete supplemental-backup journal data resumes deletion"
+    },
+    {
+      "id": "morning-review-response-translation",
+      "file": "lib/features/morning_review/services/morning_review_command_service.dart",
+      "siteFingerprint": "1377107a46e300ab05ee4bb218ed4ed6c8bc80a248c0aea97da30255376dace7",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate malformed Morning Review command evidence into a stable data-loss response without manufacturing success",
+      "authorityBoundary": "governed Morning Review callable response",
+      "mutability": "remote mutation may already be governed by the server; no client success state is created from malformed evidence",
+      "dataScope": "one request-bound Morning Review command receipt",
+      "malformedDisposition": "throw a blocking command error and require authoritative readback before reporting success",
+      "regression": "test/morning_review_command_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed Morning Review command evidence is accepted or reported as successful"
     }
   ]
 }

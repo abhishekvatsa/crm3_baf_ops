@@ -246,6 +246,91 @@ void main() {
   });
 
   testWidgets(
+    'initial cache snapshot does not flash an outage before server verification',
+    (tester) async {
+      final alarmFeed = StreamController<CriticalAlarmLiveSnapshot>();
+      addTearDown(alarmFeed.close);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            if (call.method == 'reconcileActiveNotifications') return 0;
+            return null;
+          });
+      final navigatorKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+            activeCriticalAlarmsProvider.overrideWith((_) => alarmFeed.stream),
+          ],
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            builder:
+                (context, child) => CriticalAlarmHost(
+                  navigatorKey: navigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+            home: const Scaffold(body: Text('Operations')),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      alarmFeed.add(CriticalAlarmLiveSnapshot.unavailable());
+      await tester.pump();
+      expect(find.textContaining('alarm feed is not live'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.textContaining('alarm feed is not live'), findsNothing);
+
+      alarmFeed.add(_verified(const <CriticalAlarm>[]));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.textContaining('alarm feed is not live'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'sustained startup unavailability becomes visible after the grace period',
+    (tester) async {
+      final alarmFeed = StreamController<CriticalAlarmLiveSnapshot>();
+      addTearDown(alarmFeed.close);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            if (call.method == 'reconcileActiveNotifications') return 0;
+            return null;
+          });
+      final navigatorKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+            activeCriticalAlarmsProvider.overrideWith((_) => alarmFeed.stream),
+          ],
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            builder:
+                (context, child) => CriticalAlarmHost(
+                  navigatorKey: navigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+            home: const Scaffold(body: Text('Operations')),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      alarmFeed.add(CriticalAlarmLiveSnapshot.unavailable());
+      await tester.pump();
+      expect(find.textContaining('alarm feed is not live'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.textContaining('alarm feed is not live'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'stale alarm feed is labelled and cannot reconcile notifications',
     (tester) async {
       final calls = <MethodCall>[];

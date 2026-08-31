@@ -1205,26 +1205,39 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   : 'normal_ticket_created_immediate',
           force: true,
         );
-        if (syncOutcome.isSuccessful) {
+        final synchronizedTicket = await repository.getByFirestoreId(
+          record.firestoreId!,
+        );
+        final issueAccepted = synchronizedTicket?.isSynced == true;
+        if (issueAccepted) {
           autoSyncService.clearPendingTicketSync(
             reason: 'ticket_created_immediate_success',
           );
         }
 
-        (completionMessage, completionColor) = switch (syncOutcome) {
-          SyncRequestOutcome.succeeded => (
-            'Issue raised and synchronized with the plant system.',
-            BafColors.sync,
-          ),
-          SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
-            'Issue saved on this device; synchronization is queued.',
-            BafColors.warning,
-          ),
-          SyncRequestOutcome.failed => (
-            'Issue saved on this device, but cloud synchronization needs attention.',
-            BafColors.danger,
-          ),
-        };
+        if (issueAccepted) {
+          (completionMessage, completionColor) =
+              syncOutcome.isFailure
+                  ? (
+                    'Issue accepted by the plant system. Another saved item still needs sync attention.',
+                    BafColors.warning,
+                  )
+                  : (
+                    'Issue raised and synchronized with the plant system.',
+                    BafColors.sync,
+                  );
+        } else {
+          (completionMessage, completionColor) = switch (syncOutcome) {
+            SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
+              'Issue saved once on this device; synchronization is queued.',
+              BafColors.warning,
+            ),
+            SyncRequestOutcome.failed || SyncRequestOutcome.succeeded => (
+              'Issue is saved once on this device but is not yet accepted by the plant system. Do not raise it again; retry the SYNC PENDING issue.',
+              BafColors.danger,
+            ),
+          };
+        }
       }
 
       if (!mounted) return;

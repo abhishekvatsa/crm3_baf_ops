@@ -96,6 +96,18 @@
         {"file": "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart", "expression": "DateTime.tryParse(", "occurrence": 1},
         {"file": "lib/features/planned_maintenance/presentation/job_history_screen.dart", "expression": "DateTime.tryParse(", "occurrence": 1}
       ]
+    },
+    {
+      "id": "morning-review-report-day-boundary",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "morning-review",
+      "purpose": "derive the report-day boundary from the server-authored and strictly decoded meeting plant day",
+      "authorityBoundary": "frozen-morning-review-report-window",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "an invalid plant day is defaulted or the parsed value becomes mutation or authorization authority",
+      "sites": [
+        {"file": "lib/features/morning_review/domain/morning_review_report.dart", "expression": "DateTime.parse(", "occurrence": 1}
+      ]
     }
   ]
 }

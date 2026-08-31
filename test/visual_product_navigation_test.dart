@@ -20,6 +20,7 @@ void main() {
     var plant = 0;
     var reports = 0;
     var control = 0;
+    var morningReview = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -32,6 +33,7 @@ void main() {
               onPlantCondition: () => plant += 1,
               onReports: () => reports += 1,
               onControl: () => control += 1,
+              onMorningReview: () => morningReview += 1,
             ),
           ),
         ),
@@ -43,11 +45,13 @@ void main() {
     expect(find.text('Plant'), findsOneWidget);
     expect(find.text('Reports'), findsOneWidget);
     expect(find.text('Control'), findsOneWidget);
+    expect(find.text('Review'), findsOneWidget);
     await tester.tap(find.text('Raise issue'));
     await tester.tap(find.text('Plant'));
     await tester.tap(find.text('Reports'));
     await tester.tap(find.text('Control'));
-    expect((raised, plant, reports, control), (1, 1, 1, 1));
+    await tester.tap(find.text('Review'));
+    expect((raised, plant, reports, control, morningReview), (1, 1, 1, 1, 1));
     expect(tester.takeException(), isNull);
   });
 

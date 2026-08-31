@@ -938,6 +938,126 @@
       "authorityBoundary": "remote-maintenance-lifecycle-replay-readback",
       "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
       "reArmCondition": "replay success no longer requires exact server timestamp readback or local receipt adoption"
+    },
+    {
+      "id": "morning-review-source-fact",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewSourceFact.fromMap",
+      "requiredFields": [],
+      "optionalFields": ["observedAtIso"],
+      "owner": "morning-review",
+      "purpose": "restore the optional source-event chronology retained in the meeting snapshot",
+      "authorityBoundary": "remote-morning-review-source-fact",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review source-fact timestamp schema change"
+    },
+    {
+      "id": "morning-review-facilitator-transition",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewFacilitatorTransition.fromMap",
+      "requiredFields": ["takenOverAt"],
+      "optionalFields": [],
+      "owner": "morning-review",
+      "purpose": "restore the immutable facilitator takeover chronology",
+      "authorityBoundary": "remote-morning-review-lifecycle-evidence",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any facilitator-transition timestamp schema change"
+    },
+    {
+      "id": "morning-review-session",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewSession.fromMap",
+      "requiredFields": ["updatedAt", "expiresAt"],
+      "optionalFields": ["openedAt", "finalizedAt", "sourceCapturedAt"],
+      "owner": "morning-review",
+      "purpose": "restore meeting lifecycle, source-capture, revision, and retention chronology",
+      "authorityBoundary": "remote-morning-review-session",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review session timestamp or lifecycle schema change"
+    },
+    {
+      "id": "morning-review-participant",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewParticipant.fromMap",
+      "requiredFields": ["expiresAt", "joinedAt"],
+      "optionalFields": [],
+      "owner": "morning-review",
+      "purpose": "restore explicit attendance and retention chronology",
+      "authorityBoundary": "remote-morning-review-participant",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review participant timestamp schema change"
+    },
+    {
+      "id": "morning-review-entry",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewEntry.fromMap",
+      "requiredFields": ["expiresAt", "createdAt"],
+      "optionalFields": [],
+      "owner": "morning-review",
+      "purpose": "restore attributed meeting contribution and retention chronology",
+      "authorityBoundary": "remote-morning-review-entry",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review entry timestamp schema change"
+    },
+    {
+      "id": "morning-review-action",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewAction.fromMap",
+      "requiredFields": ["updatedAt", "createdAt"],
+      "optionalFields": ["acceptedAt", "completedAt", "expiresAt", "dueAt"],
+      "owner": "morning-review",
+      "purpose": "restore action assignment, acceptance, completion, due, revision, and retention chronology",
+      "authorityBoundary": "remote-morning-review-action",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review action timestamp or lifecycle schema change"
+    },
+    {
+      "id": "morning-review-standing-concern",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewStandingConcern.fromMap",
+      "requiredFields": ["updatedAt", "createdAt"],
+      "optionalFields": ["resolvedAt", "expiresAt"],
+      "owner": "morning-review",
+      "purpose": "restore standing-concern origin, resolution, revision, and retention chronology",
+      "authorityBoundary": "remote-morning-review-standing-concern",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review standing-concern timestamp or lifecycle schema change"
+    },
+    {
+      "id": "morning-review-standing-concern-check",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewConcernCheck.fromMap",
+      "requiredFields": ["expiresAt", "checkedAt"],
+      "optionalFields": [],
+      "owner": "morning-review",
+      "purpose": "restore the daily concern-review evidence and retention chronology",
+      "authorityBoundary": "remote-morning-review-concern-check",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review concern-check timestamp schema change"
+    },
+    {
+      "id": "morning-review-frozen-document",
+      "readerFile": "lib/features/morning_review/domain/morning_review_models.dart",
+      "readerMarker": "factory MorningReviewDocument.fromMap",
+      "requiredFields": ["finalizedAt", "expiresAt"],
+      "optionalFields": ["sourceCapturedAt"],
+      "owner": "morning-review",
+      "purpose": "restore the frozen meeting source-capture, finalization, and retention chronology",
+      "authorityBoundary": "remote-morning-review-frozen-document",
+      "regression": "test/morning_review_integrity_test.dart",
+      "reArmCondition": "any Morning Review frozen-document timestamp schema change"
+    },
+    {
+      "id": "morning-review-command-response",
+      "readerFile": "lib/features/morning_review/services/morning_review_command_service.dart",
+      "readerMarker": "factory MorningReviewCommandResult.fromMap",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "morning-review",
+      "purpose": "verify the canonical server commit instant in a request-bound Morning Review command receipt",
+      "authorityBoundary": "remote-morning-review-command-response",
+      "regression": "test/morning_review_command_contract_test.dart",
+      "reArmCondition": "any Morning Review callable response timestamp or canonicalization change"
     }
   ]
 }

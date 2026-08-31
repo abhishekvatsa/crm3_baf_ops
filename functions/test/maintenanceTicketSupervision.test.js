@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 const {
   MaintenanceWorkflowCommandService,
 } = require('../lib/maintenanceWorkflow/dispatcher');
@@ -11,6 +14,9 @@ const {
   reopenMaintenanceTicket,
   resolveMaintenanceTicket,
 } = require('../lib/maintenanceWorkflow/ticketHandlers');
+const {
+  TICKET_LANE_FIELDS,
+} = require('../lib/maintenanceWorkflow/ticketLanePlan');
 
 const at = new Date('2026-08-14T16:30:00.000Z');
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
@@ -378,6 +384,18 @@ function directHandlerTransaction(ticketId, ticket) {
 }
 
 describe('governed maintenance-ticket supervision', () => {
+  test('server lane fields match the shared client command contract', () => {
+    const contract = JSON.parse(fs.readFileSync(path.resolve(
+      __dirname,
+      '../../test/fixtures/maintenance_ticket_lane_command_contract_v1.json',
+    ), 'utf8'));
+
+    expect([...TICKET_LANE_FIELDS]).toEqual(contract.clientWriteFields);
+    expect(contract.serverOwnedFields).toEqual([
+      'issueLaneCompletionEvidence',
+    ]);
+  });
+
   test('creates an asset-bound issue atomically with server actor and time', async () => {
     const {store, service, context} = createServiceFor(mechanical);
     const command = createCommand();
@@ -562,6 +580,56 @@ describe('governed maintenance-ticket supervision', () => {
       issueAcknowledgedLanes: [],
       issueCompletedLanes: [],
       status: 'open',
+    });
+  });
+
+  test('bridges only empty Build 20 lane evidence and rejects authored evidence', async () => {
+    const compatible = createServiceFor(mechanical);
+    await expect(compatible.service.execute(createCommand({
+      commandId: 'create-build-20-compatible-ticket',
+      ticketId: 'build-20-compatible-ticket',
+      ticket: {
+        routedTo: 'mechanical',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['mechanical'],
+        issueAcknowledgedLanes: [],
+        issueCompletedLanes: [],
+        issueLaneCompletionEvidence: {},
+      },
+    }), compatible.context)).resolves.toMatchObject({aggregateVersion: 1});
+    expect(compatible.store.read(
+      'maintenance_records/build-20-compatible-ticket',
+    )).toMatchObject({
+      issueAssignedLanes: ['mechanical'],
+      issueLaneCompletionEvidence: {},
+    });
+
+    const forged = createServiceFor(mechanical);
+    await expect(forged.service.execute(createCommand({
+      commandId: 'create-client-authored-lane-evidence',
+      ticketId: 'client-authored-lane-evidence',
+      ticket: {
+        routedTo: 'mechanical',
+        issueLaneSchemaVersion: 1,
+        issueLaneRevision: 1,
+        issueAssignedLanes: ['mechanical'],
+        issueAcknowledgedLanes: [],
+        issueCompletedLanes: [],
+        issueLaneCompletionEvidence: {
+          mechanical: {
+            completedAt: at.toISOString(),
+            completedByUid: mechanical.uid,
+            completedByName: mechanical.name,
+          },
+        },
+      },
+    }), forged.context)).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {
+        reasonCode:
+          'maintenance-ticket-client-completion-evidence-prohibited',
+      },
     });
   });
 

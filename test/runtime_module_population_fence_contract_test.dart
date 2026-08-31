@@ -233,6 +233,9 @@ void main() {
         final sync = _read(
           'lib/core/services/sync_service.push_infrastructure.dart',
         );
+        final classifier = _read(
+          'lib/core/services/sync_failure_classifier.dart',
+        );
         final jobSync = _read(
           'lib/core/services/sync_service.job_modules.dart',
         );
@@ -240,7 +243,8 @@ void main() {
           'test/runtime_module_population_no_loss_test.dart',
         );
 
-        expect(sync, contains('RuntimeJobModulePopulationException'));
+        expect(classifier, contains('RuntimeJobModulePopulationException'));
+        expect(sync, contains('classifySyncFailure(error)'));
         expect(
           sync,
           contains('await _upsertSyncRejection(detail, failClosed: true);'),

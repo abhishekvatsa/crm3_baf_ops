@@ -10,6 +10,21 @@ import 'package:printing/printing.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('print and share controls have an explicit high-contrast surface', () {
+    final theme = pdfPreviewControlTheme(BafAppTheme.light);
+    final style = theme.iconButtonTheme.style!;
+
+    expect(
+      style.foregroundColor!.resolve(const <WidgetState>{}),
+      BafColors.graphite,
+    );
+    expect(style.backgroundColor!.resolve(const <WidgetState>{}), Colors.white);
+    final shape =
+        style.shape!.resolve(const <WidgetState>{})
+            as RoundedRectangleBorder;
+    expect(shape.side.color, BafColors.borderStrong);
+  });
+
   testWidgets('PDF pages expose direct zoom, fit, and page navigation', (
     tester,
   ) async {

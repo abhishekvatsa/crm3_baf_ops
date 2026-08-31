@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_create_command.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition.dart';
@@ -64,8 +67,68 @@ void main() {
       expect(ticket, isNot(contains('updatedAt')));
       expect(ticket, isNot(contains('status')));
       expect(ticket, isNot(contains('isResolved')));
+      expect(ticket, isNot(contains(issueLaneCompletionEvidenceFieldName)));
+      expect(ticket.keys.toSet(), <String>{
+        'schemaVersion',
+        'version',
+        'assetType',
+        'assetNumber',
+        'component',
+        'subsystem',
+        'tag',
+        'hierarchyPath',
+        'assetHierarchyRefJson',
+        'maintenanceType',
+        'classification',
+        'description',
+        'plantConditionEffect',
+        'routedTo',
+        'otherDepartment',
+        'issueLaneSchemaVersion',
+        'issueLaneRevision',
+        'issueAssignedLanes',
+        'issueAcknowledgedLanes',
+        'issueCompletedLanes',
+        'isCritical',
+        'startDate',
+        'chargeNoAtEvent',
+        'qualityIntentSchemaVersion',
+        'qualityImpactAssessment',
+        'qualityWarningReason',
+        'qualityAbnormalityTypeId',
+      });
     },
   );
+
+  test('client lane fields match the shared server command contract', () {
+    final contract = Map<String, Object?>.from(
+      jsonDecode(
+            File(
+              'test/fixtures/maintenance_ticket_lane_command_contract_v1.json',
+            ).readAsStringSync(),
+          )
+          as Map,
+    );
+    final clientFields = List<String>.from(
+      contract['clientWriteFields']! as List,
+    );
+    final serverOwnedFields = List<String>.from(
+      contract['serverOwnedFields']! as List,
+    );
+    final plan = IssueLanePlan.initial(const <String>[
+      'mechanical',
+      'instrumentation',
+    ]);
+
+    expect(plan.toClientWriteFields().keys, orderedEquals(clientFields));
+    expect(serverOwnedFields, <String>[issueLaneCompletionEvidenceFieldName]);
+    expect(
+      plan.toClientWriteFields().keys.toSet().intersection(
+        serverOwnedFields.toSet(),
+      ),
+      isEmpty,
+    );
+  });
 
   test(
     'governed issue command requires identity, asset, and quality intent',

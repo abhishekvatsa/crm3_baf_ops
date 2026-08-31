@@ -243,6 +243,25 @@ class AppUser {
 
   bool get canViewReports => isApproved;
 
+  /// Morning Review is visible to every approved plant user. Admin/SI hold
+  /// the single daily facilitator lock; participants join explicitly before
+  /// contributing under their own identities.
+  bool get canViewMorningReview => isApproved;
+
+  bool get canStartMorningReview => isApproved && (isAdmin || isSI);
+
+  bool get canFacilitateMorningReview => canStartMorningReview;
+
+  bool get canContributeMorningReview => isApproved;
+
+  bool get canProvideMorningReviewMaintenanceUpdate =>
+      isApproved &&
+      (isAdmin ||
+          isSI ||
+          isContractSupervisor ||
+          isShiftSupervisor ||
+          isSeniorRole);
+
   bool get canViewQuality => isApproved;
 
   bool get canRequestQualityWarningClosure =>

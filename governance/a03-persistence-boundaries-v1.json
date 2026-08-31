@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "E9CC50F967763C2E554BF5BFC83CE07062B7C07ADDC10AE2B0C665F3471CFA6F",
+  "inventoryDigest": "5457C51792AAAC24CFCA7361F9A1F2D2793484E98BE081F5A3A7AC419738F347",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -561,6 +561,34 @@
       ],
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/morning_review/data/morning_review_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/morning_review_integrity_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/morning_review/providers/morning_review_providers.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/morning_review_command_contract_test.dart"
       ]
     },
     {

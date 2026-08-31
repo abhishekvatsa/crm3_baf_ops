@@ -4097,6 +4097,48 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Morning Review is an online-authoritative daily control surface. The
+    // app may read server-verified records, but every mutation, attribution,
+    // finalization and retention deadline is written by the governed callable.
+    match /morning_review_sessions/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /morning_review_participants/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /morning_review_entries/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /morning_review_actions/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /morning_review_standing_concerns/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /morning_review_concern_checks/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /morning_review_documents/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /morning_review_mutation_receipts/{docId} {
+      allow read, create, update, delete: if false;
+    }
+
     // ─────────────────────────────────────────────
     // 🔧 MAINTENANCE RECORDS
     // ─────────────────────────────────────────────

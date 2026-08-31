@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "operations": {
+    "ACCEPT_MORNING_REVIEW_ACTION": [
+      "actionId",
+      "expectedVersion",
+      "operation",
+      "requestId",
+      "sessionId"
+    ],
+    "ADD_MORNING_REVIEW_ADDENDUM": [
+      "entryDraft",
+      "operation",
+      "reason",
+      "requestId",
+      "sessionId"
+    ],
+    "ADD_MORNING_REVIEW_ENTRY": [
+      "entryDraft",
+      "operation",
+      "requestId",
+      "sessionId"
+    ],
+    "CHECK_MORNING_REVIEW_STANDING_CONCERN": [
+      "checkState",
+      "concernId",
+      "operation",
+      "reason",
+      "requestId",
+      "sessionId"
+    ],
+    "COMPLETE_MORNING_REVIEW_ACTION": [
+      "actionId",
+      "expectedVersion",
+      "operation",
+      "reason",
+      "requestId",
+      "sessionId"
+    ],
+    "CREATE_MORNING_REVIEW_ACTION": [
+      "actionDraft",
+      "operation",
+      "requestId",
+      "sessionId"
+    ],
+    "CREATE_MORNING_REVIEW_STANDING_CONCERN": [
+      "concernDraft",
+      "operation",
+      "requestId",
+      "sessionId"
+    ],
+    "FINALIZE_MORNING_REVIEW": [
+      "expectedVersion",
+      "operation",
+      "requestId",
+      "sessionId",
+      "summary"
+    ],
+    "JOIN_MORNING_REVIEW": [
+      "operation",
+      "requestId",
+      "sessionId"
+    ],
+    "RECORD_MORNING_REVIEW_NOT_HELD": [
+      "operation",
+      "reason",
+      "requestId"
+    ],
+    "RESOLVE_MORNING_REVIEW_STANDING_CONCERN": [
+      "concernId",
+      "expectedVersion",
+      "operation",
+      "reason",
+      "requestId",
+      "sessionId"
+    ],
+    "START_MORNING_REVIEW": [
+      "operation",
+      "requestId"
+    ],
+    "TAKE_OVER_MORNING_REVIEW": [
+      "expectedVersion",
+      "operation",
+      "reason",
+      "requestId",
+      "sessionId"
+    ]
+  },
+  "entryDraftFields": [
+    "assetClassId",
+    "assetClassName",
+    "assetInstanceId",
+    "assetNumber",
+    "kind",
+    "section",
+    "sourceReferences",
+    "text"
+  ],
+  "actionDraftFields": [
+    "assetClassId",
+    "assetClassName",
+    "assetInstanceId",
+    "assetNumber",
+    "assigneeRole",
+    "assigneeUid",
+    "dueAt",
+    "section",
+    "text"
+  ],
+  "concernDraftFields": [
+    "criticality",
+    "detail",
+    "title"
+  ]
+}

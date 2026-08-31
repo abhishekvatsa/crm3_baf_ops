@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "PRODUCTION_PILOT_TRIAL_DATA_RESET",
+  "projectId": "crm3-baf-ops-b8638",
+  "executedAt": "2026-08-31T20:14:01.971Z",
+  "executedByUid": "RNlqn6SV2tSolfttittBvCk9Nmv2",
+  "executedByName": "Abhishek Vatsa",
+  "authorizationBasis": "Explicit project-owner authorization in current task",
+  "reason": "Project-owner-authorized removal of current pilot trial business data before the next controlled build; preserve users, assets, hierarchy, inner-cover identity, contacts, definitions, plant-condition declarations, authority history, and device-recovery evidence.",
+  "plan": {
+    "projectId": "crm3-baf-ops-b8638",
+    "fingerprint": "fa61f59323fbc36e254446a072d66e07cbc82e1848b7aca787517f69c18fd849",
+    "requiredConfirmation": "DELETE TRIAL DATA FA61F59323FBC36E",
+    "directDeleteCount": 11,
+    "directDeletesByCollection": {
+      "critical_alarms": 8,
+      "operational_events": 3
+    },
+    "governedPurgeCount": 21,
+    "governedPurgesByCollection": {
+      "directives": 3,
+      "job_templates": 1,
+      "maintenance_records": 17
+    },
+    "retainedSyncTombstoneCount": 2,
+    "retainedSyncTombstonesByCollection": {
+      "charge_abnormalities": 1,
+      "maintenance_records": 1
+    },
+    "retainedControlEvidenceCounts": {
+      "audit_logs": 125,
+      "critical_alarm_audits": 23,
+      "maintenance_workflow_command_receipts": 87,
+      "maintenance_workflow_events": 27,
+      "notification_event_receipts": 103,
+      "operational_event_audits": 9,
+      "operational_event_receipts": 9,
+      "quality_mutation_receipts": 8
+    },
+    "preservedCounts": {
+      "asset_classes": 4,
+      "asset_hierarchy_nodes": 125,
+      "asset_instances": 98,
+      "asset_operational_conditions": 18,
+      "base_inner_cover_assignments": 38,
+      "critical_alarm_contacts": 3,
+      "frequent_issue_definitions": 1,
+      "inner_cover_linkages": 38,
+      "inner_cover_profiles": 38,
+      "maintenance_class_definitions": 6,
+      "runtime_contracts": 1,
+      "users": 7
+    }
+  },
+  "verification": {
+    "status": "PASS_EXACT_TRIAL_DATA_RESET_VERIFIED",
+    "failures": [],
+    "preservedCounts": {
+      "asset_classes": 4,
+      "asset_hierarchy_nodes": 125,
+      "asset_instances": 98,
+      "asset_operational_conditions": 18,
+      "base_inner_cover_assignments": 38,
+      "critical_alarm_contacts": 3,
+      "frequent_issue_definitions": 1,
+      "inner_cover_linkages": 38,
+      "inner_cover_profiles": 38,
+      "maintenance_class_definitions": 6,
+      "runtime_contracts": 1,
+      "users": 7
+    }
+  }
+}

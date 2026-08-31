@@ -121,18 +121,56 @@ test("CLI or API index drift fails closed", () => {
 });
 
 test("source index binding rejects count-preserving identity substitutions", () => {
-  const approved = sourceIndexSetBinding([sourceIndex]);
-  const substituted = sourceIndexSetBinding([
-    {...sourceIndex, collectionGroup: "other_collection"},
-  ]);
+  const approvedDefinition = {indexes: [sourceIndex], fieldOverrides: []};
+  const substitutedDefinition = {
+    indexes: [{...sourceIndex, collectionGroup: "other_collection"}],
+    fieldOverrides: [],
+  };
+  const approved = sourceIndexSetBinding(
+    approvedDefinition,
+    JSON.stringify(approvedDefinition),
+  );
+  const substituted = sourceIndexSetBinding(
+    substitutedDefinition,
+    JSON.stringify(substitutedDefinition),
+  );
 
   assert.equal(approved.count, substituted.count);
   assert.notEqual(approved.indexSetSha256, substituted.indexSetSha256);
   assert.match(approved.indexSetSha256, /^[0-9A-F]{64}$/);
+  assert.equal(approved.fieldOverrideCount, 0);
+  assert.match(approved.fieldOverrideSetSha256, /^[0-9A-F]{64}$/);
+  assert.match(approved.sourceFileSha256, /^[0-9A-F]{64}$/);
   assert.throws(
-    () => sourceIndexSetBinding([]),
+    () => sourceIndexSetBinding({indexes: [], fieldOverrides: []}),
     /source Firestore index inventory must be a nonempty array/,
   );
+});
+
+test("source index binding includes TTL and field-override policy", () => {
+  const withoutOverride = {indexes: [sourceIndex], fieldOverrides: []};
+  const withOverride = {
+    indexes: [sourceIndex],
+    fieldOverrides: [
+      {
+        collectionGroup: "morning_review_sessions",
+        fieldPath: "expiresAt",
+        ttl: true,
+        indexes: [],
+      },
+    ],
+  };
+  const baseline = sourceIndexSetBinding(
+    withoutOverride,
+    JSON.stringify(withoutOverride),
+  );
+  const ttl = sourceIndexSetBinding(withOverride, JSON.stringify(withOverride));
+
+  assert.equal(ttl.count, baseline.count);
+  assert.equal(ttl.indexSetSha256, baseline.indexSetSha256);
+  assert.equal(ttl.fieldOverrideCount, 1);
+  assert.notEqual(ttl.fieldOverrideSetSha256, baseline.fieldOverrideSetSha256);
+  assert.notEqual(ttl.sourceFileSha256, baseline.sourceFileSha256);
 });
 
 test("field-override drift and non-ready indexes fail closed", () => {

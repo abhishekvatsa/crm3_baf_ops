@@ -19,30 +19,50 @@ class ZoomablePdfPreview extends StatelessWidget {
   final String fileName;
 
   @override
-  Widget build(BuildContext context) => PdfPreview.builder(
-    build: documentBuilder,
-    initialPageFormat: pageFormat,
-    canChangePageFormat: false,
-    canChangeOrientation: false,
-    canDebug: false,
-    allowPrinting: true,
-    allowSharing: true,
-    pdfFileName: fileName,
-    dpi: 180,
-    scrollViewDecoration: const BoxDecoration(color: BafColors.surfaceMuted),
-    actionBarTheme: const PdfActionBarTheme(
-      backgroundColor: BafColors.graphite,
-      iconColor: Colors.white,
-      elevation: 0,
-      height: 54,
+  Widget build(BuildContext context) => Theme(
+    data: pdfPreviewControlTheme(Theme.of(context)),
+    child: PdfPreview.builder(
+      build: documentBuilder,
+      initialPageFormat: pageFormat,
+      canChangePageFormat: false,
+      canChangeOrientation: false,
+      canDebug: false,
+      allowPrinting: true,
+      allowSharing: true,
+      pdfFileName: fileName,
+      dpi: 180,
+      scrollViewDecoration: const BoxDecoration(color: BafColors.surfaceMuted),
+      actionBarTheme: const PdfActionBarTheme(
+        backgroundColor: BafColors.graphite,
+        iconColor: BafColors.graphite,
+        elevation: 0,
+        height: 58,
+        actionSpacing: BafSpacing.sm,
+      ),
+      loadingWidget: const _PdfPreviewLoading(),
+      pagesBuilder:
+          (context, pages) => ZoomablePdfPageDeck(
+            pages: List<PdfPreviewPageData>.unmodifiable(pages),
+          ),
     ),
-    loadingWidget: const _PdfPreviewLoading(),
-    pagesBuilder:
-        (context, pages) => ZoomablePdfPageDeck(
-          pages: List<PdfPreviewPageData>.unmodifiable(pages),
-        ),
   );
 }
+
+ThemeData pdfPreviewControlTheme(ThemeData base) => base.copyWith(
+  iconButtonTheme: IconButtonThemeData(
+    style: IconButton.styleFrom(
+      foregroundColor: BafColors.graphite,
+      disabledForegroundColor: BafColors.textTertiary,
+      backgroundColor: Colors.white,
+      disabledBackgroundColor: BafColors.surfaceMuted,
+      minimumSize: const Size.square(42),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(BafRadius.small),
+        side: const BorderSide(color: BafColors.borderStrong),
+      ),
+    ),
+  ),
+);
 
 class ZoomablePdfPageDeck extends StatefulWidget {
   const ZoomablePdfPageDeck({super.key, required this.pages})
@@ -410,8 +430,14 @@ class _ToolbarIconButton extends StatelessWidget {
     padding: EdgeInsets.zero,
     constraints: BoxConstraints.tightFor(width: width, height: 48),
     iconSize: 21,
-    color: BafColors.graphiteSoft,
-    disabledColor: BafColors.textTertiary.withValues(alpha: 0.45),
+    style: IconButton.styleFrom(
+      foregroundColor: BafColors.graphiteSoft,
+      disabledForegroundColor: BafColors.textTertiary.withValues(alpha: 0.45),
+      backgroundColor: Colors.transparent,
+      disabledBackgroundColor: Colors.transparent,
+      padding: EdgeInsets.zero,
+      minimumSize: Size(width, 48),
+    ),
     icon: Icon(icon),
   );
 }
