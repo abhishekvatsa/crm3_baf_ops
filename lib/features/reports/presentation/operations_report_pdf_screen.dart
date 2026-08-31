@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
-import 'package:printing/printing.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -10,6 +9,7 @@ import '../domain/operations_report_document.dart';
 import '../domain/report_provenance.dart';
 import '../models/operations_report.dart';
 import '../services/operations_report_pdf_service.dart';
+import 'zoomable_pdf_preview.dart';
 
 Future<OperationsReportDocumentRequest?> showOperationsReportComposer({
   required BuildContext context,
@@ -66,14 +66,10 @@ class OperationsReportPdfPreviewScreen extends StatelessWidget {
         accent: BafColors.maintenance,
       ),
     ),
-    body: PdfPreview(
-      initialPageFormat: PdfPageFormat.a4.landscape,
-      canChangePageFormat: false,
-      canChangeOrientation: false,
-      allowPrinting: true,
-      allowSharing: true,
-      pdfFileName: request.fileName,
-      build:
+    body: ZoomablePdfPreview(
+      pageFormat: PdfPageFormat.a4.landscape,
+      fileName: request.fileName,
+      documentBuilder:
           (_) => OperationsReportPdfService.build(
             report: report,
             request: request,
