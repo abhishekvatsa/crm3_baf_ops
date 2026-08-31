@@ -1722,6 +1722,20 @@ export async function mutateMorningReviewWithDb(args: {
           );
         }
         ensureJoined(participantSnapshot, sessionId, actorUid);
+        const sessionActionPage = asQuerySnapshot(
+          await transaction.get(
+            actions.where("sessionId", "==", sessionId)
+              .limit(MAX_SESSION_ACTIONS + 1),
+          ),
+          "Morning Review session action capacity lookup",
+        );
+        if (sessionActionPage.docs.length >= MAX_SESSION_ACTIONS) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "This Morning Review already contains the maximum action count.",
+            {reasonCode: "morning-review-action-capacity-reached"},
+          );
+        }
         const draft = request.actionDraft!;
         let assigneeName: string | null = null;
         if (draft.assigneeUid != null) {

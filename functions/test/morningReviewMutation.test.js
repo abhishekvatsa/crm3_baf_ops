@@ -522,6 +522,38 @@ describe('Morning Review governed lifecycle', () => {
     )).toBe(false);
   });
 
+  test('rejects an action that would make finalization exceed capacity', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    for (let index = 0; index < 100; index += 1) {
+      memory.store.set(`morning_review_actions/existing-${index}`, {
+        sessionId,
+      });
+    }
+
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.action,
+      operation: 'CREATE_MORNING_REVIEW_ACTION',
+      sessionId,
+      actionDraft: {
+        section: 'plantWide',
+        text: 'This action must be rejected before the meeting is overfull.',
+        assigneeUid: null,
+        assigneeRole: 'seniorMechanical',
+        assetClassId: null,
+        assetClassName: null,
+        assetInstanceId: null,
+        assetNumber: null,
+        dueAt: null,
+      },
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'morning-review-action-capacity-reached'},
+    });
+    expect(memory.store.has(`morning_review_actions/${IDS.action}`))
+      .toBe(false);
+  });
+
   test('carries a standing concern, records the daily check, and retains it while active', async () => {
     const memory = fakeDb(baseSeed());
     await invoke(memory, 'admin-1', startRequest());
