@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-current-source-backend-deployment-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-09-01T19:58:22Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalEvidence": {
+    "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
+    "codexTurnId": "01a05e8d-2109-7622-b9c6-fdd3fe866862",
+    "turnStartedAtUnixSeconds": 1788292702,
+    "authorityType": "project-owner instruction",
+    "instructionSummary": "Make the next governed build, proceed toward a distributable package after satisfactory checks, exercise representative real interactions, and delete only the trial data created for those checks.",
+    "timestampSource": "Codex task history turn.startedAt"
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceAuthority": {
+    "commit": "32aae03c1d1bd65eafe611496fdf29caed3759fb",
+    "tree": "d1aba8becb9cf2262ad37195c80299aaa1ac4798",
+    "functionTree": "1db0157b42af64827229ef4c1ba696204da4e173"
+  },
+  "approvedDeployment": {
+    "functionCount": 15,
+    "existingDedicatedServiceAccountsRequired": true,
+    "preserveExistingIamRequired": true,
+    "appCheckEnforcement": false,
+    "firestoreRulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+    "firestoreIndexCount": 66,
+    "firestoreIndexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "strictLiveReadbackRequired": true
+  },
+  "notAuthorized": [
+    "IAM mutation",
+    "App Check activation",
+    "genuine production business-data deletion or mutation",
+    "device-data clearing",
+    "distribution",
+    "unrestricted distribution",
+    "Play Store publication"
+  ]
+}
