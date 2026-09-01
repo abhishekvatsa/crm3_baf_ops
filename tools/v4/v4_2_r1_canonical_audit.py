@@ -6454,9 +6454,9 @@ check(
     and build21_approval.get("approvalReference") == "BAF-REF-003-C20"
     and build21_evidence_chronology_valid
     and build21_approval.get("sourceBaseline", {}).get("commit")
-        == "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2"
+        == "c6d88c090b7351e33f0e259603775ca709695d58"
     and build21_approval.get("sourceBaseline", {}).get("tree")
-        == "8294c9fa2deca973ec5efc24678d4415e3c97285"
+        == "9f52f5a6a1ef437049946929ec692d705372fa2c"
     and build21_approval.get("consumedBuild", {}).get("buildNumber") == 20
     and build21_approval.get("consumedBuild", {}).get(
         "completionReceiptSha256"
@@ -6478,12 +6478,21 @@ check(
     ) == 149
     and build21_approval.get("requiredSource", {}).get(
         "build20AcceptancePolicyShapeCorrectionCommit"
-    ) == build21_approval.get("sourceBaseline", {}).get("commit")
+    ) == "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2"
     and build21_approval.get("requiredSource", {}).get(
         "build20AcceptancePolicyShapeCorrectionTree"
-    ) == build21_approval.get("sourceBaseline", {}).get("tree")
+    ) == "8294c9fa2deca973ec5efc24678d4415e3c97285"
     and build21_approval.get("requiredSource", {}).get(
         "build20AcceptancePolicyShapeCorrectionMustBeAncestorOfDispatchCommit"
+    ) is True
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorPhysicalInstallationVerifierCommit"
+    ) == build21_approval.get("sourceBaseline", {}).get("commit")
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorPhysicalInstallationVerifierTree"
+    ) == build21_approval.get("sourceBaseline", {}).get("tree")
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorPhysicalInstallationVerifierMustBeAncestorOfDispatchCommit"
     ) is True
     and build21_approval.get("controls", {}).get(
         "build20AuthorityPreserved"

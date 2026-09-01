@@ -3,14 +3,14 @@
   "documentType": "governed-build-number-rollover-approval",
   "approved": true,
   "approvedAtUtc": "2026-08-31T20:19:02Z",
-  "evidenceBoundAtUtc": "2026-09-01T00:34:42Z",
+  "evidenceBoundAtUtc": "2026-09-01T01:05:25Z",
   "approverName": "Abhishek Vatsa",
   "approvalReference": "BAF-REF-003-C20",
   "authorityBasis": "Project-owner instruction in Codex task 019ee05b-70ae-7312-92d3-48f67e5c8b49, turn 01a05979-b119-7151-b13b-1429808f42fd, to complete the next governed build by 07:00 IST while the owner may be unavailable. This record binds that instruction to the reviewed backend reconciliation and exact post-merge main source without representing a separately dictated verbatim authorization.",
   "approvalScope": "Allocate build number 21 and version 1.0.0-rc.11 for one production-signed, initially non-distributable successor containing the admitted morning-review, synchronization, safety-alarm, reporting and business-flow corrections since finalized Build 20. Independent package verification and dual custody are approved. Distribution, App Check activation, IAM mutation, production business-data mutation and device-data clearing remain outside this construction authority.",
   "sourceBaseline": {
-    "commit": "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2",
-    "tree": "8294c9fa2deca973ec5efc24678d4415e3c97285"
+    "commit": "c6d88c090b7351e33f0e259603775ca709695d58",
+    "tree": "9f52f5a6a1ef437049946929ec692d705372fa2c"
   },
   "consumedBuild": {
     "buildNumber": 20,
@@ -171,6 +171,9 @@
     "build20AcceptancePolicyShapeCorrectionCommit": "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2",
     "build20AcceptancePolicyShapeCorrectionTree": "8294c9fa2deca973ec5efc24678d4415e3c97285",
     "build20AcceptancePolicyShapeCorrectionMustBeAncestorOfDispatchCommit": true,
+    "predecessorPhysicalInstallationVerifierCommit": "c6d88c090b7351e33f0e259603775ca709695d58",
+    "predecessorPhysicalInstallationVerifierTree": "9f52f5a6a1ef437049946929ec692d705372fa2c",
+    "predecessorPhysicalInstallationVerifierMustBeAncestorOfDispatchCommit": true,
     "successorCapabilities": [
       "canonical-multi-lane-maintenance-issues",
       "immutable-ticket-correction-and-lifecycle-dossiers",
