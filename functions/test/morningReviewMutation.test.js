@@ -213,6 +213,31 @@ describe('Morning Review governed lifecycle', () => {
       .toMatchObject({minuteOfDay: 601, canStart: false, windowMissed: true});
   });
 
+  test.each([
+    new Date('2026-08-31T02:00:00.000Z'), // 07:30 IST
+    new Date('2026-08-31T04:31:00.000Z'), // 10:01 IST
+  ])('allows an approved Admin to start outside the standard window', async (at) => {
+    const memory = fakeDb(baseSeed());
+    const created = await invoke(memory, 'admin-1', startRequest(), at);
+    expect(created).toMatchObject({status: 'open', version: 1});
+    expect(memory.store.get(`morning_review_sessions/${sessionId}`))
+      .toMatchObject({facilitatorUid: 'admin-1', status: 'open'});
+  });
+
+  test('keeps SI start authority inside the standard window', async () => {
+    const memory = fakeDb(baseSeed());
+    await expect(invoke(
+      memory,
+      'si-1',
+      startRequest(),
+      new Date('2026-08-31T04:31:00.000Z'),
+    )).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'morning-review-start-window-closed'},
+    });
+    expect(memory.reads.some((read) => read.kind === 'query')).toBe(false);
+  });
+
   test('strictly parses operation envelopes and role admission', () => {
     expect(isMorningReviewOperation('JOIN_MORNING_REVIEW')).toBe(true);
     expect(isMorningReviewOperation('DELETE_EVERYTHING')).toBe(false);

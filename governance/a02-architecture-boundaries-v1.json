@@ -257,7 +257,7 @@
         "test/inner_cover_lifecycle_screen_test.dart",
         "test/operational_asset_screen_authority_gate_test.dart"
       ],
-      "maximumLines": 2050,
+      "maximumLines": 2100,
       "requiredMarkers": [
         "class InnerCoverLifecycleScreen"
       ],

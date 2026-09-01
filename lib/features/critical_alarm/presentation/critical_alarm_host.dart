@@ -47,7 +47,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   static const _launcherYKey = 'critical_alarm_launcher_y_fraction_v1';
   static const _launcherSize = 48.0;
   static const _launcherMargin = 12.0;
-  static const _initialFeedWarningDelay = Duration(seconds: 3);
+  static const _initialFeedWarningDelay = Duration(seconds: 12);
   final Set<String> _notifiedRingingIds = <String>{};
   final Set<String> _notificationAttemptsInFlight = <String>{};
   Set<String> _latestRingingIds = const <String>{};

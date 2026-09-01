@@ -161,6 +161,15 @@ class _LifecycleBody extends ConsumerWidget {
                 profileById: profileById,
                 allProfiles: profiles,
                 canManage: canManage,
+                onDelink:
+                    (assignment, cover) => _delinkCover(
+                      context,
+                      ref,
+                      cover,
+                      assignment,
+                      user!,
+                      closeSurfaceOnSuccess: false,
+                    ),
                 onManage:
                     (base, assignment) => _manageBaseCover(
                       context,
@@ -283,6 +292,11 @@ class _BaseList extends StatelessWidget {
   final List<InnerCoverProfile> allProfiles;
   final bool canManage;
   final void Function(
+    BaseInnerCoverAssignment assignment,
+    InnerCoverProfile cover,
+  )
+  onDelink;
+  final void Function(
     AssetInstanceRecord base,
     BaseInnerCoverAssignment? assignment,
   )
@@ -294,6 +308,7 @@ class _BaseList extends StatelessWidget {
     required this.profileById,
     required this.allProfiles,
     required this.canManage,
+    required this.onDelink,
     required this.onManage,
   });
 
@@ -370,18 +385,30 @@ class _BaseList extends StatelessWidget {
             ),
             trailing:
                 canManage && !drift
-                    ? IconButton(
-                      tooltip:
-                          assignment == null
-                              ? 'Link Inner Cover'
-                              : 'Change Inner Cover',
-                      onPressed: () => onManage(base, assignment),
-                      icon: Icon(
-                        assignment == null
-                            ? Icons.link_rounded
-                            : Icons.swap_horiz_rounded,
-                      ),
-                    )
+                    ? assignment == null
+                        ? IconButton(
+                          tooltip: 'Link Inner Cover',
+                          onPressed: () => onManage(base, assignment),
+                          icon: const Icon(Icons.link_rounded),
+                        )
+                        : SizedBox(
+                          width: 96,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              IconButton(
+                                tooltip: 'Delink Inner Cover from Base',
+                                onPressed: () => onDelink(assignment, profile!),
+                                icon: const Icon(Icons.link_off_rounded),
+                              ),
+                              IconButton(
+                                tooltip: 'Change Inner Cover',
+                                onPressed: () => onManage(base, assignment),
+                                icon: const Icon(Icons.swap_horiz_rounded),
+                              ),
+                            ],
+                          ),
+                        )
                     : null,
           ),
         );
@@ -724,8 +751,9 @@ Future<void> _delinkCover(
   WidgetRef ref,
   InnerCoverProfile cover,
   BaseInnerCoverAssignment? assignment,
-  AppUser user,
-) async {
+  AppUser user, {
+  bool closeSurfaceOnSuccess = true,
+}) async {
   if (assignment == null) {
     _showError(context, 'The Base assignment needs reconciliation.');
     return;
@@ -756,7 +784,9 @@ Future<void> _delinkCover(
           reason: result.reason,
         );
   }, success: 'Inner Cover removed and returned to lifecycle control.');
-  if (succeeded && context.mounted) Navigator.pop(context);
+  if (succeeded && context.mounted && closeSurfaceOnSuccess) {
+    Navigator.pop(context);
+  }
 }
 
 Future<void> _changeCoverState(
@@ -990,7 +1020,7 @@ class _CoverDetailsSheet extends ConsumerWidget {
                     OutlinedButton.icon(
                       onPressed: onDelink,
                       icon: const Icon(Icons.link_off_rounded),
-                      label: const Text('Remove'),
+                      label: const Text('Delink from Base'),
                     ),
                   if (!cover.isInstalled &&
                       cover.lifecycleState != InnerCoverLifecycleState.disposed)

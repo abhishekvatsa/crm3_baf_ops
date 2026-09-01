@@ -1294,7 +1294,7 @@ export async function mutateMorningReviewWithDb(args: {
   const documents = args.db.collection("morning_review_documents");
   const receipts = args.db.collection("morning_review_mutation_receipts");
   const preflightActor = await users.doc(actorUid).get();
-  approvedAuthority(preflightActor.data());
+  const preflightAuthority = approvedAuthority(preflightActor.data());
   if (!userCanMutateMorningReview(
     preflightActor.data(),
     request.operation,
@@ -1308,10 +1308,10 @@ export async function mutateMorningReviewWithDb(args: {
   const preflightReceipt = await receipts.doc(request.requestId).get();
   if (request.operation === "START_MORNING_REVIEW" &&
       !preflightReceipt.exists) {
-    if (!clock.canStart) {
+    if (!clock.canStart && !preflightAuthority.roles.has("admin")) {
       throw new AssetHierarchyMutationError(
         "failed-precondition",
-        "Morning Review can start only from 08:00 through 10:00 India time.",
+        "SI can start Morning Review only from 08:00 through 10:00 India time.",
         {reasonCode: "morning-review-start-window-closed", ...clock},
       );
     }
@@ -1383,10 +1383,10 @@ export async function mutateMorningReviewWithDb(args: {
           "Only Admin or SI can start the Morning Review.",
         );
       }
-      if (!clock.canStart) {
+      if (!clock.canStart && !authority.roles.has("admin")) {
         throw new AssetHierarchyMutationError(
           "failed-precondition",
-          "Morning Review can start only from 08:00 through 10:00 India time.",
+          "SI can start Morning Review only from 08:00 through 10:00 India time.",
           {reasonCode: "morning-review-start-window-closed", ...clock},
         );
       }
