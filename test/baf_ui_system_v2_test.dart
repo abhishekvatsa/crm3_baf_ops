@@ -242,6 +242,34 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('dialog bodies fit below the readability floor', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(640, 320);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      double? measured;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              measured = bafDialogBodyHeight(
+                context,
+                preferred: 420,
+                minimum: 180,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      expect(measured, 100);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('shared surfaces tolerate enlarged text on a narrow phone', (
       tester,
     ) async {

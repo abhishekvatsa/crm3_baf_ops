@@ -12,6 +12,9 @@ double bafDialogBodyHeight(
   final media = MediaQuery.of(context);
   final available =
       media.size.height - media.viewInsets.bottom - reservedChrome;
+  if (available < minimum) {
+    return available.clamp(0.0, preferred).toDouble();
+  }
   return available.clamp(minimum, preferred).toDouble();
 }
 
