@@ -1865,6 +1865,11 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $consumed.closureFinalizationCompleted -eq $true -and
     $consumed.dualCustodyCompleted -eq $true -and
     $consumed.remoteBuiltTagCreated -eq $true
+  $predecessorPhysicalInstallationConditionPassed =
+    $prior.physicalInstallationConditionPassed -eq $true
+  $predecessorPhysicalInstallationConditionRecorded =
+    $prior.physicalInstallationConditionPassed -eq $true -or
+    $prior.physicalInstallationConditionPassed -eq $false
   $predecessorBoundaryInvalid = $false
   if ($successfulPredecessor) {
     $predecessorBoundaryInvalid =
@@ -1881,7 +1886,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$consumed.completionReceiptSha256 -or
       (Get-Sha256 $prior.completionReceiptFile) -ne
         ([string]$prior.completionReceiptSha256).ToUpperInvariant() -or
-      $prior.physicalInstallationConditionPassed -ne $true -or
+      -not $predecessorPhysicalInstallationConditionRecorded -or
       [string]$prior.sourceCommit -ne
         [string]$consumed.remoteBuiltCommit -or
       [int64]$prior.githubRunId -ne [int64]$consumed.githubRunId -or
@@ -1917,7 +1922,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $failed.distributionPerformed -ne $false
   }
   if ($successfulPredecessor -and
-      $prior.physicalInstallationConditionPassed -eq $true) {
+      $predecessorPhysicalInstallationConditionPassed) {
     $predecessorPhysicalInstallationPath =
       [string]$prior.physicalInstallationReceiptFile
     if ([string]$prior.physicalInstallationReceiptSha256 -notmatch
@@ -2029,6 +2034,14 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         $prior.controlledPilotApproved -ne $false) {
       throw 'Predecessor physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
     }
+  } elseif ($successfulPredecessor -and
+      (-not [string]::IsNullOrWhiteSpace(
+        [string]$prior.physicalInstallationReceiptFile
+      ) -or
+      -not [string]::IsNullOrWhiteSpace(
+        [string]$prior.physicalInstallationReceiptSha256
+      ))) {
+    throw 'Predecessor without physical acceptance retains a physical-installation receipt.'
   }
   if ($predecessorBoundaryInvalid -or
       $policy.finalization.dualCustodyCompleted -ne $false -or

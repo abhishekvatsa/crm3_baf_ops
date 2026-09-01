@@ -2,12 +2,12 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-02",
   "asOfDate": "2026-09-02",
-  "status": "BUILD21_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
+  "status": "BUILD22_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
-      "packageVersion": "1.0.0-rc.11+21",
-      "relationshipToLatestFinalizedArtifact": "BUILD21_SOURCE_CONTAINS_FINALIZED_BUILD21",
+      "packageVersion": "1.0.0-rc.12+22",
+      "relationshipToLatestFinalizedArtifact": "BUILD22_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD21",
       "sourceAndCiAuthority": true,
       "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
@@ -67,18 +67,21 @@
       "appliesToBuild18": false,
       "appliesToBuild19": false,
       "appliesToBuild20": false,
-      "appliesToBuild21": false
+      "appliesToBuild21": false,
+      "appliesToBuild22": false
     },
     "nextCandidate": {
       "minimumBuildNumber": 22,
-      "status": "AWAITING_FRESH_GOVERNED_BUILD22_APPROVAL",
-      "constructionRequiresFreshGovernedApproval": true,
+      "status": "SOURCE_SUCCESSOR_AWAITING_BUILD22_ARTIFACT_SOURCE_REBIND",
+      "constructionRequiresFreshGovernedApproval": false,
+      "versionApprovalFile": "release/approvals/build-number-22-successor-approval.json",
+      "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-22.json",
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true
     }
   },
   "localStore": {
-    "schemaVersion": 9,
+    "schemaVersion": 10,
     "verifier": "tools/isar/verify_v4_isar_schema.py --release"
   },
   "appCheck": {
@@ -113,6 +116,8 @@
     "release/evidence/build22-firestore-rules-indexes-live-readback.json",
     "release/approvals/build-number-21-successor-approval.json",
     "release/approvals/public-repository-environment-reviewer-approval-build-21.json",
+    "release/approvals/build-number-22-successor-approval.json",
+    "release/approvals/public-repository-environment-reviewer-approval-build-22.json",
     "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
   ]
 }

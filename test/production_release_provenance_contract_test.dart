@@ -190,6 +190,17 @@ void main() {
       expect(text, contains(r'$expectedCurrentSourceFunctionDeployment'));
       expect(text, contains(r'$functionsMatchDeployed'));
       expect(text, contains(r'$backendMatchesDeployed'));
+      expect(
+        text,
+        contains(r'$predecessorPhysicalInstallationConditionRecorded'),
+      );
+      expect(
+        text,
+        contains(
+          'Predecessor without physical acceptance retains a '
+          'physical-installation receipt.',
+        ),
+      );
       expect(canonicalAudit, contains('git_tree_object_id'));
       expect(canonicalAudit, contains('function_fleet_deployment_status'));
       expect(canonicalAudit, contains('expected_current_function_deployment'));
