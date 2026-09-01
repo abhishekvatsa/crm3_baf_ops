@@ -753,6 +753,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
       builder:
           (sheetContext) => Center(
@@ -2451,15 +2452,42 @@ class _CompactSyncPill extends ConsumerWidget {
     }
 
     final disabled = status == SyncStatus.syncing;
+    final foreground = Color.lerp(color, Colors.white, 0.48)!;
 
     return Tooltip(
       message: disabled ? 'Sync already running' : 'Manual sync now',
       child: InkWell(
         onTap: disabled ? null : onManualSync,
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: StatusBadge(label: label, color: color, icon: icon),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: BafSpacing.sm,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.20),
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            border: Border.all(color: foreground.withValues(alpha: 0.48)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: foreground),
+              const SizedBox(width: BafSpacing.xs),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

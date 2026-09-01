@@ -248,7 +248,7 @@ class _IssueAdministrativeClosureDialogState
           onPressed: _submit,
           style: FilledButton.styleFrom(
             backgroundColor: BafColors.warning,
-            foregroundColor: BafColors.textPrimary,
+            foregroundColor: Colors.white,
           ),
           icon: const Icon(Icons.inventory_2_outlined),
           label: Text(

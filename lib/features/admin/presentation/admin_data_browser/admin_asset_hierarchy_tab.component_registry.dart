@@ -360,7 +360,7 @@ class _InstalledComponentHistoryDialog extends ConsumerWidget {
       title: const Text('Component lifecycle history'),
       content: SizedBox(
         width: 680,
-        height: 520,
+        height: bafDialogBodyHeight(context, preferred: 520, minimum: 220),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

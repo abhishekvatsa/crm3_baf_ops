@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../maintenance/data/maintenance_model.dart';
 import '../../data/template_governance_model.dart';
@@ -710,24 +711,26 @@ class _PackageSection extends StatelessWidget {
       children: [
         const Text('Package', style: TextStyle(fontWeight: FontWeight.w900)),
         const SizedBox(height: BafSpacing.sm),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment<bool>(
-              value: false,
-              label: Text('Use existing'),
-              icon: Icon(Icons.folder_open_rounded),
-            ),
-            ButtonSegment<bool>(
-              value: true,
-              label: Text('Create new'),
-              icon: Icon(Icons.create_new_folder_rounded),
-            ),
-          ],
-          selected: <bool>{createNewPackage},
-          onSelectionChanged:
-              packages.isEmpty
-                  ? null
-                  : (value) => onCreateModeChanged(value.first),
+        BafHorizontalControlRail(
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment<bool>(
+                value: false,
+                label: Text('Use existing'),
+                icon: Icon(Icons.folder_open_rounded),
+              ),
+              ButtonSegment<bool>(
+                value: true,
+                label: Text('Create new'),
+                icon: Icon(Icons.create_new_folder_rounded),
+              ),
+            ],
+            selected: <bool>{createNewPackage},
+            onSelectionChanged:
+                packages.isEmpty
+                    ? null
+                    : (value) => onCreateModeChanged(value.first),
+          ),
         ),
         const SizedBox(height: BafSpacing.sm),
         if (!createNewPackage && packages.isNotEmpty)

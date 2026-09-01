@@ -194,6 +194,7 @@ class OperationalControlScreen extends StatelessWidget {
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: BafColors.danger,
+                        foregroundColor: Colors.white,
                       ),
                       onPressed: onCriticalAlarms,
                       icon: const Icon(Icons.notification_important_outlined),

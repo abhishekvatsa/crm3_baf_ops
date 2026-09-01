@@ -19,34 +19,44 @@ class ZoomablePdfPreview extends StatelessWidget {
   final String fileName;
 
   @override
-  Widget build(BuildContext context) => Theme(
-    data: pdfPreviewControlTheme(Theme.of(context)),
-    child: PdfPreview.builder(
-      build: documentBuilder,
-      initialPageFormat: pageFormat,
-      canChangePageFormat: false,
-      canChangeOrientation: false,
-      canDebug: false,
-      allowPrinting: true,
-      allowSharing: true,
-      pdfFileName: fileName,
-      dpi: 180,
-      scrollViewDecoration: const BoxDecoration(color: BafColors.surfaceMuted),
-      actionBarTheme: const PdfActionBarTheme(
-        backgroundColor: BafColors.graphite,
-        iconColor: BafColors.graphite,
-        elevation: 0,
-        height: 58,
-        actionSpacing: BafSpacing.sm,
+  Widget build(BuildContext context) {
+    final actionBarHeight = pdfPreviewActionBarHeight(MediaQuery.of(context));
+    return Theme(
+      data: pdfPreviewControlTheme(Theme.of(context)),
+      child: PdfPreview.builder(
+        build: documentBuilder,
+        initialPageFormat: pageFormat,
+        canChangePageFormat: false,
+        canChangeOrientation: false,
+        canDebug: false,
+        allowPrinting: true,
+        allowSharing: true,
+        pdfFileName: fileName,
+        dpi: 180,
+        scrollViewDecoration: const BoxDecoration(
+          color: BafColors.surfaceMuted,
+        ),
+        actionBarTheme: PdfActionBarTheme(
+          backgroundColor: BafColors.graphite,
+          iconColor: Colors.white,
+          elevation: 0,
+          height: actionBarHeight,
+          actionSpacing: BafSpacing.sm,
+        ),
+        loadingWidget: const _PdfPreviewLoading(),
+        pagesBuilder:
+            (context, pages) => ZoomablePdfPageDeck(
+              pages: List<PdfPreviewPageData>.unmodifiable(pages),
+            ),
       ),
-      loadingWidget: const _PdfPreviewLoading(),
-      pagesBuilder:
-          (context, pages) => ZoomablePdfPageDeck(
-            pages: List<PdfPreviewPageData>.unmodifiable(pages),
-          ),
-    ),
-  );
+    );
+  }
 }
+
+const double pdfPreviewActionBarContentHeight = 58;
+
+double pdfPreviewActionBarHeight(MediaQueryData media) =>
+    pdfPreviewActionBarContentHeight + media.viewPadding.bottom;
 
 ThemeData pdfPreviewControlTheme(ThemeData base) => base.copyWith(
   iconButtonTheme: IconButtonThemeData(

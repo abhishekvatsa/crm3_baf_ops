@@ -5,10 +5,98 @@ import 'package:crm3_baf_ops/core/widgets/baf_ui.dart';
 import 'package:crm3_baf_ops/core/widgets/dashboard/dashboard_widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('BAF UI system v2', () {
+    test('every modal sheet declares route-level safe-area behavior', () {
+      final failures = <String>[];
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      final call = RegExp(r'showModalBottomSheet(?:<[^>]+>)?\s*\(');
+      final safeArea = RegExp(r'useSafeArea\s*:\s*true');
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        for (final match in call.allMatches(source)) {
+          final end = (match.start + 360).clamp(0, source.length);
+          if (!safeArea.hasMatch(source.substring(match.start, end))) {
+            final line =
+                '\n'.allMatches(source.substring(0, match.start)).length + 1;
+            failures.add('${file.path}:$line');
+          }
+        }
+      }
+
+      expect(
+        failures,
+        isEmpty,
+        reason:
+            'Modal sheets missing useSafeArea: true: ${failures.join(', ')}',
+      );
+    });
+
+    test('form dropdowns use their available width', () {
+      final failures = <String>[];
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      final dropdown = RegExp(r'DropdownButtonFormField(?:<[^>]+>)?\s*\(');
+      final expanded = RegExp(r'isExpanded\s*:\s*true');
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        for (final match in dropdown.allMatches(source)) {
+          final end = (match.start + 650).clamp(0, source.length);
+          if (!expanded.hasMatch(source.substring(match.start, end))) {
+            final line =
+                '\n'.allMatches(source.substring(0, match.start)).length + 1;
+            failures.add('${file.path}:$line');
+          }
+        }
+      }
+
+      expect(
+        failures,
+        isEmpty,
+        reason:
+            'Form dropdowns missing isExpanded: true: ${failures.join(', ')}',
+      );
+    });
+
+    test('large dialog bodies use responsive height constraints', () {
+      final failures = <String>[];
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      final dialog = RegExp(r'AlertDialog\s*\(');
+      final fixedHeight = RegExp(r'height\s*:\s*([2-9]\d{2,})');
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        for (final match in dialog.allMatches(source)) {
+          final end = (match.start + 2400).clamp(0, source.length);
+          if (fixedHeight.hasMatch(source.substring(match.start, end))) {
+            final line =
+                '\n'.allMatches(source.substring(0, match.start)).length + 1;
+            failures.add('${file.path}:$line');
+          }
+        }
+      }
+
+      expect(
+        failures,
+        isEmpty,
+        reason:
+            'Dialog bodies with fixed phone-unsafe heights: ${failures.join(', ')}',
+      );
+    });
+
     for (final size in <Size>[
       const Size(320, 700),
       const Size(412, 915),
@@ -82,6 +170,106 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets(
+      'long segmented controls scroll instead of squeezing at phone width',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: BafAppTheme.light,
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(BafSpacing.md),
+                child: BafHorizontalControlRail(
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: 1, label: Text('Numeric reading')),
+                      ButtonSegment(value: 2, label: Text('Boolean result')),
+                      ButtonSegment(value: 3, label: Text('Narrative text')),
+                      ButtonSegment(value: 4, label: Text('Governed choice')),
+                    ],
+                    selected: const {1},
+                    onSelectionChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final scrollable = tester.state<ScrollableState>(
+          find.descendant(
+            of: find.byType(BafHorizontalControlRail),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        expect(scrollable.position.maxScrollExtent, greaterThan(0));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('dialog bodies surrender height to the keyboard', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      double? measured;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              measured = bafDialogBodyHeight(
+                context,
+                preferred: 420,
+                minimum: 120,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      expect(measured, 160);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('dialog bodies fit below the readability floor', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(640, 320);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      double? measured;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              measured = bafDialogBodyHeight(
+                context,
+                preferred: 420,
+                minimum: 180,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      expect(measured, 100);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('shared surfaces tolerate enlarged text on a narrow phone', (
       tester,
     ) async {
@@ -113,6 +301,40 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Refresh obligations'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('state panels scroll instead of overflowing short viewports', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 230));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          builder:
+              (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(2)),
+                child: child!,
+              ),
+          home: Scaffold(
+            body: BafStatePanel.error(
+              title: 'Workflow state requires attention',
+              message:
+                  'The governed projection could not be loaded. Review the connection and retry without losing the recorded evidence.',
+              onPrimary: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      await tester.ensureVisible(find.text('Try again'));
+      await tester.pump();
       expect(tester.takeException(), isNull);
     });
 
@@ -232,6 +454,89 @@ void main() {
         _contrastRatio(Colors.white, BafColors.graphite),
         greaterThanOrEqualTo(7),
       );
+      for (final statusColor in <Color>[
+        BafColors.sync,
+        BafColors.warning,
+        BafColors.danger,
+      ]) {
+        expect(
+          _contrastRatio(
+            Color.lerp(statusColor, Colors.white, 0.48)!,
+            BafColors.graphite,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
+    });
+
+    testWidgets('filled icon actions retain high-contrast foregrounds', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: Row(
+              children: [
+                IconButton.filled(
+                  key: const ValueKey('filled-icon-action'),
+                  onPressed: () {},
+                  icon: const Icon(Icons.add_rounded),
+                ),
+                IconButton.filledTonal(
+                  key: const ValueKey('tonal-icon-action'),
+                  onPressed: () {},
+                  icon: const Icon(Icons.edit_rounded),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      Color iconColorFor(Key key) {
+        final iconFinder = find.descendant(
+          of: find.byKey(key),
+          matching: find.byType(Icon),
+        );
+        return IconTheme.of(tester.element(iconFinder)).color!;
+      }
+
+      final filledColor = iconColorFor(const ValueKey('filled-icon-action'));
+      final tonalColor = iconColorFor(const ValueKey('tonal-icon-action'));
+
+      expect(filledColor, isNot(BafColors.textSecondary));
+      expect(tonalColor, isNot(BafColors.textSecondary));
+      expect(tester.takeException(), isNull);
+    });
+
+    test('filled feature actions declare an explicit contrast pair', () {
+      const paths = <String>[
+        'lib/features/inspections/presentation/'
+            'inspection_programmes_screen.dart',
+        'lib/features/morning_review/presentation/morning_review_screen.dart',
+        'lib/features/maintenance/presentation/'
+            'maintenance_ticket_detail_screen.dart',
+      ];
+
+      for (final path in paths) {
+        final source = File(path).readAsStringSync();
+        final matches = RegExp(r'IconButton\.filledTonal\(').allMatches(source);
+        expect(matches, isNotEmpty, reason: path);
+        for (final match in matches) {
+          final candidateEnd = match.start + 700;
+          final declaration = source.substring(
+            match.start,
+            candidateEnd < source.length ? candidateEnd : source.length,
+          );
+          expect(declaration, contains('backgroundColor:'), reason: path);
+          expect(
+            declaration,
+            contains('foregroundColor: Colors.white'),
+            reason: path,
+          );
+        }
+      }
     });
 
     testWidgets('screen context rail and solid canvas have stable geometry', (
@@ -378,6 +683,72 @@ void main() {
 
       expect(find.byType(CustomPaint), findsWidgets);
       expect(find.text('Shift overview'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('dashboard identity and actions occupy two stable phone rows', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 260));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(BafSpacing.md),
+              child: DashboardHeader(
+                userName: 'Abhishek Vatsa',
+                avatar: const CircleAvatar(child: Text('A')),
+                syncIndicator: Container(
+                  width: 96,
+                  height: 30,
+                  alignment: Alignment.center,
+                  child: const Text('Sync now'),
+                ),
+                onProfileTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final header = tester.getRect(find.byType(DashboardHeader));
+      final profile = tester.getRect(
+        find.byKey(const ValueKey('dashboard-profile-action')),
+      );
+      final brand = tester.getRect(
+        find.byKey(const ValueKey('dashboard-brand-lockup')),
+      );
+      final sync = tester.getRect(
+        find.byKey(const ValueKey('dashboard-sync-action')),
+      );
+      final title = tester.getRect(
+        find.byKey(const ValueKey('dashboard-shift-title')),
+      );
+      final productName = tester.renderObject<RenderParagraph>(
+        find.text(BafBrand.productName),
+      );
+      final makerName = tester.renderObject<RenderParagraph>(
+        find.text(BafBrand.makerLabel),
+      );
+
+      expect(
+        header.right - profile.right,
+        lessThanOrEqualTo(BafSpacing.lg + 1.1),
+      );
+      expect(sync.top, greaterThan(profile.bottom));
+      expect(sync.right, closeTo(profile.right, 0.1));
+      expect((sync.center.dy - title.center.dy).abs(), lessThan(8));
+      expect(
+        productName.didExceedMaxLines,
+        isFalse,
+        reason:
+            'product=${productName.size}, constraints=${productName.constraints}, brand=$brand',
+      );
+      expect(makerName.didExceedMaxLines, isFalse);
       expect(tester.takeException(), isNull);
     });
 

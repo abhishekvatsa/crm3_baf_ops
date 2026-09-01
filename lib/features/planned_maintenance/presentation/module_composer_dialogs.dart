@@ -1002,7 +1002,10 @@ class _ArchiveTemplateDraftReasonDialogState
         ),
         FilledButton.icon(
           key: const Key('confirm-archive-template-draft'),
-          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
+          ),
           onPressed:
               canArchive ? () => Navigator.pop(context, _reason.trim()) : null,
           icon: const Icon(Icons.archive_rounded),

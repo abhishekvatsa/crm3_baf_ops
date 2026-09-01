@@ -645,6 +645,7 @@ class _ChargeAbnormalityFormDialogState
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AbnormalitySeverity>(
+                  isExpanded: true,
                   initialValue: _selectedSeverity,
                   decoration: _inputDecoration(label: 'Severity'),
                   items:
@@ -882,7 +883,10 @@ class _ChargeAbnormalityFormDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.charges),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.charges,
+            foregroundColor: Colors.white,
+          ),
           onPressed: _submit,
           child: Text(widget.existing == null ? 'Log' : 'Save'),
         ),
@@ -1013,7 +1017,10 @@ class _DeleteAbnormalityDialogState extends State<_DeleteAbnormalityDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
+          ),
           onPressed: () {
             Navigator.pop(
               context,

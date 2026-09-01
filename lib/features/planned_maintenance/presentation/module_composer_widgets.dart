@@ -167,6 +167,7 @@ class _ModuleTile extends StatelessWidget {
   Future<void> _showActions(BuildContext context) async {
     final action = await showModalBottomSheet<_ModuleTileAction>(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
       builder:
           (context) => SafeArea(

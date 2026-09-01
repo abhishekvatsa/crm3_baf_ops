@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../domain/critical_alarm_models.dart';
 import '../providers/critical_alarm_providers.dart';
@@ -293,23 +294,25 @@ class _DefinitionEditorState extends State<_DefinitionEditor> {
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: BafSpacing.xs),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'highest',
-                    icon: Icon(Icons.local_fire_department_outlined),
-                    label: Text('Highest'),
-                  ),
-                  ButtonSegment(
-                    value: 'critical',
-                    icon: Icon(Icons.warning_amber_outlined),
-                    label: Text('Critical'),
-                  ),
-                ],
-                selected: {_criticalityKey},
-                onSelectionChanged:
-                    (selection) =>
-                        setState(() => _criticalityKey = selection.single),
+              BafHorizontalControlRail(
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'highest',
+                      icon: Icon(Icons.local_fire_department_outlined),
+                      label: Text('Highest'),
+                    ),
+                    ButtonSegment(
+                      value: 'critical',
+                      icon: Icon(Icons.warning_amber_outlined),
+                      label: Text('Critical'),
+                    ),
+                  ],
+                  selected: {_criticalityKey},
+                  onSelectionChanged:
+                      (selection) =>
+                          setState(() => _criticalityKey = selection.single),
+                ),
               ),
               const SizedBox(height: BafSpacing.md),
               TextFormField(

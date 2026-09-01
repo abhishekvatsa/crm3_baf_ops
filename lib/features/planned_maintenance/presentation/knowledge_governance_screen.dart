@@ -144,8 +144,7 @@ class _RowsTab extends ConsumerWidget {
     final filter = ref.watch(knowledgeGovernanceFilterProvider);
 
     return viewAsync.when(
-      loading:
-          () => const BafLoadingPanel(label: 'Loading governed knowledge'),
+      loading: () => const BafLoadingPanel(label: 'Loading governed knowledge'),
       error:
           (e, _) => BafStatePanel.error(
             title: 'Knowledge base unavailable',
@@ -208,6 +207,7 @@ class _RowsTab extends ConsumerWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: BafColors.background,
       builder: (_) => KnowledgeRowEditor.forCreate(actor: appUser),
     );
@@ -222,6 +222,7 @@ class _RowsTab extends ConsumerWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: BafColors.background,
       builder: (_) => KnowledgeRowEditor.forUpdate(actor: appUser, before: row),
     );
@@ -392,6 +393,7 @@ class _RowsTab extends ConsumerWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: BafColors.background,
       builder: (sheetContext) {
         return DraggableScrollableSheet(
@@ -525,7 +527,7 @@ class _KnowledgeBundlePasteDialogState
       title: Text('Paste ${widget.format.name.toUpperCase()} bundle'),
       content: SizedBox(
         width: 640,
-        height: 360,
+        height: bafDialogBodyHeight(context, preferred: 360, minimum: 140),
         child: TextField(
           controller: _controller,
           maxLines: null,
@@ -955,7 +957,8 @@ class _NotAuthorisedScaffold extends StatelessWidget {
       appBarIcon: Icons.account_tree_outlined,
       accent: BafColors.planned,
       title: 'Knowledge authority required',
-      message: 'Only approved Admin or SI users may govern the BAF knowledge base.',
+      message:
+          'Only approved Admin or SI users may govern the BAF knowledge base.',
     );
   }
 }

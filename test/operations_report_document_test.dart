@@ -423,5 +423,52 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('report composer keeps its actions above the keyboard', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 3;
+      tester.view.physicalSize = const Size(1080, 2340);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder:
+                  (context) => FilledButton(
+                    onPressed:
+                        () => showOperationsReportComposer(
+                          context: context,
+                          generatedByName: 'Test Supervisor',
+                          generatedByEmail: 'supervisor@example.com',
+                          hasFurnaceScope: true,
+                          provenance:
+                              const ReportProvenance.applicationSnapshot(),
+                        ),
+                    child: const Text('Open composer'),
+                  ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open composer'));
+      await tester.pumpAndSettle();
+      expect(find.text('Report library'), findsOneWidget);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      final media = MediaQuery.of(tester.element(find.text('Report library')));
+      expect(media.viewInsets.bottom, greaterThan(0));
+      final actionBottom = tester.getBottomRight(find.text('Build preview')).dy;
+      expect(
+        actionBottom,
+        lessThanOrEqualTo(media.size.height - media.viewInsets.bottom),
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 }

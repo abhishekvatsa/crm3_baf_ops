@@ -388,6 +388,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
 
     final action = await showModalBottomSheet<_LaneAction>(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
       builder:
           (sheetContext) => SafeArea(
@@ -600,6 +601,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
             .toSet();
     final lane = await showModalBottomSheet<MaintenanceLaneId>(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
       builder:
           (sheetContext) => SafeArea(
@@ -903,6 +905,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
   }) {
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
       isScrollControlled: true,
       builder:

@@ -136,6 +136,7 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<QualityWarningClosureDisposition>(
+            isExpanded: true,
             initialValue: _disposition,
             decoration: const InputDecoration(labelText: 'Disposition'),
             items: [

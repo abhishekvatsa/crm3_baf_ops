@@ -1045,7 +1045,10 @@ class _RebuildLocalDatabaseConfirmDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
+          ),
           onPressed: canSubmit ? () => Navigator.of(context).pop(true) : null,
           child: const Text('Create backup & rebuild'),
         ),

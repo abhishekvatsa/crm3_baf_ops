@@ -45,6 +45,7 @@
     "qs": "6.15.2",
     "uuid": "11.1.1",
     "@grpc/grpc-js": "1.14.4",
+    "browserslist": "4.28.8",
     "js-yaml": "3.15.1",
     "brace-expansion": "$brace-expansion"
   }

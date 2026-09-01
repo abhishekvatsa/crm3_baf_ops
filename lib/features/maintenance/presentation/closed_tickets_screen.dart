@@ -1235,7 +1235,7 @@ class _ClosedTicketCard extends StatelessWidget {
                                     : onEndRetainedRelevance,
                             style: FilledButton.styleFrom(
                               backgroundColor: BafColors.warning,
-                              foregroundColor: BafColors.textPrimary,
+                              foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(

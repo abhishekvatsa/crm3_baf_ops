@@ -301,7 +301,6 @@ class BafAppTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: BafColors.textSecondary,
           minimumSize: const Size.square(44),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(BafRadius.small),

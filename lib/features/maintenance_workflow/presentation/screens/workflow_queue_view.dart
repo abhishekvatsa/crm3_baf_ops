@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
-import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/compliance_request_record.dart';
 import '../../data/job_lane_record.dart';
@@ -127,63 +126,33 @@ class WorkflowQueueView extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: BafSpacing.sm),
-          Wrap(
-            spacing: BafSpacing.xs,
-            runSpacing: BafSpacing.xs,
-            children: [
-              StatusBadge(
-                label: '${lanes.length} lanes',
-                color: BafColors.planned,
-              ),
-              StatusBadge(
-                label: '${targetActionCompliance.length} target actions',
-                color: BafColors.warning,
-              ),
-              StatusBadge(
-                label:
-                    '${awaitingOriginConfirmation.length} awaiting confirmation',
-                color: BafColors.audit,
-              ),
-            ],
+          _WorkflowQueueMetrics(
+            lanes: lanes.length,
+            actions: targetActionCompliance.length,
+            confirmations: awaitingOriginConfirmation.length,
           ),
           const SizedBox(height: BafSpacing.md),
-          Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.sm,
-            children: [
-              OutlinedButton.icon(
-                onPressed:
-                    () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const WorkflowHubScreen(),
-                      ),
-                    ),
-                icon: const Icon(Icons.account_tree_outlined),
-                label: const Text('Workflow overview'),
-              ),
-              OutlinedButton.icon(
-                onPressed:
-                    () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const ComplianceInboxScreen(),
-                      ),
-                    ),
-                icon: const Icon(Icons.inbox_outlined),
-                label: const Text('Compliance inbox'),
-              ),
-              OutlinedButton.icon(
-                onPressed:
-                    () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const EquipmentStatusBoard(),
-                      ),
-                    ),
-                icon: const Icon(Icons.precision_manufacturing_outlined),
-                label: const Text('Equipment'),
-              ),
-            ],
+          _WorkflowQueueDestinations(
+            onOverview:
+                () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const WorkflowHubScreen(),
+                  ),
+                ),
+            onCompliance:
+                () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ComplianceInboxScreen(),
+                  ),
+                ),
+            onEquipment:
+                () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const EquipmentStatusBoard(),
+                  ),
+                ),
           ),
-          const SizedBox(height: BafSpacing.lg),
+          const SizedBox(height: BafSpacing.md),
           if (lanes.isEmpty && compliance.isEmpty)
             const _WorkflowQueueEmpty()
           else ...[
@@ -325,6 +294,224 @@ class _QueueSectionTitle extends StatelessWidget {
   }
 }
 
+class _WorkflowQueueMetrics extends StatelessWidget {
+  const _WorkflowQueueMetrics({
+    required this.lanes,
+    required this.actions,
+    required this.confirmations,
+  });
+
+  final int lanes;
+  final int actions;
+  final int confirmations;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _WorkflowQueueMetric(
+              key: const ValueKey('workflow-queue-lanes-metric'),
+              value: lanes,
+              label: 'Lanes',
+              color: BafColors.planned,
+            ),
+          ),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: _WorkflowQueueMetric(
+              key: const ValueKey('workflow-queue-actions-metric'),
+              value: actions,
+              label: 'Actions',
+              color: BafColors.warning,
+            ),
+          ),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: _WorkflowQueueMetric(
+              key: const ValueKey('workflow-queue-confirmations-metric'),
+              value: confirmations,
+              label: 'To confirm',
+              color: BafColors.audit,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowQueueMetric extends StatelessWidget {
+  const _WorkflowQueueMetric({
+    super.key,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final int value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.symmetric(
+        horizontal: BafSpacing.sm,
+        vertical: BafSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+        borderRadius: BorderRadius.circular(BafRadius.small),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '$value',
+            style: TextStyle(
+              color: color,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: const TextStyle(
+                color: BafColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowQueueDestinations extends StatelessWidget {
+  const _WorkflowQueueDestinations({
+    required this.onOverview,
+    required this.onCompliance,
+    required this.onEquipment,
+  });
+
+  final VoidCallback onOverview;
+  final VoidCallback onCompliance;
+  final VoidCallback onEquipment;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _WorkflowDestinationButton(
+                  key: const ValueKey('workflow-queue-overview'),
+                  tooltip: 'Open workflow overview',
+                  label: compact ? 'Overview' : 'Workflow overview',
+                  icon: Icons.account_tree_outlined,
+                  color: BafColors.planned,
+                  onPressed: onOverview,
+                ),
+              ),
+              const SizedBox(width: BafSpacing.sm),
+              Expanded(
+                child: _WorkflowDestinationButton(
+                  key: const ValueKey('workflow-queue-compliance'),
+                  tooltip: 'Open compliance inbox',
+                  label: compact ? 'Inbox' : 'Compliance inbox',
+                  icon: Icons.inbox_outlined,
+                  color: BafColors.audit,
+                  onPressed: onCompliance,
+                ),
+              ),
+              const SizedBox(width: BafSpacing.sm),
+              Expanded(
+                child: _WorkflowDestinationButton(
+                  key: const ValueKey('workflow-queue-equipment'),
+                  tooltip: 'Open equipment status',
+                  label: 'Equipment',
+                  icon: Icons.precision_manufacturing_outlined,
+                  color: BafColors.assets,
+                  onPressed: onEquipment,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WorkflowDestinationButton extends StatelessWidget {
+  const _WorkflowDestinationButton({
+    super.key,
+    required this.tooltip,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: BafColors.textPrimary,
+          minimumSize: const Size(0, 70),
+          padding: const EdgeInsets.symmetric(
+            horizontal: BafSpacing.xs,
+            vertical: BafSpacing.sm,
+          ),
+          side: const BorderSide(color: BafColors.borderStrong),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(height: BafSpacing.xs),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LaneQueueTile extends StatelessWidget {
   final JobLaneRecord lane;
   final VoidCallback onTap;
@@ -396,18 +583,38 @@ class _WorkflowQueueEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
-      child: Column(
+    return Container(
+      key: const ValueKey('workflow-queue-empty-state'),
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.success.withValues(alpha: 0.07),
+        border: Border.all(color: BafColors.success.withValues(alpha: 0.18)),
+        borderRadius: BorderRadius.circular(BafRadius.small),
+      ),
+      child: const Row(
         children: [
-          Icon(Icons.task_alt_rounded, size: 36, color: BafColors.success),
-          SizedBox(height: BafSpacing.md),
-          Text(
-            'No workflow tasks need your attention.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: BafColors.textPrimary,
-              fontWeight: FontWeight.w700,
+          Icon(Icons.task_alt_rounded, size: 30, color: BafColors.success),
+          SizedBox(width: BafSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Queue clear',
+                  style: TextStyle(
+                    color: BafColors.success,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'No workflow tasks need your attention.',
+                  style: TextStyle(
+                    color: BafColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

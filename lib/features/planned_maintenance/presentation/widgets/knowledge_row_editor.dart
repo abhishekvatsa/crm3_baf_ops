@@ -172,315 +172,373 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
       minChildSize: 0.5,
       maxChildSize: 0.96,
       builder: (context, scroll) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: BafColors.background,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(BafRadius.medium),
-            ),
+        return AnimatedPadding(
+          duration: BafMotion.quick,
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
           ),
-          child: Column(
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: BafColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: BafColors.background,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(BafRadius.medium),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  BafSpacing.lg,
-                  BafSpacing.md,
-                  BafSpacing.lg,
-                  BafSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.isCreate ? 'New knowledge row' : 'Edit row',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: BafColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    if (widget.before != null)
-                      StatusBadge(
-                        label:
-                            'v${widget.before!.version} → v${widget.before!.version + 1}',
-                        color: BafColors.audit,
-                      ),
-                  ],
-                ),
-              ),
-              if (_error != null)
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
                 Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.symmetric(horizontal: BafSpacing.lg),
-                  padding: const EdgeInsets.all(BafSpacing.sm),
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: BafColors.danger.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(BafRadius.small),
-                    border: Border.all(
-                      color: BafColors.danger.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(
-                      color: BafColors.danger,
-                      fontSize: 12,
-                    ),
+                    color: BafColors.border,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              Expanded(
-                child: ListView(
-                  controller: scroll,
+                Padding(
                   padding: const EdgeInsets.fromLTRB(
                     BafSpacing.lg,
-                    BafSpacing.sm,
-                    BafSpacing.lg,
                     BafSpacing.md,
-                  ),
-                  children: [
-                    _section('Identity'),
-                    _field(
-                      'Row code',
-                      _rowCodeController,
-                      enabled: widget.isCreate,
-                    ),
-                    _field('Module candidate code', _moduleCandidateController),
-                    _field(
-                      'Matrix version',
-                      null,
-                      textValue: _draft.matrixVersion,
-                      enabled: false,
-                    ),
-                    _section('Task'),
-                    _field('Task text', _taskTextController, maxLines: 3),
-                    _field('Task type', _taskTypeController),
-                    _field(
-                      'Frequency',
-                      null,
-                      textValue: _draft.frequency,
-                      enabled: false,
-                    ),
-                    _section('Asset taxonomy'),
-                    _field('Asset family', _assetFamilyController),
-                    _field('Functional section', _functionalSectionController),
-                    _field('Component group', _componentGroupController),
-                    _section('Owners and safety'),
-                    _enumPicker(
-                      label: 'Discipline',
-                      value: _draft.discipline,
-                      options: const [
-                        'mechanical',
-                        'electrical',
-                        'instrumentation',
-                        'operations',
-                        'safety',
-                        'shared',
-                        'others',
-                      ],
-                      onChanged:
-                          (value) => setState(() => _draft.discipline = value),
-                    ),
-                    _field(
-                      'Owner disciplines (comma-separated)',
-                      _ownerDisciplinesController,
-                    ),
-                    _field(
-                      'Safety classes (comma-separated)',
-                      _safetyClassesController,
-                    ),
-                    _section('References'),
-                    _field(
-                      'Procedure refs (comma-separated)',
-                      _procedureRefsController,
-                    ),
-                    _field('Part refs (comma-separated)', _partRefsController),
-                    _field(
-                      'Device tags (comma-separated)',
-                      _deviceTagsController,
-                    ),
-                    _field(
-                      'Target refs (comma-separated)',
-                      _targetRefsController,
-                    ),
-                    _field(
-                      'Suggested field keys (comma-separated)',
-                      _suggestedFieldsController,
-                    ),
-                    _section('Readiness'),
-                    _enumPicker(
-                      label: 'Composer readiness',
-                      value: _draft.composerReadiness.name,
-                      options:
-                          ComposerReadiness.values
-                              .map((value) => value.name)
-                              .toList(),
-                      onChanged: (value) {
-                        for (final state in ComposerReadiness.values) {
-                          if (state.name == value) {
-                            setState(() => _draft.composerReadiness = state);
-                            break;
-                          }
-                        }
-                      },
-                    ),
-                    _enumPicker(
-                      label: 'Confidence',
-                      value: _draft.confidence.name,
-                      options:
-                          KnowledgeConfidence.values
-                              .map((value) => value.name)
-                              .toList(),
-                      onChanged: (value) {
-                        for (final state in KnowledgeConfidence.values) {
-                          if (state.name == value) {
-                            setState(() => _draft.confidence = state);
-                            break;
-                          }
-                        }
-                      },
-                    ),
-                    _enumPicker(
-                      label: 'Required for closure',
-                      value: _draft.requiredForClosure,
-                      options: const ['yes', 'no', 'consult'],
-                      onChanged:
-                          (value) =>
-                              setState(() => _draft.requiredForClosure = value),
-                    ),
-                    _enumPicker(
-                      label: 'Resolver impact',
-                      value: _draft.resolverImpact,
-                      options: const ['yes', 'no'],
-                      onChanged:
-                          (value) =>
-                              setState(() => _draft.resolverImpact = value),
-                    ),
-                    _enumPicker(
-                      label: 'Lifecycle',
-                      value: _draft.lifecycleStatus.name,
-                      options:
-                          KnowledgeLifecycleStatus.values
-                              .map((value) => value.name)
-                              .toList(),
-                      onChanged:
-                          (value) => setState(() {
-                            _draft.lifecycleStatus =
-                                KnowledgeLifecycleStatusX.parse(value);
-                          }),
-                      enabled: !widget.isCreate,
-                    ),
-                    _section('Provenance'),
-                    _field('Source manual', _sourceManualController),
-                    _field('Source page', _sourcePageController),
-                    _field(
-                      'Consult question',
-                      _consultQuestionController,
-                      maxLines: 2,
-                    ),
-                    _section('Change reason (audit)'),
-                    TextField(
-                      controller: _changeReasonController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText:
-                            'Explain why this row is changing; it must differ from the prior version.',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(BafRadius.small),
-                        ),
-                      ),
-                    ),
-                    if (widget.before != null) _diffPreview(),
-                  ],
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
                     BafSpacing.lg,
                     BafSpacing.sm,
-                    BafSpacing.lg,
-                    BafSpacing.md,
                   ),
                   child: Row(
                     children: [
-                      if (!widget.isCreate &&
-                          widget.before!.lifecycleStatus == 'active')
-                        OutlinedButton.icon(
-                          onPressed:
-                              _saving
-                                  ? null
-                                  : () => _lifecycle(
-                                    KnowledgeLifecycleStatus.retired,
-                                  ),
-                          icon: const Icon(Icons.archive_outlined),
-                          label: const Text('Retire'),
-                        ),
-                      if (!widget.isCreate &&
-                          widget.before!.lifecycleStatus == 'retired')
-                        OutlinedButton.icon(
-                          onPressed:
-                              _saving
-                                  ? null
-                                  : () => _lifecycle(
-                                    KnowledgeLifecycleStatus.archived,
-                                  ),
-                          icon: const Icon(Icons.delete_outline_rounded),
-                          label: const Text('Archive'),
-                        ),
-                      if (!widget.isCreate &&
-                          widget.before!.lifecycleStatus != 'active')
-                        OutlinedButton.icon(
-                          onPressed:
-                              _saving
-                                  ? null
-                                  : () => _lifecycle(
-                                    KnowledgeLifecycleStatus.active,
-                                  ),
-                          icon: const Icon(Icons.unarchive_outlined),
-                          label: const Text('Restore'),
-                        ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed:
-                            _saving ? null : () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 6),
-                      FilledButton.icon(
-                        onPressed: _saving ? null : _onSave,
-                        icon:
-                            _saving
-                                ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                                : const Icon(Icons.save_rounded),
-                        label: Text(
-                          widget.isCreate
-                              ? 'Create'
-                              : 'Save v${(widget.before?.version ?? 0) + 1}',
+                      Expanded(
+                        child: Text(
+                          widget.isCreate ? 'New knowledge row' : 'Edit row',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: BafColors.textPrimary,
+                          ),
                         ),
                       ),
+                      if (widget.before != null)
+                        StatusBadge(
+                          label:
+                              'v${widget.before!.version} → v${widget.before!.version + 1}',
+                          color: BafColors.audit,
+                        ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                if (_error != null)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: BafSpacing.lg,
+                    ),
+                    padding: const EdgeInsets.all(BafSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: BafColors.danger.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(BafRadius.small),
+                      border: Border.all(
+                        color: BafColors.danger.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(
+                        color: BafColors.danger,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: ListView(
+                    controller: scroll,
+                    padding: const EdgeInsets.fromLTRB(
+                      BafSpacing.lg,
+                      BafSpacing.sm,
+                      BafSpacing.lg,
+                      BafSpacing.md,
+                    ),
+                    children: [
+                      _section('Identity'),
+                      _field(
+                        'Row code',
+                        _rowCodeController,
+                        enabled: widget.isCreate,
+                      ),
+                      _field(
+                        'Module candidate code',
+                        _moduleCandidateController,
+                      ),
+                      _field(
+                        'Matrix version',
+                        null,
+                        textValue: _draft.matrixVersion,
+                        enabled: false,
+                      ),
+                      _section('Task'),
+                      _field('Task text', _taskTextController, maxLines: 3),
+                      _field('Task type', _taskTypeController),
+                      _field(
+                        'Frequency',
+                        null,
+                        textValue: _draft.frequency,
+                        enabled: false,
+                      ),
+                      _section('Asset taxonomy'),
+                      _field('Asset family', _assetFamilyController),
+                      _field(
+                        'Functional section',
+                        _functionalSectionController,
+                      ),
+                      _field('Component group', _componentGroupController),
+                      _section('Owners and safety'),
+                      _enumPicker(
+                        label: 'Discipline',
+                        value: _draft.discipline,
+                        options: const [
+                          'mechanical',
+                          'electrical',
+                          'instrumentation',
+                          'operations',
+                          'safety',
+                          'shared',
+                          'others',
+                        ],
+                        onChanged:
+                            (value) =>
+                                setState(() => _draft.discipline = value),
+                      ),
+                      _field(
+                        'Owner disciplines (comma-separated)',
+                        _ownerDisciplinesController,
+                      ),
+                      _field(
+                        'Safety classes (comma-separated)',
+                        _safetyClassesController,
+                      ),
+                      _section('References'),
+                      _field(
+                        'Procedure refs (comma-separated)',
+                        _procedureRefsController,
+                      ),
+                      _field(
+                        'Part refs (comma-separated)',
+                        _partRefsController,
+                      ),
+                      _field(
+                        'Device tags (comma-separated)',
+                        _deviceTagsController,
+                      ),
+                      _field(
+                        'Target refs (comma-separated)',
+                        _targetRefsController,
+                      ),
+                      _field(
+                        'Suggested field keys (comma-separated)',
+                        _suggestedFieldsController,
+                      ),
+                      _section('Readiness'),
+                      _enumPicker(
+                        label: 'Composer readiness',
+                        value: _draft.composerReadiness.name,
+                        options:
+                            ComposerReadiness.values
+                                .map((value) => value.name)
+                                .toList(),
+                        onChanged: (value) {
+                          for (final state in ComposerReadiness.values) {
+                            if (state.name == value) {
+                              setState(() => _draft.composerReadiness = state);
+                              break;
+                            }
+                          }
+                        },
+                      ),
+                      _enumPicker(
+                        label: 'Confidence',
+                        value: _draft.confidence.name,
+                        options:
+                            KnowledgeConfidence.values
+                                .map((value) => value.name)
+                                .toList(),
+                        onChanged: (value) {
+                          for (final state in KnowledgeConfidence.values) {
+                            if (state.name == value) {
+                              setState(() => _draft.confidence = state);
+                              break;
+                            }
+                          }
+                        },
+                      ),
+                      _enumPicker(
+                        label: 'Required for closure',
+                        value: _draft.requiredForClosure,
+                        options: const ['yes', 'no', 'consult'],
+                        onChanged:
+                            (value) => setState(
+                              () => _draft.requiredForClosure = value,
+                            ),
+                      ),
+                      _enumPicker(
+                        label: 'Resolver impact',
+                        value: _draft.resolverImpact,
+                        options: const ['yes', 'no'],
+                        onChanged:
+                            (value) =>
+                                setState(() => _draft.resolverImpact = value),
+                      ),
+                      _enumPicker(
+                        label: 'Lifecycle',
+                        value: _draft.lifecycleStatus.name,
+                        options:
+                            KnowledgeLifecycleStatus.values
+                                .map((value) => value.name)
+                                .toList(),
+                        onChanged:
+                            (value) => setState(() {
+                              _draft.lifecycleStatus =
+                                  KnowledgeLifecycleStatusX.parse(value);
+                            }),
+                        enabled: !widget.isCreate,
+                      ),
+                      _section('Provenance'),
+                      _field('Source manual', _sourceManualController),
+                      _field('Source page', _sourcePageController),
+                      _field(
+                        'Consult question',
+                        _consultQuestionController,
+                        maxLines: 2,
+                      ),
+                      _section('Change reason (audit)'),
+                      TextField(
+                        controller: _changeReasonController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Explain why this row is changing; it must differ from the prior version.',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              BafRadius.small,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (widget.before != null) _diffPreview(),
+                    ],
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      BafSpacing.lg,
+                      BafSpacing.sm,
+                      BafSpacing.lg,
+                      BafSpacing.md,
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final lifecycleActions = <Widget>[
+                          if (!widget.isCreate &&
+                              widget.before!.lifecycleStatus == 'active')
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _saving
+                                      ? null
+                                      : () => _lifecycle(
+                                        KnowledgeLifecycleStatus.retired,
+                                      ),
+                              icon: const Icon(Icons.archive_outlined),
+                              label: const Text('Retire'),
+                            ),
+                          if (!widget.isCreate &&
+                              widget.before!.lifecycleStatus == 'retired')
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _saving
+                                      ? null
+                                      : () => _lifecycle(
+                                        KnowledgeLifecycleStatus.archived,
+                                      ),
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              label: const Text('Archive'),
+                            ),
+                          if (!widget.isCreate &&
+                              widget.before!.lifecycleStatus != 'active')
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _saving
+                                      ? null
+                                      : () => _lifecycle(
+                                        KnowledgeLifecycleStatus.active,
+                                      ),
+                              icon: const Icon(Icons.unarchive_outlined),
+                              label: const Text('Restore'),
+                            ),
+                        ];
+                        final saveActions = <Widget>[
+                          TextButton(
+                            onPressed:
+                                _saving ? null : () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: _saving ? null : _onSave,
+                            icon:
+                                _saving
+                                    ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                    : const Icon(Icons.save_rounded),
+                            label: Text(
+                              widget.isCreate
+                                  ? 'Create'
+                                  : 'Save v${(widget.before?.version ?? 0) + 1}',
+                            ),
+                          ),
+                        ];
+                        if (constraints.maxWidth < 420) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (lifecycleActions.isNotEmpty)
+                                Wrap(
+                                  spacing: BafSpacing.xs,
+                                  runSpacing: BafSpacing.xs,
+                                  children: lifecycleActions,
+                                ),
+                              if (lifecycleActions.isNotEmpty)
+                                const SizedBox(height: BafSpacing.xs),
+                              Wrap(
+                                alignment: WrapAlignment.end,
+                                spacing: BafSpacing.xs,
+                                runSpacing: BafSpacing.xs,
+                                children: saveActions,
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            ...lifecycleActions,
+                            const Spacer(),
+                            ...saveActions.expand(
+                              (action) => <Widget>[
+                                if (action != saveActions.first)
+                                  const SizedBox(width: 6),
+                                action,
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -545,6 +603,7 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     return Padding(
       padding: const EdgeInsets.only(bottom: BafSpacing.sm),
       child: DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: options.contains(value) ? value : options.first,
         decoration: InputDecoration(
           labelText: label,

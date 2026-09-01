@@ -500,8 +500,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 168
-    and counts.get("SUCCESSOR_MODIFIED") == 242
+    and counts.get("BYTE_IDENTICAL") == 165
+    and counts.get("SUCCESSOR_MODIFIED") == 245
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -10056,7 +10056,10 @@ check(
         in functionality_representation_dossiers
     and "ref.watch(closedExecutionsProvider)"
         in functionality_representation_dossiers
-    and "label: const Text('Workflow overview')" in operational_ux_workflow
+    and "key: const ValueKey('workflow-queue-overview')"
+        in operational_ux_workflow
+    and "label: compact ? 'Overview' : 'Workflow overview'"
+        in operational_ux_workflow
     and operational_ux_workflow.index("actor == null || !actor.isApproved")
         < operational_ux_workflow.index("ref.watch(workflowAllLanesProvider)")
     and "class RecentAuditLogScreen" in functionality_representation_audit
@@ -12659,8 +12662,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 168
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 242
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 165
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 245
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

@@ -362,6 +362,12 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                       const SizedBox(width: BafSpacing.sm),
                       IconButton.filledTonal(
                         tooltip: 'Record an audited correction',
+                        style: IconButton.styleFrom(
+                          backgroundColor: BafColors.warning,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: BafColors.surfaceStrong,
+                          disabledForegroundColor: BafColors.textTertiary,
+                        ),
                         onPressed: onCorrect,
                         icon: const Icon(Icons.edit_note_rounded),
                       ),

@@ -86,6 +86,7 @@ class _AssetClassDialogState extends State<_AssetClassDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
+                isExpanded: true,
                 initialValue: _legacyAssetTypeKey,
                 decoration: const InputDecoration(
                   labelText: 'Current app asset type',
@@ -330,6 +331,7 @@ class _HierarchyNodeDialogState extends State<_HierarchyNodeDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<AssetHierarchyNodeType>(
+                        isExpanded: true,
                         initialValue: _type,
                         decoration: const InputDecoration(
                           labelText: 'Record level',
@@ -460,6 +462,7 @@ class _HierarchyNodeDialogState extends State<_HierarchyNodeDialog> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<ElectricalContactArrangement>(
+                  isExpanded: true,
                   initialValue: _contact,
                   decoration: const InputDecoration(
                     labelText: 'Electrical contact arrangement',
@@ -482,6 +485,7 @@ class _HierarchyNodeDialogState extends State<_HierarchyNodeDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<AssetOwnershipStatus>(
+                        isExpanded: true,
                         initialValue: _ownershipStatus,
                         decoration: const InputDecoration(
                           labelText: 'Ownership status',

@@ -616,6 +616,7 @@ class _ExecutionCard extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder:
           (context) => _ResponseDetailSheet(execution: ex, template: template),

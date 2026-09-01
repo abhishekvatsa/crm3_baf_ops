@@ -18,6 +18,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/abnormality_model.dart';
 import '../providers/abnormality_provider.dart';
+import 'abnormality_types_toolbar.dart';
 
 class AbnormalityTypesScreen extends ConsumerStatefulWidget {
   const AbnormalityTypesScreen({super.key});
@@ -40,7 +41,7 @@ class _AbnormalityTypesScreenState
         appBar: AppBar(
           title: const BafAppBarTitle(
             title: 'Abnormality types',
-            subtitle: 'Governed cycle-event classification and quality rules',
+            subtitle: 'Cycle-event and quality classification',
             icon: Icons.rule_folder_outlined,
             accent: BafColors.charges,
           ),
@@ -61,7 +62,7 @@ class _AbnormalityTypesScreenState
       appBar: AppBar(
         title: const BafAppBarTitle(
           title: 'Abnormality types',
-          subtitle: 'Governed cycle-event classification and quality rules',
+          subtitle: 'Cycle-event and quality classification',
           icon: Icons.rule_folder_outlined,
           accent: BafColors.charges,
         ),
@@ -74,26 +75,24 @@ class _AbnormalityTypesScreenState
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add_abnormality_type_fab',
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New Type'),
-        onPressed: () => _showTypeForm(),
-      ),
       body: typesAsync.when(
         loading:
-            () => const BafLoadingPanel(
-              label: 'Loading abnormality types',
-              color: BafColors.charges,
+            () => AbnormalityTypeUnavailableState(
+              state: const BafLoadingPanel(
+                label: 'Loading abnormality types',
+                color: BafColors.charges,
+              ),
+              onCreate: () => _showTypeForm(),
             ),
         error:
-            (err, _) => _StateCard(
-              icon: Icons.error_outline_rounded,
-              title: 'Could not load abnormality types',
-              message: '$err',
-              color: BafColors.danger,
+            (err, _) => AbnormalityTypeUnavailableState(
+              state: _StateCard(
+                icon: Icons.error_outline_rounded,
+                title: 'Could not load abnormality types',
+                message: '$err',
+                color: BafColors.danger,
+              ),
+              onCreate: () => _showTypeForm(),
             ),
         data: (types) {
           final visible =
@@ -107,91 +106,73 @@ class _AbnormalityTypesScreenState
                     type.category.name.toLowerCase().contains(query);
               }).toList();
 
-          return Column(
-            children: [
-              Padding(
+          return CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                   BafSpacing.lg,
                   BafSpacing.lg,
                   BafSpacing.lg,
                   BafSpacing.sm,
                 ),
-                child: _HeaderCard(
-                  total: types.length,
-                  active: types.where((type) => type.isActive).length,
-                  inactive: types.where((type) => !type.isActive).length,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  BafSpacing.lg,
-                  BafSpacing.sm,
-                  BafSpacing.lg,
-                  BafSpacing.sm,
-                ),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search by code, title, category...',
-                    hintStyle: const TextStyle(color: BafColors.textSecondary),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: BafColors.textSecondary,
-                    ),
-                    filled: true,
-                    fillColor: BafColors.card,
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
-                      borderSide: const BorderSide(color: BafColors.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
-                      borderSide: const BorderSide(color: BafColors.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
-                      borderSide: const BorderSide(
-                        color: BafColors.navySoft,
-                        width: 1.4,
-                      ),
-                    ),
+                sliver: SliverToBoxAdapter(
+                  child: _HeaderCard(
+                    total: types.length,
+                    active: types.where((type) => type.isActive).length,
+                    inactive: types.where((type) => !type.isActive).length,
                   ),
-                  onChanged: (value) {
-                    setState(() => _searchQuery = value);
-                  },
                 ),
               ),
-              Expanded(
-                child:
-                    visible.isEmpty
-                        ? const _StateCard(
-                          icon: Icons.rule_folder_outlined,
-                          title: 'No abnormality types found',
-                          message:
-                              'Create master data first. Operators will later select from this list while logging abnormalities.',
-                        )
-                        : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(
-                            BafSpacing.lg,
-                            BafSpacing.xs,
-                            BafSpacing.lg,
-                            96,
-                          ),
-                          itemCount: visible.length,
-                          itemBuilder: (context, index) {
-                            final type = visible[index];
-
-                            return _AbnormalityTypeCard(
-                              type: type,
-                              onEdit: () => _showTypeForm(existing: type),
-                              onDelete:
-                                  type.isRaCoilColourType
-                                      ? null
-                                      : () => _confirmDelete(type),
-                            );
-                          },
-                        ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  BafSpacing.lg,
+                  BafSpacing.sm,
+                  BafSpacing.lg,
+                  BafSpacing.md,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: AbnormalityTypeToolbar(
+                    onSearchChanged:
+                        (value) => setState(() => _searchQuery = value),
+                    onCreate: () => _showTypeForm(),
+                  ),
+                ),
               ),
+              if (visible.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _StateCard(
+                    icon: Icons.rule_folder_outlined,
+                    title: 'No abnormality types found',
+                    message:
+                        'Create master data first. Operators will later select from this list while logging abnormalities.',
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    BafSpacing.lg,
+                    BafSpacing.xs,
+                    BafSpacing.lg,
+                    112,
+                  ),
+                  sliver: SliverList.builder(
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final type = visible[index];
+
+                      return _AbnormalityTypeCard(
+                        type: type,
+                        onEdit: () => _showTypeForm(existing: type),
+                        onDelete:
+                            type.isRaCoilColourType
+                                ? null
+                                : () => _confirmDelete(type),
+                      );
+                    },
+                  ),
+                ),
             ],
           );
         },
@@ -482,6 +463,7 @@ class _AbnormalityTypeFormDialogState
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AbnormalityCategory>(
+                  isExpanded: true,
                   initialValue: _selectedCategory,
                   decoration: _inputDecoration(label: 'Category'),
                   items:
@@ -501,6 +483,7 @@ class _AbnormalityTypeFormDialogState
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AbnormalitySeverity>(
+                  isExpanded: true,
                   initialValue: _selectedSeverity,
                   decoration: _inputDecoration(label: 'Default Severity'),
                   items:
@@ -606,7 +589,10 @@ class _AbnormalityTypeFormDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.navy),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.navy,
+            foregroundColor: Colors.white,
+          ),
           onPressed: _isSaving ? null : _submit,
           child:
               _isSaving
@@ -765,6 +751,7 @@ class _AbnormalityTypeDeleteDialogState
               ),
               const SizedBox(height: BafSpacing.md),
               DropdownButtonFormField<AuditReason>(
+                isExpanded: true,
                 decoration: _inputDecoration(label: 'Reason', hint: 'Optional'),
                 initialValue: _selectedReason,
                 items:
@@ -796,7 +783,10 @@ class _AbnormalityTypeDeleteDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
+          ),
           onPressed:
               () => Navigator.pop(
                 context,
@@ -815,10 +805,6 @@ class _AbnormalityTypeDeleteDialogState
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// UI WIDGETS
-// ─────────────────────────────────────────────────────────────
-
 class _HeaderCard extends StatelessWidget {
   final int total;
   final int active;
@@ -833,51 +819,90 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DashboardCard(
+      key: const ValueKey('abnormality-types-summary'),
+      padding: const EdgeInsets.all(BafSpacing.md),
       backgroundColor: BafColors.navy,
       borderColor: BafColors.navySoft.withValues(alpha: 0.26),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-            ),
-            child: const Icon(Icons.rule_folder_outlined, color: Colors.white),
-          ),
-          const SizedBox(width: BafSpacing.md),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Operational abnormality master',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final introduction = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
-                SizedBox(height: BafSpacing.xs),
-                Text(
-                  'Define what users can log during process, equipment, result and RA events.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    height: 1.25,
-                  ),
+                child: const Icon(
+                  Icons.rule_folder_outlined,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: BafSpacing.md),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Operational abnormality master',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                      ),
+                    ),
+                    SizedBox(height: BafSpacing.xs),
+                    Text(
+                      'Govern cycle-event choices and RA routing.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
+          if (constraints.maxWidth < 680) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                introduction,
+                const SizedBox(height: BafSpacing.md),
+                Row(
+                  children: [
+                    Expanded(child: _MetricPill(label: 'Total', value: total)),
+                    const SizedBox(width: BafSpacing.sm),
+                    Expanded(
+                      child: _MetricPill(label: 'Active', value: active),
+                    ),
+                    const SizedBox(width: BafSpacing.sm),
+                    Expanded(
+                      child: _MetricPill(label: 'Inactive', value: inactive),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: BafSpacing.sm),
-          _MetricPill(label: 'Total', value: total),
-          const SizedBox(width: BafSpacing.sm),
-          _MetricPill(label: 'Active', value: active),
-          const SizedBox(width: BafSpacing.sm),
-          _MetricPill(label: 'Inactive', value: inactive),
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: introduction),
+              const SizedBox(width: BafSpacing.xl),
+              _MetricPill(label: 'Total', value: total),
+              const SizedBox(width: BafSpacing.sm),
+              _MetricPill(label: 'Active', value: active),
+              const SizedBox(width: BafSpacing.sm),
+              _MetricPill(label: 'Inactive', value: inactive),
+            ],
+          );
+        },
       ),
     );
   }

@@ -251,9 +251,11 @@ class _TemplateDesignerScreenState
                     ),
                   ),
                   if (_fields.isEmpty)
-                    const SliverFillRemaining(
+                    SliverFillRemaining(
                       hasScrollBody: false,
-                      child: _EmptyFieldsState(),
+                      child: _EmptyFieldsState(
+                        bottomPadding: listBottomPadding,
+                      ),
                     )
                   else
                     SliverPadding(
@@ -412,13 +414,15 @@ class _DesignerHeader extends StatelessWidget {
 }
 
 class _EmptyFieldsState extends StatelessWidget {
-  const _EmptyFieldsState();
+  const _EmptyFieldsState({required this.bottomPadding});
+
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.fromLTRB(28, 28, 28, bottomPadding),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(22),

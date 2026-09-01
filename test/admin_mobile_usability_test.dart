@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_asset_hierarchy_tab.dart';
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart';
 import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
@@ -12,45 +14,208 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('asset hierarchy retains a useful phone-height tree viewport', (
+  testWidgets(
+    'asset hierarchy header scrolls and compact actions stay legible',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 820));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.utc(2026, 8, 28, 14);
+      final assetClass = _assetClass(now);
+      final nodes = List<AssetHierarchyNode>.generate(
+        18,
+        (index) => _hierarchyNode(index + 1, assetClass.id, now),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            adminTicketsStreamProvider.overrideWith(
+              (ref) => Stream.value(const <MaintenanceRecord>[]),
+            ),
+            adminExecutionsStreamProvider.overrideWith(
+              (ref) => Stream.value(const <JobExecution>[]),
+            ),
+            assetClassesProvider.overrideWith(
+              (ref) => Stream.value(<AssetClassRecord>[assetClass]),
+            ),
+            assetHierarchyNodesProvider(
+              assetClass.id,
+            ).overrideWith((ref) => Stream.value(nodes)),
+            assetInstancesProvider(assetClass.id).overrideWith(
+              (ref) => Stream.value(const <AssetInstanceRecord>[]),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: 390,
+                  height: 560,
+                  child: AssetHierarchyAdminTab(
+                    actor: _admin(now),
+                    compactHeader: const SizedBox(
+                      key: ValueKey('test-asset-hierarchy-sync-header'),
+                      height: 52,
+                      child: Center(child: Text('Sync status')),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toolbar = find.byKey(
+        const ValueKey('asset-hierarchy-mobile-toolbar'),
+      );
+      final hierarchyList = find.byKey(
+        const ValueKey('asset-hierarchy-definition-list'),
+      );
+      expect(toolbar, findsOneWidget);
+      expect(hierarchyList, findsOneWidget);
+      expect(tester.getSize(toolbar).height, lessThanOrEqualTo(56));
+      expect(tester.getSize(hierarchyList).height, greaterThanOrEqualTo(140));
+      final retiredButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('asset-hierarchy-retired-toggle')),
+      );
+      final addButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('asset-hierarchy-add-class')),
+      );
+      expect(
+        retiredButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
+        Colors.white,
+      );
+      expect(
+        addButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
+        Colors.white,
+      );
+
+      final compactHeader = find.byKey(
+        const ValueKey('test-asset-hierarchy-sync-header'),
+      );
+      expect(compactHeader.hitTestable(), findsOneWidget);
+      await tester.drag(hierarchyList, const Offset(0, -420));
+      await tester.pumpAndSettle();
+
+      expect(compactHeader.hitTestable(), findsNothing);
+      expect(toolbar.hitTestable(), findsNothing);
+      expect(find.text('Definition').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('compact hierarchy search survives a selected-class switch', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 820));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final now = DateTime.utc(2026, 8, 28, 14);
-    final assetClass = _assetClass(now);
-    final nodes = List<AssetHierarchyNode>.generate(
-      18,
-      (index) => _hierarchyNode(index + 1, assetClass.id, now),
-    );
+    final now = DateTime.utc(2026, 8, 28, 14, 15);
+    final furnace = _assetClass(now);
+    final base = _baseAssetClass(now);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          adminTicketsStreamProvider.overrideWith(
-            (ref) => Stream.value(const <MaintenanceRecord>[]),
-          ),
-          adminExecutionsStreamProvider.overrideWith(
-            (ref) => Stream.value(const <JobExecution>[]),
-          ),
           assetClassesProvider.overrideWith(
-            (ref) => Stream.value(<AssetClassRecord>[assetClass]),
+            (ref) => Stream.value(<AssetClassRecord>[furnace, base]),
           ),
           assetHierarchyNodesProvider(
-            assetClass.id,
-          ).overrideWith((ref) => Stream.value(nodes)),
+            furnace.id,
+          ).overrideWith((ref) => Stream.value(const <AssetHierarchyNode>[])),
+          assetHierarchyNodesProvider(
+            base.id,
+          ).overrideWith((ref) => Stream.value(const <AssetHierarchyNode>[])),
           assetInstancesProvider(
-            assetClass.id,
+            furnace.id,
+          ).overrideWith((ref) => Stream.value(const <AssetInstanceRecord>[])),
+          assetInstancesProvider(
+            base.id,
           ).overrideWith((ref) => Stream.value(const <AssetInstanceRecord>[])),
         ],
         child: MaterialApp(
+          home: Scaffold(body: AssetHierarchyAdminTab(actor: _admin(now))),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final search = find.widgetWithText(TextField, '');
+    expect(search, findsOneWidget);
+    await tester.enterText(search, 'base');
+    await tester.pumpAndSettle();
+
+    final reboundSearch = find.byType(TextField);
+    expect(reboundSearch, findsOneWidget);
+    expect(tester.widget<TextField>(reboundSearch).controller?.text, 'base');
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const ValueKey('asset-hierarchy-class-selector')),
+          )
+          .initialValue,
+      base.id,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact hierarchy retains sync controls while loading', (
+    tester,
+  ) async {
+    final classes = StreamController<List<AssetClassRecord>>();
+    addTearDown(classes.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [assetClassesProvider.overrideWith((ref) => classes.stream)],
+        child: MaterialApp(
           home: Scaffold(
-            body: Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: 390,
-                height: 560,
-                child: AssetHierarchyAdminTab(actor: _admin(now)),
+            body: AssetHierarchyAdminTab(
+              actor: _admin(DateTime.utc(2026, 8, 28, 14, 20)),
+              compactHeader: const SizedBox(
+                key: ValueKey('loading-asset-hierarchy-sync-header'),
+                height: 52,
+                child: Center(child: Text('Sync status')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find
+          .byKey(const ValueKey('loading-asset-hierarchy-sync-header'))
+          .hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('Loading asset hierarchy'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact hierarchy retains sync controls on load failure', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetClassesProvider.overrideWith(
+            (ref) => Stream<List<AssetClassRecord>>.error(
+              StateError('controlled read failure'),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: AssetHierarchyAdminTab(
+              actor: _admin(DateTime.utc(2026, 8, 28, 14, 25)),
+              compactHeader: const SizedBox(
+                key: ValueKey('error-asset-hierarchy-sync-header'),
+                height: 52,
+                child: Center(child: Text('Sync status')),
               ),
             ),
           ),
@@ -59,16 +224,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final toolbar = find.byKey(
-      const ValueKey('asset-hierarchy-mobile-toolbar'),
+    expect(
+      find
+          .byKey(const ValueKey('error-asset-hierarchy-sync-header'))
+          .hitTestable(),
+      findsOneWidget,
     );
-    final hierarchyList = find.byKey(
-      const ValueKey('asset-hierarchy-definition-list'),
-    );
-    expect(toolbar, findsOneWidget);
-    expect(hierarchyList, findsOneWidget);
-    expect(tester.getSize(toolbar).height, lessThanOrEqualTo(56));
-    expect(tester.getSize(hierarchyList).height, greaterThanOrEqualTo(200));
+    expect(find.textContaining('controlled read failure'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -147,6 +310,22 @@ AssetClassRecord _assetClass(DateTime now) => AssetClassRecord(
   updatedAt: now,
   updatedByUid: 'admin-1',
   lastMutationId: 'class-mutation',
+);
+
+AssetClassRecord _baseAssetClass(DateTime now) => AssetClassRecord(
+  id: 'base-class',
+  code: 'BASE',
+  name: 'Base',
+  majorArea: 'BAF shop',
+  legacyAssetTypeKey: 'base',
+  shortDescription: 'Base hierarchy used to verify compact search continuity.',
+  status: AssetHierarchyStatus.active,
+  version: 1,
+  createdAt: now,
+  createdByUid: 'admin-1',
+  updatedAt: now,
+  updatedByUid: 'admin-1',
+  lastMutationId: 'base-class-mutation',
 );
 
 AssetHierarchyNode _hierarchyNode(

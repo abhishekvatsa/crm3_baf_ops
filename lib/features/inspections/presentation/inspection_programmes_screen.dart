@@ -402,7 +402,14 @@ class _DefinitionList extends ConsumerWidget {
                 trailing:
                     actor.canManageInspectionDefinitions
                         ? IconButton.filledTonal(
+                          key: const ValueKey('inspection-add-definition'),
                           tooltip: 'Add inspection definition',
+                          style: IconButton.styleFrom(
+                            backgroundColor: BafColors.instrument,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: BafColors.surfaceStrong,
+                            disabledForegroundColor: BafColors.textTertiary,
+                          ),
                           onPressed:
                               classes.any((item) => item.isActive)
                                   ? () => _editDefinition(context, ref, classes)
@@ -2250,6 +2257,7 @@ class _FindingVerificationDialogState
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
+            isExpanded: true,
             initialValue: _observationId,
             decoration: const InputDecoration(
               labelText: 'Later verification reading',
@@ -2269,6 +2277,7 @@ class _FindingVerificationDialogState
           ),
           const SizedBox(height: BafSpacing.md),
           DropdownButtonFormField<String>(
+            isExpanded: true,
             initialValue: _outcome,
             decoration: const InputDecoration(labelText: 'Outcome'),
             items: const [

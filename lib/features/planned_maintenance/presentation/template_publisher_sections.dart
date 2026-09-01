@@ -235,6 +235,7 @@ class _PackageSection extends StatelessWidget {
       child: Column(
         children: [
           DropdownButtonFormField<String?>(
+            isExpanded: true,
             initialValue: selectedPackageId,
             decoration: _inputDecoration(
               label: 'Template package',
@@ -1000,7 +1001,10 @@ class _ArchivePublisherDraftReasonDialogState
         ),
         FilledButton.icon(
           key: const Key('publisher-confirm-archive-draft'),
-          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
+          ),
           onPressed:
               canArchive ? () => Navigator.pop(context, _reason.trim()) : null,
           icon: const Icon(Icons.archive_rounded),

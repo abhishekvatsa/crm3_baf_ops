@@ -811,6 +811,7 @@ class _AssetConditionRow extends ConsumerWidget {
     final draft = await showModalBottomSheet<_ConditionDraft>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       builder:
           (context) => _DeclareConditionSheet(
@@ -1085,6 +1086,7 @@ class _DeclareConditionSheetState
                           widget.condition == AssetOperationalCondition.down
                               ? BafColors.danger
                               : BafColors.warning,
+                      foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(48),
                     ),
                   ),

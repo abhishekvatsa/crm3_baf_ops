@@ -90,6 +90,8 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
           ),
         ],
         bottom: const TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
             Tab(icon: Icon(Icons.view_agenda_outlined), text: 'Agenda'),
             Tab(icon: Icon(Icons.task_alt_outlined), text: 'Actions'),
@@ -862,7 +864,10 @@ class _SessionStrip extends StatelessWidget {
               onPressed: busy ? null : onFinalize,
               icon: const Icon(Icons.task_alt_rounded),
               label: const Text('Finalize'),
-              style: FilledButton.styleFrom(backgroundColor: BafColors.success),
+              style: FilledButton.styleFrom(
+                backgroundColor: BafColors.success,
+                foregroundColor: Colors.white,
+              ),
             ),
           if (onOpenRecord != null)
             OutlinedButton.icon(
@@ -1033,6 +1038,12 @@ class _AgendaTab extends StatelessWidget {
                               onAddConcern != null
                           ? IconButton.filledTonal(
                             tooltip: 'Add standing concern',
+                            style: IconButton.styleFrom(
+                              backgroundColor: BafColors.cobalt,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: BafColors.surfaceStrong,
+                              disabledForegroundColor: BafColors.textTertiary,
+                            ),
                             onPressed: busy ? null : onAddConcern,
                             icon: const Icon(Icons.push_pin_outlined),
                           )
@@ -1805,6 +1816,7 @@ class _ActionCard extends StatelessWidget {
                   label: const Text('Complete'),
                   style: FilledButton.styleFrom(
                     backgroundColor: BafColors.success,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ],

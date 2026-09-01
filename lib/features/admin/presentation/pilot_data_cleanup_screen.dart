@@ -325,6 +325,7 @@ class _PilotDataCleanupScreenState
         child: FilledButton.icon(
           style: FilledButton.styleFrom(
             backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
             minimumSize: const Size.fromHeight(50),
           ),
           onPressed: _busy || selectedTotal == 0 ? null : () => _purge(rows),
@@ -553,7 +554,10 @@ class _BulkPurgeDialogState extends State<_BulkPurgeDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton.icon(
-        style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+        style: FilledButton.styleFrom(
+          backgroundColor: BafColors.danger,
+          foregroundColor: Colors.white,
+        ),
         onPressed: _submit,
         icon: const Icon(Icons.delete_forever_rounded),
         label: const Text('Remove permanently'),

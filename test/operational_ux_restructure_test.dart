@@ -165,10 +165,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Workflow queue'), findsOneWidget);
-    expect(find.text('Workflow overview'), findsOneWidget);
-    expect(find.text('Compliance inbox'), findsOneWidget);
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('Inbox'), findsOneWidget);
     expect(find.text('Equipment'), findsOneWidget);
+    expect(find.text('Queue clear'), findsOneWidget);
     expect(find.text('No workflow tasks need your attention.'), findsOneWidget);
+
+    final destinations = <Finder>[
+      find.byKey(const ValueKey('workflow-queue-overview')),
+      find.byKey(const ValueKey('workflow-queue-compliance')),
+      find.byKey(const ValueKey('workflow-queue-equipment')),
+    ];
+    final destinationRects = destinations.map(tester.getRect).toList();
+    expect(destinationRects.map((rect) => rect.top).toSet().length, 1);
+    expect(destinationRects.map((rect) => rect.height).toSet().length, 1);
+    expect(
+      destinationRects.map((rect) => rect.width.round()).toSet().length,
+      1,
+    );
+
+    final metrics = <Finder>[
+      find.byKey(const ValueKey('workflow-queue-lanes-metric')),
+      find.byKey(const ValueKey('workflow-queue-actions-metric')),
+      find.byKey(const ValueKey('workflow-queue-confirmations-metric')),
+    ];
+    final metricRects = metrics.map(tester.getRect).toList();
+    expect(metricRects.map((rect) => rect.top).toSet().length, 1);
+    expect(metricRects.map((rect) => rect.height).toSet().length, 1);
+    expect(metricRects.map((rect) => rect.width.round()).toSet().length, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -198,12 +222,24 @@ void main() {
 
     expect(find.text('Open issues'), findsOneWidget);
     expect(find.byKey(const ValueKey('issues-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey('issues-sync-now')), findsOneWidget);
+    expect(find.byKey(const ValueKey('issues-view-resolved')), findsOneWidget);
     expect(find.byKey(const ValueKey('issues-raise-issue')), findsOneWidget);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('issues-search'))).dy,
       lessThan(
         tester.getTopLeft(find.byKey(const ValueKey('issues-raise-issue'))).dy,
       ),
+    );
+    final actionRowY =
+        tester.getCenter(find.byKey(const ValueKey('issues-raise-issue'))).dy;
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('issues-sync-now'))).dy,
+      actionRowY,
+    );
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('issues-view-resolved'))).dy,
+      actionRowY,
     );
     expect(find.text('All clear'), findsOneWidget);
     expect(find.text('Manual sync now'), findsNothing);

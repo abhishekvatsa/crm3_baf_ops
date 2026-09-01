@@ -1265,6 +1265,7 @@ Future<void> _showComponentLineage(
 ) {
   return showModalBottomSheet<void>(
     context: context,
+    useSafeArea: true,
     showDragHandle: true,
     isScrollControlled: true,
     builder:
