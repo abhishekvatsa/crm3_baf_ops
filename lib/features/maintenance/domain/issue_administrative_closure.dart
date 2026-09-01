@@ -3,6 +3,8 @@ import 'dart:convert';
 import '../../../core/serialization/persisted_data_reader.dart';
 
 const issueAdministrativeClosureSchemaVersion = 1;
+const issueAdministrativeClosureStillRelevantMetadataNeedle =
+    '"disposition":"stillRelevant"';
 
 const issueAdministrativeClosureSynchronizedFields = <String>{
   'issueClosureSchemaVersion',

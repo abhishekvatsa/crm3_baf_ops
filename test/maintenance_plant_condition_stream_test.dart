@@ -84,6 +84,25 @@ void main() {
       expect(source, contains('ticket.canStillAffectPlantCondition'));
     },
   );
+
+  test('native stream constrains retained closures at the Isar query', () {
+    final source =
+        File(
+          'lib/features/maintenance/providers/maintenance_provider.local.dart',
+        ).readAsStringSync();
+
+    expect(
+      source,
+      contains('.statusEqualTo(TicketStatus.closedWithoutResolution)'),
+    );
+    expect(source, contains('.isSyncedEqualTo(true)'));
+    expect(source, contains('.isDeletedEqualTo(false)'));
+    expect(source, contains('.metadataJsonContains('));
+    expect(
+      source,
+      contains('issueAdministrativeClosureStillRelevantMetadataNeedle'),
+    );
+  });
 }
 
 MaintenanceRecord _record({

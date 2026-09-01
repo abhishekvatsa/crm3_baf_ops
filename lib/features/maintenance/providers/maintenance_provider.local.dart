@@ -62,7 +62,18 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         .or()
         .isSyncedEqualTo(false)
         .or()
-        .statusEqualTo(TicketStatus.closedWithoutResolution)
+        .group(
+          (query) => query
+              .statusEqualTo(TicketStatus.closedWithoutResolution)
+              .and()
+              .isSyncedEqualTo(true)
+              .and()
+              .isDeletedEqualTo(false)
+              .and()
+              .metadataJsonContains(
+                issueAdministrativeClosureStillRelevantMetadataNeedle,
+              ),
+        )
         .watch(fireImmediately: true)
         .map((tickets) {
           final relevant =
