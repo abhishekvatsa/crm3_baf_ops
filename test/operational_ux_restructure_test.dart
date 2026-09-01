@@ -198,12 +198,24 @@ void main() {
 
     expect(find.text('Open issues'), findsOneWidget);
     expect(find.byKey(const ValueKey('issues-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey('issues-sync-now')), findsOneWidget);
+    expect(find.byKey(const ValueKey('issues-view-resolved')), findsOneWidget);
     expect(find.byKey(const ValueKey('issues-raise-issue')), findsOneWidget);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('issues-search'))).dy,
       lessThan(
         tester.getTopLeft(find.byKey(const ValueKey('issues-raise-issue'))).dy,
       ),
+    );
+    final actionRowY =
+        tester.getCenter(find.byKey(const ValueKey('issues-raise-issue'))).dy;
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('issues-sync-now'))).dy,
+      actionRowY,
+    );
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('issues-view-resolved'))).dy,
+      actionRowY,
     );
     expect(find.text('All clear'), findsOneWidget);
     expect(find.text('Manual sync now'), findsNothing);

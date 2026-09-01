@@ -933,17 +933,6 @@ class _IssuesHeader extends StatelessWidget {
                   : 'Issues raised by you and still active.',
           icon: Icons.report_problem_outlined,
           accent: BafColors.maintenance,
-          trailing: IconButton.outlined(
-            tooltip: isSyncing ? 'Sync in progress' : 'Refresh issues',
-            onPressed: isSyncing ? null : () => onSyncNow(),
-            icon:
-                isSyncing
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.refresh_rounded),
-          ),
         ),
         const SizedBox(height: BafSpacing.md),
         LayoutBuilder(
@@ -953,49 +942,63 @@ class _IssuesHeader extends StatelessWidget {
               hintText: 'Search asset, component or description',
               onChanged: onQueryChanged,
             );
+            final sync = Tooltip(
+              message: isSyncing ? 'Sync in progress' : 'Refresh issues',
+              child: OutlinedButton.icon(
+                key: const ValueKey('issues-sync-now'),
+                onPressed: isSyncing ? null : () => onSyncNow(),
+                icon:
+                    isSyncing
+                        ? const SizedBox.square(
+                          dimension: 17,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.refresh_rounded, size: 19),
+                label: const Text('Sync'),
+                style: _compactIssueActionStyle(),
+              ),
+            );
             final raise = FilledButton.icon(
               key: const ValueKey('issues-raise-issue'),
               onPressed: onRaiseIssue,
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(Icons.add_rounded, size: 19),
               label: const Text('Raise'),
-              style: FilledButton.styleFrom(
+              style: _compactIssueActionStyle(
                 backgroundColor: BafColors.maintenance,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(88, 48),
               ),
             );
             final resolved = OutlinedButton.icon(
               key: const ValueKey('issues-view-resolved'),
               onPressed: onViewResolved,
-              icon: const Icon(Icons.task_alt_rounded),
+              icon: const Icon(Icons.task_alt_rounded, size: 19),
               label: const Text('Resolved'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size(108, 48)),
+              style: _compactIssueActionStyle(),
             );
-            if (constraints.maxWidth < 480) {
+            final actions = Row(
+              children: [
+                Expanded(child: sync),
+                const SizedBox(width: BafSpacing.sm),
+                Expanded(child: resolved),
+                const SizedBox(width: BafSpacing.sm),
+                Expanded(child: raise),
+              ],
+            );
+            if (constraints.maxWidth < 720) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   search,
                   const SizedBox(height: BafSpacing.sm),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: BafSpacing.sm,
-                      runSpacing: BafSpacing.sm,
-                      children: [resolved, raise],
-                    ),
-                  ),
+                  actions,
                 ],
               );
             }
             return Row(
               children: [
                 Expanded(child: search),
-                const SizedBox(width: BafSpacing.sm),
-                resolved,
-                const SizedBox(width: BafSpacing.sm),
-                raise,
+                const SizedBox(width: BafSpacing.md),
+                SizedBox(width: 368, child: actions),
               ],
             );
           },
@@ -1012,6 +1015,20 @@ class _IssuesHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  ButtonStyle _compactIssueActionStyle({
+    Color? backgroundColor,
+    Color? foregroundColor,
+  }) {
+    return OutlinedButton.styleFrom(
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      minimumSize: const Size(0, 48),
+      padding: const EdgeInsets.symmetric(horizontal: BafSpacing.sm),
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
