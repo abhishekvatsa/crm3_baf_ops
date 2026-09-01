@@ -402,9 +402,9 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "538dad04b33e92245ba3613dfdd067ca1b82eef9"
+        == "77dcd71c913215179c17c15c0c984f36a70ac97a"
     and post_codegen_refresh.get("sourceTree")
-        == "6659e510cfc83d7c4ccadbfd712618b231564327"
+        == "ec7ac44356219c2080acf70f589d07ac417ca139"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
         "lib/features/maintenance/data/maintenance_model.g.dart",
@@ -11686,16 +11686,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 564
-    and a03_inventory_report.get("siteCount") == 1936
+    and a03_inventory_report.get("operationCount") == 565
+    and a03_inventory_report.get("siteCount") == 1940
     and a03_inventory_report.get("inventoryDigest")
-        == "6609F39902933E451E4E711C589A6644EF3A43AF0F42C082CA83152A04A693F8"
+        == "8EEF2E38B103F506BBD98BA1EA0F3308065AF5B849D01437B532D98726F39BEA"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 59
-    and len({surface.get("path") for surface in a03_surfaces}) == 59
+    and len(a03_surfaces) == 60
+    and len({surface.get("path") for surface in a03_surfaces}) == 60
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles

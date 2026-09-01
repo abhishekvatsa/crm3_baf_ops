@@ -42,8 +42,8 @@
       "bytes": 240344
     },
     "lib/features/maintenance/data/maintenance_model.g.dart": {
-      "sha256": "8C25463CF6ED1AFC516A857C1E0F06CB2385EF66E68A54BF631A5CC39FCE5A3D",
-      "bytes": 449632
+      "sha256": "67688B22B3F570F64979CD64507FDF34F7645AE559D82A91284B2226F7E8CEBF",
+      "bytes": 454263
     },
     "lib/features/maintenance_workflow/data/compliance_attempt_record.g.dart": {
       "sha256": "62AEC2A023995203E020FEB596A5E9E2802BCEF964426C43F8816767A5144A0F",
@@ -103,8 +103,8 @@
     }
   },
   "currentSourceRefresh": {
-    "sourceCommit": "538dad04b33e92245ba3613dfdd067ca1b82eef9",
-    "sourceTree": "6659e510cfc83d7c4ccadbfd712618b231564327",
+    "sourceCommit": "77dcd71c913215179c17c15c0c984f36a70ac97a",
+    "sourceTree": "ec7ac44356219c2080acf70f589d07ac417ca139",
     "command": "dart run build_runner build --delete-conflicting-outputs",
     "codegenResult": "PASS",
     "changedBindingPaths": [
