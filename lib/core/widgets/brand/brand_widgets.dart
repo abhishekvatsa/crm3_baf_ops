@@ -70,25 +70,33 @@ class BafBrandLockup extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                BafBrand.productName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: primary,
-                  fontSize: compact ? 14 : 16,
-                  fontWeight: FontWeight.w800,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  BafBrand.productName,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: primary,
+                    fontSize: compact ? 14 : 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const SizedBox(height: 1),
-              Text(
-                BafBrand.makerLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: secondary,
-                  fontSize: compact ? 8 : 9,
-                  fontWeight: FontWeight.w800,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  BafBrand.makerLabel,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: secondary,
+                    fontSize: compact ? 8 : 9,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],

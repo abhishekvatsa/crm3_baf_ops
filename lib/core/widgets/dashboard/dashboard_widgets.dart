@@ -184,22 +184,59 @@ class DashboardHeader extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: BafBrandLockup(onDark: true, compact: true),
+                child: BafBrandLockup(
+                  key: ValueKey('dashboard-brand-lockup'),
+                  onDark: true,
+                  compact: true,
+                ),
               ),
-              Flexible(child: syncIndicator),
-              const SizedBox(width: BafSpacing.sm),
-              GestureDetector(onTap: onProfileTap, child: avatar),
+              const SizedBox(width: BafSpacing.md),
+              Semantics(
+                button: true,
+                label: 'Open profile',
+                child: InkResponse(
+                  key: const ValueKey('dashboard-profile-action'),
+                  onTap: onProfileTap,
+                  radius: 24,
+                  child: SizedBox.square(
+                    dimension: 44,
+                    child: Center(child: avatar),
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: BafSpacing.lg),
-          const Text(
-            'Shift overview',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-            ),
+          const SizedBox(height: BafSpacing.md),
+          Row(
+            children: [
+              const Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Shift overview',
+                      key: ValueKey('dashboard-shift-title'),
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: BafSpacing.md),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 132),
+                child: KeyedSubtree(
+                  key: const ValueKey('dashboard-sync-action'),
+                  child: syncIndicator,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: BafSpacing.xs),
           Text(

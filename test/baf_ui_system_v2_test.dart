@@ -5,6 +5,7 @@ import 'package:crm3_baf_ops/core/widgets/baf_ui.dart';
 import 'package:crm3_baf_ops/core/widgets/dashboard/dashboard_widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -232,6 +233,19 @@ void main() {
         _contrastRatio(Colors.white, BafColors.graphite),
         greaterThanOrEqualTo(7),
       );
+      for (final statusColor in <Color>[
+        BafColors.sync,
+        BafColors.warning,
+        BafColors.danger,
+      ]) {
+        expect(
+          _contrastRatio(
+            Color.lerp(statusColor, Colors.white, 0.48)!,
+            BafColors.graphite,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
     });
 
     testWidgets('filled icon actions retain high-contrast foregrounds', (
@@ -448,6 +462,72 @@ void main() {
 
       expect(find.byType(CustomPaint), findsWidgets);
       expect(find.text('Shift overview'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('dashboard identity and actions occupy two stable phone rows', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 260));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(BafSpacing.md),
+              child: DashboardHeader(
+                userName: 'Abhishek Vatsa',
+                avatar: const CircleAvatar(child: Text('A')),
+                syncIndicator: Container(
+                  width: 96,
+                  height: 30,
+                  alignment: Alignment.center,
+                  child: const Text('Sync now'),
+                ),
+                onProfileTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final header = tester.getRect(find.byType(DashboardHeader));
+      final profile = tester.getRect(
+        find.byKey(const ValueKey('dashboard-profile-action')),
+      );
+      final brand = tester.getRect(
+        find.byKey(const ValueKey('dashboard-brand-lockup')),
+      );
+      final sync = tester.getRect(
+        find.byKey(const ValueKey('dashboard-sync-action')),
+      );
+      final title = tester.getRect(
+        find.byKey(const ValueKey('dashboard-shift-title')),
+      );
+      final productName = tester.renderObject<RenderParagraph>(
+        find.text(BafBrand.productName),
+      );
+      final makerName = tester.renderObject<RenderParagraph>(
+        find.text(BafBrand.makerLabel),
+      );
+
+      expect(
+        header.right - profile.right,
+        lessThanOrEqualTo(BafSpacing.lg + 1.1),
+      );
+      expect(sync.top, greaterThan(profile.bottom));
+      expect(sync.right, closeTo(profile.right, 0.1));
+      expect((sync.center.dy - title.center.dy).abs(), lessThan(8));
+      expect(
+        productName.didExceedMaxLines,
+        isFalse,
+        reason:
+            'product=${productName.size}, constraints=${productName.constraints}, brand=$brand',
+      );
+      expect(makerName.didExceedMaxLines, isFalse);
       expect(tester.takeException(), isNull);
     });
 
