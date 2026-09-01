@@ -582,6 +582,8 @@ class LocalDiagnosticsRow {
   });
 }
 
+enum _LocalDiagnosticsAction { recoveryPackage, saveFile, copy }
+
 class LocalDiagnosticsScreen extends ConsumerWidget {
   const LocalDiagnosticsScreen({super.key});
 
@@ -627,37 +629,46 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
               ),
               reportAsync.maybeWhen(
                 data:
-                    (report) => IconButton(
-                      tooltip: 'Create recovery package',
-                      onPressed:
-                          report.isWebUnavailable
-                              ? null
-                              : () => _createRecoveryPackage(context, report),
-                      icon: const Icon(Icons.inventory_2_rounded),
-                    ),
-                orElse: () => const SizedBox.shrink(),
-              ),
-              reportAsync.maybeWhen(
-                data:
-                    (report) => IconButton(
-                      tooltip: 'Save diagnostics file',
-                      onPressed:
-                          report.isWebUnavailable
-                              ? null
-                              : () => _saveReportFile(context, report),
-                      icon: const Icon(Icons.file_download_rounded),
-                    ),
-                orElse: () => const SizedBox.shrink(),
-              ),
-              reportAsync.maybeWhen(
-                data:
-                    (report) => IconButton(
-                      tooltip: 'Copy diagnostics',
-                      onPressed:
-                          report.isWebUnavailable
-                              ? null
-                              : () => _copyReport(context, report),
-                      icon: const Icon(Icons.copy_rounded),
+                    (report) => PopupMenuButton<_LocalDiagnosticsAction>(
+                      tooltip: 'Diagnostics actions',
+                      enabled: !report.isWebUnavailable,
+                      onSelected: (action) {
+                        switch (action) {
+                          case _LocalDiagnosticsAction.recoveryPackage:
+                            _createRecoveryPackage(context, report);
+                          case _LocalDiagnosticsAction.saveFile:
+                            _saveReportFile(context, report);
+                          case _LocalDiagnosticsAction.copy:
+                            _copyReport(context, report);
+                        }
+                      },
+                      itemBuilder:
+                          (context) => const [
+                            PopupMenuItem(
+                              value: _LocalDiagnosticsAction.recoveryPackage,
+                              child: ListTile(
+                                leading: Icon(Icons.inventory_2_rounded),
+                                title: Text('Create recovery package'),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: _LocalDiagnosticsAction.saveFile,
+                              child: ListTile(
+                                leading: Icon(Icons.file_download_rounded),
+                                title: Text('Save diagnostics file'),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: _LocalDiagnosticsAction.copy,
+                              child: ListTile(
+                                leading: Icon(Icons.copy_rounded),
+                                title: Text('Copy diagnostics'),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ],
                     ),
                 orElse: () => const SizedBox.shrink(),
               ),

@@ -34,7 +34,9 @@ Future<bool> executePilotBusinessRecordPurge({
 }) async {
   final actor = ref.read(currentAppUserProvider).value;
   if (actor == null || !actor.isApproved || !actor.isAdmin) {
-    throw StateError('Fresh Admin authority is required for permanent removal.');
+    throw StateError(
+      'Fresh Admin authority is required for permanent removal.',
+    );
   }
   final command = WorkflowCommandFactory.create(
     type: WorkflowCommandType.purgePilotBusinessRecord,
@@ -218,7 +220,10 @@ class _PilotPurgeDialogState extends State<_PilotPurgeDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
+          ),
           onPressed: _submit,
           icon: const Icon(Icons.delete_forever_rounded),
           label: const Text('Remove permanently'),

@@ -3,6 +3,43 @@ import 'package:flutter/material.dart';
 import '../theme/baf_design_system.dart';
 import 'brand/brand_widgets.dart';
 
+double bafDialogBodyHeight(
+  BuildContext context, {
+  required double preferred,
+  double minimum = 180,
+  double reservedChrome = 220,
+}) {
+  final media = MediaQuery.of(context);
+  final available =
+      media.size.height - media.viewInsets.bottom - reservedChrome;
+  return available.clamp(minimum, preferred).toDouble();
+}
+
+/// Keeps mode controls intact on compact screens without compressing labels
+/// into unreadable fragments. Short controls still occupy the available width.
+class BafHorizontalControlRail extends StatelessWidget {
+  const BafHorizontalControlRail({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minimumWidth =
+            constraints.hasBoundedWidth ? constraints.maxWidth : 0.0;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: minimumWidth),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Standard top-level shell for operational and governance screens.
 ///
 /// Keeping page identity and background treatment here prevents nested feature
@@ -427,70 +464,83 @@ class BafStatePanel extends StatelessWidget {
       liveRegion: true,
       container: true,
       label: '$title. $message',
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: BafSpacing.lg,
-              vertical: BafSpacing.xxl,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _AccentIcon(icon: icon, accent: color, size: 54),
-                const SizedBox(height: BafSpacing.lg),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final panel = Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BafSpacing.lg,
+                  vertical: BafSpacing.xxl,
                 ),
-                const SizedBox(height: BafSpacing.sm),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: BafColors.textSecondary,
-                  ),
-                ),
-                if (primaryLabel != null || secondaryLabel != null) ...[
-                  const SizedBox(height: BafSpacing.xl),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: BafSpacing.sm,
-                    runSpacing: BafSpacing.sm,
-                    children: [
-                      if (primaryLabel != null)
-                        FilledButton.icon(
-                          onPressed: busy ? null : onPrimary,
-                          icon:
-                              busy
-                                  ? const SizedBox.square(
-                                    dimension: 17,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                  : Icon(primaryIcon ?? Icons.arrow_forward),
-                          label: Text(primaryLabel!),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: color,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      if (secondaryLabel != null)
-                        OutlinedButton(
-                          onPressed: busy ? null : onSecondary,
-                          child: Text(secondaryLabel!),
-                        ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _AccentIcon(icon: icon, accent: color, size: 54),
+                    const SizedBox(height: BafSpacing.lg),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: BafSpacing.sm),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: BafColors.textSecondary,
+                      ),
+                    ),
+                    if (primaryLabel != null || secondaryLabel != null) ...[
+                      const SizedBox(height: BafSpacing.xl),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: BafSpacing.sm,
+                        runSpacing: BafSpacing.sm,
+                        children: [
+                          if (primaryLabel != null)
+                            FilledButton.icon(
+                              onPressed: busy ? null : onPrimary,
+                              icon:
+                                  busy
+                                      ? const SizedBox.square(
+                                        dimension: 17,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                      : Icon(
+                                        primaryIcon ?? Icons.arrow_forward,
+                                      ),
+                              label: Text(primaryLabel!),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: color,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          if (secondaryLabel != null)
+                            OutlinedButton(
+                              onPressed: busy ? null : onSecondary,
+                              child: Text(secondaryLabel!),
+                            ),
+                        ],
+                      ),
                     ],
-                  ),
-                ],
-              ],
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+          if (!constraints.hasBoundedHeight) return panel;
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: panel,
+            ),
+          );
+        },
       ),
     );
   }

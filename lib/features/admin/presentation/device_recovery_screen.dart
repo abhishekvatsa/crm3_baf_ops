@@ -548,6 +548,7 @@ class _RecoveryConfirmationDialogState
           style: FilledButton.styleFrom(
             backgroundColor:
                 widget.cancel ? BafColors.warning : BafColors.danger,
+            foregroundColor: Colors.white,
           ),
           onPressed: () {
             if (_form.currentState?.validate() != true) return;

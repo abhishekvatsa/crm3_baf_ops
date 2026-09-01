@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/widgets/baf_ui.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../domain/morning_review_models.dart';
@@ -586,22 +587,24 @@ class _MorningReviewStandingConcernEditorState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SegmentedButton<MorningReviewConcernCriticality>(
-                segments: const [
-                  ButtonSegment(
-                    value: MorningReviewConcernCriticality.standing,
-                    icon: Icon(Icons.push_pin_outlined),
-                    label: Text('Standing'),
-                  ),
-                  ButtonSegment(
-                    value: MorningReviewConcernCriticality.safety,
-                    icon: Icon(Icons.health_and_safety_outlined),
-                    label: Text('Safety'),
-                  ),
-                ],
-                selected: {_criticality},
-                onSelectionChanged:
-                    (value) => setState(() => _criticality = value.single),
+              BafHorizontalControlRail(
+                child: SegmentedButton<MorningReviewConcernCriticality>(
+                  segments: const [
+                    ButtonSegment(
+                      value: MorningReviewConcernCriticality.standing,
+                      icon: Icon(Icons.push_pin_outlined),
+                      label: Text('Standing'),
+                    ),
+                    ButtonSegment(
+                      value: MorningReviewConcernCriticality.safety,
+                      icon: Icon(Icons.health_and_safety_outlined),
+                      label: Text('Safety'),
+                    ),
+                  ],
+                  selected: {_criticality},
+                  onSelectionChanged:
+                      (value) => setState(() => _criticality = value.single),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -684,22 +687,24 @@ class _MorningReviewConcernCheckEditorState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SegmentedButton<MorningReviewConcernCheckState>(
-              segments: const [
-                ButtonSegment(
-                  value: MorningReviewConcernCheckState.complied,
-                  icon: Icon(Icons.check_circle_outline),
-                  label: Text('Complied'),
-                ),
-                ButtonSegment(
-                  value: MorningReviewConcernCheckState.exception,
-                  icon: Icon(Icons.error_outline_rounded),
-                  label: Text('Exception'),
-                ),
-              ],
-              selected: {_state},
-              onSelectionChanged:
-                  (value) => setState(() => _state = value.single),
+            BafHorizontalControlRail(
+              child: SegmentedButton<MorningReviewConcernCheckState>(
+                segments: const [
+                  ButtonSegment(
+                    value: MorningReviewConcernCheckState.complied,
+                    icon: Icon(Icons.check_circle_outline),
+                    label: Text('Complied'),
+                  ),
+                  ButtonSegment(
+                    value: MorningReviewConcernCheckState.exception,
+                    icon: Icon(Icons.error_outline_rounded),
+                    label: Text('Exception'),
+                  ),
+                ],
+                selected: {_state},
+                onSelectionChanged:
+                    (value) => setState(() => _state = value.single),
+              ),
             ),
             const SizedBox(height: 16),
             TextFormField(

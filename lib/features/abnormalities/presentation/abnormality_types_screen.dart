@@ -456,6 +456,7 @@ class _AbnormalityTypeFormDialogState
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AbnormalityCategory>(
+                  isExpanded: true,
                   initialValue: _selectedCategory,
                   decoration: _inputDecoration(label: 'Category'),
                   items:
@@ -475,6 +476,7 @@ class _AbnormalityTypeFormDialogState
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AbnormalitySeverity>(
+                  isExpanded: true,
                   initialValue: _selectedSeverity,
                   decoration: _inputDecoration(label: 'Default Severity'),
                   items:
@@ -580,7 +582,10 @@ class _AbnormalityTypeFormDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.navy),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.navy,
+            foregroundColor: Colors.white,
+          ),
           onPressed: _isSaving ? null : _submit,
           child:
               _isSaving
@@ -739,6 +744,7 @@ class _AbnormalityTypeDeleteDialogState
               ),
               const SizedBox(height: BafSpacing.md),
               DropdownButtonFormField<AuditReason>(
+                isExpanded: true,
                 decoration: _inputDecoration(label: 'Reason', hint: 'Optional'),
                 initialValue: _selectedReason,
                 items:
@@ -770,7 +776,10 @@ class _AbnormalityTypeDeleteDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.danger,
+            foregroundColor: Colors.white,
+          ),
           onPressed:
               () => Navigator.pop(
                 context,

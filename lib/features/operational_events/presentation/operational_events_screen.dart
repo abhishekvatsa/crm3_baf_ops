@@ -107,7 +107,7 @@ class _OperationalEventsScreenState
                   label: const Text('Add event'),
                   style: FilledButton.styleFrom(
                     backgroundColor: BafColors.warning,
-                    foregroundColor: BafColors.graphite,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ),
@@ -729,6 +729,7 @@ class _EventDialogState extends State<_EventDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<OperationalEventType>(
+              isExpanded: true,
               initialValue: _type,
               decoration: const InputDecoration(labelText: 'Event type'),
               items:
@@ -758,6 +759,7 @@ class _EventDialogState extends State<_EventDialog> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<OperationalEventSeverity>(
+              isExpanded: true,
               initialValue: _severity,
               decoration: const InputDecoration(labelText: 'Severity'),
               items:
@@ -773,6 +775,7 @@ class _EventDialogState extends State<_EventDialog> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<OperationalEventScope>(
+              isExpanded: true,
               initialValue: _scope,
               decoration: const InputDecoration(labelText: 'Affected scope'),
               items:
@@ -915,7 +918,11 @@ class _EventDialogState extends State<_EventDialog> {
               title: Text(title),
               content: SizedBox(
                 width: 480,
-                height: 420,
+                height: bafDialogBodyHeight(
+                  context,
+                  preferred: 420,
+                  minimum: 180,
+                ),
                 child: ListView(
                   children:
                       choices.entries

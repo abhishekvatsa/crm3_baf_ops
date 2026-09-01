@@ -2257,6 +2257,7 @@ class _FindingVerificationDialogState
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
+            isExpanded: true,
             initialValue: _observationId,
             decoration: const InputDecoration(
               labelText: 'Later verification reading',
@@ -2276,6 +2277,7 @@ class _FindingVerificationDialogState
           ),
           const SizedBox(height: BafSpacing.md),
           DropdownButtonFormField<String>(
+            isExpanded: true,
             initialValue: _outcome,
             decoration: const InputDecoration(labelText: 'Outcome'),
             items: const [

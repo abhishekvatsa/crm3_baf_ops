@@ -557,11 +557,31 @@ void main() {
     expect(position.dy, closeTo(systemInsets.top + 12, 1));
     expect(tester.getSize(launcher), const Size.square(48));
   });
+
+  testWidgets('global alarm launcher stays above an open keyboard', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpLauncherHost(
+      tester,
+      viewInsets: const EdgeInsets.only(bottom: 300),
+    );
+
+    final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
+    final gesture = await tester.startGesture(tester.getCenter(launcher));
+    await gesture.moveBy(const Offset(0, 1000));
+    await gesture.up();
+    await tester.pump();
+
+    expect(tester.getTopLeft(launcher).dy, closeTo(368, 1));
+  });
 }
 
 Future<void> _pumpLauncherHost(
   WidgetTester tester, {
   EdgeInsets systemInsets = EdgeInsets.zero,
+  EdgeInsets viewInsets = EdgeInsets.zero,
 }) async {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(_channel, (call) async {
@@ -585,6 +605,7 @@ Future<void> _pumpLauncherHost(
             data: media.copyWith(
               padding: systemInsets,
               viewPadding: systemInsets,
+              viewInsets: viewInsets,
             ),
             child: CriticalAlarmHost(
               navigatorKey: navigatorKey,

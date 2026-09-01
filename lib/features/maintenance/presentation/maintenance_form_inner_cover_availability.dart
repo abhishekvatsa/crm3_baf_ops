@@ -132,22 +132,24 @@ class _BaseIssueTargetSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: BafSpacing.sm),
-        SegmentedButton<_BaseIssueTarget>(
-          showSelectedIcon: false,
-          segments: const <ButtonSegment<_BaseIssueTarget>>[
-            ButtonSegment<_BaseIssueTarget>(
-              value: _BaseIssueTarget.governedComponent,
-              icon: Icon(Icons.account_tree_outlined),
-              label: Text('Base component'),
-            ),
-            ButtonSegment<_BaseIssueTarget>(
-              value: _BaseIssueTarget.innerCoverAvailability,
-              icon: Icon(Icons.layers_clear_outlined),
-              label: Text('No Inner Cover'),
-            ),
-          ],
-          selected: <_BaseIssueTarget>{selected},
-          onSelectionChanged: (selection) => onChanged(selection.first),
+        BafHorizontalControlRail(
+          child: SegmentedButton<_BaseIssueTarget>(
+            showSelectedIcon: false,
+            segments: const <ButtonSegment<_BaseIssueTarget>>[
+              ButtonSegment<_BaseIssueTarget>(
+                value: _BaseIssueTarget.governedComponent,
+                icon: Icon(Icons.account_tree_outlined),
+                label: Text('Base component'),
+              ),
+              ButtonSegment<_BaseIssueTarget>(
+                value: _BaseIssueTarget.innerCoverAvailability,
+                icon: Icon(Icons.layers_clear_outlined),
+                label: Text('No Inner Cover'),
+              ),
+            ],
+            selected: <_BaseIssueTarget>{selected},
+            onSelectionChanged: (selection) => onChanged(selection.first),
+          ),
         ),
       ],
     );

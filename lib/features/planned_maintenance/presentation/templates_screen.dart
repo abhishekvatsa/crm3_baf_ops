@@ -167,7 +167,9 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                                 ),
                             data: (_) {
                               if (filteredTemplates.isEmpty) {
-                                return const _EmptyTemplatesState();
+                                return _EmptyTemplatesState(
+                                  bottomPadding: listBottomPadding,
+                                );
                               }
                               return _TemplateList(
                                 templates: filteredTemplates,
@@ -632,62 +634,76 @@ class _TemplateCard extends StatelessWidget {
 }
 
 class _EmptyTemplatesState extends StatelessWidget {
-  const _EmptyTemplatesState();
+  const _EmptyTemplatesState({required this.bottomPadding});
+
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(BafSpacing.xl),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(BafSpacing.xl),
-          decoration: BoxDecoration(
-            color: BafColors.card,
-            borderRadius: BorderRadius.circular(BafRadius.large),
-            border: Border.all(color: BafColors.border),
-            boxShadow: BafShadows.subtle,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 66,
-                height: 66,
+    return CustomScrollView(
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              BafSpacing.xl,
+              BafSpacing.xl,
+              BafSpacing.xl,
+              bottomPadding,
+            ),
+            child: Center(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(BafSpacing.xl),
                 decoration: BoxDecoration(
-                  color: BafColors.planned.withValues(alpha: 0.10),
-                  shape: BoxShape.circle,
+                  color: BafColors.card,
+                  borderRadius: BorderRadius.circular(BafRadius.large),
+                  border: Border.all(color: BafColors.border),
+                  boxShadow: BafShadows.subtle,
                 ),
-                child: const Icon(
-                  Icons.event_note_rounded,
-                  size: 38,
-                  color: BafColors.planned,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 66,
+                      height: 66,
+                      decoration: BoxDecoration(
+                        color: BafColors.planned.withValues(alpha: 0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.event_note_rounded,
+                        size: 38,
+                        color: BafColors.planned,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    const Text(
+                      'No templates yet',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: BafColors.textPrimary,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.sm),
+                    const Text(
+                      'Create a planned job template to standardize recurring work.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: BafSpacing.lg),
-              const Text(
-                'No templates yet',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: BafColors.textPrimary,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              const Text(
-                'Create a planned job template to standardize recurring work.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 13,
-                  height: 1.3,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -22,17 +22,25 @@ Future<OperationsReportDocumentRequest?> showOperationsReportComposer({
 }) => showModalBottomSheet<OperationsReportDocumentRequest>(
   context: context,
   isScrollControlled: true,
+  useSafeArea: true,
   backgroundColor: BafColors.card,
   showDragHandle: true,
   builder:
-      (context) => FractionallySizedBox(
-        heightFactor: 0.92,
-        child: _OperationsReportComposer(
-          generatedByName: generatedByName,
-          generatedByEmail: generatedByEmail,
-          hasFurnaceScope: hasFurnaceScope,
-          provenance: provenance,
-          initialPreset: initialPreset,
+      (context) => AnimatedPadding(
+        duration: BafMotion.quick,
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: FractionallySizedBox(
+          heightFactor: 0.92,
+          child: _OperationsReportComposer(
+            generatedByName: generatedByName,
+            generatedByEmail: generatedByEmail,
+            hasFurnaceScope: hasFurnaceScope,
+            provenance: provenance,
+            initialPreset: initialPreset,
+          ),
         ),
       ),
 );

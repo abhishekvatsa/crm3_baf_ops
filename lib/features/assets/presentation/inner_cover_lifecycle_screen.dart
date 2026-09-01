@@ -699,6 +699,7 @@ Future<void> _showCoverDetails(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     showDragHandle: true,
     builder:
         (sheetContext) => _CoverDetailsSheet(

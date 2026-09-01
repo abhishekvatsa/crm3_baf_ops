@@ -1075,6 +1075,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
                 key: const Key('composer-confirm-delete'),
                 style: FilledButton.styleFrom(
                   backgroundColor: BafColors.danger,
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: () => Navigator.pop(dialogContext, true),
                 child: const Text('Delete'),

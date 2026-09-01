@@ -753,6 +753,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
       builder:
           (sheetContext) => Center(

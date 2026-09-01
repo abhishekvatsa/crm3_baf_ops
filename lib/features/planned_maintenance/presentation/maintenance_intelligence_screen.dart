@@ -80,6 +80,8 @@ class _MaintenanceIntelligenceBody extends ConsumerWidget {
             accent: BafColors.planned,
           ),
           bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(icon: Icon(Icons.monitor_heart_outlined), text: 'Due state'),
               Tab(icon: Icon(Icons.history_rounded), text: 'History'),
@@ -736,15 +738,16 @@ class _PlanCard extends StatelessWidget {
             ],
             if (canManage && next != null) ...[
               const Divider(height: BafSpacing.lg),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: BafSpacing.sm,
+                runSpacing: BafSpacing.sm,
                 children: [
                   TextButton.icon(
                     onPressed: () => onTransition('cancelled'),
                     icon: const Icon(Icons.close_rounded),
                     label: const Text('Cancel'),
                   ),
-                  const SizedBox(width: BafSpacing.sm),
                   FilledButton.icon(
                     onPressed: () => onTransition(next),
                     icon: Icon(
@@ -1033,6 +1036,7 @@ class _ClassEditorState extends State<_ClassEditor> {
               ),
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _lane,
                 decoration: const InputDecoration(
                   labelText: 'Principal owner lane',
@@ -1334,6 +1338,7 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
           child: Column(
             children: [
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _assetClassId,
                 decoration: const InputDecoration(labelText: 'Asset class'),
                 items:
@@ -1379,6 +1384,7 @@ class _PlanEditorState extends ConsumerState<_PlanEditor> {
               ),
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 key: ValueKey('${_assetClassId ?? ''}-${_definitionId ?? ''}'),
                 initialValue: _definitionId,
                 decoration: const InputDecoration(

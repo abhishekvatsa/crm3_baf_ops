@@ -116,6 +116,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _requestPurposeKey,
                 decoration: const InputDecoration(labelText: 'Request type'),
                 items: const [
@@ -136,6 +137,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _originLaneKey,
                 decoration: const InputDecoration(
                   labelText: 'Raised from accountable lane',
@@ -154,6 +156,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 key: ValueKey<String>('target-$_targetLaneKey'),
                 initialValue: _targetLaneKey,
                 decoration: const InputDecoration(labelText: 'Target lane'),
@@ -177,6 +180,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               if (_requestPurposeKey == 'deferment') ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: _defermentBasisKey,
                   decoration: const InputDecoration(
                     labelText: 'Reason for deferment',
@@ -214,6 +218,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               if (_requestPurposeKey == 'operationsSupport') ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: _operationsSupportTypeKey,
                   decoration: const InputDecoration(
                     labelText: 'Support required',
@@ -253,6 +258,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: _operationsResourceKey,
                   decoration: const InputDecoration(labelText: 'Resource'),
                   items: const [
@@ -300,6 +306,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 key: ValueKey<String>('condition-$_conditionTypeKey'),
                 initialValue: _conditionTypeKey,
                 decoration: const InputDecoration(labelText: 'When due'),
@@ -332,6 +339,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ],
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _linkedMaintenanceId,
                 decoration: InputDecoration(
                   labelText:
@@ -367,6 +375,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _priorityKey,
                 decoration: const InputDecoration(labelText: 'Priority'),
                 items: const [
@@ -381,6 +390,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _gatingLaneId,
                 decoration: const InputDecoration(
                   labelText: 'Block a lane until confirmed (optional)',

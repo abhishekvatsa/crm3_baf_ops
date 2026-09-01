@@ -296,6 +296,10 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     required bool hasBanner,
   }) {
     final systemPadding = media.viewPadding;
+    final bottomObstruction =
+        media.viewInsets.bottom > systemPadding.bottom
+            ? media.viewInsets.bottom
+            : systemPadding.bottom;
     final left = systemPadding.left + _launcherMargin;
     final top = systemPadding.top + _launcherMargin + (hasBanner ? 52 : 0);
     final right = (constraints.maxWidth -
@@ -304,7 +308,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
             _launcherMargin)
         .clamp(left, double.infinity);
     final bottom = (constraints.maxHeight -
-            systemPadding.bottom -
+            bottomObstruction -
             _launcherSize -
             84)
         .clamp(top, double.infinity);

@@ -55,6 +55,8 @@ void main() {
       'assets': BafColors.assets,
       'admin': BafColors.admin,
       'sync': BafColors.sync,
+      'instrument': BafColors.instrument,
+      'success': BafColors.success,
       'warning': BafColors.warning,
       'danger': BafColors.danger,
     };

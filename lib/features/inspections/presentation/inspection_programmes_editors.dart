@@ -228,6 +228,7 @@ class _InspectionDefinitionEditorState
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: selectedClass.id,
                   decoration: const InputDecoration(
                     labelText: 'Asset class',
@@ -320,33 +321,35 @@ class _InspectionDefinitionEditorState
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: BafSpacing.sm),
-                SegmentedButton<InspectionValueType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: InspectionValueType.number,
-                      icon: Icon(Icons.numbers_rounded),
-                      label: Text('Number'),
-                    ),
-                    ButtonSegment(
-                      value: InspectionValueType.boolean,
-                      icon: Icon(Icons.toggle_on_outlined),
-                      label: Text('Yes/No'),
-                    ),
-                    ButtonSegment(
-                      value: InspectionValueType.text,
-                      icon: Icon(Icons.notes_rounded),
-                      label: Text('Text'),
-                    ),
-                    ButtonSegment(
-                      value: InspectionValueType.choice,
-                      icon: Icon(Icons.list_alt_rounded),
-                      label: Text('Choice'),
-                    ),
-                  ],
-                  selected: {_valueType},
-                  showSelectedIcon: false,
-                  onSelectionChanged:
-                      (value) => setState(() => _valueType = value.single),
+                BafHorizontalControlRail(
+                  child: SegmentedButton<InspectionValueType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: InspectionValueType.number,
+                        icon: Icon(Icons.numbers_rounded),
+                        label: Text('Number'),
+                      ),
+                      ButtonSegment(
+                        value: InspectionValueType.boolean,
+                        icon: Icon(Icons.toggle_on_outlined),
+                        label: Text('Yes/No'),
+                      ),
+                      ButtonSegment(
+                        value: InspectionValueType.text,
+                        icon: Icon(Icons.notes_rounded),
+                        label: Text('Text'),
+                      ),
+                      ButtonSegment(
+                        value: InspectionValueType.choice,
+                        icon: Icon(Icons.list_alt_rounded),
+                        label: Text('Choice'),
+                      ),
+                    ],
+                    selected: {_valueType},
+                    showSelectedIcon: false,
+                    onSelectionChanged:
+                        (value) => setState(() => _valueType = value.single),
+                  ),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 if (_valueType == InspectionValueType.number) ...[
@@ -610,6 +613,7 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 DropdownButtonFormField<InspectionDefinition>(
+                  isExpanded: true,
                   initialValue: _definition,
                   decoration: const InputDecoration(
                     labelText: 'Governed definition',
@@ -679,6 +683,7 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<String?>(
+                  isExpanded: true,
                   initialValue: _baselineCampaignId,
                   decoration: const InputDecoration(
                     labelText: 'Re-audit baseline (optional)',
@@ -1013,6 +1018,7 @@ class _InspectionObservationEditorState
                   )
                 else
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _targetKey,
                     decoration: const InputDecoration(
                       labelText: 'Governed inspection target',
@@ -1191,6 +1197,7 @@ class _InspectionObservationEditorState
                     : 'Record the observed condition.',
       ),
       InspectionValueType.choice => DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: _choiceValue,
         decoration: const InputDecoration(
           labelText: 'Observed choice',

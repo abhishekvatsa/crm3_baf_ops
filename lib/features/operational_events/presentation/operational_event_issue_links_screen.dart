@@ -450,6 +450,7 @@ class _IssueLinkDialogState extends State<_IssueLinkDialog> {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<OperationalEventIssueRelationship>(
+              isExpanded: true,
               initialValue: _relationship,
               decoration: const InputDecoration(
                 labelText: 'Relationship',

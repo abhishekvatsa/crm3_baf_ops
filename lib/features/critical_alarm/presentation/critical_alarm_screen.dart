@@ -113,6 +113,8 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
             accent: BafColors.danger,
           ),
           bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(
                 text:
@@ -212,6 +214,7 @@ class _CriticalAlarmWorkspace extends ConsumerWidget {
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: BafColors.danger,
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: () => Navigator.pop(dialogContext, true),
                 icon: const Icon(Icons.notification_important),
@@ -505,6 +508,7 @@ class _AlarmCard extends ConsumerWidget {
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: BafColors.success,
+                        foregroundColor: Colors.white,
                       ),
                       onPressed: () => _resolve(context, ref),
                       icon: const Icon(Icons.task_alt),
@@ -798,6 +802,7 @@ class _RaiseAlarmSheetState extends State<_RaiseAlarmSheet> {
                 key: const ValueKey('critical-alarm-review'),
                 style: FilledButton.styleFrom(
                   backgroundColor: BafColors.danger,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 15),
                 ),
                 onPressed: () {

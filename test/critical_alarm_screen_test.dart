@@ -296,6 +296,7 @@ void main() {
     );
 
     expect(find.text('Confirm support'), findsOneWidget);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
     expect(tester.takeException(), isNull);
   });
 

@@ -193,6 +193,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: Colors.transparent,
         builder: (sheetContext) {
           return Consumer(

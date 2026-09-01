@@ -52,7 +52,8 @@ class _FrequentIssueCatalogueScreenState
             appBarIcon: Icons.rule_folder_outlined,
             accent: BafColors.maintenance,
             title: 'Catalogue authority required',
-            message: 'Only approved Admin or SI users may govern frequent issue definitions.',
+            message:
+                'Only approved Admin or SI users may govern frequent issue definitions.',
           );
         }
         return _buildCatalogue();
@@ -400,6 +401,7 @@ class _DefinitionEditorState extends State<_DefinitionEditor> {
               ),
               const SizedBox(height: BafSpacing.md),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _route,
                 decoration: const InputDecoration(labelText: 'Default lane'),
                 items:
@@ -422,6 +424,7 @@ class _DefinitionEditorState extends State<_DefinitionEditor> {
               ),
               const SizedBox(height: BafSpacing.md),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _maintenanceType,
                 decoration: const InputDecoration(
                   labelText: 'Suggested work type',

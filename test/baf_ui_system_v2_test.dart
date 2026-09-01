@@ -10,6 +10,93 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('BAF UI system v2', () {
+    test('every modal sheet declares route-level safe-area behavior', () {
+      final failures = <String>[];
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      final call = RegExp(r'showModalBottomSheet(?:<[^>]+>)?\s*\(');
+      final safeArea = RegExp(r'useSafeArea\s*:\s*true');
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        for (final match in call.allMatches(source)) {
+          final end = (match.start + 360).clamp(0, source.length);
+          if (!safeArea.hasMatch(source.substring(match.start, end))) {
+            final line =
+                '\n'.allMatches(source.substring(0, match.start)).length + 1;
+            failures.add('${file.path}:$line');
+          }
+        }
+      }
+
+      expect(
+        failures,
+        isEmpty,
+        reason:
+            'Modal sheets missing useSafeArea: true: ${failures.join(', ')}',
+      );
+    });
+
+    test('form dropdowns use their available width', () {
+      final failures = <String>[];
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      final dropdown = RegExp(r'DropdownButtonFormField(?:<[^>]+>)?\s*\(');
+      final expanded = RegExp(r'isExpanded\s*:\s*true');
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        for (final match in dropdown.allMatches(source)) {
+          final end = (match.start + 650).clamp(0, source.length);
+          if (!expanded.hasMatch(source.substring(match.start, end))) {
+            final line =
+                '\n'.allMatches(source.substring(0, match.start)).length + 1;
+            failures.add('${file.path}:$line');
+          }
+        }
+      }
+
+      expect(
+        failures,
+        isEmpty,
+        reason:
+            'Form dropdowns missing isExpanded: true: ${failures.join(', ')}',
+      );
+    });
+
+    test('large dialog bodies use responsive height constraints', () {
+      final failures = <String>[];
+      final files = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      final dialog = RegExp(r'AlertDialog\s*\(');
+      final fixedHeight = RegExp(r'height\s*:\s*([2-9]\d{2,})');
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        for (final match in dialog.allMatches(source)) {
+          final end = (match.start + 2400).clamp(0, source.length);
+          if (fixedHeight.hasMatch(source.substring(match.start, end))) {
+            final line =
+                '\n'.allMatches(source.substring(0, match.start)).length + 1;
+            failures.add('${file.path}:$line');
+          }
+        }
+      }
+
+      expect(
+        failures,
+        isEmpty,
+        reason:
+            'Dialog bodies with fixed phone-unsafe heights: ${failures.join(', ')}',
+      );
+    });
+
     for (final size in <Size>[
       const Size(320, 700),
       const Size(412, 915),
@@ -83,6 +170,78 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets(
+      'long segmented controls scroll instead of squeezing at phone width',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: BafAppTheme.light,
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(BafSpacing.md),
+                child: BafHorizontalControlRail(
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: 1, label: Text('Numeric reading')),
+                      ButtonSegment(value: 2, label: Text('Boolean result')),
+                      ButtonSegment(value: 3, label: Text('Narrative text')),
+                      ButtonSegment(value: 4, label: Text('Governed choice')),
+                    ],
+                    selected: const {1},
+                    onSelectionChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final scrollable = tester.state<ScrollableState>(
+          find.descendant(
+            of: find.byType(BafHorizontalControlRail),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        expect(scrollable.position.maxScrollExtent, greaterThan(0));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('dialog bodies surrender height to the keyboard', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      double? measured;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              measured = bafDialogBodyHeight(
+                context,
+                preferred: 420,
+                minimum: 120,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      expect(measured, 160);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('shared surfaces tolerate enlarged text on a narrow phone', (
       tester,
     ) async {
@@ -114,6 +273,40 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Refresh obligations'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('state panels scroll instead of overflowing short viewports', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 230));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          builder:
+              (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(2)),
+                child: child!,
+              ),
+          home: Scaffold(
+            body: BafStatePanel.error(
+              title: 'Workflow state requires attention',
+              message:
+                  'The governed projection could not be loaded. Review the connection and retry without losing the recorded evidence.',
+              onPrimary: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      await tester.ensureVisible(find.text('Try again'));
+      await tester.pump();
       expect(tester.takeException(), isNull);
     });
 

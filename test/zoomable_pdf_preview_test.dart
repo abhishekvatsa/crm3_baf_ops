@@ -20,9 +20,21 @@ void main() {
     );
     expect(style.backgroundColor!.resolve(const <WidgetState>{}), Colors.white);
     final shape =
-        style.shape!.resolve(const <WidgetState>{})
-            as RoundedRectangleBorder;
+        style.shape!.resolve(const <WidgetState>{}) as RoundedRectangleBorder;
     expect(shape.side.color, BafColors.borderStrong);
+  });
+
+  test('print and share action bar reserves the Android navigation inset', () {
+    expect(
+      pdfPreviewActionBarHeight(const MediaQueryData()),
+      pdfPreviewActionBarContentHeight,
+    );
+    expect(
+      pdfPreviewActionBarHeight(
+        const MediaQueryData(viewPadding: EdgeInsets.only(bottom: 34)),
+      ),
+      pdfPreviewActionBarContentHeight + 34,
+    );
   });
 
   testWidgets('PDF pages expose direct zoom, fit, and page navigation', (

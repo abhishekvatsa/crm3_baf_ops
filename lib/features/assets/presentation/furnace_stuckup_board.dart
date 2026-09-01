@@ -140,27 +140,29 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
             confirmedBulged: declarations.length,
           ),
           const SizedBox(height: BafSpacing.lg),
-          SegmentedButton<_CaseView>(
-            segments: <ButtonSegment<_CaseView>>[
-              ButtonSegment(
-                value: _CaseView.active,
-                icon: const Icon(Icons.link_off_rounded),
-                label: Text('Active $active'),
-              ),
-              ButtonSegment(
-                value: _CaseView.pendingCause,
-                icon: const Icon(Icons.fact_check_outlined),
-                label: Text('Cause $pending'),
-              ),
-              const ButtonSegment(
-                value: _CaseView.history,
-                icon: Icon(Icons.history_rounded),
-                label: Text('History'),
-              ),
-            ],
-            selected: <_CaseView>{_view},
-            onSelectionChanged:
-                (selection) => setState(() => _view = selection.first),
+          BafHorizontalControlRail(
+            child: SegmentedButton<_CaseView>(
+              segments: <ButtonSegment<_CaseView>>[
+                ButtonSegment(
+                  value: _CaseView.active,
+                  icon: const Icon(Icons.link_off_rounded),
+                  label: Text('Active $active'),
+                ),
+                ButtonSegment(
+                  value: _CaseView.pendingCause,
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: Text('Cause $pending'),
+                ),
+                const ButtonSegment(
+                  value: _CaseView.history,
+                  icon: Icon(Icons.history_rounded),
+                  label: Text('History'),
+                ),
+              ],
+              selected: <_CaseView>{_view},
+              onSelectionChanged:
+                  (selection) => setState(() => _view = selection.first),
+            ),
           ),
           const SizedBox(height: BafSpacing.lg),
           if (visible.isEmpty)

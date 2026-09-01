@@ -307,6 +307,7 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AppRole>(
+                  isExpanded: true,
                   initialValue: _directedTo,
                   hint: const Text('Select Target Role'),
                   decoration: _fieldDecoration(
@@ -338,6 +339,7 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
                     final useStacked = constraints.maxWidth < 360;
 
                     final typeField = DropdownButtonFormField<AssetType>(
+                      isExpanded: true,
                       initialValue: _assetType,
                       decoration: _fieldDecoration(
                         label: 'Type (Optional)',

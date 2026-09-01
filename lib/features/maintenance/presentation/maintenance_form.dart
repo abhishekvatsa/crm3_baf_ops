@@ -21,6 +21,7 @@ import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
 import '../../../core/services/auto_sync_service.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -1333,35 +1334,37 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               subtitle: 'Record whether the current charge may be affected.',
               icon: Icons.fact_check_outlined,
               children: [
-                SegmentedButton<IssueQualityAssessment>(
-                  emptySelectionAllowed: true,
-                  segments: const [
-                    ButtonSegment(
-                      value: IssueQualityAssessment.notSuspected,
-                      icon: Icon(Icons.check_circle_outline_rounded),
-                      label: Text('Not suspected'),
-                    ),
-                    ButtonSegment(
-                      value: IssueQualityAssessment.suspected,
-                      icon: Icon(Icons.warning_amber_rounded),
-                      label: Text('Suspected'),
-                    ),
-                  ],
-                  selected:
-                      _qualityAssessment == null
-                          ? const <IssueQualityAssessment>{}
-                          : <IssueQualityAssessment>{_qualityAssessment!},
-                  onSelectionChanged: (selection) {
-                    setState(() {
-                      _qualityAssessment =
-                          selection.isEmpty ? null : selection.first;
-                      if (_qualityAssessment !=
-                          IssueQualityAssessment.suspected) {
-                        _qualityReasonController.clear();
-                        _qualityAbnormalityTypeId = null;
-                      }
-                    });
-                  },
+                BafHorizontalControlRail(
+                  child: SegmentedButton<IssueQualityAssessment>(
+                    emptySelectionAllowed: true,
+                    segments: const [
+                      ButtonSegment(
+                        value: IssueQualityAssessment.notSuspected,
+                        icon: Icon(Icons.check_circle_outline_rounded),
+                        label: Text('Not suspected'),
+                      ),
+                      ButtonSegment(
+                        value: IssueQualityAssessment.suspected,
+                        icon: Icon(Icons.warning_amber_rounded),
+                        label: Text('Suspected'),
+                      ),
+                    ],
+                    selected:
+                        _qualityAssessment == null
+                            ? const <IssueQualityAssessment>{}
+                            : <IssueQualityAssessment>{_qualityAssessment!},
+                    onSelectionChanged: (selection) {
+                      setState(() {
+                        _qualityAssessment =
+                            selection.isEmpty ? null : selection.first;
+                        if (_qualityAssessment !=
+                            IssueQualityAssessment.suspected) {
+                          _qualityReasonController.clear();
+                          _qualityAbnormalityTypeId = null;
+                        }
+                      });
+                    },
+                  ),
                 ),
                 if (_qualityAssessment == IssueQualityAssessment.suspected) ...[
                   const SizedBox(height: BafSpacing.md),
@@ -1443,23 +1446,25 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               subtitle: 'Where is the issue happening?',
               icon: Icons.precision_manufacturing_rounded,
               children: [
-                SegmentedButton<_IssueIntakeMode>(
-                  segments: const <ButtonSegment<_IssueIntakeMode>>[
-                    ButtonSegment<_IssueIntakeMode>(
-                      value: _IssueIntakeMode.standard,
-                      icon: Icon(Icons.build_outlined),
-                      label: Text('Standard'),
-                    ),
-                    ButtonSegment<_IssueIntakeMode>(
-                      value: _IssueIntakeMode.furnaceStuckup,
-                      icon: Icon(Icons.vertical_align_top_rounded),
-                      label: Text('Furnace stuck-up'),
-                    ),
-                  ],
-                  selected: <_IssueIntakeMode>{_intakeMode},
-                  onSelectionChanged: (selection) {
-                    _setIntakeMode(selection.first);
-                  },
+                BafHorizontalControlRail(
+                  child: SegmentedButton<_IssueIntakeMode>(
+                    segments: const <ButtonSegment<_IssueIntakeMode>>[
+                      ButtonSegment<_IssueIntakeMode>(
+                        value: _IssueIntakeMode.standard,
+                        icon: Icon(Icons.build_outlined),
+                        label: Text('Standard'),
+                      ),
+                      ButtonSegment<_IssueIntakeMode>(
+                        value: _IssueIntakeMode.furnaceStuckup,
+                        icon: Icon(Icons.vertical_align_top_rounded),
+                        label: Text('Furnace stuck-up'),
+                      ),
+                    ],
+                    selected: <_IssueIntakeMode>{_intakeMode},
+                    onSelectionChanged: (selection) {
+                      _setIntakeMode(selection.first);
+                    },
+                  ),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 if (_isFurnaceStuckup)
@@ -1507,23 +1512,25 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 ..._baseIssueTargetControls,
                 if (!_isFurnaceStuckup && _assetType == AssetType.furnace) ...[
                   const SizedBox(height: BafSpacing.md),
-                  SegmentedButton<bool>(
-                    segments: const <ButtonSegment<bool>>[
-                      ButtonSegment<bool>(
-                        value: false,
-                        icon: Icon(Icons.build_outlined),
-                        label: Text('Standard issue'),
-                      ),
-                      ButtonSegment<bool>(
-                        value: true,
-                        icon: Icon(Icons.local_fire_department_outlined),
-                        label: Text('Burner lockout'),
-                      ),
-                    ],
-                    selected: <bool>{_isBurnerLockout},
-                    onSelectionChanged: (selection) {
-                      _setBurnerLockout(selection.first);
-                    },
+                  BafHorizontalControlRail(
+                    child: SegmentedButton<bool>(
+                      segments: const <ButtonSegment<bool>>[
+                        ButtonSegment<bool>(
+                          value: false,
+                          icon: Icon(Icons.build_outlined),
+                          label: Text('Standard issue'),
+                        ),
+                        ButtonSegment<bool>(
+                          value: true,
+                          icon: Icon(Icons.local_fire_department_outlined),
+                          label: Text('Burner lockout'),
+                        ),
+                      ],
+                      selected: <bool>{_isBurnerLockout},
+                      onSelectionChanged: (selection) {
+                        _setBurnerLockout(selection.first);
+                      },
+                    ),
                   ),
                 ],
                 if (_usesGovernedComponentIssueTarget) ...[
@@ -1735,25 +1742,30 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 else if (_isBaseInnerCoverAvailability)
                   const _BaseInnerCoverAvailabilityConditionNotice()
                 else ...[
-                  SegmentedButton<MaintenanceIssuePlantConditionEffect>(
-                    segments: const [
-                      ButtonSegment(
-                        value: MaintenanceIssuePlantConditionEffect.unfit,
-                        icon: Icon(Icons.gpp_bad_outlined),
-                        label: Text('Unfit'),
-                      ),
-                      ButtonSegment(
-                        value: MaintenanceIssuePlantConditionEffect.unavailable,
-                        icon: Icon(Icons.block_outlined),
-                        label: Text('Unavailable'),
-                      ),
-                    ],
-                    selected: <MaintenanceIssuePlantConditionEffect>{
-                      _plantConditionEffect,
-                    },
-                    onSelectionChanged: (selection) {
-                      setState(() => _plantConditionEffect = selection.first);
-                    },
+                  BafHorizontalControlRail(
+                    child: SegmentedButton<
+                      MaintenanceIssuePlantConditionEffect
+                    >(
+                      segments: const [
+                        ButtonSegment(
+                          value: MaintenanceIssuePlantConditionEffect.unfit,
+                          icon: Icon(Icons.gpp_bad_outlined),
+                          label: Text('Unfit'),
+                        ),
+                        ButtonSegment(
+                          value:
+                              MaintenanceIssuePlantConditionEffect.unavailable,
+                          icon: Icon(Icons.block_outlined),
+                          label: Text('Unavailable'),
+                        ),
+                      ],
+                      selected: <MaintenanceIssuePlantConditionEffect>{
+                        _plantConditionEffect,
+                      },
+                      onSelectionChanged: (selection) {
+                        setState(() => _plantConditionEffect = selection.first);
+                      },
+                    ),
                   ),
                   const SizedBox(height: BafSpacing.xs),
                   Text(
@@ -2263,6 +2275,7 @@ class _BurnerLockoutIntake extends StatelessWidget {
         ],
         const Divider(height: BafSpacing.xl),
         DropdownButtonFormField<BurnerCycleStage>(
+          isExpanded: true,
           initialValue: cycleStage,
           decoration: _burnerDecoration('Cycle / firing stage'),
           items: [
@@ -2291,6 +2304,7 @@ class _BurnerLockoutIntake extends StatelessWidget {
           children: [
             Expanded(
               child: DropdownButtonFormField<BurnerObservation>(
+                isExpanded: true,
                 initialValue: flameObservation,
                 decoration: _burnerDecoration('Flame'),
                 items: [
@@ -2308,6 +2322,7 @@ class _BurnerLockoutIntake extends StatelessWidget {
             const SizedBox(width: BafSpacing.sm),
             Expanded(
               child: DropdownButtonFormField<BurnerObservation>(
+                isExpanded: true,
                 initialValue: sparkObservation,
                 decoration: _burnerDecoration('Spark'),
                 items: [
@@ -2531,30 +2546,32 @@ class _FurnaceStuckupAssetSelector extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: BafSpacing.sm),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: 'matches',
-                icon: Icon(Icons.check_circle_outline_rounded),
-                label: Text('Yes'),
-              ),
-              ButtonSegment(
-                value: 'different',
-                icon: Icon(Icons.link_off_rounded),
-                label: Text('Different cover'),
-              ),
-            ],
-            emptySelectionAllowed: true,
-            selected: {
-              if (confirmed) 'matches' else if (physicalMismatch) 'different',
-            },
-            onSelectionChanged: (selection) {
-              if (selection.contains('matches')) {
-                onLinkedCoverConfirmed(selectedAssignment.linkageId);
-              } else if (selection.contains('different')) {
-                onPhysicalMismatch();
-              }
-            },
+          BafHorizontalControlRail(
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'matches',
+                  icon: Icon(Icons.check_circle_outline_rounded),
+                  label: Text('Yes'),
+                ),
+                ButtonSegment(
+                  value: 'different',
+                  icon: Icon(Icons.link_off_rounded),
+                  label: Text('Different cover'),
+                ),
+              ],
+              emptySelectionAllowed: true,
+              selected: {
+                if (confirmed) 'matches' else if (physicalMismatch) 'different',
+              },
+              onSelectionChanged: (selection) {
+                if (selection.contains('matches')) {
+                  onLinkedCoverConfirmed(selectedAssignment.linkageId);
+                } else if (selection.contains('different')) {
+                  onPhysicalMismatch();
+                }
+              },
+            ),
           ),
           if (physicalMismatch) ...[
             const SizedBox(height: BafSpacing.sm),

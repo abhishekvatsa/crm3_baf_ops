@@ -458,9 +458,11 @@ class _ReliabilityMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scaledUnit = MediaQuery.textScalerOf(context).scale(1);
+    final metricExtent = 96 + 32 * (scaledUnit - 1).clamp(0.0, 1.0).toDouble();
     return GridView.count(
       crossAxisCount: 2,
-      childAspectRatio: 1.75,
+      mainAxisExtent: metricExtent,
       crossAxisSpacing: BafSpacing.sm,
       mainAxisSpacing: BafSpacing.sm,
       shrinkWrap: true,
