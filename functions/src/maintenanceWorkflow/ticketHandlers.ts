@@ -1178,6 +1178,94 @@ const requireBaseVacantAtIssueStart = async (args: {
   }
 };
 
+const requireBaseInnerCoverRestoredForResolution = async (args: {
+  tx: WorkflowTransaction;
+  ticket: JsonMap;
+  endDate: Date;
+}): Promise<void> => {
+  if (args.ticket.classification !==
+      BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION) {
+    return;
+  }
+  let reference: JsonMap | null = null;
+  try {
+    const parsed = JSON.parse(args.ticket.assetHierarchyRefJson as string);
+    if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      reference = parsed as JsonMap;
+    }
+  } catch {
+    // Persisted special-case identity is adjudicated below.
+  }
+  const baseAssetInstanceId = reference?.assetInstanceId;
+  const baseAssetClassId = reference?.assetClassId;
+  const baseAssetNumber = args.ticket.assetNumber;
+  if (args.ticket.assetType !== "base" ||
+      args.ticket.component !== BASE_INNER_COVER_AVAILABILITY_COMPONENT ||
+      args.ticket.subsystem !== BASE_INNER_COVER_AVAILABILITY_SUBSYSTEM ||
+      args.ticket.tag != null || args.ticket.plantConditionEffect !== "unavailable" ||
+      reference?.scope !== "physicalAsset" ||
+      typeof baseAssetInstanceId !== "string" ||
+      baseAssetInstanceId.trim().length === 0 ||
+      typeof baseAssetClassId !== "string" ||
+      baseAssetClassId.trim().length === 0 ||
+      !Number.isSafeInteger(baseAssetNumber) ||
+      reference?.assetNumber !== baseAssetNumber) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The Base Inner Cover availability evidence is malformed.",
+      {reasonCode: "maintenance-ticket-inner-cover-resolution-evidence-invalid"},
+    );
+  }
+  const assignmentSnapshot = await args.tx.get(
+    `base_inner_cover_assignments/${baseAssetInstanceId}`,
+  );
+  if (!assignmentSnapshot.exists || assignmentSnapshot.data == null) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Link an Inner Cover to this Base before resolving its availability issue.",
+      {reasonCode: "maintenance-ticket-inner-cover-still-unavailable"},
+    );
+  }
+  const assignment = assignmentSnapshot.data;
+  const innerCoverId = assignment.innerCoverId;
+  const profileSnapshot = typeof innerCoverId === "string" ?
+    await args.tx.get(`inner_cover_profiles/${innerCoverId}`) : null;
+  const profile = profileSnapshot?.data;
+  const linkedAt = instantText(assignment.linkedAt);
+  const linkedAtMillis = linkedAt == null ? Number.NaN : Date.parse(linkedAt);
+  if (assignment.schemaVersion !== 1 ||
+      assignment.baseAssetInstanceId !== baseAssetInstanceId ||
+      assignment.baseAssetClassId !== baseAssetClassId ||
+      assignment.baseAssetNumber !== baseAssetNumber ||
+      !Number.isSafeInteger(assignment.version) ||
+      (assignment.version as number) < 1 ||
+      typeof assignment.linkageId !== "string" ||
+      assignment.linkageId.trim().length === 0 ||
+      typeof assignment.innerCoverSerialNumber !== "string" ||
+      assignment.innerCoverSerialNumber.trim().length === 0 ||
+      !Number.isFinite(linkedAtMillis) ||
+      profileSnapshot?.exists !== true || profile == null ||
+      profile.schemaVersion !== 1 || profile.innerCoverId !== innerCoverId ||
+      profile.lifecycleState !== "installed" ||
+      profile.currentBaseAssetInstanceId !== baseAssetInstanceId ||
+      profile.currentBaseAssetNumber !== baseAssetNumber ||
+      profile.currentLinkageId !== assignment.linkageId ||
+      profile.serialNumber !== assignment.innerCoverSerialNumber) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The Base and Inner Cover projections disagree.",
+      {reasonCode: "maintenance-ticket-inner-cover-projection-invalid"},
+    );
+  }
+  if (args.endDate.getTime() < linkedAtMillis) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Resolution time cannot precede the restored Inner Cover linkage.",
+      {reasonCode: "maintenance-ticket-inner-cover-linked-after-resolution"},
+    );
+  }
+};
+
 const savedClosureActionPayload = (
   value: unknown,
   field = "work.actionsJson",
@@ -2831,6 +2919,11 @@ export const resolveMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-resolution-time-invalid"},
     );
   }
+  await requireBaseInnerCoverRestoredForResolution({
+    tx,
+    ticket,
+    endDate,
+  });
   const remarks = boundedText(command.payload.remarks, "remarks", 1, 4000);
   const teamsInvolved = closureTeams(
     command.payload.teamsInvolved,

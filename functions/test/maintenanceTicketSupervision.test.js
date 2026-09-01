@@ -164,6 +164,58 @@ function basePhysicalAssetReference() {
   });
 }
 
+function baseInnerCoverAvailabilityTicket(overrides = {}) {
+  return {
+    assetType: 'base',
+    assetNumber: 201,
+    component: 'Inner Cover availability',
+    subsystem: 'Base / Inner Cover association',
+    tag: null,
+    classification: 'baseInnerCoverUnavailable',
+    plantConditionEffect: 'unavailable',
+    assetHierarchyRefJson: JSON.stringify({
+      schemaVersion: 3,
+      scope: 'physicalAsset',
+      assetClassId: 'class-base',
+      assetClassCode: 'BASE',
+      assetClassName: 'Base',
+      nodeId: 'asset-base-201',
+      nodeVersion: 3,
+      nodeName: 'Base 201',
+      assetInstanceId: 'asset-base-201',
+      assetInstanceVersion: 3,
+      assetNumber: 201,
+      assetInstanceName: 'Base 201',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Base', 'Base 201'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Operations',
+      accountableRoleKeys: ['operations'],
+      innerCoverAssociation: {
+        baseAssetInstanceId: 'asset-base-201',
+        baseAssetNumber: 201,
+        positionState: 'noneLinked',
+        innerCoverId: null,
+        innerCoverSerialNumber: null,
+        linkageId: null,
+        assignmentVersion: null,
+        linkedAt: null,
+        eventAt: '2026-08-14T14:30:00.000Z',
+        confirmedAt: '2026-08-14T14:30:00.000Z',
+        confirmedByUid: operations.uid,
+        confirmedByName: operations.name,
+      },
+    }),
+    description: 'Base 201 has no Inner Cover available.',
+    routedTo: 'operations',
+    startDate: '2026-08-14T14:30:00.000Z',
+    actionsJson: '[]',
+    ...overrides,
+  };
+}
+
 function seedLinkedInnerCoverForBase201(store) {
   store.seed('base_inner_cover_assignments/asset-base-201', {
     schemaVersion: 1,
@@ -1722,6 +1774,53 @@ describe('governed maintenance-ticket supervision', () => {
     expect(
       Object.keys(closed).filter((field) => field.startsWith('workflow')),
     ).toEqual([]);
+  });
+
+  test('Base vacancy resolves only after a valid Inner Cover is restored', async () => {
+    const vacant = serviceFor(admin, baseInnerCoverAvailabilityTicket());
+    seedBaseWithoutInnerCover(vacant.store);
+    const resolution = {
+      commandId: 'resolve-base-inner-cover-vacancy',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Inner Cover availability restored.',
+        teamsInvolved: ['operations'],
+        actionsJson: '[]',
+      },
+    };
+
+    await expect(vacant.service.execute(resolution, vacant.context))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'maintenance-ticket-inner-cover-still-unavailable',
+        },
+      });
+    await expect(vacant.service.execute({
+      commandId: 'admin-close-vacant-base-issue',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'relevanceEnded',
+        reason: 'The operating context ended before an Inner Cover was restored.',
+      },
+    }, vacant.context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-closed-without-resolution',
+      aggregateVersion: 4,
+    });
+
+    const restored = serviceFor(admin, baseInnerCoverAvailabilityTicket());
+    seedBaseWithoutInnerCover(restored.store);
+    seedLinkedInnerCoverForBase201(restored.store);
+    await expect(restored.service.execute(resolution, restored.context))
+      .resolves.toMatchObject({
+        resultKey: 'maintenance-ticket-resolved',
+        aggregateVersion: 4,
+      });
   });
 
   test.each([
