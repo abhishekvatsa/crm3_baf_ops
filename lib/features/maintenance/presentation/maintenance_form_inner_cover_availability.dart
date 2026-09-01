@@ -45,6 +45,10 @@ extension _BaseInnerCoverAvailabilityFormState on _MaintenanceFormState {
             : BafColors.textSecondary,
   );
 
+  void _refreshBaseInnerCoverAvailabilityObservation(DateTime observedAt) {
+    if (_isBaseInnerCoverAvailability) _startTime = observedAt;
+  }
+
   bool _validateBaseInnerCoverAvailabilitySubmission(AssetInstanceRecord base) {
     if (!_isBaseInnerCoverAvailability) return true;
     final error = _baseInnerCoverAvailabilitySubmissionError(

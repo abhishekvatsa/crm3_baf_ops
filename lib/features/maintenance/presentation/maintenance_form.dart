@@ -1046,6 +1046,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       }
 
       final now = DateTime.now();
+      _refreshBaseInnerCoverAvailabilityObservation(now);
       final reporterUid = appUser.uid;
       final reporterName = _cleanOptionalText(appUser.name) ?? appUser.uid;
       final selectedReference =
