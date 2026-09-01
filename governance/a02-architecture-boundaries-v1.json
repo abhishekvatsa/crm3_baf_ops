@@ -487,7 +487,7 @@
         "test/maintenance_lifecycle_replay_contract_test.dart",
         "test/maintenance_plant_condition_stream_test.dart"
       ],
-      "maximumLines": 961,
+      "maximumLines": 964,
       "requiredMarkers": [
         "part of '"
       ],

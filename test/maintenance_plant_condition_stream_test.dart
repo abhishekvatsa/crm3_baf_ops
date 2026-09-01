@@ -64,22 +64,26 @@ void main() {
     },
   );
 
-  test('web stream atomically queries only retained administrative closures', () {
-    final source =
-        File(
-          'lib/features/maintenance/providers/maintenance_provider.remote.dart',
-        ).readAsStringSync();
+  test(
+    'web stream excludes tombstones and atomically queries retained closures',
+    () {
+      final source =
+          File(
+            'lib/features/maintenance/providers/maintenance_provider.remote.dart',
+          ).readAsStringSync();
 
-    expect(source, contains('Filter.or('));
-    expect(source, contains('Filter.and('));
-    expect(source, contains('TicketStatus.closedWithoutResolution.name'));
-    expect(source, contains("'issueClosureDisposition'"));
-    expect(
-      source,
-      contains('IssueAdministrativeClosureDisposition.stillRelevant.name'),
-    );
-    expect(source, contains('ticket.canStillAffectPlantCondition'));
-  });
+      expect(source, contains('Filter.or('));
+      expect(source, contains('Filter.and('));
+      expect(source, contains("Filter('isDeleted', isEqualTo: false)"));
+      expect(source, contains('TicketStatus.closedWithoutResolution.name'));
+      expect(source, contains("'issueClosureDisposition'"));
+      expect(
+        source,
+        contains('IssueAdministrativeClosureDisposition.stillRelevant.name'),
+      );
+      expect(source, contains('ticket.canStillAffectPlantCondition'));
+    },
+  );
 }
 
 MaintenanceRecord _record({
