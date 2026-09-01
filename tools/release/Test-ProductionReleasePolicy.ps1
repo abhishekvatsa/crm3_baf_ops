@@ -1881,6 +1881,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$consumed.completionReceiptSha256 -or
       (Get-Sha256 $prior.completionReceiptFile) -ne
         ([string]$prior.completionReceiptSha256).ToUpperInvariant() -or
+      $prior.physicalInstallationConditionPassed -ne $true -or
       [string]$prior.sourceCommit -ne
         [string]$consumed.remoteBuiltCommit -or
       [int64]$prior.githubRunId -ne [int64]$consumed.githubRunId -or
@@ -1938,6 +1939,10 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         PSObject.Properties |
         ForEach-Object { $_.Value }
     )
+    $predecessorReleaseBoundaryValues = @(
+      $predecessorPhysicalInstallation.releaseBoundary.PSObject.Properties |
+        ForEach-Object { $_.Value }
+    )
     if ((Get-Sha256 $predecessorPhysicalInstallationPath) -ne
           ([string]$prior.physicalInstallationReceiptSha256).
             ToUpperInvariant() -or
@@ -1947,6 +1952,12 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           $expectedPredecessorPhysicalStatus -or
         [int64]$predecessorPhysicalInstallation.release.buildNumber -ne
           [int64]$prior.buildNumber -or
+        [string]$predecessorPhysicalInstallation.release.releaseId -ne
+          [string]$consumed.releaseId -or
+        [string]$predecessorPhysicalInstallation.release.versionName -ne
+          [string]$consumed.versionName -or
+        [string]$predecessorPhysicalInstallation.release.applicationId -ne
+          [string]$policy.permanentApplicationId -or
         [string]$predecessorPhysicalInstallation.release.sourceCommit -ne
           [string]$prior.sourceCommit -or
         [string]$predecessorPhysicalInstallation.release.
@@ -1971,11 +1982,17 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         $predecessorPhysicalInstallation.physicalDevice.
           exactGovernedApkMatch -ne $true -or
         $predecessorPhysicalInstallation.physicalDevice.
+          signerContinuityVerifiedByInPlaceUpdate -ne $true -or
+        $predecessorPhysicalInstallation.physicalDevice.
           firstInstallTimePreserved -ne $true -or
         $predecessorPhysicalInstallation.physicalDevice.
           applicationDataPreserved -ne $true -or
         $predecessorPhysicalInstallation.physicalDevice.
           applicationDataCleared -ne $false -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          applicationUninstalled -ne $false -or
+        [string]$predecessorPhysicalInstallation.startup.coldLaunchResult -ne
+          'passed' -or
         $predecessorPhysicalInstallation.startup.
           approvedAuthenticatedSessionPreserved -ne $true -or
         $predecessorPhysicalInstallation.startup.authenticatedHomeRendered -ne
@@ -1991,6 +2008,8 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [int64]$predecessorPhysicalInstallation.synchronizationRecovery.
           finalUnresolvedRejections -ne 0 -or
         [int64]$predecessorPhysicalInstallation.synchronizationRecovery.
+          finalLikelyPermanentRejections -ne 0 -or
+        [int64]$predecessorPhysicalInstallation.synchronizationRecovery.
           finalFullSyncConflicts -ne 0 -or
         $predecessorPhysicalInstallation.synchronizationRecovery.
           firebaseBusinessRecordMutated -ne $false -or
@@ -2002,12 +2021,10 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
           twoAccountTwoDeviceMutationConvergencePassed -ne $false -or
         $predecessorPhysicalInstallation.adjudication.
           separateControlledPilotPromotionPassed -ne $false -or
-        $predecessorPhysicalInstallation.releaseBoundary.
-          controlledPilotApproved -ne $false -or
-        $predecessorPhysicalInstallation.releaseBoundary.
-          pilotHandoutPerformed -ne $false -or
-        $predecessorPhysicalInstallation.releaseBoundary.
-          firebaseBusinessDataChanged -ne $false -or
+        $predecessorPhysicalInstallation.adjudication.
+          fullBusinessFlowValidationCompleted -ne $false -or
+        @($predecessorReleaseBoundaryValues |
+          Where-Object { $_ -ne $false }).Count -ne 0 -or
         $prior.runtimeValidationPassed -ne $false -or
         $prior.controlledPilotApproved -ne $false) {
       throw 'Predecessor physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
