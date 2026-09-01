@@ -352,6 +352,18 @@
       "reArmCondition": "any maintenance-ticket timestamp schema change"
     },
     {
+      "id": "maintenance-issue-administrative-closure",
+      "readerFile": "lib/features/maintenance/domain/issue_administrative_closure.dart",
+      "readerMarker": "factory IssueAdministrativeClosure.fromSynchronizedFields",
+      "requiredFields": ["issueClosureRelevanceEndedAt"],
+      "optionalFields": [],
+      "owner": "maintenance",
+      "purpose": "restore the immutable instant when an unresolved issue stopped affecting Plant Condition",
+      "authorityBoundary": "persisted-nested-operational-state",
+      "regression": "test/issue_administrative_closure_transition_test.dart",
+      "reArmCondition": "any administrative-closure relevance-retirement timestamp schema change"
+    },
+    {
       "id": "maintenance-issue-lane-completion-evidence",
       "readerFile": "lib/features/maintenance/domain/issue_lane_plan.dart",
       "readerMarker": "factory IssueLaneCompletionEvidence.fromMap(",

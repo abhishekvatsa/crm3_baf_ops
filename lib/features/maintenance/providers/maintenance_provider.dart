@@ -23,6 +23,7 @@ import '../data/remote_maintenance_timestamps.dart';
 import '../../quality/domain/quality_warning_projection.dart';
 import '../../directives/data/operational_directive_model.dart';
 import '../domain/burner_lockout_case.dart';
+import '../domain/issue_administrative_closure.dart';
 
 part 'maintenance_provider.local.dart';
 part 'maintenance_provider.copy.dart';

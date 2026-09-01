@@ -244,7 +244,10 @@ void main() {
     final closed =
         _ticket()
           ..status = TicketStatus.closedWithoutResolution
-          ..isResolved = true;
+          ..isResolved = true
+          ..endDate = DateTime.utc(2026, 8, 23, 8, 30)
+          ..closedByUid = 'admin-1'
+          ..closedByName = 'Admin User';
     closed.administrativeClosure = const IssueAdministrativeClosure(
       disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
       reason: 'The operating context ended and no further action is required.',
@@ -259,6 +262,40 @@ void main() {
       throwsStateError,
     );
   });
+
+  test(
+    'retained administrative closure can end relevance with audit command',
+    () {
+      final closed =
+          _ticket()
+            ..status = TicketStatus.closedWithoutResolution
+            ..isResolved = true
+            ..endDate = DateTime.utc(2026, 8, 23, 8, 30)
+            ..closedByUid = 'admin-1'
+            ..closedByName = 'Admin User';
+      closed.administrativeClosure = const IssueAdministrativeClosure(
+        disposition: IssueAdministrativeClosureDisposition.stillRelevant,
+        reason: 'The unresolved concern still affects Plant Condition.',
+      );
+
+      final command = buildMaintenanceIssueAdministrativeClosureCommand(
+        ticket: closed,
+        disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+        reason: 'A valid Inner Cover has now been restored to the Base.',
+        commandTime: DateTime.utc(2026, 8, 23, 9),
+      );
+
+      expect(
+        command.type,
+        WorkflowCommandType.closeMaintenanceTicketWithoutResolution,
+      );
+      expect(command.expectedVersion, closed.version);
+      expect(command.payload, <String, Object?>{
+        'disposition': 'relevanceEnded',
+        'reason': 'A valid Inner Cover has now been restored to the Base.',
+      });
+    },
+  );
 
   test('administrative closure has a truthful terminal lifecycle label', () {
     final ticket =

@@ -257,6 +257,20 @@ StructuredReportDocument buildMaintenanceTicketDossier({
               label: 'Administrative reason',
               value: closure.reason,
             ),
+          if (closure?.relevanceEndedAt != null) ...[
+            StructuredReportField(
+              label: 'Retained relevance ended',
+              value: _dateTime(closure!.relevanceEndedAt!),
+            ),
+            StructuredReportField(
+              label: 'Relevance ended by',
+              value: _value(closure.relevanceEndedByName),
+            ),
+            StructuredReportField(
+              label: 'Relevance-end reason',
+              value: _value(closure.relevanceEndReason),
+            ),
+          ],
           StructuredReportField(
             label: 'Final remarks',
             value: _value(ticket.remarks),

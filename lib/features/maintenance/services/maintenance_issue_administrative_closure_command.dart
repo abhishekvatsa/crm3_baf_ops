@@ -24,7 +24,23 @@ WorkflowCommand buildMaintenanceIssueAdministrativeClosureCommand({
       'Synchronize this issue before applying an administrative closure.',
     );
   }
-  if (ticket.isDeleted || ticket.status.isTerminal || ticket.isResolved) {
+  final endingRetainedRelevance =
+      ticket.status == TicketStatus.closedWithoutResolution &&
+      ticket.isResolved &&
+      ticket.administrativeClosure?.disposition ==
+          IssueAdministrativeClosureDisposition.stillRelevant &&
+      disposition == IssueAdministrativeClosureDisposition.relevanceEnded;
+  if (ticket.isDeleted) {
+    throw StateError('A deleted issue cannot be administratively changed.');
+  }
+  if (ticket.status == TicketStatus.closedWithoutResolution &&
+      !endingRetainedRelevance) {
+    throw StateError(
+      'Only a retained administrative closure can end its relevance.',
+    );
+  }
+  if (!endingRetainedRelevance &&
+      (ticket.status.isTerminal || ticket.isResolved)) {
     throw StateError('Only an active issue can be closed without resolution.');
   }
   final cleanReason = reason.trim();

@@ -46,13 +46,22 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   Stream<List<MaintenanceRecord>> watchPlantConditionTickets() {
     return _collection
         .where(
-          'status',
-          whereIn: <String>[
-            TicketStatus.open.name,
-            TicketStatus.acknowledged.name,
-            TicketStatus.inProgress.name,
-            TicketStatus.closedWithoutResolution.name,
-          ],
+          Filter.or(
+            Filter('status', isEqualTo: TicketStatus.open.name),
+            Filter('status', isEqualTo: TicketStatus.acknowledged.name),
+            Filter('status', isEqualTo: TicketStatus.inProgress.name),
+            Filter.and(
+              Filter(
+                'status',
+                isEqualTo: TicketStatus.closedWithoutResolution.name,
+              ),
+              Filter(
+                'issueClosureDisposition',
+                isEqualTo:
+                    IssueAdministrativeClosureDisposition.stillRelevant.name,
+              ),
+            ),
+          ),
         )
         .snapshots()
         .map((snapshot) {

@@ -1755,6 +1755,14 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   issueClosureSchemaVersion: ticket.issueClosureSchemaVersion ?? null,
   issueClosureDisposition: ticket.issueClosureDisposition ?? null,
   issueClosureReason: ticket.issueClosureReason ?? null,
+  issueClosureRelevanceEndedAt:
+    instantText(ticket.issueClosureRelevanceEndedAt),
+  issueClosureRelevanceEndedByUid:
+    ticket.issueClosureRelevanceEndedByUid ?? null,
+  issueClosureRelevanceEndedByName:
+    ticket.issueClosureRelevanceEndedByName ?? null,
+  issueClosureRelevanceEndReason:
+    ticket.issueClosureRelevanceEndReason ?? null,
   isDeleted: ticket.isDeleted ?? null,
 });
 
@@ -3167,6 +3175,71 @@ export const closeMaintenanceTicketWithoutResolution = async ({
     allowDeferred: true,
   });
   await requireVacantAudit(tx, command.commandId);
+  if (ticket.status === "closedWithoutResolution" &&
+      ticket.isResolved === true &&
+      ticket.issueClosureSchemaVersion === 1 &&
+      ticket.issueClosureDisposition === "stillRelevant") {
+    if (disposition !== "relevanceEnded") {
+      throw new WorkflowError(
+        "failed-precondition",
+        "A retained administrative closure can only transition to relevance ended.",
+        {reasonCode: "maintenance-ticket-relevance-transition-invalid"},
+      );
+    }
+    if (typeof ticket.issueClosureReason !== "string" ||
+        ticket.issueClosureReason.trim().length === 0 ||
+        ticket.issueClosureRelevanceEndedAt != null ||
+        ticket.issueClosureRelevanceEndedByUid != null ||
+        ticket.issueClosureRelevanceEndedByName != null ||
+        ticket.issueClosureRelevanceEndReason != null) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The retained administrative closure evidence is incomplete or contradictory.",
+        {reasonCode: "maintenance-ticket-relevance-evidence-invalid"},
+      );
+    }
+    const nextVersion = version + 1;
+    const updatedAt = iso(context.serverNow);
+    const update: JsonMap = {
+      issueClosureDisposition: "relevanceEnded",
+      issueClosureRelevanceEndedAt: updatedAt,
+      issueClosureRelevanceEndedByUid: context.actor.uid,
+      issueClosureRelevanceEndedByName: context.actor.name,
+      issueClosureRelevanceEndReason: reason,
+      updatedAt,
+      updatedByUid: context.actor.uid,
+      updatedByName: context.actor.name,
+      version: nextVersion,
+    };
+    const before = ticketSnapshot(ticket);
+    const after = ticketSnapshot({...ticket, ...update});
+    const id = writeAudit({
+      tx,
+      command,
+      actor: context.actor,
+      at: context.serverNow,
+      reason,
+      summary: "Retained maintenance concern marked no longer relevant",
+      severity: "medium",
+      before,
+      after,
+      resultVersion: nextVersion,
+    });
+    tx.update(maintenancePath(command.aggregateId), update);
+    return {
+      resultKey: "maintenance-ticket-closed-without-resolution",
+      aggregateVersion: nextVersion,
+      result: {
+        ticketId: command.aggregateId,
+        auditId: id,
+        disposition,
+        cancelledCoordination: false,
+        cancelledWorkflowId: null,
+        cancelledComplianceId: null,
+        relevanceTransition: true,
+      },
+    };
+  }
   if (ticket.isResolved === true ||
       TERMINAL_TICKET_STATUSES.has(String(ticket.status))) {
     throw new WorkflowError(
@@ -4086,14 +4159,34 @@ export const verifyMaintenanceTicketAudit = async (args: {
     const cancelledCoordination = args.receipt.result.cancelledCoordination;
     const workflowId = args.receipt.result.cancelledWorkflowId;
     const complianceId = args.receipt.result.cancelledComplianceId;
+    const relevanceTransition =
+      before.status === "closedWithoutResolution" &&
+      before.isResolved === true &&
+      before.issueClosureDisposition === "stillRelevant" &&
+      after.issueClosureDisposition === "relevanceEnded";
+    const initialClosureEvidenceValid = !relevanceTransition &&
+      after.closedByUid === args.actor.uid &&
+      after.issueClosureReason === reason;
+    const relevanceTransitionEvidenceValid = relevanceTransition &&
+      disposition === "relevanceEnded" &&
+      after.closedByUid === before.closedByUid &&
+      after.closedByName === before.closedByName &&
+      after.endDate === before.endDate &&
+      after.issueClosureReason === before.issueClosureReason &&
+      typeof after.issueClosureRelevanceEndedAt === "string" &&
+      after.issueClosureRelevanceEndedByUid === args.actor.uid &&
+      after.issueClosureRelevanceEndedByName === args.actor.name &&
+      after.issueClosureRelevanceEndReason === reason &&
+      cancelledCoordination === false && workflowId == null &&
+      complianceId == null;
     if (args.receipt.result.ticketId !== args.command.aggregateId ||
         !ADMINISTRATIVE_CLOSURE_DISPOSITIONS.has(disposition) ||
         after.status !== "closedWithoutResolution" ||
         after.isResolved !== true ||
-        after.closedByUid !== args.actor.uid ||
         after.issueClosureSchemaVersion !== 1 ||
         after.issueClosureDisposition !== disposition ||
-        after.issueClosureReason !== reason ||
+        (!initialClosureEvidenceValid &&
+          !relevanceTransitionEvidenceValid) ||
         after.version !== args.receipt.aggregateVersion ||
         typeof cancelledCoordination !== "boolean" ||
         (cancelledCoordination &&

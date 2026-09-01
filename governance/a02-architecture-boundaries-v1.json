@@ -487,7 +487,7 @@
         "test/maintenance_lifecycle_replay_contract_test.dart",
         "test/maintenance_plant_condition_stream_test.dart"
       ],
-      "maximumLines": 952,
+      "maximumLines": 961,
       "requiredMarkers": [
         "part of '"
       ],
@@ -1231,7 +1231,7 @@
       "path": "lib/features/maintenance/presentation/closed_tickets_screen.dart",
       "disposition": "bounded-exception",
       "owner": "Architecture / maintenance",
-      "purpose": "Owns closed-issue history, reopen admission, and governed classification of qualifying resolved maintenance work.",
+      "purpose": "Owns closed-issue history, reopen admission, governed relevance retirement, and classification of qualifying resolved maintenance work.",
       "responsibilities": [
         "authority",
         "command-boundary",
@@ -1244,10 +1244,11 @@
       "transactionOwnership": "No client transaction is owned by the closed-ticket screen; server command handlers atomically own classification and cadence updates.",
       "rationale": "The route coordinates one closed-issue dossier and its two history actions; optional metadata decoding is display-only and cannot grant mutation authority.",
       "regressionTests": [
+        "test/issue_administrative_closure_transition_test.dart",
         "test/operational_ux_restructure_test.dart",
         "functions/test/maintenanceIntelligence.test.js"
       ],
-      "maximumLines": 1400,
+      "maximumLines": 1563,
       "requiredMarkers": [
         "class ClosedTicketsScreen",
         "classifyMaintenanceTicket"

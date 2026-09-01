@@ -64,18 +64,22 @@ void main() {
     },
   );
 
-  test(
-    'web stream queries administrative closures before relevance filtering',
-    () {
-      final source =
-          File(
-            'lib/features/maintenance/providers/maintenance_provider.remote.dart',
-          ).readAsStringSync();
+  test('web stream atomically queries only retained administrative closures', () {
+    final source =
+        File(
+          'lib/features/maintenance/providers/maintenance_provider.remote.dart',
+        ).readAsStringSync();
 
-      expect(source, contains('TicketStatus.closedWithoutResolution.name'));
-      expect(source, contains('ticket.canStillAffectPlantCondition'));
-    },
-  );
+    expect(source, contains('Filter.or('));
+    expect(source, contains('Filter.and('));
+    expect(source, contains('TicketStatus.closedWithoutResolution.name'));
+    expect(source, contains("'issueClosureDisposition'"));
+    expect(
+      source,
+      contains('IssueAdministrativeClosureDisposition.stillRelevant.name'),
+    );
+    expect(source, contains('ticket.canStillAffectPlantCondition'));
+  });
 }
 
 MaintenanceRecord _record({

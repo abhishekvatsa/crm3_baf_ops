@@ -1846,6 +1846,73 @@ describe('governed maintenance-ticket supervision', () => {
     ).toEqual([]);
   });
 
+  test('admin ends retained relevance without overwriting original closure evidence', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+    });
+    await seeded.service.execute({
+      commandId: 'retain-unresolved-ticket',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'stillRelevant',
+        reason: 'The unresolved condition continues to affect Plant Condition.',
+      },
+    }, seeded.context);
+
+    const secondAdmin = actor('admin-2', ['admin']);
+    seeded.store.seed(`users/${secondAdmin.uid}`, {
+      isApproved: true,
+      roles: [...secondAdmin.roles],
+      name: secondAdmin.name,
+    });
+    const transitionContext = {
+      actor: secondAdmin,
+      serverNow: new Date('2026-08-15T08:30:00.000Z'),
+    };
+    const transition = {
+      commandId: 'end-retained-ticket-relevance',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 4,
+      payload: {
+        disposition: 'relevanceEnded',
+        reason: 'A valid Inner Cover has been restored to the Base.',
+      },
+    };
+
+    const receipt = await seeded.service.execute(
+      transition,
+      transitionContext,
+    );
+    await expect(seeded.service.execute(transition, transitionContext))
+      .resolves.toEqual(receipt);
+
+    expect(receipt).toMatchObject({
+      resultKey: 'maintenance-ticket-closed-without-resolution',
+      aggregateVersion: 5,
+      result: {
+        disposition: 'relevanceEnded',
+        cancelledCoordination: false,
+        relevanceTransition: true,
+      },
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'closedWithoutResolution',
+      issueClosureDisposition: 'relevanceEnded',
+      issueClosureReason:
+        'The unresolved condition continues to affect Plant Condition.',
+      closedByUid: admin.uid,
+      issueClosureRelevanceEndedAt: transitionContext.serverNow.toISOString(),
+      issueClosureRelevanceEndedByUid: secondAdmin.uid,
+      issueClosureRelevanceEndedByName: secondAdmin.name,
+      issueClosureRelevanceEndReason:
+        'A valid Inner Cover has been restored to the Base.',
+      version: 5,
+    });
+  });
+
   test('Base vacancy resolves only after a valid Inner Cover is restored', async () => {
     const vacant = serviceFor(admin, baseInnerCoverAvailabilityTicket());
     seedBaseWithoutInnerCover(vacant.store);
