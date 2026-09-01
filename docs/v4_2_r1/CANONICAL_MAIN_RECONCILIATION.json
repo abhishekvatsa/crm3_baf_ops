@@ -122,9 +122,9 @@
     {
       "path": "README.md",
       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
-      "candidateSha256": "6AFACC2E84BA71ADA605655BAF3AAD309930E81ED01FBE158B33B6D09A5F7871",
+      "candidateSha256": "52D2F89D55A51D4171C8503ADB5A59D1EBACF8DA127DB0FDDA963B0B4875FE22",
       "canonicalBytes": 564,
-      "candidateBytes": 8570,
+      "candidateBytes": 8328,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2450,7 +2450,7 @@
     {
       "path": "pubspec.yaml",
       "canonicalSha256": "AA50252F720ECFF280AEB9703F4602ED76BAD8636EF6922250A80B8733AC58B2",
-      "candidateSha256": "B5A6D1EFA3BCDB63BC4334AB34E65D40753E654175EC2FA82FBE08772F2F302C",
+      "candidateSha256": "B68402E5F5E2107381ABD1BF737A402AE4783401CE99ED40219F9F0F3A93C7E6",
       "canonicalBytes": 845,
       "candidateBytes": 1040,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -2498,7 +2498,7 @@
     {
       "path": "release/approvals/version-policy-approval.json",
       "canonicalSha256": "40F82419238953032CB2350936D68C179339E5B020DBF5D59105E63BB326CC6D",
-      "candidateSha256": "67553575BB04A6CFCD4852E5976B3B5A42F95F914C954BDBC5BA3CFF95A57F86",
+      "candidateSha256": "64A8820E9E152278BACBA20310112520354E1F91E46B747D5A7C9BA35F224FEA",
       "canonicalBytes": 530,
       "candidateBytes": 619,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -2570,9 +2570,9 @@
     {
       "path": "release/build-number-ledger.json",
       "canonicalSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
-      "candidateSha256": "3B038D4D468151B34839435AA6203B0062476E5C3E4AE758382CF5275E8C46A9",
+      "candidateSha256": "2AD2ED6899E4D1D1C5C65F9672B6177B3BDE92C30407110F3056B32E5E426A95",
       "canonicalBytes": 1097,
-      "candidateBytes": 62042,
+      "candidateBytes": 62939,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2594,9 +2594,9 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "3B2E2BF57C279DEEBAA5B3F9373CB7478BD75A162AF0A9CB4CE4F7EA8F76A3B3",
+      "candidateSha256": "907B2FBD1299D5EA3167574BB08CB6A76DD9B95EDC9888BF3E34CE6CBC24FEBB",
       "canonicalBytes": 5884,
-      "candidateBytes": 14625,
+      "candidateBytes": 13758,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
