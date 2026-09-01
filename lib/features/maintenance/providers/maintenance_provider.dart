@@ -244,6 +244,7 @@ abstract class MaintenanceRepository {
   Future<MaintenanceRecord?> getTicketById(dynamic id);
   // 🔥 REACTIVE STREAMS
   Stream<List<MaintenanceRecord>> watchOpenTickets();
+  Stream<List<MaintenanceRecord>> watchPlantConditionTickets();
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit});
   Stream<List<MaintenanceRecord>> watchTicketsOverlappingPeriod(
     DateTime startInclusive,
@@ -549,23 +550,7 @@ final openTicketsProvider = StreamProvider<List<MaintenanceRecord>>((ref) {
 final plantConditionTicketsProvider = StreamProvider<List<MaintenanceRecord>>((
   ref,
 ) {
-  if (kIsWeb) {
-    return ref.watch(maintenanceRepositoryProvider).watchOpenTickets();
-  }
-  return isar.maintenanceRecords
-      .filter()
-      .group(
-        (query) => query.isResolvedEqualTo(false).and().isDeletedEqualTo(false),
-      )
-      .or()
-      .isSyncedEqualTo(false)
-      .watch(fireImmediately: true)
-      .map((tickets) {
-        tickets.sort(
-          (left, right) => right.createdAt.compareTo(left.createdAt),
-        );
-        return tickets;
-      });
+  return ref.watch(maintenanceRepositoryProvider).watchPlantConditionTickets();
 });
 
 /// Home badge count provider. On mobile/desktop it avoids materialising the

@@ -815,6 +815,16 @@ class MaintenanceRecord {
   bool get isClosed => status.isTerminal;
 
   @ignore
+  bool get canStillAffectPlantCondition {
+    if (!isSynced) return true;
+    if (isDeleted) return false;
+    if (!isResolved) return true;
+    return status == TicketStatus.closedWithoutResolution &&
+        administrativeClosure?.disposition ==
+            IssueAdministrativeClosureDisposition.stillRelevant;
+  }
+
+  @ignore
   bool get wasTechnicallyResolved => status == TicketStatus.resolved;
 
   @ignore

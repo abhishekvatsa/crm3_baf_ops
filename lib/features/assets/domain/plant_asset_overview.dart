@@ -1,6 +1,5 @@
 import '../../maintenance_workflow/data/equipment_status_record.dart';
 import '../../maintenance/data/maintenance_model.dart';
-import '../../maintenance/domain/issue_administrative_closure.dart';
 import '../data/asset_availability_record.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
@@ -202,17 +201,8 @@ class PlantAssetOverview {
     final issueConditionsByAssetId =
         <String, List<PlantIssueConditionContribution>>{};
     for (final ticket in maintenanceTickets) {
-      final administrativelyClosedButStillRelevant =
-          ticket.status == TicketStatus.closedWithoutResolution &&
-          ticket.administrativeClosure?.disposition ==
-              IssueAdministrativeClosureDisposition.stillRelevant &&
-          !ticket.isDeleted;
-      final activeUntilServerConfirmed =
-          (!ticket.isResolved && !ticket.isDeleted) ||
-          !ticket.isSynced ||
-          administrativelyClosedButStillRelevant;
       final effect = ticket.effectivePlantConditionEffect;
-      if (!activeUntilServerConfirmed ||
+      if (!ticket.canStillAffectPlantCondition ||
           effect == MaintenanceIssuePlantConditionEffect.none ||
           effect == MaintenanceIssuePlantConditionEffect.stuckUp) {
         continue;

@@ -454,9 +454,10 @@
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
       "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/maintenance_plant_condition_stream_test.dart"
       ],
-      "maximumLines": 887,
+      "maximumLines": 910,
       "requiredMarkers": [
         "part of '"
       ],
@@ -483,9 +484,10 @@
       "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
       "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/maintenance_plant_condition_stream_test.dart"
       ],
-      "maximumLines": 928,
+      "maximumLines": 952,
       "requiredMarkers": [
         "part of '"
       ],
