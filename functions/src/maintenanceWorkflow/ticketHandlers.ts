@@ -2175,7 +2175,11 @@ export const createMaintenanceTicket = async ({
     );
   }
   const isCritical = requiredBoolean(input.isCritical, "isCritical");
-  const startDate = parseIsoInstant(input.startDate, "startDate", context.serverNow);
+  const requestedStartDate = parseIsoInstant(
+    input.startDate,
+    "startDate",
+    context.serverNow,
+  );
   const chargeNoAtEvent = input.chargeNoAtEvent == null ? null :
     requiredInteger(input.chargeNoAtEvent, "chargeNoAtEvent", 10000, 99999);
   if (chargeNoAtEvent != null && !isFiveDigitChargeNumber(chargeNoAtEvent)) {
@@ -2338,6 +2342,9 @@ export const createMaintenanceTicket = async ({
   const timestamp = iso(context.serverNow);
   const baseInnerCoverUnavailable =
     classification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION;
+  const startDate = baseInnerCoverUnavailable &&
+      Date.parse(requestedStartDate) > context.serverNow.getTime() ?
+    timestamp : requestedStartDate;
   const assetHierarchyRefJson = await requireFreshAssetReference({
     tx,
     raw: input.assetHierarchyRefJson,

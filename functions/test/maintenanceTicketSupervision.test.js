@@ -669,6 +669,40 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('clamps a clock-ahead live Base vacancy observation to server time', async () => {
+    const vacant = createServiceFor(operations);
+    seedBaseWithoutInnerCover(vacant.store);
+
+    await expect(vacant.service.execute(createCommand({
+      commandId: 'create-clock-ahead-base-vacancy',
+      ticketId: 'clock-ahead-base-vacancy',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 has no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+        startDate: '2026-08-14T16:34:00.000Z',
+      },
+    }), vacant.context)).resolves.toMatchObject({aggregateVersion: 1});
+
+    const created = vacant.store.read(
+      'maintenance_records/clock-ahead-base-vacancy',
+    );
+    expect(created.startDate).toBe(at.toISOString());
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      innerCoverAssociation: {
+        positionState: 'noneLinked',
+        eventAt: at.toISOString(),
+      },
+    });
+  });
+
   test('preserves a queued Base vacancy observed before restoration', async () => {
     const delayed = createServiceFor(operations);
     seedBaseWithoutInnerCover(delayed.store);
