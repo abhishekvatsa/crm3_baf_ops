@@ -12,65 +12,98 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('asset hierarchy retains a useful phone-height tree viewport', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 820));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final now = DateTime.utc(2026, 8, 28, 14);
-    final assetClass = _assetClass(now);
-    final nodes = List<AssetHierarchyNode>.generate(
-      18,
-      (index) => _hierarchyNode(index + 1, assetClass.id, now),
-    );
+  testWidgets(
+    'asset hierarchy header scrolls and compact actions stay legible',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 820));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.utc(2026, 8, 28, 14);
+      final assetClass = _assetClass(now);
+      final nodes = List<AssetHierarchyNode>.generate(
+        18,
+        (index) => _hierarchyNode(index + 1, assetClass.id, now),
+      );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          adminTicketsStreamProvider.overrideWith(
-            (ref) => Stream.value(const <MaintenanceRecord>[]),
-          ),
-          adminExecutionsStreamProvider.overrideWith(
-            (ref) => Stream.value(const <JobExecution>[]),
-          ),
-          assetClassesProvider.overrideWith(
-            (ref) => Stream.value(<AssetClassRecord>[assetClass]),
-          ),
-          assetHierarchyNodesProvider(
-            assetClass.id,
-          ).overrideWith((ref) => Stream.value(nodes)),
-          assetInstancesProvider(
-            assetClass.id,
-          ).overrideWith((ref) => Stream.value(const <AssetInstanceRecord>[])),
-        ],
-        child: MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: 390,
-                height: 560,
-                child: AssetHierarchyAdminTab(actor: _admin(now)),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            adminTicketsStreamProvider.overrideWith(
+              (ref) => Stream.value(const <MaintenanceRecord>[]),
+            ),
+            adminExecutionsStreamProvider.overrideWith(
+              (ref) => Stream.value(const <JobExecution>[]),
+            ),
+            assetClassesProvider.overrideWith(
+              (ref) => Stream.value(<AssetClassRecord>[assetClass]),
+            ),
+            assetHierarchyNodesProvider(
+              assetClass.id,
+            ).overrideWith((ref) => Stream.value(nodes)),
+            assetInstancesProvider(assetClass.id).overrideWith(
+              (ref) => Stream.value(const <AssetInstanceRecord>[]),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: 390,
+                  height: 560,
+                  child: AssetHierarchyAdminTab(
+                    actor: _admin(now),
+                    compactHeader: const SizedBox(
+                      key: ValueKey('test-asset-hierarchy-sync-header'),
+                      height: 52,
+                      child: Center(child: Text('Sync status')),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    final toolbar = find.byKey(
-      const ValueKey('asset-hierarchy-mobile-toolbar'),
-    );
-    final hierarchyList = find.byKey(
-      const ValueKey('asset-hierarchy-definition-list'),
-    );
-    expect(toolbar, findsOneWidget);
-    expect(hierarchyList, findsOneWidget);
-    expect(tester.getSize(toolbar).height, lessThanOrEqualTo(56));
-    expect(tester.getSize(hierarchyList).height, greaterThanOrEqualTo(200));
-    expect(tester.takeException(), isNull);
-  });
+      final toolbar = find.byKey(
+        const ValueKey('asset-hierarchy-mobile-toolbar'),
+      );
+      final hierarchyList = find.byKey(
+        const ValueKey('asset-hierarchy-definition-list'),
+      );
+      expect(toolbar, findsOneWidget);
+      expect(hierarchyList, findsOneWidget);
+      expect(tester.getSize(toolbar).height, lessThanOrEqualTo(56));
+      expect(tester.getSize(hierarchyList).height, greaterThanOrEqualTo(140));
+      final retiredButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('asset-hierarchy-retired-toggle')),
+      );
+      final addButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('asset-hierarchy-add-class')),
+      );
+      expect(
+        retiredButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
+        Colors.white,
+      );
+      expect(
+        addButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
+        Colors.white,
+      );
+
+      final compactHeader = find.byKey(
+        const ValueKey('test-asset-hierarchy-sync-header'),
+      );
+      expect(compactHeader.hitTestable(), findsOneWidget);
+      await tester.drag(hierarchyList, const Offset(0, -420));
+      await tester.pumpAndSettle();
+
+      expect(compactHeader.hitTestable(), findsNothing);
+      expect(toolbar.hitTestable(), findsNothing);
+      expect(find.text('Definition').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('admin ticket descriptions stay bounded and readable on phone', (
     tester,

@@ -23,8 +23,13 @@ part 'admin_asset_hierarchy_tab.toolbar.dart';
 
 class AssetHierarchyAdminTab extends ConsumerStatefulWidget {
   final AppUser actor;
+  final Widget? compactHeader;
 
-  const AssetHierarchyAdminTab({super.key, required this.actor});
+  const AssetHierarchyAdminTab({
+    super.key,
+    required this.actor,
+    this.compactHeader,
+  });
 
   @override
   ConsumerState<AssetHierarchyAdminTab> createState() =>
@@ -69,7 +74,7 @@ class _AssetHierarchyAdminTabState
               assetClass.code.toLowerCase().contains(needle) ||
               assetClass.majorArea.toLowerCase().contains(needle);
         }).toList();
-    final selected = classes.cast<AssetClassRecord?>().firstWhere(
+    final selected = visible.cast<AssetClassRecord?>().firstWhere(
       (item) => item?.id == _selectedClassId,
       orElse: () => visible.isEmpty ? null : visible.first,
     );
@@ -79,56 +84,70 @@ class _AssetHierarchyAdminTabState
       });
     }
 
-    return Column(
-      children: [
-        _HierarchyToolbar(
-          total: classes.length,
-          active: classes.where((item) => item.isActive).length,
-          showRetired: _showRetired,
-          busy: _busy,
-          onShowRetiredChanged: (value) => setState(() => _showRetired = value),
-          onSearchChanged: (value) => setState(() => _search = value),
-          onAddClass: _busy ? null : () => _createClass(context),
-        ),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 860) {
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                      child: DropdownButtonFormField<String>(
-                        initialValue: selected?.id,
-                        decoration: const InputDecoration(
-                          labelText: 'Asset class',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(
-                            Icons.precision_manufacturing_rounded,
+    final toolbar = _HierarchyToolbar(
+      total: classes.length,
+      active: classes.where((item) => item.isActive).length,
+      showRetired: _showRetired,
+      busy: _busy,
+      onShowRetiredChanged: (value) => setState(() => _showRetired = value),
+      onSearchChanged: (value) => setState(() => _search = value),
+      onAddClass: _busy ? null : () => _createClass(context),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 860) {
+          final selector = Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: DropdownButtonFormField<String>(
+              key: const ValueKey('asset-hierarchy-class-selector'),
+              initialValue: selected?.id,
+              decoration: const InputDecoration(
+                labelText: 'Asset class',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.precision_manufacturing_rounded),
+              ),
+              isExpanded: true,
+              items:
+                  visible
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item.id,
+                          child: Text(
+                            '${item.code}  ${item.name}',
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        isExpanded: true,
-                        items:
-                            visible
-                                .map(
-                                  (item) => DropdownMenuItem(
-                                    value: item.id,
-                                    child: Text(
-                                      '${item.code}  ${item.name}',
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged:
-                            (value) => setState(() => _selectedClassId = value),
-                      ),
-                    ),
-                    Expanded(child: _classDetail(selected)),
-                  ],
-                );
-              }
-              return Row(
+                      )
+                      .toList(),
+              onChanged: (value) => setState(() => _selectedClassId = value),
+            ),
+          );
+          if (selected == null) {
+            return Column(
+              children: [
+                if (widget.compactHeader != null) widget.compactHeader!,
+                toolbar,
+                selector,
+                Expanded(child: _classDetail(null)),
+              ],
+            );
+          }
+          return _classDetail(
+            selected,
+            compactHeaders: [
+              if (widget.compactHeader != null) widget.compactHeader!,
+              toolbar,
+              selector,
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            toolbar,
+            Expanded(
+              child: Row(
                 children: [
                   SizedBox(
                     width: 310,
@@ -142,15 +161,18 @@ class _AssetHierarchyAdminTabState
                   const VerticalDivider(width: 1),
                   Expanded(child: _classDetail(selected)),
                 ],
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _classDetail(AssetClassRecord? assetClass) {
+  Widget _classDetail(
+    AssetClassRecord? assetClass, {
+    List<Widget> compactHeaders = const <Widget>[],
+  }) {
     if (assetClass == null) {
       return const _EmptyHierarchy(
         icon: Icons.account_tree_outlined,
@@ -168,6 +190,7 @@ class _AssetHierarchyAdminTabState
       onAddNode: (parent) => _createNode(context, assetClass, parent),
       onEditNode: (node) => _editNode(context, node),
       onToggleNodeStatus: (node) => _toggleNodeStatus(context, node),
+      compactHeaders: compactHeaders,
     );
   }
 
@@ -450,6 +473,7 @@ class _AssetClassDetail extends ConsumerStatefulWidget {
   final ValueChanged<AssetHierarchyNode?> onAddNode;
   final ValueChanged<AssetHierarchyNode> onEditNode;
   final ValueChanged<AssetHierarchyNode> onToggleNodeStatus;
+  final List<Widget> compactHeaders;
 
   const _AssetClassDetail({
     super.key,
@@ -461,6 +485,7 @@ class _AssetClassDetail extends ConsumerStatefulWidget {
     required this.onAddNode,
     required this.onEditNode,
     required this.onToggleNodeStatus,
+    this.compactHeaders = const <Widget>[],
   });
 
   @override
@@ -476,139 +501,169 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
       assetHierarchyNodesProvider(widget.assetClass.id),
     );
     final compact = MediaQuery.sizeOf(context).width < 560;
+    final summary = _ClassSummary(
+      assetClass: widget.assetClass,
+      busy: widget.busy,
+      onEdit: widget.onEditClass,
+      onToggleStatus: widget.onToggleClassStatus,
+      onAddRoot:
+          widget.assetClass.isActive ? () => widget.onAddNode(null) : null,
+    );
+    final tabs = _hierarchyTabs(compact);
+    final tabView = TabBarView(
+      children: [
+        _definitionTab(nodesAsync),
+        _PhysicalAssetRegistry(
+          assetClass: widget.assetClass,
+          actor: widget.actor,
+        ),
+      ],
+    );
     return DefaultTabController(
       length: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ClassSummary(
-            assetClass: widget.assetClass,
-            busy: widget.busy,
-            onEdit: widget.onEditClass,
-            onToggleStatus: widget.onToggleClassStatus,
-            onAddRoot:
-                widget.assetClass.isActive
-                    ? () => widget.onAddNode(null)
-                    : null,
-          ),
-          Material(
-            color: Colors.white,
-            child: TabBar(
-              tabs: [
-                Tab(
-                  icon:
-                      compact ? null : const Icon(Icons.account_tree_outlined),
-                  text: 'Definition',
-                ),
-                Tab(
-                  icon: compact ? null : const Icon(Icons.factory_outlined),
-                  text: 'Physical assets',
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                nodesAsync.when(
-                  loading:
-                      () => const Center(child: CircularProgressIndicator()),
-                  error:
-                      (error, _) => _LoadFailure(
-                        message: 'Hierarchy nodes could not be loaded: $error',
-                        onRetry:
-                            () => ref.invalidate(
-                              assetHierarchyNodesProvider(widget.assetClass.id),
-                            ),
+      child:
+          widget.compactHeaders.isNotEmpty
+              ? NestedScrollView(
+                key: const ValueKey('asset-hierarchy-mobile-scroll'),
+                headerSliverBuilder:
+                    (context, innerBoxIsScrolled) => [
+                      for (final header in widget.compactHeaders)
+                        SliverToBoxAdapter(child: header),
+                      SliverToBoxAdapter(child: summary),
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _HierarchyTabHeaderDelegate(child: tabs),
                       ),
-                  data: (nodes) {
-                    final tree = AssetHierarchyTree.build(nodes);
-                    final visibleNodes =
-                        _showRetiredNodes
-                            ? nodes
-                            : nodes.where((node) => node.isActive).toList();
-                    final visibleTree = AssetHierarchyTree.build(visibleNodes);
-                    return Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: BafSpacing.md,
-                            vertical: BafSpacing.xs,
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                '${visibleNodes.length} items',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: BafColors.textSecondary,
-                                ),
-                              ),
-                              const Spacer(),
-                              FilterChip(
-                                selected: _showRetiredNodes,
-                                onSelected:
-                                    (value) => setState(
-                                      () => _showRetiredNodes = value,
-                                    ),
-                                label: Text(
-                                  'Retired ${nodes.where((node) => !node.isActive).length}',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (tree.integrityErrors.isNotEmpty)
-                          _IntegrityBanner(errors: tree.integrityErrors),
-                        Expanded(
-                          child:
-                              visibleNodes.isEmpty
-                                  ? const _EmptyHierarchy(
-                                    icon: Icons.account_tree_outlined,
-                                    title: 'No hierarchy items',
-                                    message:
-                                        'Add a grouping, assembly, component or subcomponent.',
-                                  )
-                                  : ListView(
-                                    key: const ValueKey(
-                                      'asset-hierarchy-definition-list',
-                                    ),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      0,
-                                      12,
-                                      24,
-                                    ),
-                                    children: [
-                                      for (final root in visibleTree.roots)
-                                        _HierarchyBranch(
-                                          node: root,
-                                          tree: visibleTree,
-                                          level: 0,
-                                          busy: widget.busy,
-                                          onAddChild: widget.onAddNode,
-                                          onEdit: widget.onEditNode,
-                                          onToggleStatus:
-                                              widget.onToggleNodeStatus,
-                                        ),
-                                    ],
-                                  ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                _PhysicalAssetRegistry(
-                  assetClass: widget.assetClass,
-                  actor: widget.actor,
-                ),
-              ],
-            ),
+                    ],
+                body: tabView,
+              )
+              : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [summary, tabs, Expanded(child: tabView)],
+              ),
+    );
+  }
+
+  Widget _hierarchyTabs(bool compact) {
+    return Material(
+      color: Colors.white,
+      child: TabBar(
+        tabs: [
+          Tab(
+            icon: compact ? null : const Icon(Icons.account_tree_outlined),
+            text: 'Definition',
+          ),
+          Tab(
+            icon: compact ? null : const Icon(Icons.factory_outlined),
+            text: 'Physical assets',
           ),
         ],
       ),
     );
   }
+
+  Widget _definitionTab(AsyncValue<List<AssetHierarchyNode>> nodesAsync) {
+    return nodesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, _) => _LoadFailure(
+            message: 'Hierarchy nodes could not be loaded: $error',
+            onRetry:
+                () => ref.invalidate(
+                  assetHierarchyNodesProvider(widget.assetClass.id),
+                ),
+          ),
+      data: (nodes) {
+        final tree = AssetHierarchyTree.build(nodes);
+        final visibleNodes =
+            _showRetiredNodes
+                ? nodes
+                : nodes.where((node) => node.isActive).toList();
+        final visibleTree = AssetHierarchyTree.build(visibleNodes);
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: BafSpacing.md,
+                vertical: BafSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${visibleNodes.length} items',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: BafColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  FilterChip(
+                    selected: _showRetiredNodes,
+                    onSelected:
+                        (value) => setState(() => _showRetiredNodes = value),
+                    label: Text(
+                      'Retired ${nodes.where((node) => !node.isActive).length}',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (tree.integrityErrors.isNotEmpty)
+              _IntegrityBanner(errors: tree.integrityErrors),
+            Expanded(
+              child:
+                  visibleNodes.isEmpty
+                      ? const _EmptyHierarchy(
+                        icon: Icons.account_tree_outlined,
+                        title: 'No hierarchy items',
+                        message:
+                            'Add a grouping, assembly, component or subcomponent.',
+                      )
+                      : ListView(
+                        key: const ValueKey('asset-hierarchy-definition-list'),
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                        children: [
+                          for (final root in visibleTree.roots)
+                            _HierarchyBranch(
+                              node: root,
+                              tree: visibleTree,
+                              level: 0,
+                              busy: widget.busy,
+                              onAddChild: widget.onAddNode,
+                              onEdit: widget.onEditNode,
+                              onToggleStatus: widget.onToggleNodeStatus,
+                            ),
+                        ],
+                      ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HierarchyTabHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+
+  const _HierarchyTabHeaderDelegate({required this.child});
+
+  @override
+  double get minExtent => 48;
+
+  @override
+  double get maxExtent => 48;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => SizedBox.expand(child: child);
+
+  @override
+  bool shouldRebuild(covariant _HierarchyTabHeaderDelegate oldDelegate) =>
+      oldDelegate.child != child;
 }
 
 class _ClassSummary extends StatelessWidget {

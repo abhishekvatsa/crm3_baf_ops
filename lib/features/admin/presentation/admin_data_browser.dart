@@ -174,7 +174,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                         onPressed:
                             () => _openSupportTool(
                               _AdminSupportTool.deviceRecovery,
-                          ),
+                            ),
                       ),
                       IconButton(
                         tooltip: 'Select deleted pilot records for cleanup',
@@ -215,7 +215,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
           ),
           body: Column(
             children: [
-              if (compactHeader)
+              if (compactHeader && _selectedTab != 5)
                 const Padding(
                   padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
                   child: Align(
@@ -232,7 +232,20 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
                     const TemplatesBrowser(),
                     const ExecutionsBrowser(),
                     const AbnormalitiesAdminTab(),
-                    AssetHierarchyAdminTab(actor: appUser),
+                    AssetHierarchyAdminTab(
+                      actor: appUser,
+                      compactHeader:
+                          compactHeader && _selectedTab == 5
+                              ? const Padding(
+                                key: ValueKey('asset-hierarchy-sync-header'),
+                                padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: SyncStatusIndicator(),
+                                ),
+                              )
+                              : null,
+                    ),
                     const CriticalAlarmContactsPanel(administrationMode: true),
                     const UsersTab(),
                   ],

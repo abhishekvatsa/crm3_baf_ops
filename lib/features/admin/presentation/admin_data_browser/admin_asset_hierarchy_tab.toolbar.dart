@@ -48,11 +48,17 @@ class _HierarchyToolbar extends StatelessWidget {
                     isLabelVisible: retired > 0,
                     label: Text('$retired'),
                     child: IconButton.filledTonal(
+                      key: const ValueKey('asset-hierarchy-retired-toggle'),
                       tooltip:
                           showRetired
                               ? 'Hide retired asset classes'
                               : 'Show retired asset classes',
                       onPressed: () => onShowRetiredChanged(!showRetired),
+                      style: IconButton.styleFrom(
+                        backgroundColor: BafColors.cobalt,
+                        foregroundColor: Colors.white,
+                        disabledForegroundColor: Colors.white54,
+                      ),
                       icon: Icon(
                         showRetired
                             ? Icons.history_toggle_off_rounded
@@ -62,8 +68,15 @@ class _HierarchyToolbar extends StatelessWidget {
                   ),
                   const SizedBox(width: BafSpacing.sm),
                   IconButton.filled(
+                    key: const ValueKey('asset-hierarchy-add-class'),
                     tooltip: 'Add asset class',
                     onPressed: onAddClass,
+                    style: IconButton.styleFrom(
+                      backgroundColor: BafColors.assets,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: BafColors.surfaceStrong,
+                      disabledForegroundColor: BafColors.textTertiary,
+                    ),
                     icon: const Icon(Icons.add_rounded),
                   ),
                 ],
