@@ -37,11 +37,12 @@ void main() {
     final policy = _readObject('release/production-release-policy.json');
     final policyFinalization =
         (policy['finalization'] as Map).cast<String, dynamic>();
+    final policyRelease = (policy['release'] as Map).cast<String, dynamic>();
     final build20PolicyAuthority =
-        policyFinalization['status'] == 'pending-source-authorized'
-            ? (policyFinalization['priorCompletedBuild'] as Map)
-                .cast<String, dynamic>()
-            : policyFinalization;
+        policyRelease['buildNumber'] == 20
+            ? policyFinalization
+            : (policyFinalization['priorCompletedBuild'] as Map)
+                .cast<String, dynamic>();
     final ledger = _readObject('release/build-number-ledger.json');
     final ledgerEntry = (ledger['entries'] as List)
         .cast<Map>()
@@ -59,6 +60,12 @@ void main() {
       'passed-exact-build20-physical-in-place-authenticated-startup-and-local-recovery',
     );
     expect(release['buildNumber'], 20);
+    expect(
+      policyRelease['buildNumber'] == 20
+          ? policyRelease['buildNumber']
+          : build20PolicyAuthority['buildNumber'],
+      20,
+    );
     expect(
       release['sourceCommit'],
       (finalization['sourceAuthority'] as Map)['commit'],
