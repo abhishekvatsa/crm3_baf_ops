@@ -18,6 +18,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/abnormality_model.dart';
 import '../providers/abnormality_provider.dart';
+import 'abnormality_types_toolbar.dart';
 
 class AbnormalityTypesScreen extends ConsumerStatefulWidget {
   const AbnormalityTypesScreen({super.key});
@@ -76,16 +77,22 @@ class _AbnormalityTypesScreenState
       ),
       body: typesAsync.when(
         loading:
-            () => const BafLoadingPanel(
-              label: 'Loading abnormality types',
-              color: BafColors.charges,
+            () => AbnormalityTypeUnavailableState(
+              state: const BafLoadingPanel(
+                label: 'Loading abnormality types',
+                color: BafColors.charges,
+              ),
+              onCreate: () => _showTypeForm(),
             ),
         error:
-            (err, _) => _StateCard(
-              icon: Icons.error_outline_rounded,
-              title: 'Could not load abnormality types',
-              message: '$err',
-              color: BafColors.danger,
+            (err, _) => AbnormalityTypeUnavailableState(
+              state: _StateCard(
+                icon: Icons.error_outline_rounded,
+                title: 'Could not load abnormality types',
+                message: '$err',
+                color: BafColors.danger,
+              ),
+              onCreate: () => _showTypeForm(),
             ),
         data: (types) {
           final visible =
@@ -125,7 +132,7 @@ class _AbnormalityTypesScreenState
                   BafSpacing.md,
                 ),
                 sliver: SliverToBoxAdapter(
-                  child: _AbnormalityTypeToolbar(
+                  child: AbnormalityTypeToolbar(
                     onSearchChanged:
                         (value) => setState(() => _searchQuery = value),
                     onCreate: () => _showTypeForm(),
@@ -794,79 +801,6 @@ class _AbnormalityTypeDeleteDialogState
           child: const Text('Mark Deleted'),
         ),
       ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// UI WIDGETS
-// ─────────────────────────────────────────────────────────────
-
-class _AbnormalityTypeToolbar extends StatelessWidget {
-  final ValueChanged<String> onSearchChanged;
-  final VoidCallback onCreate;
-
-  const _AbnormalityTypeToolbar({
-    required this.onSearchChanged,
-    required this.onCreate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final search = TextField(
-      decoration: InputDecoration(
-        hintText: 'Search by code, title or category',
-        hintStyle: const TextStyle(color: BafColors.textSecondary),
-        prefixIcon: const Icon(
-          Icons.search_rounded,
-          color: BafColors.textSecondary,
-        ),
-        filled: true,
-        fillColor: BafColors.card,
-        isDense: true,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(BafRadius.medium),
-          borderSide: const BorderSide(color: BafColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(BafRadius.medium),
-          borderSide: const BorderSide(color: BafColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(BafRadius.medium),
-          borderSide: const BorderSide(color: BafColors.navySoft, width: 1.4),
-        ),
-      ),
-      onChanged: onSearchChanged,
-    );
-    final create = FilledButton.icon(
-      style: FilledButton.styleFrom(
-        backgroundColor: BafColors.navy,
-        foregroundColor: Colors.white,
-        minimumSize: const Size(0, 48),
-        padding: const EdgeInsets.symmetric(horizontal: BafSpacing.lg),
-      ),
-      onPressed: onCreate,
-      icon: const Icon(Icons.add_rounded),
-      label: const Text('New type'),
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 560) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [search, const SizedBox(height: BafSpacing.sm), create],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: search),
-            const SizedBox(width: BafSpacing.md),
-            create,
-          ],
-        );
-      },
     );
   }
 }

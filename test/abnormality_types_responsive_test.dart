@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart:async';
+
 void main() {
   testWidgets('mobile abnormality master remains readable and scrolls away', (
     tester,
@@ -45,6 +47,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(header.hitTestable(), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('create action remains available while types are loading', (
+    tester,
+  ) async {
+    final controller = StreamController<List<AbnormalityType>>();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_admin),
+          ),
+          allAbnormalityTypesProvider.overrideWith((ref) => controller.stream),
+        ],
+        child: const MaterialApp(home: AbnormalityTypesScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('abnormality-types-create')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('abnormality-types-create')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Create Abnormality Type'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('create action remains available when types fail to load', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_admin),
+          ),
+          allAbnormalityTypesProvider.overrideWith(
+            (ref) => Stream<List<AbnormalityType>>.error(
+              StateError('representative read failure'),
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: AbnormalityTypesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not load abnormality types'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('abnormality-types-create')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }

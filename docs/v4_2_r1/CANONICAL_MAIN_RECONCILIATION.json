@@ -1174,9 +1174,9 @@
     {
       "path": "lib/features/abnormalities/presentation/abnormality_types_screen.dart",
       "canonicalSha256": "276D3F5D1218212D41CD63AAAF5814A4CF1A1048B2B4E61E25AA0AD3673C4100",
-      "candidateSha256": "BEAC15A74DFF88994AC01CAB6474ACFFD3CADECAF63D101BAA93B0666EBD9056",
+      "candidateSha256": "25B0C0757A8F5FE1E88DC809CD6F368746013146AEDB30906108483A3192E276",
       "canonicalBytes": 42775,
-      "candidateBytes": 47310,
+      "candidateBytes": 45044,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
