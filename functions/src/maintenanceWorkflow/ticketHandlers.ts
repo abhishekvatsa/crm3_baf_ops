@@ -750,6 +750,7 @@ const requireFreshAssetReference = async (args: {
   startDate: string;
   actor: Actor;
   serverNow: Date;
+  allowBaseVacancyAtEvent?: boolean;
 }): Promise<string> => {
   if (typeof args.raw !== "string" || args.raw.trim().length === 0 ||
       args.raw.length > 12000) {
@@ -1008,6 +1009,20 @@ const requireFreshAssetReference = async (args: {
 
   let innerCoverAssociation: JsonMap | null = null;
   if (args.assetType === "base" || args.assetType === "innerCover") {
+    const vacantAssociation = (): JsonMap => ({
+      baseAssetInstanceId: assetId,
+      baseAssetNumber: args.assetNumber,
+      positionState: "noneLinked",
+      innerCoverId: null,
+      innerCoverSerialNumber: null,
+      linkageId: null,
+      assignmentVersion: null,
+      linkedAt: null,
+      eventAt: args.startDate,
+      confirmedAt: iso(args.serverNow),
+      confirmedByUid: args.actor.uid,
+      confirmedByName: args.actor.name,
+    });
     const assignmentSnapshot = await args.tx.get(
       `base_inner_cover_assignments/${assetId}`,
     );
@@ -1019,20 +1034,7 @@ const requireFreshAssetReference = async (args: {
           {reasonCode: "maintenance-ticket-inner-cover-not-linked"},
         );
       }
-      innerCoverAssociation = {
-        baseAssetInstanceId: assetId,
-        baseAssetNumber: args.assetNumber,
-        positionState: "noneLinked",
-        innerCoverId: null,
-        innerCoverSerialNumber: null,
-        linkageId: null,
-        assignmentVersion: null,
-        linkedAt: null,
-        eventAt: args.startDate,
-        confirmedAt: iso(args.serverNow),
-        confirmedByUid: args.actor.uid,
-        confirmedByName: args.actor.name,
-      };
+      innerCoverAssociation = vacantAssociation();
     } else {
       const assignment = assignmentSnapshot.data;
       const innerCoverId = cleanText(assignment.innerCoverId, "innerCoverId");
@@ -1063,14 +1065,18 @@ const requireFreshAssetReference = async (args: {
           {reasonCode: "maintenance-ticket-inner-cover-projection-invalid"},
         );
       }
-      if (Date.parse(args.startDate) < linkedAtMillis) {
+      const eventPredatesAssignment =
+        Date.parse(args.startDate) < linkedAtMillis;
+      if (eventPredatesAssignment &&
+          args.allowBaseVacancyAtEvent !== true) {
         throw new WorkflowError(
           "failed-precondition",
           "The issue predates the current Inner Cover assignment.",
           {reasonCode: "maintenance-ticket-inner-cover-linkage-after-event"},
         );
       }
-      innerCoverAssociation = {
+      innerCoverAssociation = eventPredatesAssignment ?
+        vacantAssociation() : {
         baseAssetInstanceId: assetId,
         baseAssetNumber: args.assetNumber,
         positionState: "linked",
@@ -1116,6 +1122,9 @@ const requireBaseVacantAtIssueStart = async (args: {
   baseAssetInstanceId: string;
   baseAssetNumber: number;
   startDate: string;
+  linkedReasonCode?: string;
+  linkedMessage?: string;
+  allowLinkedAtEvent?: boolean;
 }): Promise<void> => {
   const eventMillis = Date.parse(args.startDate);
   const linkages = await args.tx.query("inner_cover_linkages", [{
@@ -1123,11 +1132,19 @@ const requireBaseVacantAtIssueStart = async (args: {
     op: "==",
     value: args.baseAssetInstanceId,
   }]);
+  const intervals: Array<{
+    linkage: JsonMap;
+    installedAt: number;
+    removedAt: number | null;
+  }> = [];
+  let activeLinkage: JsonMap | null = null;
   for (const snapshot of linkages) {
     const linkage = snapshot.data;
     if (!snapshot.exists || linkage == null || linkage.schemaVersion !== 1 ||
         linkage.baseAssetInstanceId !== args.baseAssetInstanceId ||
         linkage.baseAssetNumber !== args.baseAssetNumber ||
+        typeof linkage.baseAssetClassId !== "string" ||
+        linkage.baseAssetClassId.trim().length === 0 ||
         typeof linkage.linkageId !== "string" ||
         snapshot.path !== `inner_cover_linkages/${linkage.linkageId}` ||
         typeof linkage.innerCoverId !== "string" ||
@@ -1161,21 +1178,99 @@ const requireBaseVacantAtIssueStart = async (args: {
       );
     }
     if (linkage.active === true) {
-      throw new WorkflowError(
-        "failed-precondition",
-        "The Base assignment and linkage history disagree.",
-        {reasonCode: "maintenance-ticket-inner-cover-state-inconsistent"},
-      );
+      if (activeLinkage != null) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "The Base has more than one active Inner Cover linkage.",
+          {reasonCode: "maintenance-ticket-inner-cover-state-inconsistent"},
+        );
+      }
+      activeLinkage = linkage;
     }
-    if (installedAt <= eventMillis &&
-        (removedAt == null || eventMillis < removedAt)) {
+    intervals.push({linkage, installedAt, removedAt});
+  }
+  const assignmentSnapshot = await args.tx.get(
+    `base_inner_cover_assignments/${args.baseAssetInstanceId}`,
+  );
+  const assignment = assignmentSnapshot.data;
+  const assignmentMatchesActive = assignmentSnapshot.exists &&
+    assignment != null && activeLinkage != null &&
+    assignment.schemaVersion === 1 &&
+    assignment.baseAssetInstanceId === args.baseAssetInstanceId &&
+    assignment.baseAssetNumber === args.baseAssetNumber &&
+    assignment.baseAssetClassId === activeLinkage.baseAssetClassId &&
+    assignment.linkageId === activeLinkage.linkageId &&
+    assignment.innerCoverId === activeLinkage.innerCoverId &&
+    assignment.innerCoverSerialNumber ===
+      activeLinkage.innerCoverSerialNumber &&
+    Number.isSafeInteger(assignment.version) &&
+    (assignment.version as number) >= 1;
+  if ((assignmentSnapshot.exists && !assignmentMatchesActive) ||
+      (!assignmentSnapshot.exists && activeLinkage != null)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The Base assignment and linkage history disagree.",
+      {reasonCode: "maintenance-ticket-inner-cover-state-inconsistent"},
+    );
+  }
+  for (const interval of intervals) {
+    if (interval.installedAt <= eventMillis &&
+        (interval.removedAt == null || eventMillis < interval.removedAt)) {
+      if (args.allowLinkedAtEvent === true) continue;
       throw new WorkflowError(
         "failed-precondition",
-        `Inner Cover ${linkage.innerCoverSerialNumber} was linked to this Base at the selected issue time.`,
-        {reasonCode: "maintenance-ticket-inner-cover-linked-at-event"},
+        args.linkedMessage ??
+          `Inner Cover ${interval.linkage.innerCoverSerialNumber} was linked to this Base at the selected issue time.`,
+        {reasonCode: args.linkedReasonCode ??
+          "maintenance-ticket-inner-cover-linked-at-event"},
       );
     }
   }
+};
+
+type BaseInnerCoverAvailabilityIdentity = {
+  readonly baseAssetInstanceId: string;
+  readonly baseAssetClassId: string;
+  readonly baseAssetNumber: number;
+};
+
+const baseInnerCoverAvailabilityIdentity = (
+  ticket: JsonMap,
+): BaseInnerCoverAvailabilityIdentity => {
+  let reference: JsonMap | null = null;
+  try {
+    const parsed = JSON.parse(ticket.assetHierarchyRefJson as string);
+    if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      reference = parsed as JsonMap;
+    }
+  } catch {
+    // Persisted special-case identity is adjudicated below.
+  }
+  const baseAssetInstanceId = reference?.assetInstanceId;
+  const baseAssetClassId = reference?.assetClassId;
+  const baseAssetNumber = ticket.assetNumber;
+  if (ticket.assetType !== "base" ||
+      ticket.component !== BASE_INNER_COVER_AVAILABILITY_COMPONENT ||
+      ticket.subsystem !== BASE_INNER_COVER_AVAILABILITY_SUBSYSTEM ||
+      ticket.tag != null || ticket.plantConditionEffect !== "unavailable" ||
+      reference?.scope !== "physicalAsset" ||
+      typeof baseAssetInstanceId !== "string" ||
+      baseAssetInstanceId.trim().length === 0 ||
+      typeof baseAssetClassId !== "string" ||
+      baseAssetClassId.trim().length === 0 ||
+      !Number.isSafeInteger(baseAssetNumber) ||
+      reference?.assetNumber !== baseAssetNumber) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The Base Inner Cover availability evidence is malformed.",
+      {reasonCode: "maintenance-ticket-inner-cover-availability-evidence-invalid"},
+    );
+  }
+  return {
+    baseAssetInstanceId,
+    baseAssetClassId,
+    baseAssetNumber: baseAssetNumber as number,
+  };
 };
 
 const requireBaseInnerCoverRestoredForResolution = async (args: {
@@ -1187,35 +1282,11 @@ const requireBaseInnerCoverRestoredForResolution = async (args: {
       BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION) {
     return;
   }
-  let reference: JsonMap | null = null;
-  try {
-    const parsed = JSON.parse(args.ticket.assetHierarchyRefJson as string);
-    if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
-      reference = parsed as JsonMap;
-    }
-  } catch {
-    // Persisted special-case identity is adjudicated below.
-  }
-  const baseAssetInstanceId = reference?.assetInstanceId;
-  const baseAssetClassId = reference?.assetClassId;
-  const baseAssetNumber = args.ticket.assetNumber;
-  if (args.ticket.assetType !== "base" ||
-      args.ticket.component !== BASE_INNER_COVER_AVAILABILITY_COMPONENT ||
-      args.ticket.subsystem !== BASE_INNER_COVER_AVAILABILITY_SUBSYSTEM ||
-      args.ticket.tag != null || args.ticket.plantConditionEffect !== "unavailable" ||
-      reference?.scope !== "physicalAsset" ||
-      typeof baseAssetInstanceId !== "string" ||
-      baseAssetInstanceId.trim().length === 0 ||
-      typeof baseAssetClassId !== "string" ||
-      baseAssetClassId.trim().length === 0 ||
-      !Number.isSafeInteger(baseAssetNumber) ||
-      reference?.assetNumber !== baseAssetNumber) {
-    throw new WorkflowError(
-      "failed-precondition",
-      "The Base Inner Cover availability evidence is malformed.",
-      {reasonCode: "maintenance-ticket-inner-cover-resolution-evidence-invalid"},
-    );
-  }
+  const {
+    baseAssetInstanceId,
+    baseAssetClassId,
+    baseAssetNumber,
+  } = baseInnerCoverAvailabilityIdentity(args.ticket);
   const assignmentSnapshot = await args.tx.get(
     `base_inner_cover_assignments/${baseAssetInstanceId}`,
   );
@@ -1264,6 +1335,13 @@ const requireBaseInnerCoverRestoredForResolution = async (args: {
       {reasonCode: "maintenance-ticket-inner-cover-linked-after-resolution"},
     );
   }
+  await requireBaseVacantAtIssueStart({
+    tx: args.tx,
+    baseAssetInstanceId,
+    baseAssetNumber,
+    startDate: args.endDate.toISOString(),
+    allowLinkedAtEvent: true,
+  });
 };
 
 const savedClosureActionPayload = (
@@ -2250,6 +2328,8 @@ export const createMaintenanceTicket = async ({
   }
 
   const timestamp = iso(context.serverNow);
+  const baseInnerCoverUnavailable =
+    classification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION;
   const assetHierarchyRefJson = await requireFreshAssetReference({
     tx,
     raw: input.assetHierarchyRefJson,
@@ -2259,10 +2339,9 @@ export const createMaintenanceTicket = async ({
     startDate,
     actor: context.actor,
     serverNow: context.serverNow,
+    allowBaseVacancyAtEvent: baseInnerCoverUnavailable,
   });
   const canonicalAssetReference = JSON.parse(assetHierarchyRefJson) as JsonMap;
-  const baseInnerCoverUnavailable =
-    classification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION;
   if (baseInnerCoverUnavailable) {
     const association = canonicalAssetReference.innerCoverAssociation;
     const validVacantAssociation = association != null &&
@@ -2279,7 +2358,7 @@ export const createMaintenanceTicket = async ({
         hasFrequentIssueSelection || !validVacantAssociation) {
       throw new WorkflowError(
         "failed-precondition",
-        "An Inner Cover availability issue requires an exact Base with no Inner Cover currently linked.",
+        "An Inner Cover availability issue requires an exact Base with no Inner Cover linked at the issue time.",
         {reasonCode: "maintenance-ticket-inner-cover-availability-invalid"},
       );
     }
@@ -3355,6 +3434,19 @@ export const reopenMaintenanceTicket = async ({
       "Maintenance issues may be reopened only within four hours of closure.",
       {reasonCode: "maintenance-ticket-reopen-window-expired"},
     );
+  }
+  if (ticket.classification ===
+      BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION) {
+    const identity = baseInnerCoverAvailabilityIdentity(ticket);
+    await requireBaseVacantAtIssueStart({
+      tx,
+      baseAssetInstanceId: identity.baseAssetInstanceId,
+      baseAssetNumber: identity.baseAssetNumber,
+      startDate: iso(context.serverNow),
+      linkedReasonCode: "maintenance-ticket-inner-cover-not-vacant-for-reopen",
+      linkedMessage:
+        "This availability issue can be reopened only while the Base has no Inner Cover linked.",
+    });
   }
   const plan = ticketLanePlan(ticket);
   const reopenedPlan = {
