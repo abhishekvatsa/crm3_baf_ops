@@ -99,7 +99,9 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
               if (_hasText(ticket.classification))
                 _DetailValue(
                   label: 'Classification',
-                  value: ticket.classification!,
+                  value: maintenanceIssueClassificationLabel(
+                    ticket.classification!,
+                  ),
                 ),
               if (ticket.chargeNoAtEvent != null)
                 _DetailValue(

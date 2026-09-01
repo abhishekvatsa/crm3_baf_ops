@@ -129,6 +129,64 @@ function physicalAssetReference(assetVersion = 4) {
   });
 }
 
+function seedBaseWithoutInnerCover(store) {
+  store.seed('asset_classes/class-base', {
+    schemaVersion: 1,
+    assetClassId: 'class-base',
+    status: 'active',
+    legacyAssetTypeKey: 'base',
+    code: 'BASE',
+    name: 'Base',
+  });
+  store.seed('asset_instances/asset-base-201', {
+    schemaVersion: 1,
+    assetInstanceId: 'asset-base-201',
+    assetClassId: 'class-base',
+    assetClassCode: 'BASE',
+    assetClassName: 'Base',
+    assetNumber: 201,
+    name: 'Base 201',
+    status: 'active',
+    version: 3,
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Operations',
+    accountableRoleKeys: ['operations'],
+  });
+}
+
+function basePhysicalAssetReference() {
+  return JSON.stringify({
+    schemaVersion: 3,
+    scope: 'physicalAsset',
+    assetClassId: 'class-base',
+    assetInstanceId: 'asset-base-201',
+    assetInstanceVersion: 3,
+  });
+}
+
+function seedLinkedInnerCoverForBase201(store) {
+  store.seed('base_inner_cover_assignments/asset-base-201', {
+    schemaVersion: 1,
+    baseAssetInstanceId: 'asset-base-201',
+    baseAssetClassId: 'class-base',
+    baseAssetNumber: 201,
+    innerCoverId: 'inner-cover-gr26',
+    innerCoverSerialNumber: 'GR26',
+    linkageId: 'link-base-201-gr26',
+    version: 2,
+    linkedAt: '2026-08-01T04:00:00.000Z',
+  });
+  store.seed('inner_cover_profiles/inner-cover-gr26', {
+    schemaVersion: 1,
+    innerCoverId: 'inner-cover-gr26',
+    serialNumber: 'GR26',
+    lifecycleState: 'installed',
+    currentBaseAssetInstanceId: 'asset-base-201',
+    currentBaseAssetNumber: 201,
+    currentLinkageId: 'link-base-201-gr26',
+  });
+}
+
 function seedFurnaceHierarchy(store) {
   store.seed('asset_classes/class-furnace', {
     schemaVersion: 1,
@@ -479,6 +537,80 @@ describe('governed maintenance-ticket supervision', () => {
       code: 'invalid-argument',
       details: {
         reasonCode: 'maintenance-ticket-plant-condition-effect-invalid',
+      },
+    });
+  });
+
+  test('creates a Base availability issue only when no Inner Cover is linked', async () => {
+    const vacant = createServiceFor(operations);
+    seedBaseWithoutInnerCover(vacant.store);
+    const command = createCommand({
+      commandId: 'create-base-inner-cover-unavailable',
+      ticketId: 'base-inner-cover-unavailable',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 has no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+      },
+    });
+
+    await expect(vacant.service.execute(command, vacant.context)).resolves
+      .toMatchObject({aggregateVersion: 1});
+    const created = vacant.store.read(
+      'maintenance_records/base-inner-cover-unavailable',
+    );
+    expect(created).toMatchObject({
+      assetType: 'base',
+      assetNumber: 201,
+      component: 'Inner Cover availability',
+      subsystem: 'Base / Inner Cover association',
+      tag: null,
+      classification: 'baseInnerCoverUnavailable',
+      plantConditionEffect: 'unavailable',
+    });
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      scope: 'physicalAsset',
+      assetInstanceId: 'asset-base-201',
+      innerCoverAssociation: {
+        baseAssetInstanceId: 'asset-base-201',
+        baseAssetNumber: 201,
+        positionState: 'noneLinked',
+        innerCoverId: null,
+      },
+    });
+  });
+
+  test('rejects a Base availability issue while an Inner Cover remains linked', async () => {
+    const linked = createServiceFor(operations);
+    seedBaseWithoutInnerCover(linked.store);
+    seedLinkedInnerCoverForBase201(linked.store);
+
+    await expect(linked.service.execute(createCommand({
+      commandId: 'reject-linked-base-inner-cover-unavailable',
+      ticketId: 'linked-base-inner-cover-unavailable',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 has no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+      },
+    }), linked.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-inner-cover-availability-invalid',
       },
     });
   });
@@ -2518,6 +2650,55 @@ describe('governed maintenance-ticket supervision', () => {
     expect(JSON.parse(audit.beforeJson).plantConditionEffect).toBe('unfit');
     expect(JSON.parse(audit.afterJson).plantConditionEffect)
       .toBe('unavailable');
+  });
+
+  test('admin correction preserves the Base Inner Cover availability identity', async () => {
+    const availabilityTicket = {
+      assetType: 'base',
+      assetNumber: 201,
+      classification: 'baseInnerCoverUnavailable',
+      component: 'Inner Cover availability',
+      subsystem: 'Base / Inner Cover association',
+      tag: null,
+      plantConditionEffect: 'unavailable',
+      routedTo: 'operations',
+    };
+    const allowed = serviceFor(admin, availabilityTicket);
+    await expect(allowed.service.execute({
+      commandId: 'correct-inner-cover-availability-description',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Clarified the Base availability observation.',
+        corrections: {description: 'Base 201 remains without an Inner Cover.'},
+      },
+    }, allowed.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    for (const [commandId, corrections] of [
+      ['change-inner-cover-availability-class', {classification: 'general'}],
+      ['change-inner-cover-availability-component', {component: 'Base shell'}],
+      ['change-inner-cover-availability-subsystem', {subsystem: 'Base body'}],
+      ['add-inner-cover-availability-tag', {tag: 'BASE-201'}],
+      ['change-inner-cover-availability-effect', {plantConditionEffect: 'unfit'}],
+    ]) {
+      const current = serviceFor(admin, availabilityTicket);
+      await expect(current.service.execute({
+        commandId,
+        commandType: 'correctMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          reason: 'Attempted correction was checked against dependency identity.',
+          corrections,
+        },
+      }, current.context)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'maintenance-inner-cover-availability-immutable',
+        },
+      });
+    }
   });
 
   test('admin correction preserves burner specialization and red-hot criticality', async () => {

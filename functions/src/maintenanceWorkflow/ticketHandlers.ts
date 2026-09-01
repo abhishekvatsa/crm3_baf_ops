@@ -103,6 +103,11 @@ const CORRECTABLE_FIELDS = new Set([
 const PLANT_CONDITION_EFFECTS = new Set(["unfit", "unavailable"]);
 const BURNER_LOCKOUT_CLASSIFICATION = "furnaceBurnerLockout";
 const FURNACE_STUCKUP_CLASSIFICATION = "furnaceStuckup";
+const BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION =
+  "baseInnerCoverUnavailable";
+const BASE_INNER_COVER_AVAILABILITY_COMPONENT = "Inner Cover availability";
+const BASE_INNER_COVER_AVAILABILITY_SUBSYSTEM =
+  "Base / Inner Cover association";
 const STUCKUP_CAUSES = new Set([
   "innerCoverBulging",
   "draftSealPlateDamagedOrFallen",
@@ -2101,6 +2106,29 @@ export const createMaintenanceTicket = async ({
     serverNow: context.serverNow,
   });
   const canonicalAssetReference = JSON.parse(assetHierarchyRefJson) as JsonMap;
+  const baseInnerCoverUnavailable =
+    classification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION;
+  if (baseInnerCoverUnavailable) {
+    const association = canonicalAssetReference.innerCoverAssociation;
+    const validVacantAssociation = association != null &&
+      typeof association === "object" && !Array.isArray(association) &&
+      (association as JsonMap).positionState === "noneLinked" &&
+      (association as JsonMap).baseAssetInstanceId ===
+        canonicalAssetReference.assetInstanceId &&
+      (association as JsonMap).baseAssetNumber === assetNumber;
+    if (assetType !== "base" ||
+        canonicalAssetReference.scope !== "physicalAsset" ||
+        component !== BASE_INNER_COVER_AVAILABILITY_COMPONENT ||
+        subsystem !== BASE_INNER_COVER_AVAILABILITY_SUBSYSTEM ||
+        tag != null || plantConditionEffect !== "unavailable" ||
+        hasFrequentIssueSelection || !validVacantAssociation) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "An Inner Cover availability issue requires an exact Base with no Inner Cover currently linked.",
+        {reasonCode: "maintenance-ticket-inner-cover-availability-invalid"},
+      );
+    }
+  }
   const qualityAbnormalityId = suspected ?
     `issue_quality_${command.aggregateId}` : null;
   const warningId = `issue_${command.aggregateId}`;
@@ -3523,6 +3551,41 @@ export const correctMaintenanceTicket = async ({
         "failed-precondition",
         "Furnace stuck-up identity, Mechanical routing, and breakdown type are immutable.",
         {reasonCode: "maintenance-stuckup-specialization-immutable"},
+      );
+    }
+  }
+  if (currentClassification !== BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION &&
+      nextClassification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A standard issue cannot be reclassified as an Inner Cover availability issue.",
+      {reasonCode: "maintenance-inner-cover-availability-immutable"},
+    );
+  }
+  if (currentClassification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION) {
+    const nextComponent = Object.prototype.hasOwnProperty.call(
+      changed,
+      "component",
+    ) ? changed.component : ticket.component;
+    const nextSubsystem = Object.prototype.hasOwnProperty.call(
+      changed,
+      "subsystem",
+    ) ? changed.subsystem : ticket.subsystem ?? null;
+    const nextTag = Object.prototype.hasOwnProperty.call(changed, "tag") ?
+      changed.tag : ticket.tag ?? null;
+    const nextPlantConditionEffect = Object.prototype.hasOwnProperty.call(
+      changed,
+      "plantConditionEffect",
+    ) ? changed.plantConditionEffect : ticket.plantConditionEffect ?? null;
+    if (nextClassification !== BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION ||
+        ticket.assetType !== "base" ||
+        nextComponent !== BASE_INNER_COVER_AVAILABILITY_COMPONENT ||
+        nextSubsystem !== BASE_INNER_COVER_AVAILABILITY_SUBSYSTEM ||
+        nextTag != null || nextPlantConditionEffect !== "unavailable") {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The Base and Inner Cover availability identity is immutable.",
+        {reasonCode: "maintenance-inner-cover-availability-immutable"},
       );
     }
   }

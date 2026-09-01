@@ -107,7 +107,12 @@ StructuredReportDocument buildMaintenanceTicketDossier({
           ),
           StructuredReportField(
             label: 'Classification',
-            value: _value(ticket.classification),
+            value:
+                ticket.classification == null
+                    ? _value(null)
+                    : maintenanceIssueClassificationLabel(
+                      ticket.classification!,
+                    ),
           ),
           StructuredReportField(
             label: 'Description',

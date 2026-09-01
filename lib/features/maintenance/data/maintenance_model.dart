@@ -28,6 +28,19 @@ enum TicketStatus {
 
 enum MaintenanceIssuePlantConditionEffect { none, unfit, unavailable, stuckUp }
 
+const baseInnerCoverUnavailableClassification = 'baseInnerCoverUnavailable';
+const baseInnerCoverAvailabilityComponent = 'Inner Cover availability';
+const baseInnerCoverAvailabilitySubsystem = 'Base / Inner Cover association';
+
+String maintenanceIssueClassificationLabel(
+  String classification,
+) => switch (classification) {
+  burnerLockoutClassification => 'Furnace burner lockout',
+  furnaceStuckupClassification => 'Furnace stuck-up',
+  baseInnerCoverUnavailableClassification => 'Base unavailable: no Inner Cover',
+  _ => classification,
+};
+
 extension MaintenanceIssuePlantConditionEffectLabel
     on MaintenanceIssuePlantConditionEffect {
   String get label => switch (this) {
