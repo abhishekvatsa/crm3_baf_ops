@@ -94,6 +94,22 @@ $ApprovedArtifactExactSourcePaths = @(
   'tools/release'
 )
 
+function Get-OptionalPropertyValue {
+  param(
+    [Parameter(Mandatory)][AllowNull()][object]$InputObject,
+    [Parameter(Mandatory)][string]$Name
+  )
+
+  if ($null -eq $InputObject) {
+    return $null
+  }
+  $property = $InputObject.PSObject.Properties[$Name]
+  if ($null -eq $property) {
+    return $null
+  }
+  $property.Value
+}
+
 function Get-Sha256 {
   param([Parameter(Mandatory)][string]$Path)
 
@@ -1605,6 +1621,8 @@ if ($LASTEXITCODE -ne 0 -or $successorFreezeTree.Count -ne 1 -or
 
 $completionReceiptPath = $null
 $completionReceipt = $null
+$ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
+  ConvertFrom-Json
 if ($finalizationStatus -eq 'completed-non-distributable') {
   $completionReceiptPath =
     [string]$policy.finalization.completionReceiptFile
@@ -1861,6 +1879,30 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
   $prior = $policy.finalization.priorCompletedBuild
   $preserved = $versionSource.preservedCompletedBuild
   $consumed = $versionSource.consumedBuild
+  $predecessorLedgerMatches = @(
+    $ledger.entries |
+      Where-Object {
+        [int64]$_.buildNumber -eq [int64]$prior.buildNumber
+      }
+  )
+  $predecessorLedger =
+    if ($predecessorLedgerMatches.Count -eq 1) {
+      $predecessorLedgerMatches[0]
+    } else {
+      $null
+    }
+  $priorPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $prior `
+    -Name 'physicalInstallationReceiptFile'
+  $ledgerPhysicalInstallationReceiptFile = Get-OptionalPropertyValue `
+    -InputObject $predecessorLedger `
+    -Name 'physicalInstallationReceiptFile'
+  $priorPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $prior `
+    -Name 'physicalInstallationReceiptSha256'
+  $ledgerPhysicalInstallationReceiptSha256 = Get-OptionalPropertyValue `
+    -InputObject $predecessorLedger `
+    -Name 'physicalInstallationReceiptSha256'
   $successfulPredecessor =
     $consumed.closureFinalizationCompleted -eq $true -and
     $consumed.dualCustodyCompleted -eq $true -and
@@ -1886,6 +1928,13 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$consumed.completionReceiptSha256 -or
       (Get-Sha256 $prior.completionReceiptFile) -ne
         ([string]$prior.completionReceiptSha256).ToUpperInvariant() -or
+      $predecessorLedgerMatches.Count -ne 1 -or
+      $prior.physicalInstallationConditionPassed -ne
+        $predecessorLedger.physicalInstallationConditionPassed -or
+      [string]$priorPhysicalInstallationReceiptFile -ne
+        [string]$ledgerPhysicalInstallationReceiptFile -or
+      [string]$priorPhysicalInstallationReceiptSha256 -ne
+        [string]$ledgerPhysicalInstallationReceiptSha256 -or
       -not $predecessorPhysicalInstallationConditionRecorded -or
       [string]$prior.sourceCommit -ne
         [string]$consumed.remoteBuiltCommit -or
@@ -2110,8 +2159,6 @@ foreach ($pin in @($actionPins.actions.PSObject.Properties)) {
   $actionPinsByRepository[$repository] = $commitSha
 }
 
-$ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
-  ConvertFrom-Json
 $historicalFailedAttempts = @($policy.finalization.historicalFailedAttempts)
 if ($finalizationStatus -in @(
     'completed-non-distributable'

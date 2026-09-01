@@ -15,14 +15,16 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` authorizes Build 22 (`1.0.0-rc.12+22`) for production-signed
-construction after exact backend deployment, strict readback and a successful
-five-job post-merge gate. Build 21 remains independently verified,
+Current `main` records Build 22 (`1.0.0-rc.12+22`) as the pending governed
+successor after exact backend deployment and strict readback. Production-signed
+construction remains blocked until this authority tranche is merged, its exact
+post-merge source passes the five-job gate, and the approval and successor state
+are rebound to that source. Build 21 remains independently verified,
 dual-custodied and finalized non-distributable. No consumed package identity
-may be reused. Exact Build 22 in-place installation, representative labelled
-business-flow convergence and cleanup of only the generated trial records are
-required; a separate exact-package promotion receipt is then required before
-controlled-pilot handout to at most 25 users.
+may be reused. After construction, exact Build 22 in-place installation,
+representative labelled business-flow convergence and cleanup of only the
+generated trial records are required; a separate exact-package promotion
+receipt is then required before controlled-pilot handout to at most 25 users.
 
 Authoritative status sources:
 
