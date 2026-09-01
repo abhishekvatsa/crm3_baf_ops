@@ -190,7 +190,10 @@ void main() {
     final expandedPilot = pilotIntent['maximumRosterSize'] == 25;
     if (expandedPilot) {
       expect(pilotIntent['projectOwnerAuthorized'], isTrue);
-      expect(pilotIntent['requiresExactBuild20PackageHash'], isTrue);
+      expect(
+        pilotIntent['requiresExactBuild${candidateBuild}PackageHash'],
+        isTrue,
+      );
       expect(pilotIntent['requiresPhysicalDeviceStartup'], isTrue);
       expect(pilotIntent['requiresTwoAccountConvergenceEvidence'], isTrue);
       expect(pilotIntent['requiresSeparatePromotionReceipt'], isTrue);
@@ -199,16 +202,11 @@ void main() {
     expect(policy['knownOpenGates'], <String>[
       if (pendingConstruction)
         'BUILD${candidateBuild}_PRODUCTION_SIGNED_FINALIZATION',
-      if (expandedPilot)
-        'BUILD${candidateBuild}_PHYSICAL_DEVICE_AND_TWO_ACCOUNT_CONVERGENCE'
-      else if (runtimeValidationPassed)
+      if (runtimeValidationPassed)
         'BUILD${candidateBuild}_MUTATING_BUSINESS_FLOW_VALIDATION'
       else
         'BUILD${candidateBuild}_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION',
-      if (expandedPilot)
-        'BUILD${candidateBuild}_EXPLICIT_25_PERSON_PILOT_PROMOTION'
-      else
-        'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
+      'BUILD${candidateBuild}_EXPLICIT_PILOT_PROMOTION',
     ]);
   });
 }
