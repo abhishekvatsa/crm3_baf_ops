@@ -3940,6 +3940,24 @@ build21_environment_approval_path = (
 build21_approval = data(
     "release/approvals/build-number-21-successor-approval.json"
 )
+build21_required_source = build21_approval.get("requiredSource", {})
+build21_backend_deployment_relative = build21_required_source.get(
+    "exactFunctionFleetDeploymentReceiptFile", ""
+)
+build21_backend_deployment_path = ROOT / build21_backend_deployment_relative
+build21_backend_deployment = data(build21_backend_deployment_relative)
+build21_function_readback_relative = build21_required_source.get(
+    "exactFunctionFleetCleanMainReadbackFile", ""
+)
+build21_function_readback = data(build21_function_readback_relative)
+build21_iam_readback_relative = build21_required_source.get(
+    "exactFunctionsIamDependenciesReadbackFile", ""
+)
+build21_iam_readback = data(build21_iam_readback_relative)
+build21_firestore_readback_relative = build21_required_source.get(
+    "exactFirestoreRulesReceiptFile", ""
+)
+build21_firestore_readback = data(build21_firestore_readback_relative)
 build21_environment_approval = data(
     "release/approvals/"
     "public-repository-environment-reviewer-approval-build-21.json"
@@ -4624,10 +4642,10 @@ build21_evidence_bound_at = utc_instant(
     build21_approval.get("evidenceBoundAtUtc")
 )
 build21_bound_evidence_times = [
-    utc_instant(current_function_readback.get("capturedAtUtc")),
-    utc_instant(current_iam_readback.get("capturedAtUtc")),
-    utc_instant(current_firestore_readback.get("capturedAtUtc")),
-    utc_instant(current_backend_deployment.get("recordedAtUtc")),
+    utc_instant(build21_function_readback.get("capturedAtUtc")),
+    utc_instant(build21_iam_readback.get("capturedAtUtc")),
+    utc_instant(build21_firestore_readback.get("capturedAtUtc")),
+    utc_instant(build21_backend_deployment.get("recordedAtUtc")),
 ]
 build21_evidence_chronology_valid = (
     build21_evidence_bound_at is not None
@@ -5724,7 +5742,7 @@ check(
     and build14_approval.get("controls", {}).get(
         "exactFirestoreRulesIndexesDeploymentReadbackRequired"
     ) is True
-    and sha(current_backend_deployment_path)
+    and sha(build21_backend_deployment_path)
         == combined_policy.get("finalization", {}).get(
             "exactFunctionFleetDeploymentReceiptSha256"
         )
@@ -6858,7 +6876,7 @@ check(
     ) == deployed_functions_tree
     and current_backend_deployment.get("sourceAuthority", {}).get(
         "pullRequestNumber"
-    ) == 331
+    ) == 337
     and current_backend_deployment.get("deployment", {}).get("functionCount")
         == 15
     and current_backend_deployment.get("deployment", {}).get(

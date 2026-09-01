@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-01",
-  "asOfDate": "2026-09-01",
-  "status": "BUILD21_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_PILOT_DECISIONS",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-02",
+  "asOfDate": "2026-09-02",
+  "status": "BUILD21_FINALIZED_BACKEND_READY_AWAITING_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
@@ -13,7 +13,7 @@
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
-      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "backendDeploymentStatus": "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
         "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
@@ -40,17 +40,17 @@
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
     "deployedBackend": {
-      "deploymentApprovalFile": "release/approvals/build21-backend-deployment-approval.json",
-      "deploymentApprovalSha256": "AE9A7D263313D3B80B29AE0DC2888935FB9316673AB5C8E6C14431A69DF23A96",
-      "functionFleetEvidenceFile": "release/evidence/build21-backend-deployment-closure.json",
-      "functionFleetEvidenceSha256": "82AE0512046886D5966AA8F7F1F8472A73026615F1CD328E3EA254F9C80F9A25",
-      "functionFleetSourceCommit": "01ba63ffc62ac281e99df2cb9d9192a57f65779a",
-      "rulesAndIndexesEvidenceFile": "release/evidence/build21-firestore-rules-indexes-live-readback.json",
-      "rulesAndIndexesEvidenceSha256": "B45D47C8D385C687173851EB76DA8571D065C4B03F5DD3808AD82483C3A964E4",
-      "rulesAndIndexesSourceCommit": "01ba63ffc62ac281e99df2cb9d9192a57f65779a",
+      "deploymentApprovalFile": "release/approvals/build22-backend-deployment-approval.json",
+      "deploymentApprovalSha256": "7238D55084A0ABE0E802E7F27079D589F2753CE36E4637DB6D2C1E133AD7BB78",
+      "functionFleetEvidenceFile": "release/evidence/build22-backend-deployment-closure.json",
+      "functionFleetEvidenceSha256": "86D2C2FCB8C558B79CE6CC54148BEAF02B92338647AA7A9F18C34E76A2B340F1",
+      "functionFleetSourceCommit": "32aae03c1d1bd65eafe611496fdf29caed3759fb",
+      "rulesAndIndexesEvidenceFile": "release/evidence/build22-firestore-rules-indexes-live-readback.json",
+      "rulesAndIndexesEvidenceSha256": "274B09607CFDCF0975650F345FEF0BB8D81D4D726671812D28DB06A56BFCAF88",
+      "rulesAndIndexesSourceCommit": "32aae03c1d1bd65eafe611496fdf29caed3759fb",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
-      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "productionBackendRuntimeAuthorized": true
     },
@@ -106,6 +106,11 @@
     "release/evidence/build21-function-fleet-runtime-identity-readback.json",
     "release/evidence/build21-functions-iam-dependencies-readback.json",
     "release/evidence/build21-firestore-rules-indexes-live-readback.json",
+    "release/approvals/build22-backend-deployment-approval.json",
+    "release/evidence/build22-backend-deployment-closure.json",
+    "release/evidence/build22-function-fleet-runtime-identity-readback.json",
+    "release/evidence/build22-functions-iam-dependencies-readback.json",
+    "release/evidence/build22-firestore-rules-indexes-live-readback.json",
     "release/approvals/build-number-21-successor-approval.json",
     "release/approvals/public-repository-environment-reviewer-approval-build-21.json",
     "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
