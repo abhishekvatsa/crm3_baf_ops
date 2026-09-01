@@ -1,4 +1,5 @@
 import '../data/maintenance_model.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../domain/furnace_stuckup_case.dart';
@@ -32,6 +33,10 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
           : record.classification == furnaceStuckupClassification
           ? MaintenanceIssuePlantConditionEffect.stuckUp
           : MaintenanceIssuePlantConditionEffect.unfit;
+  _validateBaseInnerCoverAvailabilityCase(
+    record,
+    plantConditionEffect: plantConditionEffect,
+  );
   final createLanePlan = IssueLanePlan.initial(
     record.issueLanePlan.assignedLanes,
   );
@@ -69,6 +74,32 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     expectedVersion: 0,
     payload: <String, Object?>{'ticket': ticket},
   );
+}
+
+void _validateBaseInnerCoverAvailabilityCase(
+  MaintenanceRecord record, {
+  required MaintenanceIssuePlantConditionEffect plantConditionEffect,
+}) {
+  if (record.classification != baseInnerCoverUnavailableClassification) {
+    return;
+  }
+  final reference = record.assetHierarchyReference;
+  final association = reference?.innerCoverAssociation;
+  final tag = record.tag?.trim();
+  if (record.assetType != AssetType.base ||
+      record.component != baseInnerCoverAvailabilityComponent ||
+      record.subsystem != baseInnerCoverAvailabilitySubsystem ||
+      (tag != null && tag.isNotEmpty) ||
+      plantConditionEffect !=
+          MaintenanceIssuePlantConditionEffect.unavailable ||
+      reference?.scope != AssetHierarchyReferenceScope.physicalAsset ||
+      association?.positionState != InnerCoverPositionState.noneLinked ||
+      association?.baseAssetInstanceId != reference?.assetInstanceId ||
+      association?.baseAssetNumber != record.assetNumber) {
+    throw StateError(
+      'An Inner Cover availability issue requires an exact Base with verified no-cover-linked evidence.',
+    );
+  }
 }
 
 void validateMaintenanceIssueCreateReceipt({

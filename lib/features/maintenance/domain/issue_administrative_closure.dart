@@ -8,6 +8,23 @@ const issueAdministrativeClosureSynchronizedFields = <String>{
   'issueClosureSchemaVersion',
   'issueClosureDisposition',
   'issueClosureReason',
+  'issueClosureRelevanceEndedAt',
+  'issueClosureRelevanceEndedByUid',
+  'issueClosureRelevanceEndedByName',
+  'issueClosureRelevanceEndReason',
+};
+
+const _issueAdministrativeClosureRequiredFields = <String>{
+  'issueClosureSchemaVersion',
+  'issueClosureDisposition',
+  'issueClosureReason',
+};
+
+const _issueAdministrativeClosureRelevanceEndFields = <String>{
+  'issueClosureRelevanceEndedAt',
+  'issueClosureRelevanceEndedByUid',
+  'issueClosureRelevanceEndedByName',
+  'issueClosureRelevanceEndReason',
 };
 
 enum IssueAdministrativeClosureDisposition { stillRelevant, relevanceEnded }
@@ -16,10 +33,31 @@ class IssueAdministrativeClosure {
   const IssueAdministrativeClosure({
     required this.disposition,
     required this.reason,
-  });
+    this.relevanceEndedAt,
+    this.relevanceEndedByUid,
+    this.relevanceEndedByName,
+    this.relevanceEndReason,
+  }) : assert(
+         (relevanceEndedAt == null &&
+                 relevanceEndedByUid == null &&
+                 relevanceEndedByName == null &&
+                 relevanceEndReason == null) ||
+             (disposition ==
+                     IssueAdministrativeClosureDisposition.relevanceEnded &&
+                 relevanceEndedAt != null &&
+                 relevanceEndedByUid != null &&
+                 relevanceEndedByName != null &&
+                 relevanceEndReason != null),
+       );
 
   final IssueAdministrativeClosureDisposition disposition;
   final String reason;
+  final DateTime? relevanceEndedAt;
+  final String? relevanceEndedByUid;
+  final String? relevanceEndedByName;
+  final String? relevanceEndReason;
+
+  bool get relevanceWasEndedAfterClosure => relevanceEndedAt != null;
 
   String get label => switch (disposition) {
     IssueAdministrativeClosureDisposition.stillRelevant =>
@@ -32,27 +70,56 @@ class IssueAdministrativeClosure {
     'schemaVersion': issueAdministrativeClosureSchemaVersion,
     'disposition': disposition.name,
     'reason': reason,
+    if (relevanceEndedAt != null)
+      'relevanceEndedAt': relevanceEndedAt!.toUtc().toIso8601String(),
+    if (relevanceEndedByUid != null) 'relevanceEndedByUid': relevanceEndedByUid,
+    if (relevanceEndedByName != null)
+      'relevanceEndedByName': relevanceEndedByName,
+    if (relevanceEndReason != null) 'relevanceEndReason': relevanceEndReason,
   };
 
   Map<String, dynamic> toSynchronizedFields() => <String, dynamic>{
     'issueClosureSchemaVersion': issueAdministrativeClosureSchemaVersion,
     'issueClosureDisposition': disposition.name,
     'issueClosureReason': reason,
+    if (relevanceEndedAt != null)
+      'issueClosureRelevanceEndedAt':
+          relevanceEndedAt!.toUtc().toIso8601String(),
+    if (relevanceEndedByUid != null)
+      'issueClosureRelevanceEndedByUid': relevanceEndedByUid,
+    if (relevanceEndedByName != null)
+      'issueClosureRelevanceEndedByName': relevanceEndedByName,
+    if (relevanceEndReason != null)
+      'issueClosureRelevanceEndReason': relevanceEndReason,
   };
 
   factory IssueAdministrativeClosure.fromSynchronizedFields(
     Map<String, dynamic> map, {
     required String source,
   }) {
-    final present =
-        issueAdministrativeClosureSynchronizedFields
+    final requiredPresent =
+        _issueAdministrativeClosureRequiredFields
             .where(map.containsKey)
             .toSet();
-    if (present.length != issueAdministrativeClosureSynchronizedFields.length) {
+    if (requiredPresent.length !=
+        _issueAdministrativeClosureRequiredFields.length) {
       throw PersistedDataFormatException(
         field: 'issueClosureSchemaVersion',
         source: source,
         detail: 'administrative-closure fields must be present together',
+      );
+    }
+    final relevanceEndPresent =
+        _issueAdministrativeClosureRelevanceEndFields
+            .where(map.containsKey)
+            .toSet();
+    if (relevanceEndPresent.isNotEmpty &&
+        relevanceEndPresent.length !=
+            _issueAdministrativeClosureRelevanceEndFields.length) {
+      throw PersistedDataFormatException(
+        field: 'issueClosureRelevanceEndedAt',
+        source: source,
+        detail: 'relevance-end evidence must be present together',
       );
     }
     if (map['issueClosureSchemaVersion'] !=
@@ -91,7 +158,54 @@ class IssueAdministrativeClosure {
         detail: 'must not exceed 2000 characters',
       );
     }
-    return IssueAdministrativeClosure(disposition: disposition, reason: reason);
+    DateTime? relevanceEndedAt;
+    String? relevanceEndedByUid;
+    String? relevanceEndedByName;
+    String? relevanceEndReason;
+    if (relevanceEndPresent.isNotEmpty) {
+      if (disposition != IssueAdministrativeClosureDisposition.relevanceEnded) {
+        throw PersistedDataFormatException(
+          field: 'issueClosureRelevanceEndedAt',
+          source: source,
+          detail: 'relevance-end evidence requires relevanceEnded disposition',
+        );
+      }
+      relevanceEndedAt = readRequiredPersistedDateTime(
+        map['issueClosureRelevanceEndedAt'],
+        field: 'issueClosureRelevanceEndedAt',
+        source: source,
+      );
+      relevanceEndedByUid = readRequiredPersistedString(
+        map['issueClosureRelevanceEndedByUid'],
+        field: 'issueClosureRelevanceEndedByUid',
+        source: source,
+      );
+      relevanceEndedByName = readRequiredPersistedString(
+        map['issueClosureRelevanceEndedByName'],
+        field: 'issueClosureRelevanceEndedByName',
+        source: source,
+      );
+      relevanceEndReason = readRequiredPersistedString(
+        map['issueClosureRelevanceEndReason'],
+        field: 'issueClosureRelevanceEndReason',
+        source: source,
+      );
+      if (relevanceEndReason.length > 2000) {
+        throw PersistedDataFormatException(
+          field: 'issueClosureRelevanceEndReason',
+          source: source,
+          detail: 'must not exceed 2000 characters',
+        );
+      }
+    }
+    return IssueAdministrativeClosure(
+      disposition: disposition,
+      reason: reason,
+      relevanceEndedAt: relevanceEndedAt,
+      relevanceEndedByUid: relevanceEndedByUid,
+      relevanceEndedByName: relevanceEndedByName,
+      relevanceEndReason: relevanceEndReason,
+    );
   }
 
   static IssueAdministrativeClosure? readOptionalSynchronizedFields(
@@ -132,6 +246,14 @@ class IssueAdministrativeClosure {
       'issueClosureSchemaVersion': closure['schemaVersion'],
       'issueClosureDisposition': closure['disposition'],
       'issueClosureReason': closure['reason'],
+      if (closure.containsKey('relevanceEndedAt'))
+        'issueClosureRelevanceEndedAt': closure['relevanceEndedAt'],
+      if (closure.containsKey('relevanceEndedByUid'))
+        'issueClosureRelevanceEndedByUid': closure['relevanceEndedByUid'],
+      if (closure.containsKey('relevanceEndedByName'))
+        'issueClosureRelevanceEndedByName': closure['relevanceEndedByName'],
+      if (closure.containsKey('relevanceEndReason'))
+        'issueClosureRelevanceEndReason': closure['relevanceEndReason'],
     }, source: 'local maintenance metadata');
   }
 }

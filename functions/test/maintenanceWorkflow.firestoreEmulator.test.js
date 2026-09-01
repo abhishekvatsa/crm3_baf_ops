@@ -630,6 +630,47 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       aggregateVersion: 5,
       actorUid: actor.uid,
     });
+
+    const relevanceCommand = {
+      commandId: 'ticket-admin-end-relevance-command',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-admin-close',
+      expectedVersion: 5,
+      payload: {
+        disposition: 'relevanceEnded',
+        reason: 'The retained operating concern has now ended.',
+      },
+    };
+    const relevanceReceipt = await service.execute(relevanceCommand, {
+      actor,
+      serverNow: new Date('2026-08-15T08:00:00.000Z'),
+    });
+    await expect(service.execute(relevanceCommand, {
+      actor,
+      serverNow: new Date('2026-08-15T08:01:00.000Z'),
+    })).resolves.toEqual(relevanceReceipt);
+
+    const relevanceEnded = await db.collection('maintenance_records')
+      .doc('ticket-admin-close').get();
+    expect(relevanceReceipt).toMatchObject({
+      aggregateVersion: 6,
+      result: {
+        disposition: 'relevanceEnded',
+        relevanceTransition: true,
+        cancelledCoordination: false,
+      },
+    });
+    expect(relevanceEnded.data()).toMatchObject({
+      closedByUid: actor.uid,
+      issueClosureReason:
+        'The operating cycle ended, while the unresolved concern remains relevant for engineering review.',
+      issueClosureDisposition: 'relevanceEnded',
+      issueClosureRelevanceEndedByUid: actor.uid,
+      issueClosureRelevanceEndedByName: actor.name,
+      issueClosureRelevanceEndReason:
+        'The retained operating concern has now ended.',
+      version: 6,
+    });
   });
 
   test('critical alarm lifecycle and replay commit as one Firestore transaction', async () => {

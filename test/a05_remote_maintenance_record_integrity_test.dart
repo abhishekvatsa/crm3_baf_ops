@@ -28,32 +28,72 @@ void main() {
       expect(record.resolutionHistoryJson, '[]');
     });
 
-    test('Plant Condition effect is strict while legacy absence stays neutral', () {
-      final legacy = _validRecord()..remove('plantConditionEffect');
-      expect(
-        readRemoteMaintenanceRecord(
-          legacy,
+    test(
+      'Base Inner Cover availability requires verified vacant dependency evidence',
+      () {
+        final valid =
+            _validRecord()
+              ..['component'] = baseInnerCoverAvailabilityComponent
+              ..['subsystem'] = baseInnerCoverAvailabilitySubsystem
+              ..['tag'] = null
+              ..['classification'] = baseInnerCoverUnavailableClassification
+              ..['plantConditionEffect'] = 'unavailable'
+              ..['assetHierarchyRefJson'] = _baseVacancyReference(
+                includeAssociation: true,
+              );
+
+        final record = readRemoteMaintenanceRecord(
+          valid,
           documentId: 'ticket-1',
-        ).plantConditionEffect,
-        MaintenanceIssuePlantConditionEffect.none,
-      );
-      for (final value in <Object?>['unknown', 1, true]) {
+        );
+        expect(
+          record.assetHierarchyReference?.innerCoverAssociation?.positionState,
+          InnerCoverPositionState.noneLinked,
+        );
+        expect(record.tag, isNull);
+
         expect(
           () => readRemoteMaintenanceRecord(
-            _validRecord()..['plantConditionEffect'] = value,
+            Map<String, dynamic>.from(valid)
+              ..['assetHierarchyRefJson'] = _baseVacancyReference(
+                includeAssociation: false,
+              ),
             documentId: 'ticket-1',
           ),
           throwsA(isA<PersistedDataFormatException>()),
         );
-      }
-      expect(
-        () => readRemoteMaintenanceRecord(
-          _validRecord()..['plantConditionEffect'] = 'stuckUp',
-          documentId: 'ticket-1',
-        ),
-        throwsA(isA<PersistedDataFormatException>()),
-      );
-    });
+      },
+    );
+
+    test(
+      'Plant Condition effect is strict while legacy absence stays neutral',
+      () {
+        final legacy = _validRecord()..remove('plantConditionEffect');
+        expect(
+          readRemoteMaintenanceRecord(
+            legacy,
+            documentId: 'ticket-1',
+          ).plantConditionEffect,
+          MaintenanceIssuePlantConditionEffect.none,
+        );
+        for (final value in <Object?>['unknown', 1, true]) {
+          expect(
+            () => readRemoteMaintenanceRecord(
+              _validRecord()..['plantConditionEffect'] = value,
+              documentId: 'ticket-1',
+            ),
+            throwsA(isA<PersistedDataFormatException>()),
+          );
+        }
+        expect(
+          () => readRemoteMaintenanceRecord(
+            _validRecord()..['plantConditionEffect'] = 'stuckUp',
+            documentId: 'ticket-1',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+        );
+      },
+    );
 
     test('reopening actor, time, and optional reason decode together', () {
       final record = readRemoteMaintenanceRecord(
@@ -755,6 +795,39 @@ String _governedAssetReference(
     ownershipStatus: AssetOwnershipStatus.confirmed,
     ownerDiscipline: 'Mechanical',
     accountableRoleKeys: const <String>['seniorMechanical'],
+  ).encode();
+}
+
+String _baseVacancyReference({required bool includeAssociation}) {
+  final eventAt = DateTime.utc(2026, 8, 12, 10);
+  return AssetHierarchyReference(
+    scope: AssetHierarchyReferenceScope.physicalAsset,
+    assetClassId: 'base-class',
+    assetClassCode: 'BASE',
+    assetClassName: 'Base',
+    nodeId: 'base-101',
+    nodeVersion: 4,
+    nodeName: 'Base 101',
+    assetInstanceId: 'base-101',
+    assetInstanceVersion: 4,
+    assetNumber: 101,
+    assetInstanceName: 'Base 101',
+    hierarchyPath: const <String>['Base', 'Base 101'],
+    ownershipStatus: AssetOwnershipStatus.confirmed,
+    ownerDiscipline: 'Operations',
+    accountableRoleKeys: const <String>['operations'],
+    innerCoverAssociation:
+        includeAssociation
+            ? InnerCoverEventReference(
+              baseAssetInstanceId: 'base-101',
+              baseAssetNumber: 101,
+              positionState: InnerCoverPositionState.noneLinked,
+              eventAt: eventAt,
+              confirmedAt: eventAt.add(const Duration(minutes: 1)),
+              confirmedByUid: 'operations-1',
+              confirmedByName: 'Operations One',
+            )
+            : null,
   ).encode();
 }
 

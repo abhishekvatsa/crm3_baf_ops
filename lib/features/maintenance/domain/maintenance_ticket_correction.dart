@@ -134,6 +134,27 @@ MaintenanceTicketCorrectionDraft buildMaintenanceTicketCorrection({
       'A standard issue cannot be reclassified as a Furnace stuck-up.',
     );
   }
+  if (source.classification == baseInnerCoverUnavailableClassification) {
+    if (source.assetType != AssetType.base ||
+        plantConditionEffect !=
+            MaintenanceIssuePlantConditionEffect.unavailable ||
+        cleanMaintenanceOptionalText(component ?? '') !=
+            baseInnerCoverAvailabilityComponent ||
+        cleanMaintenanceOptionalText(subsystem ?? '') !=
+            baseInnerCoverAvailabilitySubsystem ||
+        cleanMaintenanceTagText(tag ?? '') != null ||
+        cleanMaintenanceOptionalText(classification ?? '') !=
+            baseInnerCoverUnavailableClassification) {
+      throw StateError(
+        'The Base and Inner Cover availability identity is fixed.',
+      );
+    }
+  } else if (cleanMaintenanceOptionalText(classification ?? '') ==
+      baseInnerCoverUnavailableClassification) {
+    throw StateError(
+      'A standard issue cannot be reclassified as an Inner Cover availability issue.',
+    );
+  }
   if (source.classification != furnaceStuckupClassification &&
       plantConditionEffect != MaintenanceIssuePlantConditionEffect.unfit &&
       plantConditionEffect !=

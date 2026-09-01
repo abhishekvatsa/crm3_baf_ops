@@ -301,6 +301,31 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       detail: 'Furnace stuck-up evidence requires its specialized issue route',
     );
   }
+  final isBaseInnerCoverUnavailable =
+      classification == baseInnerCoverUnavailableClassification;
+  if (isBaseInnerCoverUnavailable) {
+    final association = assetHierarchyReference?.innerCoverAssociation;
+    if (assetType != AssetType.base ||
+        map['component'] != baseInnerCoverAvailabilityComponent ||
+        map['subsystem'] != baseInnerCoverAvailabilitySubsystem ||
+        map['tag'] != null ||
+        plantConditionEffect !=
+            MaintenanceIssuePlantConditionEffect.unavailable ||
+        assetHierarchyReference?.scope !=
+            AssetHierarchyReferenceScope.physicalAsset ||
+        association?.positionState != InnerCoverPositionState.noneLinked ||
+        association?.baseAssetInstanceId !=
+            assetHierarchyReference?.assetInstanceId ||
+        association?.baseAssetNumber != assetNumber ||
+        frequentIssueSelection != null) {
+      throw PersistedDataFormatException(
+        field: 'classification',
+        source: source,
+        detail:
+            'Base Inner Cover availability requires verified no-cover-linked evidence',
+      );
+    }
+  }
   final actionsJson = ComponentAction.readEncodedPayload(
     map['actionsJson'],
     field: 'actionsJson',

@@ -454,9 +454,10 @@
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
       "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/maintenance_plant_condition_stream_test.dart"
       ],
-      "maximumLines": 887,
+      "maximumLines": 921,
       "requiredMarkers": [
         "part of '"
       ],
@@ -483,9 +484,10 @@
       "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
       "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/maintenance_plant_condition_stream_test.dart"
       ],
-      "maximumLines": 928,
+      "maximumLines": 964,
       "requiredMarkers": [
         "part of '"
       ],
@@ -1229,7 +1231,7 @@
       "path": "lib/features/maintenance/presentation/closed_tickets_screen.dart",
       "disposition": "bounded-exception",
       "owner": "Architecture / maintenance",
-      "purpose": "Owns closed-issue history, reopen admission, and governed classification of qualifying resolved maintenance work.",
+      "purpose": "Owns closed-issue history, reopen admission, governed relevance retirement, and classification of qualifying resolved maintenance work.",
       "responsibilities": [
         "authority",
         "command-boundary",
@@ -1242,10 +1244,11 @@
       "transactionOwnership": "No client transaction is owned by the closed-ticket screen; server command handlers atomically own classification and cadence updates.",
       "rationale": "The route coordinates one closed-issue dossier and its two history actions; optional metadata decoding is display-only and cannot grant mutation authority.",
       "regressionTests": [
+        "test/issue_administrative_closure_transition_test.dart",
         "test/operational_ux_restructure_test.dart",
         "functions/test/maintenanceIntelligence.test.js"
       ],
-      "maximumLines": 1400,
+      "maximumLines": 1563,
       "requiredMarkers": [
         "class ClosedTicketsScreen",
         "classifyMaintenanceTicket"

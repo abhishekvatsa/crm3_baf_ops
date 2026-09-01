@@ -22,10 +22,27 @@ Future<IssueAdministrativeClosureDraft?> showIssueAdministrativeClosureDialog(
   builder: (_) => _IssueAdministrativeClosureDialog(ticket: ticket),
 );
 
+Future<IssueAdministrativeClosureDraft?>
+showIssueAdministrativeRelevanceEndDialog(
+  BuildContext context, {
+  required MaintenanceRecord ticket,
+}) => showDialog<IssueAdministrativeClosureDraft>(
+  context: context,
+  builder:
+      (_) => _IssueAdministrativeClosureDialog(
+        ticket: ticket,
+        endingRetainedRelevance: true,
+      ),
+);
+
 class _IssueAdministrativeClosureDialog extends StatefulWidget {
-  const _IssueAdministrativeClosureDialog({required this.ticket});
+  const _IssueAdministrativeClosureDialog({
+    required this.ticket,
+    this.endingRetainedRelevance = false,
+  });
 
   final MaintenanceRecord ticket;
+  final bool endingRetainedRelevance;
 
   @override
   State<_IssueAdministrativeClosureDialog> createState() =>
@@ -37,6 +54,14 @@ class _IssueAdministrativeClosureDialogState
   final _reasonController = TextEditingController();
   IssueAdministrativeClosureDisposition? _disposition;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.endingRetainedRelevance) {
+      _disposition = IssueAdministrativeClosureDisposition.relevanceEnded;
+    }
+  }
 
   @override
   void dispose() {
@@ -70,14 +95,21 @@ class _IssueAdministrativeClosureDialogState
   @override
   Widget build(BuildContext context) {
     final hasCoordination =
+        !widget.endingRetainedRelevance &&
         widget.ticket.workflowQueueState != 'independent' &&
         widget.ticket.workflowQueueState != 'released';
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.inventory_2_outlined, color: BafColors.warning),
-          SizedBox(width: BafSpacing.sm),
-          Expanded(child: Text('Close without resolution')),
+          const Icon(Icons.inventory_2_outlined, color: BafColors.warning),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: Text(
+              widget.endingRetainedRelevance
+                  ? 'End retained relevance'
+                  : 'Close without resolution',
+            ),
+          ),
         ],
       ),
       content: ConstrainedBox(
@@ -97,33 +129,55 @@ class _IssueAdministrativeClosureDialogState
                 ),
               ),
               const SizedBox(height: BafSpacing.lg),
-              _DispositionOption(
-                value: IssueAdministrativeClosureDisposition.stillRelevant,
-                selected: _disposition,
-                icon: Icons.bookmark_added_outlined,
-                title: 'Still relevant',
-                subtitle:
-                    'Stop active work, but retain this as an unresolved concern in history and reports.',
-                onChanged:
-                    (value) => setState(() {
-                      _disposition = value;
-                      _error = null;
-                    }),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              _DispositionOption(
-                value: IssueAdministrativeClosureDisposition.relevanceEnded,
-                selected: _disposition,
-                icon: Icons.event_busy_outlined,
-                title: 'No longer relevant',
-                subtitle:
-                    'The operating context has ended and no maintenance resolution is now required.',
-                onChanged:
-                    (value) => setState(() {
-                      _disposition = value;
-                      _error = null;
-                    }),
-              ),
+              if (widget.endingRetainedRelevance)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.warning.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
+                    border: Border.all(
+                      color: BafColors.warning.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Text(
+                    'The original unresolved closure remains in the record. This audited action only ends its continuing effect on Plant Condition.',
+                    style: TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                )
+              else ...[
+                _DispositionOption(
+                  value: IssueAdministrativeClosureDisposition.stillRelevant,
+                  selected: _disposition,
+                  icon: Icons.bookmark_added_outlined,
+                  title: 'Still relevant',
+                  subtitle:
+                      'Stop active work, but retain this as an unresolved concern in history and reports.',
+                  onChanged:
+                      (value) => setState(() {
+                        _disposition = value;
+                        _error = null;
+                      }),
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                _DispositionOption(
+                  value: IssueAdministrativeClosureDisposition.relevanceEnded,
+                  selected: _disposition,
+                  icon: Icons.event_busy_outlined,
+                  title: 'No longer relevant',
+                  subtitle:
+                      'The operating context has ended and no maintenance resolution is now required.',
+                  onChanged:
+                      (value) => setState(() {
+                        _disposition = value;
+                        _error = null;
+                      }),
+                ),
+              ],
               if (hasCoordination) ...[
                 const SizedBox(height: BafSpacing.md),
                 Container(
@@ -166,8 +220,14 @@ class _IssueAdministrativeClosureDialogState
                 maxLines: 6,
                 maxLength: 2000,
                 decoration: InputDecoration(
-                  labelText: 'Administrative closure reason',
-                  hintText: 'Record the operating context and decision basis',
+                  labelText:
+                      widget.endingRetainedRelevance
+                          ? 'Reason relevance has ended'
+                          : 'Administrative closure reason',
+                  hintText:
+                      widget.endingRetainedRelevance
+                          ? 'Record what changed and why the concern no longer affects Plant Condition'
+                          : 'Record the operating context and decision basis',
                   errorText: _error,
                   alignLabelWithHint: true,
                 ),
@@ -191,7 +251,9 @@ class _IssueAdministrativeClosureDialogState
             foregroundColor: BafColors.textPrimary,
           ),
           icon: const Icon(Icons.inventory_2_outlined),
-          label: const Text('Close issue'),
+          label: Text(
+            widget.endingRetainedRelevance ? 'End relevance' : 'Close issue',
+          ),
         ),
       ],
     );

@@ -1078,7 +1078,7 @@
       "compatibility": "absent pre-feature metadata and unrelated or malformed opaque metadata only",
       "regression": "test/operational_ux_restructure_test.dart; functions/test/maintenanceIntelligence.test.js",
       "reArmCondition": "decoded ticket metadata becomes mutation authority or malformed metadata enables maintenance classification",
-      "riskFingerprint": "dc21c20f5c5550a1012c5c34847b574db3e3c0cb9db736f050dd33fde0861c64"
+      "riskFingerprint": "f5d7567ee474d5597068dac65b0e0eafef5d0b61d06c21979f1b436af6d31dcc"
     },
     {
       "id": "template-publisher-maintenance-metadata-display",

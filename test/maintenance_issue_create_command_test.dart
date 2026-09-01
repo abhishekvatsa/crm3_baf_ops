@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_create_command.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition.dart';
@@ -151,6 +152,117 @@ void main() {
       );
     },
   );
+
+  test(
+    'Base Inner Cover availability uses verified dependency evidence without a component tag',
+    () {
+      final eventAt = DateTime.utc(2026, 9, 1, 4, 30);
+      final record =
+          MaintenanceRecord()
+            ..firestoreId = 'base-inner-cover-unavailable-201'
+            ..version = 1
+            ..assetType = AssetType.base
+            ..assetNumber = 201
+            ..component = baseInnerCoverAvailabilityComponent
+            ..subsystem = baseInnerCoverAvailabilitySubsystem
+            ..maintenanceType = MaintenanceType.breakdown
+            ..classification = baseInnerCoverUnavailableClassification
+            ..description = 'Base 201 has no Inner Cover available.'
+            ..plantConditionEffect =
+                MaintenanceIssuePlantConditionEffect.unavailable
+            ..routedTo = RoutedTo.operations
+            ..startDate = eventAt
+            ..assetHierarchyRefJson =
+                AssetHierarchyReference(
+                  scope: AssetHierarchyReferenceScope.physicalAsset,
+                  assetClassId: 'class-base',
+                  assetClassCode: 'BASE',
+                  assetClassName: 'Base',
+                  nodeId: 'asset-base-201',
+                  nodeVersion: 3,
+                  nodeName: 'Base 201',
+                  assetInstanceId: 'asset-base-201',
+                  assetInstanceVersion: 3,
+                  assetNumber: 201,
+                  assetInstanceName: 'Base 201',
+                  hierarchyPath: const <String>['Base', 'Base 201'],
+                  ownershipStatus: AssetOwnershipStatus.confirmed,
+                  ownerDiscipline: 'Operations',
+                  accountableRoleKeys: const <String>['operations'],
+                  innerCoverAssociation: InnerCoverEventReference(
+                    baseAssetInstanceId: 'asset-base-201',
+                    baseAssetNumber: 201,
+                    positionState: InnerCoverPositionState.noneLinked,
+                    eventAt: eventAt,
+                    confirmedAt: eventAt.add(const Duration(minutes: 1)),
+                    confirmedByUid: 'operations-1',
+                    confirmedByName: 'Operations User',
+                  ),
+                ).encode()
+            ..qualityIntent = const IssueQualityIntent(
+              assessment: IssueQualityAssessment.notSuspected,
+            );
+
+      final command = buildMaintenanceIssueCreateCommand(
+        record,
+        createVersion: 1,
+      );
+      final ticket = Map<String, Object?>.from(
+        command.payload['ticket']! as Map,
+      );
+
+      expect(ticket['classification'], baseInnerCoverUnavailableClassification);
+      expect(ticket['component'], baseInnerCoverAvailabilityComponent);
+      expect(ticket['subsystem'], baseInnerCoverAvailabilitySubsystem);
+      expect(ticket['plantConditionEffect'], 'unavailable');
+      expect(ticket['tag'], isNull);
+      expect(ticket, isNot(contains('frequentIssueSelection')));
+    },
+  );
+
+  test('Base Inner Cover availability rejects missing vacancy evidence', () {
+    final record =
+        MaintenanceRecord()
+          ..firestoreId = 'base-inner-cover-unverified-201'
+          ..version = 1
+          ..assetType = AssetType.base
+          ..assetNumber = 201
+          ..component = baseInnerCoverAvailabilityComponent
+          ..subsystem = baseInnerCoverAvailabilitySubsystem
+          ..maintenanceType = MaintenanceType.breakdown
+          ..classification = baseInnerCoverUnavailableClassification
+          ..description = 'Base 201 has no Inner Cover available.'
+          ..plantConditionEffect =
+              MaintenanceIssuePlantConditionEffect.unavailable
+          ..routedTo = RoutedTo.operations
+          ..startDate = DateTime.utc(2026, 9, 1)
+          ..assetHierarchyRefJson =
+              const AssetHierarchyReference(
+                scope: AssetHierarchyReferenceScope.physicalAsset,
+                assetClassId: 'class-base',
+                assetClassCode: 'BASE',
+                assetClassName: 'Base',
+                nodeId: 'asset-base-201',
+                nodeVersion: 3,
+                nodeName: 'Base 201',
+                assetInstanceId: 'asset-base-201',
+                assetInstanceVersion: 3,
+                assetNumber: 201,
+                assetInstanceName: 'Base 201',
+                hierarchyPath: <String>['Base', 'Base 201'],
+                ownershipStatus: AssetOwnershipStatus.confirmed,
+                ownerDiscipline: 'Operations',
+                accountableRoleKeys: <String>['operations'],
+              ).encode()
+          ..qualityIntent = const IssueQualityIntent(
+            assessment: IssueQualityAssessment.notSuspected,
+          );
+
+    expect(
+      () => buildMaintenanceIssueCreateCommand(record, createVersion: 1),
+      throwsStateError,
+    );
+  });
 
   test('governed create-open burner payload clears local closure evidence', () {
     final record =

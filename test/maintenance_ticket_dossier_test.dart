@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
 import 'package:crm3_baf_ops/features/reports/domain/maintenance_ticket_dossier.dart';
 import 'package:crm3_baf_ops/features/reports/domain/report_provenance.dart';
@@ -86,6 +87,52 @@ void main() {
       legacyTable.rows.single[3],
       'Exact lane completion time was not retained for this record',
     );
+  });
+
+  test('dossier preserves closure and later relevance-end evidence', () {
+    final ticket = _resolvedTicket(
+      IssueLanePlan.initial(const <String>[
+        'electrical',
+      ]).acknowledge('electrical').complete('electrical'),
+    );
+    ticket
+      ..status = TicketStatus.closedWithoutResolution
+      ..administrativeClosure = IssueAdministrativeClosure(
+        disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+        reason: 'The unresolved concern was retained after the charge ended.',
+        relevanceEndedAt: DateTime.utc(2026, 9, 1, 9, 15),
+        relevanceEndedByUid: 'admin-2',
+        relevanceEndedByName: 'Admin Two',
+        relevanceEndReason: 'A valid Inner Cover is now assigned.',
+      );
+
+    final document = buildMaintenanceTicketDossier(
+      ticket: ticket,
+      correctionEvents: const [],
+      generatedAt: DateTime.utc(2026, 9, 1, 10),
+      generatedByName: 'Supervisor One',
+      provenance: const ReportProvenance.applicationSnapshot(),
+    );
+    final fields = <String, String>{
+      for (final field
+          in document.sections
+              .singleWhere(
+                (section) => section.title == 'Closure and connected controls',
+              )
+              .fields)
+        field.label: field.value,
+    };
+
+    expect(
+      fields['Administrative reason'],
+      'The unresolved concern was retained after the charge ended.',
+    );
+    expect(fields['Relevance ended by'], 'Admin Two');
+    expect(
+      fields['Relevance-end reason'],
+      'A valid Inner Cover is now assigned.',
+    );
+    expect(fields['Retained relevance ended'], isNot('Not recorded'));
   });
 }
 

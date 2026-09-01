@@ -99,7 +99,9 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
               if (_hasText(ticket.classification))
                 _DetailValue(
                   label: 'Classification',
-                  value: ticket.classification!,
+                  value: maintenanceIssueClassificationLabel(
+                    ticket.classification!,
+                  ),
                 ),
               if (ticket.chargeNoAtEvent != null)
                 _DetailValue(
@@ -263,6 +265,22 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                     label: 'Administrative reason',
                     value: administrativeClosure.reason,
                   ),
+                if (administrativeClosure?.relevanceEndedAt != null) ...[
+                  _DetailValue(
+                    label: 'Retained relevance ended',
+                    value: DateFormat('dd MMM yyyy, HH:mm').format(
+                      administrativeClosure!.relevanceEndedAt!.toLocal(),
+                    ),
+                  ),
+                  _DetailValue(
+                    label: 'Relevance ended by',
+                    value: administrativeClosure.relevanceEndedByName!,
+                  ),
+                  _DetailValue(
+                    label: 'Relevance-end reason',
+                    value: administrativeClosure.relevanceEndReason!,
+                  ),
+                ],
                 if (!historyRead.isValid)
                   _EvidenceWarning(
                     text:

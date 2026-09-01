@@ -8,9 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../data/maintenance_model.dart';
+import '../domain/issue_administrative_closure.dart';
 import '../domain/maintenance_ticket_correction.dart';
 import '../providers/maintenance_provider.dart';
 import '../services/closed_ticket_history_service.dart';
+import '../services/maintenance_issue_administrative_closure_command.dart';
 import '../services/maintenance_issue_command_reconciler.dart';
 import '../services/maintenance_issue_resolution_command.dart';
 import '../../../core/providers/refresh_providers.dart';
@@ -27,6 +29,7 @@ import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
+import 'issue_administrative_closure_dialog.dart';
 import 'maintenance_ticket_correction_dialog.dart';
 import 'maintenance_ticket_detail_screen.dart';
 
@@ -95,6 +98,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   final Set<String> _reopeningTicketKeys = <String>{};
   final Set<String> _classifyingTicketKeys = <String>{};
   final Set<String> _correctingTicketKeys = <String>{};
+  final Set<String> _endingRelevanceTicketKeys = <String>{};
   late final ProviderSubscription<int> _refreshSubscription;
 
   @override
@@ -345,6 +349,102 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     }
   }
 
+  Future<void> _endRetainedRelevance(MaintenanceRecord ticket) async {
+    final ticketKey = _ticketKey(ticket);
+    if (!ticket.isSynced || _endingRelevanceTicketKeys.contains(ticketKey)) {
+      return;
+    }
+    final draft = await showIssueAdministrativeRelevanceEndDialog(
+      context,
+      ticket: ticket,
+    );
+    if (!mounted || draft == null) return;
+
+    setState(() => _endingRelevanceTicketKeys.add(ticketKey));
+    try {
+      final appUser = ref.read(currentAppUserProvider).value;
+      final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
+      if (appUser == null ||
+          firebaseUser == null ||
+          firebaseUser.uid != appUser.uid ||
+          !appUser.canCloseMaintenanceIssueWithoutResolution) {
+        throw StateError(
+          'Admin authority is required to end retained relevance.',
+        );
+      }
+      final ticketId = ticket.firestoreId?.trim();
+      if (ticketId == null || ticketId.isEmpty) {
+        throw StateError('This issue has no governed server identity.');
+      }
+      final command = buildMaintenanceIssueAdministrativeClosureCommand(
+        ticket: ticket,
+        disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+        reason: draft.reason,
+      );
+      final expectedLocalVersion = ticket.version;
+      final expectedLocalUpdatedAt = ticket.updatedAt.toUtc();
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command);
+      validateMaintenanceIssueAdministrativeClosureReceipt(
+        command: command,
+        receipt: receipt,
+        disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+      );
+
+      var converged = false;
+      if (kIsWeb) {
+        final remote = await ref
+            .read(firestoreMaintenanceRepo)
+            .readMaintenanceIssueCommandServerState(ticketId);
+        converged =
+            remote != null &&
+            remote.version >= receipt.aggregateVersion &&
+            remote.administrativeClosure?.disposition ==
+                IssueAdministrativeClosureDisposition.relevanceEnded;
+      } else {
+        try {
+          await ref
+              .read(maintenanceIssueCommandReconcilerProvider)
+              .adoptServerMutation(
+                firestoreId: ticketId,
+                expectedLocalVersion: expectedLocalVersion,
+                expectedLocalUpdatedAt: expectedLocalUpdatedAt,
+                minimumServerVersion: receipt.aggregateVersion,
+              );
+          converged = true;
+        } on MaintenanceIssueCommandConvergenceException {
+          converged = false;
+        }
+      }
+
+      try {
+        await ref
+            .read(syncCoordinatorProvider)
+            .runFullSync(reason: 'ticket_relevance_ended', force: true);
+      } catch (_) {
+        // The server transition is durable; normal sync can repeat adoption.
+      }
+      ref.read(refreshClosedTicketsProvider.notifier).state++;
+      _showSnack(
+        message:
+            converged
+                ? 'Retained concern ended and Plant Condition refreshed.'
+                : 'Relevance end accepted. Exact device refresh will retry during sync.',
+        color: converged ? BafColors.success : BafColors.warning,
+      );
+    } catch (error) {
+      _showSnack(
+        message: 'Could not end retained relevance: $error',
+        color: BafColors.danger,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _endingRelevanceTicketKeys.remove(ticketKey));
+      }
+    }
+  }
+
   Future<void> _classifyTicket(
     MaintenanceRecord ticket,
     List<MaintenanceClassDefinition> definitions,
@@ -425,6 +525,8 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     final appUser = ref.watch(currentAppUserProvider).value;
     final canReopenTickets = appUser?.canReopenMaintenanceTicket == true;
     final canCorrectTickets = appUser?.canCorrectMaintenanceTicket == true;
+    final canEndRetainedRelevance =
+        appUser?.canCloseMaintenanceIssueWithoutResolution == true;
     final maintenanceClasses =
         ref.watch(maintenanceClassDefinitionsProvider).value ??
         const <MaintenanceClassDefinition>[];
@@ -506,6 +608,17 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                         canReopenTicket: canReopenTickets,
                         isReopening: _reopeningTicketKeys.contains(ticketKey),
                         onReopen: () => _reopenTicket(ticket),
+                        canEndRetainedRelevance:
+                            canEndRetainedRelevance &&
+                            ticket.isSynced &&
+                            ticket.administrativeClosure?.disposition ==
+                                IssueAdministrativeClosureDisposition
+                                    .stillRelevant,
+                        isEndingRelevance: _endingRelevanceTicketKeys.contains(
+                          ticketKey,
+                        ),
+                        onEndRetainedRelevance:
+                            () => _endRetainedRelevance(ticket),
                         maintenanceClass: _ticketMaintenanceClass(ticket),
                         canClassify:
                             appUser?.canClassifyCompletedMaintenance == true &&
@@ -877,6 +990,9 @@ class _ClosedTicketCard extends StatelessWidget {
   final bool canReopenTicket;
   final bool isReopening;
   final VoidCallback onReopen;
+  final bool canEndRetainedRelevance;
+  final bool isEndingRelevance;
+  final VoidCallback onEndRetainedRelevance;
   final FrozenMaintenanceClass? maintenanceClass;
   final bool canClassify;
   final bool isClassifying;
@@ -891,6 +1007,9 @@ class _ClosedTicketCard extends StatelessWidget {
     required this.canReopenTicket,
     required this.isReopening,
     required this.onReopen,
+    required this.canEndRetainedRelevance,
+    required this.isEndingRelevance,
+    required this.onEndRetainedRelevance,
     required this.maintenanceClass,
     required this.canClassify,
     required this.isClassifying,
@@ -1072,6 +1191,14 @@ class _ClosedTicketCard extends StatelessWidget {
                           icon: Icons.notes_rounded,
                           text: administrativeClosure.reason,
                         ),
+                        if (administrativeClosure.relevanceEndedAt != null) ...[
+                          const SizedBox(height: 5),
+                          _MetaLine(
+                            icon: Icons.event_available_rounded,
+                            text:
+                                'Relevance ended ${DateFormat('dd MMM yyyy, HH:mm').format(administrativeClosure.relevanceEndedAt!.toLocal())} by ${administrativeClosure.relevanceEndedByName}',
+                          ),
+                        ],
                       ],
                       if (innerCover != null) ...[
                         const SizedBox(height: 5),
@@ -1098,7 +1225,49 @@ class _ClosedTicketCard extends StatelessWidget {
                         onCorrect: onCorrect,
                       ),
                       const SizedBox(height: BafSpacing.sm),
-                      if (canReopen)
+                      if (canEndRetainedRelevance)
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed:
+                                isEndingRelevance
+                                    ? null
+                                    : onEndRetainedRelevance,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: BafColors.warning,
+                              foregroundColor: BafColors.textPrimary,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  BafRadius.medium,
+                                ),
+                              ),
+                            ),
+                            icon:
+                                isEndingRelevance
+                                    ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: BafColors.textPrimary,
+                                      ),
+                                    )
+                                    : const Icon(
+                                      Icons.event_available_rounded,
+                                      size: 18,
+                                    ),
+                            label: Text(
+                              isEndingRelevance
+                                  ? 'Recording…'
+                                  : 'End retained relevance',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (canReopen)
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(

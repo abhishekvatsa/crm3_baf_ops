@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "5C7EB628B49D5BFF55B4B8C5A61A3150E9374631400B63B64307D21EAD347887",
+  "inventoryDigest": "8EEF2E38B103F506BBD98BA1EA0F3308065AF5B849D01437B532D98726F39BEA",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -123,6 +123,22 @@
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
         "test/local_sync_recovery_service_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/services/maintenance_plant_condition_index_repair.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/70k_isar_populated_migration_fixture_test.dart",
+        "test/maintenance_plant_condition_stream_test.dart"
       ]
     },
     {

@@ -129,6 +129,146 @@ function physicalAssetReference(assetVersion = 4) {
   });
 }
 
+function seedBaseWithoutInnerCover(store) {
+  store.seed('asset_classes/class-base', {
+    schemaVersion: 1,
+    assetClassId: 'class-base',
+    status: 'active',
+    legacyAssetTypeKey: 'base',
+    code: 'BASE',
+    name: 'Base',
+  });
+  store.seed('asset_instances/asset-base-201', {
+    schemaVersion: 1,
+    assetInstanceId: 'asset-base-201',
+    assetClassId: 'class-base',
+    assetClassCode: 'BASE',
+    assetClassName: 'Base',
+    assetNumber: 201,
+    name: 'Base 201',
+    status: 'active',
+    version: 3,
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Operations',
+    accountableRoleKeys: ['operations'],
+  });
+}
+
+function basePhysicalAssetReference() {
+  return JSON.stringify({
+    schemaVersion: 3,
+    scope: 'physicalAsset',
+    assetClassId: 'class-base',
+    assetInstanceId: 'asset-base-201',
+    assetInstanceVersion: 3,
+  });
+}
+
+function baseInnerCoverAvailabilityTicket(overrides = {}) {
+  return {
+    assetType: 'base',
+    assetNumber: 201,
+    component: 'Inner Cover availability',
+    subsystem: 'Base / Inner Cover association',
+    tag: null,
+    classification: 'baseInnerCoverUnavailable',
+    plantConditionEffect: 'unavailable',
+    assetHierarchyRefJson: JSON.stringify({
+      schemaVersion: 3,
+      scope: 'physicalAsset',
+      assetClassId: 'class-base',
+      assetClassCode: 'BASE',
+      assetClassName: 'Base',
+      nodeId: 'asset-base-201',
+      nodeVersion: 3,
+      nodeName: 'Base 201',
+      assetInstanceId: 'asset-base-201',
+      assetInstanceVersion: 3,
+      assetNumber: 201,
+      assetInstanceName: 'Base 201',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Base', 'Base 201'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Operations',
+      accountableRoleKeys: ['operations'],
+      innerCoverAssociation: {
+        baseAssetInstanceId: 'asset-base-201',
+        baseAssetNumber: 201,
+        positionState: 'noneLinked',
+        innerCoverId: null,
+        innerCoverSerialNumber: null,
+        linkageId: null,
+        assignmentVersion: null,
+        linkedAt: null,
+        eventAt: '2026-08-14T14:30:00.000Z',
+        confirmedAt: '2026-08-14T14:30:00.000Z',
+        confirmedByUid: operations.uid,
+        confirmedByName: operations.name,
+      },
+    }),
+    description: 'Base 201 has no Inner Cover available.',
+    routedTo: 'operations',
+    startDate: '2026-08-14T14:30:00.000Z',
+    actionsJson: '[]',
+    ...overrides,
+  };
+}
+
+function seedLinkedInnerCoverForBase201(
+  store,
+  {linkedAt = '2026-08-01T04:00:00.000Z'} = {},
+) {
+  store.seed('base_inner_cover_assignments/asset-base-201', {
+    schemaVersion: 1,
+    baseAssetInstanceId: 'asset-base-201',
+    baseAssetClassId: 'class-base',
+    baseAssetNumber: 201,
+    innerCoverId: 'inner-cover-gr26',
+    innerCoverSerialNumber: 'GR26',
+    linkageId: 'link-base-201-gr26',
+    version: 2,
+    linkedAt,
+  });
+  store.seed('inner_cover_profiles/inner-cover-gr26', {
+    schemaVersion: 1,
+    innerCoverId: 'inner-cover-gr26',
+    serialNumber: 'GR26',
+    lifecycleState: 'installed',
+    currentBaseAssetInstanceId: 'asset-base-201',
+    currentBaseAssetNumber: 201,
+    currentLinkageId: 'link-base-201-gr26',
+  });
+}
+
+function seedActiveInnerCoverLinkageForBase201(
+  store,
+  {installedAt = '2026-08-01T04:00:00.000Z'} = {},
+) {
+  store.seed('inner_cover_linkages/link-base-201-gr26', {
+    schemaVersion: 1,
+    linkageId: 'link-base-201-gr26',
+    baseAssetInstanceId: 'asset-base-201',
+    baseAssetClassId: 'class-base',
+    baseAssetNumber: 201,
+    baseAssetName: 'Base 201',
+    innerCoverId: 'inner-cover-gr26',
+    innerCoverSerialNumber: 'GR26',
+    installedAt,
+    installedByUid: admin.uid,
+    installedByName: admin.name,
+    removedAt: null,
+    removedByUid: null,
+    removedByName: null,
+    removalAction: null,
+    removalReason: null,
+    active: true,
+    version: 1,
+    requestId: 'active-linkage-request',
+  });
+}
+
 function seedFurnaceHierarchy(store) {
   store.seed('asset_classes/class-furnace', {
     schemaVersion: 1,
@@ -479,6 +619,203 @@ describe('governed maintenance-ticket supervision', () => {
       code: 'invalid-argument',
       details: {
         reasonCode: 'maintenance-ticket-plant-condition-effect-invalid',
+      },
+    });
+  });
+
+  test('creates a Base availability issue only when no Inner Cover is linked', async () => {
+    const vacant = createServiceFor(operations);
+    seedBaseWithoutInnerCover(vacant.store);
+    const command = createCommand({
+      commandId: 'create-base-inner-cover-unavailable',
+      ticketId: 'base-inner-cover-unavailable',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 has no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+      },
+    });
+
+    await expect(vacant.service.execute(command, vacant.context)).resolves
+      .toMatchObject({aggregateVersion: 1});
+    const created = vacant.store.read(
+      'maintenance_records/base-inner-cover-unavailable',
+    );
+    expect(created).toMatchObject({
+      assetType: 'base',
+      assetNumber: 201,
+      component: 'Inner Cover availability',
+      subsystem: 'Base / Inner Cover association',
+      tag: null,
+      classification: 'baseInnerCoverUnavailable',
+      plantConditionEffect: 'unavailable',
+    });
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      scope: 'physicalAsset',
+      assetInstanceId: 'asset-base-201',
+      innerCoverAssociation: {
+        baseAssetInstanceId: 'asset-base-201',
+        baseAssetNumber: 201,
+        positionState: 'noneLinked',
+        innerCoverId: null,
+      },
+    });
+  });
+
+  test('clamps a clock-ahead live Base vacancy observation to server time', async () => {
+    const vacant = createServiceFor(operations);
+    seedBaseWithoutInnerCover(vacant.store);
+
+    await expect(vacant.service.execute(createCommand({
+      commandId: 'create-clock-ahead-base-vacancy',
+      ticketId: 'clock-ahead-base-vacancy',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 has no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+        startDate: '2026-08-14T16:34:00.000Z',
+      },
+    }), vacant.context)).resolves.toMatchObject({aggregateVersion: 1});
+
+    const created = vacant.store.read(
+      'maintenance_records/clock-ahead-base-vacancy',
+    );
+    expect(created.startDate).toBe(at.toISOString());
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      innerCoverAssociation: {
+        positionState: 'noneLinked',
+        eventAt: at.toISOString(),
+      },
+    });
+  });
+
+  test('preserves a queued Base vacancy observed before restoration', async () => {
+    const delayed = createServiceFor(operations);
+    seedBaseWithoutInnerCover(delayed.store);
+    seedLinkedInnerCoverForBase201(delayed.store, {
+      linkedAt: '2026-08-14T16:25:00.000Z',
+    });
+    seedActiveInnerCoverLinkageForBase201(delayed.store, {
+      installedAt: '2026-08-14T16:25:00.000Z',
+    });
+
+    await expect(delayed.service.execute(createCommand({
+      commandId: 'create-delayed-base-vacancy',
+      ticketId: 'delayed-base-vacancy',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 had no Inner Cover before queued sync.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+        startDate: '2026-08-14T16:20:00.000Z',
+      },
+    }), delayed.context)).resolves.toMatchObject({aggregateVersion: 1});
+    const created = delayed.store.read(
+      'maintenance_records/delayed-base-vacancy',
+    );
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      assetInstanceId: 'asset-base-201',
+      innerCoverAssociation: {
+        positionState: 'noneLinked',
+        eventAt: '2026-08-14T16:20:00.000Z',
+        innerCoverId: null,
+      },
+    });
+  });
+
+  test('rejects a Base availability issue while an Inner Cover remains linked', async () => {
+    const linked = createServiceFor(operations);
+    seedBaseWithoutInnerCover(linked.store);
+    seedLinkedInnerCoverForBase201(linked.store);
+
+    await expect(linked.service.execute(createCommand({
+      commandId: 'reject-linked-base-inner-cover-unavailable',
+      ticketId: 'linked-base-inner-cover-unavailable',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 has no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+      },
+    }), linked.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-inner-cover-availability-invalid',
+      },
+    });
+  });
+
+  test('rejects a backdated Base vacancy inside a closed linkage interval', async () => {
+    const historical = createServiceFor(operations);
+    seedBaseWithoutInnerCover(historical.store);
+    historical.store.seed('inner_cover_linkages/link-base-201-gr26', {
+      schemaVersion: 1,
+      linkageId: 'link-base-201-gr26',
+      baseAssetInstanceId: 'asset-base-201',
+      baseAssetClassId: 'class-base',
+      baseAssetNumber: 201,
+      baseAssetName: 'Base 201',
+      innerCoverId: 'inner-cover-gr26',
+      innerCoverSerialNumber: 'GR26',
+      installedAt: '2026-08-14T16:00:00.000Z',
+      installedByUid: 'admin-1',
+      installedByName: 'Admin One',
+      removedAt: '2026-08-14T16:25:00.000Z',
+      removedByUid: 'admin-1',
+      removedByName: 'Admin One',
+      removalAction: 'DELINK_INNER_COVER',
+      removalReason: 'Moved to the available pool.',
+      active: false,
+      version: 2,
+      requestId: 'historical-linkage-request',
+    });
+
+    await expect(historical.service.execute(createCommand({
+      commandId: 'reject-backdated-base-vacancy',
+      ticketId: 'backdated-base-vacancy',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 had no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+        startDate: '2026-08-14T16:20:00.000Z',
+      },
+    }), historical.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-inner-cover-linked-at-event',
       },
     });
   });
@@ -1543,6 +1880,121 @@ describe('governed maintenance-ticket supervision', () => {
     ).toEqual([]);
   });
 
+  test('admin ends retained relevance without overwriting original closure evidence', async () => {
+    const seeded = serviceFor(admin, {
+      startDate: '2026-08-14T14:30:00.000Z',
+    });
+    await seeded.service.execute({
+      commandId: 'retain-unresolved-ticket',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'stillRelevant',
+        reason: 'The unresolved condition continues to affect Plant Condition.',
+      },
+    }, seeded.context);
+
+    const secondAdmin = actor('admin-2', ['admin']);
+    seeded.store.seed(`users/${secondAdmin.uid}`, {
+      isApproved: true,
+      roles: [...secondAdmin.roles],
+      name: secondAdmin.name,
+    });
+    const transitionContext = {
+      actor: secondAdmin,
+      serverNow: new Date('2026-08-15T08:30:00.000Z'),
+    };
+    const transition = {
+      commandId: 'end-retained-ticket-relevance',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 4,
+      payload: {
+        disposition: 'relevanceEnded',
+        reason: 'A valid Inner Cover has been restored to the Base.',
+      },
+    };
+
+    const receipt = await seeded.service.execute(
+      transition,
+      transitionContext,
+    );
+    await expect(seeded.service.execute(transition, transitionContext))
+      .resolves.toEqual(receipt);
+
+    expect(receipt).toMatchObject({
+      resultKey: 'maintenance-ticket-closed-without-resolution',
+      aggregateVersion: 5,
+      result: {
+        disposition: 'relevanceEnded',
+        cancelledCoordination: false,
+        relevanceTransition: true,
+      },
+    });
+    expect(seeded.store.read('maintenance_records/ticket-1')).toMatchObject({
+      status: 'closedWithoutResolution',
+      issueClosureDisposition: 'relevanceEnded',
+      issueClosureReason:
+        'The unresolved condition continues to affect Plant Condition.',
+      closedByUid: admin.uid,
+      issueClosureRelevanceEndedAt: transitionContext.serverNow.toISOString(),
+      issueClosureRelevanceEndedByUid: secondAdmin.uid,
+      issueClosureRelevanceEndedByName: secondAdmin.name,
+      issueClosureRelevanceEndReason:
+        'A valid Inner Cover has been restored to the Base.',
+      version: 5,
+    });
+  });
+
+  test('Base vacancy resolves only after a valid Inner Cover is restored', async () => {
+    const vacant = serviceFor(admin, baseInnerCoverAvailabilityTicket());
+    seedBaseWithoutInnerCover(vacant.store);
+    const resolution = {
+      commandId: 'resolve-base-inner-cover-vacancy',
+      commandType: 'resolveMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        endDate: '2026-08-14T16:00:00.000Z',
+        remarks: 'Inner Cover availability restored.',
+        teamsInvolved: ['operations'],
+        actionsJson: '[]',
+      },
+    };
+
+    await expect(vacant.service.execute(resolution, vacant.context))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'maintenance-ticket-inner-cover-still-unavailable',
+        },
+      });
+    await expect(vacant.service.execute({
+      commandId: 'admin-close-vacant-base-issue',
+      commandType: 'closeMaintenanceTicketWithoutResolution',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        disposition: 'relevanceEnded',
+        reason: 'The operating context ended before an Inner Cover was restored.',
+      },
+    }, vacant.context)).resolves.toMatchObject({
+      resultKey: 'maintenance-ticket-closed-without-resolution',
+      aggregateVersion: 4,
+    });
+
+    const restored = serviceFor(admin, baseInnerCoverAvailabilityTicket());
+    seedBaseWithoutInnerCover(restored.store);
+    seedLinkedInnerCoverForBase201(restored.store);
+    seedActiveInnerCoverLinkageForBase201(restored.store);
+    await expect(restored.service.execute(resolution, restored.context))
+      .resolves.toMatchObject({
+        resultKey: 'maintenance-ticket-resolved',
+        aggregateVersion: 4,
+      });
+  });
+
   test.each([
     ['open', false],
     ['acknowledged', true],
@@ -2053,6 +2505,45 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('Base vacancy reopens only when the Base is vacant again', async () => {
+    const resolvedTicket = baseInnerCoverAvailabilityTicket({
+      status: 'resolved',
+      isResolved: true,
+      endDate: '2026-08-14T16:00:00.000Z',
+      closedByUid: admin.uid,
+      closedByName: admin.name,
+      remarks: 'Inner Cover availability restored.',
+      teamsInvolved: ['operations'],
+    });
+    const command = {
+      commandId: 'reopen-base-inner-cover-vacancy',
+      commandType: 'reopenMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {remarks: 'Availability has failed again.'},
+    };
+
+    const stillLinked = serviceFor(admin, resolvedTicket);
+    seedBaseWithoutInnerCover(stillLinked.store);
+    seedLinkedInnerCoverForBase201(stillLinked.store);
+    seedActiveInnerCoverLinkageForBase201(stillLinked.store);
+    await expect(stillLinked.service.execute(command, stillLinked.context))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'maintenance-ticket-inner-cover-not-vacant-for-reopen',
+        },
+      });
+
+    const vacantAgain = serviceFor(admin, resolvedTicket);
+    seedBaseWithoutInnerCover(vacantAgain.store);
+    await expect(vacantAgain.service.execute(command, vacantAgain.context))
+      .resolves.toMatchObject({
+        resultKey: 'maintenance-ticket-reopened',
+        aggregateVersion: 4,
+      });
+  });
+
   test('operations reopens an exact resolved record and preserves closure history', async () => {
     const seeded = serviceFor(operations, {
       startDate: '2026-08-14T13:00:00.000Z',
@@ -2518,6 +3009,55 @@ describe('governed maintenance-ticket supervision', () => {
     expect(JSON.parse(audit.beforeJson).plantConditionEffect).toBe('unfit');
     expect(JSON.parse(audit.afterJson).plantConditionEffect)
       .toBe('unavailable');
+  });
+
+  test('admin correction preserves the Base Inner Cover availability identity', async () => {
+    const availabilityTicket = {
+      assetType: 'base',
+      assetNumber: 201,
+      classification: 'baseInnerCoverUnavailable',
+      component: 'Inner Cover availability',
+      subsystem: 'Base / Inner Cover association',
+      tag: null,
+      plantConditionEffect: 'unavailable',
+      routedTo: 'operations',
+    };
+    const allowed = serviceFor(admin, availabilityTicket);
+    await expect(allowed.service.execute({
+      commandId: 'correct-inner-cover-availability-description',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Clarified the Base availability observation.',
+        corrections: {description: 'Base 201 remains without an Inner Cover.'},
+      },
+    }, allowed.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    for (const [commandId, corrections] of [
+      ['change-inner-cover-availability-class', {classification: 'general'}],
+      ['change-inner-cover-availability-component', {component: 'Base shell'}],
+      ['change-inner-cover-availability-subsystem', {subsystem: 'Base body'}],
+      ['add-inner-cover-availability-tag', {tag: 'BASE-201'}],
+      ['change-inner-cover-availability-effect', {plantConditionEffect: 'unfit'}],
+    ]) {
+      const current = serviceFor(admin, availabilityTicket);
+      await expect(current.service.execute({
+        commandId,
+        commandType: 'correctMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          reason: 'Attempted correction was checked against dependency identity.',
+          corrections,
+        },
+      }, current.context)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'maintenance-inner-cover-availability-immutable',
+        },
+      });
+    }
   });
 
   test('admin correction preserves burner specialization and red-hot criticality', async () => {

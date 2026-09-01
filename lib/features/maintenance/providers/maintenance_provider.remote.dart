@@ -43,6 +43,42 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Stream<List<MaintenanceRecord>> watchPlantConditionTickets() {
+    return _collection
+        .where(
+          Filter.and(
+            Filter('isDeleted', isEqualTo: false),
+            Filter.or(
+              Filter('status', isEqualTo: TicketStatus.open.name),
+              Filter('status', isEqualTo: TicketStatus.acknowledged.name),
+              Filter('status', isEqualTo: TicketStatus.inProgress.name),
+              Filter.and(
+                Filter(
+                  'status',
+                  isEqualTo: TicketStatus.closedWithoutResolution.name,
+                ),
+                Filter(
+                  'issueClosureDisposition',
+                  isEqualTo:
+                      IssueAdministrativeClosureDisposition.stillRelevant.name,
+                ),
+              ),
+            ),
+          ),
+        )
+        .snapshots()
+        .map((snapshot) {
+          final tickets =
+              snapshot.docs
+                  .map(_mapTicket)
+                  .where((ticket) => ticket.canStillAffectPlantCondition)
+                  .toList();
+          tickets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return tickets;
+        });
+  }
+
+  @override
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit}) {
     var query = _collection
         .where('isDeleted', isEqualTo: false)

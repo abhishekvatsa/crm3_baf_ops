@@ -28,6 +28,19 @@ enum TicketStatus {
 
 enum MaintenanceIssuePlantConditionEffect { none, unfit, unavailable, stuckUp }
 
+const baseInnerCoverUnavailableClassification = 'baseInnerCoverUnavailable';
+const baseInnerCoverAvailabilityComponent = 'Inner Cover availability';
+const baseInnerCoverAvailabilitySubsystem = 'Base / Inner Cover association';
+
+String maintenanceIssueClassificationLabel(
+  String classification,
+) => switch (classification) {
+  burnerLockoutClassification => 'Furnace burner lockout',
+  furnaceStuckupClassification => 'Furnace stuck-up',
+  baseInnerCoverUnavailableClassification => 'Base unavailable: no Inner Cover',
+  _ => classification,
+};
+
 extension MaintenanceIssuePlantConditionEffectLabel
     on MaintenanceIssuePlantConditionEffect {
   String get label => switch (this) {
@@ -800,6 +813,24 @@ class MaintenanceRecord {
   bool get isOpen => !status.isTerminal;
 
   bool get isClosed => status.isTerminal;
+
+  @ignore
+  bool get canStillAffectPlantCondition {
+    if (!isSynced) return true;
+    if (isDeleted) return false;
+    if (!isResolved) return true;
+    return status == TicketStatus.closedWithoutResolution &&
+        administrativeClosure?.disposition ==
+            IssueAdministrativeClosureDisposition.stillRelevant;
+  }
+
+  @Index()
+  bool get plantConditionContributionActive => canStillAffectPlantCondition;
+
+  set plantConditionContributionActive(bool _) {
+    // Isar must deserialize the persisted projection, but the authoritative
+    // value is always derived from the ticket's current lifecycle fields.
+  }
 
   @ignore
   bool get wasTechnicallyResolved => status == TicketStatus.resolved;

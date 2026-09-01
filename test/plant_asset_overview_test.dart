@@ -5,6 +5,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/equipment_status_record.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/issue_administrative_closure.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _time = DateTime.utc(2026, 8, 14);
@@ -144,6 +145,31 @@ MaintenanceRecord issueCondition({
       ..updatedAt = _time
       ..loggedByUid = 'operator-1'
       ..loggedByName = 'Operator One';
+
+MaintenanceRecord administrativelyClosedIssueCondition({
+  required String id,
+  required AssetInstanceRecord asset,
+  required MaintenanceIssuePlantConditionEffect effect,
+  required IssueAdministrativeClosureDisposition disposition,
+}) {
+  final record = issueCondition(
+    id: id,
+    asset: asset,
+    effect: effect,
+    resolved: true,
+    synced: true,
+  );
+  record
+    ..status = TicketStatus.closedWithoutResolution
+    ..endDate = _time.add(const Duration(hours: 1))
+    ..closedByUid = 'admin-1'
+    ..closedByName = 'Admin One'
+    ..administrativeClosure = IssueAdministrativeClosure(
+      disposition: disposition,
+      reason: 'Administrative closure after plant review.',
+    );
+  return record;
+}
 
 void main() {
   test('preserves overlapping down and maintenance facts', () {
@@ -507,6 +533,62 @@ void main() {
       contains('awaiting server confirmation'),
     );
   });
+
+  test(
+    'still-relevant administrative closure preserves only its Plant Condition effect',
+    () {
+      final base = assetClass(
+        id: 'base-class',
+        code: 'base',
+        name: 'Base',
+        legacyKey: 'base',
+      );
+      final relevantBase = asset(id: 'base-201', assetClass: base, number: 201);
+      final irrelevantBase = asset(
+        id: 'base-202',
+        assetClass: base,
+        number: 202,
+      );
+      final resolvedBase = asset(id: 'base-203', assetClass: base, number: 203);
+      final overview = PlantAssetOverview.build(
+        assetClasses: [base],
+        assetInstances: [relevantBase, irrelevantBase, resolvedBase],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+        maintenanceTickets: [
+          administrativelyClosedIssueCondition(
+            id: 'ticket-still-relevant',
+            asset: relevantBase,
+            effect: MaintenanceIssuePlantConditionEffect.unavailable,
+            disposition: IssueAdministrativeClosureDisposition.stillRelevant,
+          ),
+          administrativelyClosedIssueCondition(
+            id: 'ticket-relevance-ended',
+            asset: irrelevantBase,
+            effect: MaintenanceIssuePlantConditionEffect.unavailable,
+            disposition: IssueAdministrativeClosureDisposition.relevanceEnded,
+          ),
+          issueCondition(
+            id: 'ticket-resolved',
+            asset: resolvedBase,
+            effect: MaintenanceIssuePlantConditionEffect.unavailable,
+            resolved: true,
+            synced: true,
+          ),
+        ],
+      );
+
+      final statesByNumber = {
+        for (final state in overview.assets) state.asset.assetNumber: state,
+      };
+      expect(statesByNumber[201]!.isIssueUnavailable, isTrue);
+      expect(statesByNumber[201]!.issueConditionContributions, hasLength(1));
+      expect(statesByNumber[202]!.isAvailable, isTrue);
+      expect(statesByNumber[202]!.issueConditionContributions, isEmpty);
+      expect(statesByNumber[203]!.isAvailable, isTrue);
+      expect(statesByNumber[203]!.issueConditionContributions, isEmpty);
+    },
+  );
 
   test(
     'server-confirmed issue closure preserves an independent manual state',

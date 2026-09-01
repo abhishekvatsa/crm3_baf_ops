@@ -52,6 +52,18 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Stream<List<MaintenanceRecord>> watchPlantConditionTickets() {
+    return isar.maintenanceRecords
+        .where()
+        .plantConditionContributionActiveEqualTo(true)
+        .watch(fireImmediately: true)
+        .map((tickets) {
+          tickets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return tickets;
+        });
+  }
+
+  @override
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit}) {
     if (limit != null) {
       return isar.maintenanceRecords

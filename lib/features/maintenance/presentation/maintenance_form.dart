@@ -42,6 +42,7 @@ import 'issue_lane_selector.dart';
 import '../providers/frequent_issue_provider.dart';
 
 part 'maintenance_form_asset_widgets.dart';
+part 'maintenance_form_inner_cover_availability.dart';
 part 'maintenance_form_component_widgets.dart';
 part 'maintenance_form_frequent_issue_widgets.dart';
 
@@ -60,6 +61,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   bool _isCritical = false;
   bool _isBurnerLockout = false;
   _IssueIntakeMode _intakeMode = _IssueIntakeMode.standard;
+  _BaseIssueTarget _baseIssueTarget = _BaseIssueTarget.governedComponent;
   String? _stuckupBaseAssetId;
   String? _stuckupConfirmedLinkageId;
   bool _stuckupPhysicalMismatch = false;
@@ -502,6 +504,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   bool get _isFurnaceStuckup => _intakeMode == _IssueIntakeMode.furnaceStuckup;
 
+  void _setBaseIssueTarget(_BaseIssueTarget target) =>
+      setState(() => _applyBaseIssueTarget(target));
+
   void _setIntakeMode(_IssueIntakeMode mode) {
     if (mode == _intakeMode) return;
     final classes = ref.read(assetClassesProvider).value;
@@ -898,6 +903,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         return;
       }
     }
+    if (!_validateBaseInnerCoverAvailabilitySubmission(selectedAsset)) return;
     BurnerLockoutCase? burnerLockout;
     if (_isBurnerLockout) {
       if (assetType != AssetType.furnace) {
@@ -972,6 +978,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 ? 'Burner system'
                 : _isFurnaceStuckup
                 ? 'Furnace / Inner Cover interface'
+                : _isBaseInnerCoverAvailability
+                ? baseInnerCoverAvailabilityComponent
                 : _componentController.text,
         description: _descController.text,
         tag: _tagController.text,
@@ -1000,7 +1008,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     try {
       _tagResolutionDebounce?.cancel();
       final submittedTag =
-          burnerLockout == null && !_isFurnaceStuckup
+          burnerLockout == null &&
+                  !_isFurnaceStuckup &&
+                  !_isBaseInnerCoverAvailability
               ? _tagController.text.trim()
               : '';
       if (submittedTag.isNotEmpty) {
@@ -1036,6 +1046,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       }
 
       final now = DateTime.now();
+      _refreshBaseInnerCoverAvailabilityObservation(now);
       final reporterUid = appUser.uid;
       final reporterName = _cleanOptionalText(appUser.name) ?? appUser.uid;
       final selectedReference =
@@ -1071,7 +1082,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         );
       }
       final tagText =
-          burnerLockout == null && !_isFurnaceStuckup
+          burnerLockout == null &&
+                  !_isFurnaceStuckup &&
+                  !_isBaseInnerCoverAvailability
               ? _cleanOptionalText(_tagController.text)?.toUpperCase()
               : null;
       final hierarchyPath =
@@ -1093,6 +1106,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     ? burnerLockoutClassification
                     : furnaceStuckup != null
                     ? furnaceStuckupClassification
+                    : _isBaseInnerCoverAvailability
+                    ? baseInnerCoverUnavailableClassification
                     : null
             ..routedTo =
                 burnerLockout != null
@@ -1108,6 +1123,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..plantConditionEffect =
                 furnaceStuckup != null
                     ? MaintenanceIssuePlantConditionEffect.stuckUp
+                    : _isBaseInnerCoverAvailability
+                    ? MaintenanceIssuePlantConditionEffect.unavailable
                     : _plantConditionEffect
             ..loggedByUid = reporterUid
             ..loggedByName = reporterName
@@ -1129,10 +1146,16 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     ? 'Burner system'
                     : furnaceStuckup != null
                     ? 'Furnace / Inner Cover interface'
+                    : _isBaseInnerCoverAvailability
+                    ? baseInnerCoverAvailabilityComponent
                     : _cleanRequiredText(_componentController.text)
             ..tag = tagText
-            ..subsystem = _cleanOptionalText(_resolvedSubsystem)
-            ..hierarchyPath = hierarchyPath;
+            ..subsystem =
+                _isBaseInnerCoverAvailability
+                    ? baseInnerCoverAvailabilitySubsystem
+                    : _cleanOptionalText(_resolvedSubsystem)
+            ..hierarchyPath =
+                _isBaseInnerCoverAvailability ? null : hierarchyPath;
       record.assetHierarchyRefJson = eventAssetReference?.encode();
       record.burnerLockoutCase = burnerLockout;
       record.furnaceStuckupCase = furnaceStuckup;
@@ -1152,6 +1175,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       );
       if (!_isBurnerLockout &&
           !_isFurnaceStuckup &&
+          !_isBaseInnerCoverAvailability &&
           (_selectedFrequentIssue != null || _frequentIssueUnlisted)) {
         record.frequentIssueSelection =
             _selectedFrequentIssue != null
@@ -1480,6 +1504,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     onRouteChanged: _selectIssueAssetRoute,
                     onAssetChanged: _selectPhysicalAsset,
                   ),
+                ..._baseIssueTargetControls,
                 if (!_isFurnaceStuckup && _assetType == AssetType.furnace) ...[
                   const SizedBox(height: BafSpacing.md),
                   SegmentedButton<bool>(
@@ -1501,7 +1526,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     },
                   ),
                 ],
-                if (!_isBurnerLockout && !_isFurnaceStuckup) ...[
+                if (_usesGovernedComponentIssueTarget) ...[
                   const SizedBox(height: BafSpacing.md),
                   SizedBox(
                     width: double.infinity,
@@ -1566,7 +1591,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       governed: _isGovernedTagResolution,
                     ),
                   ],
-                ] else if (_isBurnerLockout) ...[
+                ] else if (_isBaseInnerCoverAvailability)
+                  ..._baseInnerCoverAvailabilityControls
+                else if (_isBurnerLockout) ...[
                   const SizedBox(height: BafSpacing.md),
                   const _BurnerRouteNotice(),
                 ] else ...[
@@ -1644,7 +1671,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               subtitle: 'Describe the problem clearly for the attending team.',
               icon: Icons.report_problem_rounded,
               children: [
-                if (!_isBurnerLockout && !_isFurnaceStuckup) ...[
+                if (_usesGovernedComponentIssueTarget) ...[
                   _FrequentIssueChoicePanel(
                     definitions: frequentIssues,
                     assetTypeKey: _assetType.name,
@@ -1705,6 +1732,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       ),
                     ],
                   )
+                else if (_isBaseInnerCoverAvailability)
+                  const _BaseInnerCoverAvailabilityConditionNotice()
                 else ...[
                   SegmentedButton<MaintenanceIssuePlantConditionEffect>(
                     segments: const [
@@ -1806,11 +1835,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
             _SectionCard(
               title: 'Operational timing',
-              subtitle: 'When did this issue start?',
+              subtitle: _operationalTimingSubtitle,
               icon: Icons.schedule_rounded,
               children: [
                 InkWell(
-                  onTap: _pickStartTime,
+                  onTap: _isBaseInnerCoverAvailability ? null : _pickStartTime,
                   borderRadius: BorderRadius.circular(BafRadius.medium),
                   child: Container(
                     padding: const EdgeInsets.all(BafSpacing.lg),
@@ -1830,9 +1859,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Start time',
-                                style: TextStyle(
+                              Text(
+                                _operationalTimingLabel,
+                                style: const TextStyle(
                                   color: BafColors.textSecondary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -1852,10 +1881,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                             ],
                           ),
                         ),
-                        const Icon(
-                          Icons.edit_calendar_rounded,
-                          color: BafColors.textSecondary,
-                        ),
+                        _operationalTimingTrailingIcon,
                       ],
                     ),
                   ),

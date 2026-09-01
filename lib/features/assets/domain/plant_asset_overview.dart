@@ -201,10 +201,8 @@ class PlantAssetOverview {
     final issueConditionsByAssetId =
         <String, List<PlantIssueConditionContribution>>{};
     for (final ticket in maintenanceTickets) {
-      final activeUntilServerConfirmed =
-          (!ticket.isResolved && !ticket.isDeleted) || !ticket.isSynced;
       final effect = ticket.effectivePlantConditionEffect;
-      if (!activeUntilServerConfirmed ||
+      if (!ticket.canStillAffectPlantCondition ||
           effect == MaintenanceIssuePlantConditionEffect.none ||
           effect == MaintenanceIssuePlantConditionEffect.stuckUp) {
         continue;
