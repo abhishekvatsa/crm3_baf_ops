@@ -57,6 +57,7 @@ import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
 import 'core/services/isar_schema_migration.dart';
 import 'core/services/live_remote_sync_service.dart';
+import 'core/services/maintenance_plant_condition_index_repair.dart';
 import 'core/services/operational_assurance_local_repair.dart';
 import 'core/services/planned_job_local_link_repair.dart';
 import 'core/services/sync_coordinator.dart';
@@ -163,6 +164,18 @@ Future<Isar> _openLocalIsar() async {
         'Quarantined legacy governed-asset projections: '
         'workflows=${identityRepair!.removedWorkflowProjections}, '
         'equipment=${identityRepair.removedEquipmentProjections}',
+      );
+    }
+    final plantConditionIndexRepair =
+        await repairMaintenancePlantConditionIndexForSchemaUpgrade(
+          localIsar,
+          fromVersion: schemaPreparation.result.fromVersion,
+          toVersion: schemaPreparation.result.toVersion,
+        );
+    if (plantConditionIndexRepair?.changed ?? false) {
+      debugPrint(
+        'Reindexed maintenance Plant Condition projections: '
+        '${plantConditionIndexRepair!.reindexedRecords}',
       );
     }
     final committedMarker = await schemaPreparation.commitAfterSuccessfulOpen();

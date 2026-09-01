@@ -824,6 +824,14 @@ class MaintenanceRecord {
             IssueAdministrativeClosureDisposition.stillRelevant;
   }
 
+  @Index()
+  bool get plantConditionContributionActive => canStillAffectPlantCondition;
+
+  set plantConditionContributionActive(bool _) {
+    // Isar must deserialize the persisted projection, but the authoritative
+    // value is always derived from the ticket's current lifecycle fields.
+  }
+
   @ignore
   bool get wasTechnicallyResolved => status == TicketStatus.resolved;
 

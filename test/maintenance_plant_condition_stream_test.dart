@@ -85,23 +85,30 @@ void main() {
     },
   );
 
-  test('native stream constrains retained closures at the Isar query', () {
+  test('native stream uses the indexed lifecycle projection', () {
     final source =
         File(
           'lib/features/maintenance/providers/maintenance_provider.local.dart',
         ).readAsStringSync();
 
+    expect(source, contains('.where()'));
+    expect(source, contains('.plantConditionContributionActiveEqualTo(true)'));
+    expect(source, isNot(contains('.metadataJsonContains(')));
     expect(
-      source,
-      contains('.statusEqualTo(TicketStatus.closedWithoutResolution)'),
+      MaintenanceRecordSchema.indexes,
+      contains('plantConditionContributionActive'),
     );
-    expect(source, contains('.isSyncedEqualTo(true)'));
-    expect(source, contains('.isDeletedEqualTo(false)'));
-    expect(source, contains('.metadataJsonContains('));
-    expect(
-      source,
-      contains('issueAdministrativeClosureStillRelevantMetadataNeedle'),
+  });
+
+  test('startup rebuilds the v10 index before committing provenance', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final repair = source.indexOf(
+      'repairMaintenancePlantConditionIndexForSchemaUpgrade(',
     );
+    final commit = source.indexOf('commitAfterSuccessfulOpen()');
+
+    expect(repair, greaterThanOrEqualTo(0));
+    expect(commit, greaterThan(repair));
   });
 }
 

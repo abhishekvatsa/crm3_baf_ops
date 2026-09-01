@@ -3071,6 +3071,9 @@ isar_guard = text("lib/core/services/isar_schema_guard_io.dart")
 identity_repair = text(
     "lib/core/services/governed_asset_identity_local_repair.dart"
 )
+plant_condition_index_repair = text(
+    "lib/core/services/maintenance_plant_condition_index_repair.dart"
+)
 startup = text("lib/main.dart")
 workflow_panel = text("lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart")
 compliance_dialog = text("lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart")
@@ -3103,13 +3106,14 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 9" in isar_migration
+    and "currentSchemaVersion = 10" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
     and "v5SchemaFingerprint" in isar_migration
     and "6: _addOperationalEventIssueLinkProjection" in isar_migration
     and "7: _addMaintenanceReopenEvidenceFields" in isar_migration
     and "8: _addSyncRejectionOriginatingUid" in isar_migration
     and "9: _addMaintenancePlantConditionEffect" in isar_migration
+    and "10: _addMaintenancePlantConditionContributionIndex" in isar_migration
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
@@ -3117,14 +3121,20 @@ check(
     and "toVersion >= 5" in identity_repair
     and "toVersion == 5" not in identity_repair
     and "repairGovernedAssetIdentityForSchemaUpgrade(" in startup
+    and "repairMaintenancePlantConditionIndexForSchemaUpgrade(" in startup
     and "repairLegacyGovernedAssetIdentityProjections(" in identity_repair
     and "resetGovernedAssetIdentityProjectionPullCursors()" in identity_repair
+    and "fromVersion < maintenancePlantConditionIndexSchemaVersion"
+        in plant_condition_index_repair
+    and "toVersion >= maintenancePlantConditionIndexSchemaVersion"
+        in plant_condition_index_repair
     and "commitAfterSuccessfulOpen()" in startup
     and startup.index("ensureIsarSchemaBeforeOpen(")
     < startup.index("Isar.open(")
     < startup.index("repairPlannedJobLocalLinks(")
     < startup.index("repairLegacyOperationalAssuranceRequests(")
     < startup.index("repairGovernedAssetIdentityForSchemaUpgrade(")
+    < startup.index("repairMaintenancePlantConditionIndexForSchemaUpgrade(")
     < startup.index("commitAfterSuccessfulOpen()")
     and identity_repair.index("repairLegacyGovernedAssetIdentityProjections(")
     < identity_repair.index("resetGovernedAssetIdentityProjectionPullCursors()")
@@ -3174,10 +3184,12 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v9" in isar_fixture_test
-    and "populated v3 compliance request migrates through v9"
+    and "repository-proven populated v1 migrates to v10" in isar_fixture_test
+    and "populated v3 compliance request migrates through v10"
         in isar_fixture_test
-    and "populated v6 maintenance ticket migrates to v9"
+    and "populated v6 maintenance ticket migrates to v10"
+        in isar_fixture_test
+    and "repairMaintenancePlantConditionIndexForSchemaUpgrade("
         in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"

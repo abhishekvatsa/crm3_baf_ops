@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:crm3_baf_ops/core/services/isar_schema_migration.dart';
+import 'package:crm3_baf_ops/core/services/maintenance_plant_condition_index_repair.dart';
 import 'package:crm3_baf_ops/core/services/operational_assurance_local_repair.dart';
 import 'package:crm3_baf_ops/core/services/planned_job_local_link_repair.dart';
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
@@ -389,6 +390,7 @@ List<CollectionSchema<dynamic>> _loadRepositoryProvenV3Schemas() =>
 
 CollectionSchema<MaintenanceRecord> _v6MaintenanceRecordSchema() {
   const postV6Fields = <String>{
+    'plantConditionContributionActive',
     'plantConditionEffect',
     'reopenReason',
     'reopenedAt',
@@ -410,6 +412,8 @@ CollectionSchema<MaintenanceRecord> _v6MaintenanceRecordSchema() {
       target: property.target,
     );
   }
+  final indexes = Map<String, IndexSchema>.from(MaintenanceRecordSchema.indexes)
+    ..remove('plantConditionContributionActive');
   return CollectionSchema<MaintenanceRecord>(
     id: MaintenanceRecordSchema.id,
     name: MaintenanceRecordSchema.name,
@@ -419,7 +423,7 @@ CollectionSchema<MaintenanceRecord> _v6MaintenanceRecordSchema() {
     deserialize: MaintenanceRecordSchema.deserialize,
     deserializeProp: MaintenanceRecordSchema.deserializeProp,
     idName: MaintenanceRecordSchema.idName,
-    indexes: MaintenanceRecordSchema.indexes,
+    indexes: indexes,
     links: MaintenanceRecordSchema.links,
     embeddedSchemas: MaintenanceRecordSchema.embeddedSchemas,
     getId: MaintenanceRecordSchema.getId,
@@ -554,7 +558,7 @@ void main() {
   });
 
   test(
-    'repository-proven populated v1 migrates to v9 with rows and relationships intact',
+    'repository-proven populated v1 migrates to v10 with rows and relationships intact',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_populated_v1_',
@@ -669,7 +673,7 @@ void main() {
   );
 
   test(
-    'populated v3 compliance request migrates through v9 without evidence loss',
+    'populated v3 compliance request migrates through v10 without evidence loss',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_operational_assurance_v3_',
@@ -746,7 +750,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 9);
+        expect(preparation.result.toVersion, 10);
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.databaseGenerationId, _generationId);
 
@@ -797,7 +801,7 @@ void main() {
         expect(migrated.raisedUnderCoordination, isFalse);
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 9);
+        expect(committed.schemaVersion, 10);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -813,7 +817,7 @@ void main() {
   );
 
   test(
-    'populated v6 maintenance ticket migrates to v9 and pending reopen remains replayable',
+    'populated v6 maintenance ticket migrates to v10 and pending reopen remains replayable',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_maintenance_reopen_v6_',
@@ -899,13 +903,21 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 6);
-        expect(preparation.result.toVersion, 9);
+        expect(preparation.result.toVersion, 10);
 
         isar = await Isar.open(
           _currentSchemas,
           directory: directory.path,
           name: _v6FixtureName,
         );
+        final plantConditionIndexRepair =
+            await repairMaintenancePlantConditionIndexForSchemaUpgrade(
+              isar,
+              fromVersion: preparation.result.fromVersion,
+              toVersion: preparation.result.toVersion,
+            );
+        expect(plantConditionIndexRepair, isNotNull);
+        expect(plantConditionIndexRepair!.reindexedRecords, 2);
         final migrated =
             await isar.maintenanceRecords
                 .filter()
@@ -937,9 +949,20 @@ void main() {
           maintenanceHasLegacyPendingReopenEvidence(migratedPendingReopen),
           isTrue,
         );
+        final plantConditionContributors =
+            await isar.maintenanceRecords
+                .where()
+                .plantConditionContributionActiveEqualTo(true)
+                .findAll();
+        expect(
+          plantConditionContributors
+              .map((record) => record.firestoreId)
+              .toSet(),
+          <String?>{'legacy-maintenance-v6', 'legacy-pending-reopen-v6'},
+        );
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 9);
+        expect(committed.schemaVersion, 10);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -1013,7 +1036,8 @@ void main() {
             6: <String>{IsarSchemaMigrator.v6SchemaFingerprint},
             7: <String>{IsarSchemaMigrator.v7SchemaFingerprint},
             8: <String>{IsarSchemaMigrator.v8SchemaFingerprint},
-            9: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
+            9: <String>{IsarSchemaMigrator.v9SchemaFingerprint},
+            10: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
           },
           stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
             3: (context) async {
@@ -1045,6 +1069,10 @@ void main() {
             9: (context) async {
               expect(context.fromVersion, 8);
               expect(context.toVersion, 9);
+            },
+            10: (context) async {
+              expect(context.fromVersion, 9);
+              expect(context.toVersion, 10);
             },
           },
         );

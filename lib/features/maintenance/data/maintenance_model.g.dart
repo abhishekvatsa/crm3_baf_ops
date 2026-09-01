@@ -204,181 +204,186 @@ const MaintenanceRecordSchema = CollectionSchema(
       name: r'performedBy',
       type: IsarType.string,
     ),
-    r'plantConditionEffect': PropertySchema(
+    r'plantConditionContributionActive': PropertySchema(
       id: 37,
+      name: r'plantConditionContributionActive',
+      type: IsarType.bool,
+    ),
+    r'plantConditionEffect': PropertySchema(
+      id: 38,
       name: r'plantConditionEffect',
       type: IsarType.string,
       enumMap: _MaintenanceRecordplantConditionEffectEnumValueMap,
     ),
     r'remarks': PropertySchema(
-      id: 38,
+      id: 39,
       name: r'remarks',
       type: IsarType.string,
     ),
     r'reopenReason': PropertySchema(
-      id: 39,
+      id: 40,
       name: r'reopenReason',
       type: IsarType.string,
     ),
     r'reopenedAt': PropertySchema(
-      id: 40,
+      id: 41,
       name: r'reopenedAt',
       type: IsarType.dateTime,
     ),
     r'reopenedByName': PropertySchema(
-      id: 41,
+      id: 42,
       name: r'reopenedByName',
       type: IsarType.string,
     ),
     r'reopenedByUid': PropertySchema(
-      id: 42,
+      id: 43,
       name: r'reopenedByUid',
       type: IsarType.string,
     ),
     r'reportedBy': PropertySchema(
-      id: 43,
+      id: 44,
       name: r'reportedBy',
       type: IsarType.string,
     ),
     r'resolutionHistoryJson': PropertySchema(
-      id: 44,
+      id: 45,
       name: r'resolutionHistoryJson',
       type: IsarType.string,
     ),
     r'routedTo': PropertySchema(
-      id: 45,
+      id: 46,
       name: r'routedTo',
       type: IsarType.string,
       enumMap: _MaintenanceRecordroutedToEnumValueMap,
     ),
     r'startDate': PropertySchema(
-      id: 46,
+      id: 47,
       name: r'startDate',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 47,
+      id: 48,
       name: r'status',
       type: IsarType.string,
       enumMap: _MaintenanceRecordstatusEnumValueMap,
     ),
     r'subsystem': PropertySchema(
-      id: 48,
+      id: 49,
       name: r'subsystem',
       type: IsarType.string,
     ),
     r'tag': PropertySchema(
-      id: 49,
+      id: 50,
       name: r'tag',
       type: IsarType.string,
     ),
     r'teamsInvolved': PropertySchema(
-      id: 50,
+      id: 51,
       name: r'teamsInvolved',
       type: IsarType.stringList,
     ),
     r'updatedAt': PropertySchema(
-      id: 51,
+      id: 52,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 52,
+      id: 53,
       name: r'version',
       type: IsarType.long,
     ),
     r'workflowAggregateId': PropertySchema(
-      id: 53,
+      id: 54,
       name: r'workflowAggregateId',
       type: IsarType.string,
     ),
     r'workflowComplianceId': PropertySchema(
-      id: 54,
+      id: 55,
       name: r'workflowComplianceId',
       type: IsarType.string,
     ),
     r'workflowConditionRef': PropertySchema(
-      id: 55,
+      id: 56,
       name: r'workflowConditionRef',
       type: IsarType.string,
     ),
     r'workflowConditionTypeKey': PropertySchema(
-      id: 56,
+      id: 57,
       name: r'workflowConditionTypeKey',
       type: IsarType.string,
     ),
     r'workflowCorrectionReason': PropertySchema(
-      id: 57,
+      id: 58,
       name: r'workflowCorrectionReason',
       type: IsarType.string,
     ),
     r'workflowDeferred': PropertySchema(
-      id: 58,
+      id: 59,
       name: r'workflowDeferred',
       type: IsarType.bool,
     ),
     r'workflowDeferredAt': PropertySchema(
-      id: 59,
+      id: 60,
       name: r'workflowDeferredAt',
       type: IsarType.dateTime,
     ),
     r'workflowDeferredByName': PropertySchema(
-      id: 60,
+      id: 61,
       name: r'workflowDeferredByName',
       type: IsarType.string,
     ),
     r'workflowDeferredByUid': PropertySchema(
-      id: 61,
+      id: 62,
       name: r'workflowDeferredByUid',
       type: IsarType.string,
     ),
     r'workflowOriginLaneKey': PropertySchema(
-      id: 62,
+      id: 63,
       name: r'workflowOriginLaneKey',
       type: IsarType.string,
     ),
     r'workflowQueueState': PropertySchema(
-      id: 63,
+      id: 64,
       name: r'workflowQueueState',
       type: IsarType.string,
     ),
     r'workflowReactivatedAt': PropertySchema(
-      id: 64,
+      id: 65,
       name: r'workflowReactivatedAt',
       type: IsarType.dateTime,
     ),
     r'workflowReactivatedByName': PropertySchema(
-      id: 65,
+      id: 66,
       name: r'workflowReactivatedByName',
       type: IsarType.string,
     ),
     r'workflowReactivatedByUid': PropertySchema(
-      id: 66,
+      id: 67,
       name: r'workflowReactivatedByUid',
       type: IsarType.string,
     ),
     r'workflowReleasedAt': PropertySchema(
-      id: 67,
+      id: 68,
       name: r'workflowReleasedAt',
       type: IsarType.dateTime,
     ),
     r'workflowReleasedByName': PropertySchema(
-      id: 68,
+      id: 69,
       name: r'workflowReleasedByName',
       type: IsarType.string,
     ),
     r'workflowReleasedByUid': PropertySchema(
-      id: 69,
+      id: 70,
       name: r'workflowReleasedByUid',
       type: IsarType.string,
     ),
     r'workflowTargetLaneKey': PropertySchema(
-      id: 70,
+      id: 71,
       name: r'workflowTargetLaneKey',
       type: IsarType.string,
     ),
     r'workflowUpdatedAt': PropertySchema(
-      id: 71,
+      id: 72,
       name: r'workflowUpdatedAt',
       type: IsarType.dateTime,
     )
@@ -527,6 +532,19 @@ const MaintenanceRecordSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'updatedAt',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'plantConditionContributionActive': IndexSchema(
+      id: 3043548285895008333,
+      name: r'plantConditionContributionActive',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'plantConditionContributionActive',
           type: IndexType.value,
           caseSensitive: false,
         )
@@ -845,41 +863,42 @@ void _maintenanceRecordSerialize(
   writer.writeStringList(offsets[34], object.operationalEventIssueLinkIds);
   writer.writeString(offsets[35], object.otherDepartment);
   writer.writeString(offsets[36], object.performedBy);
-  writer.writeString(offsets[37], object.plantConditionEffect.name);
-  writer.writeString(offsets[38], object.remarks);
-  writer.writeString(offsets[39], object.reopenReason);
-  writer.writeDateTime(offsets[40], object.reopenedAt);
-  writer.writeString(offsets[41], object.reopenedByName);
-  writer.writeString(offsets[42], object.reopenedByUid);
-  writer.writeString(offsets[43], object.reportedBy);
-  writer.writeString(offsets[44], object.resolutionHistoryJson);
-  writer.writeString(offsets[45], object.routedTo.name);
-  writer.writeDateTime(offsets[46], object.startDate);
-  writer.writeString(offsets[47], object.status.name);
-  writer.writeString(offsets[48], object.subsystem);
-  writer.writeString(offsets[49], object.tag);
-  writer.writeStringList(offsets[50], object.teamsInvolved);
-  writer.writeDateTime(offsets[51], object.updatedAt);
-  writer.writeLong(offsets[52], object.version);
-  writer.writeString(offsets[53], object.workflowAggregateId);
-  writer.writeString(offsets[54], object.workflowComplianceId);
-  writer.writeString(offsets[55], object.workflowConditionRef);
-  writer.writeString(offsets[56], object.workflowConditionTypeKey);
-  writer.writeString(offsets[57], object.workflowCorrectionReason);
-  writer.writeBool(offsets[58], object.workflowDeferred);
-  writer.writeDateTime(offsets[59], object.workflowDeferredAt);
-  writer.writeString(offsets[60], object.workflowDeferredByName);
-  writer.writeString(offsets[61], object.workflowDeferredByUid);
-  writer.writeString(offsets[62], object.workflowOriginLaneKey);
-  writer.writeString(offsets[63], object.workflowQueueState);
-  writer.writeDateTime(offsets[64], object.workflowReactivatedAt);
-  writer.writeString(offsets[65], object.workflowReactivatedByName);
-  writer.writeString(offsets[66], object.workflowReactivatedByUid);
-  writer.writeDateTime(offsets[67], object.workflowReleasedAt);
-  writer.writeString(offsets[68], object.workflowReleasedByName);
-  writer.writeString(offsets[69], object.workflowReleasedByUid);
-  writer.writeString(offsets[70], object.workflowTargetLaneKey);
-  writer.writeDateTime(offsets[71], object.workflowUpdatedAt);
+  writer.writeBool(offsets[37], object.plantConditionContributionActive);
+  writer.writeString(offsets[38], object.plantConditionEffect.name);
+  writer.writeString(offsets[39], object.remarks);
+  writer.writeString(offsets[40], object.reopenReason);
+  writer.writeDateTime(offsets[41], object.reopenedAt);
+  writer.writeString(offsets[42], object.reopenedByName);
+  writer.writeString(offsets[43], object.reopenedByUid);
+  writer.writeString(offsets[44], object.reportedBy);
+  writer.writeString(offsets[45], object.resolutionHistoryJson);
+  writer.writeString(offsets[46], object.routedTo.name);
+  writer.writeDateTime(offsets[47], object.startDate);
+  writer.writeString(offsets[48], object.status.name);
+  writer.writeString(offsets[49], object.subsystem);
+  writer.writeString(offsets[50], object.tag);
+  writer.writeStringList(offsets[51], object.teamsInvolved);
+  writer.writeDateTime(offsets[52], object.updatedAt);
+  writer.writeLong(offsets[53], object.version);
+  writer.writeString(offsets[54], object.workflowAggregateId);
+  writer.writeString(offsets[55], object.workflowComplianceId);
+  writer.writeString(offsets[56], object.workflowConditionRef);
+  writer.writeString(offsets[57], object.workflowConditionTypeKey);
+  writer.writeString(offsets[58], object.workflowCorrectionReason);
+  writer.writeBool(offsets[59], object.workflowDeferred);
+  writer.writeDateTime(offsets[60], object.workflowDeferredAt);
+  writer.writeString(offsets[61], object.workflowDeferredByName);
+  writer.writeString(offsets[62], object.workflowDeferredByUid);
+  writer.writeString(offsets[63], object.workflowOriginLaneKey);
+  writer.writeString(offsets[64], object.workflowQueueState);
+  writer.writeDateTime(offsets[65], object.workflowReactivatedAt);
+  writer.writeString(offsets[66], object.workflowReactivatedByName);
+  writer.writeString(offsets[67], object.workflowReactivatedByUid);
+  writer.writeDateTime(offsets[68], object.workflowReleasedAt);
+  writer.writeString(offsets[69], object.workflowReleasedByName);
+  writer.writeString(offsets[70], object.workflowReleasedByUid);
+  writer.writeString(offsets[71], object.workflowTargetLaneKey);
+  writer.writeDateTime(offsets[72], object.workflowUpdatedAt);
 }
 
 MaintenanceRecord _maintenanceRecordDeserialize(
@@ -928,48 +947,49 @@ MaintenanceRecord _maintenanceRecordDeserialize(
       reader.readStringList(offsets[34]) ?? [];
   object.otherDepartment = reader.readStringOrNull(offsets[35]);
   object.performedBy = reader.readStringOrNull(offsets[36]);
+  object.plantConditionContributionActive = reader.readBool(offsets[37]);
   object.plantConditionEffect =
       _MaintenanceRecordplantConditionEffectValueEnumMap[
-              reader.readStringOrNull(offsets[37])] ??
+              reader.readStringOrNull(offsets[38])] ??
           MaintenanceIssuePlantConditionEffect.none;
-  object.remarks = reader.readStringOrNull(offsets[38]);
-  object.reopenReason = reader.readStringOrNull(offsets[39]);
-  object.reopenedAt = reader.readDateTimeOrNull(offsets[40]);
-  object.reopenedByName = reader.readStringOrNull(offsets[41]);
-  object.reopenedByUid = reader.readStringOrNull(offsets[42]);
-  object.reportedBy = reader.readStringOrNull(offsets[43]);
-  object.resolutionHistoryJson = reader.readString(offsets[44]);
+  object.remarks = reader.readStringOrNull(offsets[39]);
+  object.reopenReason = reader.readStringOrNull(offsets[40]);
+  object.reopenedAt = reader.readDateTimeOrNull(offsets[41]);
+  object.reopenedByName = reader.readStringOrNull(offsets[42]);
+  object.reopenedByUid = reader.readStringOrNull(offsets[43]);
+  object.reportedBy = reader.readStringOrNull(offsets[44]);
+  object.resolutionHistoryJson = reader.readString(offsets[45]);
   object.routedTo = _MaintenanceRecordroutedToValueEnumMap[
-          reader.readStringOrNull(offsets[45])] ??
+          reader.readStringOrNull(offsets[46])] ??
       RoutedTo.operations;
-  object.startDate = reader.readDateTime(offsets[46]);
+  object.startDate = reader.readDateTime(offsets[47]);
   object.status = _MaintenanceRecordstatusValueEnumMap[
-          reader.readStringOrNull(offsets[47])] ??
+          reader.readStringOrNull(offsets[48])] ??
       TicketStatus.open;
-  object.subsystem = reader.readStringOrNull(offsets[48]);
-  object.tag = reader.readStringOrNull(offsets[49]);
-  object.teamsInvolved = reader.readStringList(offsets[50]) ?? [];
-  object.updatedAt = reader.readDateTime(offsets[51]);
-  object.version = reader.readLong(offsets[52]);
-  object.workflowAggregateId = reader.readStringOrNull(offsets[53]);
-  object.workflowComplianceId = reader.readStringOrNull(offsets[54]);
-  object.workflowConditionRef = reader.readStringOrNull(offsets[55]);
-  object.workflowConditionTypeKey = reader.readStringOrNull(offsets[56]);
-  object.workflowCorrectionReason = reader.readStringOrNull(offsets[57]);
-  object.workflowDeferred = reader.readBool(offsets[58]);
-  object.workflowDeferredAt = reader.readDateTimeOrNull(offsets[59]);
-  object.workflowDeferredByName = reader.readStringOrNull(offsets[60]);
-  object.workflowDeferredByUid = reader.readStringOrNull(offsets[61]);
-  object.workflowOriginLaneKey = reader.readStringOrNull(offsets[62]);
-  object.workflowQueueState = reader.readString(offsets[63]);
-  object.workflowReactivatedAt = reader.readDateTimeOrNull(offsets[64]);
-  object.workflowReactivatedByName = reader.readStringOrNull(offsets[65]);
-  object.workflowReactivatedByUid = reader.readStringOrNull(offsets[66]);
-  object.workflowReleasedAt = reader.readDateTimeOrNull(offsets[67]);
-  object.workflowReleasedByName = reader.readStringOrNull(offsets[68]);
-  object.workflowReleasedByUid = reader.readStringOrNull(offsets[69]);
-  object.workflowTargetLaneKey = reader.readStringOrNull(offsets[70]);
-  object.workflowUpdatedAt = reader.readDateTimeOrNull(offsets[71]);
+  object.subsystem = reader.readStringOrNull(offsets[49]);
+  object.tag = reader.readStringOrNull(offsets[50]);
+  object.teamsInvolved = reader.readStringList(offsets[51]) ?? [];
+  object.updatedAt = reader.readDateTime(offsets[52]);
+  object.version = reader.readLong(offsets[53]);
+  object.workflowAggregateId = reader.readStringOrNull(offsets[54]);
+  object.workflowComplianceId = reader.readStringOrNull(offsets[55]);
+  object.workflowConditionRef = reader.readStringOrNull(offsets[56]);
+  object.workflowConditionTypeKey = reader.readStringOrNull(offsets[57]);
+  object.workflowCorrectionReason = reader.readStringOrNull(offsets[58]);
+  object.workflowDeferred = reader.readBool(offsets[59]);
+  object.workflowDeferredAt = reader.readDateTimeOrNull(offsets[60]);
+  object.workflowDeferredByName = reader.readStringOrNull(offsets[61]);
+  object.workflowDeferredByUid = reader.readStringOrNull(offsets[62]);
+  object.workflowOriginLaneKey = reader.readStringOrNull(offsets[63]);
+  object.workflowQueueState = reader.readString(offsets[64]);
+  object.workflowReactivatedAt = reader.readDateTimeOrNull(offsets[65]);
+  object.workflowReactivatedByName = reader.readStringOrNull(offsets[66]);
+  object.workflowReactivatedByUid = reader.readStringOrNull(offsets[67]);
+  object.workflowReleasedAt = reader.readDateTimeOrNull(offsets[68]);
+  object.workflowReleasedByName = reader.readStringOrNull(offsets[69]);
+  object.workflowReleasedByUid = reader.readStringOrNull(offsets[70]);
+  object.workflowTargetLaneKey = reader.readStringOrNull(offsets[71]);
+  object.workflowUpdatedAt = reader.readDateTimeOrNull(offsets[72]);
   return object;
 }
 
@@ -1059,45 +1079,45 @@ P _maintenanceRecordDeserializeProp<P>(
     case 36:
       return (reader.readStringOrNull(offset)) as P;
     case 37:
+      return (reader.readBool(offset)) as P;
+    case 38:
       return (_MaintenanceRecordplantConditionEffectValueEnumMap[
               reader.readStringOrNull(offset)] ??
           MaintenanceIssuePlantConditionEffect.none) as P;
-    case 38:
-      return (reader.readStringOrNull(offset)) as P;
     case 39:
       return (reader.readStringOrNull(offset)) as P;
     case 40:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 41:
       return (reader.readStringOrNull(offset)) as P;
+    case 41:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 42:
       return (reader.readStringOrNull(offset)) as P;
     case 43:
       return (reader.readStringOrNull(offset)) as P;
     case 44:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 45:
+      return (reader.readString(offset)) as P;
+    case 46:
       return (_MaintenanceRecordroutedToValueEnumMap[
               reader.readStringOrNull(offset)] ??
           RoutedTo.operations) as P;
-    case 46:
-      return (reader.readDateTime(offset)) as P;
     case 47:
+      return (reader.readDateTime(offset)) as P;
+    case 48:
       return (_MaintenanceRecordstatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           TicketStatus.open) as P;
-    case 48:
-      return (reader.readStringOrNull(offset)) as P;
     case 49:
       return (reader.readStringOrNull(offset)) as P;
     case 50:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 51:
-      return (reader.readDateTime(offset)) as P;
-    case 52:
-      return (reader.readLong(offset)) as P;
-    case 53:
       return (reader.readStringOrNull(offset)) as P;
+    case 51:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 52:
+      return (reader.readDateTime(offset)) as P;
+    case 53:
+      return (reader.readLong(offset)) as P;
     case 54:
       return (reader.readStringOrNull(offset)) as P;
     case 55:
@@ -1107,32 +1127,34 @@ P _maintenanceRecordDeserializeProp<P>(
     case 57:
       return (reader.readStringOrNull(offset)) as P;
     case 58:
-      return (reader.readBool(offset)) as P;
-    case 59:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 60:
       return (reader.readStringOrNull(offset)) as P;
+    case 59:
+      return (reader.readBool(offset)) as P;
+    case 60:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 61:
       return (reader.readStringOrNull(offset)) as P;
     case 62:
       return (reader.readStringOrNull(offset)) as P;
     case 63:
-      return (reader.readString(offset)) as P;
-    case 64:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 65:
       return (reader.readStringOrNull(offset)) as P;
+    case 64:
+      return (reader.readString(offset)) as P;
+    case 65:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 66:
       return (reader.readStringOrNull(offset)) as P;
     case 67:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 68:
       return (reader.readStringOrNull(offset)) as P;
+    case 68:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 69:
       return (reader.readStringOrNull(offset)) as P;
     case 70:
       return (reader.readStringOrNull(offset)) as P;
     case 71:
+      return (reader.readStringOrNull(offset)) as P;
+    case 72:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1286,6 +1308,16 @@ extension MaintenanceRecordQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'updatedAt'),
+      );
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterWhere>
+      anyPlantConditionContributionActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(
+            indexName: r'plantConditionContributionActive'),
       );
     });
   }
@@ -2037,6 +2069,53 @@ extension MaintenanceRecordQueryWhere
         upper: [upperUpdatedAt],
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterWhereClause>
+      plantConditionContributionActiveEqualTo(
+          bool plantConditionContributionActive) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'plantConditionContributionActive',
+        value: [plantConditionContributionActive],
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterWhereClause>
+      plantConditionContributionActiveNotEqualTo(
+          bool plantConditionContributionActive) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'plantConditionContributionActive',
+              lower: [],
+              upper: [plantConditionContributionActive],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'plantConditionContributionActive',
+              lower: [plantConditionContributionActive],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'plantConditionContributionActive',
+              lower: [plantConditionContributionActive],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'plantConditionContributionActive',
+              lower: [],
+              upper: [plantConditionContributionActive],
+              includeUpper: false,
+            ));
+      }
     });
   }
 }
@@ -6272,6 +6351,16 @@ extension MaintenanceRecordQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'performedBy',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      plantConditionContributionActiveEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'plantConditionContributionActive',
+        value: value,
       ));
     });
   }
@@ -11326,6 +11415,20 @@ extension MaintenanceRecordQuerySortBy
   }
 
   QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      sortByPlantConditionContributionActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'plantConditionContributionActive', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      sortByPlantConditionContributionActiveDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'plantConditionContributionActive', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
       sortByPlantConditionEffect() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'plantConditionEffect', Sort.asc);
@@ -12307,6 +12410,20 @@ extension MaintenanceRecordQuerySortThenBy
   }
 
   QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      thenByPlantConditionContributionActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'plantConditionContributionActive', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      thenByPlantConditionContributionActiveDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'plantConditionContributionActive', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
       thenByPlantConditionEffect() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'plantConditionEffect', Sort.asc);
@@ -13051,6 +13168,13 @@ extension MaintenanceRecordQueryWhereDistinct
   }
 
   QueryBuilder<MaintenanceRecord, MaintenanceRecord, QDistinct>
+      distinctByPlantConditionContributionActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'plantConditionContributionActive');
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QDistinct>
       distinctByPlantConditionEffect({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'plantConditionEffect',
@@ -13571,6 +13695,13 @@ extension MaintenanceRecordQueryProperty
       performedByProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'performedBy');
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, bool, QQueryOperations>
+      plantConditionContributionActiveProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'plantConditionContributionActive');
     });
   }
 

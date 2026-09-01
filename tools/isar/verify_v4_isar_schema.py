@@ -141,7 +141,8 @@ def verify_migration() -> None:
     guard=(ROOT/'lib/core/services/isar_schema_guard_io.dart').read_text(encoding="utf-8")
     startup=(ROOT/'lib/main.dart').read_text(encoding="utf-8")
     identity_repair=(ROOT/'lib/core/services/governed_asset_identity_local_repair.dart').read_text(encoding="utf-8")
-    if 'currentSchemaVersion = 9' not in text: fail('Isar schema version is not v9')
+    plant_condition_repair=(ROOT/'lib/core/services/maintenance_plant_condition_index_repair.dart').read_text(encoding="utf-8")
+    if 'currentSchemaVersion = 10' not in text: fail('Isar schema version is not v10')
     if "'v4:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v4 schema fingerprint missing')
     if "'v5:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v5 schema fingerprint missing')
     if "'v6:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks" not in text: fail('v6 schema fingerprint missing')
@@ -155,6 +156,7 @@ def verify_migration() -> None:
     if '7: _addMaintenanceReopenEvidenceFields' not in text: fail('v6->v7 migration step missing')
     if '8: _addSyncRejectionOriginatingUid' not in text: fail('v7->v8 migration step missing')
     if '9: _addMaintenancePlantConditionEffect' not in text: fail('v8->v9 migration step missing')
+    if '10: _addMaintenancePlantConditionContributionIndex' not in text: fail('v9->v10 migration step missing')
     if 'repairLegacyOperationalAssuranceRequests(' not in startup:
         fail('v4 operational-assurance post-open repair missing')
     if 'repairLegacyGovernedAssetIdentityProjections(' not in identity_repair:
@@ -167,6 +169,10 @@ def verify_migration() -> None:
         fail('v5 governed-asset identity repair still uses an exact-target guard')
     if 'repairGovernedAssetIdentityForSchemaUpgrade(' not in startup:
         fail('startup does not use the governed-identity schema-crossing repair')
+    if 'repairMaintenancePlantConditionIndexForSchemaUpgrade(' not in startup:
+        fail('startup does not rebuild the v10 Plant Condition index')
+    if not re.search(r'fromVersion\s*<\s*maintenancePlantConditionIndexSchemaVersion\s*&&\s*toVersion\s*>=\s*maintenancePlantConditionIndexSchemaVersion', plant_condition_repair):
+        fail('v10 Plant Condition index repair must cover direct upgrades')
     required_provenance = (
         "baf_isar_schema_provenance_v1",
         "databaseGenerationId",
@@ -196,12 +202,15 @@ def verify_migration() -> None:
     identity_repaired=startup.index(
         "repairGovernedAssetIdentityForSchemaUpgrade(", assurance_repaired
     )
-    committed=startup.index("commitAfterSuccessfulOpen()",identity_repaired)
+    plant_condition_reindexed=startup.index(
+        "repairMaintenancePlantConditionIndexForSchemaUpgrade(", identity_repaired
+    )
+    committed=startup.index("commitAfterSuccessfulOpen()",plant_condition_reindexed)
     repair_call=identity_repair.index("repairLegacyGovernedAssetIdentityProjections(")
     cursor_reset=identity_repair.index(
         "resetGovernedAssetIdentityProjectionPullCursors()", repair_call
     )
-    if not prepare < opened < planned_repaired < assurance_repaired < identity_repaired < committed:
+    if not prepare < opened < planned_repaired < assurance_repaired < identity_repaired < plant_condition_reindexed < committed:
         fail("Isar provenance must prepare before open and commit after all repairs")
     if not repair_call < cursor_reset:
         fail("Governed-identity repair must complete before its pull cursors reset")
@@ -226,7 +235,7 @@ def main() -> int:
         if MARKER in path.read_text(encoding='utf-8', errors='ignore'): marked.append(path.relative_to(ROOT))
     if args.release and marked:
         fail('Pinned build_runner output required before release; provisional files: '+', '.join(map(str,marked)))
-    print(f"PASS: v9 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
+    print(f"PASS: v10 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
     return 0
 
 if __name__=='__main__':

@@ -54,34 +54,12 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   @override
   Stream<List<MaintenanceRecord>> watchPlantConditionTickets() {
     return isar.maintenanceRecords
-        .filter()
-        .group(
-          (query) =>
-              query.isResolvedEqualTo(false).and().isDeletedEqualTo(false),
-        )
-        .or()
-        .isSyncedEqualTo(false)
-        .or()
-        .group(
-          (query) => query
-              .statusEqualTo(TicketStatus.closedWithoutResolution)
-              .and()
-              .isSyncedEqualTo(true)
-              .and()
-              .isDeletedEqualTo(false)
-              .and()
-              .metadataJsonContains(
-                issueAdministrativeClosureStillRelevantMetadataNeedle,
-              ),
-        )
+        .where()
+        .plantConditionContributionActiveEqualTo(true)
         .watch(fireImmediately: true)
         .map((tickets) {
-          final relevant =
-              tickets
-                  .where((ticket) => ticket.canStillAffectPlantCondition)
-                  .toList();
-          relevant.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return relevant;
+          tickets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return tickets;
         });
   }
 
