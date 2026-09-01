@@ -32,7 +32,7 @@
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
       "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-21.json",
-      "approvalReceiptSha256": "A0BDB4904D95DD8BF3A79262317BBE2A5598C724F09D3FF17F48CB97BA683659",
+      "approvalReceiptSha256": "4FC85B2AC166C6CC6E2EFF7C73C6C1FB9F89FED1E5E827C84BE83E00F1212F44",
       "approvalReference": "BAF-GH-ENV-017",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
@@ -63,7 +63,7 @@
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
     "sourceDocumentFile": "release/approvals/build-number-21-successor-approval.json",
-    "sourceDocumentSha256": "59B49F1DDF62A61A3AF5E8C96E50DB7B39C5392D3960C53D8E59E93E20ABC7CB",
+    "sourceDocumentSha256": "CBA732706D48266AFA75D6E8000ADA8959CF28CD68974ACF7C669DF4E2729BD1",
     "remoteReservationTag": "crm3-build-reserved/21",
     "remoteBuiltTag": "crm3-build-built/21",
     "failedOrWithdrawnBuildConsumesNumber": true

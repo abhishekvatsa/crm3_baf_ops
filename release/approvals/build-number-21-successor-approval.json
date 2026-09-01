@@ -3,14 +3,14 @@
   "documentType": "governed-build-number-rollover-approval",
   "approved": true,
   "approvedAtUtc": "2026-08-31T20:19:02Z",
-  "evidenceBoundAtUtc": "2026-09-01T01:05:25Z",
+  "evidenceBoundAtUtc": "2026-09-01T01:19:31Z",
   "approverName": "Abhishek Vatsa",
   "approvalReference": "BAF-REF-003-C20",
   "authorityBasis": "Project-owner instruction in Codex task 019ee05b-70ae-7312-92d3-48f67e5c8b49, turn 01a05979-b119-7151-b13b-1429808f42fd, to complete the next governed build by 07:00 IST while the owner may be unavailable. This record binds that instruction to the reviewed backend reconciliation and exact post-merge main source without representing a separately dictated verbatim authorization.",
   "approvalScope": "Allocate build number 21 and version 1.0.0-rc.11 for one production-signed, initially non-distributable successor containing the admitted morning-review, synchronization, safety-alarm, reporting and business-flow corrections since finalized Build 20. Independent package verification and dual custody are approved. Distribution, App Check activation, IAM mutation, production business-data mutation and device-data clearing remain outside this construction authority.",
   "sourceBaseline": {
-    "commit": "c6d88c090b7351e33f0e259603775ca709695d58",
-    "tree": "9f52f5a6a1ef437049946929ec692d705372fa2c"
+    "commit": "8212a0dbde76d3a721fac97cc794046628083f12",
+    "tree": "4d5b96475df9d8dfc042a68059c32a74febe0743"
   },
   "consumedBuild": {
     "buildNumber": 20,
@@ -174,6 +174,9 @@
     "predecessorPhysicalInstallationVerifierCommit": "c6d88c090b7351e33f0e259603775ca709695d58",
     "predecessorPhysicalInstallationVerifierTree": "9f52f5a6a1ef437049946929ec692d705372fa2c",
     "predecessorPhysicalInstallationVerifierMustBeAncestorOfDispatchCommit": true,
+    "predecessorInstallationConditionAndSignerVerifierCommit": "8212a0dbde76d3a721fac97cc794046628083f12",
+    "predecessorInstallationConditionAndSignerVerifierTree": "4d5b96475df9d8dfc042a68059c32a74febe0743",
+    "predecessorInstallationConditionAndSignerVerifierMustBeAncestorOfDispatchCommit": true,
     "successorCapabilities": [
       "canonical-multi-lane-maintenance-issues",
       "immutable-ticket-correction-and-lifecycle-dossiers",

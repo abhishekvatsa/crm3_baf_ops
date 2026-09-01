@@ -1093,15 +1093,15 @@
       "releaseTag": "crm3-baf-ops-v1.0.0-rc.11",
       "releaseChannel": "production-candidate",
       "campaignId": "crm3-baf-ops-successor-f3d6179-b21",
-      "baselineCommit": "c6d88c090b7351e33f0e259603775ca709695d58",
+      "baselineCommit": "8212a0dbde76d3a721fac97cc794046628083f12",
       "reservedForBranch": "codex/build21-governed-release",
       "status": "source-reserved-awaiting-remote-consumption",
       "remoteReservationTag": "crm3-build-reserved/21",
       "remoteBuiltTag": "crm3-build-built/21",
       "failedOrWithdrawnBuildConsumesNumber": true,
-      "reservedAtUtc": "2026-09-01T01:05:25Z",
+      "reservedAtUtc": "2026-09-01T01:19:31Z",
       "versionApprovalReference": "BAF-REF-003-C20",
-      "versionApprovalDocumentSha256": "59B49F1DDF62A61A3AF5E8C96E50DB7B39C5392D3960C53D8E59E93E20ABC7CB"
+      "versionApprovalDocumentSha256": "CBA732706D48266AFA75D6E8000ADA8959CF28CD68974ACF7C669DF4E2729BD1"
     }
   ]
 }
