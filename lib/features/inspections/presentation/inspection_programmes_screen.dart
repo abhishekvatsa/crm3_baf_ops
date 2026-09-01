@@ -402,7 +402,14 @@ class _DefinitionList extends ConsumerWidget {
                 trailing:
                     actor.canManageInspectionDefinitions
                         ? IconButton.filledTonal(
+                          key: const ValueKey('inspection-add-definition'),
                           tooltip: 'Add inspection definition',
+                          style: IconButton.styleFrom(
+                            backgroundColor: BafColors.instrument,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: BafColors.surfaceStrong,
+                            disabledForegroundColor: BafColors.textTertiary,
+                          ),
                           onPressed:
                               classes.any((item) => item.isActive)
                                   ? () => _editDefinition(context, ref, classes)

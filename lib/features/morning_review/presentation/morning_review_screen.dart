@@ -1033,6 +1033,12 @@ class _AgendaTab extends StatelessWidget {
                               onAddConcern != null
                           ? IconButton.filledTonal(
                             tooltip: 'Add standing concern',
+                            style: IconButton.styleFrom(
+                              backgroundColor: BafColors.cobalt,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: BafColors.surfaceStrong,
+                              disabledForegroundColor: BafColors.textTertiary,
+                            ),
                             onPressed: busy ? null : onAddConcern,
                             icon: const Icon(Icons.push_pin_outlined),
                           )

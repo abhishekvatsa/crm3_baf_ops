@@ -234,6 +234,76 @@ void main() {
       );
     });
 
+    testWidgets('filled icon actions retain high-contrast foregrounds', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: Row(
+              children: [
+                IconButton.filled(
+                  key: const ValueKey('filled-icon-action'),
+                  onPressed: () {},
+                  icon: const Icon(Icons.add_rounded),
+                ),
+                IconButton.filledTonal(
+                  key: const ValueKey('tonal-icon-action'),
+                  onPressed: () {},
+                  icon: const Icon(Icons.edit_rounded),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      Color iconColorFor(Key key) {
+        final iconFinder = find.descendant(
+          of: find.byKey(key),
+          matching: find.byType(Icon),
+        );
+        return IconTheme.of(tester.element(iconFinder)).color!;
+      }
+
+      final filledColor = iconColorFor(const ValueKey('filled-icon-action'));
+      final tonalColor = iconColorFor(const ValueKey('tonal-icon-action'));
+
+      expect(filledColor, isNot(BafColors.textSecondary));
+      expect(tonalColor, isNot(BafColors.textSecondary));
+      expect(tester.takeException(), isNull);
+    });
+
+    test('filled feature actions declare an explicit contrast pair', () {
+      const paths = <String>[
+        'lib/features/inspections/presentation/'
+            'inspection_programmes_screen.dart',
+        'lib/features/morning_review/presentation/morning_review_screen.dart',
+        'lib/features/maintenance/presentation/'
+            'maintenance_ticket_detail_screen.dart',
+      ];
+
+      for (final path in paths) {
+        final source = File(path).readAsStringSync();
+        final matches = RegExp(r'IconButton\.filledTonal\(').allMatches(source);
+        expect(matches, isNotEmpty, reason: path);
+        for (final match in matches) {
+          final candidateEnd = match.start + 700;
+          final declaration = source.substring(
+            match.start,
+            candidateEnd < source.length ? candidateEnd : source.length,
+          );
+          expect(declaration, contains('backgroundColor:'), reason: path);
+          expect(
+            declaration,
+            contains('foregroundColor: Colors.white'),
+            reason: path,
+          );
+        }
+      }
+    });
+
     testWidgets('screen context rail and solid canvas have stable geometry', (
       tester,
     ) async {
