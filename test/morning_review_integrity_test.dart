@@ -20,7 +20,7 @@ void main() {
         isServerVerified: (snapshot) => snapshot.serverVerified,
         source: 'test feed',
         verificationGrace: const Duration(milliseconds: 50),
-      ).listen(values.add, onError: errors.add);
+      ).map((snapshot) => snapshot).listen(values.add, onError: errors.add);
       addTearDown(() async {
         await subscription.cancel();
         await snapshots.close();
@@ -37,6 +37,15 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(errors, hasLength(1));
+
+      snapshots.add(const _FeedSnapshot('offline', serverVerified: false));
+      snapshots.add(const _FeedSnapshot('offline-2', serverVerified: false));
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      expect(errors, hasLength(2));
+
+      snapshots.add(const _FeedSnapshot('recovered', serverVerified: true));
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      expect(values.map((value) => value.label), ['server', 'recovered']);
     },
   );
 
@@ -246,6 +255,8 @@ void main() {
       expect(repository, contains('serverVerifiedMorningReviewFeed'));
       expect(repository, contains('Timer(verificationGrace'));
       expect(repository, isNot(contains('.timeout(')));
+      expect(repository, isNot(contains('async*')));
+      expect(repository, isNot(contains('await for')));
       expect(repository, isNot(contains('yield* Stream<T>.error(')));
       expect(
         repository,
