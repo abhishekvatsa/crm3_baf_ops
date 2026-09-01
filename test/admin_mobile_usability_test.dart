@@ -105,6 +105,60 @@ void main() {
     },
   );
 
+  testWidgets('compact hierarchy search survives a selected-class switch', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2026, 8, 28, 14, 15);
+    final furnace = _assetClass(now);
+    final base = _baseAssetClass(now);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value(<AssetClassRecord>[furnace, base]),
+          ),
+          assetHierarchyNodesProvider(
+            furnace.id,
+          ).overrideWith((ref) => Stream.value(const <AssetHierarchyNode>[])),
+          assetHierarchyNodesProvider(
+            base.id,
+          ).overrideWith((ref) => Stream.value(const <AssetHierarchyNode>[])),
+          assetInstancesProvider(
+            furnace.id,
+          ).overrideWith((ref) => Stream.value(const <AssetInstanceRecord>[])),
+          assetInstancesProvider(
+            base.id,
+          ).overrideWith((ref) => Stream.value(const <AssetInstanceRecord>[])),
+        ],
+        child: MaterialApp(
+          home: Scaffold(body: AssetHierarchyAdminTab(actor: _admin(now))),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final search = find.widgetWithText(TextField, '');
+    expect(search, findsOneWidget);
+    await tester.enterText(search, 'base');
+    await tester.pumpAndSettle();
+
+    final reboundSearch = find.byType(TextField);
+    expect(reboundSearch, findsOneWidget);
+    expect(tester.widget<TextField>(reboundSearch).controller?.text, 'base');
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const ValueKey('asset-hierarchy-class-selector')),
+          )
+          .initialValue,
+      base.id,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('admin ticket descriptions stay bounded and readable on phone', (
     tester,
   ) async {
@@ -180,6 +234,22 @@ AssetClassRecord _assetClass(DateTime now) => AssetClassRecord(
   updatedAt: now,
   updatedByUid: 'admin-1',
   lastMutationId: 'class-mutation',
+);
+
+AssetClassRecord _baseAssetClass(DateTime now) => AssetClassRecord(
+  id: 'base-class',
+  code: 'BASE',
+  name: 'Base',
+  majorArea: 'BAF shop',
+  legacyAssetTypeKey: 'base',
+  shortDescription: 'Base hierarchy used to verify compact search continuity.',
+  status: AssetHierarchyStatus.active,
+  version: 1,
+  createdAt: now,
+  createdByUid: 'admin-1',
+  updatedAt: now,
+  updatedByUid: 'admin-1',
+  lastMutationId: 'base-class-mutation',
 );
 
 AssetHierarchyNode _hierarchyNode(

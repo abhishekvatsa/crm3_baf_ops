@@ -38,10 +38,17 @@ class AssetHierarchyAdminTab extends ConsumerStatefulWidget {
 
 class _AssetHierarchyAdminTabState
     extends ConsumerState<AssetHierarchyAdminTab> {
+  final _searchController = TextEditingController();
   String? _selectedClassId;
   String _search = '';
   bool _showRetired = false;
   bool _busy = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +96,7 @@ class _AssetHierarchyAdminTabState
       active: classes.where((item) => item.isActive).length,
       showRetired: _showRetired,
       busy: _busy,
+      searchController: _searchController,
       onShowRetiredChanged: (value) => setState(() => _showRetired = value),
       onSearchChanged: (value) => setState(() => _search = value),
       onAddClass: _busy ? null : () => _createClass(context),

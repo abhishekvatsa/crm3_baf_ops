@@ -5,6 +5,7 @@ class _HierarchyToolbar extends StatelessWidget {
   final int active;
   final bool showRetired;
   final bool busy;
+  final TextEditingController searchController;
   final ValueChanged<bool> onShowRetiredChanged;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback? onAddClass;
@@ -14,6 +15,7 @@ class _HierarchyToolbar extends StatelessWidget {
     required this.active,
     required this.showRetired,
     required this.busy,
+    required this.searchController,
     required this.onShowRetiredChanged,
     required this.onSearchChanged,
     required this.onAddClass,
@@ -27,6 +29,7 @@ class _HierarchyToolbar extends StatelessWidget {
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 560;
           final search = TextField(
+            controller: searchController,
             onChanged: onSearchChanged,
             decoration: const InputDecoration(
               isDense: true,
