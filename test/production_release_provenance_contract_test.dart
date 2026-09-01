@@ -1346,6 +1346,11 @@ void main() {
                   read('release/evidence/build-20-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
+        final build21Receipt =
+            jsonDecode(
+                  read('release/evidence/build-21-finalization-closure.json'),
+                )
+                as Map<String, dynamic>;
         final receipt =
             jsonDecode(
                   read('release/evidence/build-11-finalization-closure.json'),
@@ -1463,24 +1468,53 @@ void main() {
               : 'completed-non-distributable',
         );
         expect(finalization['dualCustodyCompleted'], !pendingConstruction);
+        expect(build21Receipt['schemaVersion'], 1);
+        expect(build21Receipt['status'], 'passed-non-distributable');
+        expect(
+          (build21Receipt['release'] as Map<String, dynamic>)['buildNumber'],
+          21,
+        );
+        expect(
+          (build21Receipt['sourceAuthority']
+              as Map<String, dynamic>)['commit'],
+          'e5ad4ab09418b2a1e8b7721f32ba16e0a61ea25d',
+        );
+        expect(
+          (build21Receipt['workflow'] as Map<String, dynamic>)['runId'],
+          33459513451,
+        );
+        expect(
+          (build21Receipt['githubArtifact'] as Map<String, dynamic>)['id'],
+          9783168726,
+        );
+        expect(
+          (build21Receipt['governedPackage']
+              as Map<String, dynamic>)['sha256'],
+          '0F071B1D8AA7236EBD63296C1DE06F4FBC2938D67D7FC105B1A84858D131C080',
+        );
+        expect(
+          (build21Receipt['releaseBoundary']
+              as Map<String, dynamic>)['controlledPilotApproved'],
+          isFalse,
+        );
+        expect(
+          finalizedBuild['completionReceiptFile'],
+          'release/evidence/build-21-finalization-closure.json',
+        );
+        expect(
+          _sha256(finalizedBuild['completionReceiptFile'] as String),
+          finalizedBuild['completionReceiptSha256'],
+        );
+        expect(finalizedBuild['runtimeValidationPassed'], isFalse);
+        expect(
+          finalizedBuild['runtimeDisposition'],
+          'not-adjudicated-by-build-finalization',
+        );
         expect(build20Receipt['schemaVersion'], 1);
         expect(build20Receipt['status'], 'passed-non-distributable');
         expect(
           (build20Receipt['release'] as Map<String, dynamic>)['buildNumber'],
           20,
-        );
-        expect(
-          (build20Receipt['sourceAuthority']
-              as Map<String, dynamic>)['commit'],
-          '24bb7b3de1370c91e14e7cf0d7b8038838872e66',
-        );
-        expect(
-          (build20Receipt['workflow'] as Map<String, dynamic>)['runId'],
-          33365320343,
-        );
-        expect(
-          (build20Receipt['githubArtifact'] as Map<String, dynamic>)['id'],
-          9748603697,
         );
         expect(
           (build20Receipt['governedPackage']
@@ -1491,19 +1525,6 @@ void main() {
           (build20Receipt['releaseBoundary']
               as Map<String, dynamic>)['controlledPilotApproved'],
           isFalse,
-        );
-        expect(
-          finalizedBuild['completionReceiptFile'],
-          'release/evidence/build-20-finalization-closure.json',
-        );
-        expect(
-          _sha256(finalizedBuild['completionReceiptFile'] as String),
-          finalizedBuild['completionReceiptSha256'],
-        );
-        expect(finalizedBuild['runtimeValidationPassed'], isFalse);
-        expect(
-          finalizedBuild['runtimeDisposition'],
-          'not-adjudicated-by-build-finalization',
         );
         expect(build19Receipt['schemaVersion'], 1);
         expect(build19Receipt['status'], 'passed-non-distributable');

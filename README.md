@@ -15,14 +15,14 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` authorizes Build 21 (`1.0.0-rc.11+21`) for one governed,
-production-signed construction from the exact reconciled source. Its exact
-15-Function fleet, Firestore Rules and all 66 indexes are deployed and strictly
-read back. Build 20 remains immutable, production-signed, independently
-verified, dual-custodied and finalized non-distributable, with its recorded
-physical installation condition preserved. No consumed package identity may be
-reused. Build 21 remains non-distributable until construction, independent
-verification, dual custody and any separately authorized promotion complete.
+Current `main` records Build 21 (`1.0.0-rc.11+21`) as production-signed,
+independently verified, dual-custodied and finalized non-distributable. Its
+exact 15-Function fleet, Firestore Rules and all 66 indexes are deployed and
+strictly read back. Build 20 remains immutable and non-distributable, with its
+recorded physical installation condition preserved. No consumed package
+identity may be reused. Exact Build 21 signed-device migration and
+representative business-flow convergence remain required; a separate exact-
+package promotion receipt is then required before any controlled-pilot handout.
 
 Authoritative status sources:
 
