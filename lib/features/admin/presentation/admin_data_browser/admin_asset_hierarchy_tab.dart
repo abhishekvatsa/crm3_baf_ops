@@ -57,18 +57,28 @@ class _AssetHierarchyAdminTabState
       color: BafColors.background,
       child: classesAsync.when(
         loading:
-            () => const BafLoadingPanel(
-              label: 'Loading asset hierarchy',
-              color: BafColors.admin,
+            () => _buildNonDataState(
+              const BafLoadingPanel(
+                label: 'Loading asset hierarchy',
+                color: BafColors.admin,
+              ),
             ),
         error:
-            (error, _) => _LoadFailure(
-              message: 'Asset hierarchy could not be loaded: $error',
-              onRetry: () => ref.invalidate(assetClassesProvider),
+            (error, _) => _buildNonDataState(
+              _LoadFailure(
+                message: 'Asset hierarchy could not be loaded: $error',
+                onRetry: () => ref.invalidate(assetClassesProvider),
+              ),
             ),
         data: (classes) => _buildLoaded(context, classes),
       ),
     );
+  }
+
+  Widget _buildNonDataState(Widget state) {
+    final compactHeader = widget.compactHeader;
+    if (compactHeader == null) return state;
+    return Column(children: [compactHeader, Expanded(child: state)]);
   }
 
   Widget _buildLoaded(BuildContext context, List<AssetClassRecord> classes) {

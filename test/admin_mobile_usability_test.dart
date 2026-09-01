@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_asset_hierarchy_tab.dart';
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart';
 import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
@@ -156,6 +158,80 @@ void main() {
           .initialValue,
       base.id,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact hierarchy retains sync controls while loading', (
+    tester,
+  ) async {
+    final classes = StreamController<List<AssetClassRecord>>();
+    addTearDown(classes.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [assetClassesProvider.overrideWith((ref) => classes.stream)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: AssetHierarchyAdminTab(
+              actor: _admin(DateTime.utc(2026, 8, 28, 14, 20)),
+              compactHeader: const SizedBox(
+                key: ValueKey('loading-asset-hierarchy-sync-header'),
+                height: 52,
+                child: Center(child: Text('Sync status')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find
+          .byKey(const ValueKey('loading-asset-hierarchy-sync-header'))
+          .hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('Loading asset hierarchy'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact hierarchy retains sync controls on load failure', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetClassesProvider.overrideWith(
+            (ref) => Stream<List<AssetClassRecord>>.error(
+              StateError('controlled read failure'),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: AssetHierarchyAdminTab(
+              actor: _admin(DateTime.utc(2026, 8, 28, 14, 25)),
+              compactHeader: const SizedBox(
+                key: ValueKey('error-asset-hierarchy-sync-header'),
+                height: 52,
+                child: Center(child: Text('Sync status')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find
+          .byKey(const ValueKey('error-asset-hierarchy-sync-header'))
+          .hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.textContaining('controlled read failure'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
