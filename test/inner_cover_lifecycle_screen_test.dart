@@ -141,6 +141,99 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Admin can delink an installed cover directly from its Base', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2026, 8, 15);
+    final assetClass = AssetClassRecord(
+      id: 'base-class',
+      code: 'BASE',
+      name: 'Base',
+      majorArea: 'BAF shop',
+      legacyAssetTypeKey: 'base',
+      status: AssetHierarchyStatus.active,
+      version: 1,
+      createdAt: now,
+      createdByUid: 'admin-1',
+      updatedAt: now,
+      updatedByUid: 'admin-1',
+      lastMutationId: 'class-mutation',
+    );
+    final base = AssetInstanceRecord(
+      id: 'base-201',
+      assetClassId: 'base-class',
+      assetClassCode: 'BASE',
+      assetClassName: 'Base',
+      assetNumber: 201,
+      name: 'Base 201',
+      serviceState: AssetServiceState.inService,
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'Operations',
+      accountableRoleKeys: const ['operations'],
+      status: AssetHierarchyStatus.active,
+      activeComponentCount: 0,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      lastMutationId: 'asset-mutation',
+    );
+    final installed = _profile(
+      id: 'cover-26',
+      serial: 'GR26',
+      state: InnerCoverLifecycleState.installed,
+      now: now,
+      baseId: base.id,
+      baseNumber: 201,
+      baseName: 'Base 201',
+      linkageId: 'link-26',
+    );
+    final assignment = BaseInnerCoverAssignment(
+      baseAssetInstanceId: base.id,
+      baseAssetClassId: assetClass.id,
+      baseAssetNumber: 201,
+      baseAssetName: 'Base 201',
+      innerCoverId: installed.id,
+      innerCoverSerialNumber: installed.serialNumber,
+      linkageId: 'link-26',
+      linkedAt: now,
+      version: 1,
+      updatedAt: now,
+      lastMutationId: 'link-mutation',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
+          ),
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value([assetClass]),
+          ),
+          allAssetInstancesProvider.overrideWith((ref) => Stream.value([base])),
+          innerCoverProfilesProvider.overrideWith(
+            (ref) => Stream.value([installed]),
+          ),
+          innerCoverAssignmentsProvider.overrideWith(
+            (ref) => Stream.value([assignment]),
+          ),
+        ],
+        child: const MaterialApp(home: InnerCoverLifecycleScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Delink Inner Cover from Base'), findsOneWidget);
+    await tester.tap(find.byTooltip('Delink Inner Cover from Base'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove from Base'), findsOneWidget);
+    expect(find.text('Awaiting inspection'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Admin registration explains invalid required fields', (
     tester,
   ) async {

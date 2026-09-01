@@ -678,9 +678,12 @@ class _NoSessionAgenda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final minute = currentIndiaMinuteOfDay();
+    final clock = DateTime.now();
+    final minute = currentIndiaMinuteOfDay(clock);
     final withinWindow = minute >= 480 && minute <= 600;
     final missedWindow = minute > 600;
+    final adminBypass = actor.isAdmin && !withinWindow;
+    final canStartNow = canStartMorningReviewNow(actor, clock);
     final activeConcerns =
         (concernsAsync.value ?? const <MorningReviewStandingConcern>[])
             .where(
@@ -688,13 +691,17 @@ class _NoSessionAgenda extends StatelessWidget {
             )
             .toList();
     final title =
-        minute < 480
+        adminBypass
+            ? 'Admin start override available'
+            : minute < 480
             ? 'Today\'s review window has not opened'
             : missedWindow
             ? 'Today\'s review was not opened'
             : 'Ready for today\'s Morning Review';
     final message =
-        minute < 480
+        adminBypass
+            ? 'Admin may open today\'s session outside the standard 08:00–10:00 India-time window. The start remains attributed and audited.'
+            : minute < 480
             ? 'An Admin or SI can open the single daily session between 08:00 and 10:00 India time.'
             : missedWindow
             ? 'An Admin or SI can record why the meeting was not held. A late meeting cannot be back-created.'
@@ -708,26 +715,36 @@ class _NoSessionAgenda extends StatelessWidget {
             children: [
               BafStatePanel(
                 icon:
-                    withinWindow
+                    canStartNow
                         ? Icons.schedule_rounded
                         : Icons.event_busy_outlined,
-                color:
-                    withinWindow ? BafColors.cobalt : BafColors.textSecondary,
+                color: canStartNow ? BafColors.cobalt : BafColors.textSecondary,
                 title: title,
                 message: message,
                 primaryLabel:
-                    actor.canStartMorningReview && withinWindow
+                    canStartNow
                         ? 'Start Morning Review'
                         : actor.canStartMorningReview && missedWindow
                         ? 'Record not held'
                         : null,
                 primaryIcon:
-                    withinWindow
+                    canStartNow
                         ? Icons.play_arrow_rounded
                         : Icons.event_busy_outlined,
-                onPrimary: withinWindow ? onStart : onNotHeld,
+                onPrimary: canStartNow ? onStart : onNotHeld,
                 busy: busy,
               ),
+              if (adminBypass && missedWindow) ...[
+                const SizedBox(height: BafSpacing.sm),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: busy ? null : onNotHeld,
+                    icon: const Icon(Icons.event_busy_outlined),
+                    label: const Text('Record review not held'),
+                  ),
+                ),
+              ],
               if (activeConcerns.isNotEmpty) ...[
                 const SizedBox(height: BafSpacing.xl),
                 BafSectionLabel(
@@ -749,6 +766,13 @@ class _NoSessionAgenda extends StatelessWidget {
       ],
     );
   }
+}
+
+bool canStartMorningReviewNow(AppUser actor, [DateTime? clock]) {
+  if (!actor.canStartMorningReview) return false;
+  if (actor.isAdmin) return true;
+  final minute = currentIndiaMinuteOfDay(clock);
+  return minute >= 480 && minute <= 600;
 }
 
 class _SessionStrip extends StatelessWidget {

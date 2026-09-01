@@ -326,6 +326,9 @@ void main() {
       expect(find.textContaining('alarm feed is not live'), findsNothing);
 
       await tester.pump(const Duration(seconds: 3));
+      expect(find.textContaining('alarm feed is not live'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 9));
       expect(find.textContaining('alarm feed is not live'), findsOneWidget);
     },
   );
@@ -366,6 +369,9 @@ void main() {
       expect(find.textContaining('alarm feed is not live'), findsNothing);
 
       await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining('alarm feed is not live'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 9));
       expect(find.textContaining('alarm feed is not live'), findsOneWidget);
     },
   );

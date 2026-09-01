@@ -1,12 +1,45 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
+import 'package:crm3_baf_ops/features/morning_review/data/morning_review_repository.dart';
 import 'package:crm3_baf_ops/features/morning_review/domain/morning_review_models.dart';
 import 'package:crm3_baf_ops/features/morning_review/domain/morning_review_report.dart';
 
 void main() {
+  test(
+    'server verification grace reports once, then recovers without idle errors',
+    () async {
+      final snapshots = StreamController<_FeedSnapshot>();
+      final values = <_FeedSnapshot>[];
+      final errors = <Object>[];
+      final subscription = serverVerifiedMorningReviewFeed(
+        snapshots.stream,
+        isServerVerified: (snapshot) => snapshot.serverVerified,
+        source: 'test feed',
+        verificationGrace: const Duration(milliseconds: 50),
+      ).listen(values.add, onError: errors.add);
+      addTearDown(() async {
+        await subscription.cancel();
+        await snapshots.close();
+      });
+
+      snapshots.add(const _FeedSnapshot('cache', serverVerified: false));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(errors, hasLength(1));
+      expect(errors.single, isA<MorningReviewFeedUnverifiedException>());
+
+      snapshots.add(const _FeedSnapshot('server', serverVerified: true));
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      expect(values.map((value) => value.label), ['server']);
+
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(errors, hasLength(1));
+    },
+  );
+
   group('Morning Review persisted contracts', () {
     test('decodes the exact open-session source snapshot', () {
       final session = MorningReviewSession.fromMap(_sessionMap(), _sessionId);
@@ -190,7 +223,7 @@ void main() {
       expect(query, isNot(contains('.limit(')));
     });
 
-    test('retains retry IDs by actor and surfaces unverified snapshots', () {
+    test('retains retry IDs and waits through initial unverified snapshots', () {
       final providers =
           File(
             'lib/features/morning_review/providers/morning_review_providers.dart',
@@ -209,13 +242,24 @@ void main() {
         contains('_morningReviewCommandServiceByActorProvider'),
       );
       expect(repository, contains('MorningReviewFeedUnverifiedException'));
-      expect(repository, contains('yield* Stream<T>.error('));
+      expect(repository, contains('_serverVerificationGrace'));
+      expect(repository, contains('serverVerifiedMorningReviewFeed'));
+      expect(repository, contains('Timer(verificationGrace'));
+      expect(repository, isNot(contains('.timeout(')));
+      expect(repository, isNot(contains('yield* Stream<T>.error(')));
       expect(
         repository,
         isNot(contains('_isServerVerified(snapshot)) continue')),
       );
     });
   });
+}
+
+class _FeedSnapshot {
+  const _FeedSnapshot(this.label, {required this.serverVerified});
+
+  final String label;
+  final bool serverVerified;
 }
 
 const _sessionId = '2026-08-31';

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/morning_review_models.dart';
@@ -13,8 +15,62 @@ class MorningReviewFeedUnverifiedException implements Exception {
       'Check connectivity and refresh.';
 }
 
+Stream<T> serverVerifiedMorningReviewFeed<T>(
+  Stream<T> snapshots, {
+  required bool Function(T snapshot) isServerVerified,
+  required String source,
+  required Duration verificationGrace,
+}) {
+  late final StreamController<T> controller;
+  StreamSubscription<T>? subscription;
+  Timer? verificationTimer;
+  var serverVerificationObserved = false;
+
+  void cancelVerificationTimer() {
+    verificationTimer?.cancel();
+    verificationTimer = null;
+  }
+
+  controller = StreamController<T>(
+    onListen: () {
+      verificationTimer = Timer(verificationGrace, () {
+        if (!serverVerificationObserved && !controller.isClosed) {
+          controller.addError(MorningReviewFeedUnverifiedException(source));
+        }
+      });
+      subscription = snapshots.listen(
+        (snapshot) {
+          if (!isServerVerified(snapshot)) return;
+          if (!serverVerificationObserved) {
+            serverVerificationObserved = true;
+            cancelVerificationTimer();
+          }
+          if (!controller.isClosed) controller.add(snapshot);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          cancelVerificationTimer();
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+        onDone: () {
+          cancelVerificationTimer();
+          if (!controller.isClosed) controller.close();
+        },
+      );
+    },
+    onPause: () => subscription?.pause(),
+    onResume: () => subscription?.resume(),
+    onCancel: () async {
+      cancelVerificationTimer();
+      await subscription?.cancel();
+    },
+  );
+  return controller.stream;
+}
+
 class MorningReviewRepository {
   const MorningReviewRepository(this.firestore);
+
+  static const _serverVerificationGrace = Duration(seconds: 12);
 
   final FirebaseFirestore firestore;
 
@@ -245,14 +301,13 @@ class MorningReviewRepository {
     Stream<T> snapshots, {
     required SnapshotMetadata Function(T snapshot) metadataOf,
     required String source,
-  }) async* {
-    await for (final snapshot in snapshots) {
+  }) => serverVerifiedMorningReviewFeed(
+    snapshots,
+    isServerVerified: (snapshot) {
       final metadata = metadataOf(snapshot);
-      if (metadata.isFromCache || metadata.hasPendingWrites) {
-        yield* Stream<T>.error(MorningReviewFeedUnverifiedException(source));
-        continue;
-      }
-      yield snapshot;
-    }
-  }
+      return !metadata.isFromCache && !metadata.hasPendingWrites;
+    },
+    source: source,
+    verificationGrace: _serverVerificationGrace,
+  );
 }
