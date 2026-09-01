@@ -3917,6 +3917,21 @@ build20_environment_approval = data(
     "release/approvals/"
     "public-repository-environment-reviewer-approval-build-20.json"
 )
+build21_approval_path = (
+    ROOT / "release/approvals/build-number-21-successor-approval.json"
+)
+build21_environment_approval_path = (
+    ROOT
+    / "release/approvals/"
+    / "public-repository-environment-reviewer-approval-build-21.json"
+)
+build21_approval = data(
+    "release/approvals/build-number-21-successor-approval.json"
+)
+build21_environment_approval = data(
+    "release/approvals/"
+    "public-repository-environment-reviewer-approval-build-21.json"
+)
 build10_finalization_block_path = (
     ROOT / "release/evidence/build-10-finalization-block.json"
 )
@@ -4399,12 +4414,21 @@ build20_entries = [
     if entry.get("buildNumber") == 20
 ]
 build20_entry = build20_entries[0] if len(build20_entries) == 1 else {}
+build21_entries = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber") == 21
+]
+build21_entry = build21_entries[0] if len(build21_entries) == 1 else {}
 candidate_build_number = combined_policy.get("versionPolicy", {}).get(
     "buildNumber"
 )
 candidate_pending = (
     combined_policy.get("finalization", {}).get("status")
     == "pending-source-authorized"
+)
+prior_completed_build = combined_policy.get("finalization", {}).get(
+    "priorCompletedBuild", {}
 )
 deployed_functions_tree = git_tree_object_id(
     str(current_deployed_backend.get("functionFleetSourceCommit", "")),
@@ -4501,7 +4525,7 @@ candidate_package_version = (
     f"{candidate_build_number}"
 )
 artifact_source_matches_approval = approved_artifact_source_matches(
-    str(build20_approval.get("sourceBaseline", {}).get("commit", "")),
+    str(build21_approval.get("sourceBaseline", {}).get("commit", "")),
     candidate_package_version,
 )
 expected_artifact_construction_authority = (
@@ -4578,6 +4602,29 @@ build20_environment_evidence_chronology_valid = (
     and build20_evidence_bound_at is not None
     and build20_environment_evidence_bound_at >= build20_evidence_bound_at
 )
+build21_evidence_bound_at = utc_instant(
+    build21_approval.get("evidenceBoundAtUtc")
+)
+build21_bound_evidence_times = [
+    utc_instant(current_function_readback.get("capturedAtUtc")),
+    utc_instant(current_iam_readback.get("capturedAtUtc")),
+    utc_instant(current_firestore_readback.get("capturedAtUtc")),
+    utc_instant(current_backend_deployment.get("recordedAtUtc")),
+]
+build21_evidence_chronology_valid = (
+    build21_evidence_bound_at is not None
+    and all(value is not None for value in build21_bound_evidence_times)
+    and build21_evidence_bound_at
+    >= max(value for value in build21_bound_evidence_times if value is not None)
+)
+build21_environment_evidence_bound_at = utc_instant(
+    build21_environment_approval.get("evidenceBoundAtUtc")
+)
+build21_environment_evidence_chronology_valid = (
+    build21_environment_evidence_bound_at is not None
+    and build21_evidence_bound_at is not None
+    and build21_environment_evidence_bound_at >= build21_evidence_bound_at
+)
 candidate_runtime_accepted = (
     combined_policy.get("finalization", {}).get("runtimeValidationPassed")
     is True
@@ -4636,7 +4683,7 @@ else:
         f"AWAITING_FRESH_GOVERNED_BUILD{candidate_build_number + 1}_APPROVAL"
     )
 check(
-    "Builds 6-20 are preserved and Build 20 finalization is exact",
+    "Builds 6-21 are preserved and Build 21 construction remains governed",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -4829,18 +4876,18 @@ check(
         "environmentReviewControl", {}
     ).get("adminBypassAllowed")
         is False
-    and version_policy_approval.get("reference") == "BAF-REF-003-C19"
-    and version_policy_approval.get("buildNumber") == 20
-    and version_policy_approval.get("versionName") == "1.0.0-rc.10"
-    and combined_policy.get("release", {}).get("buildNumber") == 20
-    and combined_policy.get("release", {}).get("versionName") == "1.0.0-rc.10"
+    and version_policy_approval.get("reference") == "BAF-REF-003-C20"
+    and version_policy_approval.get("buildNumber") == 21
+    and version_policy_approval.get("versionName") == "1.0.0-rc.11"
+    and combined_policy.get("release", {}).get("buildNumber") == 21
+    and combined_policy.get("release", {}).get("versionName") == "1.0.0-rc.11"
     and combined_policy.get("finalization", {}).get("status")
-        == "completed-non-distributable"
+        == "pending-source-authorized"
     and sha(build14_completion_path)
         == build15_approval.get("preservedCompletedBuild", {}).get(
             "completionReceiptSha256"
         )
-    and sha(build19_completion_path)
+    and sha(build20_completion_path)
         == combined_policy.get("finalization", {}).get(
             "priorCompletedBuild", {}
         ).get(
@@ -4848,22 +4895,22 @@ check(
         )
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
-    ).get("buildNumber") == 19
+    ).get("buildNumber") == 20
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("status") == "completed-non-distributable"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("sourceCommit")
-        == "5221cc8dbfe41b1119ef1cdc1695900556eac739"
+        == "24bb7b3de1370c91e14e7cf0d7b8038838872e66"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("githubRunId")
-        == 33262283846
+        == 33365320343
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("governedPackageSha256")
-        == "914573AC394581D234EA605AF91F33C0CD54514473971951F7112B3FD2436394"
+        == "DC93397C1BED3A7F2FE9749C4F4608EE989C4DD06E15C80B1DFADE67E699BDDC"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("dualCustodyCompleted")
@@ -4873,7 +4920,7 @@ check(
     ).get("runtimeValidationPassed")
         is False
     and combined_policy.get("finalization", {}).get("dualCustodyCompleted")
-        is True
+        is False
     and build12_completion.get("status") == "passed-non-distributable"
     and build12_completion.get("sourceAuthority", {}).get("commit")
         == "8ba5b237cef151b001d9bea41e16e68015091e43"
@@ -5528,7 +5575,7 @@ check(
     ) is False
     and sha(build12_approval_path)
         == "E7E0F289A99B062F8EECDFCDE944B9C4266F58F00542C34AF49FBB7834469985"
-    and sha(build20_approval_path)
+    and sha(build21_approval_path)
         == combined_policy.get("versionPolicy", {}).get(
             "sourceDocumentSha256"
         )
@@ -5558,7 +5605,7 @@ check(
     and build12_approval.get("distributionApproved") is False
     and sha(build12_environment_approval_path)
         == "552C8A34CEED2A4AFCD71B3521BF8547807761E59537CBA6D87257747638E1DB"
-    and sha(build20_environment_approval_path)
+    and sha(build21_environment_approval_path)
         == combined_policy.get("github", {})
         .get("environmentReviewControl", {})
         .get("approvalReceiptSha256")
@@ -5659,7 +5706,7 @@ check(
     and build14_approval.get("controls", {}).get(
         "exactFirestoreRulesIndexesDeploymentReadbackRequired"
     ) is True
-    and sha(build20_backend_deployment_path)
+    and sha(current_backend_deployment_path)
         == combined_policy.get("finalization", {}).get(
             "exactFunctionFleetDeploymentReceiptSha256"
         )
@@ -6124,8 +6171,8 @@ check(
         "controlledPilotApproved"
     ) is False
     and len(build19_entries) == 1
-    and not candidate_pending
-    and sha(build20_approval_path)
+    and candidate_pending
+    and sha(build21_approval_path)
         == combined_policy.get("versionPolicy", {}).get(
             "sourceDocumentSha256"
         )
@@ -6204,37 +6251,6 @@ check(
         == "not-adjudicated-by-build-finalization"
     and build19_entry.get("controlledPilotApproved") is False
     and build19_entry.get("distributionPerformed") is False
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("completionReceiptFile")
-        == "release/evidence/build-19-finalization-closure.json"
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("completionReceiptSha256")
-        == sha(build19_completion_path)
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("sourceCommit")
-        == "5221cc8dbfe41b1119ef1cdc1695900556eac739"
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("githubRunId")
-        == 33262283846
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("remoteBuiltTag")
-        == "crm3-build-built/19"
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("governedPackageSha256")
-        == build19_entry.get("governedPackageSha256")
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("runtimeValidationPassed")
-        is False
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("fullBusinessFlowValidationCompleted") is False
     and build19_completion.get("status") == "passed-non-distributable"
     and build19_completion.get("sourceAuthority", {}).get("commit")
         == "5221cc8dbfe41b1119ef1cdc1695900556eac739"
@@ -6296,9 +6312,7 @@ check(
     ) is False
     and build20_approval.get("distributionApproved") is False
     and sha(build20_environment_approval_path)
-        == combined_policy.get("github", {})
-        .get("environmentReviewControl", {})
-        .get("approvalReceiptSha256")
+        == "50F316A57553244AB43DB41F381897B9F649A388B49E1FB81569D1C9B4D48D75"
     and build20_environment_approval.get("approvalReference")
         == "BAF-GH-ENV-016"
     and build20_environment_evidence_chronology_valid
@@ -6349,35 +6363,27 @@ check(
         == "not-adjudicated-by-build-finalization"
     and build20_entry.get("controlledPilotApproved") is False
     and build20_entry.get("distributionPerformed") is False
-    and combined_policy.get("finalization", {}).get("completionReceiptFile")
+    and prior_completed_build.get("completionReceiptFile")
         == "release/evidence/build-20-finalization-closure.json"
-    and combined_policy.get("finalization", {}).get(
-        "completionReceiptSha256"
-    ) == sha(build20_completion_path)
-    and combined_policy.get("finalization", {}).get(
-        "physicalInstallationConditionPassed"
-    ) is True
-    and combined_policy.get("finalization", {}).get(
-        "physicalInstallationReceiptFile"
-    ) == "release/evidence/build-20-physical-installation-acceptance.json"
-    and combined_policy.get("finalization", {}).get(
-        "physicalInstallationReceiptSha256"
-    ) == sha(build20_physical_installation_path)
-    and combined_policy.get("finalization", {}).get("sourceCommit")
+    and prior_completed_build.get("completionReceiptSha256")
+        == sha(build20_completion_path)
+    and prior_completed_build.get("physicalInstallationConditionPassed")
+        is True
+    and prior_completed_build.get("physicalInstallationReceiptFile")
+        == "release/evidence/build-20-physical-installation-acceptance.json"
+    and prior_completed_build.get("physicalInstallationReceiptSha256")
+        == sha(build20_physical_installation_path)
+    and prior_completed_build.get("sourceCommit")
         == "24bb7b3de1370c91e14e7cf0d7b8038838872e66"
-    and combined_policy.get("finalization", {}).get("githubRunId")
+    and prior_completed_build.get("githubRunId")
         == 33365320343
-    and combined_policy.get("finalization", {}).get("remoteBuiltTag")
+    and prior_completed_build.get("remoteBuiltTag")
         == "crm3-build-built/20"
-    and combined_policy.get("finalization", {}).get(
-        "governedPackageSha256"
-    ) == build20_entry.get("governedPackageSha256")
-    and combined_policy.get("finalization", {}).get(
-        "runtimeValidationPassed"
-    ) is False
-    and combined_policy.get("finalization", {}).get(
-        "fullBusinessFlowValidationCompleted"
-    ) is False
+    and prior_completed_build.get("governedPackageSha256")
+        == build20_entry.get("governedPackageSha256")
+    and prior_completed_build.get("runtimeValidationPassed") is False
+    and prior_completed_build.get("fullBusinessFlowValidationCompleted")
+        is False
     and build20_completion.get("status") == "passed-non-distributable"
     and build20_completion.get("sourceAuthority", {}).get("commit")
         == "24bb7b3de1370c91e14e7cf0d7b8038838872e66"
@@ -6443,10 +6449,110 @@ check(
     and build20_physical_installation.get("releaseBoundary", {}).get(
         "controlledPilotApproved"
     ) is False
+    and len(build21_entries) == 1
+    and build21_approval.get("approved") is True
+    and build21_approval.get("approvalReference") == "BAF-REF-003-C20"
+    and build21_evidence_chronology_valid
+    and build21_approval.get("sourceBaseline", {}).get("commit")
+        == "8212a0dbde76d3a721fac97cc794046628083f12"
+    and build21_approval.get("sourceBaseline", {}).get("tree")
+        == "4d5b96475df9d8dfc042a68059c32a74febe0743"
+    and build21_approval.get("consumedBuild", {}).get("buildNumber") == 20
+    and build21_approval.get("consumedBuild", {}).get(
+        "completionReceiptSha256"
+    ) == sha(build20_completion_path)
+    and build21_approval.get("nextBuild", {}).get("buildNumber") == 21
+    and build21_approval.get("nextBuild", {}).get("versionName")
+        == "1.0.0-rc.11"
+    and build21_approval.get("requiredSource", {}).get(
+        "successorFreezePullRequest"
+    ) == 332
+    and build21_approval.get("requiredSource", {}).get(
+        "successorFreezePostMergeGithubRunId"
+    ) == 33449705740
+    and build21_approval.get("requiredSource", {}).get(
+        "successorFreezePostMergeGithubRunConclusion"
+    ) == "success"
+    and build21_approval.get("requiredSource", {}).get(
+        "successorFreezeCanonicalAuditPassCount"
+    ) == 149
+    and build21_approval.get("requiredSource", {}).get(
+        "build20AcceptancePolicyShapeCorrectionCommit"
+    ) == "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2"
+    and build21_approval.get("requiredSource", {}).get(
+        "build20AcceptancePolicyShapeCorrectionTree"
+    ) == "8294c9fa2deca973ec5efc24678d4415e3c97285"
+    and build21_approval.get("requiredSource", {}).get(
+        "build20AcceptancePolicyShapeCorrectionMustBeAncestorOfDispatchCommit"
+    ) is True
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorPhysicalInstallationVerifierCommit"
+    ) == "c6d88c090b7351e33f0e259603775ca709695d58"
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorPhysicalInstallationVerifierTree"
+    ) == "9f52f5a6a1ef437049946929ec692d705372fa2c"
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorPhysicalInstallationVerifierMustBeAncestorOfDispatchCommit"
+    ) is True
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorInstallationConditionAndSignerVerifierCommit"
+    ) == build21_approval.get("sourceBaseline", {}).get("commit")
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorInstallationConditionAndSignerVerifierTree"
+    ) == build21_approval.get("sourceBaseline", {}).get("tree")
+    and build21_approval.get("requiredSource", {}).get(
+        "predecessorInstallationConditionAndSignerVerifierMustBeAncestorOfDispatchCommit"
+    ) is True
+    and build21_approval.get("controls", {}).get(
+        "build20AuthorityPreserved"
+    ) is True
+    and build21_approval.get("controls", {}).get(
+        "deviceDataClearProhibited"
+    ) is True
+    and build21_approval.get("controls", {}).get(
+        "pilotDistributionAuthorized"
+    ) is False
+    and build21_approval.get("distributionApproved") is False
+    and sha(build21_environment_approval_path)
+        == combined_policy.get("github", {})
+        .get("environmentReviewControl", {})
+        .get("approvalReceiptSha256")
+    and build21_environment_approval.get("approvalReference")
+        == "BAF-GH-ENV-017"
+    and build21_environment_evidence_chronology_valid
+    and build21_environment_approval.get("scope", {}).get("buildNumber")
+        == 21
+    and build21_environment_approval.get("controls", {}).get(
+        "requiredSuccessorFreezeCommit"
+    ) == build21_approval.get("requiredSource", {}).get(
+        "successorFreezeBaselineCommit"
+    )
+    and build21_environment_approval.get("liveStateEvidence", {}).get(
+        "canAdminsBypass"
+    ) is False
+    and build21_environment_approval.get("liveStateEvidence", {}).get(
+        "secretValuesInspected"
+    ) is False
+    and build21_entry.get("baselineCommit")
+        == build21_approval.get("sourceBaseline", {}).get("commit")
+    and build21_entry.get("versionApprovalReference") == "BAF-REF-003-C20"
+    and build21_entry.get("versionApprovalDocumentSha256")
+        == sha(build21_approval_path)
+    and build21_entry.get("remoteReservationTag")
+        == "crm3-build-reserved/21"
+    and build21_entry.get("remoteBuiltTag") == "crm3-build-built/21"
+    and build21_entry.get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and build21_entry.get("failedOrWithdrawnBuildConsumesNumber") is True
+    and build21_entry.get("remoteReservationTagObject") is None
+    and build21_entry.get("remoteBuiltTagObject") is None
+    and build21_entry.get("githubRunId") is None
+    and build21_entry.get("githubArtifactId") is None
+    and build21_entry.get("governedPackageSha256") is None
     and current_successor_state.get("status")
         == expected_successor_state_status
     and current_successor_planes.get("currentSource", {}).get("packageVersion")
-        == "1.0.0-rc.10+20"
+        == "1.0.0-rc.11+21"
     and current_successor_planes.get("currentSource", {}).get(
         "artifactConstructionAuthority"
     ) is expected_artifact_construction_authority
@@ -6843,12 +6949,11 @@ check(
             )
             + [
                 (
-                    f"BUILD{candidate_build_number}_PHYSICAL_DEVICE_AND_"
-                    "TWO_ACCOUNT_CONVERGENCE"
+                    f"BUILD{candidate_build_number}_SIGNED_DEVICE_MIGRATION_"
+                    "AND_BUSINESS_FLOW_VALIDATION"
                 ),
                 (
-                    f"BUILD{candidate_build_number}_EXPLICIT_25_PERSON_"
-                    "PILOT_PROMOTION"
+                    f"BUILD{candidate_build_number}_EXPLICIT_PILOT_PROMOTION"
                 ),
             ]
         ),

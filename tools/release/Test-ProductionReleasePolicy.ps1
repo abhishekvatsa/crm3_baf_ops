@@ -1881,6 +1881,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$consumed.completionReceiptSha256 -or
       (Get-Sha256 $prior.completionReceiptFile) -ne
         ([string]$prior.completionReceiptSha256).ToUpperInvariant() -or
+      $prior.physicalInstallationConditionPassed -ne $true -or
       [string]$prior.sourceCommit -ne
         [string]$consumed.remoteBuiltCommit -or
       [int64]$prior.githubRunId -ne [int64]$consumed.githubRunId -or
@@ -1914,6 +1915,120 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $failed.independentVerificationCompleted -ne $true -or
       $failed.dualCustodyCompleted -ne $false -or
       $failed.distributionPerformed -ne $false
+  }
+  if ($successfulPredecessor -and
+      $prior.physicalInstallationConditionPassed -eq $true) {
+    $predecessorPhysicalInstallationPath =
+      [string]$prior.physicalInstallationReceiptFile
+    if ([string]$prior.physicalInstallationReceiptSha256 -notmatch
+          '^[0-9A-Fa-f]{64}$' -or
+        -not (Test-Path `
+          -LiteralPath $predecessorPhysicalInstallationPath `
+          -PathType Leaf)) {
+      throw 'Predecessor physical-installation receipt is missing.'
+    }
+    $predecessorPhysicalInstallation = Get-Content `
+      -LiteralPath $predecessorPhysicalInstallationPath -Raw |
+        ConvertFrom-Json
+    $expectedPredecessorPhysicalStatus =
+      'passed-exact-build' +
+      [string]$prior.buildNumber +
+      '-physical-in-place-authenticated-startup-and-local-recovery'
+    $predecessorPhysicalMutationValues = @(
+      $predecessorPhysicalInstallation.businessMutationBoundary.
+        PSObject.Properties |
+        ForEach-Object { $_.Value }
+    )
+    $predecessorReleaseBoundaryValues = @(
+      $predecessorPhysicalInstallation.releaseBoundary.PSObject.Properties |
+        ForEach-Object { $_.Value }
+    )
+    if ((Get-Sha256 $predecessorPhysicalInstallationPath) -ne
+          ([string]$prior.physicalInstallationReceiptSha256).
+            ToUpperInvariant() -or
+        [string]$predecessorPhysicalInstallation.evidenceType -ne
+          'production-build-physical-installation-acceptance' -or
+        [string]$predecessorPhysicalInstallation.status -ne
+          $expectedPredecessorPhysicalStatus -or
+        [int64]$predecessorPhysicalInstallation.release.buildNumber -ne
+          [int64]$prior.buildNumber -or
+        [string]$predecessorPhysicalInstallation.release.releaseId -ne
+          [string]$consumed.releaseId -or
+        [string]$predecessorPhysicalInstallation.release.versionName -ne
+          [string]$consumed.versionName -or
+        [string]$predecessorPhysicalInstallation.release.applicationId -ne
+          [string]$policy.permanentApplicationId -or
+        [string]$predecessorPhysicalInstallation.release.sourceCommit -ne
+          [string]$prior.sourceCommit -or
+        [string]$predecessorPhysicalInstallation.release.
+          finalizationReceiptFile -ne
+          [string]$prior.completionReceiptFile -or
+        [string]$predecessorPhysicalInstallation.release.
+          finalizationReceiptSha256 -ne
+          (Get-Sha256 ([string]$prior.completionReceiptFile)) -or
+        [string]$predecessorPhysicalInstallation.release.
+          governedPackageSha256 -ne
+          [string]$prior.governedPackageSha256 -or
+        [string]$predecessorPhysicalInstallation.release.apkSha256 -ne
+          [string]$predecessorReceipt.governedPackage.apkSha256 -or
+        [string]$predecessorPhysicalInstallation.release.certificateSha256 -ne
+          [string]$predecessorReceipt.governedPackage.certificateSha256 -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          deviceSerialRecorded -ne $false -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          accountIdentifierRecorded -ne $false -or
+        [int64]$predecessorPhysicalInstallation.physicalDevice.
+          installedVersionCode -ne [int64]$prior.buildNumber -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          exactGovernedApkMatch -ne $true -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          signerContinuityVerifiedByInPlaceUpdate -ne $true -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          firstInstallTimePreserved -ne $true -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          applicationDataPreserved -ne $true -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          applicationDataCleared -ne $false -or
+        $predecessorPhysicalInstallation.physicalDevice.
+          applicationUninstalled -ne $false -or
+        [string]$predecessorPhysicalInstallation.startup.coldLaunchResult -ne
+          'passed' -or
+        $predecessorPhysicalInstallation.startup.
+          approvedAuthenticatedSessionPreserved -ne $true -or
+        $predecessorPhysicalInstallation.startup.authenticatedHomeRendered -ne
+          $true -or
+        $predecessorPhysicalInstallation.startup.
+          startupMigrationBlockObserved -ne $false -or
+        $predecessorPhysicalInstallation.localStoreMigration.
+          governedOpenCompleted -ne $true -or
+        [string]$predecessorPhysicalInstallation.synchronizationRecovery.
+          finalSyncResult -ne 'success' -or
+        [int64]$predecessorPhysicalInstallation.synchronizationRecovery.
+          finalUnsyncedRows -ne 0 -or
+        [int64]$predecessorPhysicalInstallation.synchronizationRecovery.
+          finalUnresolvedRejections -ne 0 -or
+        [int64]$predecessorPhysicalInstallation.synchronizationRecovery.
+          finalLikelyPermanentRejections -ne 0 -or
+        [int64]$predecessorPhysicalInstallation.synchronizationRecovery.
+          finalFullSyncConflicts -ne 0 -or
+        $predecessorPhysicalInstallation.synchronizationRecovery.
+          firebaseBusinessRecordMutated -ne $false -or
+        @($predecessorPhysicalMutationValues |
+          Where-Object { $_ -ne $false }).Count -ne 0 -or
+        $predecessorPhysicalInstallation.adjudication.
+          minimumHandoutCondition4Passed -ne $true -or
+        $predecessorPhysicalInstallation.adjudication.
+          twoAccountTwoDeviceMutationConvergencePassed -ne $false -or
+        $predecessorPhysicalInstallation.adjudication.
+          separateControlledPilotPromotionPassed -ne $false -or
+        $predecessorPhysicalInstallation.adjudication.
+          fullBusinessFlowValidationCompleted -ne $false -or
+        @($predecessorReleaseBoundaryValues |
+          Where-Object { $_ -ne $false }).Count -ne 0 -or
+        $prior.runtimeValidationPassed -ne $false -or
+        $prior.controlledPilotApproved -ne $false) {
+      throw 'Predecessor physical-installation receipt exceeds or differs from its exact condition-4 boundary.'
+    }
   }
   if ($predecessorBoundaryInvalid -or
       $policy.finalization.dualCustodyCompleted -ne $false -or

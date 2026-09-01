@@ -37,6 +37,11 @@ void main() {
     final policy = _readObject('release/production-release-policy.json');
     final policyFinalization =
         (policy['finalization'] as Map).cast<String, dynamic>();
+    final build20PolicyAuthority =
+        policyFinalization['status'] == 'pending-source-authorized'
+            ? (policyFinalization['priorCompletedBuild'] as Map)
+                .cast<String, dynamic>()
+            : policyFinalization;
     final ledger = _readObject('release/build-number-ledger.json');
     final ledgerEntry = (ledger['entries'] as List)
         .cast<Map>()
@@ -64,10 +69,16 @@ void main() {
     );
     expect(release['apkSha256'], governedPackage['apkSha256']);
     expect(release['certificateSha256'], governedPackage['certificateSha256']);
-    expect(policyFinalization['physicalInstallationConditionPassed'], isTrue);
-    expect(policyFinalization['physicalInstallationReceiptFile'], receiptPath);
     expect(
-      policyFinalization['physicalInstallationReceiptSha256'],
+      build20PolicyAuthority['physicalInstallationConditionPassed'],
+      isTrue,
+    );
+    expect(
+      build20PolicyAuthority['physicalInstallationReceiptFile'],
+      receiptPath,
+    );
+    expect(
+      build20PolicyAuthority['physicalInstallationReceiptSha256'],
       _sha256(receiptPath),
     );
     expect(ledgerEntry['physicalInstallationConditionPassed'], isTrue);
@@ -76,8 +87,8 @@ void main() {
       ledgerEntry['physicalInstallationReceiptSha256'],
       _sha256(receiptPath),
     );
-    expect(policyFinalization['runtimeValidationPassed'], isFalse);
-    expect(policyFinalization['controlledPilotApproved'], isFalse);
+    expect(build20PolicyAuthority['runtimeValidationPassed'], isFalse);
+    expect(build20PolicyAuthority['controlledPilotApproved'], isFalse);
     expect(ledgerEntry['runtimeValidationPassed'], isFalse);
     expect(ledgerEntry['controlledPilotApproved'], isFalse);
 
