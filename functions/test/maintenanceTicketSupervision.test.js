@@ -615,6 +615,55 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('rejects a backdated Base vacancy inside a closed linkage interval', async () => {
+    const historical = createServiceFor(operations);
+    seedBaseWithoutInnerCover(historical.store);
+    historical.store.seed('inner_cover_linkages/link-base-201-gr26', {
+      schemaVersion: 1,
+      linkageId: 'link-base-201-gr26',
+      baseAssetInstanceId: 'asset-base-201',
+      baseAssetClassId: 'class-base',
+      baseAssetNumber: 201,
+      baseAssetName: 'Base 201',
+      innerCoverId: 'inner-cover-gr26',
+      innerCoverSerialNumber: 'GR26',
+      installedAt: '2026-08-14T16:00:00.000Z',
+      installedByUid: 'admin-1',
+      installedByName: 'Admin One',
+      removedAt: '2026-08-14T16:25:00.000Z',
+      removedByUid: 'admin-1',
+      removedByName: 'Admin One',
+      removalAction: 'DELINK_INNER_COVER',
+      removalReason: 'Moved to the available pool.',
+      active: false,
+      version: 2,
+      requestId: 'historical-linkage-request',
+    });
+
+    await expect(historical.service.execute(createCommand({
+      commandId: 'reject-backdated-base-vacancy',
+      ticketId: 'backdated-base-vacancy',
+      ticket: {
+        assetType: 'base',
+        assetNumber: 201,
+        component: 'Inner Cover availability',
+        subsystem: 'Base / Inner Cover association',
+        hierarchyPath: null,
+        assetHierarchyRefJson: basePhysicalAssetReference(),
+        classification: 'baseInnerCoverUnavailable',
+        description: 'Base 201 had no Inner Cover available.',
+        plantConditionEffect: 'unavailable',
+        routedTo: 'operations',
+        startDate: '2026-08-14T16:20:00.000Z',
+      },
+    }), historical.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-inner-cover-linked-at-event',
+      },
+    });
+  });
+
   test('binds a definition tag to the selected physical asset', async () => {
     const seeded = createServiceFor(mechanical);
     seedFurnaceHierarchy(seeded.store);

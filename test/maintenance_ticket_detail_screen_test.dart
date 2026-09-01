@@ -436,6 +436,70 @@ void main() {
   });
 
   testWidgets(
+    'Inner Cover availability correction locks dependency identity only',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 1, 6);
+      final ticket =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-base-inner-cover-unavailable'
+            ..version = 2
+            ..isSynced = true
+            ..assetType = AssetType.base
+            ..assetNumber = 201
+            ..maintenanceType = MaintenanceType.breakdown
+            ..classification = baseInnerCoverUnavailableClassification
+            ..description = 'Base 201 has no Inner Cover available.'
+            ..routedTo = RoutedTo.operations
+            ..component = baseInnerCoverAvailabilityComponent
+            ..subsystem = baseInnerCoverAvailabilitySubsystem
+            ..plantConditionEffect =
+                MaintenanceIssuePlantConditionEffect.unavailable
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now.subtract(const Duration(hours: 1))
+            ..createdAt = now.subtract(const Duration(hours: 1))
+            ..updatedAt = now
+            ..actionsJson = '[]'
+            ..resolutionHistoryJson = '[]'
+            ..issueLanePlan = IssueLanePlan.initial([RoutedTo.operations.name]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: MaintenanceTicketCorrectionDialog(ticket: ticket),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final key in <String>[
+        'ticket-correction-component',
+        'ticket-correction-subsystem',
+        'ticket-correction-tag',
+        'ticket-correction-classification',
+      ]) {
+        final field = tester.widget<TextFormField>(find.byKey(ValueKey(key)));
+        expect(field.enabled, isFalse, reason: key);
+      }
+      final condition = tester.widget<
+        DropdownButtonFormField<MaintenanceIssuePlantConditionEffect>
+      >(find.byKey(const ValueKey('ticket-correction-plant-condition')));
+      final route = tester.widget<DropdownButtonFormField<RoutedTo>>(
+        find.byKey(const ValueKey('ticket-correction-route')),
+      );
+      final maintenanceType = tester
+          .widget<DropdownButtonFormField<MaintenanceType>>(
+            find.byKey(const ValueKey('ticket-correction-maintenance-type')),
+          );
+      expect(condition.onChanged, isNull);
+      expect(route.onChanged, isNotNull);
+      expect(maintenanceType.onChanged, isNotNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'correction retains the form when Others has no department name',
     (tester) async {
       final now = DateTime.utc(2026, 8, 24, 6);

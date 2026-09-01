@@ -39,7 +39,13 @@ class _MaintenanceTicketCorrectionDialogState
   bool get _isFurnaceStuckup =>
       widget.ticket.classification == furnaceStuckupClassification;
 
+  bool get _isBaseInnerCoverUnavailable =>
+      widget.ticket.classification == baseInnerCoverUnavailableClassification;
+
   bool get _isSpecialized => _isBurnerLockout || _isFurnaceStuckup;
+
+  bool get _hasImmutableIssueIdentity =>
+      _isSpecialized || _isBaseInnerCoverUnavailable;
 
   bool get _hasRedHotBurner =>
       widget.ticket.burnerLockoutReadResult.value?.hasRedHotObservation == true;
@@ -253,6 +259,7 @@ class _MaintenanceTicketCorrectionDialogState
                 ],
                 const SizedBox(height: BafSpacing.sm),
                 DropdownButtonFormField<MaintenanceType>(
+                  key: const ValueKey('ticket-correction-maintenance-type'),
                   initialValue: _maintenanceType,
                   isExpanded: true,
                   decoration: const InputDecoration(
@@ -304,6 +311,10 @@ class _MaintenanceTicketCorrectionDialogState
                             ? const [
                               MaintenanceIssuePlantConditionEffect.stuckUp,
                             ]
+                            : _isBaseInnerCoverUnavailable
+                            ? const [
+                              MaintenanceIssuePlantConditionEffect.unavailable,
+                            ]
                             : const [
                               MaintenanceIssuePlantConditionEffect.unfit,
                               MaintenanceIssuePlantConditionEffect.unavailable,
@@ -314,7 +325,7 @@ class _MaintenanceTicketCorrectionDialogState
                       ),
                   ],
                   onChanged:
-                      _isFurnaceStuckup
+                      _isFurnaceStuckup || _isBaseInnerCoverUnavailable
                           ? null
                           : (value) {
                             if (value != null) {
@@ -323,8 +334,9 @@ class _MaintenanceTicketCorrectionDialogState
                           },
                 ),
                 TextFormField(
+                  key: const ValueKey('ticket-correction-component'),
                   controller: _component,
-                  enabled: !_isSpecialized,
+                  enabled: !_hasImmutableIssueIdentity,
                   decoration: const InputDecoration(
                     labelText: 'Component (optional)',
                   ),
@@ -344,7 +356,9 @@ class _MaintenanceTicketCorrectionDialogState
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
+                  key: const ValueKey('ticket-correction-subsystem'),
                   controller: _subsystem,
+                  enabled: !_isBaseInnerCoverUnavailable,
                   decoration: const InputDecoration(
                     labelText: 'Subsystem (optional)',
                   ),
@@ -352,8 +366,9 @@ class _MaintenanceTicketCorrectionDialogState
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
+                  key: const ValueKey('ticket-correction-tag'),
                   controller: _tag,
-                  enabled: !_isSpecialized,
+                  enabled: !_hasImmutableIssueIdentity,
                   decoration: const InputDecoration(
                     labelText: 'Tag (optional)',
                   ),
@@ -361,8 +376,9 @@ class _MaintenanceTicketCorrectionDialogState
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
+                  key: const ValueKey('ticket-correction-classification'),
                   controller: _classification,
-                  enabled: !_isSpecialized,
+                  enabled: !_hasImmutableIssueIdentity,
                   decoration: const InputDecoration(
                     labelText: 'Classification (optional)',
                   ),

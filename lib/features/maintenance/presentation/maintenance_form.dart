@@ -1834,11 +1834,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
             _SectionCard(
               title: 'Operational timing',
-              subtitle: 'When did this issue start?',
+              subtitle: _operationalTimingSubtitle,
               icon: Icons.schedule_rounded,
               children: [
                 InkWell(
-                  onTap: _pickStartTime,
+                  onTap: _isBaseInnerCoverAvailability ? null : _pickStartTime,
                   borderRadius: BorderRadius.circular(BafRadius.medium),
                   child: Container(
                     padding: const EdgeInsets.all(BafSpacing.lg),
@@ -1858,9 +1858,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Start time',
-                                style: TextStyle(
+                              Text(
+                                _operationalTimingLabel,
+                                style: const TextStyle(
                                   color: BafColors.textSecondary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -1880,10 +1880,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                             ],
                           ),
                         ),
-                        const Icon(
-                          Icons.edit_calendar_rounded,
-                          color: BafColors.textSecondary,
-                        ),
+                        _operationalTimingTrailingIcon,
                       ],
                     ),
                   ),

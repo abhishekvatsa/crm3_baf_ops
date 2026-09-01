@@ -1111,6 +1111,73 @@ const requireFreshAssetReference = async (args: {
   });
 };
 
+const requireBaseVacantAtIssueStart = async (args: {
+  tx: WorkflowTransaction;
+  baseAssetInstanceId: string;
+  baseAssetNumber: number;
+  startDate: string;
+}): Promise<void> => {
+  const eventMillis = Date.parse(args.startDate);
+  const linkages = await args.tx.query("inner_cover_linkages", [{
+    field: "baseAssetInstanceId",
+    op: "==",
+    value: args.baseAssetInstanceId,
+  }]);
+  for (const snapshot of linkages) {
+    const linkage = snapshot.data;
+    if (!snapshot.exists || linkage == null || linkage.schemaVersion !== 1 ||
+        linkage.baseAssetInstanceId !== args.baseAssetInstanceId ||
+        linkage.baseAssetNumber !== args.baseAssetNumber ||
+        typeof linkage.linkageId !== "string" ||
+        snapshot.path !== `inner_cover_linkages/${linkage.linkageId}` ||
+        typeof linkage.innerCoverId !== "string" ||
+        linkage.innerCoverId.trim().length === 0 ||
+        typeof linkage.innerCoverSerialNumber !== "string" ||
+        linkage.innerCoverSerialNumber.trim().length === 0 ||
+        typeof linkage.active !== "boolean" ||
+        !Number.isSafeInteger(linkage.version) ||
+        (linkage.version as number) < 1) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The Base Inner Cover linkage history is malformed.",
+        {reasonCode: "maintenance-ticket-inner-cover-history-invalid"},
+      );
+    }
+    const installedAt = requiredPersistedInstantDate(
+      linkage.installedAt,
+      "innerCoverLinkage.installedAt",
+    ).getTime();
+    const removedAt = linkage.removedAt == null ? null :
+      requiredPersistedInstantDate(
+        linkage.removedAt,
+        "innerCoverLinkage.removedAt",
+      ).getTime();
+    if ((linkage.active === true) !== (removedAt == null) ||
+        (removedAt != null && removedAt < installedAt)) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The Base Inner Cover linkage interval is malformed.",
+        {reasonCode: "maintenance-ticket-inner-cover-history-invalid"},
+      );
+    }
+    if (linkage.active === true) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The Base assignment and linkage history disagree.",
+        {reasonCode: "maintenance-ticket-inner-cover-state-inconsistent"},
+      );
+    }
+    if (installedAt <= eventMillis &&
+        (removedAt == null || eventMillis < removedAt)) {
+      throw new WorkflowError(
+        "failed-precondition",
+        `Inner Cover ${linkage.innerCoverSerialNumber} was linked to this Base at the selected issue time.`,
+        {reasonCode: "maintenance-ticket-inner-cover-linked-at-event"},
+      );
+    }
+  }
+};
+
 const savedClosureActionPayload = (
   value: unknown,
   field = "work.actionsJson",
@@ -2128,6 +2195,15 @@ export const createMaintenanceTicket = async ({
         {reasonCode: "maintenance-ticket-inner-cover-availability-invalid"},
       );
     }
+    await requireBaseVacantAtIssueStart({
+      tx,
+      baseAssetInstanceId: cleanText(
+        canonicalAssetReference.assetInstanceId,
+        "assetInstanceId",
+      ),
+      baseAssetNumber: assetNumber,
+      startDate,
+    });
   }
   const qualityAbnormalityId = suspected ?
     `issue_quality_${command.aggregateId}` : null;

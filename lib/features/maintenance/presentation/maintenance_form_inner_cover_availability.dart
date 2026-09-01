@@ -22,7 +22,28 @@ extension _BaseInnerCoverAvailabilityFormState on _MaintenanceFormState {
         target == _BaseIssueTarget.innerCoverAvailability
             ? MaintenanceIssuePlantConditionEffect.unavailable
             : MaintenanceIssuePlantConditionEffect.unfit;
+    if (target == _BaseIssueTarget.innerCoverAvailability) {
+      _startTime = DateTime.now();
+    }
   }
+
+  String get _operationalTimingSubtitle =>
+      _isBaseInnerCoverAvailability
+          ? 'Live Inner Cover vacancy observations cannot be backdated.'
+          : 'When did this issue start?';
+
+  String get _operationalTimingLabel =>
+      _isBaseInnerCoverAvailability ? 'Vacancy observed at' : 'Start time';
+
+  Widget get _operationalTimingTrailingIcon => Icon(
+    _isBaseInnerCoverAvailability
+        ? Icons.lock_clock_outlined
+        : Icons.edit_calendar_rounded,
+    color:
+        _isBaseInnerCoverAvailability
+            ? BafColors.warning
+            : BafColors.textSecondary,
+  );
 
   bool _validateBaseInnerCoverAvailabilitySubmission(AssetInstanceRecord base) {
     if (!_isBaseInnerCoverAvailability) return true;
