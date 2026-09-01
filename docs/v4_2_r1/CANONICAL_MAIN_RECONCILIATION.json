@@ -122,9 +122,9 @@
     {
       "path": "README.md",
       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
-      "candidateSha256": "52D2F89D55A51D4171C8503ADB5A59D1EBACF8DA127DB0FDDA963B0B4875FE22",
+      "candidateSha256": "43EAD6AA845CDC5332DF0946B3E0B922014DD0605727D0BA106107AA4E6E5EA8",
       "canonicalBytes": 564,
-      "candidateBytes": 8328,
+      "candidateBytes": 8322,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2570,9 +2570,9 @@
     {
       "path": "release/build-number-ledger.json",
       "canonicalSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
-      "candidateSha256": "30B80817C06D50EB841BB86B4E5EF0935B28CF01B70D38D9EC2D33C0BF41E851",
+      "candidateSha256": "77EEE164E243ABA4D0F0411D44871F1E90301CB3837D2A6A6AEA037CA16C829C",
       "canonicalBytes": 1097,
-      "candidateBytes": 62939,
+      "candidateBytes": 65402,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2594,9 +2594,9 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "BA953B9F6036B5DB88A5ABBA816610896CE4D2B75FCA450F39A026049184F58B",
+      "candidateSha256": "5AF58118DB963753E30B1ED1A70E8DF33CA545619B7385807658C1B558AFC2E7",
       "canonicalBytes": 5884,
-      "candidateBytes": 13758,
+      "candidateBytes": 14680,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3078,9 +3078,9 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "3E5490170963D7F2956D36E604BA028877D9F8C72EADA7B52A6D9CF969A9EA39",
+      "candidateSha256": "0237D1F5A3CB0BF455B30088A78A152FCDB9526625D475868D8E667276AAC7CE",
       "canonicalBytes": 7635,
-      "candidateBytes": 82688,
+      "candidateBytes": 83480,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
