@@ -165,10 +165,7 @@ void main() {
         abnormalityRepository,
         contains('applyAbnormalityServerReadbackIfUnchanged'),
       );
-      expect(
-        assignmentReconciler,
-        contains('updateModuleFromRemote(module)'),
-      );
+      expect(assignmentReconciler, contains('updateModuleFromRemote(module)'));
       expect(
         assignmentReconciler,
         isNot(contains('batchUpsertModules(result.modules)')),
@@ -189,36 +186,70 @@ void main() {
       expect(readback, isNot(contains('return false;')));
     });
 
-    test('every cloud-first mutating callable verifies its response evidence', () {
-      final expectedReceiptBoundaries = <String, String>{
-        'lib/features/assets/repositories/asset_hierarchy_repository.dart':
-            'AssetHierarchyMutationReceipt.fromMap',
-        'lib/features/assets/services/burner_condition_round_service.dart':
-            'BurnerConditionRoundResult.fromCallableData',
-        'lib/features/quality/services/quality_command_service.dart':
-            'QualityCommandResult.fromMap',
-        'lib/features/operational_events/services/operational_event_service.dart':
-            'OperationalEventCommandResult.fromMap',
-        'lib/features/operational_events/services/operational_event_issue_link_service.dart':
-            'OperationalEventIssueLinkCommandResult.fromMap',
-        'lib/features/admin/services/user_authority_command_service.dart':
-            '_parseResult(',
+    test('every callable client has an inventoried response boundary', () {
+      final expectedReceiptBoundaries = <String, List<String>>{
+        'lib/core/release/backend_release_identity_service.dart': [
+          'BackendReleaseIdentity.fromCallableData',
+        ],
+        'lib/core/services/global_pull_protocol.dart': [
+          'GlobalPullRunAuthority.fromCallableData',
+        ],
         'lib/features/abnormalities/services/charge_abnormality_command_service.dart':
-            '_parseResult(',
+            ['_parseResult('],
+        'lib/features/admin/services/device_recovery_command_service.dart': [
+          'Future<Map<String, dynamic>> _request(',
+          '_verifyCompletion(',
+        ],
+        'lib/features/admin/services/user_authority_command_service.dart': [
+          '_parseResult(',
+        ],
+        'lib/features/assets/repositories/asset_hierarchy_repository.dart': [
+          'AssetHierarchyMutationReceipt.fromMap',
+        ],
+        'lib/features/assets/services/burner_condition_round_service.dart': [
+          'BurnerConditionRoundResult.fromCallableData',
+          'BurnerDirectiveComplianceResult.fromCallableData',
+        ],
         'lib/features/maintenance_workflow/services/workflow_command_gateway.dart':
-            'WorkflowCommandReceipt.fromMap',
+            ['WorkflowCommandReceipt.fromMap'],
+        'lib/features/morning_review/services/morning_review_command_service.dart':
+            ['MorningReviewCommandResult.fromMap'],
+        'lib/features/operational_events/services/operational_event_issue_link_service.dart':
+            ['OperationalEventIssueLinkCommandResult.fromMap'],
+        'lib/features/operational_events/services/operational_event_service.dart':
+            ['OperationalEventCommandResult.fromMap'],
         'lib/features/planned_maintenance/services/planned_job_server_completion_service.dart':
-            'JobExecution.fromMap',
-        'lib/features/planned_maintenance/services/runtime_job_module_population_service.dart':
-            'JobModuleInstance.fromMap',
+            ['JobExecution.fromMap'],
         'lib/features/planned_maintenance/services/published_template_assignment_server_service.dart':
-            'PublishedTemplateAssignmentServerResult.fromCallableData',
+            ['PublishedTemplateAssignmentServerResult.fromCallableData'],
+        'lib/features/planned_maintenance/services/runtime_job_module_population_service.dart':
+            ['JobModuleInstance.fromMap'],
+        'lib/features/quality/services/quality_command_service.dart': [
+          'QualityCommandResult.fromMap',
+        ],
       };
+      final discovered =
+          Directory('lib')
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((file) => file.path.endsWith('.dart'))
+              .where(
+                (file) => file.readAsStringSync().contains('httpsCallable('),
+              )
+              .map((file) => file.path.replaceAll('\\', '/'))
+              .toSet();
 
+      expect(
+        discovered,
+        equals(expectedReceiptBoundaries.keys.toSet()),
+        reason:
+            'A new callable client requires an explicit response-boundary review.',
+      );
       for (final entry in expectedReceiptBoundaries.entries) {
         final source = File(entry.key).readAsStringSync();
-        expect(source, contains('httpsCallable('), reason: entry.key);
-        expect(source, contains(entry.value), reason: entry.key);
+        for (final marker in entry.value) {
+          expect(source, contains(marker), reason: '${entry.key}: $marker');
+        }
       }
     });
 

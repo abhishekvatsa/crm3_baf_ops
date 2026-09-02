@@ -63,13 +63,28 @@ class PlantAssetState {
       operationalCondition?.active == true &&
       operationalCondition?.condition == AssetOperationalCondition.unfit;
 
-  bool get isIssueUnfit => issueConditionContributions.any(
+  bool get hasIssueUnfitEvidence => issueConditionContributions.any(
     (item) => item.effect == MaintenanceIssuePlantConditionEffect.unfit,
   );
 
-  bool get isIssueUnavailable => issueConditionContributions.any(
+  bool get hasIssueUnavailableEvidence => issueConditionContributions.any(
     (item) => item.effect == MaintenanceIssuePlantConditionEffect.unavailable,
   );
+
+  bool get hasActiveManualCondition => isDown || isManuallyUnfit;
+
+  // Manual declarations remain authoritative; issue evidence is still retained
+  // below the effective Plant Condition shown to users.
+  bool get isIssueUnavailable =>
+      !hasActiveManualCondition &&
+      !isTemporarilyBlocked &&
+      hasIssueUnavailableEvidence;
+
+  bool get isIssueUnfit =>
+      !hasActiveManualCondition &&
+      !isTemporarilyBlocked &&
+      !hasIssueUnavailableEvidence &&
+      hasIssueUnfitEvidence;
 
   bool get isUnfit => isManuallyUnfit || isIssueUnfit;
 
