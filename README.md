@@ -15,16 +15,14 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` allocates Build 23 (`1.0.0-rc.13+23`) as the source-authorized
-successor of finalized Build 22. Its executable and package source is exact to
-the admitted PR 342 main baseline, with only the governed version and authority
-records advanced for construction. Build 22 remains production-signed,
-independently verified, dual-custodied and finalized non-distributable. The
+Current `main` records Build 23 (`1.0.0-rc.13+23`) as production-signed,
+independently verified, dual-custodied and finalized non-distributable. Its
 exact 15-Function fleet, Firestore Rules and all 66 indexes remain deployed and
-strictly read back. No consumed package identity may be reused. Build 23
-physical-device validation installation requires a separate exact-package
-validation authorization. Pilot handout requires a subsequent exact-package
-promotion decision after the physical-device and convergence evidence exists.
+strictly read back. Build 22 remains immutable and non-distributable. No
+consumed package identity may be reused. Exact Build 23 in-place installation
+and representative labelled business-flow convergence require a separate
+exact-package validation authorization. Pilot handout requires a subsequent
+exact-package promotion decision after that evidence exists.
 
 Authoritative status sources:
 

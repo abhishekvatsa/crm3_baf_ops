@@ -29,12 +29,12 @@
     {
       "path": "release/production-release-policy.json",
       "bytes": 14558,
-      "sha256": "BAB084CAE0E867B615575B461FC39279241A333B1964D0800753F37B5979D08D"
+      "sha256": "567DD024308A0BBCE8B5827EB06F9E98C465BD7703E54B84189EA8F3A96D310C"
     },
     {
       "path": "release/build-number-ledger.json",
-      "bytes": 68762,
-      "sha256": "03B58D1E2B32515BF44365DD5F63837AD9CD10B8D288C140D9142FE5032B0E00"
+      "bytes": 72122,
+      "sha256": "C80FD33FB53453EB0259B3116ABDD07B78E916209A7107B618C0549227D25D93"
     },
     {
       "path": "release/evidence/build-8-finalization-closure.json",
@@ -110,6 +110,11 @@
       "path": "release/evidence/build-22-finalization-closure.json",
       "bytes": 4325,
       "sha256": "D0AC4DF21F04434DE88A418EE5330AB90088E12F503899FC628E04028D82025C"
+    },
+    {
+      "path": "release/evidence/build-23-finalization-closure.json",
+      "bytes": 4325,
+      "sha256": "514F4AC660187A994FCFDB1C6A84EA1BA05B0C2F134DE5608D36C97A22F6A92F"
     },
     {
       "path": "release/evidence/build-18-device-acceptance.json",
@@ -395,6 +400,20 @@
       "governedPackageSha256": "F0F672BDDEA943058A76F4B7035AC72F39BD553018F07AB4BC54B2B40054E04E",
       "authorityReceiptPath": "release/evidence/build-22-finalization-closure.json",
       "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
+    },
+    {
+      "buildNumber": 23,
+      "id": 9834070276,
+      "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.13-b23-4100f87a6926edb9a983798f984183ed1b0d17fe-run-33596126523",
+      "sizeBytes": 169046816,
+      "digest": "sha256:a780d841dffd9ecf6953734a78ec5209dcadc0e6cb9304f6ec8c1233b97eb63b",
+      "workflowRunId": 33596126523,
+      "headSha": "4100f87a6926edb9a983798f984183ed1b0d17fe",
+      "ledgerDisposition": "successful-build-finalized-non-distributable",
+      "dualCustodyCompleted": true,
+      "governedPackageSha256": "B0BF72FBF8FEEB93A799DDEF6ABDF32C1164DF98AFBAF48293E139A14F3A7E73",
+      "authorityReceiptPath": "release/evidence/build-23-finalization-closure.json",
+      "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {
@@ -410,9 +429,9 @@
   },
   "executionAuthority": {
     "artifactDeletionRequiresExplicitOwnerApproval": true,
-    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9827494259",
+    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9834070276",
     "requiredPresentArtifactIds": [
-      9827494259
+      9834070276
     ],
     "deleteOnlyExactArtifactIds": true,
     "workflowRunsAndLogsPreserved": true,
