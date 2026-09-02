@@ -6712,9 +6712,9 @@ check(
     and build22_approval.get("approvalReference") == "BAF-REF-003-C21"
     and build22_evidence_chronology_valid
     and build22_approval.get("sourceBaseline", {}).get("commit")
-        == "2dfa186e269a59269e713df5d915b236c5e9ef04"
+        == "14c1642212271cedd25a44c77272b007dcd8b918"
     and build22_approval.get("sourceBaseline", {}).get("tree")
-        == "57e39da9b26177d8e66a0be12a4bac9ca5a1e873"
+        == "d4b5a20bc8752b95ed337c38830f201e93074f9f"
     and build22_approval.get("consumedBuild", {}).get("buildNumber") == 21
     and build22_approval.get("consumedBuild", {}).get(
         "completionReceiptSha256"
@@ -6724,10 +6724,10 @@ check(
         == "1.0.0-rc.12"
     and build22_approval.get("requiredSource", {}).get(
         "successorFreezePullRequest"
-    ) == 338
+    ) == 339
     and build22_approval.get("requiredSource", {}).get(
         "successorFreezePostMergeGithubRunId"
-    ) == 33566781311
+    ) == 33573488321
     and build22_approval.get("requiredSource", {}).get(
         "successorFreezePostMergeGithubRunConclusion"
     ) == "success"
