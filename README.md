@@ -16,10 +16,9 @@ conflated:
   programme ledger.
 
 Current `main` records Build 22 (`1.0.0-rc.12+22`) as the pending governed
-successor after exact backend deployment and strict readback. Production-signed
-construction remains blocked until this authority tranche is merged, its exact
-post-merge source passes the five-job gate, and the approval and successor state
-are rebound to that source. Build 21 remains independently verified,
+successor after exact backend deployment, strict readback, source rebind and a
+successful five-job post-merge gate for PR #339. Production-signed construction
+is authorized only from that exact rebound application source. Build 21 remains independently verified,
 dual-custodied and finalized non-distributable. No consumed package identity
 may be reused. After construction, exact Build 22 in-place installation,
 representative labelled business-flow convergence and cleanup of only the

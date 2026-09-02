@@ -3,7 +3,7 @@
   "receiptType": "public-repository-required-reviewer-control",
   "approved": true,
   "approvedAtUtc": "2026-09-01T19:58:22Z",
-  "evidenceBoundAtUtc": "2026-09-01T22:44:30Z",
+  "evidenceBoundAtUtc": "2026-09-02T00:12:08Z",
   "approverName": "Abhishek Vatsa",
   "approvalReference": "BAF-GH-ENV-018",
   "approvalEvidence": {
@@ -75,9 +75,9 @@
     "exactSourceApprovalMustMergeToMain": true,
     "pullRequestMergeEvidenceRequired": true,
     "requiredIntegratedMergeCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
-    "requiredSuccessorFreezePullRequest": 338,
-    "requiredSuccessorFreezeCommit": "2dfa186e269a59269e713df5d915b236c5e9ef04",
-    "requiredSuccessorFreezePostMergeRunId": 33566781311,
+    "requiredSuccessorFreezePullRequest": 339,
+    "requiredSuccessorFreezeCommit": "14c1642212271cedd25a44c77272b007dcd8b918",
+    "requiredSuccessorFreezePostMergeRunId": 33573488321,
     "exactLiveMainRequired": true,
     "mainOnlyEnvironmentDeploymentRequired": true,
     "requiredReviewerRuleMustRemainPresent": true,
@@ -111,7 +111,7 @@
   "failClosedConditions": [
     "The approval is invalid for any build other than Build 22.",
     "The approval is invalid if the dispatch approval reference differs from BAF-REF-003-C21.",
-    "The approval is invalid if 2dfa186e269a59269e713df5d915b236c5e9ef04 is not an ancestor of the dispatch commit.",
+    "The approval is invalid if 14c1642212271cedd25a44c77272b007dcd8b918 is not an ancestor of the dispatch commit.",
     "The approval is invalid if the workflow actor or triggering actor is not the authorized dispatcher.",
     "The approval is invalid if the repository is not public or the protected environment differs.",
     "This construction approval does not itself authorize pilot handout, unrestricted distribution, device-data clearing or production data mutation."

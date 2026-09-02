@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-02",
   "asOfDate": "2026-09-02",
-  "status": "BUILD22_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
+  "status": "BUILD22_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.12+22",
       "relationshipToLatestFinalizedArtifact": "BUILD22_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD21",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": false,
+      "artifactConstructionAuthority": true,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -72,7 +72,7 @@
     },
     "nextCandidate": {
       "minimumBuildNumber": 22,
-      "status": "SOURCE_SUCCESSOR_AWAITING_BUILD22_ARTIFACT_SOURCE_REBIND",
+      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD22_CONSTRUCTION",
       "constructionRequiresFreshGovernedApproval": false,
       "versionApprovalFile": "release/approvals/build-number-22-successor-approval.json",
       "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-22.json",

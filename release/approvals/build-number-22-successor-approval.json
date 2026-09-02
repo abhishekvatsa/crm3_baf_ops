@@ -3,7 +3,7 @@
   "documentType": "governed-build-number-rollover-approval",
   "approved": true,
   "approvedAtUtc": "2026-09-01T19:58:22Z",
-  "evidenceBoundAtUtc": "2026-09-01T22:44:30Z",
+  "evidenceBoundAtUtc": "2026-09-02T00:12:08Z",
   "approverName": "Abhishek Vatsa",
   "approvalEvidence": {
     "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
@@ -17,8 +17,8 @@
   "authorityBasis": "Project-owner instruction in Codex task 019ee05b-70ae-7312-92d3-48f67e5c8b49, turn 01a05e8d-2109-7622-b9c6-fdd3fe866862, to make the next governed build and proceed toward controlled pilot distribution after satisfactory checks. This record binds that actual instruction to the reviewed Build 22 backend reconciliation and exact post-merge main source without fabricating a separately dictated signature or quotation.",
   "approvalScope": "Allocate build number 22 and version 1.0.0-rc.12 for one production-signed successor containing the admitted responsive-layout, navigation, morning-review, synchronization, asset-condition, maintenance, safety-alarm, reporting and business-flow corrections since finalized Build 21. Independent package verification, dual custody, in-place installation, representative labelled trial interactions, exact cleanup of only those trial records, and controlled pilot intent for at most 25 users are approved. Actual handout requires an exact-package promotion receipt after device and convergence checks. IAM mutation, App Check activation, genuine operational-record mutation or deletion, device-data clearing, Play Store publication and unrestricted distribution remain outside this authority.",
   "sourceBaseline": {
-    "commit": "2dfa186e269a59269e713df5d915b236c5e9ef04",
-    "tree": "57e39da9b26177d8e66a0be12a4bac9ca5a1e873"
+    "commit": "14c1642212271cedd25a44c77272b007dcd8b918",
+    "tree": "d4b5a20bc8752b95ed337c38830f201e93074f9f"
   },
   "consumedBuild": {
     "buildNumber": 21,
@@ -175,11 +175,11 @@
     "build22BackendReconciliationPullRequest": 338,
     "build22BackendReconciliationMergeCommit": "2dfa186e269a59269e713df5d915b236c5e9ef04",
     "build22BackendReconciliationTree": "57e39da9b26177d8e66a0be12a4bac9ca5a1e873",
-    "successorFreezePullRequest": 338,
-    "successorFreezeBaselineCommit": "2dfa186e269a59269e713df5d915b236c5e9ef04",
-    "successorFreezeBaselineTree": "57e39da9b26177d8e66a0be12a4bac9ca5a1e873",
+    "successorFreezePullRequest": 339,
+    "successorFreezeBaselineCommit": "14c1642212271cedd25a44c77272b007dcd8b918",
+    "successorFreezeBaselineTree": "d4b5a20bc8752b95ed337c38830f201e93074f9f",
     "successorFreezeMustBeAncestorOfDispatchCommit": true,
-    "successorFreezePostMergeGithubRunId": 33566781311,
+    "successorFreezePostMergeGithubRunId": 33573488321,
     "successorFreezePostMergeGithubRunConclusion": "success",
     "successorFreezeCanonicalAuditPassCount": 149,
     "build20AcceptancePolicyShapeCorrectionCommit": "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2",
