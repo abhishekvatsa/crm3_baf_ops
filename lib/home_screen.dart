@@ -119,6 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute<void>(
+          settings: const RouteSettings(name: CriticalAlarmScreen.routeName),
           builder: (_) => CriticalAlarmScreen(initialAlarmId: alarmId),
         ),
       );
@@ -216,41 +217,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
         final criticalAlarmsAsync = ref.watch(activeCriticalAlarmsProvider);
 
-        final ticketCount = ticketCountAsync.value ?? 0;
-        final executionCount = executionCountAsync?.value ?? 0;
-        final directiveCount = directiveCountAsync.value ?? 0;
+        final ticketCount = ticketCountAsync.valueOrNull ?? 0;
+        final executionCount = executionCountAsync?.valueOrNull ?? 0;
+        final directiveCount = directiveCountAsync.valueOrNull ?? 0;
         final workflowAttentionCount =
             summarizeWorkflowAttention(
               actor: appUser,
-              lanes: workflowLanesAsync?.value ?? const [],
-              compliance: workflowComplianceAsync?.value ?? const [],
+              lanes: workflowLanesAsync?.valueOrNull ?? const [],
+              compliance: workflowComplianceAsync?.valueOrNull ?? const [],
             ).total;
         final openOperationalEventCount =
-            operationalEventsAsync.value
+            operationalEventsAsync.valueOrNull
                 ?.where((event) => event.isOpen)
                 .length ??
             0;
         final openQualityWarningCount =
-            qualityWarningsAsync.value
+            qualityWarningsAsync.valueOrNull
                 ?.where(
                   (warning) => warning.status != QualityWarningStatus.closed,
                 )
                 .length ??
             0;
         final activeQualityMonitoringCount =
-            qualityMonitoringAsync.value
+            qualityMonitoringAsync.valueOrNull
                 ?.where(
                   (request) => request.status == QualityMonitoringStatus.active,
                 )
                 .length ??
             0;
         final overdueMaintenanceCount =
-            maintenanceDueStatesAsync.value
+            maintenanceDueStatesAsync.valueOrNull
                 ?.where((state) => state.isOverdue)
                 .length ??
             0;
         final activeInspectionFindingCount =
-            inspectionFindingsAsync.value
+            inspectionFindingsAsync.valueOrNull
                 ?.where(
                   (finding) => {
                     InspectionFindingStatus.open,
@@ -268,23 +269,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ? 0
                 : criticalAlarmSnapshot!.alarms.length;
         final operationalEventsUnavailable =
-            operationalEventsAsync.value == null;
-        final qualityWarningsUnavailable = qualityWarningsAsync.value == null;
+            operationalEventsAsync.valueOrNull == null;
+        final qualityWarningsUnavailable =
+            qualityWarningsAsync.valueOrNull == null;
         final qualityMonitoringUnavailable =
-            qualityMonitoringAsync.value == null;
+            qualityMonitoringAsync.valueOrNull == null;
         final attentionDataUnavailable =
-            ticketCountAsync.value == null ||
-            directiveCountAsync.value == null ||
+            ticketCountAsync.valueOrNull == null ||
+            directiveCountAsync.valueOrNull == null ||
             (executionCountAsync != null &&
-                executionCountAsync.value == null) ||
-            (workflowLanesAsync != null && workflowLanesAsync.value == null) ||
+                executionCountAsync.valueOrNull == null) ||
+            (workflowLanesAsync != null &&
+                workflowLanesAsync.valueOrNull == null) ||
             (workflowComplianceAsync != null &&
-                workflowComplianceAsync.value == null) ||
+                workflowComplianceAsync.valueOrNull == null) ||
             operationalEventsUnavailable ||
             qualityWarningsUnavailable ||
             qualityMonitoringUnavailable ||
-            maintenanceDueStatesAsync.value == null ||
-            inspectionFindingsAsync.value == null ||
+            maintenanceDueStatesAsync.valueOrNull == null ||
+            inspectionFindingsAsync.valueOrNull == null ||
             criticalAlarmsUnavailable;
 
         final tabs = _buildTabs(
@@ -302,11 +305,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           operationalEventsUnavailable: operationalEventsUnavailable,
           qualityWarningsUnavailable: qualityWarningsUnavailable,
           qualityMonitoringUnavailable: qualityMonitoringUnavailable,
-          directiveDataUnavailable: directiveCountAsync.value == null,
+          directiveDataUnavailable: directiveCountAsync.valueOrNull == null,
           workflowDataUnavailable:
-              workflowLanesAsync?.value == null ||
-              workflowComplianceAsync?.value == null,
-          inspectionFindingsUnavailable: inspectionFindingsAsync.value == null,
+              workflowLanesAsync?.valueOrNull == null ||
+              workflowComplianceAsync?.valueOrNull == null,
+          inspectionFindingsUnavailable:
+              inspectionFindingsAsync.valueOrNull == null,
           criticalAlarmsUnavailable: criticalAlarmsUnavailable,
           attentionDataUnavailable: attentionDataUnavailable,
           plantOverview: plantOverviewAsync,
@@ -697,7 +701,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _push(BuildContext context, Widget screen) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        settings:
+            screen is CriticalAlarmScreen
+                ? const RouteSettings(name: CriticalAlarmScreen.routeName)
+                : null,
+        builder: (_) => screen,
+      ),
+    );
   }
 
   void _retryAttentionData(BuildContext context, AppUser appUser) {

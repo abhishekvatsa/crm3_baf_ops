@@ -54,7 +54,15 @@ extension _FleetStatusReportActions on _FleetStatusScreenState {
   ];
 
   void _open(Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings:
+            screen is CriticalAlarmScreen
+                ? const RouteSettings(name: CriticalAlarmScreen.routeName)
+                : null,
+        builder: (_) => screen,
+      ),
+    );
   }
 
   Future<void> _createPdfReport({

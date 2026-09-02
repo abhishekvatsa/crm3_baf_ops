@@ -20,6 +20,8 @@ part 'critical_alarm_screen.feed.dart';
 class CriticalAlarmScreen extends ConsumerWidget {
   const CriticalAlarmScreen({super.key, this.initialAlarmId});
 
+  static const routeName = '/critical-safety';
+
   final String? initialAlarmId;
 
   @override

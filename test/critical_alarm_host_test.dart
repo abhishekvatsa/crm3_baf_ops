@@ -4,6 +4,7 @@ import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/domain/critical_alarm_models.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/presentation/critical_alarm_host.dart';
+import 'package:crm3_baf_ops/features/critical_alarm/presentation/critical_alarm_screen.dart';
 import 'package:crm3_baf_ops/features/critical_alarm/providers/critical_alarm_providers.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter/material.dart';
@@ -503,6 +504,83 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Governed hierarchy picker'), findsOneWidget);
+    expect(
+      find.byKey(const Key('global-critical-alarm-launcher')),
+      findsNothing,
+    );
+
+    navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('global-critical-alarm-launcher')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('global alarm launcher hides inside critical safety workspace', (
+    tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, (call) async {
+          if (call.method == 'reconcileActiveNotifications') return 0;
+          return null;
+        });
+    final navigatorKey = GlobalKey<NavigatorState>();
+    final routeObserver = CriticalAlarmLauncherRouteObserver();
+    addTearDown(routeObserver.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+          activeCriticalAlarmsProvider.overrideWith(
+            (_) => Stream.value(_verified(const <CriticalAlarm>[])),
+          ),
+        ],
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          navigatorObservers: <NavigatorObserver>[routeObserver],
+          builder:
+              (context, child) => CriticalAlarmHost(
+                navigatorKey: navigatorKey,
+                launcherObscuredListenable: routeObserver.obscured,
+                child: child ?? const SizedBox.shrink(),
+              ),
+          home: Builder(
+            builder:
+                (context) => Scaffold(
+                  body: Center(
+                    child: FilledButton(
+                      onPressed:
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              settings: const RouteSettings(
+                                name: CriticalAlarmScreen.routeName,
+                              ),
+                              builder:
+                                  (_) => const Scaffold(
+                                    body: Text('Critical safety workspace'),
+                                  ),
+                            ),
+                          ),
+                      child: const Text('Open critical safety'),
+                    ),
+                  ),
+                ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('global-critical-alarm-launcher')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Open critical safety'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Critical safety workspace'), findsOneWidget);
     expect(
       find.byKey(const Key('global-critical-alarm-launcher')),
       findsNothing,
