@@ -73,8 +73,8 @@ class PlantAssetState {
 
   bool get hasActiveManualCondition => isDown || isManuallyUnfit;
 
-  // Manual declarations remain authoritative; issue evidence is still retained
-  // below the effective Plant Condition shown to users.
+  // Manual and stuck-up declarations remain authoritative; lower-priority issue
+  // evidence is retained without double-counting the asset in summary states.
   bool get isIssueUnavailable =>
       !hasActiveManualCondition &&
       !isTemporarilyBlocked &&

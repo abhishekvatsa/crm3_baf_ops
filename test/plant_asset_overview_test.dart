@@ -807,4 +807,49 @@ void main() {
     expect(state.issueConditionContributions, isEmpty);
     expect(state.isAvailable, isFalse);
   });
+
+  test('stuck-up remains exclusive while retaining other issue evidence', () {
+    final furnace = assetClass(
+      id: 'furnace-class',
+      code: 'furnace',
+      name: 'Furnace',
+      legacyKey: 'furnace',
+    );
+    final furnace8 = asset(id: 'furnace-8', assetClass: furnace, number: 8);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [furnace],
+      assetInstances: [furnace8],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+      availabilityProjections: [blocked(asset: furnace8)],
+      maintenanceTickets: [
+        issueCondition(
+          id: 'ticket-stuck-up',
+          asset: furnace8,
+          effect: MaintenanceIssuePlantConditionEffect.stuckUp,
+        ),
+        issueCondition(
+          id: 'ticket-unavailable',
+          asset: furnace8,
+          effect: MaintenanceIssuePlantConditionEffect.unavailable,
+        ),
+        issueCondition(
+          id: 'ticket-unfit',
+          asset: furnace8,
+          effect: MaintenanceIssuePlantConditionEffect.unfit,
+        ),
+      ],
+    );
+
+    final state = overview.assets.single;
+    expect(state.isTemporarilyBlocked, isTrue);
+    expect(state.hasIssueUnavailableEvidence, isTrue);
+    expect(state.hasIssueUnfitEvidence, isTrue);
+    expect(state.issueConditionContributions, hasLength(2));
+    expect(state.isIssueUnavailable, isFalse);
+    expect(state.isIssueUnfit, isFalse);
+    expect(overview.temporarilyBlocked, 1);
+    expect(overview.issueUnavailable, 0);
+    expect(overview.unfit, 0);
+  });
 }
