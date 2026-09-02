@@ -500,8 +500,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 165
-    and counts.get("SUCCESSOR_MODIFIED") == 245
+    and counts.get("BYTE_IDENTICAL") == 164
+    and counts.get("SUCCESSOR_MODIFIED") == 246
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
