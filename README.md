@@ -15,14 +15,13 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` records Build 22 (`1.0.0-rc.12+22`) as the pending governed
-successor after exact backend deployment, strict readback, source rebind and a
-successful five-job post-merge gate for PR #339. Production-signed construction
-is authorized only from that exact rebound application source. Build 21 remains independently verified,
-dual-custodied and finalized non-distributable. No consumed package identity
-may be reused. After construction, exact Build 22 in-place installation,
+Current `main` records Build 22 (`1.0.0-rc.12+22`) as production-signed,
+independently verified, dual-custodied and finalized non-distributable. Its
+exact 15-Function fleet, Firestore Rules and all 66 indexes are deployed and
+strictly read back. Build 21 remains immutable and non-distributable. No
+consumed package identity may be reused. Exact Build 22 in-place installation,
 representative labelled business-flow convergence and cleanup of only the
-generated trial records are required; a separate exact-package promotion
+generated trial records remain required; a separate exact-package promotion
 receipt is then required before controlled-pilot handout to at most 25 users.
 
 Authoritative status sources:
