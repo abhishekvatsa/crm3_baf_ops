@@ -24,6 +24,18 @@ String _packageVersion() {
   return match!.group(1)!;
 }
 
+int _currentIsarSchemaVersion() {
+  final match = RegExp(
+    r'static const int currentSchemaVersion\s*=\s*(\d+)\s*;',
+  ).firstMatch(
+    File('lib/core/services/isar_schema_migration.dart').readAsStringSync(),
+  );
+  if (match == null) {
+    throw StateError('Unable to resolve the governed Isar schema version.');
+  }
+  return int.parse(match.group(1)!);
+}
+
 String _gitTreeObjectId(String commit, String path) {
   final result = Process.runSync('git', <String>[
     'rev-parse',
@@ -759,15 +771,15 @@ void main() {
             : 'AWAITING_FRESH_GOVERNED_BUILD${candidateBuildNumber + 1}_'
                 'APPROVAL',
       );
-      expect(next.containsKey('sourceApprovalFile'), pendingConstruction);
+      expect(next.containsKey('versionApprovalFile'), pendingConstruction);
+      expect(next.containsKey('environmentApprovalFile'), pendingConstruction);
       expect(
-        next.containsKey('signingEnvironmentApprovalFile'),
-        pendingConstruction,
+        next['constructionRequiresFreshGovernedApproval'],
+        !pendingConstruction,
       );
-      expect(next['constructionRequiresFreshGovernedApproval'], isTrue);
       expect(next['deviceValidationRequiresExactNewArtifact'], isTrue);
       expect(next['pilotPromotionRequiresSeparateDecision'], isTrue);
-      expect(state['localStore']['schemaVersion'], 9);
+      expect(state['localStore']['schemaVersion'], _currentIsarSchemaVersion());
       expect(state['appCheck']['mutatingCallableSourceDefault'], isFalse);
 
       final readme = File('README.md').readAsStringSync();

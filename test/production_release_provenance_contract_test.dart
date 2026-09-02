@@ -190,6 +190,35 @@ void main() {
       expect(text, contains(r'$expectedCurrentSourceFunctionDeployment'));
       expect(text, contains(r'$functionsMatchDeployed'));
       expect(text, contains(r'$backendMatchesDeployed'));
+      expect(
+        text,
+        contains(r'$predecessorPhysicalInstallationConditionRecorded'),
+      );
+      expect(text, contains(r'$predecessorLedgerMatches.Count -ne 1'));
+      expect(text, contains('function Get-OptionalPropertyValue'));
+      expect(
+        text,
+        contains(
+          r'$prior.physicalInstallationConditionPassed -ne'
+          '\n        '
+          r'$predecessorLedger.physicalInstallationConditionPassed',
+        ),
+      );
+      expect(
+        text,
+        contains(
+          r'[string]$priorPhysicalInstallationReceiptSha256 -ne'
+          '\n        '
+          r'[string]$ledgerPhysicalInstallationReceiptSha256',
+        ),
+      );
+      expect(
+        text,
+        contains(
+          'Predecessor without physical acceptance retains a '
+          'physical-installation receipt.',
+        ),
+      );
       expect(canonicalAudit, contains('git_tree_object_id'));
       expect(canonicalAudit, contains('function_fleet_deployment_status'));
       expect(canonicalAudit, contains('expected_current_function_deployment'));
@@ -1275,6 +1304,9 @@ void main() {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
                 as Map<String, dynamic>;
+        final buildNumberLedger =
+            jsonDecode(read('release/build-number-ledger.json'))
+                as Map<String, dynamic>;
         final finalization = policy['finalization'] as Map<String, dynamic>;
         final build17Approval =
             jsonDecode(
@@ -1449,8 +1481,7 @@ void main() {
             finalization['status'] == 'pending-source-authorized';
         final candidateBuildNumber =
             (policy['release'] as Map<String, dynamic>)['buildNumber'] as int;
-        final versionPolicy =
-            policy['versionPolicy'] as Map<String, dynamic>;
+        final versionPolicy = policy['versionPolicy'] as Map<String, dynamic>;
         final versionSource =
             jsonDecode(read(versionPolicy['sourceDocumentFile'] as String))
                 as Map<String, dynamic>;
@@ -1475,8 +1506,7 @@ void main() {
           21,
         );
         expect(
-          (build21Receipt['sourceAuthority']
-              as Map<String, dynamic>)['commit'],
+          (build21Receipt['sourceAuthority'] as Map<String, dynamic>)['commit'],
           'e5ad4ab09418b2a1e8b7721f32ba16e0a61ea25d',
         );
         expect(
@@ -1488,8 +1518,7 @@ void main() {
           9783168726,
         );
         expect(
-          (build21Receipt['governedPackage']
-              as Map<String, dynamic>)['sha256'],
+          (build21Receipt['governedPackage'] as Map<String, dynamic>)['sha256'],
           '0F071B1D8AA7236EBD63296C1DE06F4FBC2938D67D7FC105B1A84858D131C080',
         );
         expect(
@@ -1517,8 +1546,7 @@ void main() {
           20,
         );
         expect(
-          (build20Receipt['governedPackage']
-              as Map<String, dynamic>)['sha256'],
+          (build20Receipt['governedPackage'] as Map<String, dynamic>)['sha256'],
           'DC93397C1BED3A7F2FE9749C4F4608EE989C4DD06E15C80B1DFADE67E699BDDC',
         );
         expect(
@@ -1565,10 +1593,7 @@ void main() {
             jsonDecode(read(priorCompletionReceiptFile))
                 as Map<String, dynamic>;
         expect(priorBuildNumber, lessThan(candidateBuildNumber));
-        expect(
-          priorBuildNumber,
-          preservedCompletedBuild['buildNumber'],
-        );
+        expect(priorBuildNumber, preservedCompletedBuild['buildNumber']);
         if (priorBuildNumber != candidateBuildNumber - 1) {
           final priorFailedAttempt =
               finalization['priorFailedAttempt'] as Map<String, dynamic>;
@@ -1591,6 +1616,22 @@ void main() {
         expect(
           priorCompletedBuild['completionReceiptSha256'],
           preservedCompletedBuild['completionReceiptSha256'],
+        );
+        final predecessorLedgerEntry = (buildNumberLedger['entries']
+                as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .singleWhere((entry) => entry['buildNumber'] == priorBuildNumber);
+        expect(
+          priorCompletedBuild['physicalInstallationConditionPassed'],
+          predecessorLedgerEntry['physicalInstallationConditionPassed'],
+        );
+        expect(
+          priorCompletedBuild['physicalInstallationReceiptFile'],
+          predecessorLedgerEntry['physicalInstallationReceiptFile'],
+        );
+        expect(
+          priorCompletedBuild['physicalInstallationReceiptSha256'],
+          predecessorLedgerEntry['physicalInstallationReceiptSha256'],
         );
         expect(
           (priorCompletionReceipt['release']
