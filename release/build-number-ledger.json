@@ -1202,6 +1202,24 @@
       "controlledPilotApproved": false,
       "unrestrictedPlantReleaseApproved": false,
       "distributionPerformed": false
+    },
+    {
+      "reservationId": "crm3-baf-ops-successor-2022068-b23-23",
+      "buildNumber": 23,
+      "versionName": "1.0.0-rc.13",
+      "releaseId": "crm3-baf-ops-1.0.0-rc.13-b23",
+      "releaseTag": "crm3-baf-ops-v1.0.0-rc.13",
+      "releaseChannel": "production-candidate",
+      "campaignId": "crm3-baf-ops-successor-2022068-b23",
+      "baselineCommit": "20220685bb0d749184376792fd61e297d054adaa",
+      "reservedForBranch": "codex/build23-governed-release",
+      "status": "source-reserved-awaiting-remote-consumption",
+      "remoteReservationTag": "crm3-build-reserved/23",
+      "remoteBuiltTag": "crm3-build-built/23",
+      "failedOrWithdrawnBuildConsumesNumber": true,
+      "reservedAtUtc": "2026-09-02T04:19:12Z",
+      "versionApprovalReference": "BAF-REF-003-C22",
+      "versionApprovalDocumentSha256": "C1694C876300A9E7DC4847BA4B4E278F3EB063A48F57DBF44A99DD8BDF2A5836"
     }
   ]
 }
