@@ -12905,8 +12905,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 165
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 245
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 164
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 246
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections
