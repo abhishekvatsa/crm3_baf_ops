@@ -202,6 +202,35 @@ void main() {
       },
     );
 
+    test('home dashboard does not rethrow transient provider errors', () {
+      final source = _readText('lib/home_screen.dart');
+      const dashboardValues = <String>[
+        'ticketCountAsync',
+        'executionCountAsync',
+        'directiveCountAsync',
+        'workflowLanesAsync',
+        'workflowComplianceAsync',
+        'operationalEventsAsync',
+        'qualityWarningsAsync',
+        'qualityMonitoringAsync',
+        'maintenanceDueStatesAsync',
+        'inspectionFindingsAsync',
+      ];
+
+      for (final value in dashboardValues) {
+        expect(
+          RegExp(
+            '${RegExp.escape(value)}\\??\\.value(?!OrNull)',
+          ).hasMatch(source),
+          isFalse,
+          reason:
+              '$value must tolerate the deliberate cache-to-server trust transition.',
+        );
+      }
+      expect(source, contains('ticketCountAsync.valueOrNull'));
+      expect(source, contains('operationalEventsAsync.valueOrNull'));
+    });
+
     test('Crashlytics collection is release-safe and privacy constrained', () {
       final logger = _readText('lib/core/services/app_logger.dart');
       final bootstrap = _readText(

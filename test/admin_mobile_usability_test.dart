@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart';
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_asset_hierarchy_tab.dart';
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart';
 import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
@@ -14,6 +15,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('abnormality administration actions stack cleanly on phones', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: AbnormalitiesAdminTab())),
+    );
+    await tester.pumpAndSettle();
+
+    final copy = find.byKey(
+      const ValueKey('admin-abnormality-copy-Manage Types'),
+    );
+    final action = find.byKey(
+      const ValueKey('admin-abnormality-action-Manage Types'),
+    );
+    expect(copy, findsOneWidget);
+    expect(action, findsOneWidget);
+    expect(tester.getSize(copy).width, greaterThan(200));
+    expect(tester.getSize(action).width, greaterThan(250));
+    expect(
+      tester.getTopLeft(action).dy,
+      greaterThan(tester.getBottomLeft(copy).dy),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'asset hierarchy header scrolls and compact actions stay legible',
     (tester) async {

@@ -143,9 +143,33 @@ class _AdminAbnormalityActionCard extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(BafSpacing.lg),
-          child: Row(
-            children: [
-              Container(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < BafBreakpoints.compact;
+              final copy = Column(
+                key: ValueKey('admin-abnormality-copy-$actionLabel'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.xs),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              );
+              final iconTile = Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
@@ -153,34 +177,9 @@ class _AdminAbnormalityActionCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: Icon(icon, color: color),
-              ),
-              const SizedBox(width: BafSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: BafColors.textPrimary,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: BafSpacing.xs),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 12,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: BafSpacing.md),
-              FilledButton.icon(
+              );
+              final action = FilledButton.icon(
+                key: ValueKey('admin-abnormality-action-$actionLabel'),
                 style: FilledButton.styleFrom(
                   backgroundColor: color,
                   foregroundColor: Colors.white,
@@ -188,8 +187,36 @@ class _AdminAbnormalityActionCard extends StatelessWidget {
                 onPressed: onTap,
                 icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                 label: Text(actionLabel),
-              ),
-            ],
+              );
+
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        iconTile,
+                        const SizedBox(width: BafSpacing.md),
+                        Expanded(child: copy),
+                      ],
+                    ),
+                    const SizedBox(height: BafSpacing.md),
+                    SizedBox(height: 44, child: action),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  iconTile,
+                  const SizedBox(width: BafSpacing.md),
+                  Expanded(child: copy),
+                  const SizedBox(width: BafSpacing.md),
+                  action,
+                ],
+              );
+            },
           ),
         ),
       ),

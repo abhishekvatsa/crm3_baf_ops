@@ -64,8 +64,8 @@ void main() {
     expect(home, contains("title: 'Audit log'"));
     expect(home, contains('appUser.canViewOperationalAssets'));
     expect(home, contains('appUser.canViewClosedMaintenanceTickets'));
-    expect(home, contains('operationalEventsAsync.value == null'));
-    expect(home, contains('qualityWarningsAsync.value == null'));
+    expect(home, contains('operationalEventsAsync.valueOrNull == null'));
+    expect(home, contains('qualityWarningsAsync.valueOrNull == null'));
     expect(home, contains('operationalEventsUnavailable'));
     expect(home, contains('qualityWarningsUnavailable'));
     expect(home, contains("? 'Unavailable'"));

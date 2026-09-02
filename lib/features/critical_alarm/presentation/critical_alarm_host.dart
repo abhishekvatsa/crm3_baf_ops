@@ -19,7 +19,9 @@ class CriticalAlarmLauncherRouteObserver extends NavigatorObserver {
 
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
-    obscured.value = topRoute is PopupRoute<dynamic>;
+    obscured.value =
+        topRoute is PopupRoute<dynamic> ||
+        topRoute.settings.name == CriticalAlarmScreen.routeName;
   }
 
   void dispose() => obscured.dispose();
@@ -43,8 +45,8 @@ class CriticalAlarmHost extends ConsumerStatefulWidget {
 
 class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     with WidgetsBindingObserver {
-  static const _launcherXKey = 'critical_alarm_launcher_x_fraction_v1';
-  static const _launcherYKey = 'critical_alarm_launcher_y_fraction_v1';
+  static const _launcherXKey = 'critical_alarm_launcher_x_fraction_v2';
+  static const _launcherYKey = 'critical_alarm_launcher_y_fraction_v2';
   static const _launcherSize = 48.0;
   static const _launcherMargin = 12.0;
   static const _initialFeedWarningDelay = Duration(seconds: 12);
@@ -62,7 +64,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   late final ProviderSubscription<AsyncValue<CriticalAlarmLiveSnapshot>>
   _alarmFeedSubscription;
   String? _pendingOpenedAlarmId;
-  Offset _launcherFraction = const Offset(1, 0.78);
+  Offset _launcherFraction = const Offset(1, 0.52);
   Offset? _dragStartGlobalPosition;
   Offset? _dragStartLauncherOffset;
 
@@ -373,6 +375,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   void _open({String? initialAlarmId}) {
     widget.navigatorKey.currentState?.push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: CriticalAlarmScreen.routeName),
         builder: (_) => CriticalAlarmScreen(initialAlarmId: initialAlarmId),
       ),
     );

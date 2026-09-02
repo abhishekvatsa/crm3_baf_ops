@@ -497,6 +497,115 @@ void main() {
     );
   });
 
+  test('manual down remains authoritative over open issue unfit evidence', () {
+    final furnace = assetClass(
+      id: 'furnace-class',
+      code: 'furnace',
+      name: 'Furnace',
+      legacyKey: 'furnace',
+    );
+    final furnace12 = asset(id: 'furnace-12', assetClass: furnace, number: 12);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [furnace],
+      assetInstances: [furnace12],
+      operationalConditions: [
+        condition(asset: furnace12, condition: AssetOperationalCondition.down),
+      ],
+      workflowStatuses: const [],
+      maintenanceTickets: [
+        issueCondition(
+          id: 'ticket-open-unfit',
+          asset: furnace12,
+          effect: MaintenanceIssuePlantConditionEffect.unfit,
+        ),
+      ],
+    );
+
+    final state = overview.assets.single;
+    expect(state.isDown, isTrue);
+    expect(state.hasIssueUnfitEvidence, isTrue);
+    expect(state.isIssueUnfit, isFalse);
+    expect(state.isUnfit, isFalse);
+    expect(state.issueConditionContributions, hasLength(1));
+    expect(overview.down, 1);
+    expect(overview.unfit, 0);
+  });
+
+  test(
+    'manual unfit remains authoritative over issue unavailable evidence',
+    () {
+      final base = assetClass(
+        id: 'base-class',
+        code: 'base',
+        name: 'Base',
+        legacyKey: 'base',
+      );
+      final base201 = asset(id: 'base-201', assetClass: base, number: 201);
+      final overview = PlantAssetOverview.build(
+        assetClasses: [base],
+        assetInstances: [base201],
+        operationalConditions: [
+          condition(asset: base201, condition: AssetOperationalCondition.unfit),
+        ],
+        workflowStatuses: const [],
+        maintenanceTickets: [
+          issueCondition(
+            id: 'ticket-open-unavailable',
+            asset: base201,
+            effect: MaintenanceIssuePlantConditionEffect.unavailable,
+          ),
+        ],
+      );
+
+      final state = overview.assets.single;
+      expect(state.isManuallyUnfit, isTrue);
+      expect(state.hasIssueUnavailableEvidence, isTrue);
+      expect(state.isIssueUnavailable, isFalse);
+      expect(state.isUnfit, isTrue);
+      expect(state.issueConditionContributions, hasLength(1));
+      expect(overview.issueUnavailable, 0);
+      expect(overview.unfit, 1);
+    },
+  );
+
+  test('issue unavailable supersedes issue-default unfit', () {
+    final base = assetClass(
+      id: 'base-class',
+      code: 'base',
+      name: 'Base',
+      legacyKey: 'base',
+    );
+    final base201 = asset(id: 'base-201', assetClass: base, number: 201);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [base],
+      assetInstances: [base201],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+      maintenanceTickets: [
+        issueCondition(
+          id: 'ticket-open-unfit',
+          asset: base201,
+          effect: MaintenanceIssuePlantConditionEffect.unfit,
+        ),
+        issueCondition(
+          id: 'ticket-open-unavailable',
+          asset: base201,
+          effect: MaintenanceIssuePlantConditionEffect.unavailable,
+        ),
+      ],
+    );
+
+    final state = overview.assets.single;
+    expect(state.hasIssueUnfitEvidence, isTrue);
+    expect(state.hasIssueUnavailableEvidence, isTrue);
+    expect(state.isIssueUnavailable, isTrue);
+    expect(state.isIssueUnfit, isFalse);
+    expect(state.isUnfit, isFalse);
+    expect(state.issueConditionContributions, hasLength(2));
+    expect(overview.issueUnavailable, 1);
+    expect(overview.unfit, 0);
+  });
+
   test('issue unavailable is distinct and survives an unsynced closure', () {
     final base = assetClass(
       id: 'base-class',
@@ -626,7 +735,7 @@ void main() {
     },
   );
 
-  test('issue effects compose and clear independently', () {
+  test('issue evidence remains visible beneath a manual condition', () {
     final base = assetClass(
       id: 'base-class',
       code: 'base',
@@ -660,7 +769,8 @@ void main() {
 
     final state = overview.assets.single;
     expect(state.isManuallyUnfit, isTrue);
-    expect(state.isIssueUnavailable, isTrue);
+    expect(state.hasIssueUnavailableEvidence, isTrue);
+    expect(state.isIssueUnavailable, isFalse);
     expect(state.issueConditionContributions, hasLength(1));
     expect(
       state.issueConditionContributions.single.comment,
@@ -696,5 +806,50 @@ void main() {
     expect(state.isTemporarilyBlocked, isTrue);
     expect(state.issueConditionContributions, isEmpty);
     expect(state.isAvailable, isFalse);
+  });
+
+  test('stuck-up remains exclusive while retaining other issue evidence', () {
+    final furnace = assetClass(
+      id: 'furnace-class',
+      code: 'furnace',
+      name: 'Furnace',
+      legacyKey: 'furnace',
+    );
+    final furnace8 = asset(id: 'furnace-8', assetClass: furnace, number: 8);
+    final overview = PlantAssetOverview.build(
+      assetClasses: [furnace],
+      assetInstances: [furnace8],
+      operationalConditions: const [],
+      workflowStatuses: const [],
+      availabilityProjections: [blocked(asset: furnace8)],
+      maintenanceTickets: [
+        issueCondition(
+          id: 'ticket-stuck-up',
+          asset: furnace8,
+          effect: MaintenanceIssuePlantConditionEffect.stuckUp,
+        ),
+        issueCondition(
+          id: 'ticket-unavailable',
+          asset: furnace8,
+          effect: MaintenanceIssuePlantConditionEffect.unavailable,
+        ),
+        issueCondition(
+          id: 'ticket-unfit',
+          asset: furnace8,
+          effect: MaintenanceIssuePlantConditionEffect.unfit,
+        ),
+      ],
+    );
+
+    final state = overview.assets.single;
+    expect(state.isTemporarilyBlocked, isTrue);
+    expect(state.hasIssueUnavailableEvidence, isTrue);
+    expect(state.hasIssueUnfitEvidence, isTrue);
+    expect(state.issueConditionContributions, hasLength(2));
+    expect(state.isIssueUnavailable, isFalse);
+    expect(state.isIssueUnfit, isFalse);
+    expect(overview.temporarilyBlocked, 1);
+    expect(overview.issueUnavailable, 0);
+    expect(overview.unfit, 0);
   });
 }
