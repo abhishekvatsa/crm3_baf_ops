@@ -2718,7 +2718,14 @@ check(
     "Firebase CLI tooling pins only the bounded patched dependency versions",
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
     and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
-    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.5"
+    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.6"
+    and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.0"
+    and firebase_cli_package.get("dependencies", {}).get("stream-json") == "file:../stream-json-compat"
+    and firebase_cli_package.get("overrides", {}).get("stream-json") == "$stream-json"
+    and firebase_cli_packages.get("node_modules/stream-json", {}).get("version") == "3.5.0"
+    and firebase_cli_packages.get("node_modules/stream-json", {}).get("resolved") == "file:../stream-json-compat"
+    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.5.0"
+    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-dobB7zipGW8o11PvdRljQSWuyMxifADLvoHeA4elwNWOTbZo6+BlNa+P6aCq7Y9jRiWTy2Ucu2xSv0Y2/T+/kQ=="
     and firebase_cli_package.get("overrides", {}).get("hono") == "4.12.34"
     and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.4.0"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.1"
@@ -2730,9 +2737,9 @@ check(
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
     and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
-    and fast_uri.get("version") == "3.1.5"
-    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.5.tgz"
-    and fast_uri.get("integrity") == "sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw=="
+    and fast_uri.get("version") == "3.1.6"
+    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.6.tgz"
+    and fast_uri.get("integrity") == "sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q=="
     and hono_runtime.get("version") == "4.12.34"
     and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.12.34.tgz"
     and hono_runtime.get("integrity") == "sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA=="
@@ -2814,7 +2821,7 @@ check(
         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
         "2.0.10",
-        "3.1.5",
+        "3.1.6",
         "4.12.34",
         "10.4.0",
         "4.3.1",

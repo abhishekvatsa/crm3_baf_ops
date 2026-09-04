@@ -237,7 +237,7 @@ check(
     and tooling_versions["tar"] == "7.5.21"
     and tooling_versions["brace-expansion"] == "5.0.9"
     and tooling_versions["@hono/node-server"] == "2.0.10"
-    and tooling_versions["fast-uri"] == "3.1.5"
+    and tooling_versions["fast-uri"] == "3.1.6"
     and tooling_versions["hono"] == "4.12.34"
     and tooling_versions["ip-address"] == "10.4.0"
     and tooling_versions["js-yaml"] == "4.3.1"

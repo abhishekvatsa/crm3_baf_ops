@@ -19,6 +19,7 @@ export type ChargeAbnormalityMutationHttpsErrorCode =
   | "permission-denied"
   | "not-found"
   | "failed-precondition"
+  | "unavailable"
   | "aborted"
   | "data-loss"
   | "internal";
@@ -1378,8 +1379,11 @@ export async function mutateChargeAbnormalityWithDb(args: {
         db.collection("abnormality_types").doc(typeId)), typeId);
       const committedDate = now();
       if (persistedInstantMillis(creation.updatedAt) > committedDate.valueOf()) {
-        throw new ChargeAbnormalityMutationError("failed-precondition",
-          "The saved abnormality time is ahead of the server clock.",
+        // Preserve original case identity and chronology; retry once the server
+        // clock catches up rather than permanently rejecting a local-first save.
+        throw new ChargeAbnormalityMutationError("unavailable",
+          "The saved abnormality time is ahead of the server clock. " +
+          "It remains saved for retry; check the phone's automatic date and time.",
           {reasonCode: "abnormality-create-future-time"});
       }
       const committedAtIso = committedDate.toISOString();

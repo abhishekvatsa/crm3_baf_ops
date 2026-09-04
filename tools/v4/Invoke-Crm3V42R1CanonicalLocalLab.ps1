@@ -42,7 +42,7 @@ $expected = [ordered]@{
   javaPrefix = '21.0.11'
   firebaseTools = '15.22.4'
   honoNodeServer = '2.0.10'
-  fastUri = '3.1.5'
+  fastUri = '3.1.6'
   honoRuntime = '4.12.34'
   ipAddress = '10.4.0'
   jsYaml = '4.3.1'
@@ -292,8 +292,8 @@ function Assert-FirebaseCliLockPolicy {
     honoNaturalRange = ($mcpHonoRange -eq '^1.19.9')
     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
-    fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.5.tgz')
-    fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==')
+    fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.6.tgz')
+    fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q==')
     honoRuntimeOverride = ($honoRuntimeOverride -eq $expected.honoRuntime)
     honoRuntimeLocked = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version') -eq $expected.honoRuntime)
     honoRuntimeResolved = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'resolved') -eq 'https://registry.npmjs.org/hono/-/hono-4.12.34.tgz')
@@ -654,6 +654,9 @@ try {
   Invoke-CheckedStep -Name '13_firebase_cli_load_smoke' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action {
     $compatibilityScript = Join-Path $workspace 'tools/dependencies/verify_brace_expansion_compat.mjs'
     & node $compatibilityScript
+    if ($LASTEXITCODE -ne 0) { throw 'Brace expansion compatibility checks failed.' }
+    & node --test (Join-Path $workspace 'tools/dependencies/firebase_json_compat.test.mjs')
+    if ($LASTEXITCODE -ne 0) { throw 'Firebase JSON compatibility checks failed.' }
     $firebaseCliEntry = Join-Path (Get-Location) 'node_modules/firebase-tools/lib/bin/firebase.js'
     $loadedVersion = ((& node $firebaseCliEntry --version 2>&1) -join "`n").Trim()
     if ($loadedVersion -ne $expected.firebaseTools) {

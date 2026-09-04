@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "dependencies": {
     "brace-expansion": "file:../brace-expansion-compat",
-    "firebase-tools": "15.22.4"
+    "firebase-tools": "15.22.4",
+    "stream-json": "file:../stream-json-compat"
   },
   "overrides": {
     "gaxios": "7.1.5",
@@ -17,7 +18,9 @@
     "protobufjs": "7.6.5",
     "re2": "1.26.1",
     "tar": "7.5.21",
-    "fast-uri": "3.1.5",
+    "fast-uri": "3.1.6",
+    "qs": "6.16.0",
+    "stream-json": "$stream-json",
     "hono": "4.12.34",
     "ip-address": "10.4.0",
     "js-yaml": "4.3.1"

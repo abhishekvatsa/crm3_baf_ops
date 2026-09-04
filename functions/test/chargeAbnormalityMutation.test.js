@@ -309,6 +309,31 @@ describe('charge-abnormality admin mutation', () => {
       'abnormality_types/TYPE_OLD': abnormalityType({firestoreId: 'TYPE_OLD'})});
   }
 
+  test.each([1, 2500, 300000])('clock skew of %i ms is retryable without losing original times', async (skew) => {
+    const fixture = creationDb();
+    const serverDate = new Date('2026-07-26T10:00:00.000Z');
+    const phoneDate = new Date(serverDate.valueOf() + skew);
+    const data = creation({loggedAt: phoneDate.toISOString(), updatedAt: phoneDate.toISOString()});
+    await expect(invoke(fixture.db, data, {authUid: 'operator-1'})).rejects.toMatchObject({
+      code: 'unavailable', details: {reasonCode: 'abnormality-create-future-time'},
+    });
+    expect(fixture.writes).toHaveLength(0);
+    const first = await invoke(fixture.db, data, {
+      authUid: 'operator-1', now: () => phoneDate,
+    });
+    expect(first.abnormality.loggedAt).toBe(data.abnormality.loggedAt);
+    expect(first.abnormality.updatedAt).toBe(phoneDate.toISOString());
+    expect(first.committedAt).toBe(phoneDate.toISOString());
+    const replay = await invoke(fixture.db, data, {
+      authUid: 'operator-1', now: () => new Date(phoneDate.valueOf() + 1000),
+    });
+    expect(replay.idempotentReplay).toBe(true);
+    expect(replay.abnormality.loggedAt).toBe(data.abnormality.loggedAt);
+    expect(fixture.writes).toHaveLength(4);
+    const warning = fixture.store.get('quality_warnings/abnormality_abn-1');
+    expect(warning.createdAt).toEqual(warning.updatedAt);
+  });
+
   test('Operations creates a governed case atomically and replays without duplicates', async () => {
     const fixture = creationDb();
     const data = creation({affectedAssets: [{assetType: 'furnace', assetNumber: 7}],

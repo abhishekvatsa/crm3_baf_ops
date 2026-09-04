@@ -71,6 +71,10 @@ class ChargeAbnormalityMutationException implements Exception {
   }
 
   String get operatorMessage {
+    if (reasonCode == 'abnormality-create-future-time') {
+      return 'The saved abnormality time is ahead of the server clock. '
+          'It remains on this phone for retry. Check automatic date and time.';
+    }
     switch (code) {
       case 'unauthenticated':
         return 'Sign in again before changing this charge abnormality.';
@@ -92,12 +96,14 @@ class ChargeAbnormalityMutationException implements Exception {
   }
 
   bool get isDurableRejection =>
-      code == 'permission-denied' ||
-      code == 'not-found' ||
-      code == 'failed-precondition' ||
-      code == 'invalid-argument' ||
-      code == 'aborted' ||
-      code == 'data-loss';
+      !(reasonCode == 'abnormality-create-future-time' &&
+          (code == 'unavailable' || code == 'failed-precondition')) &&
+      (code == 'permission-denied' ||
+          code == 'not-found' ||
+          code == 'failed-precondition' ||
+          code == 'invalid-argument' ||
+          code == 'aborted' ||
+          code == 'data-loss');
 
   @override
   String toString() => operatorMessage;
