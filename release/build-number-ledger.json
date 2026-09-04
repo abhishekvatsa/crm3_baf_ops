@@ -1272,13 +1272,13 @@
       "reservationId": "crm3-baf-ops-successor-a546e73-b24-24",
       "remoteReservationTag": "crm3-build-reserved/24",
       "remoteBuiltTag": "crm3-build-built/24",
-      "baselineCommit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
+      "baselineCommit": "5e5e9d692436f081cf49b4c5f19a1ac1c3f09975",
       "reservedForBranch": "codex/build24-governed-release",
       "status": "source-reserved-awaiting-remote-consumption",
       "failedOrWithdrawnBuildConsumesNumber": true,
       "reservedAtUtc": "2026-09-04T17:20:54.588Z",
       "versionApprovalReference": "BAF-REF-003-C23",
-      "versionApprovalDocumentSha256": "7302039C417DF11EC6610ADB244D883A3490D64F1DBF1E91D98306BCC6716034"
+      "versionApprovalDocumentSha256": "494D907E602824646ED8886E4FC0F58264911F76B8F122822BED578845386628"
     }
   ]
 }

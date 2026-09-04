@@ -16,16 +16,17 @@ conflated:
   programme ledger.
 
 Build 24 (`1.0.0-rc.14+24`) is source-authorized for governed construction from
-the admitted PR 345 baseline `a546e73`. All 15 production Functions match that
-source and passed strict readback with existing IAM preserved. The existing
+the admitted PR 346 baseline `5e5e9d6`, whose exact post-merge CI passed.
+All 15 production Functions match the unchanged PR 345 backend source
+`a546e73` and passed strict readback with existing IAM preserved. The existing
 Firestore Rules and 66 indexes remain unchanged and verified. The owner-approved
 staged rollout retains older-phone compatibility; the known legacy direct-write
 nested-asset validation gap remains deferred, not resolved.
 
 Build 23 remains production-signed, independently verified, dual-custodied and
 finalized non-distributable; its evidence is immutable. Build 24 has not yet been
-constructed. Its source approval must be rebound after the stale deployment-PR
-contract is corrected and admitted; construction is blocked until then.
+constructed. Its source approval includes the admitted release-contract
+correction; construction still requires exact merged source and clean CI.
 No consumed build number may be reused. Exact-package device
 acceptance and pilot promotion remain separate decisions after construction.
 
