@@ -25,6 +25,8 @@ import type {
   UserTokenLookup,
 } from "../notifications";
 import {
+  complianceHandoverRecipientRoles,
+  complianceHandoverSide,
   isCriticalAlarmEventType,
   isNotifiableCriticalAlarmStatus,
   samePersistedNotificationInstant,
@@ -333,11 +335,21 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
             };
           }
           if (isCriticalAlarmEventType(eventType)) return null;
-          const roles = workflowRecipientRoles(
+          let roles = workflowRecipientRoles(
             eventType,
             laneKey,
             escalationTier,
           );
+          if (complianceHandoverSide(eventType) != null) {
+            const complianceId = typeof payload.complianceId === "string" ? payload.complianceId : "";
+            if (complianceId.length === 0 || complianceId.includes("/")) return null;
+            const request = await db.collection("compliance_requests").doc(complianceId).get();
+            const handoverRoles = complianceHandoverRecipientRoles(
+              eventType, aggregateId, request.exists ? request.data() ?? null : null,
+            );
+            if (handoverRoles == null) return null;
+            roles = handoverRoles;
+          }
           const recipients = await getTokenLookupsForRoles(
             notificationDb(db),
             roles,

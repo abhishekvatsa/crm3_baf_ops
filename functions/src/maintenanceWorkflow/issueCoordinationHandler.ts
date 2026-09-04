@@ -5,6 +5,7 @@ import {CommandHandler} from "./handlerTypes";
 import {maintenanceProjectionForRaise} from "./maintenanceBridge";
 import {
   compliancePath,
+  equipmentIdentity,
   maintenancePath,
   workflowPath,
 } from "./paths";
@@ -289,10 +290,11 @@ export const startIssueCoordination: CommandHandler = async ({
   const originRoute = command.payload.originRoute == null ?
     lanePlan.assigned[0] : cleanText(command.payload.originRoute, "originRoute");
   if (!lanePlan.assigned.includes(originRoute) ||
-      !lanePlan.acknowledged.includes(originRoute)) {
+      !lanePlan.acknowledged.includes(originRoute) ||
+      lanePlan.completed.includes(originRoute)) {
     throw new WorkflowError(
       "failed-precondition",
-      "The selected accountable lane must acknowledge before requesting Operations.",
+      "The selected lane must be acknowledged and still have work remaining before requesting Operations.",
       {reasonCode: "issue-coordination-origin-lane-not-acknowledged"},
     );
   }
@@ -334,6 +336,21 @@ export const startIssueCoordination: CommandHandler = async ({
       {reasonCode: "issue-coordination-asset-invalid"},
     );
   }
+  let customReference: JsonMap | null = null;
+  if (assetTypeKey === "governedCustom") {
+    try {
+      const parsed = JSON.parse(ticket.assetHierarchyRefJson as string);
+      if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed) ||
+          parsed.assetNumber !== assetNumber) throw new Error("identity mismatch");
+      customReference = parsed as JsonMap;
+    } catch {
+      throw new WorkflowError("failed-precondition", "The custom asset reference needs repair before coordination.");
+    }
+  }
+  const identity = equipmentIdentity(
+    assetTypeKey, assetNumber as number,
+    customReference?.assetClassId, customReference?.assetInstanceId,
+  );
   const now = iso(context.serverNow);
   const immediate = conditionType === "manual";
   const raisedUnderCoordination = !mayWorkLane(context.actor, originLane);
@@ -347,8 +364,8 @@ export const startIssueCoordination: CommandHandler = async ({
     linkedMaintenanceFirestoreId: ticketId,
     assetTypeKey,
     assetNumber,
-    assetClassId: null,
-    assetInstanceId: null,
+    assetClassId: identity.assetClassId,
+    assetInstanceId: identity.assetInstanceId,
     status: "awaitingCompliance",
     version: 1,
     laneSetVersion: 0,

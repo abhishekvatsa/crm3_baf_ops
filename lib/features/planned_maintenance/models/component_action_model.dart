@@ -88,6 +88,10 @@ class ComponentAction {
   final ActionSeverity severity;
   final String? performedBy;
   final DateTime? updatedAt;
+  // Retained evidence must survive append-only closure comparisons unchanged.
+  // Only the decoder sets these; newly recorded actions use explicit UTC.
+  String? _persistedCreatedAtText;
+  String? _persistedUpdatedAtText;
   final int version;
   final String? metadataJson;
   final String? attendanceSessionId;
@@ -228,10 +232,11 @@ class ComponentAction {
     'templateFieldKey': templateFieldKey,
     'isAutoResolved': isAutoResolved,
     'status': status?.name,
-    'createdAt': createdAt.toIso8601String(),
+    'createdAt': _persistedCreatedAtText ?? createdAt.toUtc().toIso8601String(),
     'severity': severity.name,
     'performedBy': performedBy,
-    'updatedAt': updatedAt?.toIso8601String(),
+    'updatedAt':
+        _persistedUpdatedAtText ?? updatedAt?.toUtc().toIso8601String(),
     'version': version,
     'metadataJson': metadataJson,
     'attendanceSessionId': attendanceSessionId,
@@ -259,7 +264,7 @@ class ComponentAction {
       source: source,
     );
 
-    return ComponentAction(
+    final action = ComponentAction(
       id: _readOptionalRawString(map['id'], field: 'id', source: source),
       asset: readRequiredPersistedString(
         map['asset'],
@@ -412,6 +417,11 @@ class ComponentAction {
       ),
       extensions: extensions,
     );
+    action._persistedCreatedAtText =
+        map['createdAt'] is String ? map['createdAt'] as String : null;
+    action._persistedUpdatedAtText =
+        map['updatedAt'] is String ? map['updatedAt'] as String : null;
+    return action;
   }
 
   static String encode(List<ComponentAction> actions) =>

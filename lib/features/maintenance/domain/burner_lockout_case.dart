@@ -174,6 +174,13 @@ class BurnerLockoutCase {
 
   bool get hasRedHotObservation => redHotPositions.isNotEmpty;
 
+  String reportDescription({String? notes}) {
+    final entered = notes?.trim();
+    if (entered != null && entered.isNotEmpty) return entered;
+    final noun = positions.length == 1 ? 'burner' : 'burners';
+    return 'Burner lockout reported on $noun ${positions.join(', ')}.';
+  }
+
   bool get isResolutionComplete =>
       _samePositions(attendedPositions, positions) &&
       _samePositions(resolutionOutcomes.keys, positions) &&

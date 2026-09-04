@@ -541,7 +541,10 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
     });
   });
 
-  test('legacy completion canonicalizes new actions from the live asset hierarchy', async () => {
+  test.each([
+    '2026-05-15T09:00:00.000Z',
+    '2026-05-15T14:30:00.000',
+  ])('legacy completion canonicalizes new actions with timestamp %s', async (createdAt) => {
     const executionData = baseExecution({
       assetType: 'furnace',
       assetNumber: 7,
@@ -621,7 +624,7 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
           actionType: 'inspection',
           isAutoResolved: true,
           status: 'resolved',
-          createdAt: '2026-05-15T09:00:00.000Z',
+          createdAt,
           severity: 'medium',
           version: 1,
         }],
@@ -639,6 +642,7 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
       system: 'Furnace',
       subsystem: 'Structure',
       performedBy: 'Shift Supervisor',
+      createdAt,
     });
   });
 

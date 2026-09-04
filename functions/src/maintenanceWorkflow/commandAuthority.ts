@@ -292,7 +292,9 @@ export const assertWorkflowAuthorityScope = (
   case "inspectionIssue.link":
     return;
   case "integrity.supervise":
-    if (!["admin", "si", "contractSupervisor", "shiftSupervisor"]
+    // This capability releases physical obstruction only, not the maintenance
+    // ticket or the separately adjudicated Inner Cover condition.
+    if (!["admin", "si", "contractSupervisor", "shiftSupervisor", "operations"]
       .some((role) => actor.roles.has(role as RoleKey))) denied();
     return;
   case "integrity.adjudicate":

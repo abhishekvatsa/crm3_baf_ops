@@ -23,7 +23,7 @@
     "emulator:test:global-pull": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:global-pull\"",
     "emulator:test:notifications": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:notifications\"",
     "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm run test:governed-asset-identity-reconciliation:emulator && npm --prefix functions run test:emulator:governed\"",
-    "test:dependency-compat": "node tools/dependencies/verify_brace_expansion_compat.mjs",
+    "test:dependency-compat": "node tools/dependencies/verify_brace_expansion_compat.mjs && node --test tools/dependencies/firebase_json_compat.test.mjs",
     "test:firebase-client-key-custody": "node --test tools/security/firebase_client_api_key_custody.test.mjs tools/security/collect_firebase_client_api_key_readback.test.mjs tools/security/apply_firebase_android_api_key_restrictions.test.mjs && node tools/security/firebase_client_api_key_custody.cjs",
     "test:firestore-live-readback-custody": "node --test tools/release/collectFirestoreRulesIndexesReadback.test.mjs",
     "test:firestore-recoverability-readback-custody": "node --test tools/release/collectFirestoreRecoverabilityReadback.test.mjs",

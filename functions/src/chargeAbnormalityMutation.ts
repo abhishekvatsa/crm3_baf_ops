@@ -1,6 +1,12 @@
 import {createHash} from "crypto";
 import {isFiveDigitChargeNumber} from "./chargeNumber";
 import {validateQualityWarningRecord} from "./qualityMutation";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
+import {
+  isValidPersistedInstant,
+  persistedInstantMillis,
+} from "./persistedInstant";
 
 import {
   canonicalApprovedUserAuthority,
@@ -13,11 +19,13 @@ export type ChargeAbnormalityMutationHttpsErrorCode =
   | "permission-denied"
   | "not-found"
   | "failed-precondition"
+  | "unavailable"
   | "aborted"
   | "data-loss"
   | "internal";
 
 export type ChargeAbnormalityMutationOperation =
+  | "CREATE"
   | "UPDATE"
   | "SOFT_DELETE";
 
@@ -58,12 +66,21 @@ type ChargeAbnormalityMutationTransactionLike = {
 type AffectedAsset = {
   readonly assetType: string;
   readonly assetNumber: number;
+  readonly assetHierarchyRef?: UserAuthorityJsonMap;
+};
+
+type AffectedAssetHierarchyReference = {
+  readonly assetType: string;
+  readonly assetNumber: number;
+  readonly assetHierarchyRef: UserAuthorityJsonMap;
 };
 
 type ParsedChargeAbnormalityUpdate = {
   readonly abnormalityTypeId: string;
   readonly severity: string;
   readonly affectedAssets: ReadonlyArray<AffectedAsset>;
+  readonly affectedAssetHierarchyRefs:
+    ReadonlyArray<AffectedAssetHierarchyReference> | null;
   readonly component: string | null;
   readonly observedReason: string;
   readonly description: string | null;
@@ -80,6 +97,7 @@ type ParsedChargeAbnormalityMutationRequest = {
   readonly expectedVersion: number;
   readonly reason: string;
   readonly update: ParsedChargeAbnormalityUpdate | null;
+  readonly creation?: UserAuthorityJsonMap;
   readonly payloadFingerprint: string;
 };
 
@@ -98,6 +116,7 @@ export interface ChargeAbnormalityMutationResult {
 const REQUEST_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPERATIONS = new Set<ChargeAbnormalityMutationOperation>([
+  "CREATE",
   "UPDATE",
   "SOFT_DELETE",
 ]);
@@ -147,6 +166,7 @@ const UPDATE_REQUEST_FIELDS = new Set([
   "abnormalityTypeId",
   "severity",
   "affectedAssets",
+  "affectedAssetHierarchyRefs",
   "component",
   "observedReason",
   "description",
@@ -164,6 +184,7 @@ const ABNORMALITY_FIELDS = new Set([
   "category",
   "severity",
   "affectedAssets",
+  "affectedAssetHierarchyRefs",
   "component",
   "observedReason",
   "description",
@@ -188,7 +209,8 @@ const ABNORMALITY_FIELDS = new Set([
   "_globalPullServerUpdatedAt",
 ]);
 const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter(
-  (field) => field !== "_globalPullServerUpdatedAt",
+  (field) => field !== "_globalPullServerUpdatedAt" &&
+    field !== "affectedAssetHierarchyRefs",
 );
 const MAX_AFFECTED_ASSETS = 50;
 
@@ -304,11 +326,18 @@ function enumValue(
   return parsed;
 }
 
-function parseAffectedAssets(value: unknown): ReadonlyArray<AffectedAsset> {
-  if (!Array.isArray(value) || value.length > MAX_AFFECTED_ASSETS) {
+function parseAffectedAssets(
+  value: unknown,
+  options: {readonly allowEmpty?: boolean} = {},
+): ReadonlyArray<AffectedAsset> {
+  if (!Array.isArray(value) ||
+      (!options.allowEmpty && value.length === 0) ||
+      value.length > MAX_AFFECTED_ASSETS) {
     return invalidField(
       "affectedAssets",
-      `affectedAssets must be a list of at most ${MAX_AFFECTED_ASSETS} items.`,
+      options.allowEmpty ?
+        `affectedAssets must contain at most ${MAX_AFFECTED_ASSETS} items.` :
+        `affectedAssets must contain between 1 and ${MAX_AFFECTED_ASSETS} items.`,
     );
   }
   const seen = new Set<string>();
@@ -325,14 +354,18 @@ function parseAffectedAssets(value: unknown): ReadonlyArray<AffectedAsset> {
     }
     const asset = raw as UserAuthorityJsonMap;
     const keys = Object.keys(asset);
+    const hasHierarchyReference = Object.prototype.hasOwnProperty.call(
+      asset,
+      "assetHierarchyRef",
+    );
     if (
-      keys.length !== 2 ||
+      (keys.length !== 2 && !(keys.length === 3 && hasHierarchyReference)) ||
       !keys.includes("assetType") ||
       !keys.includes("assetNumber")
     ) {
       return invalidField(
         `affectedAssets[${index}]`,
-        "Each affected asset must contain only assetType and assetNumber.",
+        "Each affected asset must contain assetType, assetNumber, and an optional governed hierarchy reference.",
       );
     }
     const assetType = enumValue(
@@ -344,6 +377,17 @@ function parseAffectedAssets(value: unknown): ReadonlyArray<AffectedAsset> {
       asset.assetNumber,
       `affectedAssets[${index}].assetNumber`,
     );
+    if (hasHierarchyReference &&
+        !isValidAffectedAssetHierarchyReference(
+          asset.assetHierarchyRef,
+          assetNumber,
+        )) {
+      return invalidField(
+        `affectedAssets[${index}].assetHierarchyRef`,
+        "The governed hierarchy reference is malformed or identifies a different physical asset.",
+        "invalid-asset-hierarchy-reference",
+      );
+    }
     const identity = `${assetType}:${assetNumber}`;
     if (seen.has(identity)) {
       return invalidField(
@@ -353,8 +397,118 @@ function parseAffectedAssets(value: unknown): ReadonlyArray<AffectedAsset> {
       );
     }
     seen.add(identity);
-    return {assetType, assetNumber};
+    return {
+      assetType,
+      assetNumber,
+      ...(hasHierarchyReference ? {
+        assetHierarchyRef: asset.assetHierarchyRef as UserAuthorityJsonMap,
+      } : {}),
+    };
   });
+}
+
+function assetIdentity(asset: AffectedAsset): string {
+  return `${asset.assetType}:${asset.assetNumber}`;
+}
+
+function parseAffectedAssetHierarchyRefs(
+  value: unknown,
+  affectedAssets: ReadonlyArray<AffectedAsset>,
+): ReadonlyArray<AffectedAssetHierarchyReference> | null {
+  const inline = affectedAssets
+    .filter((asset) => asset.assetHierarchyRef != null)
+    .map((asset) => ({
+      assetType: asset.assetType,
+      assetNumber: asset.assetNumber,
+      assetHierarchyRef: asset.assetHierarchyRef as UserAuthorityJsonMap,
+    }));
+  if (value === undefined) return inline.length === 0 ? null : inline;
+  if (!Array.isArray(value) || value.length > MAX_AFFECTED_ASSETS) {
+    return invalidField(
+      "affectedAssetHierarchyRefs",
+      `affectedAssetHierarchyRefs must be a list of at most ${MAX_AFFECTED_ASSETS} items.`,
+    );
+  }
+  if (inline.length > 0) {
+    return invalidField(
+      "affectedAssetHierarchyRefs",
+      "Governed hierarchy evidence must use either the compatibility field or inline references, not both.",
+      "duplicate-asset-hierarchy-representation",
+    );
+  }
+  const affectedIdentities = new Set(affectedAssets.map(assetIdentity));
+  const seen = new Set<string>();
+  return value.map((raw, index) => {
+    if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+      return invalidField(
+        `affectedAssetHierarchyRefs[${index}]`,
+        "Each governed hierarchy entry must be a map.",
+      );
+    }
+    const parsed = parseAffectedAssets([raw])[0];
+    const identity = assetIdentity(parsed);
+    if (parsed.assetHierarchyRef == null || !affectedIdentities.has(identity)) {
+      return invalidField(
+        `affectedAssetHierarchyRefs[${index}]`,
+        "Each governed hierarchy entry must identify one affected asset.",
+        "orphan-asset-hierarchy-reference",
+      );
+    }
+    if (!seen.add(identity)) {
+      return invalidField(
+        "affectedAssetHierarchyRefs",
+        "Governed hierarchy entries must not contain duplicates.",
+        "duplicate-asset-hierarchy-reference",
+      );
+    }
+    return {
+      assetType: parsed.assetType,
+      assetNumber: parsed.assetNumber,
+      assetHierarchyRef: parsed.assetHierarchyRef,
+    };
+  });
+}
+
+function identityOnlyAffectedAssets(
+  value: ReadonlyArray<AffectedAsset>,
+): ReadonlyArray<AffectedAsset> {
+  return value.map((asset) => ({
+    assetType: asset.assetType,
+    assetNumber: asset.assetNumber,
+  }));
+}
+
+function mergeAffectedAssetHierarchyRefs({
+  affectedAssets,
+  existing,
+  requested,
+}: {
+  readonly affectedAssets: ReadonlyArray<AffectedAsset>;
+  readonly existing: ReadonlyArray<AffectedAssetHierarchyReference>;
+  readonly requested:
+    ReadonlyArray<AffectedAssetHierarchyReference> | null;
+}): ReadonlyArray<AffectedAssetHierarchyReference> {
+  const existingByIdentity = new Map(
+    existing.map((reference) => [assetIdentity(reference), reference]),
+  );
+  const requestedByIdentity = new Map(
+    (requested ?? []).map((reference) => [
+      assetIdentity(reference),
+      reference,
+    ]),
+  );
+
+  return affectedAssets
+    .map((asset) => {
+      const identity = assetIdentity(asset);
+      return requestedByIdentity.get(identity) ??
+        existingByIdentity.get(identity) ??
+        null;
+    })
+    .filter(
+      (reference): reference is AffectedAssetHierarchyReference =>
+        reference != null,
+    );
 }
 
 function fingerprint(value: unknown): string {
@@ -396,13 +550,18 @@ function parseUpdate(
     );
   }
 
+  const parsedAffectedAssets = parseAffectedAssets(raw.affectedAssets);
   return {
     abnormalityTypeId: cleanDocumentId(
       raw.abnormalityTypeId,
       "abnormalityTypeId",
     ),
     severity: enumValue(raw.severity, "severity", SEVERITIES),
-    affectedAssets: parseAffectedAssets(raw.affectedAssets),
+    affectedAssets: identityOnlyAffectedAssets(parsedAffectedAssets),
+    affectedAssetHierarchyRefs: parseAffectedAssetHierarchyRefs(
+      raw.affectedAssetHierarchyRefs,
+      parsedAffectedAssets,
+    ),
     component: cleanOptionalString(raw.component, "component", 200),
     observedReason: cleanRequiredString(
       raw.observedReason,
@@ -425,6 +584,42 @@ function parseUpdate(
   };
 }
 
+function parseAbnormalityCreation(
+  raw: unknown, abnormalityId: string,
+): UserAuthorityJsonMap {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return invalidField("abnormality", "Creation requires an abnormality record.");
+  }
+  const data = raw as UserAuthorityJsonMap;
+  if (Object.prototype.hasOwnProperty.call(data, "_globalPullServerUpdatedAt")) {
+    return invalidField("abnormality", "Server clock fields cannot be supplied.");
+  }
+  try {
+    if (!validIsoTimestamp(data.loggedAt) || !validIsoTimestamp(data.updatedAt)) {
+      return invalidField("abnormality", "Creation requires ISO text timestamps.");
+    }
+    const valid = validateExistingAbnormality(data, abnormalityId);
+    if (valid.isDeleted !== false || valid.linkedTicketFirestoreId != null ||
+        valid.linkedExecutionFirestoreId != null) {
+      return invalidField("abnormality",
+        "Standalone creation cannot import a deletion or a linked workflow case.");
+    }
+    const assets = existingAssets(valid.affectedAssets);
+    const refs = parseAffectedAssetHierarchyRefs(valid.affectedAssetHierarchyRefs, assets);
+    if (data.affectedAssetHierarchyRefs != null && assets.length === 0) {
+      return invalidField("affectedAssets", "Select at least one affected asset.");
+    }
+    return {...valid, version: 1, affectedAssets: identityOnlyAffectedAssets(assets),
+      ...(refs == null ? {} : {affectedAssetHierarchyRefs: refs})};
+  } catch (error) {
+    if (error instanceof ChargeAbnormalityMutationError) {
+      throw new ChargeAbnormalityMutationError("invalid-argument", error.message,
+        {reasonCode: "abnormality-create-payload-invalid"});
+    }
+    throw error;
+  }
+}
+
 export function parseChargeAbnormalityMutationRequest(
   raw: UserAuthorityJsonMap,
 ): ParsedChargeAbnormalityMutationRequest {
@@ -438,7 +633,8 @@ export function parseChargeAbnormalityMutationRequest(
   }
   const operation = operationRaw as ChargeAbnormalityMutationOperation;
   const allowedFields =
-    operation === "UPDATE" ? UPDATE_REQUEST_FIELDS : COMMON_REQUEST_FIELDS;
+    operation === "CREATE" ? new Set([...COMMON_REQUEST_FIELDS, "abnormality"]) :
+      operation === "UPDATE" ? UPDATE_REQUEST_FIELDS : COMMON_REQUEST_FIELDS;
   for (const key of Object.keys(raw)) {
     if (!allowedFields.has(key)) {
       throw new ChargeAbnormalityMutationError(
@@ -458,12 +654,15 @@ export function parseChargeAbnormalityMutationRequest(
     );
   }
   const abnormalityId = cleanDocumentId(raw.abnormalityId, "abnormalityId");
-  const expectedVersion = positiveSafeInteger(
-    raw.expectedVersion,
-    "expectedVersion",
-  );
+  const expectedVersion = operation === "CREATE" && raw.expectedVersion === 0 ?
+    0 : positiveSafeInteger(raw.expectedVersion, "expectedVersion");
+  if (operation === "CREATE" && expectedVersion !== 0) {
+    return invalidField("expectedVersion", "Creation requires expectedVersion zero.");
+  }
   const reason = cleanRequiredString(raw.reason, "reason", 500);
   const update = operation === "UPDATE" ? parseUpdate(raw) : null;
+  const creation = operation === "CREATE" ?
+    parseAbnormalityCreation(raw.abnormality, abnormalityId) : undefined;
   const canonicalPayload = {
     requestId,
     abnormalityId,
@@ -471,6 +670,7 @@ export function parseChargeAbnormalityMutationRequest(
     expectedVersion,
     reason,
     ...(update ?? {}),
+    ...(creation == null ? {} : {creation}),
   };
   return {
     requestId,
@@ -479,27 +679,34 @@ export function parseChargeAbnormalityMutationRequest(
     expectedVersion,
     reason,
     update,
+    ...(creation == null ? {} : {creation}),
     payloadFingerprint: fingerprint(canonicalPayload),
   };
 }
 
 export function userCanMutateChargeAbnormality(
   data: UserAuthorityJsonMap | null | undefined,
+  operation: unknown = "UPDATE",
 ): boolean {
   const authority = canonicalApprovedUserAuthority(data);
-  return authority != null && authority.roles.has("admin");
+  return authority != null && (operation === "CREATE" ?
+    ["admin", "si", "contractSupervisor", "shiftSupervisor", "operations"].some((role) =>
+      authority.roles.has(role)) : authority.roles.has("admin"));
 }
 
 function requireActor(
   snapshot: ChargeAbnormalityMutationDocumentSnapshotLike,
   actorUid: string,
+  operation: ChargeAbnormalityMutationOperation = "UPDATE",
 ): {readonly name: string} {
   const data = snapshot.exists ? snapshot.data() ?? {} : {};
-  if (!userCanMutateChargeAbnormality(data)) {
+  if (!userCanMutateChargeAbnormality(data, operation)) {
     throw new ChargeAbnormalityMutationError(
       "permission-denied",
-      "Approved Admin authority is required.",
-      {reasonCode: "approved-admin-required"},
+      operation === "CREATE" ? "Approved Operations authority is required." :
+        "Approved Admin authority is required.",
+      {reasonCode: operation === "CREATE" ? "approved-operations-required" :
+        "approved-admin-required"},
     );
   }
   const name =
@@ -512,21 +719,35 @@ function requireActor(
 function validIsoTimestamp(value: unknown): value is string {
   return typeof value === "string" &&
     value.trim().length > 0 &&
-    !Number.isNaN(Date.parse(value));
+    isValidPersistedInstant(value);
 }
 
 function validServerTimestamp(value: unknown): boolean {
-  if (value instanceof Date) return !Number.isNaN(value.valueOf());
-  if (validIsoTimestamp(value)) return true;
-  if (value == null || typeof value !== "object") return false;
-  const timestamp = value as {
-    toDate?: unknown;
-    seconds?: unknown;
-    nanoseconds?: unknown;
-  };
-  return typeof timestamp.toDate === "function" ||
-    (Number.isSafeInteger(timestamp.seconds) &&
-      Number.isSafeInteger(timestamp.nanoseconds));
+  return isValidPersistedInstant(value);
+}
+
+function serverTimestampMillis(value: unknown): number {
+  return persistedInstantMillis(value);
+}
+
+// Preserve stored timestamp types; only the callable response needs ISO text.
+function abnormalityForReceipt(data: UserAuthorityJsonMap): UserAuthorityJsonMap {
+  const result = {...data};
+  for (const field of ["loggedAt", "updatedAt", "deletedAt", "_globalPullServerUpdatedAt"]) {
+    const value = data[field];
+    if (value == null || typeof value === "string") continue;
+    const timestamp = value as {seconds?: number; nanoseconds?: number};
+    if (Number.isSafeInteger(timestamp.seconds) &&
+        Number.isSafeInteger(timestamp.nanoseconds)) {
+      const fraction = String(timestamp.nanoseconds).padStart(9, "0")
+        .replace(/(000){1,2}$/, "");
+      result[field] = new Date(timestamp.seconds! * 1000).toISOString()
+        .replace(".000Z", `.${fraction}Z`);
+    } else {
+      result[field] = new Date(persistedInstantMillis(value)).toISOString();
+    }
+  }
+  return result;
 }
 
 function malformedExisting(message: string, field?: string): never {
@@ -588,19 +809,31 @@ function validateExistingAbnormality(
   );
   existingEnum(data.category, "category", CATEGORIES);
   existingEnum(data.severity, "severity", SEVERITIES);
-  existingAssets(data.affectedAssets);
+  const affectedAssets = existingAssets(data.affectedAssets);
+  existingAssetHierarchyRefs(
+    data.affectedAssetHierarchyRefs,
+    affectedAssets,
+  );
   requiredExistingString(data.observedReason, "observedReason", 2000);
   requiredExistingString(data.loggedByUid, "loggedByUid", 512);
   requiredExistingString(data.updatedByUid, "updatedByUid", 512);
-  if (!validIsoTimestamp(data.loggedAt)) {
+  if (!validServerTimestamp(data.loggedAt)) {
     return malformedExisting(
       "The charge-abnormality loggedAt value is malformed.",
       "loggedAt",
     );
   }
-  if (!validIsoTimestamp(data.updatedAt)) {
+  if (!validServerTimestamp(data.updatedAt)) {
     return malformedExisting(
       "The charge-abnormality updatedAt value is malformed.",
+      "updatedAt",
+    );
+  }
+  const loggedAtMillis = persistedInstantMillis(data.loggedAt);
+  const updatedAtMillis = persistedInstantMillis(data.updatedAt);
+  if (updatedAtMillis < loggedAtMillis) {
+    return malformedExisting(
+      "The charge-abnormality updatedAt value precedes loggedAt.",
       "updatedAt",
     );
   }
@@ -680,14 +913,34 @@ function existingEnum(
   }
 }
 
-function existingAssets(value: unknown): void {
+function existingAssets(value: unknown): ReadonlyArray<AffectedAsset> {
   try {
-    parseAffectedAssets(value);
+    // Older pilot builds allowed an empty affected-assets list. Continue to
+    // read and repair those rows while requiring all new/update payloads to
+    // identify at least one asset.
+    return parseAffectedAssets(value, {allowEmpty: true});
   } catch (error) {
     if (error instanceof ChargeAbnormalityMutationError) {
       malformedExisting(
         "The charge-abnormality affectedAssets value is malformed.",
         "affectedAssets",
+      );
+    }
+    throw error;
+  }
+}
+
+function existingAssetHierarchyRefs(
+  value: unknown,
+  affectedAssets: ReadonlyArray<AffectedAsset>,
+): void {
+  try {
+    parseAffectedAssetHierarchyRefs(value, affectedAssets);
+  } catch (error) {
+    if (error instanceof ChargeAbnormalityMutationError) {
+      malformedExisting(
+        "The charge-abnormality affectedAssetHierarchyRefs value is malformed.",
+        "affectedAssetHierarchyRefs",
       );
     }
     throw error;
@@ -719,7 +972,7 @@ function validateExistingOptionalFields(data: UserAuthorityJsonMap): void {
   optionalExistingString(data.deleteReason, "deleteReason", 500);
   if (
     data.deletedAt != null &&
-    !validIsoTimestamp(data.deletedAt)
+    !validServerTimestamp(data.deletedAt)
   ) {
     malformedExisting(
       "The charge-abnormality deletedAt value is malformed.",
@@ -756,7 +1009,7 @@ function validateExistingOptionalFields(data: UserAuthorityJsonMap): void {
     data.reannealedToChargeNo != null &&
     (
       !Number.isSafeInteger(data.reannealedToChargeNo) ||
-      (data.reannealedToChargeNo as number) <= 0
+      !isFiveDigitChargeNumber(data.reannealedToChargeNo)
     )
   ) {
     malformedExisting(
@@ -789,7 +1042,7 @@ function validateExistingOptionalFields(data: UserAuthorityJsonMap): void {
     }
   } else {
     if (
-      !validIsoTimestamp(data.deletedAt) ||
+      !validServerTimestamp(data.deletedAt) ||
       typeof data.deletedByUid !== "string" ||
       data.deletedByUid.trim().length === 0 ||
       typeof data.deletedByName !== "string" ||
@@ -800,6 +1053,16 @@ function validateExistingOptionalFields(data: UserAuthorityJsonMap): void {
       malformedExisting(
         "A deleted charge abnormality is missing deletion metadata.",
         "isDeleted",
+      );
+    }
+    const deletedAtMillis = persistedInstantMillis(data.deletedAt);
+    const loggedAtMillis = persistedInstantMillis(data.loggedAt);
+    const updatedAtMillis = persistedInstantMillis(data.updatedAt);
+    if (deletedAtMillis < loggedAtMillis ||
+        deletedAtMillis > updatedAtMillis) {
+      malformedExisting(
+        "The charge-abnormality deletedAt value falls outside its lifecycle.",
+        "deletedAt",
       );
     }
   }
@@ -879,6 +1142,15 @@ function warningAfterAbnormalityUpdate(args: {
     JSON.stringify(afterAbnormality[field]));
   if (!raChanged && !sourceChanged) return null;
 
+  if (serverTimestampMillis(args.committedAt) <
+      serverTimestampMillis(warning.updatedAt)) {
+    throw new ChargeAbnormalityMutationError(
+      "aborted",
+      "The server clock precedes the linked warning update. Retry after the recorded time boundary.",
+      {reasonCode: "charge-quality-warning-clock-regression"},
+    );
+  }
+
   const nextVersion = (warning.version as number) + 1;
   if (!Number.isSafeInteger(nextVersion)) {
     throw new ChargeAbnormalityMutationError(
@@ -889,42 +1161,41 @@ function warningAfterAbnormalityUpdate(args: {
   }
   const after: UserAuthorityJsonMap = {...warning};
   if (linkedTicketId == null) {
+    const affectedAssets = existingAssets(afterAbnormality.affectedAssets);
     Object.assign(after, {
       sourceVersion: afterAbnormality.version,
       sourceSummary: afterAbnormality.abnormalityTypeTitle,
       sourceSeverity: afterAbnormality.severity,
       warningReason: afterAbnormality.observedReason,
-      affectedAssets: afterAbnormality.affectedAssets,
+      affectedAssets: identityOnlyAffectedAssets(affectedAssets),
       component: afterAbnormality.component,
     });
   }
   if (raChanged) {
-    if (afterAbnormality.reannealingStatus === "notRequired") {
-      Object.assign(after, {
-        status: "closed",
-        closedAt: args.committedAt,
-        closedByUid: args.actorUid,
-        closedByName: args.actorName,
-        closureDisposition: "coilFoundAcceptable",
-        linkedReannealingChargeNos: [],
-        decisionReason: args.reason,
-      });
-    } else if (afterAbnormality.reannealingStatus === "completed") {
-      if (beforeAbnormality.reannealingStatus !== "required") {
+    if (afterAbnormality.reannealingStatus === "completed") {
+      if (beforeAbnormality.reannealingStatus !== "required" &&
+          beforeAbnormality.reannealingStatus !== "completed") {
         throw new ChargeAbnormalityMutationError(
           "failed-precondition",
           "Re-annealing completion requires a prior RA-required decision.",
           {reasonCode: "charge-quality-ra-not-required"},
         );
       }
+    }
+    if (afterAbnormality.reannealingStatus === "notRequired" ||
+        afterAbnormality.reannealingStatus === "completed") {
       Object.assign(after, {
-        status: "closed",
-        closedAt: args.committedAt,
-        closedByUid: args.actorUid,
-        closedByName: args.actorName,
-        closureDisposition: "reannealingCompleted",
-        linkedReannealingChargeNos: [afterAbnormality.reannealedToChargeNo],
-        decisionReason: args.reason,
+        status: "closureRequested",
+        closureRequestReason: args.reason,
+        closureRequestedAt: args.committedAt,
+        closureRequestedByUid: args.actorUid,
+        closureRequestedByName: args.actorName,
+        closedAt: null,
+        closedByUid: null,
+        closedByName: null,
+        closureDisposition: null,
+        linkedReannealingChargeNos: [],
+        decisionReason: null,
       });
     } else {
       Object.assign(after, {
@@ -1055,7 +1326,7 @@ function replayResult(args: {
     auditId,
     committedAt: committedAt as string,
     idempotentReplay: true,
-    abnormality: current,
+    abnormality: abnormalityForReceipt(current),
   };
 }
 
@@ -1089,7 +1360,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
   const auditId = `server_charge_abnormality_${request.requestId}`;
   const auditRef = db.collection("audit_logs").doc(auditId);
 
-  requireActor(await actorRef.get(), actorUid);
+  requireActor(await actorRef.get(), actorUid, request.operation);
   if (args.beforeTransactionForTest != null) {
     await args.beforeTransactionForTest();
   }
@@ -1097,9 +1368,94 @@ export async function mutateChargeAbnormalityWithDb(args: {
   return db.runTransaction(async (transaction) => {
     const receiptSnapshot = await transaction.get(receiptRef);
     const actorSnapshot = await transaction.get(actorRef);
-    const actor = requireActor(actorSnapshot, actorUid);
+    const actor = requireActor(actorSnapshot, actorUid, request.operation);
     const abnormalitySnapshot = await transaction.get(abnormalityRef);
     const auditSnapshot = await transaction.get(auditRef);
+
+    if (request.operation === "CREATE") {
+      const warningId = `abnormality_${request.abnormalityId}`;
+      const warningRef = db.collection("quality_warnings").doc(warningId);
+      const warningSnapshot = await transaction.get(warningRef);
+      const warning = warningSnapshot.exists ? validateQualityWarningRecord(
+        warningSnapshot.data() ?? {}, warningId,
+      ) : null;
+      if (receiptSnapshot.exists) {
+        return replayResult({request, actorUid,
+          receipt: receiptSnapshot.data() ?? {},
+          abnormality: abnormalitySnapshot.data() ?? {},
+          audit: auditSnapshot.exists ? auditSnapshot.data() ?? {} : null,
+          warning, warningId, auditId});
+      }
+      if (abnormalitySnapshot.exists || warningSnapshot.exists || auditSnapshot.exists) {
+        throw new ChargeAbnormalityMutationError("aborted",
+          "The creation identity already belongs to another recorded case.",
+          {reasonCode: "abnormality-create-identity-collision"});
+      }
+      const creation = request.creation!;
+      if (creation.loggedByUid !== actorUid || creation.updatedByUid !== actorUid) {
+        throw new ChargeAbnormalityMutationError("permission-denied",
+          "Only the original approved author can submit this saved abnormality.",
+          {reasonCode: "abnormality-create-author-mismatch"});
+      }
+      const typeId = cleanDocumentId(creation.abnormalityTypeId, "abnormalityTypeId");
+      const type = canonicalType(await transaction.get(
+        db.collection("abnormality_types").doc(typeId)), typeId);
+      const committedDate = now();
+      if (persistedInstantMillis(creation.updatedAt) > committedDate.valueOf()) {
+        // Preserve original case identity and chronology; retry once the server
+        // clock catches up rather than permanently rejecting a local-first save.
+        throw new ChargeAbnormalityMutationError("unavailable",
+          "The saved abnormality time is ahead of the server clock. " +
+          "It remains saved for retry; check the phone's automatic date and time.",
+          {reasonCode: "abnormality-create-future-time"});
+      }
+      const committedAtIso = committedDate.toISOString();
+      const committedAt = timestampFromDate(committedDate);
+      const after = validateExistingAbnormality({...creation,
+        abnormalityTypeTitle: type.title, abnormalityTypeCode: type.code,
+        category: type.category, updatedAt: committedAtIso,
+        updatedByUid: actorUid, updatedByName: actor.name,
+      }, request.abnormalityId);
+      const createdWarning = validateQualityWarningRecord({
+        schemaVersion: 1, warningId, sourceType: "abnormality",
+        sourceId: request.abnormalityId, sourceVersion: 1,
+        sourceChargeNo: after.sourceChargeNo,
+        sourceSummary: after.abnormalityTypeTitle, sourceSeverity: after.severity,
+        warningReason: after.observedReason, affectedAssets: after.affectedAssets,
+        component: after.component, status: "open",
+        closureRequestReason: null, closureRequestedAt: null,
+        closureRequestedByUid: null, closureRequestedByName: null,
+        closedAt: null, closedByUid: null, closedByName: null,
+        closureDisposition: null, linkedReannealingChargeNos: [], decisionReason: null,
+        createdAt: timestampFromDate(new Date(persistedInstantMillis(after.loggedAt))),
+        createdByUid: after.loggedByUid, createdByName: after.loggedByName,
+        updatedAt: committedAt, updatedByUid: actorUid, updatedByName: actor.name,
+        version: 1,
+      }, warningId);
+      transaction.set(abnormalityRef, after);
+      transaction.set(warningRef, createdWarning);
+      transaction.set(auditRef, {
+        schemaVersion: 1, eventType: "chargeAbnormalityMutation",
+        entityType: "charge_abnormality", entityId: request.abnormalityId,
+        action: "create", severity: "low", performedByUid: actorUid,
+        performedByName: actor.name, timestamp: committedAt,
+        reason: "other", reasonNotes: request.reason,
+        summary: "Created charge abnormality and quality warning",
+        beforeJson: null, afterJson: JSON.stringify(after), operation: request.operation,
+        requestId: request.requestId, expectedVersion: 0, resultVersion: 1,
+      });
+      transaction.set(receiptRef, {
+        schemaVersion: 1, requestId: request.requestId, actorUid,
+        abnormalityId: request.abnormalityId, operation: request.operation,
+        expectedVersion: 0, resultVersion: 1, auditId,
+        payloadFingerprint: request.payloadFingerprint, committedAt, committedAtIso,
+        linkedWarningId: warningId, linkedWarningVersion: 1,
+      });
+      return {ok: true, requestId: request.requestId,
+        abnormalityId: request.abnormalityId, operation: request.operation,
+        version: 1, auditId, committedAt: committedAtIso,
+        idempotentReplay: false, abnormality: abnormalityForReceipt(after)};
+    }
 
     if (!abnormalitySnapshot.exists) {
       throw new ChargeAbnormalityMutationError(
@@ -1219,18 +1575,36 @@ export async function mutateChargeAbnormalityWithDb(args: {
           {reasonCode: "reannealed-charge-matches-source"},
         );
       }
-      const typeRef = db
-        .collection("abnormality_types")
-        .doc(request.update.abnormalityTypeId);
-      type = canonicalType(
-        await transaction.get(typeRef),
-        request.update.abnormalityTypeId,
-      );
+      if (request.update.abnormalityTypeId === existing.abnormalityTypeId) {
+        // Historical records retain the governed classification frozen when
+        // they were logged. Retiring that master later must not block an
+        // otherwise valid Admin correction that keeps the same type.
+        type = {
+          code: existing.abnormalityTypeCode as string,
+          title: existing.abnormalityTypeTitle as string,
+          category: existing.category as string,
+        };
+      } else {
+        const typeRef = db
+          .collection("abnormality_types")
+          .doc(request.update.abnormalityTypeId);
+        type = canonicalType(
+          await transaction.get(typeRef),
+          request.update.abnormalityTypeId,
+        );
+      }
     }
 
     const committedAtDate = now();
     const committedAtIso = committedAtDate.toISOString();
     const committedAt = timestampFromDate(committedAtDate);
+    if (committedAtDate.valueOf() < persistedInstantMillis(existing.updatedAt)) {
+      throw new ChargeAbnormalityMutationError(
+        "aborted",
+        "The server clock precedes the current abnormality update. Retry after the recorded time boundary.",
+        {reasonCode: "charge-abnormality-clock-regression"},
+      );
+    }
     const resultVersion = request.expectedVersion + 1;
     if (!Number.isSafeInteger(resultVersion)) {
       throw new ChargeAbnormalityMutationError(
@@ -1242,6 +1616,18 @@ export async function mutateChargeAbnormalityWithDb(args: {
 
     const after: UserAuthorityJsonMap = {...existing};
     if (request.update != null && type != null) {
+      const existingAffectedAssets = existingAssets(existing.affectedAssets);
+      const existingHierarchyRefs = parseAffectedAssetHierarchyRefs(
+        existing.affectedAssetHierarchyRefs,
+        existingAffectedAssets,
+      ) ?? [];
+      const requestedHierarchyRefs =
+        request.update.affectedAssetHierarchyRefs;
+      const affectedAssetHierarchyRefs = mergeAffectedAssetHierarchyRefs({
+        affectedAssets: request.update.affectedAssets,
+        existing: existingHierarchyRefs,
+        requested: requestedHierarchyRefs,
+      });
       Object.assign(after, {
         abnormalityTypeId: request.update.abnormalityTypeId,
         abnormalityTypeTitle: type.title,
@@ -1249,6 +1635,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
         category: type.category,
         severity: request.update.severity,
         affectedAssets: request.update.affectedAssets,
+        affectedAssetHierarchyRefs,
         component: request.update.component,
         observedReason: request.update.observedReason,
         description: request.update.description,
@@ -1273,6 +1660,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
       updatedByName: actor.name,
       version: resultVersion,
     });
+    validateExistingAbnormality(after, request.abnormalityId);
 
     if (request.operation === "SOFT_DELETE") {
       if (linkedTicketId != null) {
@@ -1359,7 +1747,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
       auditId,
       committedAt: committedAtIso,
       idempotentReplay: false,
-      abnormality: after,
+      abnormality: abnormalityForReceipt(after),
     };
   });
 }

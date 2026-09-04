@@ -142,3 +142,14 @@ This closure changes source architecture and evidence only. It performs no
 Firebase deployment, production data read or mutation, local data migration,
 device validation, distribution action, pilot authorization, or cutover
 authorization. Its three ledger re-arm triggers remain binding.
+
+## Pilot Successor Inventory, 2026-09-04
+
+The reviewed successor contains 563 operations across 1940 persistence sites
+and 60 classified surfaces. Its measured inventory digest is
+`218B42299EF3F68BE69E5CF9D81B7902CAFEA763A51B80A5A478ED4EF087399C`.
+The governed directive acknowledgement now uses field-only transactional writes
+instead of the prior batch paths, preserving server-owned timestamps. The
+inventory remains exact; no presentation persistence exception was added.
+Earlier counts and CI receipts above describe their historical source, not
+deployment or release authority for this successor.

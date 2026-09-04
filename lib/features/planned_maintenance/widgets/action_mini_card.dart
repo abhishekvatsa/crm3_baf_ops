@@ -167,7 +167,7 @@ class ActionMiniCard extends StatelessWidget {
                       ),
                     StatusBadge(
                       label: TimeOfDay.fromDateTime(
-                        action.createdAt,
+                        action.createdAt.toLocal(),
                       ).format(context),
                       color: BafColors.admin,
                       icon: Icons.schedule_rounded,

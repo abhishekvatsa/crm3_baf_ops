@@ -560,6 +560,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
               .findFirst();
 
       if (local == null) return const RemoteTombstoneApplyResult.localMissing();
+      requireSameChargeAbnormalityIdentity(local, remote);
       if (local.isDeleted) {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
@@ -913,6 +914,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
               .findFirst();
 
       if (local == null) return;
+      requireSameChargeAbnormalityIdentity(local, remote);
 
       if (remote.isDeleted) {
         if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
@@ -952,6 +954,49 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   }
 
   @override
+  Future<bool> applyAbnormalityCommandReadback(ChargeAbnormality remote) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty) return false;
+    if (remote.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        remote.deletedAt,
+        entityLabel: 'charge abnormality',
+        firestoreId: firestoreId,
+      );
+    }
+
+    return isar.writeTxn<bool>(() async {
+      final local =
+          await _abnormalityBox
+              .filter()
+              .firestoreIdEqualTo(firestoreId)
+              .findFirst();
+      if (local == null) {
+        if (remote.isDeleted) return true;
+        remote.isSynced = true;
+        await _abnormalityBox.put(remote);
+        return true;
+      }
+
+      if (!sameChargeAbnormalityIdentity(local, remote)) return false;
+
+      final alreadyAtServerBoundary =
+          local.isSynced &&
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (!alreadyAtServerBoundary &&
+          (!local.isSynced || local.version > remote.version)) {
+        return false;
+      }
+
+      _copyRemoteChargeAbnormalityIntoLocal(local, remote);
+      await _abnormalityBox.put(local);
+      return true;
+    });
+  }
+
+  @override
   Future<bool> applyAbnormalityServerReadbackIfUnchanged(
     ChargeAbnormality remote, {
     required SyncPushSnapshot expectedLocal,
@@ -974,6 +1019,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
               .firestoreIdEqualTo(firestoreId)
               .findFirst();
       if (local == null || local.id != expectedLocal.id) return false;
+      if (!sameChargeAbnormalityIdentity(local, remote)) return false;
 
       final alreadyAtServerBoundary =
           local.isSynced &&

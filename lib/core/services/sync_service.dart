@@ -39,6 +39,7 @@ import '../../features/planned_maintenance/domain/baf_knowledge_repository.dart'
 import '../../features/directives/data/operational_directive_model.dart';
 import '../../features/directives/providers/operational_directive_provider.dart';
 import '../../features/abnormalities/data/abnormality_model.dart';
+import '../../features/abnormalities/domain/charge_abnormality_identity.dart';
 import '../../features/abnormalities/providers/abnormality_provider.dart';
 import '../../features/abnormalities/services/charge_abnormality_command_service.dart';
 import '../../features/audit/models/audit_event_model.dart';

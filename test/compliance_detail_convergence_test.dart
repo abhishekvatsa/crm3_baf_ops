@@ -6,6 +6,7 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_reque
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_aggregate_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_error.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,315 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final unavailable in [
+    'missing',
+    'wrong-workflow',
+    'deleted',
+    'failed-read',
+  ]) {
+    testWidgets(
+      'unavailable revised request stays on its source ($unavailable)',
+      (tester) async {
+        final original = _compliance(status: 'superseded', version: 3)
+          ..supersededById = 'revised-request';
+        final successor =
+            _compliance(status: 'acknowledged', version: 1)
+              ..firestoreId = 'revised-request'
+              ..isDeleted = unavailable == 'deleted'
+              ..linkedWorkflowId =
+                  unavailable == 'wrong-workflow'
+                      ? 'other'
+                      : original.linkedWorkflowId;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith(
+                (ref) => Stream.value(_instrumentationActor()),
+              ),
+              workflowComplianceRecordProvider.overrideWith((ref, scope) async {
+                if (scope.complianceId != 'revised-request') return original;
+                if (unavailable == 'failed-read') throw StateError('Offline');
+                return unavailable == 'missing' ? null : successor;
+              }),
+              workflowAuthoritativeRecordProvider.overrideWith(
+                (ref, scope) async => _aggregate(4),
+              ),
+              workflowCommandControllerProvider.overrideWith(
+                (ref) => WorkflowCommandController.forTesting(
+                  executeCommand: (_) async => throw StateError('Read only'),
+                  pullProjections: () async {},
+                ),
+              ),
+            ],
+            child: MaterialApp(
+              theme: BafAppTheme.light,
+              home: ComplianceDetailScreen(record: original),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Open agreed revised request'));
+        await tester.tap(find.text('Open agreed revised request'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Could not open revised request. Refresh and try again.'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<ComplianceDetailScreen>(
+                find.byType(ComplianceDetailScreen),
+              )
+              .record
+              .firestoreId,
+          original.firestoreId,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('agreed revision opens the exact successor request', (
+    tester,
+  ) async {
+    final original = _compliance(status: 'superseded', version: 3)
+      ..supersededById = 'revised-request';
+    final revised =
+        _compliance(status: 'acknowledged', version: 1)
+          ..firestoreId = 'revised-request'
+          ..title = 'Agreed crane positioning';
+    final readIds = <String>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_instrumentationActor()),
+          ),
+          workflowComplianceRecordProvider.overrideWith((ref, scope) async {
+            readIds.add(scope.complianceId);
+            return scope.complianceId == 'revised-request' ? revised : original;
+          }),
+          workflowAuthoritativeRecordProvider.overrideWith(
+            (ref, scope) async => _aggregate(4),
+          ),
+          workflowCommandControllerProvider.overrideWith(
+            (ref) => WorkflowCommandController.forTesting(
+              executeCommand: (_) async => throw StateError('Read only'),
+              pullProjections: () async {},
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: ComplianceDetailScreen(record: original),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Open agreed revised request'));
+    await tester.tap(find.text('Open agreed revised request'));
+    await tester.pumpAndSettle();
+    expect(readIds, contains('revised-request'));
+    expect(find.text('Agreed crane positioning'), findsWidgets);
+    expect(find.text('Mark complied'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('request displays completion actor, time and retained notes', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final record =
+        _compliance(status: 'confirmedClosed', version: 6)
+          ..compliedByName = 'Operations One'
+          ..compliedAt = DateTime(2026, 9, 4, 10, 15)
+          ..complianceNote = 'Crane positioned on stand 2.'
+          ..confirmedByName = 'Mechanical One'
+          ..confirmedAt = DateTime(2026, 9, 4, 10, 20)
+          ..confirmNote = 'Placement accepted.';
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_instrumentationActor()),
+          ),
+          workflowComplianceRecordProvider.overrideWith(
+            (ref, scope) async => record,
+          ),
+          workflowAuthoritativeRecordProvider.overrideWith(
+            (ref, scope) async => _aggregate(6),
+          ),
+          workflowCommandControllerProvider.overrideWith(
+            (ref) => WorkflowCommandController.forTesting(
+              executeCommand: (_) async => throw StateError('Read only'),
+              pullProjections: () async {},
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: ComplianceDetailScreen(record: record),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Operations One - 2026-09-04 10:15'),
+      findsOneWidget,
+    );
+    expect(find.text('Crane positioned on stand 2.'), findsOneWidget);
+    expect(
+      find.textContaining('Mechanical One - 2026-09-04 10:20'),
+      findsOneWidget,
+    );
+    expect(find.text('Placement accepted.'), findsOneWidget);
+    expect(find.text('Mark complied'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'failed command is visible and retry uses freshly read workflow state',
+    (tester) async {
+      var record = _compliance(status: 'raised', version: 1);
+      var version = 1;
+      final commands = <WorkflowCommand>[];
+      var reads = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream.value(_instrumentationActor()),
+            ),
+            workflowComplianceRecordProvider.overrideWith((ref, scope) async {
+              reads++;
+              return record;
+            }),
+            workflowAuthoritativeRecordProvider.overrideWith(
+              (ref, scope) async => _aggregate(version),
+            ),
+            workflowCommandControllerProvider.overrideWith(
+              (ref) => WorkflowCommandController.forTesting(
+                executeCommand: (command) async {
+                  commands.add(command);
+                  if (commands.length == 1) {
+                    record = _compliance(status: 'acknowledged', version: 4);
+                    version = 4;
+                    throw const WorkflowException(
+                      WorkflowErrorCode.failedPrecondition,
+                      'Another phone already acknowledged.',
+                    );
+                  }
+                  return _receipt(
+                    command,
+                    resultKey: 'compliance-complied',
+                    aggregateVersion: 5,
+                  );
+                },
+                pullProjections: () async {},
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: BafAppTheme.light,
+            home: ComplianceDetailScreen(record: record),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Acknowledge'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Request not confirmed:'), findsOneWidget);
+      expect(reads, greaterThanOrEqualTo(2));
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Mark complied'));
+      await tester.tap(find.text('Mark complied'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField),
+        'Operations completed the work.',
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(commands.last.expectedVersion, 4);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final pendingRevision in [false, true]) {
+    testWidgets(
+      'deferment shows one completion path; pending revision=$pendingRevision',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final record =
+            _compliance(status: 'acknowledged', version: 2)
+              ..targetLaneKey = 'oprn'
+              ..conditionTypeKey = 'chargeComplete'
+              ..conditionRef = '12345'
+              ..requestPurposeKey = 'deferment'
+              ..defermentBasisKey = 'ongoingCycle'
+              ..counterRevisedDescription =
+                  pendingRevision ? 'Wait for crane release too.' : null;
+        final actor = AppUser(
+          uid: 'operations-1',
+          name: 'Operator',
+          email: 'operator@example.test',
+          roles: [AppRole.operations],
+          isApproved: true,
+          createdAt: DateTime.utc(2026),
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
+              workflowComplianceRecordProvider.overrideWith(
+                (ref, scope) async => record,
+              ),
+              workflowAuthoritativeRecordProvider.overrideWith(
+                (ref, scope) async => _aggregate(2),
+              ),
+              workflowCommandControllerProvider.overrideWith(
+                (ref) => WorkflowCommandController.forTesting(
+                  executeCommand:
+                      (_) async => throw StateError('No command expected'),
+                  pullProjections: () async {},
+                ),
+              ),
+            ],
+            child: MaterialApp(
+              theme: BafAppTheme.light,
+              home: ComplianceDetailScreen(record: record),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.drag(find.byType(ListView), const Offset(0, -650));
+        await tester.pumpAndSettle();
+        expect(find.text('Mark complied'), findsNothing);
+        expect(
+          find.text('Confirm release condition met'),
+          pendingRevision ? findsNothing : findsOneWidget,
+        );
+        if (pendingRevision) {
+          expect(
+            find.text('Revised condition awaiting MECH decision'),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .widget<FilledButton>(
+                  find.widgetWithText(FilledButton, 'Accept revised condition'),
+                )
+                .onPressed,
+            isNull,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'successful compliance actions refresh record and advance receipt version',
     (tester) async {

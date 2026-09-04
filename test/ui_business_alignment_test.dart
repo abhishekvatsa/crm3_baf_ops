@@ -26,6 +26,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/widgets/action_mini_ca
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 AppUser _actor(AppRole role, {bool approved = true}) => AppUser(
@@ -549,7 +550,9 @@ void main() {
             'Replacement',
             'Repaired',
             'Action time',
+            DateFormat('dd MMM yyyy, HH:mm').format(action.createdAt.toLocal()),
             'Last corrected',
+            DateFormat('dd MMM yyyy, HH:mm').format(action.updatedAt!.toLocal()),
             'Burner action',
             'Flame Adjustment',
             'Burner outcome',

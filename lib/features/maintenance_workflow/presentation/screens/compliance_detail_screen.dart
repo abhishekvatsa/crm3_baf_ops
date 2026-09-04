@@ -10,6 +10,7 @@ import '../../../auth/providers/auth_provider.dart';
 import '../../data/compliance_request_record.dart';
 import '../../domain/compliance_visibility_policy.dart';
 import '../../domain/workflow_types.dart';
+import '../../domain/workflow_error.dart';
 import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
 import '../widgets/workflow_action_guard.dart';
@@ -28,6 +29,50 @@ class _ComplianceDetailScreenState
     extends ConsumerState<ComplianceDetailScreen> {
   String? _receiptWorkflowId;
   int? _receiptAggregateVersion;
+  bool _openingRevision = false;
+
+  Future<void> _openRevisedRequest(ComplianceRequestRecord original) async {
+    final actor = ref.read(currentAppUserProvider).value;
+    final id = original.supersededById;
+    if (_openingRevision || actor == null || !actor.isApproved || id == null) {
+      return;
+    }
+    setState(() => _openingRevision = true);
+    try {
+      final successor = await ref.read(
+        workflowComplianceRecordProvider((
+          actorUid: actor.uid,
+          complianceId: id,
+        )).future,
+      );
+      if (!mounted) return;
+      final currentActor = ref.read(currentAppUserProvider).value;
+      if (currentActor == null || currentActor.uid != actor.uid) return;
+      if (successor == null ||
+          successor.isDeleted ||
+          successor.firestoreId != id ||
+          successor.linkedWorkflowId != original.linkedWorkflowId ||
+          !isComplianceRequestRelevantToUser(successor, currentActor)) {
+        throw StateError('Revised request is unavailable in this session.');
+      }
+      Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => ComplianceDetailScreen(record: successor),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not open revised request. Refresh and try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _openingRevision = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +188,16 @@ class _ComplianceDetailScreenState
           icon: Icons.fact_check_outlined,
           accent: BafColors.directives,
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh request',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed:
+                commandState.isLoading
+                    ? null
+                    : () => _refreshRequest(ref, actor.uid, workflowId),
+          ),
+        ],
       ),
       body: BafContentFrame(
         maxWidth: 840,
@@ -243,6 +298,21 @@ class _ComplianceDetailScreenState
         ),
         const SizedBox(height: BafSpacing.sm),
         BafRecordSurface(child: Column(children: _contextRows(record))),
+        const SizedBox(height: BafSpacing.md),
+        Text(
+          complianceNextStepLabel(record),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        if (record.statusKey == 'superseded' &&
+            record.supersededById != null) ...[
+          const SizedBox(height: BafSpacing.md),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.open_in_new_rounded),
+            label: const Text('Open agreed revised request'),
+            onPressed:
+                _openingRevision ? null : () => _openRevisedRequest(record),
+          ),
+        ],
         if (record.counterRevisedDescription != null) ...[
           const SizedBox(height: BafSpacing.lg),
           BafRecordSurface(
@@ -319,6 +389,35 @@ class _ComplianceDetailScreenState
       ('Request type', record.requestPurposeLabel),
       ('Target lane', record.targetLaneKey.toUpperCase()),
       ('Status', _businessLabel(record.statusKey)),
+      if (record.raisedAt != null)
+        (
+          'Requested by',
+          '${record.raisedByName ?? "Not recorded"} - ${record.raisedAt!.toLocal()}',
+        ),
+      if (record.acknowledgedAt != null)
+        (
+          'Acknowledged by',
+          '${record.acknowledgedByName ?? "Not recorded"} - ${record.acknowledgedAt!.toLocal()}',
+        ),
+      if (record.compliedAt != null)
+        (
+          'Completion reported by',
+          '${record.compliedByName ?? "Not recorded"} - ${record.compliedAt!.toLocal()}',
+        ),
+      if (record.complianceNote != null)
+        ('Completion evidence', record.complianceNote!),
+      if (record.lastCorrectionReason != null)
+        (
+          'Last returned for correction',
+          '${record.lastCorrectionByName ?? "Not recorded"} - ${record.lastCorrectionAt?.toLocal() ?? "Time not recorded"}\n${record.lastCorrectionReason}',
+        ),
+      if (record.confirmedAt != null)
+        (
+          'Accepted by',
+          '${record.confirmedByName ?? "Not recorded"} - ${record.confirmedAt!.toLocal()}',
+        ),
+      if (record.confirmNote != null && record.confirmNote!.isNotEmpty)
+        ('Acceptance note', record.confirmNote!),
       if (record.raisedUnderCoordination)
         ('Coordination', 'Supervisory workflow coordination'),
       if (record.defermentBasisKey != null)
@@ -395,26 +494,29 @@ class _ComplianceDetailScreenState
     );
     final mayWorkOrigin =
         record.originLaneKey == null
-            ? actor.isModuleLifecycleSupervisor
+            ? actor.isAdmin || actor.isSI
             : (record.raisedUnderCoordination &&
                     actor.canCoordinateMaintenanceCompliance) ||
                 actor.canAcknowledgeOrWorkMaintenanceLane(record.originLaneKey);
     final mayMarkCondition = actor.canMarkMaintenanceWorkflowConditionDue;
+    final openRequest =
+        record.statusKey == 'raised' || record.statusKey == 'acknowledged';
+    final pendingRevision =
+        openRequest && record.counterRevisedDescription != null;
+    final conditionBased = record.conditionTypeKey != 'manual';
 
-    if ((record.statusKey == 'raised' || record.statusKey == 'acknowledged') &&
-        record.conditionTypeKey != 'manual') {
+    if (openRequest && conditionBased && !pendingRevision) {
       add(
         WorkflowActionGuard(
           busy: busy,
           enabled: mayMarkCondition,
-          label: 'Confirm condition and reactivate linked work',
+          label: 'Confirm release condition met',
           icon: Icons.playlist_add_check_circle_outlined,
           onPressed: () async {
             final note = await _askText(
               context,
-              title: 'Confirm condition',
-              label: 'Confirmation note',
-              initialValue: 'Condition confirmed; linked work reactivated.',
+              title: 'Confirm release condition met',
+              label: 'What was completed or verified?',
             );
             if (note == null) return;
             await _send(
@@ -449,7 +551,9 @@ class _ComplianceDetailScreenState
       );
     }
 
-    if (record.statusKey == 'acknowledged') {
+    if (record.statusKey == 'acknowledged' &&
+        !conditionBased &&
+        !pendingRevision) {
       add(
         WorkflowActionGuard(
           busy: busy,
@@ -474,37 +578,36 @@ class _ComplianceDetailScreenState
           },
         ),
       );
-      if (record.counterRevisedDescription == null &&
-          record.counterDepth == 0) {
-        add(
-          OutlinedButton.icon(
-            onPressed:
-                busy || !mayWorkTarget
-                    ? null
-                    : () async {
-                      final revised = await _askText(
-                        context,
-                        title: 'Propose one revised condition',
-                        label: 'Complete revised condition',
-                      );
-                      if (revised == null) return;
-                      await _send(
-                        ref,
-                        workflowId,
-                        expectedVersion,
-                        WorkflowCommandType.proposeCounterCondition,
-                        actorUid: actor.uid,
-                        extra: <String, Object?>{'revisedDescription': revised},
-                      );
-                    },
-            icon: const Icon(Icons.swap_horiz),
-            label: const Text('Propose one revised condition'),
-          ),
-        );
-      }
+    }
+    if (openRequest && !pendingRevision && record.counterDepth == 0) {
+      add(
+        OutlinedButton.icon(
+          onPressed:
+              busy || !mayWorkTarget
+                  ? null
+                  : () async {
+                    final revised = await _askText(
+                      context,
+                      title: 'Propose one revised condition',
+                      label: 'Complete revised condition',
+                    );
+                    if (revised == null) return;
+                    await _send(
+                      ref,
+                      workflowId,
+                      expectedVersion,
+                      WorkflowCommandType.proposeCounterCondition,
+                      actorUid: actor.uid,
+                      extra: <String, Object?>{'revisedDescription': revised},
+                    );
+                  },
+          icon: const Icon(Icons.swap_horiz),
+          label: const Text('Propose one revised condition'),
+        ),
+      );
     }
 
-    if (record.counterRevisedDescription != null) {
+    if (pendingRevision) {
       add(
         FilledButton.icon(
           onPressed:
@@ -568,7 +671,10 @@ class _ComplianceDetailScreenState
         WorkflowActionGuard(
           busy: busy,
           enabled: mayWorkOrigin,
-          label: 'Confirm closed',
+          label:
+              record.targetLaneKey == 'oprn'
+                  ? 'Accept Operations completion'
+                  : 'Confirm closed',
           icon: Icons.verified_outlined,
           onPressed: () async {
             final note = await _askText(
@@ -611,7 +717,11 @@ class _ComplianceDetailScreenState
                     );
                   },
           icon: const Icon(Icons.replay_outlined),
-          label: const Text('Return for correction'),
+          label: Text(
+            record.targetLaneKey == 'oprn'
+                ? 'Return to Operations'
+                : 'Return for correction',
+          ),
         ),
       );
     }
@@ -627,29 +737,49 @@ class _ComplianceDetailScreenState
     required String actorUid,
     Map<String, Object?> extra = const <String, Object?>{},
   }) async {
-    final receipt = await ref
-        .read(workflowCommandControllerProvider.notifier)
-        .execute(
-          WorkflowCommandFactory.create(
-            type: type,
-            aggregateId: workflowId,
-            expectedVersion: expectedVersion,
-            payload: <String, Object?>{
-              'complianceId': widget.record.firestoreId,
-              ...extra,
-            },
-          ),
-        );
     if (!mounted) return;
-    setState(() {
-      final sameWorkflow = _receiptWorkflowId == workflowId;
-      final current = sameWorkflow ? _receiptAggregateVersion : null;
-      _receiptWorkflowId = workflowId;
-      _receiptAggregateVersion =
-          current == null || receipt.aggregateVersion > current
-              ? receipt.aggregateVersion
-              : current;
-    });
+    try {
+      final receipt = await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(
+            WorkflowCommandFactory.create(
+              type: type,
+              aggregateId: workflowId,
+              expectedVersion: expectedVersion,
+              payload: <String, Object?>{
+                'complianceId': widget.record.firestoreId,
+                ...extra,
+              },
+            ),
+          );
+      if (!mounted) return;
+      setState(() {
+        final sameWorkflow = _receiptWorkflowId == workflowId;
+        final current = sameWorkflow ? _receiptAggregateVersion : null;
+        _receiptWorkflowId = workflowId;
+        _receiptAggregateVersion =
+            current == null || receipt.aggregateVersion > current
+                ? receipt.aggregateVersion
+                : current;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is WorkflowException
+                ? 'Request not confirmed: ${error.message}'
+                : 'Request not confirmed. Refresh the request before trying again.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) _refreshRequest(ref, actorUid, workflowId);
+    }
+  }
+
+  void _refreshRequest(WidgetRef ref, String actorUid, String workflowId) {
     final authorizedActorUid = actorUid.trim();
     final complianceId = widget.record.firestoreId?.trim();
     if (authorizedActorUid.isNotEmpty &&

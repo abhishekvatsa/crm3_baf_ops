@@ -11,6 +11,7 @@ import {cleanText, iso, stableJson} from "./utils";
 import {WorkflowTransaction} from "./store";
 import {eventPlan} from "./events";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
+import {persistedInstantMillis} from "../persistedInstant";
 import {
   PersistedActionPayloadError,
   readComponentActionPayload,
@@ -363,7 +364,7 @@ const requiredPersistedInstantDate = (
   if (value instanceof Date) {
     parsed = value;
   } else if (typeof value === "string" && value.trim().length > 0) {
-    parsed = new Date(value);
+    parsed = new Date(persistedInstantMillis(value));
   } else if (
     value != null &&
     typeof value === "object" &&
@@ -1497,6 +1498,35 @@ export const canonicalGovernedClosureActions = async (args: {
   return {text: stableJson(canonicalRows), rows: canonicalRows};
 };
 
+const qualityAffectedAssetsForTicket = (ticket: JsonMap): JsonMap[] => {
+  const assetHierarchyRef = typeof ticket.assetHierarchyRefJson === "string" ?
+    record(JSON.parse(ticket.assetHierarchyRefJson), "assetHierarchyRefJson") :
+    null;
+  return [{
+    assetType: ticket.assetType as string,
+    assetNumber: ticket.assetNumber as number,
+    ...(assetHierarchyRef == null ? {} : {assetHierarchyRef}),
+  }];
+};
+
+const qualityAbnormalityAssetFieldsForTicket = (
+  ticket: JsonMap,
+): {
+  readonly affectedAssets: JsonMap[];
+  readonly affectedAssetHierarchyRefs: JsonMap[];
+} => {
+  const affected = qualityAffectedAssetsForTicket(ticket);
+  return {
+    affectedAssets: affected.map((asset) => ({
+      assetType: asset.assetType,
+      assetNumber: asset.assetNumber,
+    })),
+    affectedAssetHierarchyRefs: affected
+      .filter((asset) => asset.assetHierarchyRef != null)
+      .map((asset) => ({...asset})),
+  };
+};
+
 const qualityWarningProjection = (args: {
   ticketId: string;
   ticket: JsonMap;
@@ -1515,10 +1545,7 @@ const qualityWarningProjection = (args: {
     sourceSummary: args.ticket.description as string,
     sourceSeverity: args.ticket.isCritical === true ? "critical" : "standard",
     warningReason: args.ticket.qualityWarningReason as string,
-    affectedAssets: [{
-      assetType: args.ticket.assetType as string,
-      assetNumber: args.ticket.assetNumber as number,
-    }],
+    affectedAssets: qualityAffectedAssetsForTicket(args.ticket),
     component: args.ticket.component ?? null,
     status: "open",
     closureRequestReason: null,
@@ -1595,9 +1622,10 @@ const canonicalQualityAbnormalityType = (args: {
   return {id: args.typeId, code, title, category, severity};
 };
 
-const qualityRootReasonForAsset = (assetType: string): string => {
+export const qualityRootReasonForAsset = (assetType: string): string => {
   switch (assetType) {
   case "base": return "baseRelated";
+  case "innerCover": return "baseRelated";
   case "furnace": return "furnaceRelated";
   case "forceCooler": return "forceCoolerRelated";
   default: return "unknown";
@@ -1619,10 +1647,7 @@ const qualityAbnormalityProjection = (args: {
   abnormalityTypeCode: args.type.code,
   category: args.type.category,
   severity: args.ticket.isCritical === true ? "critical" : args.type.severity,
-  affectedAssets: [{
-    assetType: args.ticket.assetType as string,
-    assetNumber: args.ticket.assetNumber as number,
-  }],
+  ...qualityAbnormalityAssetFieldsForTicket(args.ticket),
   component: args.ticket.component ?? null,
   observedReason: args.ticket.qualityWarningReason as string,
   description: args.ticket.description as string,

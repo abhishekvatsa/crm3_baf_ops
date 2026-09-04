@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
-import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -24,6 +24,7 @@ void main() {
             ..firestoreId = 'ticket-1'
             ..assetType = AssetType.furnace
             ..assetNumber = 7
+            ..assetHierarchyRefJson = _qualityHierarchyReference.encode()
             ..description = 'Atmosphere interruption during cycle'
             ..component = 'Atmosphere control'
             ..chargeNoAtEvent = 12001
@@ -49,7 +50,11 @@ void main() {
         'sourceSeverity': 'critical',
         'warningReason': 'Atmosphere interruption may affect coil quality.',
         'affectedAssets': <Map<String, dynamic>>[
-          <String, dynamic>{'assetType': 'furnace', 'assetNumber': 7},
+          <String, dynamic>{
+            'assetType': 'furnace',
+            'assetNumber': 7,
+            'assetHierarchyRef': _qualityHierarchyReference.toMap(),
+          },
         ],
         'component': 'Atmosphere control',
         'status': 'open',
@@ -92,8 +97,12 @@ void main() {
             ..sourceChargeNo = 12002
             ..abnormalityTypeTitle = 'Unexpected coil colour'
             ..severity = AbnormalitySeverity.high
-            ..affectedAssets = const <AffectedAssetRef>[
-              AffectedAssetRef(assetType: AssetType.base, assetNumber: 12),
+            ..affectedAssets = <AffectedAssetRef>[
+              const AffectedAssetRef(
+                assetType: AssetType.furnace,
+                assetNumber: 7,
+                assetHierarchyReference: _qualityHierarchyReference,
+              ),
             ]
             ..component = 'Cooling circuit'
             ..observedReason = 'Observed colour requires quality review.'
@@ -113,6 +122,12 @@ void main() {
           'Observed colour requires quality review.',
         ),
       );
+      final projection = qualityWarningProjectionForAbnormality(abnormality);
+      expect(projection['affectedAssets'], <Map<String, dynamic>>[
+        <String, dynamic>{'assetType': 'furnace', 'assetNumber': 7},
+      ]);
+      final warning = QualityWarning.fromMap(projection, 'abnormality_abn-1');
+      expect(warning.affectedAssets.single.componentLabel, isNull);
     });
   });
 
@@ -122,6 +137,32 @@ void main() {
 
       expect(warning.status, QualityWarningStatus.open);
       expect(warning.sourceChargeNo, 12001);
+    });
+
+    test('accepts a historical warning with no affected asset', () {
+      final warning = QualityWarning.fromMap(
+        _warning()..['affectedAssets'] = <Map<String, dynamic>>[],
+        'issue_ticket-1',
+      );
+
+      expect(warning.affectedAssets, isEmpty);
+    });
+
+    test('rejects an explicitly null governed hierarchy reference', () {
+      expect(
+        () => QualityWarning.fromMap(
+          _warning()
+            ..['affectedAssets'] = <Map<String, dynamic>>[
+              <String, dynamic>{
+                'assetType': 'furnace',
+                'assetNumber': 7,
+                'assetHierarchyRef': null,
+              },
+            ],
+          'issue_ticket-1',
+        ),
+        throwsFormatException,
+      );
     });
 
     test('rejects unsupported schema and partial closure request evidence', () {
@@ -172,6 +213,41 @@ void main() {
       );
     });
 
+    test('rejects malformed RA charges and reversed lifecycle time', () {
+      final malformedCharge =
+          _warning()
+            ..['status'] = 'closed'
+            ..['closedAt'] = DateTime.utc(2026, 8, 14, 12)
+            ..['closedByUid'] = 'si-1'
+            ..['closedByName'] = 'SI One'
+            ..['closureDisposition'] = 'reannealingCompleted'
+            ..['linkedReannealingChargeNos'] = <int>[123]
+            ..['decisionReason'] = 'Re-annealing was completed.'
+            ..['updatedAt'] = DateTime.utc(2026, 8, 14, 12);
+      expect(
+        () => QualityWarning.fromMap(malformedCharge, 'issue_ticket-1'),
+        throwsFormatException,
+      );
+
+      final reversedClosure =
+          _warning()
+            ..['status'] = 'closed'
+            ..['closureRequestReason'] = 'Operations requested review.'
+            ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
+            ..['closureRequestedByUid'] = 'ops-1'
+            ..['closureRequestedByName'] = 'Operations One'
+            ..['closedAt'] = DateTime.utc(2026, 8, 14, 10)
+            ..['closedByUid'] = 'si-1'
+            ..['closedByName'] = 'SI One'
+            ..['closureDisposition'] = 'qualityAdjudication'
+            ..['decisionReason'] = 'The coils were adjudicated.'
+            ..['updatedAt'] = DateTime.utc(2026, 8, 14, 12);
+      expect(
+        () => QualityWarning.fromMap(reversedClosure, 'issue_ticket-1'),
+        throwsFormatException,
+      );
+    });
+
     test('non-closed window preserves old warnings and removes duplicates', () {
       final open = QualityWarning.fromMap(_warning(), 'issue_ticket-1');
       final reviewMap =
@@ -183,7 +259,10 @@ void main() {
                 'Coils were inspected and found satisfactory.'
             ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
             ..['closureRequestedByUid'] = 'operations-1'
-            ..['closureRequestedByName'] = 'Operations One';
+            ..['closureRequestedByName'] = 'Operations One'
+            ..['updatedAt'] = DateTime.utc(2026, 8, 14, 11)
+            ..['updatedByUid'] = 'operations-1'
+            ..['updatedByName'] = 'Operations One';
       final review = QualityWarning.fromMap(reviewMap, 'issue_ticket-2');
       final merged = mergeQualityWarningWindows([open, review], [open]);
       expect(merged.map((warning) => warning.warningId), [
@@ -232,6 +311,23 @@ void main() {
 
       expect(
         () => QualityMonitoringRequest.fromMap(monitoring, 'monitoring-1'),
+        throwsFormatException,
+      );
+    });
+
+    test('rejects malformed charge numbers and reversed lifecycle time', () {
+      expect(
+        () => QualityMonitoringRequest.fromMap(
+          _monitoring()..['chargeNumbers'] = <int>[123],
+          'monitoring-1',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => QualityMonitoringRequest.fromMap(
+          _monitoring()..['updatedAt'] = DateTime.utc(2026, 8, 14, 7, 59, 59),
+          'monitoring-1',
+        ),
         throwsFormatException,
       );
     });
@@ -417,7 +513,10 @@ void main() {
               'Operations found the affected material satisfactory.'
           ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
           ..['closureRequestedByUid'] = 'operations-1'
-          ..['closureRequestedByName'] = 'Operations One',
+          ..['closureRequestedByName'] = 'Operations One'
+          ..['updatedAt'] = DateTime.utc(2026, 8, 14, 11)
+          ..['updatedByUid'] = 'operations-1'
+          ..['updatedByName'] = 'Operations One',
         'issue_ticket-1',
       );
       final active = QualityMonitoringRequest.fromMap(
@@ -552,7 +651,7 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(360, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final activeCharges = <int>{};
+      final activeCases = <String>{};
       final warnings = List<QualityWarning>.generate(80, (index) {
         final id = 'issue_ticket-$index';
         return QualityWarning.fromMap(
@@ -577,10 +676,10 @@ void main() {
             qualityMonitoringRequestsProvider.overrideWith(
               (ref) => Stream.value(const <QualityMonitoringRequest>[]),
             ),
-            abnormalitiesForChargeProvider.overrideWith((ref, sourceChargeNo) {
-              activeCharges.add(sourceChargeNo);
-              ref.onDispose(() => activeCharges.remove(sourceChargeNo));
-              return Stream.value(const <ChargeAbnormality>[]);
+            linkedQualityAbnormalityProvider.overrideWith((ref, abnormalityId) {
+              activeCases.add(abnormalityId);
+              ref.onDispose(() => activeCases.remove(abnormalityId));
+              return Stream<ChargeAbnormality?>.value(null);
             }),
           ],
           child: MaterialApp(
@@ -591,18 +690,48 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(activeCharges, isNotEmpty);
-      expect(activeCharges.length, lessThan(warnings.length));
+      expect(activeCases, isNotEmpty);
+      expect(activeCases.length, lessThan(warnings.length));
       expect(find.text('Warning summary 79'), findsNothing);
 
       await tester.tap(find.text('Review').last);
       await tester.pumpAndSettle();
 
       expect(find.text('No warnings in this view'), findsOneWidget);
-      expect(activeCharges, isEmpty);
+      expect(activeCases, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('long warning facts wrap without overflowing at phone width', (
+    tester,
+  ) async {
+    final warning =
+        _warning()
+          ..['component'] =
+              'Atmosphere control instrumentation and combustion supervision'
+          ..['affectedAssets'] = <Map<String, dynamic>>[
+            <String, dynamic>{'assetType': 'furnace', 'assetNumber': 7},
+            <String, dynamic>{'assetType': 'base', 'assetNumber': 223},
+            <String, dynamic>{'assetType': 'forceCooler', 'assetNumber': 25},
+          ];
+
+    await _pumpQualityWarningScreen(
+      tester,
+      abnormalities: const <ChargeAbnormality>[],
+      screenSize: const Size(320, 720),
+      warningData: warning,
+    );
+
+    expect(find.textContaining('FURNACE 7, BASE 223'), findsOneWidget);
+    expect(
+      find.text(
+        'Atmosphere control instrumentation and combustion supervision',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('connected warning hides RA completion until RA is required', (
     tester,
@@ -641,13 +770,10 @@ void main() {
     await tester.ensureVisible(find.text('Adjudicate'));
     await tester.tap(find.text('Adjudicate'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byType(DropdownButtonFormField<QualityWarningClosureDisposition>),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Re-annealing completed').last);
-    await tester.pumpAndSettle();
 
+    expect(find.text('Re-annealing completed'), findsOneWidget);
+    expect(find.text('Coil found acceptable'), findsNothing);
+    expect(find.text('Quality adjudication'), findsNothing);
     expect(_textFieldWithLabel('RA charge number'), findsOneWidget);
     expect(find.text('13001'), findsOneWidget);
     expect(find.text('RA charge numbers'), findsNothing);
@@ -665,6 +791,110 @@ void main() {
     expect(find.text('Enter one five-digit RA charge number.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'recorded RA completion and operational opinion carry into adjudication',
+    (tester) async {
+      await _pumpQualityWarningScreen(
+        tester,
+        abnormalities: <ChargeAbnormality>[
+          _linkedIssueAbnormality(ReannealingStatus.completed),
+        ],
+      );
+
+      expect(
+        find.text('Old charge 12001  →  New charge 13001'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('Adjudicate'));
+      await tester.tap(find.text('Adjudicate'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recorded operational opinion'), findsWidgets);
+      expect(
+        tester
+            .widget<TextField>(_textFieldWithLabel('Decision evidence'))
+            .controller!
+            .text,
+        'Atmosphere interruption may affect coil quality.',
+      );
+      expect(
+        tester
+            .widget<TextField>(_textFieldWithLabel('RA charge number'))
+            .controller!
+            .text,
+        '13001',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'operations see the old charge while the new RA charge is pending',
+    (tester) async {
+      await _pumpQualityWarningScreen(
+        tester,
+        actor: _qualityViewer(),
+        abnormalities: <ChargeAbnormality>[
+          _linkedIssueAbnormality(ReannealingStatus.required),
+        ],
+      );
+
+      expect(find.text('RA required · awaiting new charge'), findsOneWidget);
+      expect(
+        find.text('Old charge 12001  →  New RA charge awaiting entry'),
+        findsOneWidget,
+      );
+      expect(find.text('Record RA completion'), findsOneWidget);
+      expect(find.text('Adjudicate'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'operations can enter a new RA charge while the original opinion stays visible',
+    (tester) async {
+      await _pumpQualityWarningScreen(
+        tester,
+        actor: _qualityViewer(),
+        abnormalities: <ChargeAbnormality>[
+          _linkedIssueAbnormality(ReannealingStatus.required),
+        ],
+      );
+
+      await tester.ensureVisible(find.text('Record RA completion'));
+      await tester.tap(find.text('Record RA completion'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Record re-annealing completion'), findsOneWidget);
+      expect(
+        find.text('Old charge 12001  →  New RA charge awaiting entry'),
+        findsWidgets,
+      );
+      expect(find.text('Recorded operational opinion'), findsWidgets);
+      expect(
+        find.text('Atmosphere interruption may affect coil quality.'),
+        findsWidgets,
+      );
+      expect(_textFieldWithLabel('New RA charge number'), findsOneWidget);
+
+      await tester.enterText(
+        _textFieldWithLabel('New RA charge number'),
+        '12001',
+      );
+      await tester.enterText(
+        _textFieldWithLabel('Completion evidence'),
+        'The re-annealing cycle has completed.',
+      );
+      await tester.tap(find.text('Record completion'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('The new RA charge must differ from the old charge.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('unlinked legacy warning retains multi-charge adjudication', (
     tester,
@@ -688,37 +918,149 @@ void main() {
     expect(find.text('13001, 13002'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'standalone warning blocks decisions when its mandatory case is missing',
+    (tester) async {
+      final warning =
+          _warning()
+            ..['warningId'] = 'abnormality_abn-1'
+            ..['sourceType'] = 'abnormality'
+            ..['sourceId'] = 'abn-1';
+
+      await _pumpQualityWarningScreen(
+        tester,
+        abnormalities: const <ChargeAbnormality>[],
+        warningData: warning,
+      );
+
+      expect(
+        find.text(
+          'This warning is missing its mandatory abnormality record. Quality decisions are blocked pending repair.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Request closure'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'RA required'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Adjudicate'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'governed issue warning blocks decisions when its linked case is missing',
+    (tester) async {
+      final warning =
+          _warning()
+            ..['affectedAssets'] = <Map<String, dynamic>>[
+              <String, dynamic>{
+                'assetType': 'furnace',
+                'assetNumber': 7,
+                'assetHierarchyRef': _qualityHierarchyReference.toMap(),
+              },
+            ];
+
+      await _pumpQualityWarningScreen(
+        tester,
+        abnormalities: const <ChargeAbnormality>[],
+        warningData: warning,
+      );
+
+      expect(
+        find.text(
+          'This warning is missing its mandatory abnormality record. Quality decisions are blocked pending repair.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Request closure'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Adjudicate'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 Future<void> _pumpQualityWarningScreen(
   WidgetTester tester, {
   required List<ChargeAbnormality> abnormalities,
+  AppUser? actor,
+  Size screenSize = const Size(480, 1000),
+  Map<String, dynamic>? warningData,
 }) async {
-  await tester.binding.setSurfaceSize(const Size(480, 1000));
+  await tester.binding.setSurfaceSize(screenSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final warning = QualityWarning.fromMap(_warning(), 'issue_ticket-1');
-  final actor = AppUser(
-    uid: 'si-1',
-    name: 'SI One',
-    email: 'si-1@example.com',
-    roles: const <AppRole>[AppRole.si],
-    isApproved: true,
-    createdAt: DateTime.utc(2026, 8, 14),
+  final warningMap = warningData ?? _warning();
+  final warning = QualityWarning.fromMap(
+    warningMap,
+    warningMap['warningId']! as String,
   );
+  final currentActor =
+      actor ??
+      AppUser(
+        uid: 'si-1',
+        name: 'SI One',
+        email: 'si-1@example.com',
+        roles: const <AppRole>[AppRole.si],
+        isApproved: true,
+        createdAt: DateTime.utc(2026, 8, 14),
+      );
 
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
+        currentAppUserProvider.overrideWith(
+          (ref) => Stream.value(currentActor),
+        ),
         qualityWarningsProvider.overrideWith(
           (ref) => Stream.value(<QualityWarning>[warning]),
         ),
         qualityMonitoringRequestsProvider.overrideWith(
           (ref) => Stream.value(const <QualityMonitoringRequest>[]),
         ),
-        abnormalitiesForChargeProvider.overrideWith(
-          (ref, sourceChargeNo) => Stream.value(abnormalities),
-        ),
+        linkedQualityAbnormalityProvider.overrideWith((ref, abnormalityId) {
+          ChargeAbnormality? linked;
+          for (final abnormality in abnormalities) {
+            if (abnormality.firestoreId == abnormalityId) {
+              linked = abnormality;
+              break;
+            }
+          }
+          return Stream<ChargeAbnormality?>.value(linked);
+        }),
       ],
       child: MaterialApp(
         theme: BafAppTheme.light,
@@ -743,8 +1085,28 @@ ChargeAbnormality _linkedIssueAbnormality(ReannealingStatus status) {
     ..firestoreId = 'issue_quality_ticket-1'
     ..sourceChargeNo = 12001
     ..linkedTicketFirestoreId = 'ticket-1'
-    ..reannealingStatus = status;
+    ..reannealingStatus = status
+    ..reannealedToChargeNo =
+        status == ReannealingStatus.completed ? 13001 : null;
 }
+
+const _qualityHierarchyReference = AssetHierarchyReference(
+  scope: AssetHierarchyReferenceScope.componentDefinitionOnAsset,
+  assetClassId: 'furnace-class',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnace',
+  nodeId: 'burner-block',
+  nodeVersion: 2,
+  nodeName: 'Burner block',
+  assetInstanceId: 'furnace-7',
+  assetInstanceVersion: 3,
+  assetNumber: 7,
+  assetInstanceName: 'Furnace 7',
+  hierarchyPath: <String>['Furnace', 'Combustion system', 'Burner block'],
+  ownershipStatus: AssetOwnershipStatus.confirmed,
+  ownerDiscipline: 'Mechanical',
+  accountableRoleKeys: <String>['contractSupervisor'],
+);
 
 Finder _textFieldWithLabel(String label) => find.byWidgetPredicate(
   (widget) => widget is TextField && widget.decoration?.labelText == label,

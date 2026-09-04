@@ -23,41 +23,44 @@ class _SectionCard extends StatelessWidget {
         border: Border.all(color: BafColors.border),
         boxShadow: BafShadows.subtle,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: BafColors.maintenance, size: 22),
-              const SizedBox(width: BafSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: BafColors.maintenance, size: 22),
+                const SizedBox(width: BafSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: BafColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: BafSpacing.xs),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 12,
+                      const SizedBox(height: BafSpacing.xs),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: BafColors.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.lg),
-          ...children,
-        ],
+              ],
+            ),
+            const SizedBox(height: BafSpacing.lg),
+            ...children,
+          ],
+        ),
       ),
     );
   }

@@ -468,6 +468,9 @@ export const confirmConditionAndReactivate: CommandHandler = async ({tx, command
   if (compliance.status !== "raised" && compliance.status !== "acknowledged") {
     throw new WorkflowError("failed-precondition", "Condition confirmation requires a raised or acknowledged request.");
   }
+  if (compliance.counterProposal != null) {
+    throw new WorkflowError("failed-precondition", "The requesting side must decide the revised condition before completion.");
+  }
   if (compliance.conditionTypeKey !== "chargeComplete" && compliance.conditionTypeKey !== "activityRef") {
     throw new WorkflowError("failed-precondition", "Only condition-based requests may use this command.");
   }
@@ -539,6 +542,16 @@ export const markComplianceComplied: CommandHandler = async ({tx, command, conte
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);
   const version = assertExpectedVersion(workflow, command.expectedVersion);
   if (compliance.status !== "acknowledged") throw new WorkflowError("failed-precondition", "Compliance must be acknowledged before it is complied.");
+  if (compliance.counterProposal != null) {
+    throw new WorkflowError("failed-precondition", "The requesting side must decide the revised condition before completion.");
+  }
+  // Older clients expose Mark complied for condition-based deferments too.
+  // Preserve their receipt shape while applying the same governed release.
+  if (compliance.conditionTypeKey === "chargeComplete" ||
+      compliance.conditionTypeKey === "activityRef") {
+    const applied = await confirmConditionAndReactivate({tx, command, context});
+    return {...applied, resultKey: "compliance-complied", result: {complianceId: id}};
+  }
   const note = cleanText(command.payload.note, "note");
   const maintenanceId = typeof compliance.linkedMaintenanceFirestoreId === "string" &&
       compliance.linkedMaintenanceFirestoreId.length > 0
@@ -836,6 +849,9 @@ export const decideCounterCondition: CommandHandler = async ({tx, command, conte
   const compliance = await requireComplianceForWorkflow(tx, id, command.aggregateId);
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);
   const version = assertExpectedVersion(workflow, command.expectedVersion);
+  if (compliance.status !== "raised" && compliance.status !== "acknowledged") {
+    throw new WorkflowError("failed-precondition", "Only an open request can accept a revised-condition decision.");
+  }
   if (compliance.counterProposal == null) throw new WorkflowError("failed-precondition", "No counter-condition is awaiting a decision.");
   const origin = compliance.originLaneKey == null ? null : laneKey(compliance.originLaneKey, "originLaneKey");
   if (origin != null) {

@@ -3,6 +3,38 @@ import '../data/compliance_request_record.dart';
 
 enum ComplianceRequestView { forMyLane, raisedByUs, all }
 
+String complianceNextStepLabel(ComplianceRequestRecord request) {
+  final origin = request.originLaneKey?.toUpperCase() ?? 'Admin / SI';
+  final target = request.targetLaneKey.toUpperCase();
+  switch (request.statusKey) {
+    case 'confirmedClosed':
+      return 'Request accepted and closed';
+    case 'cancelled':
+      return 'Request cancelled';
+    case 'superseded':
+      return 'Replaced by an agreed revised request';
+    case 'complied':
+      return 'Completion reported; awaiting $origin acceptance';
+    default:
+      if (request.counterRevisedDescription != null) {
+        return 'Revised condition awaiting $origin decision';
+      }
+      if (request.lastCorrectionReason != null) {
+        return 'Returned to $target: ${request.lastCorrectionReason}';
+      }
+      if (request.conditionTypeKey != 'manual') {
+        final condition =
+            request.conditionTypeKey == 'chargeComplete'
+                ? 'charge ${request.conditionRef ?? "not recorded"} completion'
+                : request.conditionRef ?? 'the release condition';
+        return 'Waiting for $condition; Operations to confirm';
+      }
+      return request.statusKey == 'raised'
+          ? 'Awaiting $target acknowledgement'
+          : 'Awaiting $target completion';
+  }
+}
+
 /// Returns whether this request is relevant to the actor's current work.
 ///
 /// This is a presentation/workload filter, not a confidentiality boundary.

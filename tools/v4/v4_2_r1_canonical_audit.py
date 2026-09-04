@@ -2718,7 +2718,14 @@ check(
     "Firebase CLI tooling pins only the bounded patched dependency versions",
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
     and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
-    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.5"
+    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.6"
+    and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.0"
+    and firebase_cli_package.get("dependencies", {}).get("stream-json") == "file:../stream-json-compat"
+    and firebase_cli_package.get("overrides", {}).get("stream-json") == "$stream-json"
+    and firebase_cli_packages.get("node_modules/stream-json", {}).get("version") == "3.5.0"
+    and firebase_cli_packages.get("node_modules/stream-json", {}).get("resolved") == "file:../stream-json-compat"
+    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.5.0"
+    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-dobB7zipGW8o11PvdRljQSWuyMxifADLvoHeA4elwNWOTbZo6+BlNa+P6aCq7Y9jRiWTy2Ucu2xSv0Y2/T+/kQ=="
     and firebase_cli_package.get("overrides", {}).get("hono") == "4.12.34"
     and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.4.0"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.1"
@@ -2730,9 +2737,9 @@ check(
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
     and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
-    and fast_uri.get("version") == "3.1.5"
-    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.5.tgz"
-    and fast_uri.get("integrity") == "sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw=="
+    and fast_uri.get("version") == "3.1.6"
+    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.6.tgz"
+    and fast_uri.get("integrity") == "sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q=="
     and hono_runtime.get("version") == "4.12.34"
     and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.12.34.tgz"
     and hono_runtime.get("integrity") == "sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA=="
@@ -2814,7 +2821,7 @@ check(
         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
         "2.0.10",
-        "3.1.5",
+        "3.1.6",
         "4.12.34",
         "10.4.0",
         "4.3.1",
@@ -9936,9 +9943,12 @@ check(
     'export type ChargeAbnormalityMutationOperation' in s07_source
     and '"UPDATE"' in s07_source
     and '"SOFT_DELETE"' in s07_source
-    and "requireActor(await actorRef.get(), actorUid);" in s07_source
+    and "requireActor(await actorRef.get(), actorUid, request.operation);" in s07_source
     and "const actorSnapshot = await transaction.get(actorRef);"
         in s07_source
+    and "requireActor(actorSnapshot, actorUid, request.operation)" in s07_source
+    and 'operation === "CREATE" ?' in s07_source
+    and 'authority.roles.has(role)) : authority.roles.has("admin")' in s07_source
     and "existing.version !== request.expectedVersion" in s07_source
     and "const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter("
         in s07_source
@@ -9961,7 +9971,7 @@ check(
         in callable_index_source
     and "userCanMutateQuality(userData, request.data.operation)"
         in callable_index_source
-    and "userCanMutateChargeAbnormality(userData)"
+    and "userCanMutateChargeAbnormality(userData, request.data?.operation)"
         in callable_index_source,
 )
 check(
@@ -12134,10 +12144,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 565
+    and a03_inventory_report.get("operationCount") == 563
     and a03_inventory_report.get("siteCount") == 1940
     and a03_inventory_report.get("inventoryDigest")
-        == "8EEF2E38B103F506BBD98BA1EA0F3308065AF5B849D01437B532D98726F39BEA"
+        == "218B42299EF3F68BE69E5CF9D81B7902CAFEA763A51B80A5A478ED4EF087399C"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -12188,9 +12198,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 78
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 79
     and a04_inventory_report.get("inventoryDigest")
-        == "9CBA19E704B685F3908F4CED9E9D997486CBDC2221C211F79AD0C3FF40B97377"
+        == "51E1ECC7DB0C24759989EC91E8B651B12A89A32C7F8927B081884C274F14726F"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -12198,8 +12208,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 53
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 78
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 78
+    and len(a04_inherited_decoders) == 79
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 79
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -12467,16 +12477,16 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 89
-    and a05_timestamp_inventory_report.get("directCallCount") == 217
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 132
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 83
+    and a05_timestamp_inventory_report.get("readerCount") == 90
+    and a05_timestamp_inventory_report.get("directCallCount") == 222
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 134
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 86
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 29
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 30
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 7
+    ) == 8
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -12484,11 +12494,11 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 89
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 90
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 7
+    ) == 8
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -12509,16 +12519,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 78
+    and a05_decoder_inventory_report.get("surfaceCount") == 79
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 50
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 53
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 38
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 405
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 39
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 408
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 78
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 79
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 50
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
@@ -12836,7 +12846,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 29
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 30
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -12862,7 +12872,7 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 29
+    ) == 30
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -22,6 +23,8 @@ import '../providers/burner_condition_round_provider.dart';
 import '../providers/uv_detector_lifecycle_provider.dart';
 import '../services/burner_condition_round_service.dart';
 import 'widgets/uv_detector_lifecycle_list.dart';
+
+part 'furnace_component_condition_audit_screen.totals.dart';
 
 class FurnaceComponentConditionAuditScreen extends ConsumerStatefulWidget {
   const FurnaceComponentConditionAuditScreen({super.key});
@@ -234,6 +237,9 @@ class _FurnaceComponentConditionAuditScreenState
 
     final dirtyCount =
         furnaces.where((furnace) => _drafts[furnace.id]?.dirty == true).length;
+    final totals = _FurnaceAuditTotals(
+      furnaces.map((furnace) => _drafts[furnace.id]!),
+    );
     return DefaultTabController(
       length: 7,
       child: Scaffold(
@@ -245,16 +251,30 @@ class _FurnaceComponentConditionAuditScreenState
             icon: Icons.grid_on_rounded,
             accent: BafColors.maintenance,
           ),
-          bottom: const TabBar(
+          actions: [
+            IconButton(
+              tooltip: 'Condition totals',
+              onPressed: () => _showConditionTotals(context, totals),
+              icon: const Icon(Icons.summarize_outlined),
+            ),
+          ],
+          bottom: TabBar(
             isScrollable: true,
             tabs: [
-              Tab(text: 'Burner blocks'),
-              Tab(text: 'Draft seal'),
-              Tab(text: 'UV melted'),
-              Tab(text: 'UV missing'),
-              Tab(text: 'UV hung'),
-              Tab(text: 'Block lifecycle'),
-              Tab(text: 'UV lifecycle'),
+              Tab(text: 'Burner blocks (${totals.redHotBlocks})'),
+              Tab(text: 'Draft seal (${totals.draftSealFindings})'),
+              Tab(
+                text: 'UV melted (${totals.uvCount(BurnerUvCondition.melted)})',
+              ),
+              Tab(
+                text:
+                    'UV missing (${totals.uvCount(BurnerUvCondition.missing)})',
+              ),
+              Tab(
+                text: 'UV hung (${totals.uvCount(BurnerUvCondition.hanging)})',
+              ),
+              Tab(text: 'Block lifecycle (${lifecycleEvents.length})'),
+              Tab(text: 'UV lifecycle (${uvLifecycleEvents.length})'),
             ],
           ),
         ),
@@ -263,8 +283,7 @@ class _FurnaceComponentConditionAuditScreenState
             _AuditStatusBand(
               furnaceCount: furnaces.length,
               dirtyCount: dirtyCount,
-              replacementCount: lifecycleEvents.length,
-              uvReplacementCount: uvLifecycleEvents.length,
+              onShowTotals: () => _showConditionTotals(context, totals),
             ),
             Expanded(
               child: TabBarView(
@@ -542,14 +561,12 @@ class _AuditStatusBand extends StatelessWidget {
   const _AuditStatusBand({
     required this.furnaceCount,
     required this.dirtyCount,
-    required this.replacementCount,
-    required this.uvReplacementCount,
+    required this.onShowTotals,
   });
 
   final int furnaceCount;
   final int dirtyCount;
-  final int replacementCount;
-  final int uvReplacementCount;
+  final VoidCallback onShowTotals;
 
   @override
   Widget build(BuildContext context) {
@@ -560,18 +577,22 @@ class _AuditStatusBand extends StatelessWidget {
         horizontal: BafSpacing.lg,
         vertical: BafSpacing.sm,
       ),
-      child: Row(
+      child: Wrap(
+        spacing: BafSpacing.sm,
+        runSpacing: BafSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const Icon(Icons.info_outline_rounded, size: 18),
-          const SizedBox(width: BafSpacing.sm),
-          Expanded(
-            child: Text(
-              '$furnaceCount governed Furnaces · $dirtyCount changed. '
-              '$replacementCount retained block replacement${replacementCount == 1 ? '' : 's'}. '
-              '$uvReplacementCount verified UV restoration${uvReplacementCount == 1 ? '' : 's'}. '
-              'Newer audits and work events supersede earlier condition evidence.',
-              style: const TextStyle(fontSize: 12),
-            ),
+          Text('$furnaceCount Furnaces', style: const TextStyle(fontSize: 12)),
+          Text(
+            dirtyCount == 0
+                ? 'Recorded conditions'
+                : '$dirtyCount unsaved furnace${dirtyCount == 1 ? '' : 's'}',
+            style: const TextStyle(fontSize: 12),
+          ),
+          TextButton.icon(
+            onPressed: onShowTotals,
+            icon: const Icon(Icons.summarize_outlined, size: 18),
+            label: const Text('Condition totals'),
           ),
         ],
       ),
@@ -747,6 +768,7 @@ class _BurnerBlockMatrix extends StatelessWidget {
       final selected = draft.redHotPositions.contains(position);
       final replacement = draft.replacementsByPosition[position];
       return _ConditionCell(
+        key: ValueKey('block-${furnace.id}-$position'),
         selected: selected,
         color: BafColors.danger,
         tooltip:
@@ -793,6 +815,7 @@ class _DraftSealMatrix extends StatelessWidget {
               ? draft.draftSealRedHotObserved
               : draft.hotAirAtDraftSealObserved;
       return _ConditionCell(
+        key: ValueKey('seal-${furnace.id}-$position'),
         selected: selected,
         color: position == 1 ? BafColors.danger : BafColors.warning,
         tooltip: position == 1 ? 'Draft seal red hot' : 'Hot air at draft seal',
@@ -843,6 +866,7 @@ class _UvConditionMatrix extends StatelessWidget {
       final selected = draft.uvByPosition[position] == condition;
       final replacement = draft.uvReplacementsByPosition[position];
       return _ConditionCell(
+        key: ValueKey('uv-${condition.name}-${furnace.id}-$position'),
         selected: selected,
         color: _uvColor(condition),
         tooltip:
@@ -893,7 +917,8 @@ class _MatrixFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const identityWidth = 168.0;
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final identityWidth = (168.0 * textScale).clamp(168.0, 220.0);
     final width = identityWidth + headers.length * cellWidth;
     return Scrollbar(
       child: SingleChildScrollView(
@@ -906,13 +931,13 @@ class _MatrixFrame extends StatelessWidget {
             itemBuilder: (context, index) {
               if (index == 0) {
                 return Container(
-                  height: 48,
+                  height: 48 * textScale.clamp(1.0, double.infinity),
                   color: BafColors.surfaceStrong,
                   child: Row(
                     children: [
-                      const SizedBox(
+                      SizedBox(
                         width: identityWidth,
-                        child: Padding(
+                        child: const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 12),
                           child: Align(
                             alignment: Alignment.centerLeft,
@@ -939,7 +964,7 @@ class _MatrixFrame extends StatelessWidget {
               final furnace = furnaces[index - 1];
               final draft = drafts[furnace.id]!;
               return Container(
-                height: 58,
+                height: 58 * textScale.clamp(1.0, double.infinity),
                 decoration: const BoxDecoration(
                   color: BafColors.card,
                   border: Border(bottom: BorderSide(color: BafColors.border)),
@@ -1027,6 +1052,7 @@ class _MatrixFrame extends StatelessWidget {
 
 class _ConditionCell extends StatelessWidget {
   const _ConditionCell({
+    super.key,
     required this.selected,
     required this.color,
     required this.tooltip,

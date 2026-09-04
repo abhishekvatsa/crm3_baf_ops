@@ -164,6 +164,13 @@ ChargeAbnormality readRemoteChargeAbnormality(
     source: source,
     minimum: 1,
   );
+  if (!isValidChargeNumber(sourceChargeNo)) {
+    throw PersistedDataFormatException(
+      field: 'sourceChargeNo',
+      source: source,
+      detail: 'expected one five-digit charge number',
+    );
+  }
   final isDeleted = readRequiredPersistedBool(
     map['isDeleted'],
     field: 'isDeleted',
@@ -180,6 +187,14 @@ ChargeAbnormality readRemoteChargeAbnormality(
     field: 'reannealedToChargeNo',
     source: source,
   );
+  if (reannealedToChargeNo != null &&
+      !isValidChargeNumber(reannealedToChargeNo)) {
+    throw PersistedDataFormatException(
+      field: 'reannealedToChargeNo',
+      source: source,
+      detail: 'expected one five-digit charge number',
+    );
+  }
   final deletedByUid = _readOptionalBoundedString(
     map['deletedByUid'],
     field: 'deletedByUid',
@@ -222,7 +237,6 @@ ChargeAbnormality readRemoteChargeAbnormality(
     source: source,
     maximum: 500,
   );
-
   _requireChargeTimeline(timestamps, source: source);
   _requireReannealingState(
     sourceChargeNo: sourceChargeNo,
@@ -237,6 +251,17 @@ ChargeAbnormality readRemoteChargeAbnormality(
     deletedByName: deletedByName,
     deleteReason: deleteReason,
     firestoreId: firestoreId,
+    source: source,
+  );
+
+  final affectedAssets = _readAffectedAssetList(
+    map['affectedAssets'],
+    field: 'affectedAssets',
+    source: source,
+  );
+  final affectedAssetsWithHierarchy = _mergeAffectedAssetHierarchyReferences(
+    affectedAssets,
+    map['affectedAssetHierarchyRefs'],
     source: source,
   );
 
@@ -273,11 +298,7 @@ ChargeAbnormality readRemoteChargeAbnormality(
       field: 'severity',
       source: source,
     )
-    ..affectedAssets = _readAffectedAssetList(
-      map['affectedAssets'],
-      field: 'affectedAssets',
-      source: source,
-    )
+    ..affectedAssets = affectedAssetsWithHierarchy
     ..component = _readOptionalBoundedString(
       map['component'],
       field: 'component',
@@ -502,6 +523,67 @@ List<AffectedAssetRef> _readAffectedAssetList(
     result.add(asset);
   }
   return result;
+}
+
+List<AffectedAssetRef> _mergeAffectedAssetHierarchyReferences(
+  List<AffectedAssetRef> assets,
+  dynamic value, {
+  required String source,
+}) {
+  if (value == null) return assets;
+  if (value is! List || value.length > 50) {
+    throw PersistedDataFormatException(
+      field: 'affectedAssetHierarchyRefs',
+      source: source,
+      detail: 'expected an optional array of at most 50 governed references',
+    );
+  }
+  final byIdentity = <String, AffectedAssetRef>{
+    for (final asset in assets)
+      '${asset.assetType.name}:${asset.assetNumber}': asset,
+  };
+  final governedIdentities = <String>{};
+  for (var index = 0; index < value.length; index++) {
+    final raw = value[index];
+    if (raw is! Map) {
+      throw PersistedDataFormatException(
+        field: 'affectedAssetHierarchyRefs[$index]',
+        source: source,
+        detail: 'expected an asset reference object',
+      );
+    }
+    final governed = AffectedAssetRef.fromMap(
+      Map<String, dynamic>.from(raw),
+      source: '$source affectedAssetHierarchyRefs[$index]',
+    );
+    final identity = '${governed.assetType.name}:${governed.assetNumber}';
+    if (!governed.isGoverned || !byIdentity.containsKey(identity)) {
+      throw PersistedDataFormatException(
+        field: 'affectedAssetHierarchyRefs[$index]',
+        source: source,
+        detail: 'must identify one affected asset and its governed hierarchy',
+      );
+    }
+    if (!governedIdentities.add(identity)) {
+      throw PersistedDataFormatException(
+        field: 'affectedAssetHierarchyRefs',
+        source: source,
+        detail: 'must not repeat governed reference $identity',
+      );
+    }
+    if (byIdentity[identity]!.isGoverned) {
+      throw PersistedDataFormatException(
+        field: 'affectedAssetHierarchyRefs[$index]',
+        source: source,
+        detail: 'must not duplicate an inline governed hierarchy reference',
+      );
+    }
+    byIdentity[identity] = governed;
+  }
+  return <AffectedAssetRef>[
+    for (final asset in assets)
+      byIdentity['${asset.assetType.name}:${asset.assetNumber}']!,
+  ];
 }
 
 void _requireTypeTimeline(

@@ -42,7 +42,7 @@
     "typescript": "^5.9.3"
   },
   "overrides": {
-    "qs": "6.15.2",
+    "qs": "6.16.0",
     "uuid": "11.1.1",
     "@grpc/grpc-js": "1.14.4",
     "browserslist": "4.28.8",

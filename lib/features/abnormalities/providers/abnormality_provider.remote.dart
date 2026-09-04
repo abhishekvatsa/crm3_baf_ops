@@ -18,11 +18,6 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       .instance
       .collection('charge_abnormalities');
 
-  final fs.CollectionReference<Map<String, dynamic>> _qualityWarnings = fs
-      .FirebaseFirestore
-      .instance
-      .collection('quality_warnings');
-
   // ───────────────────────────────────────────────────────────
   // TYPE MASTER DATA
   // ───────────────────────────────────────────────────────────
@@ -345,50 +340,10 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     abnormality.firestoreId ??= _uuid.v4();
     abnormality.normalizeReannealingState();
 
-    final beforeDoc = await _abnormalities.doc(abnormality.firestoreId).get();
-    final beforeSnapshot =
-        beforeDoc.exists ? _sanitizeForAudit(beforeDoc.data()) : null;
-
-    final isCreate = beforeSnapshot == null;
-
-    abnormality
-      ..updatedAt = DateTime.now()
-      ..version =
-          isCreate
-              ? (abnormality.version <= 0 ? 1 : abnormality.version)
-              : abnormality.version + 1
-      ..isSynced = true;
-
-    if (isCreate) {
-      final warning = qualityWarningProjectionForAbnormality(abnormality);
-      final warningId = warning['warningId'] as String;
-      final warningExists =
-          (await _qualityWarnings.doc(warningId).get()).exists;
-      final batch = fs.FirebaseFirestore.instance.batch();
-      batch.set(
-        _abnormalities.doc(abnormality.firestoreId),
-        abnormality.toMap(),
-        fs.SetOptions(merge: true),
-      );
-      if (!warningExists) batch.set(_qualityWarnings.doc(warningId), warning);
-      await batch.commit();
-    } else {
-      await _abnormalities
-          .doc(abnormality.firestoreId)
-          .set(abnormality.toMap(), fs.SetOptions(merge: true));
-    }
-
-    if (auditContext != null) {
-      _logAudit(
-        auditRepository: _auditRepo,
-        entityType: 'charge_abnormality',
-        entityId: abnormality.firestoreId!,
-        action: isCreate ? AuditAction.create : AuditAction.update,
-        context: auditContext,
-        before: beforeSnapshot,
-        after: abnormality.toAuditMap(),
-      );
-    }
+    final result = await ChargeAbnormalityCommandService().create(
+      abnormality: abnormality,
+    );
+    _copyRemoteChargeAbnormalityIntoLocal(abnormality, result.abnormality);
   }
 
   @override
@@ -663,6 +618,11 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<void> updateAbnormalityFromRemote(ChargeAbnormality remote) async {}
 
   @override
+  Future<bool> applyAbnormalityCommandReadback(
+    ChargeAbnormality remote,
+  ) async => true;
+
+  @override
   Future<bool> applyAbnormalityServerReadbackIfUnchanged(
     ChargeAbnormality remote, {
     required SyncPushSnapshot expectedLocal,
@@ -693,66 +653,12 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
 
   @override
   Future<void> batchUpsertAbnormalities(List<ChargeAbnormality> records) async {
-    if (records.isEmpty) return;
-
-    const maximumPairedRecordsPerBatch = 250;
-    for (
-      var offset = 0;
-      offset < records.length;
-      offset += maximumPairedRecordsPerBatch
-    ) {
-      final chunk = records.sublist(
-        offset,
-        offset + maximumPairedRecordsPerBatch > records.length
-            ? records.length
-            : offset + maximumPairedRecordsPerBatch,
+    for (final record in records) {
+      final receipt = await ChargeAbnormalityCommandService().create(
+        abnormality: record,
       );
-      final warnings = <String, Map<String, dynamic>>{};
-      for (final record in chunk) {
-        if (record.firestoreId == null || record.isDeleted) continue;
-        final warning = qualityWarningProjectionForAbnormality(record);
-        warnings[warning['warningId'] as String] = warning;
-      }
-      final existingWarningIds = await _existingQualityWarningIds(
-        warnings.keys,
-      );
-      final batch = fs.FirebaseFirestore.instance.batch();
-      for (final record in chunk) {
-        if (record.firestoreId == null) continue;
-        batch.set(
-          _abnormalities.doc(record.firestoreId),
-          record.toMap(),
-          fs.SetOptions(merge: true),
-        );
-      }
-      for (final entry in warnings.entries) {
-        if (!existingWarningIds.contains(entry.key)) {
-          batch.set(_qualityWarnings.doc(entry.key), entry.value);
-        }
-      }
-
-      await batch.commit();
+      _copyRemoteChargeAbnormalityIntoLocal(record, receipt.abnormality);
     }
-  }
-
-  Future<Set<String>> _existingQualityWarningIds(
-    Iterable<String> warningIds,
-  ) async {
-    final ids = warningIds.toSet().toList();
-    final existing = <String>{};
-    for (var index = 0; index < ids.length; index += 30) {
-      final chunk = ids.sublist(
-        index,
-        index + 30 > ids.length ? ids.length : index + 30,
-      );
-      if (chunk.isEmpty) continue;
-      final snapshot =
-          await _qualityWarnings
-              .where(fs.FieldPath.documentId, whereIn: chunk)
-              .get();
-      existing.addAll(snapshot.docs.map((document) => document.id));
-    }
-    return existing;
   }
 }
 

@@ -8,12 +8,58 @@ import 'package:crm3_baf_ops/features/maintenance/data/frequent_issue_definition
 import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/frequent_issue_selection.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/issue_lane_plan.dart';
+import 'package:crm3_baf_ops/features/maintenance/validation/maintenance_input_validator.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'package:crm3_baf_ops/features/quality/domain/issue_quality_intent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('lockout without typed notes sends a valid structured description', () {
+    final lockout = BurnerLockoutCase(
+      positions: [2, 5],
+      commonMode: false,
+      cycleStage: BurnerCycleStage.notRecorded,
+      flameObservation: BurnerObservation.notChecked,
+      sparkObservation: BurnerObservation.notChecked,
+      relightAttempts: 0,
+      remainsLockedOut: true,
+    );
+    final record =
+        MaintenanceRecord()
+          ..firestoreId = 'burner-without-notes'
+          ..assetType = AssetType.furnace
+          ..assetNumber = 7
+          ..component = 'Burner system'
+          ..classification = burnerLockoutClassification
+          ..maintenanceType = MaintenanceType.breakdown
+          ..description = lockout.reportDescription(notes: ' ')
+          ..routedTo = RoutedTo.instrumentation
+          ..startDate = DateTime.utc(2026, 8, 17)
+          ..assetHierarchyRefJson =
+              '{"schemaVersion":3,"scope":"physicalAsset",'
+              '"assetClassId":"class-furnace",'
+              '"assetInstanceId":"asset-furnace-7",'
+              '"assetInstanceVersion":4}'
+          ..qualityIntent = const IssueQualityIntent(
+            assessment: IssueQualityAssessment.notSuspected,
+          )
+          ..burnerLockoutCase = lockout;
+    expect(
+      MaintenanceInputValidator.validateDescription(record.description).isValid,
+      isTrue,
+    );
+    final command = buildMaintenanceIssueCreateCommand(
+      record,
+      createVersion: 1,
+    );
+    final ticket = command.payload['ticket']! as Map;
+    expect(ticket['description'], 'Burner lockout reported on burners 2, 5.');
+    expect(ticket['burnerPositions'], [2, 5]);
+    expect(ticket['routedTo'], 'instrumentation');
+    expect(ticket['qualityImpactAssessment'], 'notSuspected');
+  });
+
   test(
     'governed issue command carries business input, not actor authority',
     () {

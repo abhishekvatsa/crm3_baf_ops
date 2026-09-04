@@ -68,6 +68,16 @@ void main() {
           contains('if (!mounted || decision == null) return;'),
         );
 
+        final quality = _bodyStartingAt(
+          _read('lib/features/quality/presentation/quality_home_screen.dart'),
+          'Future<void> _runCommand',
+        );
+        _expectBefore(
+          quality,
+          'if (!mounted || _submitting) return;',
+          'setState(() => _submitting = true);',
+        );
+
         final assignment = _read(
           'lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart',
         );
@@ -535,10 +545,7 @@ void _expectCapturedSyncBeforeAwaitInSource({
   expect(captureIndex, lessThan(awaitIndex));
   expect(
     body,
-    anyOf(
-      contains('syncCoordinator.runFullSync'),
-      contains('coordinator.runFullSync'),
-    ),
+    matches(RegExp(r'(syncCoordinator|coordinator)\s*\.runFullSync')),
   );
   expect(body, contains(syncReason));
 }

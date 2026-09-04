@@ -54,6 +54,46 @@ void main() {
   });
 
   test(
+    'quality and abnormality screens keep their extracted UI boundaries',
+    () {
+      const libraries = <String, List<String>>{
+        'lib/features/abnormalities/presentation/charge_abnormalities_screen': [
+          'form',
+          'widgets',
+        ],
+        'lib/features/quality/presentation/quality_home_screen': [
+          'cards',
+          'widgets',
+        ],
+      };
+      for (final entry in libraries.entries) {
+        final root = File('${entry.key}.dart').readAsStringSync();
+        final name = entry.key.split('/').last;
+        for (final suffix in entry.value) {
+          expect(root, contains("part '$name.$suffix.dart';"));
+        }
+        for (final path in [
+          '${entry.key}.dart',
+          ...entry.value.map((suffix) => '${entry.key}.$suffix.dart'),
+        ]) {
+          final source = File(path).readAsStringSync();
+          expect(
+            const LineSplitter().convert(source).length,
+            lessThan(1200),
+            reason: path,
+          );
+          expect(
+            source,
+            isNot(contains('FirebaseFirestore.instance')),
+            reason: path,
+          );
+          expect(source, isNot(contains('Isar.getInstance()')), reason: path);
+        }
+      }
+    },
+  );
+
+  test(
     'asset hierarchy administration stays decomposed by UI responsibility',
     () {
       const rootPath =

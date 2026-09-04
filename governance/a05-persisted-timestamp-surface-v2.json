@@ -644,7 +644,7 @@
       "readerFile": "lib/features/quality/services/quality_command_service.dart",
       "readerMarker": "Map<String, dynamic> _normaliseQualityEntity(",
       "requiredFields": ["createdAt", "updatedAt"],
-      "optionalFields": ["closureRequestedAt", "closedAt"],
+      "optionalFields": ["closureRequestedAt", "closedAt", "visibleUntil", "archivedAt"],
       "owner": "quality-assurance",
       "purpose": "normalize callable-serialized Firestore timestamps before strict returned-entity validation",
       "authorityBoundary": "remote-quality-command-returned-entity",
@@ -1058,6 +1058,18 @@
       "authorityBoundary": "remote-morning-review-frozen-document",
       "regression": "test/morning_review_integrity_test.dart",
       "reArmCondition": "any Morning Review frozen-document timestamp schema change"
+    },
+    {
+      "id": "quality-linked-abnormality-command-response",
+      "readerFile": "lib/features/quality/services/quality_command_service.dart",
+      "readerMarker": "Map<String, dynamic> _normaliseLinkedAbnormalityEntity(",
+      "requiredFields": ["loggedAt", "updatedAt"],
+      "optionalFields": ["deletedAt"],
+      "owner": "quality",
+      "purpose": "strictly decode the linked abnormality chronology returned with a canonical quality command receipt without substituting local time",
+      "authorityBoundary": "remote-quality-command-linked-abnormality-response",
+      "regression": "test/quality_command_result_test.dart",
+      "reArmCondition": "linked abnormality timestamps are defaulted, malformed serialized timestamps are accepted, or deletion evidence is discarded"
     },
     {
       "id": "morning-review-command-response",

@@ -216,12 +216,7 @@ class _AbnormalitiesHomeScreenState
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) => ChargeAbnormalitiesScreen(
-              sourceChargeNo: chargeNo,
-              subtitle:
-                  'Log abnormalities, RA decision, affected assets and root-reason memory for charge $chargeNo.',
-            ),
+        builder: (_) => ChargeAbnormalitiesScreen(sourceChargeNo: chargeNo),
       ),
     );
   }

@@ -44,6 +44,43 @@ void main() {
   );
 
   test(
+    'exact-readback caller can skip the unrelated post-apply pull',
+    () async {
+      var pulls = 0;
+      final controller = WorkflowCommandController.forTesting(
+        executeCommand: (_) async => receipt,
+        pullProjections: () async {
+          pulls++;
+        },
+      );
+      addTearDown(controller.dispose);
+      expect(
+        await controller.execute(command, refreshProjections: false),
+        same(receipt),
+      );
+      expect(pulls, 0);
+      expect(controller.state.value, same(receipt));
+    },
+  );
+
+  test('exact-readback mode still reconciles a rejected command', () async {
+    var pulls = 0;
+    final failure = StateError('Server rejected command');
+    final controller = WorkflowCommandController.forTesting(
+      executeCommand: (_) async => throw failure,
+      pullProjections: () async {
+        pulls++;
+      },
+    );
+    addTearDown(controller.dispose);
+    await expectLater(
+      controller.execute(command, refreshProjections: false),
+      throwsA(same(failure)),
+    );
+    expect(pulls, 1);
+  });
+
+  test(
     'an actual command failure remains rejected after best-effort pull',
     () async {
       var pulls = 0;

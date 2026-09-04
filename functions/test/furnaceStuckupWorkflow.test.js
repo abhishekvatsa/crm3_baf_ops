@@ -181,6 +181,138 @@ const createCommand = (ticketId = 'stuckup-case-1') => ({
 });
 
 describe('Furnace stuck-up governed lifecycle', () => {
+  test.each(['operations', 'admin', 'si', 'contractSupervisor', 'shiftSupervisor'])(
+    '%s confirms physical removal without closing maintenance or adjudicating cause',
+    async (role) => {
+      const store = new MemoryWorkflowStore();
+      seedAssets(store);
+      const operations = seedActor(store, 'operations-1', ['operations']);
+      const actor = seedActor(store, 'removal-witness', [role]);
+      const service = new MaintenanceWorkflowCommandService(store);
+      await service.execute(createCommand(), {
+        actor: operations,
+        serverNow: at('2026-08-20T04:05:00Z'),
+      });
+      for (const [assetId, condition] of [['base-117', 'down'], ['furnace-12', 'unfit']]) {
+        store.seed(`asset_operational_conditions/${assetId}`, {
+          schemaVersion: 1,
+          assetInstanceId: assetId,
+          condition,
+          active: true,
+          reason: 'Separate plant-condition declaration pending maintenance.',
+          version: 1,
+        });
+      }
+      const unrelatedPaths = [
+        'maintenance_tickets/stuckup-case-1',
+        'base_inner_cover_assignments/base-117',
+        'inner_cover_profiles/inner-gr26',
+        'asset_operational_conditions/base-117',
+        'asset_operational_conditions/furnace-12',
+      ];
+      const before = unrelatedPaths.map((path) => store.read(path));
+      const release = {
+        commandId: 'operations-removal',
+        commandType: 'releaseFurnaceStuckup',
+        aggregateId: 'stuckup-case-1',
+        expectedVersion: 1,
+        payload: {releaseNotes: 'Furnace lifted clear of Base 117.'},
+      };
+      const receipt = await service.execute(release, {
+        actor: {...actor, name: 'Untrusted caller name'},
+        serverNow: at('2026-08-20T05:00:00Z'),
+      });
+      expect(receipt).toMatchObject({
+        resultKey: 'furnace-stuckup-released',
+        aggregateVersion: 2,
+      });
+      expect(store.read('furnace_stuckup_cases/stuckup-case-1')).toMatchObject({
+        obstructionStatus: 'released',
+        adjudicationStatus: 'pending',
+        confirmedCause: null,
+        releasedByUid: actor.uid,
+        releasedByName: actor.name,
+        releasedAt: '2026-08-20T05:00:00.000Z',
+        releaseNotes: release.payload.releaseNotes,
+        version: 2,
+      });
+      for (const assetId of ['base-117', 'furnace-12']) {
+        expect(store.read(`asset_availability_current/${assetId}`)).toMatchObject({
+          availabilityState: 'clear',
+          activeConstraintId: null,
+          updatedByUid: actor.uid,
+        });
+        expect(store.read(
+          `asset_availability_constraints/stuckup-case-1_${assetId}`,
+        )).toMatchObject({
+          status: 'released',
+          releasedAt: '2026-08-20T05:00:00.000Z',
+          releasedByUid: actor.uid,
+        });
+      }
+      expect(unrelatedPaths.map((path) => store.read(path))).toEqual(before);
+      expect(store.read('asset_condition_declarations/inner_cover_bulged_inner-gr26'))
+        .toBeNull();
+      expect(store.read(`audit_logs/${receipt.result.auditId}`)).toMatchObject({
+        performedByUid: actor.uid,
+        performedByName: actor.name,
+        timestamp: '2026-08-20T05:00:00.000Z',
+        operation: 'releaseFurnaceStuckup',
+      });
+      const after = store.entries();
+      await expect(service.execute(release, {
+        actor,
+        serverNow: at('2026-08-20T05:01:00Z'),
+      })).resolves.toEqual(receipt);
+      expect(store.entries()).toEqual(after);
+      await expect(service.execute({...release, commandId: 'stale-second-removal'}, {
+        actor,
+        serverNow: at('2026-08-20T05:02:00Z'),
+      })).rejects.toMatchObject({code: 'workflow-version-conflict'});
+      expect(store.entries()).toEqual(after);
+
+      store.seed(`users/${actor.uid}`, {name: actor.name, roles: [role], isApproved: false});
+      const revoked = store.entries();
+      await expect(service.execute(release, {
+        actor,
+        serverNow: at('2026-08-20T05:03:00Z'),
+      })).rejects.toMatchObject({code: 'permission-denied'});
+      expect(store.entries()).toEqual(revoked);
+    },
+  );
+
+  test.each([
+    ['seniorMechanical', true],
+    ['seniorElectrical', true],
+    ['seniorInstrumentation', true],
+    ['seniorRefractory', true],
+    ['refractory', true],
+    ['operations', false],
+  ])('%s approval=%s cannot bypass removal authority', async (role, isApproved) => {
+    const store = new MemoryWorkflowStore();
+    seedAssets(store);
+    const operations = seedActor(store, 'operations-1', ['operations']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(createCommand(), {
+      actor: operations,
+      serverNow: at('2026-08-20T04:05:00Z'),
+    });
+    const actor = seedActor(store, 'restricted-witness', [role]);
+    store.seed(`users/${actor.uid}`, {name: actor.name, roles: [role], isApproved});
+    const before = store.entries();
+    await expect(service.execute({
+      commandId: 'unauthorized-removal',
+      commandType: 'releaseFurnaceStuckup',
+      aggregateId: 'stuckup-case-1',
+      expectedVersion: 1,
+      payload: {releaseNotes: 'Furnace lifted clear.'},
+    }, {
+      actor,
+      serverNow: at('2026-08-20T05:00:00Z'),
+    })).rejects.toMatchObject({code: 'permission-denied'});
+    expect(store.entries()).toEqual(before);
+  });
+
   test('creates, releases and adjudicates distinct incident and condition evidence', async () => {
     const store = new MemoryWorkflowStore();
     seedAssets(store);

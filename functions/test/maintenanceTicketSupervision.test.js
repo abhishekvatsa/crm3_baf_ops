@@ -11,6 +11,7 @@ const {
   payloadFingerprint,
 } = require('../lib/maintenanceWorkflow/utils');
 const {
+  qualityRootReasonForAsset,
   reopenMaintenanceTicket,
   resolveMaintenanceTicket,
 } = require('../lib/maintenanceWorkflow/ticketHandlers');
@@ -524,6 +525,10 @@ function directHandlerTransaction(ticketId, ticket) {
 }
 
 describe('governed maintenance-ticket supervision', () => {
+  test('Inner Cover quality cases retain their Base-related root route', () => {
+    expect(qualityRootReasonForAsset('innerCover')).toBe('baseRelated');
+  });
+
   test('server lane fields match the shared client command contract', () => {
     const contract = JSON.parse(fs.readFileSync(path.resolve(
       __dirname,
@@ -1050,6 +1055,16 @@ describe('governed maintenance-ticket supervision', () => {
       status: 'open',
       createdByUid: electrical.uid,
       createdAt: at.toISOString(),
+      affectedAssets: [{
+        assetType: 'furnace',
+        assetNumber: 7,
+        assetHierarchyRef: {
+          scope: 'physicalAsset',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'asset-furnace-7',
+          assetNumber: 7,
+        },
+      }],
     });
     expect(
       store.read('charge_abnormalities/issue_quality_quality-ticket'),
@@ -1064,6 +1079,20 @@ describe('governed maintenance-ticket supervision', () => {
       linkedTicketFirestoreId: 'quality-ticket',
       loggedByUid: electrical.uid,
       version: 1,
+      affectedAssets: [{
+        assetType: 'furnace',
+        assetNumber: 7,
+      }],
+      affectedAssetHierarchyRefs: [{
+        assetType: 'furnace',
+        assetNumber: 7,
+        assetHierarchyRef: {
+          scope: 'physicalAsset',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'asset-furnace-7',
+          assetNumber: 7,
+        },
+      }],
     });
     expect(store.read('maintenance_records/quality-ticket')).toMatchObject({
       qualityAbnormalityId: 'issue_quality_quality-ticket',
@@ -1139,6 +1168,40 @@ describe('governed maintenance-ticket supervision', () => {
       code: 'failed-precondition',
       details: {reasonCode: 'maintenance-ticket-quality-type-inapplicable'},
     });
+  });
+
+  test('accepts a structured lockout summary without an additional comment', async () => {
+    const {store, service, context} = createServiceFor(electrical);
+    const description = 'Burner lockout reported on burners 2, 5.';
+    const command = createCommand({
+      commandId: 'create-lockout-without-notes',
+      ticketId: 'lockout-without-notes',
+      ticket: {
+        component: 'Burner system',
+        maintenanceType: 'breakdown',
+        classification: 'furnaceBurnerLockout',
+        description,
+        routedTo: 'instrumentation',
+        isCritical: false,
+        burnerLockoutSchemaVersion: 1,
+        burnerPositions: [2, 5],
+        burnerCommonMode: false,
+        burnerCycleStage: 'notRecorded',
+        burnerHmiAlarm: null,
+        burnerFlameObservation: 'notChecked',
+        burnerSparkObservation: 'notChecked',
+        burnerRelightAttempts: 0,
+        burnerRemainsLockedOut: true,
+        burnerRedHotPositions: [],
+        burnerAttendedPositions: [],
+        burnerResolutionEvidence: {},
+      },
+    });
+    const receipt = await service.execute(command, context);
+    expect(receipt.result.directiveId).toBeNull();
+    expect(store.read('maintenance_records/lockout-without-notes'))
+      .toMatchObject({description, burnerPositions: [2, 5],
+        routedTo: 'instrumentation', status: 'open'});
   });
 
   test('creates a red-hot burner directive with the specialized issue', async () => {
@@ -2290,6 +2353,82 @@ describe('governed maintenance-ticket supervision', () => {
         assetInstanceId: 'asset-furnace-7',
         assetInstanceVersion: 4,
       },
+    });
+  });
+
+  describe('component action client/server time contract', () => {
+    const fixture = JSON.parse(fs.readFileSync(path.join(
+      __dirname, '../../test/fixtures/component_action_time_contract_v1.json',
+    ), 'utf8'));
+
+    test.each([...fixture.cases, {
+      name: 'Legacy Indian phone without timezone suffix',
+      createdAtWire: '2026-08-14T21:15:00.123456',
+      updatedAtWire: '2026-08-14T21:16:00.123456',
+    }])('$name payload resolves without rewriting the action time', async (row) => {
+      const retained = hierarchyAction({createdAt: '2026-08-14T15:00:00.123456'});
+      const seeded = serviceFor(admin, {
+        startDate: fixture.workStartedAt,
+        actionsJson: JSON.stringify([retained]),
+      });
+      seedFurnaceHierarchy(seeded.store);
+      const command = {
+        commandId: 'resolve-time-contract',
+        commandType: 'resolveMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          endDate: fixture.endDate,
+          remarks: 'Inspection completed.',
+          teamsInvolved: ['mechanical'],
+          actionsJson: JSON.stringify([retained, hierarchyAction({
+            createdAt: row.createdAtWire,
+            updatedAt: row.updatedAtWire,
+          })]),
+          actionTargetContractVersion: 1,
+        },
+      };
+      await expect(seeded.service.execute(command, seeded.context))
+        .resolves.toMatchObject({aggregateVersion: 4});
+      const saved = seeded.store.read('maintenance_records/ticket-1');
+      const actions = JSON.parse(saved.actionsJson);
+      expect(actions[0]).toEqual(retained);
+      expect(actions[1].createdAt).toBe(row.createdAtWire);
+      expect(actions[1].updatedAt).toBe(row.updatedAtWire);
+      await expect(seeded.service.execute(command, seeded.context))
+        .resolves.toMatchObject({aggregateVersion: 4});
+      expect(seeded.store.read('maintenance_records/ticket-1')).toEqual(saved);
+    });
+
+    test.each([
+      ['before work began', '2026-08-14T14:29:59.999Z'],
+      ['after closure tolerance', '2026-08-14T16:05:00.001Z'],
+      ['legacy time before work began', '2026-08-14T19:59:59.999'],
+      ['legacy time after closure tolerance', '2026-08-14T21:35:00.001'],
+    ])('%s is still rejected without changing the ticket', async (_, createdAt) => {
+      const seeded = serviceFor(admin, {
+        startDate: fixture.workStartedAt,
+        actionsJson: '[]',
+      });
+      seedFurnaceHierarchy(seeded.store);
+      const before = seeded.store.read('maintenance_records/ticket-1');
+      await expect(seeded.service.execute({
+        commandId: 'reject-action-time',
+        commandType: 'resolveMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          endDate: fixture.endDate,
+          remarks: 'Inspection completed.',
+          teamsInvolved: ['mechanical'],
+          actionsJson: JSON.stringify([hierarchyAction({createdAt})]),
+          actionTargetContractVersion: 1,
+        },
+      }, seeded.context)).rejects.toMatchObject({
+        code: 'invalid-argument',
+        details: {reasonCode: 'maintenance-ticket-action-time-invalid'},
+      });
+      expect(seeded.store.read('maintenance_records/ticket-1')).toEqual(before);
     });
   });
 

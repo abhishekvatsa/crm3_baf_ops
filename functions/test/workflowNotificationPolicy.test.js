@@ -1,4 +1,6 @@
 const {
+  complianceHandoverRecipientRoles,
+  complianceHandoverSide,
   isCriticalAlarmEventType,
   isNotifiableCriticalAlarmStatus,
   samePersistedNotificationInstant,
@@ -12,6 +14,38 @@ const {
 } = require('../lib/maintenanceWorkflow/policy.generated');
 
 describe('workflow notification routing', () => {
+  const request = {linkedWorkflowId: 'workflow-1', originLaneKey: 'mech',
+    targetLaneKey: 'oprn', raisedUnderCoordination: true};
+
+  test.each(['issue.coordinationStarted', 'compliance.raised',
+    'compliance.returnedForCorrection', 'compliance.counterAccepted',
+    'compliance.confirmedClosed', 'red.preparationConfirmed'])(
+    '%s reaches Operations rather than the event actor lane', (type) => {
+      const roles = complianceHandoverRecipientRoles(type, 'workflow-1', request);
+      expect(roles).toEqual(expect.arrayContaining(['operations', 'shiftSupervisor', 'admin', 'si']));
+      expect(roles).not.toContain('seniorMechanical');
+    },
+  );
+  test.each(['compliance.acknowledged', 'compliance.complied',
+    'compliance.conditionConfirmedAndWorkReactivated', 'compliance.counterProposed'])(
+    '%s reaches the origin and authorized coordinating supervisor', (type) => {
+      expect(complianceHandoverRecipientRoles(type, 'workflow-1', request))
+        .toEqual(expect.arrayContaining(['seniorMechanical', 'contractSupervisor', 'shiftSupervisor', 'admin', 'si']));
+      expect(complianceHandoverRecipientRoles(type, 'workflow-1', {...request, raisedUnderCoordination: false}))
+        .not.toContain('contractSupervisor');
+    },
+  );
+  test('handover skips missing, deleted, foreign and invalid requests', () => {
+    for (const invalid of [null, {...request, isDeleted: true},
+      {...request, linkedWorkflowId: 'other-workflow'}, {...request, targetLaneKey: 'invalid'},
+      {...request, targetLaneKey: 'toString'}]) {
+      expect(complianceHandoverRecipientRoles('issue.coordinationStarted', 'workflow-1', invalid)).toBeNull();
+    }
+    expect(complianceHandoverRecipientRoles('compliance.complied', 'workflow-1', {...request, originLaneKey: null}))
+      .toEqual(['admin', 'si']);
+    expect(complianceHandoverSide('compliance.completionEscalated')).toBeNull();
+  });
+
   test.each(Object.keys(LANE_POLICY))(
     '%s routing is the generated lane-authority union',
     (laneKey) => {

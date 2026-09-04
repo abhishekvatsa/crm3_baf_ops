@@ -99,6 +99,12 @@ class IssueCoordinationDraft {
           'Name the activity that must be completed.',
         );
       }
+      if (condition == IssueCoordinationCondition.activityRef &&
+          cleanConditionRef!.length > 300) {
+        throw const FormatException(
+          'Activity reference cannot exceed 300 characters.',
+        );
+      }
     } else {
       if (!const <String>{
             'craneMovement',
@@ -128,6 +134,9 @@ class IssueCoordinationDraft {
         throw const FormatException(
           'Movement support requires a destination or work location.',
         );
+      }
+      if (cleanLocation != null && cleanLocation.length > 300) {
+        throw const FormatException('Location cannot exceed 300 characters.');
       }
     }
 

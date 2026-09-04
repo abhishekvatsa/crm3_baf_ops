@@ -1740,7 +1740,7 @@ String? _cleanOptionalString(String? value) {
 }
 
 String _formatDateTime(DateTime value) {
-  return DateFormat('dd MMM yyyy, HH:mm').format(value);
+  return DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal());
 }
 
 String _assetTypeLabel(AssetType type) {

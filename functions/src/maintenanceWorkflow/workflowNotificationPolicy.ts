@@ -1,4 +1,4 @@
-import {LANE_POLICY} from "./policy.generated";
+import {COMMAND_AUTHORITY_ROLES, LANE_POLICY} from "./policy.generated";
 import type {SendOutcome} from "../notifications";
 
 export const isNotifiableCriticalAlarmStatus = (status: unknown): boolean =>
@@ -97,6 +97,45 @@ export const workflowRecipientRoles = (
       for (const role of lane.workRoles) roles.add(role);
       for (const role of lane.closeRoles) roles.add(role);
     }
+  }
+  return [...roles];
+};
+
+export const complianceHandoverSide = (eventType: string): "origin" | "target" | null => {
+  switch (eventType) {
+    case "issue.coordinationStarted":
+    case "compliance.raised":
+    case "compliance.returnedForCorrection":
+    case "compliance.counterAccepted":
+    case "compliance.confirmedClosed":
+    case "red.preparationConfirmed":
+      return "target";
+    case "compliance.acknowledged":
+    case "compliance.complied":
+    case "compliance.conditionConfirmedAndWorkReactivated":
+    case "compliance.counterProposed":
+      return "origin";
+    default:
+      return null;
+  }
+};
+
+/** Audit lane identifies the actor's side; handover recipients come from the bound request. */
+export const complianceHandoverRecipientRoles = (
+  eventType: string,
+  aggregateId: string,
+  compliance: Readonly<Record<string, unknown>> | null,
+): string[] | null => {
+  const side = complianceHandoverSide(eventType);
+  if (side == null || compliance == null || compliance.isDeleted === true ||
+      compliance.linkedWorkflowId !== aggregateId) return null;
+  const lane = side === "origin" ? compliance.originLaneKey : compliance.targetLaneKey;
+  if (lane != null && (typeof lane !== "string" ||
+      !Object.prototype.hasOwnProperty.call(LANE_POLICY, lane))) return null;
+  if (side === "target" && lane == null) return null;
+  const roles = new Set(workflowRecipientRoles(eventType, typeof lane === "string" ? lane : null));
+  if (side === "origin" && lane != null && compliance.raisedUnderCoordination === true) {
+    for (const role of COMMAND_AUTHORITY_ROLES.raiseComplianceCoordination) roles.add(role);
   }
   return [...roles];
 };

@@ -77,3 +77,7 @@ Before enabling workflow mutations, the governed cutover procedure must:
 5. retain read-back evidence showing complete coverage and zero unresolved exceptions before the mutation capability is enabled.
 
 The application source enforces this prerequisite at the mutation boundary: missing projections, partial counter sets, malformed counters, and negative counters fail closed. A wholly new equipment item must therefore receive a governed zero-count reconciliation before its first workflow mutation; ordinary job creation cannot initialize an unknown projection.
+
+### 2026-09-04 missing-projection assignment amendment
+
+The preceding paragraph records the R1.16 behavior. Legacy-template assignment now reconstructs a wholly absent projection from authoritative workflow facts in the same transaction that reads and writes the shared equipment document and creates the job. This is not zero-default initialization: active RED, preparation, and ordinary work are retained, and concurrent assignments serialize through the same equipment document. Present but partial, malformed, or conflicting projections still fail closed and require Admin/SI reconciliation. Other lifecycle mutations and cutover inventory/readback requirements are unchanged. This source amendment does not authorize deployment or production reconciliation.

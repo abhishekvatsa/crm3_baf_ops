@@ -16,11 +16,20 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/asset_registry_model.dart';
+import '../../assets/presentation/widgets/governed_asset_target_picker.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance/domain/governed_issue_asset_selection.dart';
 import '../data/abnormality_model.dart';
 import '../providers/abnormality_provider.dart';
+
+part 'charge_abnormalities_screen.form.dart';
+part 'charge_abnormalities_screen.widgets.dart';
 
 class ChargeAbnormalitiesScreen extends ConsumerStatefulWidget {
   final int sourceChargeNo;
@@ -88,67 +97,100 @@ class _ChargeAbnormalitiesScreenState
           accent: BafColors.charges,
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add_charge_abnormality_fab_${widget.sourceChargeNo}',
-        backgroundColor: BafColors.charges,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Log Abnormality'),
-        onPressed: () => _showAbnormalityForm(),
-      ),
-      body: abnormalitiesAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading charge abnormalities',
-              color: BafColors.charges,
-            ),
-        error:
-            (err, _) => _StateCard(
-              icon: Icons.error_outline_rounded,
-              title: 'Could not load abnormalities',
-              message: '$err',
-              color: BafColors.danger,
-            ),
-        data: (records) {
-          return Column(
-            children: [
-              Padding(
+      body: SafeArea(
+        child: CustomScrollView(
+          key: const ValueKey('charge-abnormalities-scroll'),
+          slivers: [
+            if (actor.canLogChargeAbnormality)
+              SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                   BafSpacing.lg,
+                  BafSpacing.md,
                   BafSpacing.lg,
-                  BafSpacing.lg,
-                  BafSpacing.sm,
+                  0,
                 ),
-                child: _HeaderCard(
-                  sourceChargeNo: widget.sourceChargeNo,
-                  subtitle: widget.subtitle,
-                  total: records.length,
-                  raCount:
-                      records
-                          .where((record) => record.requiresReannealing)
-                          .length,
-                  completedRaCount:
-                      records
-                          .where((record) => record.hasCompletedReannealing)
-                          .length,
+                sliver: SliverToBoxAdapter(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      key: const ValueKey('charge-abnormalities-create'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: BafColors.charges,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Log Abnormality'),
+                      onPressed: () => _showAbnormalityForm(),
+                    ),
+                  ),
                 ),
               ),
-              Expanded(
-                child:
-                    records.isEmpty
-                        ? const _StateCard(
+            ...abnormalitiesAsync.when<List<Widget>>(
+              loading:
+                  () => const [
+                    SliverToBoxAdapter(
+                      child: BafLoadingPanel(
+                        label: 'Loading charge abnormalities',
+                        color: BafColors.charges,
+                      ),
+                    ),
+                  ],
+              error:
+                  (err, _) => [
+                    SliverToBoxAdapter(
+                      child: _StateCard(
+                        icon: Icons.error_outline_rounded,
+                        title: 'Could not load abnormalities',
+                        message: '$err',
+                        color: BafColors.danger,
+                      ),
+                    ),
+                  ],
+              data:
+                  (records) => [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        BafSpacing.lg,
+                        BafSpacing.lg,
+                        BafSpacing.lg,
+                        BafSpacing.sm,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: _HeaderCard(
+                          sourceChargeNo: widget.sourceChargeNo,
+                          subtitle: widget.subtitle,
+                          total: records.length,
+                          raCount:
+                              records
+                                  .where((record) => record.requiresReannealing)
+                                  .length,
+                          completedRaCount:
+                              records
+                                  .where(
+                                    (record) => record.hasCompletedReannealing,
+                                  )
+                                  .length,
+                        ),
+                      ),
+                    ),
+                    if (records.isEmpty)
+                      const SliverToBoxAdapter(
+                        child: _StateCard(
                           icon: Icons.fact_check_outlined,
                           title: 'No abnormalities logged',
                           message:
                               'Use “Log Abnormality” to record process, equipment, result-quality or RA observations for this charge.',
-                        )
-                        : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(
-                            BafSpacing.lg,
-                            BafSpacing.sm,
-                            BafSpacing.lg,
-                            96,
-                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(
+                          BafSpacing.lg,
+                          BafSpacing.sm,
+                          BafSpacing.lg,
+                          BafSpacing.lg,
+                        ),
+                        sliver: SliverList.builder(
                           itemCount: records.length,
                           itemBuilder: (context, index) {
                             final record = records[index];
@@ -156,15 +198,22 @@ class _ChargeAbnormalitiesScreenState
                             return _ChargeAbnormalityCard(
                               record: record,
                               onEdit:
-                                  () => _showAbnormalityForm(existing: record),
-                              onDelete: () => _confirmDelete(record),
+                                  actor.canEditChargeAbnormality
+                                      ? () =>
+                                          _showAbnormalityForm(existing: record)
+                                      : null,
+                              onDelete:
+                                  actor.canSoftDeleteChargeAbnormality
+                                      ? () => _confirmDelete(record)
+                                      : null,
                             );
                           },
                         ),
-              ),
-            ],
-          );
-        },
+                      ),
+                  ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -196,7 +245,7 @@ class _ChargeAbnormalitiesScreenState
 
     final activeTypes = await repository.getActiveTypes();
 
-    if (activeTypes.isEmpty) {
+    if (existing == null && activeTypes.isEmpty) {
       if (!mounted) return;
 
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -237,7 +286,7 @@ class _ChargeAbnormalitiesScreenState
         record
           ..firestoreId = const Uuid().v4()
           ..sourceChargeNo = widget.sourceChargeNo
-          ..loggedAt = now
+          ..loggedAt = draft.eventAt
           ..loggedByUid = actor.uid
           ..loggedByName = actor.name
           ..version = 1;
@@ -282,7 +331,7 @@ class _ChargeAbnormalitiesScreenState
             .update(
               abnormality: record,
               expectedVersion: existing.version,
-              reason: 'Updated charge abnormality',
+              reason: draft.correctionReason!,
             );
         final adopted = await repository
             .applyAbnormalityServerReadbackIfUnchanged(
@@ -452,1071 +501,15 @@ class _ChargeAbnormalitiesScreenState
 // FORM DIALOGS
 // ─────────────────────────────────────────────────────────────
 
-class _ChargeAbnormalityFormDialog extends StatefulWidget {
-  final int sourceChargeNo;
-  final List<AbnormalityType> activeTypes;
-  final ChargeAbnormality? existing;
-
-  const _ChargeAbnormalityFormDialog({
-    required this.sourceChargeNo,
-    required this.activeTypes,
-    required this.existing,
-  });
-
-  @override
-  State<_ChargeAbnormalityFormDialog> createState() =>
-      _ChargeAbnormalityFormDialogState();
-}
-
-class _ChargeAbnormalityFormDialogState
-    extends State<_ChargeAbnormalityFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-
-  late AbnormalityType _selectedType;
-  late AbnormalitySeverity _selectedSeverity;
-  late RootReasonCategory _selectedRootReason;
-  late ReannealingStatus _selectedReannealingStatus;
-  late AssetType _selectedAssetType;
-
-  late final TextEditingController _componentController;
-  late final TextEditingController _observedReasonController;
-  late final TextEditingController _descriptionController;
-  late final TextEditingController _rootReasonNotesController;
-  late final TextEditingController _reannealedToChargeController;
-  late final TextEditingController _assetNumberController;
-
-  late final List<AffectedAssetRef> _affectedAssets;
-
-  @override
-  void initState() {
-    super.initState();
-
-    final existing = widget.existing;
-
-    _selectedType = _initialSelectedType(
-      activeTypes: widget.activeTypes,
-      existing: existing,
-    );
-
-    _selectedSeverity = existing?.severity ?? _selectedType.severity;
-    _selectedRootReason =
-        existing?.possibleRootReasonCategory ?? RootReasonCategory.unknown;
-
-    _selectedReannealingStatus =
-        existing?.reannealingStatus ?? _defaultRaStatusForType(_selectedType);
-
-    _selectedAssetType =
-        _selectedType.applicableAssetTypes.isNotEmpty
-            ? _selectedType.applicableAssetTypes.first
-            : AssetType.base;
-
-    _componentController = TextEditingController(
-      text: existing?.component ?? '',
-    );
-    _observedReasonController = TextEditingController(
-      text: existing?.observedReason ?? '',
-    );
-    _descriptionController = TextEditingController(
-      text: existing?.description ?? '',
-    );
-    _rootReasonNotesController = TextEditingController(
-      text: existing?.possibleRootReasonNotes ?? '',
-    );
-    _reannealedToChargeController = TextEditingController(
-      text: existing?.reannealedToChargeNo?.toString() ?? '',
-    );
-    _assetNumberController = TextEditingController();
-
-    _affectedAssets = [
-      ...(existing?.affectedAssets ?? const <AffectedAssetRef>[]),
-    ];
-  }
-
-  @override
-  void dispose() {
-    _componentController.dispose();
-    _observedReasonController.dispose();
-    _descriptionController.dispose();
-    _rootReasonNotesController.dispose();
-    _reannealedToChargeController.dispose();
-    _assetNumberController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final applicableAssetTypes =
-        _selectedType.applicableAssetTypes.isEmpty
-            ? AssetType.values
-            : _selectedType.applicableAssetTypes;
-
-    if (!applicableAssetTypes.contains(_selectedAssetType)) {
-      _selectedAssetType = applicableAssetTypes.first;
-    }
-
-    return AlertDialog(
-      title: Text(
-        widget.existing == null
-            ? 'Log Charge Abnormality'
-            : 'Edit Charge Abnormality',
-      ),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ChargeContextStrip(sourceChargeNo: widget.sourceChargeNo),
-                const SizedBox(height: BafSpacing.md),
-                DropdownButtonFormField<AbnormalityType>(
-                  initialValue: _selectedType,
-                  isExpanded: true,
-                  decoration: _inputDecoration(label: 'Abnormality Type'),
-                  selectedItemBuilder: (context) {
-                    return widget.activeTypes.map((type) {
-                      return Text(
-                        '${type.code} — ${type.title}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      );
-                    }).toList();
-                  },
-                  items:
-                      widget.activeTypes.map((type) {
-                        return DropdownMenuItem(
-                          value: type,
-                          child: Text(
-                            '${type.code} — ${type.title}',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-
-                    setState(() {
-                      _selectedType = value;
-                      _selectedSeverity = value.severity;
-
-                      if (widget.existing == null) {
-                        _selectedReannealingStatus = _defaultRaStatusForType(
-                          value,
-                        );
-                      }
-
-                      if (value.applicableAssetTypes.isNotEmpty &&
-                          !value.applicableAssetTypes.contains(
-                            _selectedAssetType,
-                          )) {
-                        _selectedAssetType = value.applicableAssetTypes.first;
-                      }
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null) return 'Required';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: BafSpacing.md),
-                Wrap(
-                  spacing: BafSpacing.sm,
-                  runSpacing: BafSpacing.sm,
-                  children: [
-                    StatusBadge(
-                      label: _categoryLabel(_selectedType.category),
-                      color: _categoryColor(_selectedType.category),
-                      icon: Icons.category_rounded,
-                    ),
-                    StatusBadge(
-                      label: _severityLabel(_selectedSeverity),
-                      color: _severityColor(_selectedSeverity),
-                      icon: Icons.priority_high_rounded,
-                    ),
-                    if (_selectedType.suggestsReannealing)
-                      const StatusBadge(
-                        label: 'RA Suggested',
-                        color: BafColors.audit,
-                        icon: Icons.repeat_rounded,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: BafSpacing.md),
-                DropdownButtonFormField<AbnormalitySeverity>(
-                  isExpanded: true,
-                  initialValue: _selectedSeverity,
-                  decoration: _inputDecoration(label: 'Severity'),
-                  items:
-                      AbnormalitySeverity.values.map((severity) {
-                        return DropdownMenuItem(
-                          value: severity,
-                          child: Text(_severityLabel(severity)),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _selectedSeverity = value);
-                  },
-                ),
-                const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _componentController,
-                  decoration: _inputDecoration(
-                    label: 'Component / area',
-                    hint: 'Optional: burner, movement, coil, etc.',
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _observedReasonController,
-                  maxLines: 3,
-                  decoration: _inputDecoration(
-                    label: 'Observed reason',
-                    hint:
-                        'Example: Cycle completed but coil colour indicated RA required',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Observed reason is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _descriptionController,
-                  maxLines: 3,
-                  decoration: _inputDecoration(
-                    label: 'Additional description',
-                    hint: 'Optional details',
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                const _SectionTitle(
-                  icon: Icons.precision_manufacturing_rounded,
-                  title: 'Affected Assets',
-                  subtitle: 'Add all assets involved in this abnormality.',
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<AssetType>(
-                        initialValue: _selectedAssetType,
-                        isExpanded: true,
-                        decoration: _inputDecoration(label: 'Asset'),
-                        items:
-                            applicableAssetTypes.map((assetType) {
-                              return DropdownMenuItem(
-                                value: assetType,
-                                child: Text(
-                                  _assetTypeLabel(assetType),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _selectedAssetType = value);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: BafSpacing.sm),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _assetNumberController,
-                        keyboardType: TextInputType.number,
-                        decoration: _inputDecoration(label: 'No.', hint: '105'),
-                      ),
-                    ),
-                    const SizedBox(width: BafSpacing.sm),
-                    IconButton.filled(
-                      tooltip: 'Add asset',
-                      style: IconButton.styleFrom(
-                        backgroundColor: BafColors.assets,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: _addAsset,
-                      icon: const Icon(Icons.add_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child:
-                      _affectedAssets.isEmpty
-                          ? const Text(
-                            'No affected asset added yet.',
-                            style: TextStyle(
-                              color: BafColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          )
-                          : Wrap(
-                            spacing: BafSpacing.sm,
-                            runSpacing: BafSpacing.sm,
-                            children:
-                                _affectedAssets.map((asset) {
-                                  return InputChip(
-                                    avatar: Icon(
-                                      _assetIcon(asset.assetType),
-                                      color: BafColors.assets,
-                                      size: 16,
-                                    ),
-                                    label: Text(asset.label),
-                                    onDeleted: () {
-                                      setState(() {
-                                        _affectedAssets.removeWhere((
-                                          candidate,
-                                        ) {
-                                          return candidate.assetType ==
-                                                  asset.assetType &&
-                                              candidate.assetNumber ==
-                                                  asset.assetNumber;
-                                        });
-                                      });
-                                    },
-                                  );
-                                }).toList(),
-                          ),
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                const _SectionTitle(
-                  icon: Icons.search_rounded,
-                  title: 'Possible Root Reason',
-                  subtitle: 'This can be refined later after investigation.',
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                DropdownButtonFormField<RootReasonCategory>(
-                  initialValue: _selectedRootReason,
-                  isExpanded: true,
-                  decoration: _inputDecoration(label: 'Root reason category'),
-                  items:
-                      RootReasonCategory.values.map((rootCategory) {
-                        return DropdownMenuItem(
-                          value: rootCategory,
-                          child: Text(
-                            _rootReasonCategoryLabel(rootCategory),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _selectedRootReason = value);
-                  },
-                ),
-                const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _rootReasonNotesController,
-                  maxLines: 2,
-                  decoration: _inputDecoration(
-                    label: 'Root reason notes',
-                    hint: 'Optional',
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                const _SectionTitle(
-                  icon: Icons.repeat_rounded,
-                  title: 'Re-annealing / RA Traceability',
-                  subtitle:
-                      'Use this when the abnormality results in RA or RA decision tracking.',
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                DropdownButtonFormField<ReannealingStatus>(
-                  initialValue: _selectedReannealingStatus,
-                  isExpanded: true,
-                  decoration: _inputDecoration(label: 'RA status'),
-                  items:
-                      ReannealingStatus.values.map((status) {
-                        return DropdownMenuItem(
-                          value: status,
-                          child: Text(
-                            _raStatusLabel(status),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _selectedReannealingStatus = value);
-                  },
-                ),
-                const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _reannealedToChargeController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: chargeNumberInputFormatters,
-                  decoration: _inputDecoration(
-                    label: 'New / RA charge no.',
-                    hint: 'Optional. Filling this marks RA completed.',
-                  ),
-                  validator: (value) {
-                    final text = value?.trim() ?? '';
-                    if (text.isEmpty) return null;
-
-                    final number = parseOptionalChargeNumber(text);
-                    if (number == null) return 'Enter exactly five digits';
-
-                    if (number == widget.sourceChargeNo) {
-                      return 'New charge cannot be same as source charge';
-                    }
-
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: BafColors.charges,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: _submit,
-          child: Text(widget.existing == null ? 'Log' : 'Save'),
-        ),
-      ],
-    );
-  }
-
-  void _addAsset() {
-    final number = int.tryParse(_assetNumberController.text.trim());
-
-    if (number == null || number <= 0) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Enter a valid asset number')),
-      );
-      return;
-    }
-
-    final refToAdd = AffectedAssetRef(
-      assetType: _selectedAssetType,
-      assetNumber: number,
-    );
-
-    final alreadyExists = _affectedAssets.any((asset) {
-      return asset.assetType == refToAdd.assetType &&
-          asset.assetNumber == refToAdd.assetNumber;
-    });
-
-    if (!alreadyExists) {
-      setState(() {
-        _affectedAssets.add(refToAdd);
-        _assetNumberController.clear();
-      });
-    }
-  }
-
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-
-    final reannealedToChargeNo = int.tryParse(
-      _reannealedToChargeController.text.trim(),
-    );
-
-    Navigator.pop(
-      context,
-      _ChargeAbnormalityDraft(
-        selectedType: _selectedType,
-        severity: _selectedSeverity,
-        affectedAssets: List<AffectedAssetRef>.from(_affectedAssets),
-        component: _emptyToNull(_componentController.text),
-        observedReason: _observedReasonController.text.trim(),
-        description: _emptyToNull(_descriptionController.text),
-        rootReasonCategory: _selectedRootReason,
-        rootReasonNotes: _emptyToNull(_rootReasonNotesController.text),
-        reannealingStatus: _selectedReannealingStatus,
-        reannealedToChargeNo: reannealedToChargeNo,
-      ),
-    );
-  }
-}
-
-class _DeleteAbnormalityDialog extends StatefulWidget {
-  const _DeleteAbnormalityDialog();
-
-  @override
-  State<_DeleteAbnormalityDialog> createState() =>
-      _DeleteAbnormalityDialogState();
-}
-
-class _DeleteAbnormalityDialogState extends State<_DeleteAbnormalityDialog> {
-  final TextEditingController _reasonController = TextEditingController();
-
-  AuditReason? _selectedReason;
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Delete Charge Abnormality'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'This abnormality will be hidden but retained for audit and sync traceability.',
-              style: TextStyle(color: BafColors.textSecondary),
-            ),
-            const SizedBox(height: BafSpacing.md),
-            DropdownButtonFormField<AuditReason>(
-              initialValue: _selectedReason,
-              isExpanded: true,
-              decoration: _inputDecoration(label: 'Reason', hint: 'Optional'),
-              items:
-                  AuditReason.values.map((reason) {
-                    return DropdownMenuItem(
-                      value: reason,
-                      child: Text(
-                        _auditReasonLabel(reason),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-              onChanged: (value) {
-                setState(() => _selectedReason = value);
-              },
-            ),
-            const SizedBox(height: BafSpacing.md),
-            TextFormField(
-              controller: _reasonController,
-              maxLines: 2,
-              decoration: _inputDecoration(
-                label: 'Additional notes',
-                hint: 'Optional',
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: BafColors.danger,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: () {
-            Navigator.pop(
-              context,
-              _DeleteDecision(
-                reason: _selectedReason,
-                notes: _emptyToNull(_reasonController.text),
-              ),
-            );
-          },
-          child: const Text('Delete'),
-        ),
-      ],
-    );
-  }
-}
-
-class _ChargeAbnormalityDraft {
-  final AbnormalityType selectedType;
-  final AbnormalitySeverity severity;
-  final List<AffectedAssetRef> affectedAssets;
-  final String? component;
-  final String observedReason;
-  final String? description;
-  final RootReasonCategory rootReasonCategory;
-  final String? rootReasonNotes;
-  final ReannealingStatus reannealingStatus;
-  final int? reannealedToChargeNo;
-
-  const _ChargeAbnormalityDraft({
-    required this.selectedType,
-    required this.severity,
-    required this.affectedAssets,
-    required this.component,
-    required this.observedReason,
-    required this.description,
-    required this.rootReasonCategory,
-    required this.rootReasonNotes,
-    required this.reannealingStatus,
-    required this.reannealedToChargeNo,
-  });
-}
-
-class _DeleteDecision {
-  final AuditReason? reason;
-  final String? notes;
-
-  const _DeleteDecision({required this.reason, required this.notes});
-}
-
-// ─────────────────────────────────────────────────────────────
-// UI WIDGETS
-// ─────────────────────────────────────────────────────────────
-
-class _HeaderCard extends StatelessWidget {
-  final int sourceChargeNo;
-  final String? subtitle;
-  final int total;
-  final int raCount;
-  final int completedRaCount;
-
-  const _HeaderCard({
-    required this.sourceChargeNo,
-    required this.subtitle,
-    required this.total,
-    required this.raCount,
-    required this.completedRaCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DashboardCard(
-      backgroundColor: BafColors.charges,
-      borderColor: BafColors.charges.withValues(alpha: 0.28),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-            ),
-            child: const Icon(Icons.fact_check_outlined, color: Colors.white),
-          ),
-          const SizedBox(width: BafSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Charge $sourceChargeNo',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.xs),
-                Text(
-                  subtitle ??
-                      'Operational memory for abnormalities, RA decision and recurrence analysis.',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    height: 1.25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: BafSpacing.sm),
-          _MetricPill(label: 'Total', value: total),
-          const SizedBox(width: BafSpacing.sm),
-          _MetricPill(label: 'RA', value: raCount),
-          const SizedBox(width: BafSpacing.sm),
-          _MetricPill(label: 'Done', value: completedRaCount),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricPill extends StatelessWidget {
-  final String label;
-  final int value;
-
-  const _MetricPill({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 58),
-      padding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.sm,
-        vertical: BafSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChargeAbnormalityCard extends StatelessWidget {
-  final ChargeAbnormality record;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const _ChargeAbnormalityCard({
-    required this.record,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryColor = _categoryColor(record.category);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: BafSpacing.md),
-      child: DashboardCard(
-        padding: EdgeInsets.zero,
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                decoration: BoxDecoration(
-                  color: categoryColor,
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(BafRadius.large),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    BafSpacing.md,
-                    BafSpacing.md,
-                    BafSpacing.sm,
-                    BafSpacing.md,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: BafSpacing.sm,
-                        runSpacing: BafSpacing.sm,
-                        children: [
-                          StatusBadge(
-                            label: record.abnormalityTypeCode,
-                            color: BafColors.admin,
-                            icon: Icons.tag_rounded,
-                          ),
-                          StatusBadge(
-                            label: _categoryLabel(record.category),
-                            color: categoryColor,
-                            icon: Icons.category_rounded,
-                          ),
-                          StatusBadge(
-                            label: _severityLabel(record.severity),
-                            color: _severityColor(record.severity),
-                            icon: Icons.priority_high_rounded,
-                          ),
-                          StatusBadge(
-                            label: _raStatusLabel(record.reannealingStatus),
-                            color: _raStatusColor(record.reannealingStatus),
-                            icon: Icons.repeat_rounded,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: BafSpacing.md),
-                      Text(
-                        record.abnormalityTypeTitle,
-                        style: const TextStyle(
-                          color: BafColors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: BafSpacing.xs),
-                      Text(
-                        record.observedReason,
-                        style: const TextStyle(
-                          color: BafColors.textSecondary,
-                          fontSize: 13,
-                          height: 1.28,
-                        ),
-                      ),
-                      if ((record.description ?? '').trim().isNotEmpty) ...[
-                        const SizedBox(height: BafSpacing.xs),
-                        Text(
-                          record.description!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: BafColors.textSecondary,
-                            fontSize: 12,
-                            height: 1.25,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: BafSpacing.md),
-                      Wrap(
-                        spacing: BafSpacing.sm,
-                        runSpacing: BafSpacing.sm,
-                        children: [
-                          _SoftChip(
-                            icon: Icons.confirmation_number_outlined,
-                            label: 'Old charge ${record.sourceChargeNo}',
-                          ),
-                          if (record.reannealedToChargeNo != null)
-                            _SoftChip(
-                              icon: Icons.repeat_rounded,
-                              label:
-                                  'New charge ${record.reannealedToChargeNo}',
-                            ),
-                          _SoftChip(
-                            icon: Icons.precision_manufacturing_rounded,
-                            label: record.affectedAssetsLabel,
-                          ),
-                          _SoftChip(
-                            icon: Icons.manage_search_rounded,
-                            label: _rootReasonCategoryLabel(
-                              record.possibleRootReasonCategory,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if ((record.possibleRootReasonNotes ?? '')
-                          .trim()
-                          .isNotEmpty) ...[
-                        const SizedBox(height: BafSpacing.sm),
-                        Text(
-                          'Root note: ${record.possibleRootReasonNotes}',
-                          style: const TextStyle(
-                            color: BafColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: BafSpacing.md),
-                      Text(
-                        'Logged ${DateFormat('dd MMM yyyy, HH:mm').format(record.loggedAt)}'
-                        '${record.loggedByName == null ? '' : ' by ${record.loggedByName}'}',
-                        style: const TextStyle(
-                          color: BafColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    tooltip: 'Edit',
-                    icon: const Icon(Icons.edit_outlined),
-                    color: BafColors.planned,
-                    onPressed: onEdit,
-                  ),
-                  IconButton(
-                    tooltip: 'Delete',
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    color: BafColors.danger,
-                    onPressed: onDelete,
-                  ),
-                ],
-              ),
-              const SizedBox(width: BafSpacing.xs),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChargeContextStrip extends StatelessWidget {
-  final int sourceChargeNo;
-
-  const _ChargeContextStrip({required this.sourceChargeNo});
-
-  @override
-  Widget build(BuildContext context) {
-    return DashboardCard(
-      backgroundColor: BafColors.charges.withValues(alpha: 0.08),
-      borderColor: BafColors.charges.withValues(alpha: 0.18),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.confirmation_number_outlined,
-            color: BafColors.charges,
-          ),
-          const SizedBox(width: BafSpacing.sm),
-          Expanded(
-            child: Text(
-              'Source / old charge no: $sourceChargeNo',
-              style: const TextStyle(
-                color: BafColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _SectionTitle({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: BafColors.navySoft, size: 20),
-        const SizedBox(width: BafSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: BafColors.textPrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SoftChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _SoftChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      visualDensity: VisualDensity.compact,
-      avatar: Icon(icon, size: 16, color: BafColors.assets),
-      label: Text(label),
-      labelStyle: const TextStyle(
-        color: BafColors.textPrimary,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-      backgroundColor: BafColors.assets.withValues(alpha: 0.08),
-      side: BorderSide(color: BafColors.assets.withValues(alpha: 0.16)),
-    );
-  }
-}
-
-class _StateCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-  final Color? color;
-
-  const _StateCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveColor = color ?? BafColors.charges;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(BafSpacing.xl),
-        child: DashboardCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 42, color: effectiveColor),
-              const SizedBox(height: BafSpacing.md),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: BafColors.textPrimary,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              Text(
-                message,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  height: 1.3,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────
-
-InputDecoration _inputDecoration({required String label, String? hint}) {
+InputDecoration _inputDecoration({
+  required String label,
+  String? hint,
+  String? errorText,
+}) {
   return InputDecoration(
     labelText: label,
     hintText: hint,
+    errorText: errorText,
     filled: true,
     fillColor: BafColors.card,
     border: OutlineInputBorder(
@@ -1534,21 +527,149 @@ InputDecoration _inputDecoration({required String label, String? hint}) {
   );
 }
 
-AbnormalityType _initialSelectedType({
+List<AbnormalityType> _abnormalityTypesForForm({
   required List<AbnormalityType> activeTypes,
   required ChargeAbnormality? existing,
 }) {
-  if (existing == null) return activeTypes.first;
+  final available = List<AbnormalityType>.from(activeTypes);
+  if (existing == null) return available;
 
-  for (final type in activeTypes) {
-    if (type.firestoreId == existing.abnormalityTypeId ||
+  final matchIndex = available.indexWhere(
+    (type) =>
+        type.firestoreId == existing.abnormalityTypeId ||
         type.code == existing.abnormalityTypeId ||
-        type.code == existing.abnormalityTypeCode) {
-      return type;
-    }
+        type.code == existing.abnormalityTypeCode,
+  );
+  if (matchIndex >= 0) {
+    final match = available.removeAt(matchIndex);
+    return <AbnormalityType>[match, ...available];
   }
 
-  return activeTypes.first;
+  final historical =
+      AbnormalityType()
+        ..firestoreId = existing.abnormalityTypeId
+        ..code = existing.abnormalityTypeCode
+        ..title = '${existing.abnormalityTypeTitle} (historical)'
+        ..description =
+            'Retained from the original abnormality because its governed type is no longer active.'
+        ..category = existing.category
+        ..severity = existing.severity
+        ..applicableAssetTypes =
+            existing.affectedAssets
+                .map((asset) => asset.assetType)
+                .toSet()
+                .toList()
+        ..suggestsReannealing = existing.requiresReannealing
+        ..isActive = false
+        ..isDeleted = true
+        ..version = 1
+        ..isSynced = true
+        ..createdAt = existing.loggedAt
+        ..updatedAt = existing.updatedAt;
+  return <AbnormalityType>[historical, ...available];
+}
+
+AssetClassRecord? _findAssetClass(
+  Iterable<AssetClassRecord> classes,
+  String? id,
+) {
+  if (id == null) return null;
+  for (final assetClass in classes) {
+    if (assetClass.id == id) return assetClass;
+  }
+  return null;
+}
+
+AssetInstanceRecord? _findAsset(
+  Iterable<AssetInstanceRecord> assets,
+  String? id,
+) {
+  if (id == null) return null;
+  for (final asset in assets) {
+    if (asset.id == id) return asset;
+  }
+  return null;
+}
+
+String _registeredAssetLabel(AssetInstanceRecord asset) {
+  final name = asset.name.trim();
+  final number = asset.assetNumber.toString();
+  if (name == number || name.endsWith(' $number')) return name;
+  return '$number - $name';
+}
+
+RootReasonCategory _rootReasonForAssetType(AssetType type) => switch (type) {
+  AssetType.base || AssetType.innerCover => RootReasonCategory.baseRelated,
+  AssetType.furnace => RootReasonCategory.furnaceRelated,
+  AssetType.forceCooler => RootReasonCategory.forceCoolerRelated,
+  AssetType.governedCustom => RootReasonCategory.other,
+};
+
+AssetHierarchyReference _copyReferenceWithAssociation(
+  AssetHierarchyReference reference,
+  InnerCoverEventReference association,
+) => AssetHierarchyReference(
+  scope: reference.scope,
+  assetClassId: reference.assetClassId,
+  assetClassCode: reference.assetClassCode,
+  assetClassName: reference.assetClassName,
+  nodeId: reference.nodeId,
+  nodeVersion: reference.nodeVersion,
+  nodeName: reference.nodeName,
+  assetInstanceId: reference.assetInstanceId,
+  assetInstanceVersion: reference.assetInstanceVersion,
+  assetNumber: reference.assetNumber,
+  assetInstanceName: reference.assetInstanceName,
+  componentInstanceId: reference.componentInstanceId,
+  componentInstanceVersion: reference.componentInstanceVersion,
+  componentTag: reference.componentTag,
+  hierarchyPath: reference.hierarchyPath,
+  ownershipStatus: reference.ownershipStatus,
+  ownerDiscipline: reference.ownerDiscipline,
+  accountableRoleKeys: reference.accountableRoleKeys,
+  innerCoverAssociation: association,
+);
+
+String? _requiredTextValidation(
+  String? value, {
+  required String label,
+  required int maximum,
+}) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) return '$label is required';
+  if (text.length > maximum) {
+    return '$label must not exceed $maximum characters';
+  }
+  return null;
+}
+
+String? _optionalTextValidation(
+  String? value, {
+  required String label,
+  required int maximum,
+}) {
+  final text = value?.trim() ?? '';
+  if (text.length > maximum) {
+    return '$label must not exceed $maximum characters';
+  }
+  return null;
+}
+
+String? _componentSummary(
+  Iterable<AffectedAssetRef> assets,
+  String? legacyComponent,
+) {
+  final components = assets
+      .map((asset) => asset.componentLabel?.trim())
+      .whereType<String>()
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+  if (components.isEmpty) return _emptyToNull(legacyComponent ?? '');
+  final summary = components.join(', ');
+  return summary.length <= 200
+      ? summary
+      : '${components.length} governed components selected';
 }
 
 ReannealingStatus _defaultRaStatusForType(AbnormalityType type) {
@@ -1633,21 +754,6 @@ String _rootReasonCategoryLabel(RootReasonCategory category) {
       return 'Operations Related';
     case RootReasonCategory.other:
       return 'Other';
-  }
-}
-
-String _assetTypeLabel(AssetType type) {
-  switch (type) {
-    case AssetType.base:
-      return 'Base';
-    case AssetType.furnace:
-      return 'Furnace';
-    case AssetType.forceCooler:
-      return 'Force Cooler';
-    case AssetType.innerCover:
-      return 'Inner Cover';
-    case AssetType.governedCustom:
-      return 'Governed Asset';
   }
 }
 

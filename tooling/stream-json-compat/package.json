@@ -1,0 +1,17 @@
+{
+  "name": "stream-json",
+  "version": "3.5.0",
+  "private": true,
+  "description": "Firebase CLI CommonJS stream interface for patched upstream stream-json 3.5.0",
+  "main": "index.cjs",
+  "engines": {"node": ">=22.12.0"},
+  "exports": {
+    ".": "./index.cjs",
+    "./filters/Pick": "./filters/Pick.cjs",
+    "./filters/Filter": "./filters/Filter.cjs",
+    "./streamers/StreamArray": "./streamers/StreamArray.cjs",
+    "./streamers/StreamObject": "./streamers/StreamObject.cjs",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {"stream-json-modern": "npm:stream-json@3.5.0"}
+}

@@ -37,43 +37,17 @@
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
-      "path": "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
-      "disposition": "bounded-exception",
-      "owner": "Architecture / abnormalities",
-      "purpose": "Owns the charge abnormalities screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
-      "responsibilities": [
-        "authority",
-        "presentation",
-        "state-orchestration"
-      ],
-      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
-      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
-      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
-      "regressionTests": [
-        "test/charge_abnormality_atomic_mutation_contract_test.dart"
-      ],
-      "maximumLines": 1839,
-      "requiredMarkers": [
-        "class ChargeAbnormalitiesScreen"
-      ],
-      "forbiddenMarkers": [
-        "FirebaseFirestore.instance",
-        "Isar.getInstance()"
-      ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
-    },
-    {
       "path": "lib/features/abnormalities/providers/abnormality_provider.dart",
       "disposition": "decomposed",
       "owner": "Architecture / abnormalities",
-      "purpose": "Defines the abnormalities repository contract, shared mapping, and Riverpod selection/wiring.",
+      "purpose": "Defines the abnormalities repository contract, shared normalization and governed-reference validation, and Riverpod selection/wiring.",
       "responsibilities": [
         "authority",
         "command-boundary",
         "provider-wiring",
         "remote-persistence",
         "repository-contract",
+        "serialization",
         "state-orchestration"
       ],
       "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
@@ -129,6 +103,7 @@
       "purpose": "Owns the abnormalities Firestore repository adapter only.",
       "responsibilities": [
         "authority",
+        "command-boundary",
         "remote-persistence",
         "repository-implementation",
         "serialization",
@@ -136,7 +111,7 @@
       ],
       "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
       "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
-      "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
+      "transactionOwnership": "Type-master batches remain here. Abnormality creation delegates its paired warning, audit and receipt transaction to the governed command service; this adapter adopts only the verified readback.",
       "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
       "regressionTests": [
         "test/charge_abnormality_atomic_mutation_contract_test.dart"

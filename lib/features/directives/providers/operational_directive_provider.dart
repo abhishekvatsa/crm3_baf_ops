@@ -9,6 +9,7 @@ import 'package:isar/isar.dart';
 import '../../../core/persistence/app_database.dart';
 import '../data/operational_directive_model.dart';
 import '../data/remote_operational_directive_reader.dart';
+import '../data/governed_directive_acknowledgement.dart';
 import '../../auth/data/user_model.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
