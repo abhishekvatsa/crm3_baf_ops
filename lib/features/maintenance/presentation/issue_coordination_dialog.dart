@@ -39,6 +39,18 @@ class _IssueCoordinationDialogState extends State<_IssueCoordinationDialog> {
   String _priority = 'high';
   String? _validationMessage;
 
+  String get _defaultTitle =>
+      _purpose == IssueCoordinationPurpose.operationsSupport
+          ? 'Operations support required'
+          : _condition == IssueCoordinationCondition.activityRef
+          ? 'Await operational activity completion'
+          : 'Await current cycle completion';
+
+  String get _defaultDescription =>
+      _purpose == IssueCoordinationPurpose.operationsSupport
+          ? 'Provide the selected operational support before maintenance resumes on ${_assetLabel(widget.ticket)}.'
+          : 'Operations to confirm the release condition before maintenance resumes on ${_assetLabel(widget.ticket)}.';
+
   @override
   void initState() {
     super.initState();
@@ -47,13 +59,8 @@ class _IssueCoordinationDialogState extends State<_IssueCoordinationDialog> {
     );
     _activityController = TextEditingController();
     _locationController = TextEditingController();
-    _titleController = TextEditingController(
-      text: 'Await current cycle completion',
-    );
-    _descriptionController = TextEditingController(
-      text:
-          'Operations to confirm the release condition before maintenance resumes on ${_assetLabel(widget.ticket)}.',
-    );
+    _titleController = TextEditingController(text: _defaultTitle);
+    _descriptionController = TextEditingController(text: _defaultDescription);
   }
 
   @override
@@ -231,7 +238,12 @@ class _IssueCoordinationDialogState extends State<_IssueCoordinationDialog> {
         selected: <IssueCoordinationCondition>{_condition},
         onSelectionChanged: (selection) {
           if (selection.isNotEmpty) {
-            setState(() => _condition = selection.first);
+            setState(() {
+              final replaceTitle = _titleController.text == _defaultTitle;
+              _condition = selection.first;
+              _validationMessage = null;
+              if (replaceTitle) _titleController.text = _defaultTitle;
+            });
           }
         },
       ),
@@ -327,17 +339,13 @@ class _IssueCoordinationDialogState extends State<_IssueCoordinationDialog> {
 
   void _setPurpose(IssueCoordinationPurpose purpose) {
     setState(() {
+      final replaceTitle = _titleController.text == _defaultTitle;
+      final replaceDescription =
+          _descriptionController.text == _defaultDescription;
       _purpose = purpose;
       _validationMessage = null;
-      if (purpose == IssueCoordinationPurpose.deferment) {
-        _titleController.text = 'Await current cycle completion';
-        _descriptionController.text =
-            'Operations to confirm the release condition before maintenance resumes on ${_assetLabel(widget.ticket)}.';
-      } else {
-        _titleController.text = 'Operations support required';
-        _descriptionController.text =
-            'Provide the selected operational support before maintenance resumes on ${_assetLabel(widget.ticket)}.';
-      }
+      if (replaceTitle) _titleController.text = _defaultTitle;
+      if (replaceDescription) _descriptionController.text = _defaultDescription;
     });
   }
 

@@ -24,6 +24,29 @@ ComplianceRequestRecord _request() =>
       ..statusKey = 'raised';
 
 void main() {
+  test('completed release waits for maintenance acceptance, never dormant', () {
+    final record =
+        _request()
+          ..targetLaneKey = 'oprn'
+          ..originLaneKey = 'mech'
+          ..conditionTypeKey = 'chargeComplete'
+          ..conditionRef = '12345'
+          ..statusKey = 'complied'
+          ..becameDueAt = null;
+    expect(
+      complianceNextStepLabel(record),
+      'Completion reported; awaiting MECH acceptance',
+    );
+    record.statusKey = 'acknowledged';
+    record.lastCorrectionReason = 'Crane movement is still incomplete';
+    expect(
+      complianceNextStepLabel(record),
+      contains('Crane movement is still incomplete'),
+    );
+    record.statusKey = 'confirmedClosed';
+    expect(complianceNextStepLabel(record), 'Request accepted and closed');
+  });
+
   test('report visibility matches the complete compliance audience', () {
     final request = _request();
     final cases = <(AppUser, bool)>[

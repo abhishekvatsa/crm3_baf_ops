@@ -1,5 +1,11 @@
 import {createHash} from "crypto";
 import {isFiveDigitChargeNumber} from "./chargeNumber";
+import {isValidAffectedAssetHierarchyReference} from
+  "./affectedAssetHierarchyReference";
+import {
+  isValidPersistedInstant,
+  persistedInstantMillis,
+} from "./persistedInstant";
 
 import {stableJson} from "./stableJson";
 import {
@@ -10,6 +16,7 @@ import {
 export type QualityMutationOperation =
   | "REQUEST_QUALITY_WARNING_CLOSURE"
   | "DECLARE_QUALITY_CASE_RA_REQUIRED"
+  | "RECORD_QUALITY_CASE_RA_COMPLETED"
   | "CLOSE_QUALITY_WARNING"
   | "REOPEN_QUALITY_WARNING"
   | "CREATE_QUALITY_MONITORING_REQUEST"
@@ -21,6 +28,7 @@ export function qualityAuditActionForOperation(
   switch (operation) {
   case "REQUEST_QUALITY_WARNING_CLOSURE":
   case "DECLARE_QUALITY_CASE_RA_REQUIRED":
+  case "RECORD_QUALITY_CASE_RA_COMPLETED":
     return "update";
   case "CLOSE_QUALITY_WARNING":
   case "CLOSE_QUALITY_MONITORING_REQUEST":
@@ -116,6 +124,7 @@ export interface QualityMutationResult {
   committedAt: string;
   idempotentReplay: boolean;
   entity: UserAuthorityJsonMap;
+  linkedAbnormality: UserAuthorityJsonMap | null;
 }
 
 const UUID =
@@ -123,6 +132,7 @@ const UUID =
 const OPERATIONS = new Set<QualityMutationOperation>([
   "REQUEST_QUALITY_WARNING_CLOSURE",
   "DECLARE_QUALITY_CASE_RA_REQUIRED",
+  "RECORD_QUALITY_CASE_RA_COMPLETED",
   "CLOSE_QUALITY_WARNING",
   "REOPEN_QUALITY_WARNING",
   "CREATE_QUALITY_MONITORING_REQUEST",
@@ -131,6 +141,12 @@ const OPERATIONS = new Set<QualityMutationOperation>([
 export const QUALITY_MONITORING_OPERATIONAL_RETENTION_MS =
   7 * 24 * 60 * 60 * 1000;
 const REQUEST_ROLES = new Set([
+  "admin",
+  "si",
+  "shiftSupervisor",
+  "operations",
+]);
+const RA_LIFECYCLE_ROLES = new Set([
   "admin",
   "si",
   "shiftSupervisor",
@@ -159,6 +175,7 @@ const LINKED_ABNORMALITY_FIELDS = new Set([
   "category",
   "severity",
   "affectedAssets",
+  "affectedAssetHierarchyRefs",
   "component",
   "observedReason",
   "description",
@@ -245,6 +262,38 @@ const MONITORING_VISIBILITY_FIELDS = new Set([
   "visibilityState",
   "visibleUntil",
   "archivedAt",
+]);
+const ABNORMALITY_CATEGORIES = new Set([
+  "process",
+  "equipment",
+  "resultQuality",
+  "reannealing",
+  "other",
+]);
+const ABNORMALITY_SEVERITIES = new Set([
+  "low",
+  "medium",
+  "high",
+  "critical",
+]);
+const ABNORMALITY_ROOT_REASON_CATEGORIES = new Set([
+  "unknown",
+  "baseRelated",
+  "furnaceRelated",
+  "forceCoolerRelated",
+  "atmosphereRelated",
+  "thermocoupleTemperature",
+  "cycleInterruption",
+  "materialOrCoilCondition",
+  "operationsRelated",
+  "other",
+]);
+const ABNORMALITY_ASSET_TYPES = new Set([
+  "base",
+  "furnace",
+  "forceCooler",
+  "innerCover",
+  "governedCustom",
 ]);
 
 export class QualityMutationError extends Error {
@@ -340,7 +389,10 @@ export function userCanMutateQuality(
   const authority = canonicalApprovedUserAuthority(data);
   if (authority == null) return false;
   const roles = operation === "REQUEST_QUALITY_WARNING_CLOSURE" ?
-    REQUEST_ROLES : DECISION_ROLES;
+    REQUEST_ROLES :
+    operation === "DECLARE_QUALITY_CASE_RA_REQUIRED" ||
+    operation === "RECORD_QUALITY_CASE_RA_COMPLETED" ?
+      RA_LIFECYCLE_ROLES : DECISION_ROLES;
   return [...authority.roles].some((role) => roles.has(role));
 }
 
@@ -355,7 +407,7 @@ export function parseQualityMutationRequest(
   if (!OPERATIONS.has(operation)) invalid("operation", "is unsupported");
   const requestId = requiredString(raw.requestId, "requestId", 64);
   if (!UUID.test(requestId)) invalid("requestId", "must be a canonical UUID");
-  const reason = requiredString(raw.reason, "reason", 1000);
+  const reason = requiredString(raw.reason, "reason", 2000);
   const expectedVersion = nonNegativeInteger(
     raw.expectedVersion,
     "expectedVersion",
@@ -408,6 +460,8 @@ export function parseQualityMutationRequest(
   }
 
   const close = operation === "CLOSE_QUALITY_WARNING";
+  const recordRaCompletion =
+    operation === "RECORD_QUALITY_CASE_RA_COMPLETED";
   const allowed = new Set([
     "requestId",
     "operation",
@@ -415,18 +469,25 @@ export function parseQualityMutationRequest(
     "expectedVersion",
     "reason",
     ...(close ? ["disposition", "linkedReannealingChargeNos"] : []),
+    ...(recordRaCompletion ? ["linkedReannealingChargeNos"] : []),
   ]);
   for (const key of Object.keys(raw)) if (!allowed.has(key)) invalid(key, "is unsupported");
   const disposition = close ? requiredString(raw.disposition, "disposition", 64) : null;
   if (disposition != null && !DISPOSITIONS.has(disposition)) {
     invalid("disposition", "is unsupported");
   }
-  const linkedReannealingChargeNos = close ?
+  const linkedReannealingChargeNos = close || recordRaCompletion ?
     positiveIntegerList(
       raw.linkedReannealingChargeNos,
       "linkedReannealingChargeNos",
-      20,
+      recordRaCompletion ? 1 : 20,
     ) : [];
+  if (recordRaCompletion && linkedReannealingChargeNos.length !== 1) {
+    invalid(
+      "linkedReannealingChargeNos",
+      "must contain exactly one resulting charge for operational RA completion",
+    );
+  }
   if (disposition === "reannealingCompleted" &&
       linkedReannealingChargeNos.length === 0) {
     invalid(
@@ -434,7 +495,8 @@ export function parseQualityMutationRequest(
       "must contain at least one RA charge for re-annealing closure",
     );
   }
-  if (disposition !== "reannealingCompleted" &&
+  if (!recordRaCompletion &&
+      disposition !== "reannealingCompleted" &&
       linkedReannealingChargeNos.length > 0) {
     invalid(
       "linkedReannealingChargeNos",
@@ -472,37 +534,12 @@ function actorFromSnapshot(
 }
 
 function validDate(value: unknown): boolean {
-  if (value instanceof Date) return !Number.isNaN(value.valueOf());
-  if (typeof value === "string") return !Number.isNaN(Date.parse(value));
-  if (value == null || typeof value !== "object") return false;
-  const timestamp = value as {
-    toDate?: unknown;
-    seconds?: unknown;
-    nanoseconds?: unknown;
-  };
-  return typeof timestamp.toDate === "function" ||
-    (Number.isSafeInteger(timestamp.seconds) &&
-      Number.isSafeInteger(timestamp.nanoseconds));
+  return isValidPersistedInstant(value);
 }
 
 function dateMillis(value: unknown, field: string, entity: string): number {
-  if (value instanceof Date) return value.valueOf();
-  if (typeof value === "string") return Date.parse(value);
-  if (value == null || typeof value !== "object") malformed(entity, field);
-  const timestamp = value as {
-    toDate?: () => Date;
-    seconds?: unknown;
-    nanoseconds?: unknown;
-  };
-  if (typeof timestamp.toDate === "function") {
-    return timestamp.toDate().valueOf();
-  }
-  if (Number.isSafeInteger(timestamp.seconds) &&
-      Number.isSafeInteger(timestamp.nanoseconds)) {
-    return (timestamp.seconds as number) * 1000 +
-      (timestamp.nanoseconds as number) / 1_000_000;
-  }
-  return malformed(entity, field);
+  const millis = persistedInstantMillis(value);
+  return Number.isFinite(millis) ? millis : malformed(entity, field);
 }
 
 function malformed(entity: string, field?: string): never {
@@ -511,6 +548,20 @@ function malformed(entity: string, field?: string): never {
     `The persisted ${entity} is malformed.`,
     {reasonCode: `${entity}-malformed`, ...(field == null ? {} : {field})},
   );
+}
+
+function requireMonotonicQualityCommit(
+  committedDate: Date,
+  data: UserAuthorityJsonMap,
+  entity: string,
+): void {
+  if (committedDate.valueOf() < dateMillis(data.updatedAt, "updatedAt", entity)) {
+    throw new QualityMutationError(
+      "aborted",
+      "The server clock precedes the current quality record. Retry after the recorded time boundary.",
+      {reasonCode: `${entity}-clock-regression`},
+    );
+  }
 }
 
 export function validateQualityWarningRecord(
@@ -549,30 +600,52 @@ export function validateQualityWarningRecord(
   requiredExistingString(data.sourceSeverity, "sourceSeverity", "quality-warning");
   requiredExistingString(data.warningReason, "warningReason", "quality-warning");
   if (!Array.isArray(data.affectedAssets) ||
-      data.affectedAssets.length === 0 ||
       data.affectedAssets.length > 50) {
     malformed("quality-warning", "affectedAssets");
   }
+  const affectedAssetIdentities = new Set<string>();
   data.affectedAssets.forEach((raw, index) => {
     if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
       malformed("quality-warning", `affectedAssets[${index}]`);
     }
     const asset = raw as UserAuthorityJsonMap;
-    if (Object.keys(asset).length !== 2 ||
+    const keys = Object.keys(asset);
+    const hasHierarchyReference = Object.prototype.hasOwnProperty.call(
+      asset,
+      "assetHierarchyRef",
+    );
+    if ((keys.length !== 2 &&
+         !(keys.length === 3 && hasHierarchyReference)) ||
         !Object.prototype.hasOwnProperty.call(asset, "assetType") ||
         !Object.prototype.hasOwnProperty.call(asset, "assetNumber")) {
       malformed("quality-warning", `affectedAssets[${index}]`);
     }
-    requiredExistingString(
+    const assetType = requiredExistingString(
       asset.assetType,
       `affectedAssets[${index}].assetType`,
       "quality-warning",
     );
-    positiveExistingInteger(
+    if (!ABNORMALITY_ASSET_TYPES.has(assetType)) {
+      malformed("quality-warning", `affectedAssets[${index}].assetType`);
+    }
+    const assetNumber = positiveExistingInteger(
       asset.assetNumber,
       `affectedAssets[${index}].assetNumber`,
       "quality-warning",
     );
+    if (!affectedAssetIdentities.add(`${assetType}:${assetNumber}`)) {
+      malformed("quality-warning", "affectedAssets");
+    }
+    if (hasHierarchyReference &&
+        !isValidAffectedAssetHierarchyReference(
+          asset.assetHierarchyRef,
+          assetNumber,
+        )) {
+      malformed(
+        "quality-warning",
+        `affectedAssets[${index}].assetHierarchyRef`,
+      );
+    }
   });
   optionalExistingString(data.component, "component", "quality-warning");
   if (typeof data.status !== "string" || !WARNING_STATUSES.has(data.status)) {
@@ -588,7 +661,8 @@ export function validateQualityWarningRecord(
       `linkedReannealingChargeNos[${index}]`,
       "quality-warning",
     ));
-  if (new Set(charges).size !== charges.length) {
+  if (charges.some((chargeNo) => !isFiveDigitChargeNumber(chargeNo)) ||
+      new Set(charges).size !== charges.length) {
     malformed("quality-warning", "linkedReannealingChargeNos");
   }
   positiveExistingInteger(data.version, "version", "quality-warning");
@@ -597,6 +671,19 @@ export function validateQualityWarningRecord(
   requiredExistingString(data.updatedByUid, "updatedByUid", "quality-warning");
   optionalExistingString(data.updatedByName, "updatedByName", "quality-warning");
   if (!validDate(data.createdAt) || !validDate(data.updatedAt)) {
+    malformed("quality-warning", "updatedAt");
+  }
+  const createdAtMillis = dateMillis(
+    data.createdAt,
+    "createdAt",
+    "quality-warning",
+  );
+  const updatedAtMillis = dateMillis(
+    data.updatedAt,
+    "updatedAt",
+    "quality-warning",
+  );
+  if (updatedAtMillis < createdAtMillis) {
     malformed("quality-warning", "updatedAt");
   }
   if (data.lastMutationId != null &&
@@ -634,6 +721,19 @@ export function validateQualityWarningRecord(
   if (requestEvidenceCount !== 0 && requestEvidenceCount !== requestEvidence.length) {
     malformed("quality-warning", "closureRequestReason");
   }
+  const closureRequestedAt = requestEvidence[1];
+  let closureRequestedAtMillis: number | null = null;
+  if (closureRequestedAt != null) {
+    closureRequestedAtMillis = dateMillis(
+      closureRequestedAt,
+      "closureRequestedAt",
+      "quality-warning",
+    );
+    if (closureRequestedAtMillis < createdAtMillis ||
+        closureRequestedAtMillis > updatedAtMillis) {
+      malformed("quality-warning", "closureRequestedAt");
+    }
+  }
   const closedAt = optionalExistingDate(
     data.closedAt,
     "closedAt",
@@ -663,6 +763,19 @@ export function validateQualityWarningRecord(
     closedByName != null || disposition != null || decisionReason != null;
   const completeClosedEvidence = closedAt != null && closedByUid != null &&
     closedByName != null && disposition != null && decisionReason != null;
+  if (closedAt != null) {
+    const closedAtMillis = dateMillis(
+      closedAt,
+      "closedAt",
+      "quality-warning",
+    );
+    if (closedAtMillis < createdAtMillis ||
+        closedAtMillis > updatedAtMillis ||
+        (closureRequestedAtMillis != null &&
+          closedAtMillis < closureRequestedAtMillis)) {
+      malformed("quality-warning", "closedAt");
+    }
+  }
   if (data.status === "open" &&
       (requestEvidenceCount !== 0 || hasClosedEvidence || charges.length !== 0)) {
     malformed("quality-warning", "status");
@@ -685,6 +798,82 @@ export function validateQualityWarningRecord(
   return {...data};
 }
 
+function linkedAffectedAssetEntry(
+  raw: unknown,
+  field: string,
+  requireHierarchy: boolean,
+): {identity: string; hasHierarchy: boolean} {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    malformed("charge-quality-abnormality", field);
+  }
+  const asset = raw as UserAuthorityJsonMap;
+  const hasHierarchy = Object.prototype.hasOwnProperty.call(
+    asset,
+    "assetHierarchyRef",
+  );
+  const keys = Object.keys(asset);
+  if ((keys.length !== 2 && !(keys.length === 3 && hasHierarchy)) ||
+      !Object.prototype.hasOwnProperty.call(asset, "assetType") ||
+      !Object.prototype.hasOwnProperty.call(asset, "assetNumber") ||
+      (requireHierarchy && !hasHierarchy) ||
+      typeof asset.assetType !== "string" ||
+      !ABNORMALITY_ASSET_TYPES.has(asset.assetType)) {
+    malformed("charge-quality-abnormality", field);
+  }
+  const assetNumber = positiveExistingInteger(
+    asset.assetNumber,
+    `${field}.assetNumber`,
+    "charge-quality-abnormality",
+  );
+  if (hasHierarchy &&
+      !isValidAffectedAssetHierarchyReference(
+        asset.assetHierarchyRef,
+        assetNumber,
+      )) {
+    malformed("charge-quality-abnormality", `${field}.assetHierarchyRef`);
+  }
+  return {identity: `${asset.assetType}:${assetNumber}`, hasHierarchy};
+}
+
+function validateLinkedAffectedAssets(data: UserAuthorityJsonMap): void {
+  const value = data.affectedAssets;
+  if (!Array.isArray(value) || value.length > 50) {
+    malformed("charge-quality-abnormality", "affectedAssets");
+  }
+  const identities = new Set<string>();
+  const inlineHierarchy = new Set<string>();
+  value.forEach((raw, index) => {
+    const parsed = linkedAffectedAssetEntry(
+      raw,
+      `affectedAssets[${index}]`,
+      false,
+    );
+    if (!identities.add(parsed.identity)) {
+      malformed("charge-quality-abnormality", "affectedAssets");
+    }
+    if (parsed.hasHierarchy) inlineHierarchy.add(parsed.identity);
+  });
+
+  const hierarchyValue = data.affectedAssetHierarchyRefs;
+  if (hierarchyValue === undefined) return;
+  if (!Array.isArray(hierarchyValue) || hierarchyValue.length > value.length) {
+    malformed("charge-quality-abnormality", "affectedAssetHierarchyRefs");
+  }
+  const hierarchyIdentities = new Set<string>();
+  hierarchyValue.forEach((raw, index) => {
+    const parsed = linkedAffectedAssetEntry(
+      raw,
+      `affectedAssetHierarchyRefs[${index}]`,
+      true,
+    );
+    if (!identities.has(parsed.identity) ||
+        inlineHierarchy.has(parsed.identity) ||
+        !hierarchyIdentities.add(parsed.identity)) {
+      malformed("charge-quality-abnormality", "affectedAssetHierarchyRefs");
+    }
+  });
+}
+
 function validateLinkedAbnormality(
   data: UserAuthorityJsonMap,
   abnormalityId: string,
@@ -697,7 +886,8 @@ function validateLinkedAbnormality(
     }
   }
   for (const field of [...LINKED_ABNORMALITY_FIELDS].filter((value) =>
-    value !== "_globalPullServerUpdatedAt")) {
+    value !== "_globalPullServerUpdatedAt" &&
+      value !== "affectedAssetHierarchyRefs")) {
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       malformed("charge-quality-abnormality", field);
     }
@@ -717,6 +907,7 @@ function validateLinkedAbnormality(
       data.sourceChargeNo !== warning.sourceChargeNo) {
     malformed("charge-quality-abnormality", "sourceChargeNo");
   }
+  validateLinkedAffectedAssets(data);
   positiveExistingInteger(
     data.version,
     "version",
@@ -726,25 +917,95 @@ function validateLinkedAbnormality(
     data.abnormalityTypeId,
     "abnormalityTypeId",
     "charge-quality-abnormality",
+    512,
+  );
+  requiredExistingString(
+    data.abnormalityTypeTitle,
+    "abnormalityTypeTitle",
+    "charge-quality-abnormality",
+    500,
+  );
+  requiredExistingString(
+    data.abnormalityTypeCode,
+    "abnormalityTypeCode",
+    "charge-quality-abnormality",
+    160,
+  );
+  if (typeof data.category !== "string" ||
+      !ABNORMALITY_CATEGORIES.has(data.category)) {
+    malformed("charge-quality-abnormality", "category");
+  }
+  if (typeof data.severity !== "string" ||
+      !ABNORMALITY_SEVERITIES.has(data.severity)) {
+    malformed("charge-quality-abnormality", "severity");
+  }
+  optionalExistingString(
+    data.component,
+    "component",
+    "charge-quality-abnormality",
+    200,
   );
   requiredExistingString(
     data.observedReason,
     "observedReason",
     "charge-quality-abnormality",
+    2000,
+  );
+  optionalExistingString(
+    data.description,
+    "description",
+    "charge-quality-abnormality",
+    4000,
+  );
+  if (typeof data.possibleRootReasonCategory !== "string" ||
+      !ABNORMALITY_ROOT_REASON_CATEGORIES.has(
+        data.possibleRootReasonCategory,
+      )) {
+    malformed("charge-quality-abnormality", "possibleRootReasonCategory");
+  }
+  optionalExistingString(
+    data.possibleRootReasonNotes,
+    "possibleRootReasonNotes",
+    "charge-quality-abnormality",
+    4000,
   );
   requiredExistingString(
     data.loggedByUid,
     "loggedByUid",
     "charge-quality-abnormality",
+    512,
+  );
+  optionalExistingString(
+    data.loggedByName,
+    "loggedByName",
+    "charge-quality-abnormality",
+    500,
   );
   requiredExistingString(
     data.updatedByUid,
     "updatedByUid",
     "charge-quality-abnormality",
+    512,
+  );
+  optionalExistingString(
+    data.updatedByName,
+    "updatedByName",
+    "charge-quality-abnormality",
+    500,
+  );
+  optionalExistingString(
+    data.linkedExecutionFirestoreId,
+    "linkedExecutionFirestoreId",
+    "charge-quality-abnormality",
+    512,
   );
   if (!validDate(data.loggedAt) || !validDate(data.updatedAt) ||
       !REANNEALING_STATUSES.has(data.reannealingStatus as string)) {
     malformed("charge-quality-abnormality", "reannealingStatus");
+  }
+  if (dateMillis(data.updatedAt, "updatedAt", "charge-quality-abnormality") <
+      dateMillis(data.loggedAt, "loggedAt", "charge-quality-abnormality")) {
+    malformed("charge-quality-abnormality", "updatedAt");
   }
   if (data._globalPullServerUpdatedAt != null &&
       !validDate(data._globalPullServerUpdatedAt)) {
@@ -765,17 +1026,31 @@ function validateLinkedAbnormality(
       data.deletedByUid,
       "deletedByUid",
       "charge-quality-abnormality",
+      512,
     );
     requiredExistingString(
       data.deletedByName,
       "deletedByName",
       "charge-quality-abnormality",
+      500,
     );
     requiredExistingString(
       data.deleteReason,
       "deleteReason",
       "charge-quality-abnormality",
+      500,
     );
+    const deletedMillis = dateMillis(
+      data.deletedAt,
+      "deletedAt",
+      "charge-quality-abnormality",
+    );
+    if (deletedMillis <
+        dateMillis(data.loggedAt, "loggedAt", "charge-quality-abnormality") ||
+        deletedMillis >
+        dateMillis(data.updatedAt, "updatedAt", "charge-quality-abnormality")) {
+      malformed("charge-quality-abnormality", "deletedAt");
+    }
   } else if (data.deletedAt != null || data.deletedByUid != null ||
       data.deletedByName != null || data.deleteReason != null) {
     malformed("charge-quality-abnormality", "isDeleted");
@@ -785,6 +1060,40 @@ function validateLinkedAbnormality(
   if (data.linkedTicketFirestoreId !== expectedTicketId) {
     malformed("charge-quality-abnormality", "linkedTicketFirestoreId");
   }
+  if (warning.sourceType === "abnormality") {
+    const warningAssetIdentities = (warning.affectedAssets as unknown[])
+      .map((asset, index) => linkedAffectedAssetEntry(
+        asset,
+        `warning.affectedAssets[${index}]`,
+        false,
+      ).identity);
+    const abnormalityAssetIdentities = (data.affectedAssets as unknown[])
+      .map((asset, index) => linkedAffectedAssetEntry(
+        asset,
+        `affectedAssets[${index}]`,
+        false,
+      ).identity);
+    if ((warning.sourceVersion as number) > (data.version as number) ||
+        warning.sourceSummary !== data.abnormalityTypeTitle ||
+        warning.sourceSeverity !== data.severity ||
+        warning.warningReason !== data.observedReason ||
+        warning.component !== data.component ||
+        stableJson(warningAssetIdentities) !==
+          stableJson(abnormalityAssetIdentities) ||
+        dateMillis(
+          warning.createdAt,
+          "createdAt",
+          "quality-warning",
+        ) !== dateMillis(
+          data.loggedAt,
+          "loggedAt",
+          "charge-quality-abnormality",
+        ) ||
+        warning.createdByUid !== data.loggedByUid ||
+        warning.createdByName !== data.loggedByName) {
+      malformed("charge-quality-case", "warningProjection");
+    }
+  }
   return {...data};
 }
 
@@ -793,6 +1102,15 @@ type LinkedAbnormality = {
   readonly ref: DocumentRefLike;
   readonly before: UserAuthorityJsonMap;
 };
+
+function warningHasGovernedAssetEvidence(
+  warning: UserAuthorityJsonMap,
+): boolean {
+  if (!Array.isArray(warning.affectedAssets)) return false;
+  return warning.affectedAssets.some((raw) =>
+    raw != null && typeof raw === "object" && !Array.isArray(raw) &&
+    Object.prototype.hasOwnProperty.call(raw, "assetHierarchyRef"));
+}
 
 async function linkedAbnormalityForWarning(args: {
   db: QualityMutationFirestoreLike;
@@ -806,18 +1124,43 @@ async function linkedAbnormalityForWarning(args: {
     abnormalityId = warning.sourceId as string;
   } else {
     const ticketId = warning.sourceId as string;
+    const governedIssueCase = warningHasGovernedAssetEvidence(warning);
+    const expectedAbnormalityId = `issue_quality_${ticketId}`;
     const ticketSnapshot = await transaction.get(
       db.collection("maintenance_records").doc(ticketId),
     );
-    if (!ticketSnapshot.exists) return null;
+    if (!ticketSnapshot.exists) {
+      if (governedIssueCase) {
+        throw new QualityMutationError(
+          "data-loss",
+          "The governed quality warning is missing its source issue and linked charge abnormality.",
+          {
+            reasonCode: "charge-quality-abnormality-missing",
+            abnormalityId: expectedAbnormalityId,
+          },
+        );
+      }
+      return null;
+    }
     const ticket = ticketSnapshot.data() ?? {};
     const linkValues = [
       ticket.qualityAbnormalityId,
       ticket.qualityWarningId,
       ticket.chargeQualityCaseId,
     ];
-    if (linkValues.every((value) => value == null)) return null;
-    const expectedAbnormalityId = `issue_quality_${ticketId}`;
+    if (linkValues.every((value) => value == null)) {
+      if (governedIssueCase) {
+        throw new QualityMutationError(
+          "data-loss",
+          "The governed quality warning is missing its linked charge abnormality.",
+          {
+            reasonCode: "charge-quality-abnormality-missing",
+            abnormalityId: expectedAbnormalityId,
+          },
+        );
+      }
+      return null;
+    }
     const expectedWarningId = `issue_${ticketId}`;
     if (ticket.qualityAbnormalityId !== expectedAbnormalityId ||
         ticket.qualityWarningId !== expectedWarningId ||
@@ -891,7 +1234,8 @@ export function validateQualityMonitoringRecord(
       `chargeNumbers[${index}]`,
       "quality-monitoring",
     ));
-  if (new Set(charges).size !== charges.length) {
+  if (charges.some((chargeNo) => !isFiveDigitChargeNumber(chargeNo)) ||
+      new Set(charges).size !== charges.length) {
     malformed("quality-monitoring", "chargeNumbers");
   }
   if (data.status !== "active" && data.status !== "closed") {
@@ -906,6 +1250,19 @@ export function validateQualityMonitoringRecord(
     malformed("quality-monitoring", "lastMutationId");
   }
   if (!validDate(data.createdAt) || !validDate(data.updatedAt)) {
+    malformed("quality-monitoring", "updatedAt");
+  }
+  const createdAtMillis = dateMillis(
+    data.createdAt,
+    "createdAt",
+    "quality-monitoring",
+  );
+  const updatedAtMillis = dateMillis(
+    data.updatedAt,
+    "updatedAt",
+    "quality-monitoring",
+  );
+  if (updatedAtMillis < createdAtMillis) {
     malformed("quality-monitoring", "updatedAt");
   }
   if (data._globalPullServerUpdatedAt != null &&
@@ -928,6 +1285,16 @@ export function validateQualityMonitoringRecord(
       (data.status === "closed" &&
         closureEvidenceCount !== closureEvidence.length)) {
     malformed("quality-monitoring", "status");
+  }
+  if (closedAt != null) {
+    const closedAtMillis = dateMillis(
+      closedAt,
+      "closedAt",
+      "quality-monitoring",
+    );
+    if (closedAtMillis < createdAtMillis || closedAtMillis > updatedAtMillis) {
+      malformed("quality-monitoring", "closedAt");
+    }
   }
   const visibilityState = schemaVersion === 1 ?
     (data.status === "active" ? "active" : "recent") : data.visibilityState;
@@ -979,8 +1346,10 @@ function requiredExistingString(
   value: unknown,
   field: string,
   entity: string,
+  maximum = Number.MAX_SAFE_INTEGER,
 ): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0 ||
+      value.trim().length > maximum) {
     malformed(entity, field);
   }
   return (value as string).trim();
@@ -990,8 +1359,10 @@ function optionalExistingString(
   value: unknown,
   field: string,
   entity: string,
+  maximum = Number.MAX_SAFE_INTEGER,
 ): string | null {
-  return value == null ? null : requiredExistingString(value, field, entity);
+  return value == null ? null :
+    requiredExistingString(value, field, entity, maximum);
 }
 
 function optionalExistingDate(
@@ -1099,6 +1470,7 @@ function replayResult(args: {
     committedAt: receipt.committedAtIso as string,
     idempotentReplay: true,
     entity: current,
+    linkedAbnormality: linkedAbnormality?.before ?? null,
   };
 }
 
@@ -1199,6 +1571,11 @@ export async function mutateQualityWithDb(args: {
           },
         );
       }
+      requireMonotonicQualityCommit(
+        committedDate,
+        before,
+        "quality-warning",
+      );
       resultVersion = request.expectedVersion + 1;
       after = {...before};
       if (request.operation === "REQUEST_QUALITY_WARNING_CLOSURE") {
@@ -1250,6 +1627,36 @@ export async function mutateQualityWithDb(args: {
           linkedReannealingChargeNos: [],
           decisionReason: null,
         });
+      } else if (
+        request.operation === "RECORD_QUALITY_CASE_RA_COMPLETED"
+      ) {
+        if (linkedAbnormality == null) {
+          throw new QualityMutationError(
+            "failed-precondition",
+            "This legacy warning has no linked RA case.",
+            {reasonCode: "quality-warning-ra-case-missing"},
+          );
+        }
+        if (before.status === "closed") {
+          throw new QualityMutationError(
+            "failed-precondition",
+            "Reopen the warning before recording re-annealing completion.",
+            {reasonCode: "quality-warning-closed"},
+          );
+        }
+        Object.assign(after, {
+          status: "closureRequested",
+          closureRequestReason: request.reason,
+          closureRequestedAt: committedAt,
+          closureRequestedByUid: actorUid,
+          closureRequestedByName: actor.name,
+          closedAt: null,
+          closedByUid: null,
+          closedByName: null,
+          closureDisposition: null,
+          linkedReannealingChargeNos: [],
+          decisionReason: null,
+        });
       } else if (request.operation === "CLOSE_QUALITY_WARNING") {
         if (before.status === "closed") {
           throw new QualityMutationError(
@@ -1291,6 +1698,11 @@ export async function mutateQualityWithDb(args: {
       }
       if (linkedAbnormality != null &&
           request.operation !== "REQUEST_QUALITY_WARNING_CLOSURE") {
+        requireMonotonicQualityCommit(
+          committedDate,
+          linkedAbnormality.before,
+          "charge-quality-abnormality",
+        );
         const linkedVersion = linkedAbnormality.before.version as number;
         const nextLinkedVersion = linkedVersion + 1;
         if (!Number.isSafeInteger(nextLinkedVersion)) {
@@ -1303,14 +1715,38 @@ export async function mutateQualityWithDb(args: {
         let reannealingStatus: string;
         let reannealedToChargeNo: number | null = null;
         if (request.operation === "DECLARE_QUALITY_CASE_RA_REQUIRED") {
+          if (linkedAbnormality.before.reannealingStatus === "completed") {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "A recorded RA-completed state cannot be returned to RA required. Correct the abnormality first.",
+              {reasonCode: "charge-quality-ra-already-completed"},
+            );
+          }
           reannealingStatus = "required";
-        } else if (request.operation === "REOPEN_QUALITY_WARNING") {
-          reannealingStatus = "pendingDecision";
-        } else if (request.disposition === "reannealingCompleted") {
+        } else if (
+          request.operation === "RECORD_QUALITY_CASE_RA_COMPLETED"
+        ) {
           if (linkedAbnormality.before.reannealingStatus !== "required") {
             throw new QualityMutationError(
               "failed-precondition",
-              "Re-annealing completion requires a prior RA-required decision.",
+              "Re-annealing must be required before Operations records completion.",
+              {reasonCode: "charge-quality-ra-not-required"},
+            );
+          }
+          reannealingStatus = "completed";
+          reannealedToChargeNo = request.linkedReannealingChargeNos[0];
+        } else if (request.operation === "REOPEN_QUALITY_WARNING") {
+          const completedRa =
+            linkedAbnormality.before.reannealingStatus === "completed";
+          reannealingStatus = completedRa ? "completed" : "pendingDecision";
+          reannealedToChargeNo = completedRa ?
+            linkedAbnormality.before.reannealedToChargeNo as number : null;
+        } else if (request.disposition === "reannealingCompleted") {
+          const priorRaStatus = linkedAbnormality.before.reannealingStatus;
+          if (priorRaStatus !== "required" && priorRaStatus !== "completed") {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "Re-annealing completion requires an operational RA-required or RA-completed state.",
               {reasonCode: "charge-quality-ra-not-required"},
             );
           }
@@ -1323,7 +1759,30 @@ export async function mutateQualityWithDb(args: {
           }
           reannealingStatus = "completed";
           reannealedToChargeNo = request.linkedReannealingChargeNos[0];
+          if (priorRaStatus === "completed" &&
+              linkedAbnormality.before.reannealedToChargeNo !==
+                reannealedToChargeNo) {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "The adjudicated RA charge must match the charge already recorded by Operations.",
+              {reasonCode: "charge-quality-ra-charge-mismatch"},
+            );
+          }
         } else {
+          if (linkedAbnormality.before.reannealingStatus === "completed") {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "A recorded RA-completed state cannot be replaced during warning closure. Correct the abnormality first.",
+              {reasonCode: "charge-quality-ra-completion-conflict"},
+            );
+          }
+          if (linkedAbnormality.before.reannealingStatus === "required") {
+            throw new QualityMutationError(
+              "failed-precondition",
+              "A required re-annealing case can close only after its resulting charge is recorded. Correct the abnormality first if the RA decision was wrong.",
+              {reasonCode: "charge-quality-ra-required"},
+            );
+          }
           reannealingStatus = "notRequired";
         }
         if (reannealedToChargeNo === linkedAbnormality.before.sourceChargeNo) {
@@ -1416,6 +1875,11 @@ export async function mutateQualityWithDb(args: {
           {reasonCode: "quality-monitoring-not-active"},
         );
       }
+      requireMonotonicQualityCommit(
+        committedDate,
+        before,
+        "quality-monitoring",
+      );
       resultVersion = request.expectedVersion + 1;
       after = {
         ...before,
@@ -1447,6 +1911,22 @@ export async function mutateQualityWithDb(args: {
       version: resultVersion,
       lastMutationId: request.requestId,
     });
+    if ("warningId" in request) {
+      after = validateQualityWarningRecord(after, request.warningId);
+      if (linkedAbnormality != null && linkedAbnormalityAfter != null) {
+        linkedAbnormalityAfter = validateLinkedAbnormality(
+          linkedAbnormalityAfter,
+          linkedAbnormality.id,
+          after,
+          false,
+        );
+      }
+    } else {
+      after = validateQualityMonitoringRecord(
+        after,
+        request.monitoringRequestId,
+      );
+    }
     transaction.set(targetRef, after);
     if (linkedAbnormality != null && linkedAbnormalityAfter != null) {
       transaction.set(linkedAbnormality.ref, linkedAbnormalityAfter);
@@ -1503,6 +1983,8 @@ export async function mutateQualityWithDb(args: {
       committedAt: committedAtIso,
       idempotentReplay: false,
       entity: after,
+      linkedAbnormality:
+        linkedAbnormalityAfter ?? linkedAbnormality?.before ?? null,
     };
   });
 }

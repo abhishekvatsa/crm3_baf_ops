@@ -1,8 +1,11 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../abnormalities/data/abnormality_model.dart';
 import '../data/quality_warning.dart';
+import 'monitoring_creation_store.dart';
 
 const qualityCommandCallableName = 'mutateChargeAbnormality';
 const qualityCommandCallableRegion = 'asia-south1';
@@ -10,6 +13,7 @@ const qualityCommandCallableRegion = 'asia-south1';
 enum QualityCommandOperation {
   requestWarningClosure('REQUEST_QUALITY_WARNING_CLOSURE'),
   declareRaRequired('DECLARE_QUALITY_CASE_RA_REQUIRED'),
+  recordRaCompleted('RECORD_QUALITY_CASE_RA_COMPLETED'),
   closeWarning('CLOSE_QUALITY_WARNING'),
   reopenWarning('REOPEN_QUALITY_WARNING'),
   createMonitoringRequest('CREATE_QUALITY_MONITORING_REQUEST'),
@@ -22,6 +26,7 @@ enum QualityCommandOperation {
   bool get targetsWarning =>
       this == requestWarningClosure ||
       this == declareRaRequired ||
+      this == recordRaCompleted ||
       this == closeWarning ||
       this == reopenWarning;
 }
@@ -47,6 +52,7 @@ class QualityCommandResult {
     required this.idempotentReplay,
     this.warning,
     this.monitoringRequest,
+    this.linkedAbnormality,
   });
 
   final String requestId;
@@ -58,12 +64,14 @@ class QualityCommandResult {
   final bool idempotentReplay;
   final QualityWarning? warning;
   final QualityMonitoringRequest? monitoringRequest;
+  final ChargeAbnormality? linkedAbnormality;
 
   factory QualityCommandResult.fromMap(
     Map<String, dynamic> map, {
     required String expectedRequestId,
     required QualityCommandOperation expectedOperation,
     required String expectedEntityId,
+    required int expectedVersion,
   }) {
     final source = '$qualityCommandCallableName/$expectedRequestId';
     if (map['ok'] != true) {
@@ -115,6 +123,13 @@ class QualityCommandResult {
       source: source,
       minimum: 1,
     );
+    if (version != expectedVersion + 1) {
+      throw PersistedDataFormatException(
+        field: 'version',
+        source: source,
+        detail: 'response did not advance the expected version exactly once',
+      );
+    }
     final auditId = readRequiredPersistedString(
       map['auditId'],
       field: 'auditId',
@@ -177,6 +192,13 @@ class QualityCommandResult {
           detail: 'returned warning version does not match result evidence',
         );
       }
+      if (!warning.updatedAt.isAtSameMomentAs(committedAt)) {
+        throw PersistedDataFormatException(
+          field: 'entity.updatedAt',
+          source: source,
+          detail: 'returned warning is not from the committed mutation',
+        );
+      }
     } else {
       warning = null;
       monitoringRequest = QualityMonitoringRequest.fromMap(entity, entityId);
@@ -187,6 +209,74 @@ class QualityCommandResult {
           detail: 'returned monitoring version does not match result evidence',
         );
       }
+      if (!monitoringRequest.updatedAt.isAtSameMomentAs(committedAt)) {
+        throw PersistedDataFormatException(
+          field: 'entity.updatedAt',
+          source: source,
+          detail:
+              'returned monitoring request is not from the committed mutation',
+        );
+      }
+    }
+    final linkedRaw = map['linkedAbnormality'];
+    final ChargeAbnormality? linkedAbnormality;
+    if (linkedRaw == null) {
+      linkedAbnormality = null;
+    } else if (!expectedOperation.targetsWarning || linkedRaw is! Map) {
+      throw PersistedDataFormatException(
+        field: 'linkedAbnormality',
+        source: source,
+        detail:
+            'expected a linked charge-abnormality map for a warning command',
+      );
+    } else {
+      final linkedMap = _normaliseLinkedAbnormalityEntity(
+        Map<String, dynamic>.from(linkedRaw),
+        source: '$source/linkedAbnormality',
+      );
+      final linkedId = readRequiredPersistedString(
+        linkedMap['firestoreId'],
+        field: 'linkedAbnormality.firestoreId',
+        source: source,
+      );
+      linkedAbnormality = ChargeAbnormality.fromMap(linkedMap, linkedId);
+      if (warning == null ||
+          linkedAbnormality.sourceChargeNo != warning.sourceChargeNo ||
+          (warning.sourceType == QualityWarningSourceType.issue
+              ? linkedAbnormality.linkedTicketFirestoreId != warning.sourceId
+              : linkedAbnormality.firestoreId != warning.sourceId)) {
+        throw PersistedDataFormatException(
+          field: 'linkedAbnormality',
+          source: source,
+          detail: 'does not identify the warning source charge and case',
+        );
+      }
+      if (expectedOperation != QualityCommandOperation.requestWarningClosure &&
+          !linkedAbnormality.updatedAt.isAtSameMomentAs(committedAt)) {
+        throw PersistedDataFormatException(
+          field: 'linkedAbnormality.updatedAt',
+          source: source,
+          detail: 'returned linked case is not from the committed mutation',
+        );
+      }
+    }
+    final governedIssueCase =
+        warning?.sourceType == QualityWarningSourceType.issue &&
+        warning!.affectedAssets.any(
+          (asset) => asset.assetHierarchyReference != null,
+        );
+    final requiresLinkedAbnormality =
+        expectedOperation == QualityCommandOperation.declareRaRequired ||
+        expectedOperation == QualityCommandOperation.recordRaCompleted ||
+        governedIssueCase ||
+        (warning?.sourceType == QualityWarningSourceType.abnormality &&
+            expectedOperation.targetsWarning);
+    if (requiresLinkedAbnormality && linkedAbnormality == null) {
+      throw PersistedDataFormatException(
+        field: 'linkedAbnormality',
+        source: source,
+        detail: 'warning command omitted its committed linked-case readback',
+      );
     }
     return QualityCommandResult(
       requestId: returnedRequestId,
@@ -202,16 +292,63 @@ class QualityCommandResult {
       ),
       warning: warning,
       monitoringRequest: monitoringRequest,
+      linkedAbnormality: linkedAbnormality,
     );
   }
 }
 
 class QualityCommandService {
-  QualityCommandService({FirebaseFunctions? functions})
-    : _functions = functions;
+  QualityCommandService({
+    FirebaseFunctions? functions,
+    MonitoringCreationStore? monitoringStore,
+    String Function()? monitoringScope,
+    Future<Map<String, dynamic>> Function(Map<String, dynamic>)? transport,
+  }) : _functions = functions,
+       _monitoringStore = monitoringStore ?? MonitoringCreationStore(),
+       _monitoringScope = monitoringScope,
+       _transport = transport;
 
   final FirebaseFunctions? _functions;
+  final MonitoringCreationStore _monitoringStore;
+  final String Function()? _monitoringScope;
+  final Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _transport;
   static const _uuid = Uuid();
+
+  String _scope() {
+    if (_monitoringScope != null) return _monitoringScope();
+    final uid = FirebaseAuth.instanceFor(app: _client.app).currentUser?.uid;
+    if (uid == null) throw StateError('Sign in before creating monitoring.');
+    return '${_client.app.options.projectId}:$uid';
+  }
+
+  Future<Map<String, dynamic>?> pendingMonitoringCreation() =>
+      _monitoringStore.pending(_scope());
+
+  Future<QualityCommandResult> retryMonitoringCreation() async {
+    final scope = _scope();
+    final pending = await _monitoringStore.pending(scope);
+    if (pending == null) throw StateError('No pending monitoring request.');
+    return _sendMonitoringCreation(scope, pending);
+  }
+
+  Future<QualityCommandResult> _sendMonitoringCreation(
+    String scope,
+    Map<String, dynamic> pending,
+  ) async {
+    if (_scope() != scope) throw StateError('The signed-in account changed.');
+    final payload =
+        Map<String, dynamic>.from(pending)
+          ..remove('schemaVersion')
+          ..remove('operation')
+          ..remove('requestId');
+    final result = await _call(
+      QualityCommandOperation.createMonitoringRequest,
+      payload,
+      requestId: pending['requestId'] as String,
+    );
+    await _monitoringStore.complete(scope, result.requestId);
+    return result;
+  }
 
   FirebaseFunctions get _client =>
       _functions ??
@@ -248,6 +385,17 @@ class QualityCommandService {
     'reason': reason,
   });
 
+  Future<QualityCommandResult> recordRaCompleted({
+    required QualityWarning warning,
+    required int reannealedToChargeNo,
+    required String reason,
+  }) => _call(QualityCommandOperation.recordRaCompleted, <String, dynamic>{
+    'warningId': warning.warningId,
+    'expectedVersion': warning.version,
+    'reason': reason,
+    'linkedReannealingChargeNos': <int>[reannealedToChargeNo],
+  });
+
   Future<QualityCommandResult> reopenWarning({
     required QualityWarning warning,
     required String reason,
@@ -263,20 +411,16 @@ class QualityCommandService {
     required String cycleReference,
     required List<int> chargeNumbers,
     required String reason,
-  }) {
-    final monitoringId = _uuid.v4();
-    return _call(
-      QualityCommandOperation.createMonitoringRequest,
-      <String, dynamic>{
-        'monitoringRequestId': monitoringId,
-        'expectedVersion': 0,
-        'reason': reason,
-        'baseNumber': baseNumber,
-        'grade': grade,
-        'cycleReference': cycleReference,
-        'chargeNumbers': chargeNumbers,
-      },
-    );
+  }) async {
+    final scope = _scope();
+    final pending = await _monitoringStore.prepare(scope, <String, dynamic>{
+      'reason': reason,
+      'baseNumber': baseNumber,
+      'grade': grade,
+      'cycleReference': cycleReference,
+      'chargeNumbers': chargeNumbers,
+    });
+    return _sendMonitoringCreation(scope, pending);
   }
 
   Future<QualityCommandResult> closeMonitoringRequest({
@@ -290,25 +434,31 @@ class QualityCommandService {
 
   Future<QualityCommandResult> _call(
     QualityCommandOperation operation,
-    Map<String, dynamic> payload,
-  ) async {
-    final requestId = _uuid.v4();
+    Map<String, dynamic> payload, {
+    String? requestId,
+  }) async {
+    requestId ??= _uuid.v4();
     final expectedEntityId =
         (payload['warningId'] ?? payload['monitoringRequestId']) as String;
+    final expectedVersion = payload['expectedVersion'] as int;
     final request = <String, dynamic>{
       'requestId': requestId,
       'operation': operation.wireName,
       ...payload,
     };
     try {
-      final result = await _client
-          .httpsCallable(qualityCommandCallableName)
-          .call<Map<String, dynamic>>(request);
+      final data =
+          _transport != null
+              ? await _transport(request)
+              : (await _client
+                  .httpsCallable(qualityCommandCallableName)
+                  .call<Map<String, dynamic>>(request)).data;
       return QualityCommandResult.fromMap(
-        result.data,
+        data,
         expectedRequestId: requestId,
         expectedOperation: operation,
         expectedEntityId: expectedEntityId,
+        expectedVersion: expectedVersion,
       );
     } on FirebaseFunctionsException catch (error) {
       throw QualityCommandException(_friendlyMessage(error), code: error.code);
@@ -365,6 +515,48 @@ Map<String, dynamic> _normaliseQualityEntity(
   result['closedAt'] = readOptionalPersistedDateTime(
     data['closedAt'],
     field: 'closedAt',
+    source: source,
+    allowSerializedTimestampMap: true,
+  );
+  if (data.containsKey('visibleUntil')) {
+    result['visibleUntil'] = readOptionalPersistedDateTime(
+      data['visibleUntil'],
+      field: 'visibleUntil',
+      source: source,
+      allowSerializedTimestampMap: true,
+    );
+  }
+  if (data.containsKey('archivedAt')) {
+    result['archivedAt'] = readOptionalPersistedDateTime(
+      data['archivedAt'],
+      field: 'archivedAt',
+      source: source,
+      allowSerializedTimestampMap: true,
+    );
+  }
+  return result;
+}
+
+Map<String, dynamic> _normaliseLinkedAbnormalityEntity(
+  Map<String, dynamic> data, {
+  required String source,
+}) {
+  final result = Map<String, dynamic>.from(data);
+  result['loggedAt'] = readRequiredPersistedDateTime(
+    data['loggedAt'],
+    field: 'loggedAt',
+    source: source,
+    allowSerializedTimestampMap: true,
+  );
+  result['updatedAt'] = readRequiredPersistedDateTime(
+    data['updatedAt'],
+    field: 'updatedAt',
+    source: source,
+    allowSerializedTimestampMap: true,
+  );
+  result['deletedAt'] = readOptionalPersistedDateTime(
+    data['deletedAt'],
+    field: 'deletedAt',
     source: source,
     allowSerializedTimestampMap: true,
   );

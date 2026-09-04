@@ -1,5 +1,15 @@
 part of 'asset_condition_board.dart';
 
+double _metricWidth(BuildContext context, BoxConstraints constraints) {
+  final availableWidth = constraints.maxWidth;
+  final minimumWidth = MediaQuery.textScalerOf(context).scale(110);
+  final columns = ((availableWidth + BafSpacing.xs) /
+          (minimumWidth + BafSpacing.xs))
+      .floor()
+      .clamp(1, 3);
+  return (availableWidth - BafSpacing.xs * (columns - 1)) / columns;
+}
+
 class _PlantMetric extends StatelessWidget {
   final double? width;
   final int value;
@@ -37,8 +47,7 @@ class _PlantMetric extends StatelessWidget {
         children: [
           Text(
             '$value ${label.toLowerCase()}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: color,
               fontSize: 11,

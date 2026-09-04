@@ -140,7 +140,7 @@ class _FrequentIssueChoicePanel extends StatelessWidget {
             unlisted: unlisted,
           ),
     );
-    if (result == null) return;
+    if (!context.mounted || result == null) return;
     onSelected(result);
   }
 }

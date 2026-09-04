@@ -226,12 +226,7 @@ class GovernedPlannedWorkAssetSelector extends StatelessWidget {
     AssetInstanceRecord asset, {
     BaseInnerCoverAssignment? innerCoverAssignment,
   }) {
-    final numberLabel = '${asset.assetClassName} ${asset.assetNumber}';
-    final name = asset.name.trim();
-    final assetLabel =
-        name.isEmpty || name.toLowerCase() == numberLabel.toLowerCase()
-            ? numberLabel
-            : '$numberLabel - $name';
+    final assetLabel = asset.displayLabel;
     return innerCoverAssignment == null
         ? assetLabel
         : '$assetLabel | Inner Cover ${innerCoverAssignment.innerCoverSerialNumber}';

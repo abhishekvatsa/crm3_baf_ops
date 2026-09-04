@@ -350,6 +350,22 @@ class AssetInstanceRecord {
     accountableRoleKeys: accountableRoleKeys,
   );
 
+  String get displayLabel {
+    final className = assetClassName.trim();
+    final numberLabel = '$className $assetNumber';
+    final savedName = name.trim();
+    if (savedName.isEmpty) return numberLabel;
+    final match = RegExp(
+      '^${RegExp.escape(className)}\\s+(\\d+)\$',
+      caseSensitive: false,
+    ).firstMatch(savedName);
+    // A zero-padded registry name is an identity, not a second description.
+    if (match != null && int.tryParse(match.group(1)!) == assetNumber) {
+      return savedName;
+    }
+    return '$numberLabel - $savedName';
+  }
+
   AssetHierarchyReference toReference() => AssetHierarchyReference(
     scope: AssetHierarchyReferenceScope.physicalAsset,
     assetClassId: assetClassId,

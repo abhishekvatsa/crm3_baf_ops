@@ -246,8 +246,7 @@ class PlantOverviewPanel extends StatelessWidget {
                     else ...[
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          final width =
-                              (constraints.maxWidth - BafSpacing.xs * 2) / 3;
+                          final width = _metricWidth(context, constraints);
                           return Wrap(
                             spacing: BafSpacing.xs,
                             runSpacing: BafSpacing.xs,

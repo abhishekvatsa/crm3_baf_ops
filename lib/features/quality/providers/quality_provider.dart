@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/security/actor_session_cache_trust.dart';
+import '../../abnormalities/data/abnormality_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/quality_warning.dart';
@@ -48,13 +49,41 @@ final qualityWarningsProvider = StreamProvider<List<QualityWarning>>((ref) {
       )
       .snapshots()
       .map(_decodeQualityWarnings);
+  // Initial warning projections from pilot clients used ISO text while
+  // governed decisions use Firestore timestamps. Ordering that mixed field
+  // groups by value type rather than chronology. closedAt is server-authored
+  // for every terminal warning, so it gives a stable bounded history window.
   final recent = warnings
-      .orderBy('updatedAt', descending: true)
+      .orderBy('closedAt', descending: true)
       .limit(qualityWarningLiveWindowLimit)
       .snapshots()
       .map(_decodeQualityWarnings);
   return _combineQualityWarningWindows(nonClosed, recent);
 });
+
+String linkedQualityAbnormalityId(QualityWarning warning) =>
+    warning.sourceType == QualityWarningSourceType.issue
+        ? 'issue_quality_${warning.sourceId}'
+        : warning.sourceId;
+
+/// Reads the exact canonical case used by the quality command transaction.
+///
+/// The warning feed is itself live Firestore data. Reading its linked RA state
+/// from the device mirror could combine two different sync boundaries and hide
+/// a newly required/completed state. This provider is mounted only for visible
+/// lazy-list cards and is disposed as they leave the viewport.
+final linkedQualityAbnormalityProvider = StreamProvider.autoDispose
+    .family<ChargeAbnormality?, String>((ref, abnormalityId) {
+      return FirebaseFirestore.instance
+          .collection('charge_abnormalities')
+          .doc(abnormalityId)
+          .snapshots()
+          .map((snapshot) {
+            final data = snapshot.data();
+            if (!snapshot.exists || data == null) return null;
+            return ChargeAbnormality.fromMap(data, snapshot.id);
+          });
+    });
 
 /// Complete quality-warning population for period-bound reports.
 ///

@@ -267,6 +267,11 @@ class AppUser {
   bool get canRequestQualityWarningClosure =>
       isApproved && (isAdmin || isSI || isShiftSupervisor || isOperations);
 
+  /// Operations records the physical re-annealing lifecycle. SI/Admin retain
+  /// the separate authority to adjudicate and close the Quality warning.
+  bool get canProgressQualityReannealing =>
+      isApproved && (isAdmin || isSI || isShiftSupervisor || isOperations);
+
   bool get canCloseQualityWarning => isApproved && (isAdmin || isSI);
 
   bool get canManageQualityMonitoring => canCloseQualityWarning;
@@ -286,9 +291,15 @@ class AppUser {
   bool get canRestoreAssetOperationalCondition =>
       isApproved && (isAdmin || isSI || isShiftSupervisor);
 
+  /// Physical separation may be confirmed by Operations; cause adjudication
+  /// and maintenance-lane closure retain their separate authority checks.
   bool get canReleaseFurnaceStuckup =>
       isApproved &&
-      (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+      (isAdmin ||
+          isSI ||
+          isContractSupervisor ||
+          isShiftSupervisor ||
+          isOperations);
 
   bool get canAdjudicateFurnaceStuckup => isApproved && (isAdmin || isSI);
 

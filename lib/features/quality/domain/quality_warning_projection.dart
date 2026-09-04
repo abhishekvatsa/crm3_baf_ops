@@ -1,5 +1,6 @@
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../../core/validation/charge_number.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'issue_quality_intent.dart';
 
@@ -31,7 +32,7 @@ Map<String, dynamic>? qualityWarningProjectionForIssue(
       'A suspected issue quality warning requires charge, actor and reason evidence.',
     );
   }
-  final timestamp = ticket.createdAt.toIso8601String();
+  final timestamp = ticket.createdAt.toUtc().toIso8601String();
   return _newWarning(
     warningId: qualityWarningIdForIssue(id),
     sourceType: 'issue',
@@ -41,12 +42,11 @@ Map<String, dynamic>? qualityWarningProjectionForIssue(
     sourceSummary: ticket.description.trim(),
     sourceSeverity: ticket.isCritical ? 'critical' : 'standard',
     warningReason: reason,
-    affectedAssets: <Map<String, dynamic>>[
-      <String, dynamic>{
-        'assetType': ticket.assetType.name,
-        'assetNumber': ticket.assetNumber,
-      },
-    ],
+    affectedAssets: _issueAffectedAssets(
+      assetType: ticket.assetType.name,
+      assetNumber: ticket.assetNumber,
+      assetHierarchyRefJson: ticket.assetHierarchyRefJson,
+    ),
     component:
         ticket.component?.trim().isEmpty ?? true
             ? null
@@ -96,9 +96,11 @@ Map<String, dynamic>? qualityWarningProjectionForIssueMap(
     sourceSummary: description,
     sourceSeverity: ticket['isCritical'] == true ? 'critical' : 'standard',
     warningReason: reason,
-    affectedAssets: <Map<String, dynamic>>[
-      <String, dynamic>{'assetType': assetType, 'assetNumber': assetNumber},
-    ],
+    affectedAssets: _issueAffectedAssets(
+      assetType: assetType,
+      assetNumber: assetNumber,
+      assetHierarchyRefJson: _cleanDynamic(ticket['assetHierarchyRefJson']),
+    ),
     component: _cleanDynamic(ticket['component']),
     createdAt: createdAt,
     createdByUid: actorUid,
@@ -126,9 +128,11 @@ Map<String, dynamic> qualityWarningProjectionForAbnormality(
     sourceSeverity: abnormality.severity.name,
     warningReason: abnormality.observedReason.trim(),
     affectedAssets:
-        abnormality.affectedAssets.map((asset) => asset.toMap()).toList(),
+        abnormality.affectedAssets
+            .map((asset) => asset.toIdentityMap())
+            .toList(),
     component: _clean(abnormality.component),
-    createdAt: abnormality.loggedAt.toIso8601String(),
+    createdAt: abnormality.loggedAt.toUtc().toIso8601String(),
     createdByUid: actorUid,
     createdByName: _clean(abnormality.loggedByName),
   );
@@ -179,6 +183,36 @@ Map<String, dynamic> _newWarning({
   'updatedByName': createdByName,
   'version': 1,
 };
+
+List<Map<String, dynamic>> _issueAffectedAssets({
+  required String assetType,
+  required int assetNumber,
+  required String? assetHierarchyRefJson,
+}) {
+  final AssetHierarchyReference? reference;
+  if (assetHierarchyRefJson == null) {
+    reference = null;
+  } else {
+    reference = AssetHierarchyReference.decode(
+      assetHierarchyRefJson,
+      source: 'maintenance quality intent',
+    );
+    if (reference.scope == AssetHierarchyReferenceScope.definition ||
+        reference.assetInstanceId == null ||
+        reference.assetNumber != assetNumber) {
+      throw StateError(
+        'The issue quality warning asset reference does not identify its physical asset.',
+      );
+    }
+  }
+  return <Map<String, dynamic>>[
+    <String, dynamic>{
+      'assetType': assetType,
+      'assetNumber': assetNumber,
+      if (reference != null) 'assetHierarchyRef': reference.toMap(),
+    },
+  ];
+}
 
 String? _clean(String? value) => _cleanDynamic(value);
 

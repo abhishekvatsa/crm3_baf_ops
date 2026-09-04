@@ -279,7 +279,7 @@ describe('maintenance workflow command integration', () => {
     });
   });
 
-  test('legacy assignment rejects an unreconciled missing equipment projection', async () => {
+  test('legacy assignment reconstructs a missing equipment projection', async () => {
     const store = new MemoryWorkflowStore();
     seedLegacyAssignmentAuthority(store);
     const service = serviceFor(store);
@@ -293,13 +293,60 @@ describe('maintenance workflow command integration', () => {
     }, {
       actor: admin,
       serverNow: at('2026-07-20T00:45:00Z'),
-    })).rejects.toMatchObject({
-      code: 'equipment-state-conflict',
-      details: {reasonCode: 'equipment-projection-missing'},
+    })).resolves.toMatchObject({aggregateVersion: 1});
+    expect(store.read('equipment_status/base_101')).toMatchObject({
+      activeNonRedMaintenanceCount: 1, activeRedWorkCount: 0,
+      awaitingPreparationCount: 0, state: 'underMaintenance', version: 1,
+      assetClassId: 'base-class', assetInstanceId: 'base-101',
     });
+    expect(store.read('job_executions/legacy-exec-missing-equipment')).not.toBeNull();
+    expect(store.read('maintenance_workflows/legacy-exec-missing-equipment')).not.toBeNull();
+  });
 
-    expect(store.read('job_executions/legacy-exec-missing-equipment')).toBeNull();
-    expect(store.read('maintenance_workflows/legacy-exec-missing-equipment')).toBeNull();
+  test('missing projection reconstruction retains active work and excludes closed and issue workflows', async () => {
+    const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
+    const service = serviceFor(store);
+    for (const [id, extra] of Object.entries({
+      ordinary: {}, red: {activeRedWork: true},
+      preparation: {awaitingPreparation: true},
+      closed: {status: 'completed'}, cancelled: {status: 'cancelled'},
+      issue: {workflowKind: 'issueCoordination'},
+    })) store.seed(`maintenance_workflows/${id}`, {
+      assetTypeKey: 'base', assetNumber: 101, status: 'inProgress',
+      assetClassId: 'base-class', assetInstanceId: 'base-101', ...extra,
+    });
+    const command = {
+      commandId: 'rebuild-active', commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'exec-rebuild-active', expectedVersion: 0,
+      payload: governedLegacyPayload('exec-rebuild-active'),
+    };
+    const context = {actor: admin, serverNow: at('2026-07-20T00:45:00Z')};
+    const receipt = await service.execute(command, context);
+    await expect(service.execute(command, context)).resolves.toEqual(receipt);
+    expect(store.read('equipment_status/base_101')).toMatchObject({
+      activeNonRedMaintenanceCount: 2, activeRedWorkCount: 1,
+      awaitingPreparationCount: 1, version: 1,
+    });
+  });
+
+  test('missing projection with incomplete retained workflow identity does not create a job', async () => {
+    const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
+    const service = serviceFor(store);
+    store.seed('maintenance_workflows/bad-identity', {
+      assetTypeKey: 'base', assetNumber: 101, status: 'inProgress',
+      assetClassId: 'base-class',
+    });
+    await expect(service.execute({
+      commandId: 'rebuild-invalid', commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'exec-rebuild-invalid', expectedVersion: 0,
+      payload: governedLegacyPayload('exec-rebuild-invalid'),
+    }, {actor: admin, serverNow: at('2026-07-20T00:45:00Z')})).rejects.toMatchObject({
+      code: 'equipment-state-conflict',
+    });
+    expect(store.read('equipment_status/base_101')).toBeNull();
+    expect(store.read('job_executions/exec-rebuild-invalid')).toBeNull();
   });
 
   test('legacy assignment rejects client-authored template and asset facts', async () => {

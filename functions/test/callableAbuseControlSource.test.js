@@ -48,7 +48,9 @@ describe('S-03 callable boundary wiring', () => {
     expect(callableBlock).toContain(
       'userCanMutateQuality(userData, request.data.operation)',
     );
-    expect(callableBlock).toContain('userCanMutateChargeAbnormality(userData)');
+    expect(callableBlock).toContain(
+      'userCanMutateChargeAbnormality(userData, request.data?.operation)',
+    );
   });
 
   test('asset mutations select the exact authority before shared admission', () => {

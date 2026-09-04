@@ -88,6 +88,28 @@ void main() {
   const requestId = '11111111-1111-4111-8111-111111111111';
 
   test(
+    'create sends full saved identity and adopts canonical version one',
+    () async {
+      final transport = _FakeTransport(
+        _response(
+          requestId: requestId,
+          operation: ChargeAbnormalityMutationOperation.create,
+          version: 1,
+        ),
+      );
+      final service = ChargeAbnormalityCommandService(transport: transport);
+      final saved = _record();
+      final result = await service.create(
+        abnormality: saved,
+        requestId: requestId,
+      );
+      expect(result.version, 1);
+      expect(transport.requests.single['expectedVersion'], 0);
+      expect(transport.requests.single['abnormality'], saved.toMap());
+    },
+  );
+
+  test(
     'update sends only mutable business fields and verifies evidence',
     () async {
       final transport = _FakeTransport(
@@ -245,6 +267,59 @@ void main() {
     );
   });
 
+  test('response must advance exactly one version', () async {
+    final response = _response(
+      requestId: requestId,
+      operation: ChargeAbnormalityMutationOperation.update,
+      version: 6,
+    );
+    final service = ChargeAbnormalityCommandService(
+      transport: _FakeTransport(response),
+    );
+
+    await expectLater(
+      service.update(
+        abnormality: _record(),
+        expectedVersion: 4,
+        requestId: requestId,
+      ),
+      throwsA(
+        isA<ChargeAbnormalityMutationException>().having(
+          (error) => error.reasonCode,
+          'reasonCode',
+          'abnormality-response-invalid',
+        ),
+      ),
+    );
+  });
+
+  test('response document time must equal its commit evidence', () async {
+    final response = _response(
+      requestId: requestId,
+      operation: ChargeAbnormalityMutationOperation.update,
+    );
+    (response['abnormality'] as Map<String, dynamic>)['updatedAt'] =
+        '2026-07-26T10:00:01.000Z';
+    final service = ChargeAbnormalityCommandService(
+      transport: _FakeTransport(response),
+    );
+
+    await expectLater(
+      service.update(
+        abnormality: _record(),
+        expectedVersion: 4,
+        requestId: requestId,
+      ),
+      throwsA(
+        isA<ChargeAbnormalityMutationException>().having(
+          (error) => error.reasonCode,
+          'reasonCode',
+          'abnormality-response-document-mismatch',
+        ),
+      ),
+    );
+  });
+
   test(
     'source contract routes admin mutations only through governed callable',
     () {
@@ -282,7 +357,21 @@ void main() {
         functions,
         contains('userCanMutateQuality(userData, request.data.operation)'),
       );
-      expect(functions, contains('userCanMutateChargeAbnormality(userData)'));
+      expect(
+        functions,
+        contains(
+          'userCanMutateChargeAbnormality(userData, request.data?.operation)',
+        ),
+      );
+      expect(sync, contains('ChargeAbnormalityMutationOperation.create'));
+      expect(
+        sync,
+        isNot(contains('batchUpsertAbnormalities(recordsToCreate)')),
+      );
+      expect(
+        sync,
+        contains('if (!sameChargeAbnormalityIdentity(record, remote))'),
+      );
     },
   );
 }

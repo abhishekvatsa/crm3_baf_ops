@@ -115,6 +115,48 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     await app.delete();
   });
 
+  test('issue deferment survives real timestamps, correction and exact replay', async () => {
+    const operations = {uid: 'operations-1', name: 'Operator'};
+    const mechanical = {uid: 'mechanical-1', name: 'Mechanical'};
+    await db.doc('users/operations-1').set({isApproved: true, roles: ['operations'], name: operations.name});
+    await db.doc('users/mechanical-1').set({isApproved: true, roles: ['contractSupervisor'], name: mechanical.name});
+    await db.doc('maintenance_records/deferment-ticket').set({
+      firestoreId: 'deferment-ticket', version: 3, assetType: 'furnace', assetNumber: 7,
+      routedTo: 'mechanical', status: 'acknowledged', isResolved: false, isDeleted: false,
+      acknowledgedByUid: mechanical.uid, acknowledgedByName: mechanical.name,
+      acknowledgedAt: admin.firestore.Timestamp.fromDate(new Date('2026-09-04T04:00:00Z')),
+      workflowQueueState: 'independent', workflowDeferred: false, chargeNoAtEvent: 12345,
+    });
+    const execute = (type, version, user, payload = {}, id = type) => service.execute({
+      commandId: `deferment-${id}`, commandType: type, aggregateId: 'deferment-workflow',
+      expectedVersion: version, payload: {complianceId: 'deferment-request', ...payload},
+    }, {actor: user, serverNow: new Date('2026-09-04T05:00:00Z')});
+    await execute('startIssueCoordination', 0, mechanical, {
+      ticketId: 'deferment-ticket', expectedTicketVersion: 3, requestPurposeKey: 'deferment',
+      conditionTypeKey: 'chargeComplete', conditionChargeNo: 12345, defermentBasisKey: 'ongoingCycle',
+      conditionRef: null, operationsSupportTypeKey: null, operationsResourceKey: null, requestedLocation: null,
+      title: 'Wait for cycle', description: 'Confirm completion of charge 12345.', priorityKey: 'high',
+    });
+    await execute('acknowledgeCompliance', 1, operations);
+    await execute('markComplianceComplied', 2, operations, {note: 'Cycle complete.'});
+    const request = (await db.doc('compliance_requests/deferment-request').get()).data();
+    expect(request.becameDueAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(request.compliedAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(request.dueMarkedByUid).toBe(operations.uid);
+    await execute('returnComplianceForCorrection', 3, mechanical, {reason: 'Confirm final positioning.'});
+    await execute('confirmConditionAndReactivate', 4, operations, {note: 'Positioning verified.'});
+    const receipt = await execute('confirmComplianceClosed', 5, mechanical);
+    await expect(execute('confirmComplianceClosed', 5, mechanical)).resolves.toEqual(receipt);
+    expect((await db.doc('maintenance_records/deferment-ticket').get()).data()).toMatchObject({
+      status: 'acknowledged', isResolved: false, workflowDeferred: false, workflowQueueState: 'released',
+    });
+    expect((await db.doc('compliance_attempts/deferment-request_1').get()).data()).toMatchObject({
+      accepted: false, returnReason: 'Confirm final positioning.',
+    });
+    expect((await db.doc('compliance_attempts/deferment-request_2').get()).data()).toMatchObject({accepted: true});
+    expect((await db.doc('maintenance_workflows/deferment-workflow').get()).data().status).toBe('completed');
+  });
+
   test('concurrent same-equipment creates preserve both workflow contributions', async () => {
     await db.collection('equipment_status').doc('base_101').set({
       assetTypeKey: 'base',
@@ -165,6 +207,26 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       activeRedWorkCount: 0,
       awaitingPreparationCount: 0,
       version: 2,
+    });
+  });
+
+  test.each([1, 2, 3])('concurrent first assignments rebuild one missing projection without losing retained work (run %i)', async () => {
+    await db.doc('maintenance_workflows/retained-red').set({
+      assetTypeKey: 'base', assetNumber: 101, status: 'inProgress',
+      assetClassId: 'base-class', assetInstanceId: 'base-101',
+      activeRedWork: true,
+    });
+    const context = {actor, serverNow: new Date('2026-09-04T05:00:00Z')};
+    const first = createCommand('first-rebuild');
+    const second = createCommand('second-rebuild');
+    const [receipt] = await Promise.all([
+      service.execute(first, context), service.execute(second, context),
+    ]);
+    await expect(service.execute(first, context)).resolves.toEqual(receipt);
+    expect((await db.doc('equipment_status/base_101').get()).data()).toMatchObject({
+      activeNonRedMaintenanceCount: 2, activeRedWorkCount: 1,
+      awaitingPreparationCount: 0, version: 2,
+      assetClassId: 'base-class', assetInstanceId: 'base-101',
     });
   });
 

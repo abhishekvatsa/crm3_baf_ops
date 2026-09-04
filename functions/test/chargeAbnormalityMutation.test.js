@@ -1,6 +1,7 @@
 const {
   mutateChargeAbnormalityWithDb,
   parseChargeAbnormalityMutationRequest,
+  userCanMutateChargeAbnormality,
 } = require('../lib/chargeAbnormalityMutation');
 
 function clone(value) {
@@ -210,6 +211,9 @@ function closedWarning(overrides = {}) {
     closedByName: 'Admin One',
     closureDisposition: 'qualityAdjudication',
     decisionReason: 'Duplicate disposition evidence was confirmed.',
+    updatedAt: '2026-07-25T09:00:00.000Z',
+    updatedByUid: 'admin-1',
+    updatedByName: 'Admin One',
     ...overrides,
   };
 }
@@ -235,6 +239,35 @@ function updateRequest(overrides = {}) {
     reannealingStatus: 'completed',
     reannealedToChargeNo: 12002,
     ...overrides,
+  };
+}
+
+function governedAffectedAsset(assetNumber = 7) {
+  return {
+    assetType: 'furnace',
+    assetNumber,
+    assetHierarchyRef: {
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: 'furnace-class',
+      assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace',
+      nodeId: 'burner-block',
+      nodeVersion: 2,
+      nodeName: 'Burner block',
+      assetInstanceId: `furnace-${assetNumber}`,
+      assetInstanceVersion: 3,
+      assetNumber,
+      assetInstanceName: `Furnace ${assetNumber}`,
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Furnace', 'Combustion system', 'Burner block'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Mechanical',
+      accountableRoleKeys: ['contractSupervisor'],
+      innerCoverAssociation: null,
+    },
   };
 }
 
@@ -264,6 +297,142 @@ function invoke(db, data, extra = {}) {
 }
 
 describe('charge-abnormality admin mutation', () => {
+  function creation(overrides = {}) {
+    return {requestId: '77777777-7777-4777-8777-777777777777',
+      abnormalityId: 'abn-1', operation: 'CREATE', expectedVersion: 0,
+      reason: 'Created charge abnormality',
+      abnormality: abnormality({version: 1, ...overrides})};
+  }
+
+  function creationDb() {
+    return fakeDb({'users/operator-1': admin({roles: ['operations'], name: 'Operator One'}),
+      'abnormality_types/TYPE_OLD': abnormalityType({firestoreId: 'TYPE_OLD'})});
+  }
+
+  test('Operations creates a governed case atomically and replays without duplicates', async () => {
+    const fixture = creationDb();
+    const data = creation({affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governedAffectedAsset()]});
+    const first = await invoke(fixture.db, data, {authUid: 'operator-1'});
+    const replay = await invoke(fixture.db, data, {authUid: 'operator-1'});
+    expect(first.version).toBe(1);
+    expect(replay.idempotentReplay).toBe(true);
+    expect(fixture.writes).toHaveLength(4);
+    expect(first.abnormality.affectedAssets).toEqual([{assetType: 'furnace', assetNumber: 7}]);
+    expect(first.abnormality.affectedAssetHierarchyRefs).toEqual([governedAffectedAsset()]);
+    const warning = fixture.store.get('quality_warnings/abnormality_abn-1');
+    expect(warning.sourceSummary).toBe('Canonical new title');
+    expect(warning.sourceChargeNo).toBe(first.abnormality.sourceChargeNo);
+  });
+
+  test.each([
+    {affectedAssets: [{assetType: 'oops', assetNumber: 7}]},
+    {affectedAssets: [{assetType: 'base', assetNumber: -1}]},
+    {affectedAssets: [{assetType: 'base', assetNumber: 1.5}]},
+    {affectedAssets: [{assetType: 'base', assetNumber: 1, surprise: true}]},
+    {affectedAssets: [{assetType: 'base', assetNumber: 1}, {assetType: 'base', assetNumber: 1}]},
+    {affectedAssetHierarchyRefs: [governedAffectedAsset()]},
+    {affectedAssets: [{...governedAffectedAsset(), assetHierarchyRef: {schemaVersion: 4}}]},
+    {linkedTicketFirestoreId: 'other-ticket'},
+    {_globalPullServerUpdatedAt: '2026-07-20T08:00:00.000Z'},
+  ])('rejects malformed CREATE data without partial writes: %j', async (overrides) => {
+    const fixture = creationDb();
+    await expect(invoke(fixture.db, creation(overrides), {authUid: 'operator-1'}))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test('original actor is required and retired types cannot create new cases', async () => {
+    const fixture = creationDb();
+    await expect(invoke(fixture.db, creation({loggedByUid: 'someone-else'}), {authUid: 'operator-1'}))
+      .rejects.toMatchObject({code: 'permission-denied'});
+    fixture.store.set('abnormality_types/TYPE_OLD', abnormalityType({firestoreId: 'TYPE_OLD', isActive: false}));
+    await expect(invoke(fixture.db, creation(), {authUid: 'operator-1'})).rejects.toBeDefined();
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test('legacy offline draft starts canonical version one', async () => {
+    const fixture = creationDb();
+    const result = await invoke(fixture.db, creation({version: 4}), {authUid: 'operator-1'});
+    expect(result.version).toBe(1);
+  });
+
+  test.each(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'operations'])(
+    '%s retains CREATE authority at both callable boundaries', async (role) => {
+      const actor = admin({roles: [role]});
+      expect(userCanMutateChargeAbnormality(actor, 'CREATE')).toBe(true);
+      expect(userCanMutateChargeAbnormality(actor, 'UPDATE')).toBe(role === 'admin');
+      const fixture = creationDb();
+      fixture.store.set('users/operator-1', actor);
+      await expect(invoke(fixture.db, creation(), {authUid: 'operator-1'})).resolves.toMatchObject({version: 1});
+    });
+
+  test.each([0, 50])('%i-asset legacy saved draft migrates through governed CREATE', async (count) => {
+    const fixture = creationDb();
+    const result = await invoke(fixture.db, creation({version: 4,
+      affectedAssets: Array.from({length: count}, (_, i) => ({assetType: 'base', assetNumber: i + 1}))}),
+    {authUid: 'operator-1'});
+    expect(result.abnormality.affectedAssets).toHaveLength(count);
+  });
+
+  test('governed affected component is accepted and identity-bound', () => {
+    const parsed = parseChargeAbnormalityMutationRequest(updateRequest({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governedAffectedAsset(7)],
+    }));
+    expect(parsed.update.affectedAssets[0]).toEqual({
+      assetType: 'furnace',
+      assetNumber: 7,
+    });
+    expect(parsed.update.affectedAssetHierarchyRefs[0])
+      .toEqual(governedAffectedAsset(7));
+
+    const legacyInline = parseChargeAbnormalityMutationRequest(updateRequest({
+      affectedAssets: [governedAffectedAsset(7)],
+    }));
+    expect(legacyInline.update.affectedAssets[0]).toEqual({
+      assetType: 'furnace',
+      assetNumber: 7,
+    });
+    expect(legacyInline.update.affectedAssetHierarchyRefs[0])
+      .toEqual(governedAffectedAsset(7));
+
+    const mismatched = governedAffectedAsset(7);
+    mismatched.assetNumber = 8;
+    expect(() => parseChargeAbnormalityMutationRequest(updateRequest({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 8}],
+      affectedAssetHierarchyRefs: [mismatched],
+    }))).toThrow('hierarchy reference is malformed');
+    expect(() => parseChargeAbnormalityMutationRequest(updateRequest({
+      affectedAssets: [],
+    }))).toThrow('between 1 and 50');
+  });
+
+  test('mixed legacy and canonical Inner Cover instants retain IST chronology', () => {
+    const governed = governedAffectedAsset(7);
+    governed.assetHierarchyRef.innerCoverAssociation = {
+      baseAssetInstanceId: 'furnace-7',
+      baseAssetNumber: 7,
+      positionState: 'linked',
+      innerCoverId: 'inner-cover-gr26',
+      innerCoverSerialNumber: 'GR26',
+      linkageId: 'link-furnace-7-gr26',
+      assignmentVersion: 2,
+      linkedAt: '2026-07-26T14:00:00.000',
+      eventAt: '2026-07-26T09:00:00.000Z',
+      confirmedAt: '2026-07-26T09:05:00.000Z',
+      confirmedByUid: 'admin-1',
+      confirmedByName: 'Admin One',
+    };
+
+    const parsed = parseChargeAbnormalityMutationRequest(updateRequest({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governed],
+    }));
+
+    expect(parsed.update.affectedAssetHierarchyRefs[0]).toEqual(governed);
+  });
+
   test('update atomically canonicalizes type data and writes audit plus receipt', async () => {
     const serverStamp = {seconds: 1785056400, nanoseconds: 0};
     const state = fakeDb({
@@ -301,9 +470,11 @@ describe('charge-abnormality admin mutation', () => {
       .toMatchObject({
         sourceVersion: 5,
         sourceSummary: 'Canonical new title',
-        status: 'closed',
-        closureDisposition: 'reannealingCompleted',
-        linkedReannealingChargeNos: [12002],
+        status: 'closureRequested',
+        closureRequestReason: 'Corrected after Admin review',
+        closureRequestedByUid: 'admin-1',
+        closureDisposition: null,
+        linkedReannealingChargeNos: [],
         version: 2,
       });
     expect(state.store.get(result.auditId)).toBeUndefined();
@@ -328,6 +499,165 @@ describe('charge-abnormality admin mutation', () => {
       auditId: result.auditId,
     });
     expect(state.writes).toHaveLength(4);
+  });
+
+  test('older identity-only updates preserve unchanged hierarchy evidence', async () => {
+    const governed = governedAffectedAsset(7);
+    const record = abnormality({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governed],
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await invoke(state.db, updateRequest({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+    }));
+
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governed],
+    });
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({
+        affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      });
+  });
+
+  test('an explicit empty legacy hierarchy list cannot erase current evidence', async () => {
+    const governed = governedAffectedAsset(7);
+    const record = abnormality({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governed],
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await invoke(state.db, updateRequest({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [],
+    }));
+
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+      affectedAssetHierarchyRefs: [governed],
+    });
+  });
+
+  test('a partial hierarchy correction preserves other governed evidence', async () => {
+    const furnace7 = governedAffectedAsset(7);
+    const furnace8 = governedAffectedAsset(8);
+    const revisedFurnace7 = {
+      ...furnace7,
+      assetHierarchyRef: {
+        ...furnace7.assetHierarchyRef,
+        nodeId: 'burner-block-2',
+        nodeName: 'Burner block 2',
+        hierarchyPath: ['Furnace', 'Combustion system', 'Burner block 2'],
+      },
+    };
+    const affectedAssets = [
+      {assetType: 'furnace', assetNumber: 7},
+      {assetType: 'furnace', assetNumber: 8},
+    ];
+    const record = abnormality({
+      affectedAssets,
+      affectedAssetHierarchyRefs: [furnace7, furnace8],
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await invoke(state.db, updateRequest({
+      affectedAssets,
+      affectedAssetHierarchyRefs: [revisedFurnace7],
+    }));
+
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      affectedAssets,
+      affectedAssetHierarchyRefs: [revisedFurnace7, furnace8],
+    });
+  });
+
+  test('historical empty-asset abnormality remains repairable', async () => {
+    const record = abnormality({affectedAssets: []});
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await invoke(state.db, updateRequest());
+
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      affectedAssets: [
+        {assetType: 'furnace', assetNumber: 7},
+        {assetType: 'innerCover', assetNumber: 19},
+      ],
+      version: 5,
+    });
+  });
+
+  test('future-dated abnormality and warning fail without clock regression', async () => {
+    const futureAbnormality = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(abnormality({
+        updatedAt: '2026-07-27T10:00:00.000Z',
+      })),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+    await expect(invoke(futureAbnormality.db, updateRequest()))
+      .rejects.toMatchObject({
+        code: 'aborted',
+        details: {reasonCode: 'charge-abnormality-clock-regression'},
+      });
+    expect(futureAbnormality.writes).toHaveLength(0);
+
+    const record = abnormality();
+    const futureWarning = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record, {
+        updatedAt: '2026-07-27T10:00:00.000Z',
+      }),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+    await expect(invoke(futureWarning.db, updateRequest()))
+      .rejects.toMatchObject({
+        code: 'aborted',
+        details: {reasonCode: 'charge-quality-warning-clock-regression'},
+      });
+    expect(futureWarning.writes).toHaveLength(0);
+  });
+
+  test('legacy timezone-less plant timestamps retain their IST meaning', async () => {
+    const record = abnormality({
+      loggedAt: '2026-07-26T14:30:00.000',
+      updatedAt: '2026-07-26T15:00:00.000',
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record, {
+        createdAt: record.loggedAt,
+        updatedAt: record.updatedAt,
+      }),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    const result = await invoke(state.db, updateRequest());
+
+    expect(result).toMatchObject({ok: true, version: 5});
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      updatedAt: '2026-07-26T10:00:00.000Z',
+      version: 5,
+    });
   });
 
   test('soft delete preserves origin fields and atomically records evidence', async () => {
@@ -382,10 +712,56 @@ describe('charge-abnormality admin mutation', () => {
       sourceType: 'issue',
       sourceId: 'ticket-1',
       sourceVersion: 1,
-      status: 'closed',
-      closureDisposition: 'coilFoundAcceptable',
+      status: 'closureRequested',
+      closureRequestReason: 'Corrected after Admin review',
+      closureRequestedByUid: 'admin-1',
+      closureDisposition: null,
       version: 2,
     });
+  });
+
+  test('Admin can correct the target charge of a completed RA case', async () => {
+    const record = abnormality({
+      reannealingStatus: 'completed',
+      reannealedToChargeNo: 12002,
+    });
+    const state = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(record, {
+        status: 'closed',
+        closedAt: '2026-07-25T09:00:00.000Z',
+        closedByUid: 'admin-1',
+        closedByName: 'Admin One',
+        closureDisposition: 'reannealingCompleted',
+        linkedReannealingChargeNos: [12002],
+        decisionReason: 'The first recorded target charge was accepted.',
+        updatedAt: '2026-07-25T09:00:00.000Z',
+        updatedByUid: 'admin-1',
+        updatedByName: 'Admin One',
+      }),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+
+    await invoke(state.db, updateRequest({
+      reannealingStatus: 'completed',
+      reannealedToChargeNo: 12003,
+      reason: 'Corrected the resulting charge against the production record.',
+    }));
+
+    expect(state.store.get('charge_abnormalities/abn-1')).toMatchObject({
+      reannealingStatus: 'completed',
+      reannealedToChargeNo: 12003,
+      version: 5,
+    });
+    expect(state.store.get('quality_warnings/abnormality_abn-1'))
+      .toMatchObject({
+        status: 'closureRequested',
+        closureRequestReason:
+          'Corrected the resulting charge against the production record.',
+        closureDisposition: null,
+        linkedReannealingChargeNos: [],
+        version: 2,
+      });
   });
 
   test('Admin RA completion requires a prior required decision', async () => {
@@ -622,6 +998,24 @@ describe('charge-abnormality admin mutation', () => {
       }),
     });
     expect(invalidRa.writes).toHaveLength(0);
+
+    const invalidRaCharge = fakeDb({
+      'users/admin-1': admin(),
+      ...standaloneCase(abnormality({
+        reannealingStatus: 'completed',
+        reannealedToChargeNo: 123,
+      })),
+      'abnormality_types/TYPE_NEW': abnormalityType(),
+    });
+    await expect(invoke(invalidRaCharge.db, updateRequest()))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: expect.objectContaining({
+          reasonCode: 'abnormality-record-malformed',
+          field: 'reannealedToChargeNo',
+        }),
+      });
+    expect(invalidRaCharge.writes).toHaveLength(0);
 
     const invalidDelete = fakeDb({
       'users/admin-1': admin(),

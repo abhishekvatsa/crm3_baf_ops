@@ -192,14 +192,14 @@ class _CriticalIssueToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color:
-            value
-                ? BafColors.danger.withValues(alpha: 0.08)
-                : BafColors.background,
+    return Material(
+      color:
+          value
+              ? BafColors.danger.withValues(alpha: 0.08)
+              : BafColors.background,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(
+        side: BorderSide(
           color:
               value
                   ? BafColors.danger.withValues(alpha: 0.34)

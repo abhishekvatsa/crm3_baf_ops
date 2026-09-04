@@ -11,6 +11,7 @@ const chargeAbnormalityCallableName = 'mutateChargeAbnormality';
 const chargeAbnormalityCallableRegion = 'asia-south1';
 
 enum ChargeAbnormalityMutationOperation {
+  create('CREATE'),
   update('UPDATE'),
   softDelete('SOFT_DELETE');
 
@@ -74,7 +75,7 @@ class ChargeAbnormalityMutationException implements Exception {
       case 'unauthenticated':
         return 'Sign in again before changing this charge abnormality.';
       case 'permission-denied':
-        return 'Only an approved Admin can make this change.';
+        return message;
       case 'not-found':
         return 'This charge abnormality no longer exists. Pull latest data and review it.';
       case 'aborted':
@@ -135,6 +136,23 @@ class ChargeAbnormalityCommandService {
   }) : _transport =
            transport ?? const FirebaseChargeAbnormalityCommandTransport(),
        _uuid = uuid;
+
+  Future<ChargeAbnormalityMutationResult> create({
+    required ChargeAbnormality abnormality,
+    String? requestId,
+  }) => _execute(
+    abnormality: abnormality,
+    operation: ChargeAbnormalityMutationOperation.create,
+    expectedVersion: 0,
+    reason: 'Created charge abnormality',
+    requestId:
+        requestId ??
+        deterministicSyncRequestId(
+          operation: ChargeAbnormalityMutationOperation.create,
+          abnormalityId: abnormality.firestoreId ?? '',
+          localVersion: abnormality.version,
+        ),
+  );
 
   Future<ChargeAbnormalityMutationResult> update({
     required ChargeAbnormality abnormality,
@@ -206,7 +224,9 @@ class ChargeAbnormalityCommandService {
         reasonCode: 'invalid-abnormality-id',
       );
     }
-    if (expectedVersion <= 0) {
+    if (operation == ChargeAbnormalityMutationOperation.create
+        ? expectedVersion != 0
+        : expectedVersion <= 0) {
       throw const ChargeAbnormalityMutationException(
         code: 'invalid-argument',
         message: 'The charge abnormality has no valid source version.',
@@ -221,11 +241,17 @@ class ChargeAbnormalityCommandService {
       'operation': operation.wireName,
       'expectedVersion': expectedVersion,
       'reason': cleanReason,
+      if (operation == ChargeAbnormalityMutationOperation.create)
+        'abnormality': abnormality.toMap(),
       if (operation == ChargeAbnormalityMutationOperation.update) ...{
         'abnormalityTypeId': abnormality.abnormalityTypeId,
         'severity': abnormality.severity.name,
         'affectedAssets': abnormality.affectedAssets
-            .map((asset) => asset.toMap())
+            .map((asset) => asset.toIdentityMap())
+            .toList(growable: false),
+        'affectedAssetHierarchyRefs': abnormality.affectedAssets
+            .map((asset) => asset.toHierarchyReferenceMap())
+            .whereType<Map<String, dynamic>>()
             .toList(growable: false),
         'component': _cleanOptional(abnormality.component),
         'observedReason': abnormality.observedReason.trim(),
@@ -247,6 +273,7 @@ class ChargeAbnormalityCommandService {
         expectedRequestId: effectiveRequestId,
         expectedAbnormalityId: abnormalityId,
         expectedOperation: operation,
+        expectedVersion: expectedVersion,
       );
     } on FirebaseFunctionsException catch (error) {
       throw ChargeAbnormalityMutationException.fromFirebase(error);
@@ -267,6 +294,7 @@ class ChargeAbnormalityCommandService {
     required String expectedRequestId,
     required String expectedAbnormalityId,
     required ChargeAbnormalityMutationOperation expectedOperation,
+    required int expectedVersion,
   }) {
     if (raw is! Map || raw['ok'] != true) {
       throw const ChargeAbnormalityMutationException(
@@ -302,7 +330,7 @@ class ChargeAbnormalityCommandService {
     }
     final abnormalityRaw = data['abnormality'];
     if (version is! int ||
-        version <= 0 ||
+        version != expectedVersion + 1 ||
         auditId is! String ||
         auditId != 'server_charge_abnormality_$expectedRequestId' ||
         data['idempotentReplay'] is! bool ||
@@ -331,6 +359,7 @@ class ChargeAbnormalityCommandService {
     );
     if (abnormality.version != version ||
         abnormality.firestoreId != expectedAbnormalityId ||
+        abnormality.updatedAt.toUtc() != committedAt ||
         (expectedOperation == ChargeAbnormalityMutationOperation.softDelete &&
             !abnormality.isDeleted)) {
       throw const ChargeAbnormalityMutationException(

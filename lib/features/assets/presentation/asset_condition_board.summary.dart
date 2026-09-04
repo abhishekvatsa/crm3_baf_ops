@@ -52,27 +52,86 @@ class _PlantClassConditionSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  summary.assetClass.name,
-                  style: const TextStyle(
-                    color: BafColors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final name = Text(
+                summary.assetClass.name,
+                style: const TextStyle(
+                  color: BafColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
                 ),
-              ),
-              Text(
+              );
+              final registered = Text(
                 '${summary.total} registered',
+                textAlign: TextAlign.end,
                 style: const TextStyle(
                   color: BafColors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
-              ),
-            ],
+              );
+              final labels = [
+                _classCount('Down', summary.down, BafColors.danger),
+                _classCount('Unfit', summary.unfit, BafColors.warning),
+                _classCount(
+                  'Stuck-up',
+                  summary.temporarilyBlocked,
+                  BafColors.instrument,
+                ),
+              ];
+              final counts = Wrap(
+                key: ValueKey('plant-class-counts-${summary.assetClass.id}'),
+                spacing: BafSpacing.sm,
+                runSpacing: BafSpacing.xs,
+                children: labels,
+              );
+              var requiredWidth = 4 * BafSpacing.sm;
+              for (final text in [name, ...labels, registered]) {
+                final painter = TextPainter(
+                  text: TextSpan(
+                    text: text.data,
+                    style: DefaultTextStyle.of(context).style.merge(text.style),
+                  ),
+                  textDirection: Directionality.of(context),
+                  textScaler: MediaQuery.textScalerOf(context),
+                  maxLines: 1,
+                )..layout();
+                requiredWidth += painter.width;
+                painter.dispose();
+              }
+              final inline = constraints.maxWidth >= requiredWidth;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (inline) ...[
+                        name,
+                        const SizedBox(width: BafSpacing.sm),
+                        Expanded(child: Center(child: counts)),
+                        const SizedBox(width: BafSpacing.sm),
+                        registered,
+                      ] else ...[
+                        Expanded(child: name),
+                        const SizedBox(width: BafSpacing.sm),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: registered,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (!inline) ...[
+                    const SizedBox(height: BafSpacing.xs),
+                    counts,
+                  ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: BafSpacing.xs),
           if (metrics.isEmpty)
@@ -90,6 +149,11 @@ class _PlantClassConditionSummary extends StatelessWidget {
       ),
     );
   }
+
+  Text _classCount(String label, int count, Color color) => Text(
+    '$label $count',
+    style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
+  );
 
   Widget? _statusMetric({
     required String label,
@@ -122,11 +186,6 @@ class _PlantClassConditionSummary extends StatelessWidget {
 
   String _assetIdentity(PlantAssetState row) {
     final asset = row.asset;
-    final permanentIdentity = '${asset.assetClassName} ${asset.assetNumber}';
-    final name = asset.name.trim();
-    if (name.isEmpty || name.toLowerCase() == permanentIdentity.toLowerCase()) {
-      return permanentIdentity;
-    }
-    return '$permanentIdentity - $name';
+    return '${summary.assetClass.name} ${asset.assetNumber}';
   }
 }

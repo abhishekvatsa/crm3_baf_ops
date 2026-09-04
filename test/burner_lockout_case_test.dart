@@ -7,6 +7,33 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('burner lockout contract', () {
+    for (final positions in [
+      <int>[2],
+      <int>[2, 5],
+    ]) {
+      test('structured intake supplies a description for $positions', () {
+        final intake = BurnerLockoutCase(
+          positions: positions,
+          commonMode: false,
+          cycleStage: BurnerCycleStage.notRecorded,
+          flameObservation: BurnerObservation.notChecked,
+          sparkObservation: BurnerObservation.notChecked,
+          relightAttempts: 0,
+          remainsLockedOut: true,
+        );
+        final expected =
+            positions.length == 1
+                ? 'Burner lockout reported on burner 2.'
+                : 'Burner lockout reported on burners 2, 5.';
+        expect(intake.reportDescription(), expected);
+        expect(intake.reportDescription(notes: '  \n '), expected);
+        expect(
+          intake.reportDescription(notes: '  Intermittent lockout observed.  '),
+          'Intermittent lockout observed.',
+        );
+      });
+    }
+
     test('round-trips all eight-position intake and resolution evidence', () {
       final intake = BurnerLockoutCase(
         positions: const <int>[1, 4, 8],

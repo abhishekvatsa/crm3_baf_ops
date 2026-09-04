@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -151,6 +152,45 @@ void main() {
   });
 
   group('A-05 charge-abnormality persisted integrity', () {
+    test('historical affected assets survive a later applicability change', () {
+      const base = AffectedAssetRef(
+        assetType: AssetType.base,
+        assetNumber: 201,
+      );
+      const furnace = AffectedAssetRef(
+        assetType: AssetType.furnace,
+        assetNumber: 7,
+      );
+
+      expect(
+        isAffectedAssetPermittedForCorrection(
+          asset: base,
+          currentlyApplicableTypes: const <AssetType>[AssetType.furnace],
+          existingAffectedAssets: const <AffectedAssetRef>[base],
+          retainsExistingType: true,
+        ),
+        isTrue,
+      );
+      expect(
+        isAffectedAssetPermittedForCorrection(
+          asset: base,
+          currentlyApplicableTypes: const <AssetType>[AssetType.furnace],
+          existingAffectedAssets: const <AffectedAssetRef>[base],
+          retainsExistingType: false,
+        ),
+        isFalse,
+      );
+      expect(
+        isAffectedAssetPermittedForCorrection(
+          asset: furnace,
+          currentlyApplicableTypes: const <AssetType>[AssetType.furnace],
+          existingAffectedAssets: const <AffectedAssetRef>[base],
+          retainsExistingType: false,
+        ),
+        isTrue,
+      );
+    });
+
     test('a complete charge abnormality retains exact authority', () {
       final abnormality = ChargeAbnormality.fromMap(_validCharge(), 'abn-1');
 
@@ -161,6 +201,100 @@ void main() {
       expect(abnormality.affectedAssets, hasLength(2));
       expect(abnormality.version, 4);
       expect(abnormality.isSynced, isTrue);
+    });
+
+    test('governed affected component identity survives persistence', () {
+      final abnormality = ChargeAbnormality.fromMap(<String, dynamic>{
+        ..._validCharge(),
+        'affectedAssets': <Map<String, dynamic>>[
+          <String, dynamic>{'assetType': 'furnace', 'assetNumber': 4},
+        ],
+        'affectedAssetHierarchyRefs': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'assetType': 'furnace',
+            'assetNumber': 4,
+            'assetHierarchyRef': _governedReference(4).toMap(),
+          },
+        ],
+      }, 'abn-1');
+
+      expect(abnormality.affectedAssets.single.isGoverned, isTrue);
+      expect(abnormality.affectedAssets.single.componentLabel, 'Burner block');
+      expect(abnormality.toMap()['affectedAssets'], <Map<String, dynamic>>[
+        <String, dynamic>{'assetType': 'furnace', 'assetNumber': 4},
+      ]);
+      expect(
+        abnormality.toMap()['affectedAssetHierarchyRefs'],
+        <Map<String, dynamic>>[
+          <String, dynamic>{
+            'assetType': 'furnace',
+            'assetNumber': 4,
+            'assetHierarchyRef': _governedReference(4).toMap(),
+          },
+        ],
+      );
+    });
+
+    test('governed component cannot identify a different physical asset', () {
+      expect(
+        () => ChargeAbnormality.fromMap(<String, dynamic>{
+          ..._validCharge(),
+          'affectedAssets': <Map<String, dynamic>>[
+            <String, dynamic>{'assetType': 'furnace', 'assetNumber': 5},
+          ],
+          'affectedAssetHierarchyRefs': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'assetType': 'furnace',
+              'assetNumber': 5,
+              'assetHierarchyRef': _governedReference(4).toMap(),
+            },
+          ],
+        }, 'abn-1'),
+        _invalidField('assetHierarchyRef'),
+      );
+    });
+
+    test('legacy inline governed references remain readable', () {
+      final abnormality = ChargeAbnormality.fromMap(<String, dynamic>{
+        ..._validCharge(),
+        'affectedAssets': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'assetType': 'furnace',
+            'assetNumber': 4,
+            'assetHierarchyRef': _governedReference(4).toMap(),
+          },
+        ],
+      }, 'abn-1');
+
+      expect(abnormality.affectedAssets.single.componentLabel, 'Burner block');
+    });
+
+    test('explicit null governed reference fails closed', () {
+      expect(
+        () => ChargeAbnormality.fromMap(<String, dynamic>{
+          ..._validCharge(),
+          'affectedAssets': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'assetType': 'furnace',
+              'assetNumber': 4,
+              'assetHierarchyRef': null,
+            },
+          ],
+        }, 'abn-1'),
+        _invalidField('assetHierarchyRef'),
+      );
+    });
+
+    test('upgraded legacy empty draft retains the old create wire shape', () {
+      final persisted =
+          _validCharge()
+            ..['affectedAssets'] = <Map<String, dynamic>>[]
+            ..remove('affectedAssetHierarchyRefs');
+      final abnormality = ChargeAbnormality.fromMap(persisted, 'abn-1');
+
+      final outgoing = abnormality.toMap();
+      expect(outgoing['affectedAssets'], isEmpty);
+      expect(outgoing, isNot(contains('affectedAssetHierarchyRefs')));
     });
 
     test('every authority-bearing charge field is required', () {
@@ -463,6 +597,29 @@ Map<String, dynamic> _validCharge() => <String, dynamic>{
   'deletedByName': null,
   'deleteReason': null,
 };
+
+AssetHierarchyReference _governedReference(int assetNumber) =>
+    AssetHierarchyReference(
+      scope: AssetHierarchyReferenceScope.componentDefinitionOnAsset,
+      assetClassId: 'furnace-class',
+      assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace',
+      nodeId: 'burner-block',
+      nodeVersion: 2,
+      nodeName: 'Burner block',
+      assetInstanceId: 'furnace-$assetNumber',
+      assetInstanceVersion: 3,
+      assetNumber: assetNumber,
+      assetInstanceName: 'Furnace $assetNumber',
+      hierarchyPath: const <String>[
+        'Furnace',
+        'Combustion system',
+        'Burner block',
+      ],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'Mechanical',
+      accountableRoleKeys: const <String>['contractSupervisor'],
+    );
 
 Matcher _invalidField(String field) => throwsA(
   isA<PersistedDataFormatException>().having(

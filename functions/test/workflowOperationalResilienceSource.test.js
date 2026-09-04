@@ -35,7 +35,6 @@ describe('workflow operational resilience source contract', () => {
     const facts = read('functions/src/maintenanceWorkflow/equipmentFacts.ts');
     const equipment = read('functions/src/maintenanceWorkflow/equipmentHandlers.ts');
     const mutators = [
-      'jobCreationHandler.ts',
       'finalizeJobHandler.ts',
       'redHandlers.ts',
       'laneHandlers.ts',
@@ -55,6 +54,14 @@ describe('workflow operational resilience source contract', () => {
       expect(source).toContain('equipmentFactsFromProjection');
       expect(source).not.toContain('loadEquipmentFacts');
     }
+    const creation = read('functions/src/maintenanceWorkflow/jobCreationHandler.ts');
+    expect(creation).toContain('const currentEquipment = await tx.get(equipmentRef)');
+    expect(creation).toContain('currentEquipment.data == null ?');
+    expect(creation).toContain('await loadEquipmentFacts(tx, identity)');
+    expect(creation).toContain('equipmentFactsFromProjection(currentEquipment.data, identity)');
+    expect(creation).toContain('tx.set(equipmentRef, equipmentProjectionWrite(');
+    expect(creation.indexOf('await loadEquipmentFacts(tx, identity)'))
+      .toBeLessThan(creation.indexOf('const existingWorkflow = await tx.get(aggregateRef)'));
   });
 
   test('R1.16 cutover requires governed equipment projection reconciliation', () => {
@@ -65,6 +72,8 @@ describe('workflow operational resilience source contract', () => {
     expect(authority).toContain('contains all three non-negative safe-integer counters');
     expect(authority).toContain('zero unresolved exceptions');
     expect(authority).toContain('ordinary job creation cannot initialize an unknown projection');
+    expect(authority).toContain('2026-09-04 missing-projection assignment amendment');
+    expect(authority).toContain('same transaction');
   });
 
   test('Admin/SI workflow diagnostics exposes quarantine and uncertain commands read-only', () => {

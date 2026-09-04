@@ -6,6 +6,8 @@ import 'package:isar/isar.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
+import '../../../core/validation/charge_number.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'remote_abnormality_timestamps.dart';
 
@@ -55,43 +57,127 @@ enum RootReasonCategory {
 class AffectedAssetRef {
   final AssetType assetType;
   final int assetNumber;
+  final AssetHierarchyReference? assetHierarchyReference;
 
-  const AffectedAssetRef({required this.assetType, required this.assetNumber});
+  const AffectedAssetRef({
+    required this.assetType,
+    required this.assetNumber,
+    this.assetHierarchyReference,
+  });
 
   Map<String, dynamic> toMap() {
-    return {'assetType': assetType.name, 'assetNumber': assetNumber};
+    return {
+      'assetType': assetType.name,
+      'assetNumber': assetNumber,
+      if (assetHierarchyReference != null)
+        'assetHierarchyRef': assetHierarchyReference!.toMap(),
+    };
+  }
+
+  Map<String, dynamic> toIdentityMap() => {
+    'assetType': assetType.name,
+    'assetNumber': assetNumber,
+  };
+
+  Map<String, dynamic>? toHierarchyReferenceMap() {
+    if (assetHierarchyReference == null) return null;
+    return toMap();
   }
 
   factory AffectedAssetRef.fromMap(Map<String, dynamic> map, {String? source}) {
-    if (map.length != 2 ||
+    final hasHierarchyReference = map.containsKey('assetHierarchyRef');
+    if ((map.length != 2 && !(map.length == 3 && hasHierarchyReference)) ||
         !map.containsKey('assetType') ||
         !map.containsKey('assetNumber')) {
       throw PersistedDataFormatException(
         field: 'affectedAssets',
         source: source,
-        detail: 'each asset must contain only assetType and assetNumber',
+        detail:
+            'each asset must contain assetType, assetNumber and an optional assetHierarchyRef',
+      );
+    }
+    final assetType = readRequiredPersistedEnum(
+      AssetType.values,
+      map['assetType'],
+      field: 'assetType',
+      source: source,
+    );
+    final assetNumber = readRequiredPersistedInt(
+      map['assetNumber'],
+      field: 'assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    final rawReference = map['assetHierarchyRef'];
+    final AssetHierarchyReference? hierarchyReference;
+    if (!hasHierarchyReference) {
+      hierarchyReference = null;
+    } else if (rawReference is Map) {
+      hierarchyReference = AssetHierarchyReference.fromMap(
+        Map<String, dynamic>.from(rawReference),
+        source: '$source assetHierarchyRef',
+      );
+      if (hierarchyReference.scope == AssetHierarchyReferenceScope.definition ||
+          hierarchyReference.assetInstanceId == null ||
+          hierarchyReference.assetNumber != assetNumber) {
+        throw PersistedDataFormatException(
+          field: 'assetHierarchyRef',
+          source: source,
+          detail: 'must identify the same exact physical asset',
+        );
+      }
+    } else {
+      throw PersistedDataFormatException(
+        field: 'assetHierarchyRef',
+        source: source,
+        detail: 'must be a governed hierarchy object when present',
       );
     }
     return AffectedAssetRef(
-      assetType: readRequiredPersistedEnum(
-        AssetType.values,
-        map['assetType'],
-        field: 'assetType',
-        source: source,
-      ),
-      assetNumber: readRequiredPersistedInt(
-        map['assetNumber'],
-        field: 'assetNumber',
-        source: source,
-        minimum: 1,
-      ),
+      assetType: assetType,
+      assetNumber: assetNumber,
+      assetHierarchyReference: hierarchyReference,
     );
   }
 
-  String get label => '${_assetTypeLabel(assetType)} $assetNumber';
+  bool get isGoverned => assetHierarchyReference != null;
+
+  String? get componentLabel {
+    final reference = assetHierarchyReference;
+    if (reference == null ||
+        reference.scope == AssetHierarchyReferenceScope.physicalAsset) {
+      return null;
+    }
+    return reference.nodeName;
+  }
+
+  String get label => switch (assetType) {
+    AssetType.innerCover => 'Inner Cover at Base $assetNumber',
+    AssetType.governedCustom when assetHierarchyReference != null =>
+      '${assetHierarchyReference!.assetClassName} $assetNumber',
+    _ => '${_assetTypeLabel(assetType)} $assetNumber',
+  };
 
   @override
   String toString() => label;
+}
+
+bool isAffectedAssetPermittedForCorrection({
+  required AffectedAssetRef asset,
+  required Iterable<AssetType> currentlyApplicableTypes,
+  required Iterable<AffectedAssetRef> existingAffectedAssets,
+  required bool retainsExistingType,
+}) {
+  final applicableTypes = currentlyApplicableTypes.toSet();
+  if (applicableTypes.isEmpty || applicableTypes.contains(asset.assetType)) {
+    return true;
+  }
+  if (!retainsExistingType) return false;
+  return existingAffectedAssets.any(
+    (existing) =>
+        existing.assetType == asset.assetType &&
+        existing.assetNumber == asset.assetNumber,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -528,6 +614,7 @@ class ChargeAbnormality {
 
   Map<String, dynamic> toMap() {
     normalizeReannealingState();
+    final assets = affectedAssets;
 
     return {
       'firestoreId': firestoreId,
@@ -537,7 +624,19 @@ class ChargeAbnormality {
       'abnormalityTypeCode': abnormalityTypeCode,
       'category': category.name,
       'severity': severity.name,
-      'affectedAssets': affectedAssets.map((asset) => asset.toMap()).toList(),
+      // Keep the long-standing identity list readable by older pilot builds.
+      // Rich hierarchy evidence travels in a separate optional field so one
+      // new-format record cannot make an older global-pull page undecodable.
+      'affectedAssets': assets.map((asset) => asset.toIdentityMap()).toList(),
+      // An upgraded phone can still hold a Build 23 offline draft with no
+      // affected asset. Omitting this newly introduced field preserves that
+      // legacy create contract; current authoring requires at least one asset.
+      if (assets.isNotEmpty)
+        'affectedAssetHierarchyRefs':
+            assets
+                .map((asset) => asset.toHierarchyReferenceMap())
+                .whereType<Map<String, dynamic>>()
+                .toList(),
       'component': component,
       'observedReason': observedReason,
       'description': description,
@@ -545,8 +644,8 @@ class ChargeAbnormality {
       'possibleRootReasonNotes': possibleRootReasonNotes,
       'reannealingStatus': reannealingStatus.name,
       'reannealedToChargeNo': reannealedToChargeNo,
-      'loggedAt': loggedAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'loggedAt': loggedAt.toUtc().toIso8601String(),
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
       'loggedByUid': loggedByUid,
       'loggedByName': loggedByName,
       'updatedByUid': updatedByUid,
@@ -555,7 +654,7 @@ class ChargeAbnormality {
       'linkedExecutionFirestoreId': linkedExecutionFirestoreId,
       'version': version,
       'isDeleted': isDeleted,
-      'deletedAt': deletedAt?.toIso8601String(),
+      'deletedAt': deletedAt?.toUtc().toIso8601String(),
       'deletedByUid': deletedByUid,
       'deletedByName': deletedByName,
       'deleteReason': deleteReason,

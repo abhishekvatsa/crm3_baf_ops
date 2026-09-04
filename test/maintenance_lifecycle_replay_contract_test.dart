@@ -224,34 +224,26 @@ void main() {
           '!appUser.isApproved',
           'final createCommand = buildMaintenanceIssueCreateCommand(',
           'await repository.saveTicket(record);',
-          'await syncCoordinator.runFullSyncWithResult(',
+          'await waitForMaintenanceIssueAcceptance(',
+          'repository.watchTicketsForAsset(',
+          'readTicket: () => repository.getByFirestoreId(',
+          'syncCoordinator.runFullSyncWithResult(',
         ]);
         expect(submit, contains('firebaseUser.uid != appUser.uid'));
-        expect(submit, contains('SyncRequestOutcome.succeeded'));
-        expect(submit, contains('SyncRequestOutcome.failed'));
-        expect(
-          submit,
-          contains(
-            'final synchronizedTicket = await repository.getByFirestoreId(',
-          ),
+        expect(submit, contains('server acceptance is not yet confirmed'));
+        expect(submit, contains('Do not raise it again;'));
+        expect(submit, contains('SYNC PENDING'));
+        final confirmation = _read(
+          'lib/features/maintenance/services/maintenance_submission_confirmation.dart',
         );
-        expect(
-          submit,
-          contains(
-            'final issueAccepted = synchronizedTicket?.isSynced == true;',
-          ),
-        );
-        expect(submit, contains('synchronization is queued'));
-        expect(
-          submit,
-          contains(
-            'Issue accepted by the plant system. Another saved item still needs sync attention.',
-          ),
-        );
-        expect(
-          submit,
-          contains('Do not raise it again; retry the SYNC PENDING issue.'),
-        );
+        expect(confirmation, contains('row.firestoreId == ticketId'));
+        expect(confirmation, contains('row.isSynced'));
+        expect(confirmation, contains('!row.isDeleted'));
+        expect(confirmation, contains('row.version >= submittedVersion'));
+        expect(confirmation, contains('await requestSync()'));
+        expect(confirmation, contains('await readTicket()'));
+        expect(confirmation, contains('subscription?.cancel()'));
+        expect(confirmation, isNot(contains('..isSynced = true')));
         expect(submit, isNot(contains('Issue raised successfully')));
         expect(
           submit,

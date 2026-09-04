@@ -11,6 +11,7 @@ const {
   payloadFingerprint,
 } = require('../lib/maintenanceWorkflow/utils');
 const {
+  qualityRootReasonForAsset,
   reopenMaintenanceTicket,
   resolveMaintenanceTicket,
 } = require('../lib/maintenanceWorkflow/ticketHandlers');
@@ -524,6 +525,10 @@ function directHandlerTransaction(ticketId, ticket) {
 }
 
 describe('governed maintenance-ticket supervision', () => {
+  test('Inner Cover quality cases retain their Base-related root route', () => {
+    expect(qualityRootReasonForAsset('innerCover')).toBe('baseRelated');
+  });
+
   test('server lane fields match the shared client command contract', () => {
     const contract = JSON.parse(fs.readFileSync(path.resolve(
       __dirname,
@@ -1050,6 +1055,16 @@ describe('governed maintenance-ticket supervision', () => {
       status: 'open',
       createdByUid: electrical.uid,
       createdAt: at.toISOString(),
+      affectedAssets: [{
+        assetType: 'furnace',
+        assetNumber: 7,
+        assetHierarchyRef: {
+          scope: 'physicalAsset',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'asset-furnace-7',
+          assetNumber: 7,
+        },
+      }],
     });
     expect(
       store.read('charge_abnormalities/issue_quality_quality-ticket'),
@@ -1064,6 +1079,20 @@ describe('governed maintenance-ticket supervision', () => {
       linkedTicketFirestoreId: 'quality-ticket',
       loggedByUid: electrical.uid,
       version: 1,
+      affectedAssets: [{
+        assetType: 'furnace',
+        assetNumber: 7,
+      }],
+      affectedAssetHierarchyRefs: [{
+        assetType: 'furnace',
+        assetNumber: 7,
+        assetHierarchyRef: {
+          scope: 'physicalAsset',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'asset-furnace-7',
+          assetNumber: 7,
+        },
+      }],
     });
     expect(store.read('maintenance_records/quality-ticket')).toMatchObject({
       qualityAbnormalityId: 'issue_quality_quality-ticket',
@@ -1139,6 +1168,40 @@ describe('governed maintenance-ticket supervision', () => {
       code: 'failed-precondition',
       details: {reasonCode: 'maintenance-ticket-quality-type-inapplicable'},
     });
+  });
+
+  test('accepts a structured lockout summary without an additional comment', async () => {
+    const {store, service, context} = createServiceFor(electrical);
+    const description = 'Burner lockout reported on burners 2, 5.';
+    const command = createCommand({
+      commandId: 'create-lockout-without-notes',
+      ticketId: 'lockout-without-notes',
+      ticket: {
+        component: 'Burner system',
+        maintenanceType: 'breakdown',
+        classification: 'furnaceBurnerLockout',
+        description,
+        routedTo: 'instrumentation',
+        isCritical: false,
+        burnerLockoutSchemaVersion: 1,
+        burnerPositions: [2, 5],
+        burnerCommonMode: false,
+        burnerCycleStage: 'notRecorded',
+        burnerHmiAlarm: null,
+        burnerFlameObservation: 'notChecked',
+        burnerSparkObservation: 'notChecked',
+        burnerRelightAttempts: 0,
+        burnerRemainsLockedOut: true,
+        burnerRedHotPositions: [],
+        burnerAttendedPositions: [],
+        burnerResolutionEvidence: {},
+      },
+    });
+    const receipt = await service.execute(command, context);
+    expect(receipt.result.directiveId).toBeNull();
+    expect(store.read('maintenance_records/lockout-without-notes'))
+      .toMatchObject({description, burnerPositions: [2, 5],
+        routedTo: 'instrumentation', status: 'open'});
   });
 
   test('creates a red-hot burner directive with the specialized issue', async () => {

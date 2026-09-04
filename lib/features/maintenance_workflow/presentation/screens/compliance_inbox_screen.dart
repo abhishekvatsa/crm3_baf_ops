@@ -305,11 +305,13 @@ class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
   }
 
   String _dueText(ComplianceRequestRecord row) {
+    if (row.statusKey == 'complied' ||
+        row.counterRevisedDescription != null ||
+        row.lastCorrectionReason != null) {
+      return complianceNextStepLabel(row);
+    }
     if (row.becameDueAt == null) {
-      final reference = row.conditionRef?.trim();
-      return reference == null || reference.isEmpty
-          ? 'Dormant until its condition is confirmed'
-          : 'Dormant until ${row.conditionTypeKey}: $reference';
+      return complianceNextStepLabel(row);
     }
     final dueAt =
         row.statusKey == 'raised'

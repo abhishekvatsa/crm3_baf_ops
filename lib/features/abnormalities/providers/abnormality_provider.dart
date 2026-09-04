@@ -9,7 +9,10 @@ import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/persistence/app_database.dart';
+import '../../../core/validation/charge_number.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../data/abnormality_model.dart';
+import '../domain/charge_abnormality_identity.dart';
 import '../services/charge_abnormality_command_service.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
@@ -20,7 +23,6 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
-import '../../quality/domain/quality_warning_projection.dart';
 
 part 'abnormality_provider.local.dart';
 part 'abnormality_provider.remote.dart';
@@ -171,6 +173,7 @@ abstract class AbnormalityRepository {
 
   Future<void> insertAbnormalityFromRemote(ChargeAbnormality remote);
   Future<void> updateAbnormalityFromRemote(ChargeAbnormality remote);
+  Future<bool> applyAbnormalityCommandReadback(ChargeAbnormality remote);
   Future<bool> applyAbnormalityServerReadbackIfUnchanged(
     ChargeAbnormality remote, {
     required SyncPushSnapshot expectedLocal,
@@ -246,11 +249,8 @@ final allAbnormalityTypesProvider = StreamProvider<List<AbnormalityType>>((
   return ref.watch(abnormalityRepositoryProvider).watchAllTypes();
 });
 
-final abnormalitiesForChargeProvider =
-    StreamProvider.autoDispose.family<List<ChargeAbnormality>, int>((
-      ref,
-      sourceChargeNo,
-    ) {
+final abnormalitiesForChargeProvider = StreamProvider.autoDispose
+    .family<List<ChargeAbnormality>, int>((ref, sourceChargeNo) {
       return ref
           .watch(abnormalityRepositoryProvider)
           .watchAbnormalitiesForCharge(sourceChargeNo);
@@ -417,11 +417,11 @@ void _validateTypeForSave(AbnormalityType type) {
 void _validateAbnormalityForSave(ChargeAbnormality abnormality) {
   _normalizeAbnormality(abnormality);
 
-  if (abnormality.sourceChargeNo <= 0) {
+  if (!isValidChargeNumber(abnormality.sourceChargeNo)) {
     throw ArgumentError.value(
       abnormality.sourceChargeNo,
       'sourceChargeNo',
-      'must be positive',
+      'must contain exactly five digits',
     );
   }
   _requireLocalText(
@@ -492,11 +492,11 @@ void _validateAbnormalityForSave(ChargeAbnormality abnormality) {
     );
   }
   final affectedAssets = abnormality.affectedAssets;
-  if (affectedAssets.length > 50) {
+  if (affectedAssets.isEmpty || affectedAssets.length > 50) {
     throw ArgumentError.value(
       affectedAssets.length,
       'affectedAssets',
-      'must contain at most 50 assets',
+      'must contain between 1 and 50 assets',
     );
   }
   final assetIdentities = <String>{};
@@ -516,15 +516,30 @@ void _validateAbnormalityForSave(ChargeAbnormality abnormality) {
         'must not contain duplicate assets',
       );
     }
+    final reference = asset.assetHierarchyReference;
+    if (reference != null) {
+      if (reference.scope == AssetHierarchyReferenceScope.definition ||
+          reference.assetInstanceId == null ||
+          reference.assetNumber != asset.assetNumber) {
+        throw ArgumentError.value(
+          reference,
+          'affectedAssets',
+          'governed hierarchy references must identify the same exact physical asset',
+        );
+      }
+      // Exercise the reference's own structural invariants before allowing a
+      // local-first row to enter the synchronization queue.
+      reference.toMap();
+    }
   }
   final completed =
       abnormality.reannealingStatus == ReannealingStatus.completed;
   final hasTarget = abnormality.reannealedToChargeNo != null;
   if (completed != hasTarget ||
-      (abnormality.reannealedToChargeNo ?? 1) <= 0 ||
+      (hasTarget && !isValidChargeNumber(abnormality.reannealedToChargeNo!)) ||
       abnormality.reannealedToChargeNo == abnormality.sourceChargeNo) {
     throw ArgumentError(
-      'Completed re-annealing requires a distinct positive target charge.',
+      'Completed re-annealing requires a distinct five-digit target charge.',
     );
   }
   if (abnormality.isDeleted) {

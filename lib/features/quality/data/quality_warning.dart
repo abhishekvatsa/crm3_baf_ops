@@ -1,5 +1,6 @@
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/validation/charge_number.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 
 enum QualityWarningSourceType { issue, abnormality }
 
@@ -11,33 +12,104 @@ enum QualityWarningClosureDisposition {
   qualityAdjudication,
 }
 
+const _qualityAssetTypes = <String>{
+  'base',
+  'furnace',
+  'forceCooler',
+  'innerCover',
+  'governedCustom',
+};
+
 class QualityAffectedAsset {
   const QualityAffectedAsset({
     required this.assetType,
     required this.assetNumber,
+    this.assetHierarchyReference,
   });
 
   final String assetType;
   final int assetNumber;
+  final AssetHierarchyReference? assetHierarchyReference;
 
-  String get label => '${assetType.toUpperCase()} $assetNumber';
+  String get label {
+    if (assetType == 'innerCover') return 'INNER COVER AT BASE $assetNumber';
+    final className = assetHierarchyReference?.assetClassName.trim();
+    return '${className?.isNotEmpty == true ? className : assetType.toUpperCase()} $assetNumber';
+  }
+
+  String? get componentLabel {
+    final reference = assetHierarchyReference;
+    if (reference == null ||
+        reference.scope == AssetHierarchyReferenceScope.physicalAsset) {
+      return null;
+    }
+    return reference.nodeName;
+  }
 
   factory QualityAffectedAsset.fromMap(
     Map<String, dynamic> map, {
     required String source,
-  }) => QualityAffectedAsset(
-    assetType: readRequiredPersistedString(
+  }) {
+    final hasHierarchyReference = map.containsKey('assetHierarchyRef');
+    if ((map.length != 2 && !(map.length == 3 && hasHierarchyReference)) ||
+        !map.containsKey('assetType') ||
+        !map.containsKey('assetNumber')) {
+      throw PersistedDataFormatException(
+        field: 'affectedAssets',
+        source: source,
+        detail:
+            'each asset must contain assetType, assetNumber and an optional assetHierarchyRef',
+      );
+    }
+    final assetType = readRequiredPersistedString(
       map['assetType'],
       field: 'assetType',
       source: source,
-    ),
-    assetNumber: readRequiredPersistedInt(
+    );
+    if (!_qualityAssetTypes.contains(assetType)) {
+      throw PersistedDataFormatException(
+        field: 'assetType',
+        source: source,
+        detail: 'unsupported affected-asset type',
+      );
+    }
+    final assetNumber = readRequiredPersistedInt(
       map['assetNumber'],
       field: 'assetNumber',
       source: source,
       minimum: 1,
-    ),
-  );
+    );
+    final rawReference = map['assetHierarchyRef'];
+    final AssetHierarchyReference? hierarchyReference;
+    if (!hasHierarchyReference) {
+      hierarchyReference = null;
+    } else if (rawReference is Map) {
+      hierarchyReference = AssetHierarchyReference.fromMap(
+        Map<String, dynamic>.from(rawReference),
+        source: '$source assetHierarchyRef',
+      );
+      if (hierarchyReference.assetNumber != assetNumber ||
+          hierarchyReference.assetInstanceId == null ||
+          hierarchyReference.scope == AssetHierarchyReferenceScope.definition) {
+        throw PersistedDataFormatException(
+          field: 'assetHierarchyRef',
+          source: source,
+          detail: 'must identify the same exact physical asset',
+        );
+      }
+    } else {
+      throw PersistedDataFormatException(
+        field: 'assetHierarchyRef',
+        source: source,
+        detail: 'must be a governed hierarchy object when present',
+      );
+    }
+    return QualityAffectedAsset(
+      assetType: assetType,
+      assetNumber: assetNumber,
+      assetHierarchyReference: hierarchyReference,
+    );
+  }
 }
 
 class QualityWarning {
@@ -141,6 +213,36 @@ class QualityWarning {
       field: 'sourceId',
       source: source,
     );
+    final sourceChargeNo = readRequiredPersistedInt(
+      map['sourceChargeNo'],
+      field: 'sourceChargeNo',
+      source: source,
+      minimum: 1,
+    );
+    if (!isValidChargeNumber(sourceChargeNo)) {
+      throw PersistedDataFormatException(
+        field: 'sourceChargeNo',
+        source: source,
+        detail: 'expected one five-digit charge number',
+      );
+    }
+    final createdAt = readRequiredPersistedDateTime(
+      map['createdAt'],
+      field: 'createdAt',
+      source: source,
+    );
+    final updatedAt = readRequiredPersistedDateTime(
+      map['updatedAt'],
+      field: 'updatedAt',
+      source: source,
+    );
+    if (updatedAt.isBefore(createdAt)) {
+      throw PersistedDataFormatException(
+        field: 'updatedAt',
+        source: source,
+        detail: 'cannot precede warning creation',
+      );
+    }
     if (warningId != '${sourceType.name}_$sourceId') {
       throw PersistedDataFormatException(
         field: 'sourceId',
@@ -149,9 +251,7 @@ class QualityWarning {
       );
     }
     final affectedRaw = map['affectedAssets'];
-    if (affectedRaw is! List ||
-        affectedRaw.isEmpty ||
-        affectedRaw.length > 50) {
+    if (affectedRaw is! List || affectedRaw.length > 50) {
       throw PersistedDataFormatException(
         field: 'affectedAssets',
         source: source,
@@ -159,6 +259,7 @@ class QualityWarning {
       );
     }
     final affectedAssets = <QualityAffectedAsset>[];
+    final affectedAssetIdentities = <String>{};
     for (var index = 0; index < affectedRaw.length; index++) {
       final raw = affectedRaw[index];
       if (raw is! Map) {
@@ -168,12 +269,20 @@ class QualityWarning {
           detail: 'expected an asset map',
         );
       }
-      affectedAssets.add(
-        QualityAffectedAsset.fromMap(
-          Map<String, dynamic>.from(raw),
-          source: '$source affectedAssets[$index]',
-        ),
+      final affectedAsset = QualityAffectedAsset.fromMap(
+        Map<String, dynamic>.from(raw),
+        source: '$source affectedAssets[$index]',
       );
+      final identity =
+          '${affectedAsset.assetType}:${affectedAsset.assetNumber}';
+      if (!affectedAssetIdentities.add(identity)) {
+        throw PersistedDataFormatException(
+          field: 'affectedAssets',
+          source: source,
+          detail: 'duplicate affected assets are not permitted',
+        );
+      }
+      affectedAssets.add(affectedAsset);
     }
     final raRaw = map['linkedReannealingChargeNos'];
     if (raRaw is! List || raRaw.length > 20) {
@@ -197,6 +306,13 @@ class QualityWarning {
         field: 'linkedReannealingChargeNos',
         source: source,
         detail: 'duplicate charge numbers are not permitted',
+      );
+    }
+    if (raCharges.any((chargeNo) => !isValidChargeNumber(chargeNo))) {
+      throw PersistedDataFormatException(
+        field: 'linkedReannealingChargeNos',
+        source: source,
+        detail: 'expected only five-digit charge numbers',
       );
     }
     final status = readRequiredPersistedEnum(
@@ -268,6 +384,26 @@ class QualityWarning {
         detail: 'closure-request evidence must be wholly present or absent',
       );
     }
+    if (closureRequestedAt != null &&
+        (closureRequestedAt.isBefore(createdAt) ||
+            closureRequestedAt.isAfter(updatedAt))) {
+      throw PersistedDataFormatException(
+        field: 'closureRequestedAt',
+        source: source,
+        detail: 'must fall within the warning lifecycle',
+      );
+    }
+    if (closedAt != null &&
+        (closedAt.isBefore(createdAt) ||
+            closedAt.isAfter(updatedAt) ||
+            (closureRequestedAt != null &&
+                closedAt.isBefore(closureRequestedAt)))) {
+      throw PersistedDataFormatException(
+        field: 'closedAt',
+        source: source,
+        detail: 'must fall within the warning lifecycle',
+      );
+    }
     if (status == QualityWarningStatus.open &&
         (hasRequestEvidence ||
             closedAt != null ||
@@ -335,12 +471,7 @@ class QualityWarning {
         source: source,
         minimum: 1,
       ),
-      sourceChargeNo: readRequiredPersistedInt(
-        map['sourceChargeNo'],
-        field: 'sourceChargeNo',
-        source: source,
-        minimum: 1,
-      ),
+      sourceChargeNo: sourceChargeNo,
       sourceSummary: readRequiredPersistedString(
         map['sourceSummary'],
         field: 'sourceSummary',
@@ -373,11 +504,7 @@ class QualityWarning {
       closureDisposition: disposition,
       linkedReannealingChargeNos: List.unmodifiable(raCharges),
       decisionReason: decisionReason,
-      createdAt: readRequiredPersistedDateTime(
-        map['createdAt'],
-        field: 'createdAt',
-        source: source,
-      ),
+      createdAt: createdAt,
       createdByUid: readRequiredPersistedString(
         map['createdByUid'],
         field: 'createdByUid',
@@ -388,11 +515,7 @@ class QualityWarning {
         field: 'createdByName',
         source: source,
       ),
-      updatedAt: readRequiredPersistedDateTime(
-        map['updatedAt'],
-        field: 'updatedAt',
-        source: source,
-      ),
+      updatedAt: updatedAt,
       updatedByUid: readRequiredPersistedString(
         map['updatedByUid'],
         field: 'updatedByUid',
@@ -523,6 +646,23 @@ class QualityMonitoringRequest {
       field: 'status',
       source: source,
     );
+    final createdAt = readRequiredPersistedDateTime(
+      map['createdAt'],
+      field: 'createdAt',
+      source: source,
+    );
+    final updatedAt = readRequiredPersistedDateTime(
+      map['updatedAt'],
+      field: 'updatedAt',
+      source: source,
+    );
+    if (updatedAt.isBefore(createdAt)) {
+      throw PersistedDataFormatException(
+        field: 'updatedAt',
+        source: source,
+        detail: 'cannot precede monitoring creation',
+      );
+    }
     final closedAt = readOptionalPersistedDateTime(
       map['closedAt'],
       field: 'closedAt',
@@ -560,6 +700,14 @@ class QualityMonitoringRequest {
         field: 'status',
         source: source,
         detail: 'monitoring status and closure evidence are inconsistent',
+      );
+    }
+    if (closedAt != null &&
+        (closedAt.isBefore(createdAt) || closedAt.isAfter(updatedAt))) {
+      throw PersistedDataFormatException(
+        field: 'closedAt',
+        source: source,
+        detail: 'must fall within the monitoring lifecycle',
       );
     }
     const retention = Duration(days: 7);
@@ -678,11 +826,7 @@ class QualityMonitoringRequest {
       visibilityState: visibilityState,
       visibleUntil: visibleUntil,
       archivedAt: archivedAt,
-      createdAt: readRequiredPersistedDateTime(
-        map['createdAt'],
-        field: 'createdAt',
-        source: source,
-      ),
+      createdAt: createdAt,
       createdByUid: readRequiredPersistedString(
         map['createdByUid'],
         field: 'createdByUid',
@@ -697,11 +841,7 @@ class QualityMonitoringRequest {
       closedByUid: closedByUid,
       closedByName: closedByName,
       closeReason: closeReason,
-      updatedAt: readRequiredPersistedDateTime(
-        map['updatedAt'],
-        field: 'updatedAt',
-        source: source,
-      ),
+      updatedAt: updatedAt,
       updatedByUid: readRequiredPersistedString(
         map['updatedByUid'],
         field: 'updatedByUid',

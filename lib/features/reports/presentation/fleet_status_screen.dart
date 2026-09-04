@@ -591,7 +591,7 @@ class _ReportFilters extends StatelessWidget {
                 (item) => DropdownMenuItem<String?>(
                   value: item.id,
                   child: Text(
-                    '${item.assetClassName} ${item.assetNumber} · ${item.name}',
+                    item.displayLabel,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

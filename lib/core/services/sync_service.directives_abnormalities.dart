@@ -361,7 +361,6 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           .getAbnormalitiesByFirestoreIds(firestoreIds);
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
-      final recordsToCreate = <ChargeAbnormality>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
       final convergedRecords = <ChargeAbnormality>[];
 
@@ -389,8 +388,23 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             convergedRecords.add(record);
             lastSuccessCount++;
           } else {
-            recordsToCreate.add(record);
+            await _pushGovernedChargeAbnormalityMutation(
+              local: record,
+              remote: null,
+              operation: ChargeAbnormalityMutationOperation.create,
+            );
           }
+          continue;
+        }
+
+        if (!sameChargeAbnormalityIdentity(record, remote)) {
+          await _recordPushConflict(
+            entityType: 'charge_abnormality',
+            entityId: record.firestoreId!,
+            localSnapshot: record.toAuditMap(),
+            remoteSnapshot: remote.toAuditMap(),
+          );
+          lastFailureCount++;
           continue;
         }
 
@@ -491,36 +505,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         );
       }
 
-      bool pushSuccess = false;
-
-      if (recordsToCreate.isNotEmpty) {
-        try {
-          await _retry(() async {
-            await _firestoreAbnormality.batchUpsertAbnormalities(
-              recordsToCreate,
-            );
-          });
-
-          pushSuccess = true;
-          lastSuccessCount += recordsToCreate.length;
-        } catch (e, stackTrace) {
-          lastFailureCount += recordsToCreate.length;
-          _recordPushFailuresForBatch(
-            entityType: 'charge_abnormality',
-            records: recordsToCreate,
-            error: e,
-          );
-          debugPrint('❌ Charge abnormality create sync failed: $e');
-          debugPrintStack(stackTrace: stackTrace);
-        }
-      }
-
       final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
-
-      if (pushSuccess) {
-        snapshotsToMark.addAll(_syncPushSnapshots(recordsToCreate));
-        convergedRecords.addAll(recordsToCreate);
-      }
 
       if (snapshotsToMark.isNotEmpty) {
         await _abnormalityRepo.markAbnormalitiesSyncedIfUnchanged(
@@ -538,16 +523,17 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
   Future<void> _pushGovernedChargeAbnormalityMutation({
     required ChargeAbnormality local,
-    required ChargeAbnormality remote,
+    required ChargeAbnormality? remote,
     required ChargeAbnormalityMutationOperation operation,
   }) async {
     final firestoreId = local.firestoreId!;
-    if (local.version != remote.version + 1) {
+    final isCreate = operation == ChargeAbnormalityMutationOperation.create;
+    if (!isCreate && (remote == null || local.version != remote.version + 1)) {
       await _recordPushConflict(
         entityType: 'charge_abnormality',
         entityId: firestoreId,
         localSnapshot: local.toAuditMap(),
-        remoteSnapshot: remote.toAuditMap(),
+        remoteSnapshot: remote?.toAuditMap() ?? const {},
       );
       lastFailureCount++;
       debugPrint(
@@ -572,10 +558,17 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
       ChargeAbnormalityMutationResult? result;
       await _retry(
         () async {
+          if (isCreate) {
+            result = await _abnormalityCommands.create(
+              abnormality: local,
+              requestId: requestId,
+            );
+            return;
+          }
           if (operation == ChargeAbnormalityMutationOperation.softDelete) {
             result = await _abnormalityCommands.softDelete(
               abnormality: local,
-              expectedVersion: remote.version,
+              expectedVersion: remote!.version,
               reason: rawReason,
               requestId: requestId,
             );
@@ -583,7 +576,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           }
           result = await _abnormalityCommands.update(
             abnormality: local,
-            expectedVersion: remote.version,
+            expectedVersion: remote!.version,
             reason: rawReason,
             requestId: requestId,
           );
@@ -638,7 +631,8 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
     ChargeAbnormality local,
     ChargeAbnormality remote,
   ) {
-    return local.version == remote.version &&
+    return sameChargeAbnormalityIdentity(local, remote) &&
+        local.version == remote.version &&
         local.abnormalityTypeId == remote.abnormalityTypeId &&
         local.severity == remote.severity &&
         encodeAffectedAssets(local.affectedAssets) ==

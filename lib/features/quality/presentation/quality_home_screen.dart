@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/services/sync_coordinator.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -12,8 +14,10 @@ import '../../abnormalities/data/abnormality_model.dart';
 import '../../abnormalities/providers/abnormality_provider.dart';
 import '../data/quality_warning.dart';
 import '../providers/quality_provider.dart';
+import '../services/quality_command_service.dart';
 
 part 'quality_home_screen.widgets.dart';
+part 'quality_home_screen.cards.dart';
 
 enum _WarningFilter { open, review, closed }
 
@@ -223,6 +227,9 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                   busy: _submitting,
                   onRequestClosure: () => _requestWarningClosure(warning),
                   onDeclareRaRequired: () => _declareRaRequired(warning),
+                  onRecordRaCompleted:
+                      (linkedAbnormality) =>
+                          _recordRaCompleted(warning, linkedAbnormality),
                   onClose:
                       (linkedAbnormality) =>
                           _closeWarning(warning, linkedAbnormality),
@@ -313,8 +320,10 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
     final decision = await showDialog<_WarningDecision>(
       context: context,
       builder:
-          (context) =>
-              _CloseWarningDialog(linkedAbnormality: linkedAbnormality),
+          (context) => _CloseWarningDialog(
+            warning: warning,
+            linkedAbnormality: linkedAbnormality,
+          ),
     );
     if (decision == null) return;
     await _runCommand(
@@ -333,12 +342,37 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
     final reason = await _reasonDialog(
       title: 'Declare re-annealing required',
       label: 'Decision evidence',
+      initialValue: warning.warningReason,
     );
     if (reason == null) return;
     await _runCommand(
       () => ref
           .read(qualityCommandServiceProvider)
           .declareRaRequired(warning: warning, reason: reason),
+    );
+  }
+
+  Future<void> _recordRaCompleted(
+    QualityWarning warning,
+    ChargeAbnormality abnormality,
+  ) async {
+    final completion = await showDialog<_RaCompletionInput>(
+      context: context,
+      builder:
+          (context) => _RecordRaCompletionDialog(
+            warning: warning,
+            abnormality: abnormality,
+          ),
+    );
+    if (completion == null) return;
+    await _runCommand(
+      () => ref
+          .read(qualityCommandServiceProvider)
+          .recordRaCompleted(
+            warning: warning,
+            reannealedToChargeNo: completion.newChargeNo,
+            reason: completion.evidence,
+          ),
     );
   }
 
@@ -356,6 +390,49 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   }
 
   Future<void> _createMonitoringRequest() async {
+    final service = ref.read(qualityCommandServiceProvider);
+    try {
+      final pending = await service.pendingMonitoringCreation();
+      if (!mounted) return;
+      if (pending != null) {
+        final retry = await showDialog<bool>(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Monitoring confirmation pending'),
+                content: SingleChildScrollView(
+                  child: Text(
+                    'Base ${pending['baseNumber']}\n'
+                    '${pending['grade']} - ${pending['cycleReference']}\n'
+                    '${pending['reason']}\n\n'
+                    'This submission has not been confirmed on this device.',
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Later'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Retry confirmation'),
+                  ),
+                ],
+              ),
+        );
+        if (retry == true && mounted) {
+          await _runCommand(service.retryMonitoringCreation);
+        }
+        return;
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
+      }
+      return;
+    }
     final request = await showDialog<_MonitoringInput>(
       context: context,
       builder: (context) => const _MonitoringRequestDialog(),
@@ -390,20 +467,55 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   Future<String?> _reasonDialog({
     required String title,
     required String label,
+    String? initialValue,
   }) => showDialog<String>(
     context: context,
-    builder: (context) => _ReasonDialog(title: title, label: label),
+    builder:
+        (context) => _ReasonDialog(
+          title: title,
+          label: label,
+          initialValue: initialValue,
+        ),
   );
 
-  Future<void> _runCommand(Future<Object> Function() command) async {
+  Future<void> _runCommand(
+    Future<QualityCommandResult> Function() command,
+  ) async {
+    if (!mounted || _submitting) return;
     setState(() => _submitting = true);
     try {
-      await command();
+      final result = await command();
+      var localReadbackApplied = true;
+      try {
+        localReadbackApplied = await _applyLinkedAbnormalityReadback(
+          result.linkedAbnormality,
+        );
+        if (!localReadbackApplied && !kIsWeb) {
+          final sync = await ref
+              .read(syncCoordinatorProvider)
+              .runFullSyncWithResult(
+                reason: 'quality_command_readback',
+                force: true,
+              );
+          if (sync == SyncRequestOutcome.succeeded) {
+            localReadbackApplied = await _applyLinkedAbnormalityReadback(
+              result.linkedAbnormality,
+            );
+          }
+        }
+      } catch (_) {
+        localReadbackApplied = false;
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Quality record updated'),
-          backgroundColor: BafColors.sync,
+        SnackBar(
+          content: Text(
+            localReadbackApplied
+                ? 'Quality record updated'
+                : 'Updated in the cloud; this phone still needs a refresh sync.',
+          ),
+          backgroundColor:
+              localReadbackApplied ? BafColors.sync : BafColors.warning,
         ),
       );
     } catch (error) {
@@ -415,430 +527,25 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
       if (mounted) setState(() => _submitting = false);
     }
   }
-}
 
-class _SummaryStrip extends StatelessWidget {
-  const _SummaryStrip({
-    required this.open,
-    required this.review,
-    required this.closed,
-  });
-
-  final int open;
-  final int review;
-  final int closed;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(child: _SummaryMetric(label: 'Open', value: open)),
-      const SizedBox(width: BafSpacing.sm),
-      Expanded(child: _SummaryMetric(label: 'Review', value: review)),
-      const SizedBox(width: BafSpacing.sm),
-      Expanded(child: _SummaryMetric(label: 'Closed', value: closed)),
-    ],
-  );
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({required this.label, required this.value});
-
-  final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: BafSpacing.md,
-      vertical: BafSpacing.md,
-    ),
-    decoration: BoxDecoration(
-      color: BafColors.card,
-      border: Border.all(color: BafColors.border),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Column(
-      children: [
-        Text(
-          '$value',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: BafColors.textPrimary,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: BafColors.textSecondary),
-        ),
-      ],
-    ),
-  );
-}
-
-class _WarningCard extends ConsumerWidget {
-  const _WarningCard({
-    required this.warning,
-    required this.actor,
-    required this.busy,
-    required this.onRequestClosure,
-    required this.onDeclareRaRequired,
-    required this.onClose,
-    required this.onReopen,
-  });
-
-  final QualityWarning warning;
-  final AppUser? actor;
-  final bool busy;
-  final VoidCallback onRequestClosure;
-  final VoidCallback onDeclareRaRequired;
-  final ValueChanged<ChargeAbnormality?> onClose;
-  final VoidCallback onReopen;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final abnormalities = ref.watch(
-      abnormalitiesForChargeProvider(warning.sourceChargeNo),
-    );
-    final linkedAbnormality = abnormalities.whenOrNull(
-      data:
-          (items) =>
-              items
-                  .where(
-                    (abnormality) =>
-                        warning.sourceType == QualityWarningSourceType.issue
-                            ? abnormality.linkedTicketFirestoreId ==
-                                warning.sourceId
-                            : abnormality.firestoreId == warning.sourceId,
-                  )
-                  .firstOrNull,
-    );
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: BafColors.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: BafColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(BafSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  _statusIcon(warning.status),
-                  color: _statusColor(warning.status),
-                ),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Charge ${warning.sourceChargeNo}',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: BafColors.textPrimary,
-                    ),
-                  ),
-                ),
-                _StatusLabel(status: warning.status),
-              ],
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            Text(
-              warning.sourceSummary,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: BafColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: BafSpacing.xs),
-            Text(
-              warning.warningReason,
-              style: const TextStyle(color: BafColors.textSecondary),
-            ),
-            const SizedBox(height: BafSpacing.md),
-            Wrap(
-              spacing: BafSpacing.sm,
-              runSpacing: BafSpacing.xs,
-              children: [
-                _Fact(
-                  icon: Icons.precision_manufacturing_outlined,
-                  text:
-                      warning.affectedAssets.isEmpty
-                          ? 'No asset recorded'
-                          : warning.affectedAssets
-                              .map((asset) => asset.label)
-                              .join(', '),
-                ),
-                if (warning.component != null)
-                  _Fact(
-                    icon: Icons.settings_outlined,
-                    text: warning.component!,
-                  ),
-                _Fact(
-                  icon: Icons.schedule_outlined,
-                  text: DateFormat(
-                    'dd MMM yyyy, HH:mm',
-                  ).format(warning.createdAt),
-                ),
-              ],
-            ),
-            if (linkedAbnormality != null) ...[
-              const SizedBox(height: BafSpacing.md),
-              _RaStateBand(abnormality: linkedAbnormality),
-            ],
-            if (warning.closureRequestReason != null) ...[
-              const SizedBox(height: BafSpacing.md),
-              Text(
-                'Closure request: ${warning.closureRequestReason}',
-                style: const TextStyle(
-                  color: BafColors.warning,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-            if (warning.status == QualityWarningStatus.closed) ...[
-              const SizedBox(height: BafSpacing.md),
-              Text(
-                _closureLabel(warning),
-                style: const TextStyle(
-                  color: BafColors.sync,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-            const SizedBox(height: BafSpacing.md),
-            Wrap(
-              spacing: BafSpacing.sm,
-              runSpacing: BafSpacing.sm,
-              children: [
-                if (warning.status == QualityWarningStatus.open &&
-                    actor?.canRequestQualityWarningClosure == true)
-                  OutlinedButton.icon(
-                    onPressed: busy ? null : onRequestClosure,
-                    icon: const Icon(Icons.forward_to_inbox_outlined),
-                    label: const Text('Request closure'),
-                  ),
-                if (warning.status != QualityWarningStatus.closed &&
-                    actor?.canCloseQualityWarning == true)
-                  OutlinedButton.icon(
-                    onPressed:
-                        busy ||
-                                linkedAbnormality == null ||
-                                linkedAbnormality.reannealingStatus ==
-                                    ReannealingStatus.required ||
-                                linkedAbnormality.reannealingStatus ==
-                                    ReannealingStatus.completed
-                            ? null
-                            : onDeclareRaRequired,
-                    icon: const Icon(Icons.repeat_rounded),
-                    label: const Text('RA required'),
-                  ),
-                if (warning.status != QualityWarningStatus.closed &&
-                    actor?.canCloseQualityWarning == true)
-                  FilledButton.icon(
-                    onPressed:
-                        busy || !abnormalities.hasValue
-                            ? null
-                            : () => onClose(linkedAbnormality),
-                    icon: const Icon(Icons.verified_rounded),
-                    label: const Text('Adjudicate'),
-                  ),
-                if (warning.status == QualityWarningStatus.closed &&
-                    actor?.canCloseQualityWarning == true)
-                  OutlinedButton.icon(
-                    onPressed: busy ? null : onReopen,
-                    icon: const Icon(Icons.replay_rounded),
-                    label: const Text('Reopen'),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<bool> _applyLinkedAbnormalityReadback(
+    ChargeAbnormality? remote,
+  ) async {
+    if (remote == null || kIsWeb) return true;
+    final firestoreId = remote.firestoreId;
+    if (firestoreId == null || firestoreId.trim().isEmpty) return false;
+    final repository = ref.read(abnormalityRepositoryProvider);
+    final accepted = await repository.applyAbnormalityCommandReadback(remote);
+    if (!accepted) return false;
+    final applied = await repository.getAbnormalityByFirestoreId(firestoreId);
+    return applied != null &&
+        applied.isSynced &&
+        applied.version == remote.version &&
+        applied.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+        applied.isDeleted == remote.isDeleted &&
+        applied.reannealingStatus == remote.reannealingStatus &&
+        applied.reannealedToChargeNo == remote.reannealedToChargeNo;
   }
-
-  static IconData _statusIcon(QualityWarningStatus status) => switch (status) {
-    QualityWarningStatus.open => Icons.warning_amber_rounded,
-    QualityWarningStatus.closureRequested => Icons.hourglass_top_rounded,
-    QualityWarningStatus.closed => Icons.verified_rounded,
-  };
-
-  static Color _statusColor(QualityWarningStatus status) => switch (status) {
-    QualityWarningStatus.open => BafColors.danger,
-    QualityWarningStatus.closureRequested => BafColors.warning,
-    QualityWarningStatus.closed => BafColors.sync,
-  };
-
-  static String _closureLabel(QualityWarning warning) {
-    final disposition = warning.closureDisposition;
-    final label = switch (disposition) {
-      QualityWarningClosureDisposition.coilFoundAcceptable =>
-        'Coil found acceptable',
-      QualityWarningClosureDisposition.reannealingCompleted =>
-        'Closed after re-annealing',
-      QualityWarningClosureDisposition.qualityAdjudication =>
-        'Closed by quality adjudication',
-      null => 'Closed',
-    };
-    final ra = warning.linkedReannealingChargeNos;
-    return ra.isEmpty ? label : '$label · RA ${ra.join(', ')}';
-  }
-}
-
-class _MonitoringCard extends StatelessWidget {
-  const _MonitoringCard({
-    required this.request,
-    required this.canClose,
-    required this.busy,
-    required this.onClose,
-  });
-
-  final QualityMonitoringRequest request;
-  final bool canClose;
-  final bool busy;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    elevation: 0,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: const BorderSide(color: BafColors.border),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.monitor_heart_outlined,
-                color: BafColors.charges,
-              ),
-              const SizedBox(width: BafSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Base ${request.baseNumber} · ${request.grade}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: BafColors.textPrimary,
-                  ),
-                ),
-              ),
-              Text(
-                request.status == QualityMonitoringStatus.active
-                    ? 'Active'
-                    : 'Closed',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color:
-                      request.status == QualityMonitoringStatus.active
-                          ? BafColors.warning
-                          : BafColors.sync,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          Text(
-            request.cycleReference,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: BafColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: BafSpacing.xs),
-          Text(
-            request.reason,
-            style: const TextStyle(color: BafColors.textSecondary),
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.xs,
-            children: [
-              _Fact(
-                icon: Icons.person_outline_rounded,
-                text:
-                    'Requested by ${request.createdByName ?? request.createdByUid}',
-              ),
-              _Fact(
-                icon: Icons.schedule_outlined,
-                text: DateFormat(
-                  'dd MMM yyyy, HH:mm',
-                ).format(request.createdAt),
-              ),
-            ],
-          ),
-          if (request.chargeNumbers.isNotEmpty) ...[
-            const SizedBox(height: BafSpacing.sm),
-            Text(
-              'Charges: ${request.chargeNumbers.join(', ')}',
-              style: const TextStyle(color: BafColors.textSecondary),
-            ),
-          ],
-          if (request.status == QualityMonitoringStatus.closed) ...[
-            const SizedBox(height: BafSpacing.md),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(BafSpacing.md),
-              decoration: BoxDecoration(
-                color: BafColors.surfaceTint,
-                border: Border.all(color: BafColors.border),
-                borderRadius: BorderRadius.circular(BafRadius.medium),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    request.closeReason!,
-                    style: const TextStyle(
-                      color: BafColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: BafSpacing.sm),
-                  Wrap(
-                    spacing: BafSpacing.sm,
-                    runSpacing: BafSpacing.xs,
-                    children: [
-                      _Fact(
-                        icon: Icons.verified_user_outlined,
-                        text:
-                            'Closed by ${request.closedByName ?? request.closedByUid}',
-                      ),
-                      _Fact(
-                        icon: Icons.event_available_outlined,
-                        text: DateFormat(
-                          'dd MMM yyyy, HH:mm',
-                        ).format(request.closedAt!),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (request.status == QualityMonitoringStatus.active && canClose) ...[
-            const SizedBox(height: BafSpacing.md),
-            OutlinedButton.icon(
-              onPressed: busy ? null : onClose,
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: const Text('Complete monitoring'),
-            ),
-          ],
-        ],
-      ),
-    ),
-  );
 }
 
 class _MonitoringRequestDialog extends StatefulWidget {
@@ -882,11 +589,13 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
           const SizedBox(height: BafSpacing.md),
           TextField(
             controller: _grade,
+            maxLength: 120,
             decoration: const InputDecoration(labelText: 'Grade'),
           ),
           const SizedBox(height: BafSpacing.md),
           TextField(
             controller: _cycle,
+            maxLength: 200,
             decoration: const InputDecoration(labelText: 'Cycle reference'),
           ),
           const SizedBox(height: BafSpacing.md),
@@ -901,6 +610,7 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
           const SizedBox(height: BafSpacing.md),
           TextField(
             controller: _reason,
+            maxLength: 2000,
             maxLines: 4,
             decoration: const InputDecoration(labelText: 'Monitoring reason'),
           ),
@@ -977,18 +687,29 @@ class _WarningDecision {
 }
 
 class _ReasonDialog extends StatefulWidget {
-  const _ReasonDialog({required this.title, required this.label});
+  const _ReasonDialog({
+    required this.title,
+    required this.label,
+    this.initialValue,
+  });
 
   final String title;
   final String label;
+  final String? initialValue;
 
   @override
   State<_ReasonDialog> createState() => _ReasonDialogState();
 }
 
 class _ReasonDialogState extends State<_ReasonDialog> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue ?? '');
+  }
 
   @override
   void dispose() {
@@ -1001,6 +722,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
     title: Text(widget.title),
     content: TextField(
       controller: _controller,
+      maxLength: 2000,
       maxLines: 4,
       autofocus: true,
       decoration: InputDecoration(labelText: widget.label, errorText: _error),

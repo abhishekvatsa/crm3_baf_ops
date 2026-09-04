@@ -375,16 +375,34 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
   Future<void> batchUpsertDirectives(List<OperationalDirective> records) async {
     if (records.isEmpty) return;
     final batch = FirebaseFirestore.instance.batch();
+    var ordinaryWrites = 0;
     for (final record in records) {
+      if (isGovernedBurnerRoundDirectiveId(record.firestoreId)) {
+        final local = copyOperationalDirective(record);
+        final reference = _col.doc(local.firestoreId!);
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final snapshot = await transaction.get(reference);
+          if (!snapshot.exists) {
+            throw StateError('The server burner directive no longer exists.');
+          }
+          final patch = governedDirectiveAcknowledgementPatch(
+            local: local,
+            remote: _mapDirective(snapshot),
+          );
+          if (patch.isNotEmpty) transaction.update(reference, patch);
+        });
+        continue;
+      }
       if (record.firestoreId != null) {
         batch.set(
           _col.doc(record.firestoreId),
           _directiveToMap(record),
           SetOptions(merge: true),
         );
+        ordinaryWrites++;
       }
     }
-    await batch.commit();
+    if (ordinaryWrites > 0) await batch.commit();
   }
 
   @override

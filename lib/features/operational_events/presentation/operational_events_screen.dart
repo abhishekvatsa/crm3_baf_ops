@@ -888,7 +888,7 @@ class _EventDialogState extends State<_EventDialog> {
       title: 'Affected assets',
       choices: {
         for (final item in widget.assets.where((item) => item.isActive))
-          item.id: '${item.assetClassName} ${item.assetNumber} · ${item.name}',
+          item.id: item.displayLabel,
       },
       selected: _assetIds,
     );

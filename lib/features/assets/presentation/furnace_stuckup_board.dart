@@ -204,17 +204,17 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
 
   Future<void> _release(FurnaceStuckupRecord record) async {
     final notes = await _showNotesDialog(
-      title: 'Release physical obstruction',
+      title: 'Confirm furnace removal',
       message:
           'Confirm that the Furnace has been separated from Base ${record.baseAssetNumber}. This clears only the stuck-up availability block; the maintenance issue remains accountable.',
-      actionLabel: 'Release',
+      actionLabel: 'Confirm removal',
     );
     if (!mounted || notes == null) return;
     await _execute(
       record,
       type: WorkflowCommandType.releaseFurnaceStuckup,
       payload: <String, Object?>{'releaseNotes': notes},
-      success: 'Physical obstruction released.',
+      success: 'Furnace removal confirmed.',
     );
   }
 
@@ -564,7 +564,7 @@ class _StuckupCaseCard extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: busy ? null : onRelease,
                     icon: const Icon(Icons.lock_open_rounded),
-                    label: const Text('Release obstruction'),
+                    label: const Text('Confirm removal'),
                   ),
                 if (canAdjudicate)
                   OutlinedButton.icon(

@@ -565,7 +565,7 @@ export const mutateChargeAbnormality = onCall(
         authorize: (userData) =>
           isQualityMutationOperation(request.data?.operation) ?
             userCanMutateQuality(userData, request.data.operation) :
-            userCanMutateChargeAbnormality(userData),
+            userCanMutateChargeAbnormality(userData, request.data?.operation),
         execute: () => isQualityMutationOperation(request.data?.operation) ?
           mutateQualityWithDb({
             db: db as unknown as QualityMutationFirestoreLike,

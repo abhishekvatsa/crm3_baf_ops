@@ -69,6 +69,108 @@ void main() {
   setUpAll(initializeTestIsarCore);
 
   test(
+    'legacy unsent draft adopts creation receipt version instead of its local edit count',
+    () async {
+      await _withAbnormalityIsar((isar) async {
+        final local = _abnormality(version: 4, isSynced: false);
+        await isar.writeTxn(() => isar.chargeAbnormalitys.put(local));
+        final remote = _abnormality(
+          version: 1,
+          updatedAt: local.updatedAt.add(const Duration(minutes: 1)),
+        );
+        final adopted = await IsarAbnormalityRepository()
+            .applyAbnormalityServerReadbackIfUnchanged(
+              remote,
+              expectedLocal: SyncPushSnapshot(
+                id: local.id,
+                version: local.version,
+                updatedAt: local.updatedAt,
+              ),
+              expectedLocalSynced: false,
+            );
+        expect(adopted, isTrue);
+        final stored = await isar.chargeAbnormalitys.get(local.id);
+        expect(stored?.version, 1);
+        expect(stored?.updatedAt.isAtSameMomentAs(remote.updatedAt), isTrue);
+        expect(stored?.isSynced, isTrue);
+      });
+    },
+  );
+
+  final identityChanges = <String, void Function(ChargeAbnormality)>{
+    'source charge': (row) => row.sourceChargeNo = 70002,
+    'original time':
+        (row) => row.loggedAt = row.loggedAt.add(const Duration(seconds: 1)),
+    'original actor': (row) => row.loggedByUid = 'operator_2',
+    'original actor name': (row) => row.loggedByName = 'Different operator',
+    'source ticket': (row) => row.linkedTicketFirestoreId = 'different-ticket',
+    'source execution':
+        (row) => row.linkedExecutionFirestoreId = 'different-job',
+  };
+  for (final change in identityChanges.entries) {
+    test('pull and deletion preserve a different ${change.key}', () async {
+      await _withAbnormalityIsar((isar) async {
+        final local = _abnormality(isSynced: false);
+        await isar.writeTxn(() => isar.chargeAbnormalitys.put(local));
+        final before = local.toMap();
+        final remote = _abnormality(
+          version: 9,
+          updatedAt: local.updatedAt.add(const Duration(minutes: 5)),
+        );
+        change.value(remote);
+        final repository = IsarAbnormalityRepository();
+        await expectLater(
+          repository.updateAbnormalityFromRemote(remote),
+          throwsStateError,
+        );
+        remote
+          ..isDeleted = true
+          ..deletedAt = remote.updatedAt
+          ..deletedByUid = 'admin_1'
+          ..deletedByName = 'Admin'
+          ..deleteReason = 'Remote deletion';
+        await expectLater(
+          repository.applyTombstoneFromAbnormalityRemote(remote),
+          throwsStateError,
+        );
+        await expectLater(
+          repository.updateAbnormalityFromRemote(remote),
+          throwsStateError,
+        );
+        final retained = (await isar.chargeAbnormalitys.get(local.id))!;
+        expect(retained.toMap(), before);
+        expect(retained.isSynced, isFalse);
+      });
+    });
+    test(
+      'readback preserves local evidence for a different ${change.key}',
+      () async {
+        await _withAbnormalityIsar((isar) async {
+          final local = _abnormality(isSynced: false);
+          await isar.writeTxn(() => isar.chargeAbnormalitys.put(local));
+          final before = local.toMap();
+          final remote = _abnormality();
+          change.value(remote);
+          final adopted = await IsarAbnormalityRepository()
+              .applyAbnormalityServerReadbackIfUnchanged(
+                remote,
+                expectedLocal: SyncPushSnapshot(
+                  id: local.id,
+                  version: local.version,
+                  updatedAt: local.updatedAt,
+                ),
+                expectedLocalSynced: false,
+              );
+          expect(adopted, isFalse);
+          final retained = (await isar.chargeAbnormalitys.get(local.id))!;
+          expect(retained.toMap(), before);
+          expect(retained.isSynced, isFalse);
+        });
+      },
+    );
+  }
+
+  test(
     'accepted callable record atomically replaces the inspected row',
     () async {
       await _withAbnormalityIsar((isar) async {
@@ -166,6 +268,84 @@ void main() {
       expect(after.version, 3);
       expect(after.deleteReason, 'Duplicate record');
       expect(after.isSynced, isTrue);
+    });
+  });
+
+  test(
+    'quality command revives a synchronized local tombstone in place',
+    () async {
+      await _withAbnormalityIsar((isar) async {
+        final tombstone = _abnormality(
+          version: 5,
+          isDeleted: true,
+          updatedAt: DateTime.utc(2026, 8, 23, 8, 5),
+        );
+        await isar.writeTxn(() => isar.chargeAbnormalitys.put(tombstone));
+        final localId = tombstone.id;
+        final remote = _abnormality(
+          version: 6,
+          updatedAt: DateTime.utc(2026, 8, 23, 8, 10),
+        )..reannealingStatus = ReannealingStatus.pendingDecision;
+
+        final adopted = await IsarAbnormalityRepository()
+            .applyAbnormalityCommandReadback(remote);
+
+        expect(adopted, isTrue);
+        final rows = await isar.chargeAbnormalitys.where().findAll();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, localId);
+        expect(rows.single.isDeleted, isFalse);
+        expect(rows.single.deletedAt, isNull);
+        expect(rows.single.version, 6);
+        expect(
+          rows.single.reannealingStatus,
+          ReannealingStatus.pendingDecision,
+        );
+        expect(rows.single.isSynced, isTrue);
+      });
+    },
+  );
+
+  test('quality command readback cannot erase unresolved local work', () async {
+    await _withAbnormalityIsar((isar) async {
+      final local = _abnormality(
+        version: 7,
+        isSynced: false,
+        updatedAt: DateTime.utc(2026, 8, 23, 8, 15),
+      )..observedReason = 'Unsynced evidence captured on this phone';
+      await isar.writeTxn(() => isar.chargeAbnormalitys.put(local));
+      final remote = _abnormality(
+        version: 8,
+        updatedAt: DateTime.utc(2026, 8, 23, 8, 20),
+      )..observedReason = 'Server command result';
+
+      final adopted = await IsarAbnormalityRepository()
+          .applyAbnormalityCommandReadback(remote);
+
+      expect(adopted, isFalse);
+      final after = await isar.chargeAbnormalitys.get(local.id);
+      expect(after!.version, 7);
+      expect(after.observedReason, 'Unsynced evidence captured on this phone');
+      expect(after.isSynced, isFalse);
+    });
+  });
+
+  test('quality command inserts an absent canonical case', () async {
+    await _withAbnormalityIsar((isar) async {
+      final remote = _abnormality(
+        version: 3,
+        updatedAt: DateTime.utc(2026, 8, 23, 8, 5),
+      );
+
+      final adopted = await IsarAbnormalityRepository()
+          .applyAbnormalityCommandReadback(remote);
+
+      expect(adopted, isTrue);
+      final rows = await isar.chargeAbnormalitys.where().findAll();
+      expect(rows, hasLength(1));
+      expect(rows.single.firestoreId, 'abnormality_1');
+      expect(rows.single.version, 3);
+      expect(rows.single.isSynced, isTrue);
     });
   });
 }

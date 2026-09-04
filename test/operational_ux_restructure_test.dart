@@ -19,7 +19,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
+  test('charge abnormality hierarchy evidence uses one event boundary', () {
+    final source = readDartLibrarySource(
+      'lib/features/abnormalities/presentation/charge_abnormalities_screen.dart',
+    );
+
+    expect(
+      source,
+      contains('_eventAt = existing?.loggedAt ?? DateTime.now();'),
+    );
+    expect(source, contains('..loggedAt = draft.eventAt'));
+    expect(source, contains('eventAt: _eventAt'));
+    expect(source, contains('confirmedAt: confirmedAt'));
+    expect(source, contains('eventAt.isBefore(assignment.linkedAt)'));
+    expect(source, contains('A current vacancy or later linkage cannot prove'));
+    expect(source, contains('inventing Inner Cover evidence.'));
+  });
+
   test('operational shell and destinations preserve the intended structure', () {
     final home = File('lib/home_screen.dart').readAsStringSync();
     final reports = [
@@ -40,6 +59,10 @@ void main() {
         ).readAsStringSync();
     final theme =
         File('lib/core/theme/baf_design_system.dart').readAsStringSync();
+    final qualityProvider =
+        File(
+          'lib/features/quality/providers/quality_provider.dart',
+        ).readAsStringSync();
 
     expect(home, contains('NavigationRail('));
     expect(home, contains("label: 'Home'"));
@@ -118,6 +141,11 @@ void main() {
     expect(work, contains('BoxConstraints(maxWidth: 1000)'));
     expect(theme, contains('static const large = 8.0'));
     expect(theme, contains('static const xLarge = 8.0'));
+    expect(qualityProvider, contains(".orderBy('closedAt', descending: true)"));
+    expect(
+      qualityProvider,
+      isNot(contains(".orderBy('updatedAt', descending: true)")),
+    );
   });
 
   testWidgets('operations Work is task-first and hides governance templates', (

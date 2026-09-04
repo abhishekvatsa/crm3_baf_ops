@@ -1,6 +1,7 @@
 import {mayFinalizeLaneSet} from "./authority";
 import {
   equipmentFactsFromProjection,
+  loadEquipmentFacts,
   equipmentProjectionWrite,
   projectEquipment,
   withWorkflowContribution,
@@ -751,13 +752,17 @@ export const createLegacyWorkflowJob: CommandHandler = async ({tx, command, cont
   const executionRef = executionPath(executionId);
   const aggregateRef = workflowPath(executionId);
   const equipmentRef = equipmentPathForIdentity(identity);
+  const currentEquipment = await tx.get(equipmentRef);
+  // First assignments and retained-data cleanup can leave no projection.
+  // Reconstruct under the same transaction/asset lock, never assume zero work.
+  // A present but malformed projection still needs explicit reconciliation.
+  const existingFacts = currentEquipment.data == null ?
+    await loadEquipmentFacts(tx, identity) :
+    equipmentFactsFromProjection(currentEquipment.data, identity);
+  // Read prospective workflow documents after the shared projection/fact range
+  // to avoid cross-locking two simultaneous first assignments.
   const existingExecution = await tx.get(executionRef);
   const existingWorkflow = await tx.get(aggregateRef);
-  const currentEquipment = await tx.get(equipmentRef);
-  const existingFacts = equipmentFactsFromProjection(
-    currentEquipment.data,
-    identity,
-  );
   if (existingExecution.exists || existingWorkflow.exists) {
     throw new WorkflowError("already-exists", "A job or workflow already uses this identity.");
   }

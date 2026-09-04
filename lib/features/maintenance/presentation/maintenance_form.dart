@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -13,6 +14,7 @@ import '../data/maintenance_model.dart';
 import '../domain/governed_issue_asset_selection.dart';
 import '../providers/maintenance_provider.dart';
 import '../services/maintenance_issue_create_command.dart';
+import '../services/maintenance_submission_confirmation.dart';
 import '../validation/maintenance_input_validator.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../abnormalities/data/abnormality_model.dart';
@@ -46,6 +48,7 @@ part 'maintenance_form_asset_widgets.dart';
 part 'maintenance_form_inner_cover_availability.dart';
 part 'maintenance_form_component_widgets.dart';
 part 'maintenance_form_frequent_issue_widgets.dart';
+part 'maintenance_form_draft.dart';
 
 enum _IssueIntakeMode { standard, furnaceStuckup }
 
@@ -58,6 +61,8 @@ class MaintenanceForm extends ConsumerStatefulWidget {
 
 class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   final _formKey = GlobalKey<FormState>();
+  final _formScrollController = ScrollController();
+  bool _isExitConfirmationOpen = false;
   bool _isSubmitting = false;
   bool _isCritical = false;
   bool _isBurnerLockout = false;
@@ -88,6 +93,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   RoutedTo _routedTo = RoutedTo.mechanical;
   final Set<RoutedTo> _routedLanes = <RoutedTo>{RoutedTo.mechanical};
   DateTime _startTime = DateTime.now();
+  late final DateTime _initialStartTime;
 
   final _descController = TextEditingController();
   final _chargeNoController = TextEditingController();
@@ -117,6 +123,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   @override
   void initState() {
     super.initState();
+    _initialStartTime = _startTime;
 
     _componentController.addListener(() {
       if (!_isAutoResolved) return;
@@ -127,6 +134,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   @override
   void dispose() {
     _tagResolutionDebounce?.cancel();
+    _formScrollController.dispose();
     _descController.dispose();
     _chargeNoController.dispose();
     _tagController.dispose();
@@ -389,17 +397,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   }
 
   void _selectIssueAssetRoute(GovernedIssueAssetRoute? route) {
+    if (_issueAssetClassId == route?.issueClass.id) return;
     setState(() {
       _issueAssetClassId = route?.issueClass.id;
       _assetInstanceId = null;
       _assetType = route?.assetType ?? AssetType.base;
-      _qualityAbnormalityTypeId = null;
       if (_assetType != AssetType.furnace) _resetBurnerLockout();
       _resetAssetEvidence();
     });
   }
 
   void _selectPhysicalAsset(AssetInstanceRecord? asset) {
+    if (_assetInstanceId == asset?.id) return;
     setState(() {
       _assetInstanceId = asset?.id;
       _resetAssetEvidence();
@@ -535,7 +544,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _resetBurnerLockout();
         _issueAssetClassId = route.issueClass.id;
         _assetType = AssetType.furnace;
-        _qualityAbnormalityTypeId = null;
         _assetInstanceId = null;
         _stuckupBaseAssetId = null;
         _stuckupConfirmedLinkageId = null;
@@ -560,7 +568,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _issueAssetClassId = null;
       _assetInstanceId = null;
       _assetType = AssetType.base;
-      _qualityAbnormalityTypeId = null;
       _resetAssetEvidence();
       _isCritical = false;
     });
@@ -609,7 +616,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       if (!mounted || selection == null) return;
       if (selection.unlisted) {
         setState(() {
-          _clearFrequentIssueSelection();
+          if (_selectedComponentNodeId != null) _clearFrequentIssueSelection();
           _selectedComponentNodeId = null;
           _tagController.clear();
           _componentController.clear();
@@ -627,7 +634,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       final reference = selection.reference;
       if (node == null || reference == null) return;
       setState(() {
-        _clearFrequentIssueSelection();
+        if (_selectedComponentNodeId != node.id) _clearFrequentIssueSelection();
         _selectedComponentNodeId = node.id;
         _assetHierarchyReference = reference;
         _componentController.text = node.name;
@@ -839,8 +846,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting || _isExitConfirmationOpen) return;
+    if (!_validateQualityDraft()) return;
     if (!_formKey.currentState!.validate()) return;
-    if (_isSubmitting) return;
     if (_routedLanes.contains(RoutedTo.others) &&
         _cleanOptionalText(_otherDepartmentController.text) == null) {
       _showMessage(
@@ -937,38 +945,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       }
     }
 
-    if (_qualityAssessment == null) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Assess whether coil quality may be affected.'),
-          backgroundColor: BafColors.warning,
-        ),
-      );
-      return;
-    }
-
-    if (_qualityAssessment == IssueQualityAssessment.suspected) {
-      final availableTypes = ref.read(activeAbnormalityTypesProvider).value;
-      final selectedTypeId = _qualityAbnormalityTypeId;
-      final selectedType =
-          availableTypes == null || selectedTypeId == null
-              ? null
-              : _qualityTypesForCurrentAsset(
-                availableTypes,
-              ).where((type) => type.firestoreId == selectedTypeId).firstOrNull;
-      if (selectedType == null) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Select an active abnormality classification for the affected asset.',
-            ),
-            backgroundColor: BafColors.warning,
-          ),
-        );
-        return;
-      }
-    }
-
+    final description =
+        burnerLockout?.reportDescription(notes: _descController.text) ??
+        _descController.text.trim();
     final inputValidation = MaintenanceInputValidator.validateCreate(
       MaintenanceCreateInput(
         assetType: assetType,
@@ -982,7 +961,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 : _isBaseInnerCoverAvailability
                 ? baseInnerCoverAvailabilityComponent
                 : _componentController.text,
-        description: _descController.text,
+        description: description,
         tag: _tagController.text,
         chargeNumberText: _chargeNoController.text,
         startDate: _startTime,
@@ -1120,7 +1099,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 _routedLanes.contains(RoutedTo.others)
                     ? _cleanOptionalText(_otherDepartmentController.text)
                     : null
-            ..description = _cleanRequiredText(_descController.text)
+            ..description = description
             ..plantConditionEffect =
                 furnaceStuckup != null
                     ? MaintenanceIssuePlantConditionEffect.stuckUp
@@ -1223,17 +1202,22 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   ? 'critical_ticket_created'
                   : 'normal_ticket_created',
         );
-        final syncOutcome = await syncCoordinator.runFullSyncWithResult(
-          reason:
-              record.isCritical
-                  ? 'critical_ticket_created_immediate'
-                  : 'normal_ticket_created_immediate',
-          force: true,
+        final issueAccepted = await waitForMaintenanceIssueAcceptance(
+          submitted: record,
+          ticketUpdates: repository.watchTicketsForAsset(
+            record.assetType,
+            record.assetNumber,
+          ),
+          readTicket: () => repository.getByFirestoreId(record.firestoreId!),
+          requestSync:
+              () => syncCoordinator.runFullSyncWithResult(
+                reason:
+                    record.isCritical
+                        ? 'critical_ticket_created_immediate'
+                        : 'normal_ticket_created_immediate',
+                force: true,
+              ),
         );
-        final synchronizedTicket = await repository.getByFirestoreId(
-          record.firestoreId!,
-        );
-        final issueAccepted = synchronizedTicket?.isSynced == true;
         if (issueAccepted) {
           autoSyncService.clearPendingTicketSync(
             reason: 'ticket_created_immediate_success',
@@ -1241,27 +1225,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         }
 
         if (issueAccepted) {
-          (completionMessage, completionColor) =
-              syncOutcome.isFailure
-                  ? (
-                    'Issue accepted by the plant system. Another saved item still needs sync attention.',
-                    BafColors.warning,
-                  )
-                  : (
-                    'Issue raised and synchronized with the plant system.',
-                    BafColors.sync,
-                  );
+          completionMessage = 'Issue raised and accepted by the plant system.';
+          completionColor = BafColors.sync;
         } else {
-          (completionMessage, completionColor) = switch (syncOutcome) {
-            SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
-              'Issue saved once on this device; synchronization is queued.',
-              BafColors.warning,
-            ),
-            SyncRequestOutcome.failed || SyncRequestOutcome.succeeded => (
-              'Issue is saved once on this device but is not yet accepted by the plant system. Do not raise it again; retry the SYNC PENDING issue.',
-              BafColors.danger,
-            ),
-          };
+          completionMessage =
+              'Issue saved on this device; server acceptance is not yet confirmed. '
+              'You can continue working. Do not raise it again; '
+              'check this issue\'s SYNC PENDING status.';
+          completionColor = BafColors.warning;
         }
       }
 
@@ -1308,6 +1279,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
+        leading: BackButton(onPressed: _requestExit),
         title: const BafAppBarTitle(
           title: 'Raise issue',
           subtitle: 'Capture asset, component, quality and routing context',
@@ -1317,7 +1289,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       ),
       body: Form(
         key: _formKey,
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) unawaited(_requestExit());
+        },
         child: ListView(
+          controller: _formScrollController,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(
             BafSpacing.lg,
@@ -1336,7 +1313,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               children: [
                 BafHorizontalControlRail(
                   child: SegmentedButton<IssueQualityAssessment>(
-                    emptySelectionAllowed: true,
+                    emptySelectionAllowed: _qualityAssessment == null,
                     segments: const [
                       ButtonSegment(
                         value: IssueQualityAssessment.notSuspected,
@@ -1354,14 +1331,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                             ? const <IssueQualityAssessment>{}
                             : <IssueQualityAssessment>{_qualityAssessment!},
                     onSelectionChanged: (selection) {
+                      if (selection.isEmpty) return;
                       setState(() {
-                        _qualityAssessment =
-                            selection.isEmpty ? null : selection.first;
-                        if (_qualityAssessment !=
-                            IssueQualityAssessment.suspected) {
-                          _qualityReasonController.clear();
-                          _qualityAbnormalityTypeId = null;
-                        }
+                        _qualityAssessment = selection.first;
                       });
                     },
                   ),
@@ -1370,7 +1342,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   const SizedBox(height: BafSpacing.md),
                   DropdownButtonFormField<String>(
                     key: ValueKey<String>(
-                      'quality-abnormality-${_assetType.name}',
+                      'quality-abnormality-${_assetType.name}-${selectedQualityType?.firestoreId}',
                     ),
                     initialValue: selectedQualityType?.firestoreId,
                     isExpanded: true,
@@ -1400,17 +1372,17 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                             : (value) => setState(
                               () => _qualityAbnormalityTypeId = value,
                             ),
-                    validator: (value) {
-                      if (_qualityAssessment !=
-                          IssueQualityAssessment.suspected) {
-                        return null;
-                      }
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Select the governed abnormality type';
-                      }
-                      return null;
-                    },
+                    validator: (_) => _qualityClassificationError(),
                   ),
+                  if (_qualityAbnormalityTypeId != null &&
+                      selectedQualityType == null &&
+                      qualityTypesAsync.hasValue) ...[
+                    const SizedBox(height: BafSpacing.sm),
+                    const Text(
+                      'The earlier classification is not currently available for this asset. Choose a classification for this asset; your quality note has been kept.',
+                      style: TextStyle(color: BafColors.warning),
+                    ),
+                  ],
                   const SizedBox(height: BafSpacing.md),
                   TextFormField(
                     controller: _qualityReasonController,
@@ -1420,20 +1392,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       hint: 'What may have affected the coil or cycle?',
                       alignLabelWithHint: true,
                     ),
-                    validator: (value) {
-                      if (_qualityAssessment !=
-                          IssueQualityAssessment.suspected) {
-                        return null;
-                      }
-                      final cleaned = value?.trim() ?? '';
-                      if (cleaned.isEmpty) {
-                        return 'Describe the suspected effect';
-                      }
-                      if (cleaned.length > 1000) {
-                        return 'Keep the quality note within 1000 characters';
-                      }
-                      return null;
-                    },
+                    validator: (_) => _qualityReasonError(),
                   ),
                 ],
               ],
@@ -1675,7 +1634,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
             _SectionCard(
               title: 'Issue details',
-              subtitle: 'Describe the problem clearly for the attending team.',
+              subtitle:
+                  _isBurnerLockout
+                      ? 'Additional burner observations'
+                      : 'Describe the problem clearly for the attending team.',
               icon: Icons.report_problem_rounded,
               children: [
                 if (_usesGovernedComponentIssueTarget) ...[
@@ -1696,14 +1658,20 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   controller: _descController,
                   maxLines: 4,
                   decoration: _inputDecoration(
-                    'Fault description',
+                    _isBurnerLockout
+                        ? 'Additional notes (optional)'
+                        : 'Fault description',
                     hint: 'What happened? What is affected?',
                     alignLabelWithHint: true,
                   ),
-                  validator:
-                      (value) => MaintenanceInputValidator.validateDescription(
-                        value,
-                      ).messageFor('description'),
+                  validator: (value) {
+                    if (_isBurnerLockout && (value?.trim().isEmpty ?? true)) {
+                      return null;
+                    }
+                    return MaintenanceInputValidator.validateDescription(
+                      value,
+                    ).messageFor('description');
+                  },
                 ),
                 const SizedBox(height: BafSpacing.md),
                 const Align(
@@ -2906,12 +2874,7 @@ class _PhysicalAssetSelector extends ConsumerWidget {
   }
 
   String _assetLabel(AssetInstanceRecord asset) {
-    final numberLabel = '${asset.assetClassName} ${asset.assetNumber}';
-    final name = asset.name.trim();
-    if (name.isEmpty || name.toLowerCase() == numberLabel.toLowerCase()) {
-      return numberLabel;
-    }
-    return '$numberLabel · $name';
+    return asset.displayLabel;
   }
 
   InputDecoration _decoration(String label) {

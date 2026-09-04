@@ -196,6 +196,33 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
     if (app) await app.delete();
   });
 
+  test('creation is atomic and concurrent retries return one receipt', async () => {
+    await seed();
+    const record = abnormality({firestoreId: 'new-case', abnormalityTypeId: 'TYPE_NEW',
+      version: 1, loggedByUid: 'admin-1', updatedByUid: 'admin-1'});
+    const request = {requestId: IDS.replay, abnormalityId: 'new-case',
+      operation: 'CREATE', expectedVersion: 0, reason: 'Create governed case', abnormality: record};
+    const responses = await Promise.all([invoke(request), invoke(request)]);
+    expect(responses.filter((r) => !r.idempotentReplay)).toHaveLength(1);
+    expect(responses.every((r) => r.version === 1)).toBe(true);
+    const warning = (await db.doc('quality_warnings/abnormality_new-case').get()).data();
+    expect(warning.createdAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(warning.sourceChargeNo).toBe(record.sourceChargeNo);
+    expect((await collectionState('charge_abnormality_mutation_receipts')).length).toBe(1);
+  });
+
+  test('malformed creation cannot leave an orphan warning or receipt', async () => {
+    await seed();
+    await expect(invoke({requestId: IDS.malformed, abnormalityId: 'bad-new-case',
+      operation: 'CREATE', expectedVersion: 0, reason: 'Invalid trial',
+      abnormality: abnormality({firestoreId: 'bad-new-case',
+        affectedAssets: [{assetType: 'base', assetNumber: 'wrong'}]})}))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+    expect((await db.doc('charge_abnormalities/bad-new-case').get()).exists).toBe(false);
+    expect((await db.doc('quality_warnings/abnormality_bad-new-case').get()).exists).toBe(false);
+    expect(await collectionState('charge_abnormality_mutation_receipts')).toHaveLength(0);
+  });
+
   test('concurrent same-version updates permit exactly one atomic evidence set', async () => {
     await seed();
 
@@ -358,6 +385,10 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
         closedByName: 'Admin One',
         closureDisposition: 'qualityAdjudication',
         decisionReason: 'Duplicate disposition evidence was confirmed.',
+        updatedAt: '2026-07-25T09:00:00.000Z',
+        updatedByUid: 'admin-1',
+        updatedByName: 'Admin One',
+        version: 2,
       },
     });
     const result = await invoke({
@@ -388,5 +419,33 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
       operation: 'SOFT_DELETE',
       resultVersion: 5,
     });
+  });
+
+  test('soft delete rejects a warning closure after its last update', async () => {
+    await seed({
+      warningOverrides: {
+        status: 'closed',
+        closedAt: '2026-07-25T09:00:00.000Z',
+        closedByUid: 'admin-1',
+        closedByName: 'Admin One',
+        closureDisposition: 'qualityAdjudication',
+        decisionReason: 'Fixture deliberately retains the older update time.',
+      },
+    });
+    const before = await collectionState('charge_abnormalities');
+    await expect(invoke({
+      requestId: IDS.deleted,
+      abnormalityId: 'abn-1',
+      operation: 'SOFT_DELETE',
+      expectedVersion: 4,
+      reason: 'Duplicate record confirmed',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'quality-warning-malformed', field: 'closedAt'},
+    });
+    expect(await collectionState('charge_abnormalities')).toEqual(before);
+    expect(await collectionState('charge_abnormality_mutation_receipts'))
+      .toHaveLength(0);
+    expect(await collectionState('audit_logs')).toHaveLength(0);
   });
 });
