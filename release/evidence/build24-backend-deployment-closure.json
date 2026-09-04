@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "exact-current-source-backend-deployment-closure",
+  "decision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+  "recordedAtUtc": "2026-09-04T17:20:54.588Z",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "approvalAuthority": {
+    "file": "release/approvals/build24-backend-deployment-approval.json",
+    "sha256": "4B8FDDA57CD0B7D688A4FF75B26B53C387F773F0FF7FEC9F4646A266821050E4"
+  },
+  "sourceAuthority": {
+    "commit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
+    "tree": "4940f67f880dd0b681c20fad451e8703515b9a36",
+    "functionsGitObjectId": "e2b3fc4ba7f443eb49e7ce26ca96cd8ad171e692",
+    "pullRequestNumber": 345,
+    "postMergeReleaseGateRunId": 33896445916,
+    "postMergeReleaseGateConclusion": "success"
+  },
+  "deployment": {
+    "campaign": "function-fleet-runtime-identity",
+    "functionCount": 15,
+    "callableCount": 9,
+    "eventAndProtocolTriggerCount": 5,
+    "schedulerCount": 1,
+    "sourceRuntimeHash": "afe04498529d01b7d8177dd9cff7a58b8ba8b3a1",
+    "allFunctionsExactSourceVerified": true,
+    "finalRuntimeIdentityReadbackPassed": true,
+    "finalIamDependencyReadbackPassed": true,
+    "schedulerBacklogZeroVerified": true,
+    "existingIamPreservationEnforced": true,
+    "appCheckEnforcement": false,
+    "schedulerSmokeResult": {
+      "observedAtUtc": "2026-09-04T17:08:53.483548Z",
+      "candidateCount": 0,
+      "changed": 0,
+      "retentionCandidates": 0,
+      "retentionArchived": 0,
+      "retentionRejected": 0,
+      "retentionCapped": false
+    }
+  },
+  "firestoreDeployment": {
+    "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+    "rulesActiveByteExact": true,
+    "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/f3ebab34-a6fd-43f9-b706-6cca26b1f37a",
+    "rulesetCreateTime": "2026-08-31T22:36:43.580047Z",
+    "indexCount": 66,
+    "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "indexFileSha256": "0479221A5355A9E3E2151B2CCCA7E3A8FFA69B67074A3B50D3A905F70567C800",
+    "fieldOverrideCount": 8,
+    "fieldOverrideSetSha256": "ADAEEC7F872A42976CB829C899EC037BB4A71C5738060A4A96A5F6293DC9BE60",
+    "allIndexesReady": true,
+    "indexesAlreadyExactNoMutationRequired": true,
+    "strictLiveReadbackPassed": true,
+    "rulesAlreadyExactNoMutationRequired": true
+  },
+  "privacySafeExternalEvidence": {
+    "folderName": "CRM3_BUILD24_BACKEND_EVIDENCE_A546E73_20260904",
+    "receipts": [
+      {
+        "file": "01-preflight.json",
+        "sha256": "1C77C54EBA9AB000151D6B02C0ABFF4D85924D9F55CE6962BC7DF330FB77179E"
+      },
+      {
+        "file": "02-provisioned.json",
+        "sha256": "0BED952FE61AF88190B09EFD0957A9192C445FE1EE636A0711F54AB83A277942"
+      },
+      {
+        "file": "03-callables.json",
+        "sha256": "EB264DB61BCA6839EB0BD0E65374347395ACE4431C598DCF1BE2122C8B21DF3C"
+      },
+      {
+        "file": "04-events.json",
+        "sha256": "664580BC1F5F814F9CA5BB2E43430B59F58E5344B56E7A7AAEACD6E7B70AB817"
+      },
+      {
+        "file": "05-scheduler-preflight.json",
+        "sha256": "4BA0D3A58D71C9094125842679204D1F5E7A9ACA729EBA616797BE5F11D074A7"
+      },
+      {
+        "file": "06-fleet.json",
+        "sha256": "1EE13707067AE3844F4EEB9429BB90CA155D8725304177A4C2EDEF71FA6E69BB"
+      },
+      {
+        "file": "07-lr03-lr06-prefinal.json",
+        "sha256": "C725175B3C58E457BBEB05F3D17E2B543CC0DD46151D1143A11D0FC7F7FA5A85"
+      },
+      {
+        "file": "08-final.json",
+        "sha256": "C5EFD7053CFDC18EF7ACB4E270683BB98E74C3C10E4510134EE8771CCF8BD343"
+      },
+      {
+        "file": "09-lr03-lr06-final.json",
+        "sha256": "916B45065BFF23FD292465AC6073FB7FF5471E8C1EC6CCBF90CA43FB8C39EEF4"
+      },
+      {
+        "file": "10-firestore-final.json",
+        "sha256": "3C1A055DF53C753557549DBE75C9711F219A3A59DC4C80911EC56D5C8D8E3B06"
+      }
+    ]
+  },
+  "cleanMainLiveReadbacks": {
+    "functionFleet": {
+      "file": "release/evidence/build24-function-fleet-runtime-identity-readback.json",
+      "physicalSha256": "C5EFD7053CFDC18EF7ACB4E270683BB98E74C3C10E4510134EE8771CCF8BD343",
+      "canonicalReceiptSha256": "7726ED7E7B3BD114E3D9DE48416DA3426C326BBFBE0A15D59FD5F04A9FA28DAA",
+      "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+      "failedChecks": 0
+    },
+    "iamDependencies": {
+      "file": "release/evidence/build24-functions-iam-dependencies-readback.json",
+      "physicalSha256": "916B45065BFF23FD292465AC6073FB7FF5471E8C1EC6CCBF90CA43FB8C39EEF4",
+      "canonicalReceiptSha256": "A193966BC8CD608FC177155F87EE3D419503DF1A58D45B75BCD03613670C41D6",
+      "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+      "failedChecks": 0,
+      "postureHolds": 0
+    },
+    "firestoreRulesAndIndexes": {
+      "file": "release/evidence/build24-firestore-rules-indexes-live-readback.json",
+      "verified": true,
+      "physicalSha256": "3C1A055DF53C753557549DBE75C9711F219A3A59DC4C80911EC56D5C8D8E3B06",
+      "canonicalReceiptSha256": "16E77326B3D219F0DED2C74E7ED32BF81A8A6FFE6127289606711376EF892DB7",
+      "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "sourceCommit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
+      "sourceTree": "4940f67f880dd0b681c20fad451e8703515b9a36",
+      "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+      "indexCount": 66,
+      "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "allIndexesReady": true,
+      "failedChecks": 0
+    }
+  },
+  "controlBoundary": {
+    "serviceAccountsMutated": false,
+    "iamMutated": false,
+    "appCheckActivated": false,
+    "firestoreDocumentsRead": false,
+    "firestoreDocumentsWritten": false,
+    "productionBusinessDataMutated": false,
+    "deviceDataMutated": false,
+    "artifactConstructed": false,
+    "pilotPromotionPerformed": false,
+    "distributionPerformed": false,
+    "aggregateBacklogQueriesPerformed": true,
+    "schedulerSmokeChangedRecordCount": 0,
+    "securityRulesMutated": false,
+    "indexesMutated": false
+  }
+}

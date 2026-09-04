@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "policyId": "crm3-baf-ops-successor-2022068-b23",
+  "policyId": "crm3-baf-ops-successor-a546e73-b24",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
   "namespace": "in.co.sail.bsl.crm3.bafops",
@@ -31,9 +31,9 @@
       },
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
-      "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-23.json",
-      "approvalReceiptSha256": "D0058B3DCA166A6BB61BE8303161A261A971433316C8069C8B44BE1B88EE456A",
-      "approvalReference": "BAF-GH-ENV-019",
+      "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-24.json",
+      "approvalReceiptSha256": "E30626BDDE9A46351DAEB6C2615A7368D26B774562EA433348BB9C69C959C0EB",
+      "approvalReference": "BAF-GH-ENV-020",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
         "CRM_ANDROID_RELEASE_KEY_PASSWORD",
@@ -56,38 +56,113 @@
   "versionPolicy": {
     "approved": true,
     "scheme": "semver2",
-    "versionName": "1.0.0-rc.13",
-    "buildNumber": 23,
+    "versionName": "1.0.0-rc.14",
+    "buildNumber": 24,
     "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
-    "reservationId": "crm3-baf-ops-successor-2022068-b23-23",
+    "reservationId": "crm3-baf-ops-successor-a546e73-b24-24",
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
-    "sourceDocumentFile": "release/approvals/build-number-23-successor-approval.json",
-    "sourceDocumentSha256": "C1694C876300A9E7DC4847BA4B4E278F3EB063A48F57DBF44A99DD8BDF2A5836",
-    "remoteReservationTag": "crm3-build-reserved/23",
-    "remoteBuiltTag": "crm3-build-built/23",
+    "sourceDocumentFile": "release/approvals/build-number-24-successor-approval.json",
+    "sourceDocumentSha256": "7302039C417DF11EC6610ADB244D883A3490D64F1DBF1E91D98306BCC6716034",
+    "remoteReservationTag": "crm3-build-reserved/24",
+    "remoteBuiltTag": "crm3-build-built/24",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "completed-non-distributable",
+    "status": "pending-source-authorized",
+    "dualCustodyCompleted": false,
+    "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build24-backend-deployment-closure.json",
+    "exactFunctionFleetDeploymentReceiptSha256": "7652B625F60FD62B3F9613AD914A5070B170E25B795B1BD2BB5FFD606BCFF566",
+    "exactFirestoreRulesIndexesLiveReadback": {
+      "verified": true,
+      "receiptFile": "release/evidence/build24-firestore-rules-indexes-live-readback.json",
+      "receiptFileSha256": "3C1A055DF53C753557549DBE75C9711F219A3A59DC4C80911EC56D5C8D8E3B06",
+      "receiptCanonicalSha256": "16E77326B3D219F0DED2C74E7ED32BF81A8A6FFE6127289606711376EF892DB7",
+      "sourceCommit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
+      "sourceTree": "4940f67f880dd0b681c20fad451e8703515b9a36",
+      "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+      "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+      "indexCount": 66,
+      "allIndexesReady": true,
+      "redundantDeploymentPerformed": false
+    },
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
     "priorCompletedBuild": {
-      "buildNumber": 22,
       "status": "completed-non-distributable",
-      "completionReceiptFile": "release/evidence/build-22-finalization-closure.json",
-      "completionReceiptSha256": "D0AC4DF21F04434DE88A418EE5330AB90088E12F503899FC628E04028D82025C",
-      "physicalInstallationConditionPassed": false,
       "physicalInstallationReceiptFile": null,
       "physicalInstallationReceiptSha256": null,
-      "sourceCommit": "f8eebd755d917b990364bf37a63c2302c3c84ec7",
-      "githubRunId": 33576801100,
-      "remoteBuiltTag": "crm3-build-built/22",
-      "governedPackageSha256": "F0F672BDDEA943058A76F4B7035AC72F39BD553018F07AB4BC54B2B40054E04E",
+      "priorCompletedBuild": {
+        "buildNumber": 22,
+        "status": "completed-non-distributable",
+        "completionReceiptFile": "release/evidence/build-22-finalization-closure.json",
+        "completionReceiptSha256": "D0AC4DF21F04434DE88A418EE5330AB90088E12F503899FC628E04028D82025C",
+        "physicalInstallationConditionPassed": false,
+        "physicalInstallationReceiptFile": null,
+        "physicalInstallationReceiptSha256": null,
+        "sourceCommit": "f8eebd755d917b990364bf37a63c2302c3c84ec7",
+        "githubRunId": 33576801100,
+        "remoteBuiltTag": "crm3-build-built/22",
+        "governedPackageSha256": "F0F672BDDEA943058A76F4B7035AC72F39BD553018F07AB4BC54B2B40054E04E",
+        "dualCustodyCompleted": true,
+        "runtimeValidationPassed": false,
+        "runtimeDisposition": "not-adjudicated-by-build-finalization",
+        "fullBusinessFlowValidationCompleted": false,
+        "controlledPilotApproved": false,
+        "unrestrictedPlantReleaseApproved": false
+      },
+      "historicalFailedAttempts": [
+        {
+          "buildNumber": 10,
+          "status": "blocked-non-distributable",
+          "evidenceFile": "release/evidence/build-10-finalization-block.json",
+          "evidenceSha256": "E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58",
+          "sourceCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
+          "githubRunId": 31545500587,
+          "githubArtifactId": 9122790773,
+          "githubArtifactDigest": "sha256:6c0a1012a432bb9bad80b81b192ce3ec0a55a3e019dada66b0c873c6787c31a6",
+          "governedPackageSha256": "F2FE9E997285C2BB544E3610EE1E89F52BC48E34BD3A982117D562C54A17E6DE",
+          "independentVerificationCompleted": true,
+          "dualCustodyCompleted": false,
+          "remoteBuiltTagCreated": false,
+          "distributionPerformed": false
+        }
+      ],
+      "completionReceiptFile": "release/evidence/build-23-finalization-closure.json",
+      "completionReceiptSha256": "514F4AC660187A994FCFDB1C6A84EA1BA05B0C2F134DE5608D36C97A22F6A92F",
+      "sourceCommit": "4100f87a6926edb9a983798f984183ed1b0d17fe",
+      "githubRunId": 33596126523,
+      "remoteBuiltTag": "crm3-build-built/23",
+      "remoteReservationTagObject": "ba3ea89525c0d753a6d916fbe6e9d5543b50e1e2",
+      "remoteBuiltTagObject": "59fb1e96ae9940825f838274c682bc9ce9ffc9cc",
+      "governedPackageSha256": "B0BF72FBF8FEEB93A799DDEF6ABDF32C1164DF98AFBAF48293E139A14F3A7E73",
+      "closurePackageSha256": "9B1035E1CCC473C202D4C0005064E47FB8BFA5228546AEA5D0B06B49A5BC53B1",
+      "custodyRecordSha256": "F0F540183B51C6F475C747CA26FF2F441B5246729BC15AD3B1608B2E197B66CF",
       "dualCustodyCompleted": true,
+      "physicalInstallationConditionPassed": false,
       "runtimeValidationPassed": false,
       "runtimeDisposition": "not-adjudicated-by-build-finalization",
       "fullBusinessFlowValidationCompleted": false,
+      "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build22-backend-deployment-closure.json",
+      "exactFunctionFleetDeploymentReceiptSha256": "86D2C2FCB8C558B79CE6CC54148BEAF02B92338647AA7A9F18C34E76A2B340F1",
+      "exactFirestoreRulesIndexesLiveReadback": {
+        "verified": true,
+        "receiptFile": "release/evidence/build22-firestore-rules-indexes-live-readback.json",
+        "receiptFileSha256": "274B09607CFDCF0975650F345FEF0BB8D81D4D726671812D28DB06A56BFCAF88",
+        "receiptCanonicalSha256": "49A4E56B770B16DEE9ED1AD1E3E7B1C06C7B67FED0305AD75C67ADE76A5D5ACD",
+        "sourceCommit": "32aae03c1d1bd65eafe611496fdf29caed3759fb",
+        "sourceTree": "d1aba8becb9cf2262ad37195c80299aaa1ac4798",
+        "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+        "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+        "indexCount": 66,
+        "allIndexesReady": true,
+        "redundantDeploymentPerformed": false
+      },
+      "firebaseBackendDeploymentPerformed": false,
       "controlledPilotApproved": false,
-      "unrestrictedPlantReleaseApproved": false
+      "unrestrictedPlantReleaseApproved": false,
+      "buildNumber": 23
     },
     "historicalFailedAttempts": [
       {
@@ -105,40 +180,7 @@
         "remoteBuiltTagCreated": false,
         "distributionPerformed": false
       }
-    ],
-    "completionReceiptFile": "release/evidence/build-23-finalization-closure.json",
-    "completionReceiptSha256": "514F4AC660187A994FCFDB1C6A84EA1BA05B0C2F134DE5608D36C97A22F6A92F",
-    "sourceCommit": "4100f87a6926edb9a983798f984183ed1b0d17fe",
-    "githubRunId": 33596126523,
-    "remoteBuiltTag": "crm3-build-built/23",
-    "remoteReservationTagObject": "ba3ea89525c0d753a6d916fbe6e9d5543b50e1e2",
-    "remoteBuiltTagObject": "59fb1e96ae9940825f838274c682bc9ce9ffc9cc",
-    "governedPackageSha256": "B0BF72FBF8FEEB93A799DDEF6ABDF32C1164DF98AFBAF48293E139A14F3A7E73",
-    "closurePackageSha256": "9B1035E1CCC473C202D4C0005064E47FB8BFA5228546AEA5D0B06B49A5BC53B1",
-    "custodyRecordSha256": "F0F540183B51C6F475C747CA26FF2F441B5246729BC15AD3B1608B2E197B66CF",
-    "dualCustodyCompleted": true,
-    "physicalInstallationConditionPassed": false,
-    "runtimeValidationPassed": false,
-    "runtimeDisposition": "not-adjudicated-by-build-finalization",
-    "fullBusinessFlowValidationCompleted": false,
-    "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build22-backend-deployment-closure.json",
-    "exactFunctionFleetDeploymentReceiptSha256": "86D2C2FCB8C558B79CE6CC54148BEAF02B92338647AA7A9F18C34E76A2B340F1",
-    "exactFirestoreRulesIndexesLiveReadback": {
-      "verified": true,
-      "receiptFile": "release/evidence/build22-firestore-rules-indexes-live-readback.json",
-      "receiptFileSha256": "274B09607CFDCF0975650F345FEF0BB8D81D4D726671812D28DB06A56BFCAF88",
-      "receiptCanonicalSha256": "49A4E56B770B16DEE9ED1AD1E3E7B1C06C7B67FED0305AD75C67ADE76A5D5ACD",
-      "sourceCommit": "32aae03c1d1bd65eafe611496fdf29caed3759fb",
-      "sourceTree": "d1aba8becb9cf2262ad37195c80299aaa1ac4798",
-      "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
-      "indexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
-      "indexCount": 66,
-      "allIndexesReady": true,
-      "redundantDeploymentPerformed": false
-    },
-    "firebaseBackendDeploymentPerformed": false,
-    "controlledPilotApproved": false,
-    "unrestrictedPlantReleaseApproved": false
+    ]
   },
   "postBuildPromotion": {
     "status": "completed-controlled-pilot-only",
@@ -211,11 +253,11 @@
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
-    "releaseId": "crm3-baf-ops-1.0.0-rc.13-b23",
-    "releaseTag": "crm3-baf-ops-v1.0.0-rc.13",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.14-b24",
+    "releaseTag": "crm3-baf-ops-v1.0.0-rc.14",
     "releaseChannel": "production-candidate",
-    "versionName": "1.0.0-rc.13",
-    "buildNumber": 23
+    "versionName": "1.0.0-rc.14",
+    "buildNumber": 24
   },
   "distribution": {
     "authority": "exact-build11-sealed-small-group-pilot",
@@ -259,7 +301,11 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD23_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
-    "BUILD23_EXPLICIT_PILOT_PROMOTION"
+    "BUILD24_PRODUCTION_SIGNED_FINALIZATION",
+    "BUILD24_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
+    "BUILD24_EXPLICIT_PILOT_PROMOTION"
+  ],
+  "ownerAcceptedCompatibilityRisks": [
+    "STAGED_LEGACY_ABNORMALITY_DIRECT_WRITE_VALIDATION_GAP"
   ]
 }

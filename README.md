@@ -15,14 +15,19 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Current `main` records Build 23 (`1.0.0-rc.13+23`) as production-signed,
-independently verified, dual-custodied and finalized non-distributable. Its
-exact 15-Function fleet, Firestore Rules and all 66 indexes remain deployed and
-strictly read back. Build 22 remains immutable and non-distributable. No
-consumed package identity may be reused. Exact Build 23 in-place installation
-and representative labelled business-flow convergence require a separate
-exact-package validation authorization. Pilot handout requires a subsequent
-exact-package promotion decision after that evidence exists.
+Build 24 (`1.0.0-rc.14+24`) is source-authorized for governed construction from
+the admitted PR 345 baseline `a546e73`. All 15 production Functions match that
+source and passed strict readback with existing IAM preserved. The existing
+Firestore Rules and 66 indexes remain unchanged and verified. The owner-approved
+staged rollout retains older-phone compatibility; the known legacy direct-write
+nested-asset validation gap remains deferred, not resolved.
+
+Build 23 remains production-signed, independently verified, dual-custodied and
+finalized non-distributable; its evidence is immutable. Build 24 has not yet been
+constructed. Its source approval must be rebound after the stale deployment-PR
+contract is corrected and admitted; construction is blocked until then.
+No consumed build number may be reused. Exact-package device
+acceptance and pilot promotion remain separate decisions after construction.
 
 Authoritative status sources:
 
