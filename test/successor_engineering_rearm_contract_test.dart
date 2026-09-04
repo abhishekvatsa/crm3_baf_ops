@@ -602,7 +602,10 @@ void main() {
         _gitTreeObjectId(backendAuthority['commit'] as String, 'functions'),
         backendAuthority['functionsGitObjectId'],
       );
-      expect(backendAuthority['pullRequestNumber'], 337);
+      expect(
+        backendAuthority['pullRequestNumber'],
+        (deploymentApproval['sourceAuthority'] as Map)['pullRequestNumber'],
+      );
       final approvalAuthority =
           (liveBackend['approvalAuthority'] as Map).cast<String, dynamic>();
       expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);
@@ -621,12 +624,28 @@ void main() {
       expect(backendBoundary['iamMutated'], isFalse);
       expect(backendBoundary['productionBusinessDataMutated'], isFalse);
       expect(backendBoundary['distributionPerformed'], isFalse);
-      expect(
-        _objects(
-          (liveBackend['privacySafeExternalEvidence'] as Map)['receipts'],
-        ),
-        hasLength(9),
+      final campaignReceipts = _objects(
+        (liveBackend['privacySafeExternalEvidence'] as Map)['receipts'],
       );
+      final campaignReceiptFiles = campaignReceipts.map((row) => row['file']);
+      expect(campaignReceiptFiles.toSet().length, campaignReceipts.length);
+      expect(
+        campaignReceiptFiles,
+        containsAll(<String>[
+          '01-preflight.json',
+          '02-provisioned.json',
+          '03-callables.json',
+          '04-events.json',
+          '05-scheduler-preflight.json',
+          '06-fleet.json',
+          '07-lr03-lr06-prefinal.json',
+          '08-final.json',
+          '09-lr03-lr06-final.json',
+        ]),
+      );
+      for (final receipt in campaignReceipts) {
+        expect(receipt['sha256'], matches(RegExp(r'^[0-9A-F]{64}$')));
+      }
       expect(
         _sha256(functionReadbackAuthority['file'] as String),
         functionReadbackAuthority['physicalSha256'],

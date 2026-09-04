@@ -1,19 +1,19 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-02",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-04",
   "asOfDate": "2026-09-04",
-  "status": "BUILD23_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_PILOT_DECISIONS",
+  "status": "BUILD24_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
-      "packageVersion": "1.0.0-rc.13+23",
-      "relationshipToLatestFinalizedArtifact": "BUILD23_SOURCE_CONTAINS_FINALIZED_BUILD23",
+      "packageVersion": "1.0.0-rc.14+24",
+      "relationshipToLatestFinalizedArtifact": "BUILD24_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD23",
       "sourceAndCiAuthority": true,
       "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
-      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "backendDeploymentStatus": "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
         "rulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
@@ -40,17 +40,17 @@
       "unrestrictedDistribution": "NOT_AUTHORIZED"
     },
     "deployedBackend": {
-      "deploymentApprovalFile": "release/approvals/build22-backend-deployment-approval.json",
-      "deploymentApprovalSha256": "7238D55084A0ABE0E802E7F27079D589F2753CE36E4637DB6D2C1E133AD7BB78",
-      "functionFleetEvidenceFile": "release/evidence/build22-backend-deployment-closure.json",
-      "functionFleetEvidenceSha256": "86D2C2FCB8C558B79CE6CC54148BEAF02B92338647AA7A9F18C34E76A2B340F1",
-      "functionFleetSourceCommit": "32aae03c1d1bd65eafe611496fdf29caed3759fb",
-      "rulesAndIndexesEvidenceFile": "release/evidence/build22-firestore-rules-indexes-live-readback.json",
-      "rulesAndIndexesEvidenceSha256": "274B09607CFDCF0975650F345FEF0BB8D81D4D726671812D28DB06A56BFCAF88",
-      "rulesAndIndexesSourceCommit": "32aae03c1d1bd65eafe611496fdf29caed3759fb",
+      "deploymentApprovalFile": "release/approvals/build24-backend-deployment-approval.json",
+      "deploymentApprovalSha256": "4B8FDDA57CD0B7D688A4FF75B26B53C387F773F0FF7FEC9F4646A266821050E4",
+      "functionFleetEvidenceFile": "release/evidence/build24-backend-deployment-closure.json",
+      "functionFleetEvidenceSha256": "7652B625F60FD62B3F9613AD914A5070B170E25B795B1BD2BB5FFD606BCFF566",
+      "functionFleetSourceCommit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
+      "rulesAndIndexesEvidenceFile": "release/evidence/build24-firestore-rules-indexes-live-readback.json",
+      "rulesAndIndexesEvidenceSha256": "3C1A055DF53C753557549DBE75C9711F219A3A59DC4C80911EC56D5C8D8E3B06",
+      "rulesAndIndexesSourceCommit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
-      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
+      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "productionBackendRuntimeAuthorized": true
     },
@@ -69,14 +69,17 @@
       "appliesToBuild20": false,
       "appliesToBuild21": false,
       "appliesToBuild22": false,
-      "appliesToBuild23": false
+      "appliesToBuild23": false,
+      "appliesToBuild24": false
     },
     "nextCandidate": {
       "minimumBuildNumber": 24,
-      "status": "AWAITING_FRESH_GOVERNED_BUILD24_APPROVAL",
-      "constructionRequiresFreshGovernedApproval": true,
+      "status": "SOURCE_SUCCESSOR_AWAITING_BUILD24_ARTIFACT_SOURCE_REBIND",
+      "constructionRequiresFreshGovernedApproval": false,
       "deviceValidationRequiresExactNewArtifact": true,
-      "pilotPromotionRequiresSeparateDecision": true
+      "pilotPromotionRequiresSeparateDecision": true,
+      "versionApprovalFile": "release/approvals/build-number-24-successor-approval.json",
+      "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-24.json"
     }
   },
   "localStore": {
@@ -121,6 +124,13 @@
     "release/approvals/public-repository-environment-reviewer-approval-build-22.json",
     "release/approvals/build-number-23-successor-approval.json",
     "release/approvals/public-repository-environment-reviewer-approval-build-23.json",
-    "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
+    "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+    "release/approvals/build24-backend-deployment-approval.json",
+    "release/evidence/build24-backend-deployment-closure.json",
+    "release/evidence/build24-function-fleet-runtime-identity-readback.json",
+    "release/evidence/build24-functions-iam-dependencies-readback.json",
+    "release/evidence/build24-firestore-rules-indexes-live-readback.json",
+    "release/approvals/build-number-24-successor-approval.json",
+    "release/approvals/public-repository-environment-reviewer-approval-build-24.json"
   ]
 }
