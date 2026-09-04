@@ -3,7 +3,7 @@
   "documentType": "governed-build-number-rollover-approval",
   "approved": true,
   "approvedAtUtc": "2026-09-04T16:27:13Z",
-  "evidenceBoundAtUtc": "2026-09-04T17:20:54.588Z",
+  "evidenceBoundAtUtc": "2026-09-04T17:57:43.337Z",
   "approverName": "Abhishek Vatsa",
   "approvalEvidence": {
     "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
@@ -16,11 +16,11 @@
     "scopeInterpretation": "The instruction is a governed-build instruction, not a newly dictated exact-SHA deployment statement. This record binds that instruction and the preceding staged-rollout approval to the reviewed merged source; it does not invent a user quote or authorize broader production changes."
   },
   "approvalReference": "BAF-REF-003-C23",
-  "authorityBasis": "Actual project-owner instruction in the identified Codex task and turn: \"So we can safely proceed then - if so go on and start the build\". This record binds that instruction to admitted PR 345, the successful post-merge release gate and the completed IAM-preserving backend deployment; it does not invent an exact-SHA owner quotation or a distribution approval.",
+  "authorityBasis": "Actual project-owner instruction in the identified Codex task and turn: \"So we can safely proceed then - if so go on and start the build\". This record binds that instruction to admitted PR 345, the successful post-merge release gate and the completed IAM-preserving backend deployment; it does not invent an exact-SHA owner quotation or a distribution approval. The construction source is now rebound to admitted PR 346 after its exact post-merge CI passed, preserving the separately verified PR 345 backend source.",
   "approvalScope": "Allocate unused Build 24, version 1.0.0-rc.14, for one governed production-signed successor of finalized Build 23. Include the reviewed pilot workflow, quality/RA, timestamp, submission-latency, UI and dependency corrections in PR 345. Independent package verification and dual custody are authorized. This construction authority does not authorize installation, business-data mutation, IAM changes, App Check activation or distribution; exact-package device acceptance and pilot promotion remain separate.",
   "sourceBaseline": {
-    "commit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
-    "tree": "4940f67f880dd0b681c20fad451e8703515b9a36"
+    "commit": "5e5e9d692436f081cf49b4c5f19a1ac1c3f09975",
+    "tree": "45b59759846b9b7fbcf256fc29cf322ad45a9d50"
   },
   "consumedBuild": {
     "reservationId": "crm3-baf-ops-successor-2022068-b23-23",
@@ -192,11 +192,11 @@
     "build22BackendReconciliationPullRequest": 338,
     "build22BackendReconciliationMergeCommit": "2dfa186e269a59269e713df5d915b236c5e9ef04",
     "build22BackendReconciliationTree": "57e39da9b26177d8e66a0be12a4bac9ca5a1e873",
-    "successorFreezePullRequest": 345,
-    "successorFreezeBaselineCommit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
-    "successorFreezeBaselineTree": "4940f67f880dd0b681c20fad451e8703515b9a36",
+    "successorFreezePullRequest": 346,
+    "successorFreezeBaselineCommit": "5e5e9d692436f081cf49b4c5f19a1ac1c3f09975",
+    "successorFreezeBaselineTree": "45b59759846b9b7fbcf256fc29cf322ad45a9d50",
     "successorFreezeMustBeAncestorOfDispatchCommit": true,
-    "successorFreezePostMergeGithubRunId": 33896445916,
+    "successorFreezePostMergeGithubRunId": 33902216882,
     "successorFreezePostMergeGithubRunConclusion": "success",
     "successorFreezeCanonicalAuditPassCount": 149,
     "build20AcceptancePolicyShapeCorrectionCommit": "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2",
@@ -301,7 +301,7 @@
     "build24PilotWorkflowTree": "4940f67f880dd0b681c20fad451e8703515b9a36"
   },
   "liveAllocationEvidence": {
-    "capturedAtUtc": "2026-09-04T17:20:54.588Z",
+    "capturedAtUtc": "2026-09-04T17:57:43.337Z",
     "build23ReservationTagPresent": true,
     "build23BuiltTagPresent": true,
     "build24ReservationTagPresent": false,
@@ -382,5 +382,15 @@
     "No Firebase business-record rewriting/deletion, IAM mutation, App Check activation or device-data clearing is authorized by construction.",
     "Remote reservation consumes Build 24 even if a later step fails; the number must never be reused.",
     "Play Store publication and unrestricted public distribution remain prohibited."
+  ],
+  "sourceRebindHistory": [
+    {
+      "sourceBaseline": {
+        "commit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
+        "tree": "4940f67f880dd0b681c20fad451e8703515b9a36"
+      },
+      "approvalDocumentSha256": "7302039C417DF11EC6610ADB244D883A3490D64F1DBF1E91D98306BCC6716034",
+      "reason": "A local release-contract correction changed an artifact-bound test path. PR 346 and its exact post-merge CI are now admitted; no application, Function or Rules code changed in this rebind."
+    }
   ]
 }

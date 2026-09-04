@@ -3,7 +3,7 @@
   "receiptType": "public-repository-required-reviewer-control",
   "approved": true,
   "approvedAtUtc": "2026-09-04T16:27:13Z",
-  "evidenceBoundAtUtc": "2026-09-04T17:20:54.588Z",
+  "evidenceBoundAtUtc": "2026-09-04T17:57:43.337Z",
   "approverName": "Abhishek Vatsa",
   "approvalReference": "BAF-GH-ENV-020",
   "approvalEvidence": {
@@ -16,7 +16,7 @@
     "timestampSource": "Codex task history turn.startedAt",
     "scopeInterpretation": "The instruction is a governed-build instruction, not a newly dictated exact-SHA deployment statement. This record binds that instruction and the preceding staged-rollout approval to the reviewed merged source; it does not invent a user quote or authorize broader production changes."
   },
-  "authorityBasis": "Actual owner instruction to proceed with the governed next build, bound to one protected Build 24 construction following admitted PR 345 and its successful post-merge release gate. The existing required-reviewer protection is retained; this record does not itself release signing secrets.",
+  "authorityBasis": "Actual owner instruction to proceed with the governed next build, bound to one protected Build 24 construction following admitted PR 345 and its successful post-merge release gate. The existing required-reviewer protection is retained; this record does not itself release signing secrets. Source rebind follows admitted PR 346 and its exact post-merge CI; production signing still requires the protected run approval event.",
   "scope": {
     "repository": "abhishekvatsa/crm3_baf_ops",
     "repositoryVisibility": "public",
@@ -78,9 +78,9 @@
     "exactSourceApprovalMustMergeToMain": true,
     "pullRequestMergeEvidenceRequired": true,
     "requiredIntegratedMergeCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
-    "requiredSuccessorFreezePullRequest": 345,
-    "requiredSuccessorFreezeCommit": "a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd",
-    "requiredSuccessorFreezePostMergeRunId": 33896445916,
+    "requiredSuccessorFreezePullRequest": 346,
+    "requiredSuccessorFreezeCommit": "5e5e9d692436f081cf49b4c5f19a1ac1c3f09975",
+    "requiredSuccessorFreezePostMergeRunId": 33902216882,
     "exactLiveMainRequired": true,
     "mainOnlyEnvironmentDeploymentRequired": true,
     "requiredReviewerRuleMustRemainPresent": true,
@@ -113,7 +113,7 @@
   },
   "failClosedConditions": [
     "Valid only for Build 24 and dispatch reference BAF-REF-003-C23.",
-    "The source freeze a546e73fbcf0b5c919b7ef27ca8251bb44a3e5cd must be an ancestor of the exact admitted dispatch commit, with artifact-affecting paths unchanged.",
+    "The source freeze 5e5e9d692436f081cf49b4c5f19a1ac1c3f09975 must be an ancestor of the exact admitted dispatch commit, with artifact-affecting paths unchanged.",
     "The actor and triggering actor must match the authorized dispatcher; the required reviewer must explicitly approve the protected run.",
     "The public repository, main-only environment and disabled administrator bypass must remain unchanged.",
     "No installation, pilot handout, unrestricted distribution, device-data clearing or business-record mutation is authorized by this construction approval."
