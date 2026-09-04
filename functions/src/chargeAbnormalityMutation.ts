@@ -595,6 +595,9 @@ function parseAbnormalityCreation(
     return invalidField("abnormality", "Server clock fields cannot be supplied.");
   }
   try {
+    if (!validIsoTimestamp(data.loggedAt) || !validIsoTimestamp(data.updatedAt)) {
+      return invalidField("abnormality", "Creation requires ISO text timestamps.");
+    }
     const valid = validateExistingAbnormality(data, abnormalityId);
     if (valid.isDeleted !== false || valid.linkedTicketFirestoreId != null ||
         valid.linkedExecutionFirestoreId != null) {
@@ -727,6 +730,26 @@ function serverTimestampMillis(value: unknown): number {
   return persistedInstantMillis(value);
 }
 
+// Preserve stored timestamp types; only the callable response needs ISO text.
+function abnormalityForReceipt(data: UserAuthorityJsonMap): UserAuthorityJsonMap {
+  const result = {...data};
+  for (const field of ["loggedAt", "updatedAt", "deletedAt", "_globalPullServerUpdatedAt"]) {
+    const value = data[field];
+    if (value == null || typeof value === "string") continue;
+    const timestamp = value as {seconds?: number; nanoseconds?: number};
+    if (Number.isSafeInteger(timestamp.seconds) &&
+        Number.isSafeInteger(timestamp.nanoseconds)) {
+      const fraction = String(timestamp.nanoseconds).padStart(9, "0")
+        .replace(/(000){1,2}$/, "");
+      result[field] = new Date(timestamp.seconds! * 1000).toISOString()
+        .replace(".000Z", `.${fraction}Z`);
+    } else {
+      result[field] = new Date(persistedInstantMillis(value)).toISOString();
+    }
+  }
+  return result;
+}
+
 function malformedExisting(message: string, field?: string): never {
   throw new ChargeAbnormalityMutationError(
     "failed-precondition",
@@ -794,13 +817,13 @@ function validateExistingAbnormality(
   requiredExistingString(data.observedReason, "observedReason", 2000);
   requiredExistingString(data.loggedByUid, "loggedByUid", 512);
   requiredExistingString(data.updatedByUid, "updatedByUid", 512);
-  if (!validIsoTimestamp(data.loggedAt)) {
+  if (!validServerTimestamp(data.loggedAt)) {
     return malformedExisting(
       "The charge-abnormality loggedAt value is malformed.",
       "loggedAt",
     );
   }
-  if (!validIsoTimestamp(data.updatedAt)) {
+  if (!validServerTimestamp(data.updatedAt)) {
     return malformedExisting(
       "The charge-abnormality updatedAt value is malformed.",
       "updatedAt",
@@ -949,7 +972,7 @@ function validateExistingOptionalFields(data: UserAuthorityJsonMap): void {
   optionalExistingString(data.deleteReason, "deleteReason", 500);
   if (
     data.deletedAt != null &&
-    !validIsoTimestamp(data.deletedAt)
+    !validServerTimestamp(data.deletedAt)
   ) {
     malformedExisting(
       "The charge-abnormality deletedAt value is malformed.",
@@ -1019,7 +1042,7 @@ function validateExistingOptionalFields(data: UserAuthorityJsonMap): void {
     }
   } else {
     if (
-      !validIsoTimestamp(data.deletedAt) ||
+      !validServerTimestamp(data.deletedAt) ||
       typeof data.deletedByUid !== "string" ||
       data.deletedByUid.trim().length === 0 ||
       typeof data.deletedByName !== "string" ||
@@ -1303,7 +1326,7 @@ function replayResult(args: {
     auditId,
     committedAt: committedAt as string,
     idempotentReplay: true,
-    abnormality: current,
+    abnormality: abnormalityForReceipt(current),
   };
 }
 
@@ -1431,7 +1454,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
       return {ok: true, requestId: request.requestId,
         abnormalityId: request.abnormalityId, operation: request.operation,
         version: 1, auditId, committedAt: committedAtIso,
-        idempotentReplay: false, abnormality: after};
+        idempotentReplay: false, abnormality: abnormalityForReceipt(after)};
     }
 
     if (!abnormalitySnapshot.exists) {
@@ -1724,7 +1747,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
       auditId,
       committedAt: committedAtIso,
       idempotentReplay: false,
-      abnormality: after,
+      abnormality: abnormalityForReceipt(after),
     };
   });
 }

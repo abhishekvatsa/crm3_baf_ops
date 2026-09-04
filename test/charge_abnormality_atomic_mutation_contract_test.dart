@@ -178,6 +178,36 @@ void main() {
   );
 
   test(
+    'native server timestamp receipt retains microseconds after transport',
+    () async {
+      final response = _response(
+        requestId: requestId,
+        operation: ChargeAbnormalityMutationOperation.update,
+      );
+      final data = response['abnormality'] as Map<String, dynamic>;
+      data['loggedAt'] = '2026-07-20T08:00:00.123456Z';
+      data['_globalPullServerUpdatedAt'] = '2026-07-20T08:00:00.123456Z';
+      final service = ChargeAbnormalityCommandService(
+        transport: _FakeTransport(response),
+      );
+      for (final replay in [false, true]) {
+        response['idempotentReplay'] = replay;
+        final result = await service.update(
+          abnormality: _record(),
+          expectedVersion: 4,
+          reason: 'Corrected after Admin review',
+          requestId: requestId,
+        );
+        expect(
+          result.abnormality.loggedAt.toUtc().toIso8601String(),
+          '2026-07-20T08:00:00.123456Z',
+        );
+        expect(result.idempotentReplay, replay);
+      }
+    },
+  );
+
+  test(
     'non-string or non-canonical committedAt evidence fails closed',
     () async {
       for (final invalid in <Object>[20260726, '2026-07-26T10:00:00Z']) {

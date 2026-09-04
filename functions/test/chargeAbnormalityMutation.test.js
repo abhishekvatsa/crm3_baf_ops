@@ -526,6 +526,46 @@ describe('charge-abnormality admin mutation', () => {
     expect(state.writes).toHaveLength(4);
   });
 
+  test.each([
+    ['whole-second timestamp', {seconds: 1784534400, nanoseconds: 0}, '2026-07-20T08:00:00.000Z'],
+    ['millisecond timestamp', {seconds: 1784534400, nanoseconds: 123000000}, '2026-07-20T08:00:00.123Z'],
+    ['timestamp parts', {seconds: 1784534400, nanoseconds: 123456000}, '2026-07-20T08:00:00.123456Z'],
+  ])('update preserves stored %s and returns a readable exact replay', async (_, timestamp, iso) => {
+    const record = abnormality({loggedAt: timestamp, updatedAt: timestamp,
+      _globalPullServerUpdatedAt: timestamp});
+    const state = fakeDb({'users/admin-1': admin(), ...standaloneCase(record),
+      'abnormality_types/TYPE_NEW': abnormalityType()});
+    const request = updateRequest();
+    const first = await invoke(state.db, request);
+    expect(first.abnormality.loggedAt).toBe(iso);
+    expect(first.abnormality._globalPullServerUpdatedAt).toBe(iso);
+    expect(state.store.get('charge_abnormalities/abn-1').loggedAt).toEqual(timestamp);
+    expect(state.store.get('charge_abnormalities/abn-1')._globalPullServerUpdatedAt).toEqual(timestamp);
+    const writeCount = state.writes.length;
+    const replay = await invoke(state.db, request);
+    expect(replay.abnormality).toEqual(first.abnormality);
+    expect(replay.idempotentReplay).toBe(true);
+    expect(state.writes).toHaveLength(writeCount);
+  });
+
+  test('untrusted CREATE still requires text dates rather than timestamp objects', () => {
+    expect(() => parseChargeAbnormalityMutationRequest({
+      requestId: '11111111-1111-4111-8111-111111111111',
+      abnormalityId: 'abn-1', operation: 'CREATE', expectedVersion: 0, reason: 'Create case',
+      abnormality: abnormality({loggedAt: {seconds: 1784534400, nanoseconds: 0}}),
+    })).toThrow();
+  });
+
+  test('invalid persisted timestamp parts remain rejected without writes', async () => {
+    const state = fakeDb({'users/admin-1': admin(), ...standaloneCase(abnormality({
+      loggedAt: {seconds: 1784534400, nanoseconds: -1},
+    })), 'abnormality_types/TYPE_NEW': abnormalityType()});
+    await expect(invoke(state.db, updateRequest())).rejects.toMatchObject({
+      code: 'failed-precondition', details: {field: 'loggedAt'},
+    });
+    expect(state.writes).toHaveLength(0);
+  });
+
   test('older identity-only updates preserve unchanged hierarchy evidence', async () => {
     const governed = governedAffectedAsset(7);
     const record = abnormality({

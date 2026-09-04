@@ -294,6 +294,51 @@ describeWithEmulator('S-07 governed charge-abnormality mutation', () => {
     ).toHaveLength(1);
   });
 
+  test('native timestamps survive Operations RA, Admin correction and exact replay', async () => {
+    await seed();
+    const abnormalityId = 'issue_quality_ticket-1';
+    const timestamp = new admin.firestore.Timestamp(1784534400, 123456000);
+    const record = abnormality({firestoreId:abnormalityId, loggedAt: timestamp, updatedAt: timestamp,
+      _globalPullServerUpdatedAt: timestamp, linkedTicketFirestoreId: 'ticket-1',
+      reannealingStatus: 'pendingDecision'});
+    await db.doc(`charge_abnormalities/${abnormalityId}`).set(record);
+    await db.doc('users/operator-1').set({name:'Operator One', isApproved:true, roles:['operations']});
+    await db.doc('maintenance_records/ticket-1').set({chargeNoAtEvent:12001,
+      qualityAbnormalityId:abnormalityId, qualityWarningId:'issue_ticket-1', chargeQualityCaseId:'issue_ticket-1'});
+    await db.doc('quality_warnings/issue_ticket-1').set(warningForAbnormality(record, {
+      warningId:'issue_ticket-1', sourceType:'issue', sourceId:'ticket-1', sourceVersion:1,
+    }));
+    const decision = {requestId:IDS.qualityReplay, operation:'DECLARE_QUALITY_CASE_RA_REQUIRED',
+      warningId:'issue_ticket-1', expectedVersion:1, reason:'Operations confirms RA is required'};
+    const qualityArgs = {db, authUid:'operator-1', data:decision,
+      now:() => new Date('2026-07-26T09:00:00.000Z'),
+      timestampFromDate:admin.firestore.Timestamp.fromDate};
+    await mutateQualityWithDb(qualityArgs);
+    expect((await mutateQualityWithDb(qualityArgs)).idempotentReplay).toBe(true);
+    const request = updateRequest(IDS.replay, {
+      abnormalityId,
+      expectedVersion:5,
+      abnormalityTypeId:record.abnormalityTypeId, severity:record.severity,
+      affectedAssets:record.affectedAssets, component:record.component,
+      observedReason:record.observedReason, description:record.description,
+      possibleRootReasonCategory:record.possibleRootReasonCategory,
+      possibleRootReasonNotes:record.possibleRootReasonNotes,
+      reannealingStatus:'required', reannealedToChargeNo:null,
+    });
+    const first = await invoke(request);
+    const replay = await invoke(request);
+    expect(replay.idempotentReplay).toBe(true);
+    expect(JSON.parse(JSON.stringify(replay.abnormality))).toEqual(first.abnormality);
+    expect(first.abnormality.loggedAt).toBe('2026-07-20T08:00:00.123456Z');
+    expect(first.abnormality._globalPullServerUpdatedAt).toBe('2026-07-20T08:00:00.123456Z');
+    const stored = (await db.doc(`charge_abnormalities/${abnormalityId}`).get()).data();
+    expect(stored.loggedAt.isEqual(timestamp)).toBe(true);
+    expect(stored._globalPullServerUpdatedAt.isEqual(timestamp)).toBe(true);
+    expect(stored.reannealingStatus).toBe('required');
+    expect(stored.version).toBe(6);
+    expect(await collectionState('charge_abnormality_mutation_receipts')).toHaveLength(1);
+  });
+
   test('connected RA decision atomically advances warning and abnormality', async () => {
     const record = abnormality({
       firestoreId: 'issue_quality_ticket-1',
