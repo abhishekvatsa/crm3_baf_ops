@@ -187,10 +187,10 @@ void main() {
 
         _expectOrder(submit, const <String>[
           'buildMaintenanceIssueResolutionCommand(',
-          '.execute(command);',
+          '.execute(command, refreshProjections: false);',
           'validateMaintenanceIssueResolutionReceipt(',
           '.adoptServerMutation(',
-          'await syncCoordinator.runFullSync(',
+          ".runFullSync(reason: 'ticket_resolved', force: true)",
         ]);
         expect(
           submit,
@@ -204,10 +204,7 @@ void main() {
         );
         expect(submit, isNot(contains('repository.resolveTicket(')));
         expect(submit, isNot(contains('runFullSyncWithResult(')));
-        expect(
-          submit,
-          isNot(contains("unawaited(\n        syncCoordinator.runFullSync")),
-        );
+        expect(submit, isNot(contains('await syncCoordinator.runFullSync(')));
       },
     );
 

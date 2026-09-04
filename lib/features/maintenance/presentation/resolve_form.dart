@@ -1,5 +1,7 @@
 // FILE: lib/features/maintenance/presentation/resolve_form.dart
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -465,7 +467,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       final expectedLocalUpdatedAt = widget.ticket.updatedAt.toUtc();
       final receipt = await ref
           .read(workflowCommandControllerProvider.notifier)
-          .execute(command);
+          .execute(command, refreshProjections: false);
       validateMaintenanceIssueResolutionReceipt(
         command: command,
         receipt: receipt,
@@ -503,15 +505,15 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       }
 
       refreshClosedTickets.state++;
-      try {
-        await syncCoordinator.runFullSync(
-          reason: 'ticket_resolved',
-          force: true,
-        );
-      } catch (_) {
-        // The server has already accepted the resolution. Exact point-read
-        // adoption above is sufficient; ordinary sync can retry later.
-      }
+      // Exact adoption is the completion boundary, not unrelated domain sync.
+      // Keep the refresh admitted immediately and let its health report errors.
+      unawaited(
+        syncCoordinator
+            .runFullSync(reason: 'ticket_resolved', force: true)
+            .catchError((Object error, StackTrace stackTrace) {
+              debugPrint('Accepted issue resolution: refresh deferred: $error');
+            }),
+      );
 
       if (!mounted) return;
       final message =

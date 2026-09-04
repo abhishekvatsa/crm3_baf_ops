@@ -3193,39 +3193,16 @@ service cloud.firestore {
             && deleteReason == null));
     }
 
-    // Legacy clients send identity-only asset entries. Rich hierarchy snapshots
-    // are validated by the governed creation callable instead of Rules loops.
-    function validLegacyAbnormalityAsset(asset) {
-      let number = asset.assetNumber;
-      return asset.keys().hasOnly(['assetType', 'assetNumber'])
-        && asset.assetType in ['base', 'furnace', 'forceCooler', 'innerCover', 'governedCustom']
-        && number is int && number > 0 && number <= 9007199254740991;
-    }
-
-    // Both documents must be new and carry identical validated lists.
-    function validLegacyAbnormalityAssets(assets) {
-      let size = assets.size();
-      // Ordinary old-client cases remain supported. Larger saved drafts and
-      // all hierarchy-rich cases use the fully validating CREATE callable.
-      return assets is list && size <= 5 && assets.toSet().size() == size
-        && (size <= 0 || validLegacyAbnormalityAsset(assets[0]))
-        && (size <= 1 || validLegacyAbnormalityAsset(assets[1]))
-        && (size <= 2 || validLegacyAbnormalityAsset(assets[2]))
-        && (size <= 3 || validLegacyAbnormalityAsset(assets[3]))
-        && (size <= 4 || validLegacyAbnormalityAsset(assets[4]));
-    }
-
     function validChargeAbnormalityCreate(docId) {
-      let data = request.resource.data;
-      let sourceChargeNo = data.get('sourceChargeNo', -1);
+      let sourceChargeNo = request.resource.data.get('sourceChargeNo', -1);
       let reannealingStatus =
-        data.get('reannealingStatus', null);
+        request.resource.data.get('reannealingStatus', null);
       let reannealedToChargeNo =
-        data.get('reannealedToChargeNo', null);
+        request.resource.data.get('reannealedToChargeNo', null);
       let warningId = 'abnormality_' + docId;
       return canLogChargeAbnormality()
         && requiredAbnormalityQualityWarningExists(docId)
-        && data.keys().hasAll([
+        && request.resource.data.keys().hasAll([
           'firestoreId',
           'sourceChargeNo',
           'abnormalityTypeId',
@@ -3256,7 +3233,7 @@ service cloud.firestore {
           'deletedByName',
           'deleteReason'
         ])
-        && data.keys().hasOnly([
+        && request.resource.data.keys().hasOnly([
           'firestoreId',
           'sourceChargeNo',
           'abnormalityTypeId',
@@ -3265,7 +3242,6 @@ service cloud.firestore {
           'category',
           'severity',
           'affectedAssets',
-          'affectedAssetHierarchyRefs',
           'component',
           'observedReason',
           'description',
@@ -3288,52 +3264,80 @@ service cloud.firestore {
           'deletedByName',
           'deleteReason'
         ])
-        && data.get('firestoreId', null) == docId
+        && request.resource.data.get('firestoreId', null) == docId
         && isFiveDigitChargeNumber(sourceChargeNo)
         && validNonEmptyString(
-          data.get('abnormalityTypeId', null),
+          request.resource.data.get('abnormalityTypeId', null),
           512
         )
         && validNonEmptyString(
-          data.get('abnormalityTypeTitle', null),
+          request.resource.data.get('abnormalityTypeTitle', null),
           500
         )
         && validNonEmptyString(
-          data.get('abnormalityTypeCode', null),
+          request.resource.data.get('abnormalityTypeCode', null),
           160
         )
-        && data.get('category', null) in ['process', 'equipment', 'resultQuality', 'reannealing', 'other']
-        && data.get('severity', null) in ['low', 'medium', 'high', 'critical']
-        && validLegacyAbnormalityAssets(data.affectedAssets)
-        && data.get('affectedAssetHierarchyRefs', []) == []
-        // Build 23 and earlier did not emit the hierarchy-reference field and
-        // allowed an empty affected-assets list. Keep that legacy wire shape
-        // admissible during the pilot rollout; every hierarchy-aware client
-        // must identify at least one affected asset.
         && (
-          !data.keys().hasAny([
-            'affectedAssetHierarchyRefs'
-          ])
-          || data.get('affectedAssets', []).size() > 0
+          request.resource.data.get('category', null) == 'process'
+          || request.resource.data.get('category', null) == 'equipment'
+          || request.resource.data.get('category', null) == 'resultQuality'
+          || request.resource.data.get('category', null) == 'reannealing'
+          || request.resource.data.get('category', null) == 'other'
         )
+        && (
+          request.resource.data.get('severity', null) == 'low'
+          || request.resource.data.get('severity', null) == 'medium'
+          || request.resource.data.get('severity', null) == 'high'
+          || request.resource.data.get('severity', null) == 'critical'
+        )
+        && request.resource.data.get('affectedAssets', []) is list
+        && request.resource.data.get('affectedAssets', []).size() <= 50
         && validOptionalString(
-          data.get('component', null),
+          request.resource.data.get('component', null),
           200
         )
         && validNonEmptyString(
-          data.get('observedReason', null),
+          request.resource.data.get('observedReason', null),
           2000
         )
         && validOptionalString(
-          data.get('description', null),
+          request.resource.data.get('description', null),
           4000
         )
-        && data.get('possibleRootReasonCategory', null) in ['unknown', 'baseRelated', 'furnaceRelated', 'forceCoolerRelated', 'atmosphereRelated', 'thermocoupleTemperature', 'cycleInterruption', 'materialOrCoilCondition', 'operationsRelated', 'other']
+        && (
+          request.resource.data.get('possibleRootReasonCategory', null)
+            == 'unknown'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'baseRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'furnaceRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'forceCoolerRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'atmosphereRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'thermocoupleTemperature'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'cycleInterruption'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'materialOrCoilCondition'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'operationsRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'other'
+        )
         && validOptionalString(
-          data.get('possibleRootReasonNotes', null),
+          request.resource.data.get('possibleRootReasonNotes', null),
           4000
         )
-        && reannealingStatus in ['notApplicable', 'pendingDecision', 'required', 'notRequired', 'completed']
+        && (
+          reannealingStatus == 'notApplicable'
+          || reannealingStatus == 'pendingDecision'
+          || reannealingStatus == 'required'
+          || reannealingStatus == 'notRequired'
+          || reannealingStatus == 'completed'
+        )
         && (
           (
             reannealedToChargeNo == null
@@ -3346,42 +3350,41 @@ service cloud.firestore {
           )
         )
         && validNonEmptyString(
-          data.get('loggedAt', null),
+          request.resource.data.get('loggedAt', null),
           64
         )
         && validNonEmptyString(
-          data.get('updatedAt', null),
+          request.resource.data.get('updatedAt', null),
           64
         )
-        && data.get('loggedByUid', null) == request.auth.uid
+        && request.resource.data.get('loggedByUid', null) == request.auth.uid
         && validOptionalString(
-          data.get('loggedByName', null),
+          request.resource.data.get('loggedByName', null),
           500
         )
-        && data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && validOptionalString(
-          data.get('updatedByName', null),
+          request.resource.data.get('updatedByName', null),
           500
         )
         && validOptionalString(
-          data.get('linkedTicketFirestoreId', null),
+          request.resource.data.get('linkedTicketFirestoreId', null),
           512
         )
         && validOptionalString(
-          data.get('linkedExecutionFirestoreId', null),
+          request.resource.data.get('linkedExecutionFirestoreId', null),
           512
         )
-        && data.get('version', -1) == 1
-        && data.get('isDeleted', null) == false
-        && data.get('deletedAt', null) == null
-        && data.get('deletedByUid', null) == null
-        && data.get('deletedByName', null) == null
-        && data.get('deleteReason', null) == null;
+        && request.resource.data.get('version', -1) == 1
+        && request.resource.data.get('isDeleted', null) == false
+        && request.resource.data.get('deletedAt', null) == null
+        && request.resource.data.get('deletedByUid', null) == null
+        && request.resource.data.get('deletedByName', null) == null
+        && request.resource.data.get('deleteReason', null) == null;
     }
 
     function validQualityWarningCommon(docId) {
-      let data = request.resource.data;
-      return data.keys().hasAll([
+      return request.resource.data.keys().hasAll([
           'schemaVersion',
           'warningId',
           'sourceType',
@@ -3412,7 +3415,7 @@ service cloud.firestore {
           'updatedByName',
           'version'
         ])
-        && data.keys().hasOnly([
+        && request.resource.data.keys().hasOnly([
           'schemaVersion',
           'warningId',
           'sourceType',
@@ -3443,36 +3446,58 @@ service cloud.firestore {
           'updatedByName',
           'version'
         ])
-        && data.get('schemaVersion', -1) == 1
-        && data.get('warningId', null) == docId
-        && data.get('sourceId', null) is string
-        // These source facts are compared exactly with a newly validated
-        // abnormality below; repeating their scalar checks exhausts the budget.
-        && data.get('status', null) == 'open'
-        && data.get('closureRequestReason', null) == null
-        && data.get('closureRequestedAt', null) == null
-        && data.get('closureRequestedByUid', null) == null
-        && data.get('closureRequestedByName', null) == null
-        && data.get('closedAt', null) == null
-        && data.get('closedByUid', null) == null
-        && data.get('closedByName', null) == null
-        && data.get('closureDisposition', null) == null
-        && data.get('linkedReannealingChargeNos', null) is list
-        && data.get('linkedReannealingChargeNos', []).size() == 0
-        && data.get('decisionReason', null) == null
-        && isPersistedTimestamp(data.get('createdAt', null))
-        && data.get('createdByUid', null) == request.auth.uid
+        && request.resource.data.get('schemaVersion', -1) == 1
+        && request.resource.data.get('warningId', null) == docId
+        && request.resource.data.get('sourceId', null) is string
+        && request.resource.data.get('sourceVersion', -1) is int
+        && request.resource.data.get('sourceVersion', -1) >= 1
+        && isFiveDigitChargeNumber(
+          request.resource.data.get('sourceChargeNo', -1)
+        )
+        && validNonEmptyString(
+          request.resource.data.get('sourceSummary', null),
+          2000
+        )
+        && validNonEmptyString(
+          request.resource.data.get('sourceSeverity', null),
+          40
+        )
+        && validNonEmptyString(
+          request.resource.data.get('warningReason', null),
+          2000
+        )
+        && request.resource.data.get('affectedAssets', null) is list
+        && request.resource.data.get('affectedAssets', []).size() > 0
+        && request.resource.data.get('affectedAssets', []).size() <= 50
         && validOptionalString(
-          data.get('createdByName', null),
+          request.resource.data.get('component', null),
           200
         )
-        && data.get('updatedAt', null) ==
-          data.get('createdAt', null)
-        && data.get('updatedByUid', null) ==
-          data.get('createdByUid', null)
-        && data.get('updatedByName', null) ==
-          data.get('createdByName', null)
-        && data.get('version', -1) == 1;
+        && request.resource.data.get('status', null) == 'open'
+        && request.resource.data.get('closureRequestReason', null) == null
+        && request.resource.data.get('closureRequestedAt', null) == null
+        && request.resource.data.get('closureRequestedByUid', null) == null
+        && request.resource.data.get('closureRequestedByName', null) == null
+        && request.resource.data.get('closedAt', null) == null
+        && request.resource.data.get('closedByUid', null) == null
+        && request.resource.data.get('closedByName', null) == null
+        && request.resource.data.get('closureDisposition', null) == null
+        && request.resource.data.get('linkedReannealingChargeNos', null) is list
+        && request.resource.data.get('linkedReannealingChargeNos', []).size() == 0
+        && request.resource.data.get('decisionReason', null) == null
+        && isPersistedTimestamp(request.resource.data.get('createdAt', null))
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && validOptionalString(
+          request.resource.data.get('createdByName', null),
+          200
+        )
+        && request.resource.data.get('updatedAt', null) ==
+          request.resource.data.get('createdAt', null)
+        && request.resource.data.get('updatedByUid', null) ==
+          request.resource.data.get('createdByUid', null)
+        && request.resource.data.get('updatedByName', null) ==
+          request.resource.data.get('createdByName', null)
+        && request.resource.data.get('version', -1) == 1;
     }
 
     function initialQualityWarningProjection(warning, warningId) {
@@ -3502,39 +3527,61 @@ service cloud.firestore {
       let warningId = 'abnormality_' + docId;
       let warningPath =
         /databases/$(database)/documents/quality_warnings/$(warningId);
-      // Its create rule verifies the full projection against this new source.
-      return !exists(warningPath) && existsAfter(warningPath);
+      let warning = getAfter(warningPath).data;
+      return (!exists(warningPath) && existsAfter(warningPath))
+        || (exists(warningPath)
+        && initialQualityWarningProjection(warning, warningId)
+        && warning.get('sourceType', null) == 'abnormality'
+        && warning.get('sourceId', null) == docId
+        && warning.get('sourceVersion', -1) ==
+          request.resource.data.get('version', -2)
+        && warning.get('sourceChargeNo', -1) ==
+          request.resource.data.get('sourceChargeNo', -2)
+        && warning.get('sourceSummary', null) ==
+          request.resource.data.get('abnormalityTypeTitle', null)
+        && warning.get('sourceSeverity', null) ==
+          request.resource.data.get('severity', null)
+        && warning.get('warningReason', null) ==
+          request.resource.data.get('observedReason', null)
+        && warning.get('affectedAssets', []) ==
+          request.resource.data.get('affectedAssets', [])
+        && warning.get('component', null) ==
+          request.resource.data.get('component', null)
+        && warning.get('createdAt', null) ==
+          request.resource.data.get('loggedAt', null)
+        && warning.get('createdByUid', null) ==
+          request.resource.data.get('loggedByUid', null)
+        && warning.get('createdByName', null) ==
+          request.resource.data.get('loggedByName', null));
     }
 
     function validAbnormalityQualityWarning(docId) {
-      let data = request.resource.data;
-      let sourceId = data.get('sourceId', '');
+      let sourceId = request.resource.data.get('sourceId', '');
       let sourcePath = /databases/$(database)/documents/charge_abnormalities/$(sourceId);
       let source = getAfter(sourcePath).data;
-      return !exists(sourcePath)
-        && data.get('sourceType', null) == 'abnormality'
+      return request.resource.data.get('sourceType', null) == 'abnormality'
         && docId == 'abnormality_' + sourceId
         && existsAfter(sourcePath)
         && source.get('firestoreId', null) == sourceId
-        && data.get('sourceVersion', -1) ==
+        && request.resource.data.get('sourceVersion', -1) ==
           source.get('version', -2)
-        && data.get('sourceChargeNo', -1) ==
+        && request.resource.data.get('sourceChargeNo', -1) ==
           source.get('sourceChargeNo', -2)
-        && data.get('sourceSummary', null) ==
+        && request.resource.data.get('sourceSummary', null) ==
           source.get('abnormalityTypeTitle', null)
-        && data.get('sourceSeverity', null) ==
+        && request.resource.data.get('sourceSeverity', null) ==
           source.get('severity', null)
-        && data.get('warningReason', null) ==
+        && request.resource.data.get('warningReason', null) ==
           source.get('observedReason', null)
-        && data.get('affectedAssets', []) ==
+        && request.resource.data.get('affectedAssets', []) ==
           source.get('affectedAssets', [])
-        && data.get('component', null) ==
+        && request.resource.data.get('component', null) ==
           source.get('component', null)
-        && data.get('createdAt', null) ==
+        && request.resource.data.get('createdAt', null) ==
           source.get('loggedAt', null)
-        && data.get('createdByUid', null) ==
+        && request.resource.data.get('createdByUid', null) ==
           source.get('loggedByUid', null)
-        && data.get('createdByName', null) ==
+        && request.resource.data.get('createdByName', null) ==
           source.get('loggedByName', null);
     }
 

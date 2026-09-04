@@ -368,7 +368,11 @@ class WorkflowCommandController
   _executeCommand;
   final Future<void> Function() _pullProjections;
 
-  Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async {
+  // Exact-readback callers may refresh the wider projection separately.
+  Future<WorkflowCommandReceipt> execute(
+    WorkflowCommand command, {
+    bool refreshProjections = true,
+  }) async {
     state = const AsyncLoading();
     late final WorkflowCommandReceipt receipt;
     try {
@@ -384,6 +388,7 @@ class WorkflowCommandController
     }
 
     state = AsyncData(receipt);
+    if (!refreshProjections) return receipt;
     try {
       await _pullProjections();
     } catch (_) {

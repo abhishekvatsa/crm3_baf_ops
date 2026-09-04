@@ -545,10 +545,7 @@ void _expectCapturedSyncBeforeAwaitInSource({
   expect(captureIndex, lessThan(awaitIndex));
   expect(
     body,
-    anyOf(
-      contains('syncCoordinator.runFullSync'),
-      contains('coordinator.runFullSync'),
-    ),
+    matches(RegExp(r'(syncCoordinator|coordinator)\s*\.runFullSync')),
   );
   expect(body, contains(syncReason));
 }

@@ -2,6 +2,14 @@
 
 Date: 4 September 2026 (IST)
 
+**Later staged-rollout decision:** the owner approved retaining deployed Rules
+while older phones migrate. The proposed five-asset restriction below has been
+withdrawn; the direct legacy path retains its existing nested-validation gap.
+The modern callable is strict, but this P1 is not closed for all clients.
+See [the current compatibility and cost review](STAGED_PILOT_COMPATIBILITY_AND_COST_2026-09-04.md)
+for exact Rules identity, the 1-50 legacy boundary and stage-two gates. Earlier
+test counts, deployment status and proposed rule behavior below are historical.
+
 Scope: uncommitted changes on `codex/governed-charge-abnormality-form`, based on `6b7fdcd690c9b13d9f32e52243a28c0531f9f42b`. This is a review of the changed quality/abnormality paths and their immediate sync, issue, hierarchy, authority, and presentation dependencies. It is not certification of the entire application or the installed APK.
 
 ## Resolution Update: Three Requested Findings

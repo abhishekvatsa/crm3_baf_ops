@@ -154,6 +154,12 @@ No general fallback or authorization exemption was introduced.
 
 ## Release Boundary and Next Steps
 
+Later update: the owner approved keeping the deployed Rules unchanged while
+older phones migrate. The Rules hash and proposed Rules deployment below are
+historical, superseded by
+[the staged compatibility decision](STAGED_PILOT_COMPATIBILITY_AND_COST_2026-09-04.md).
+Functions remain a source successor requiring governed deployment.
+
 Current Functions tree:
 `2da1d3d564e6e526899631740b1ee457432af490`.
 
