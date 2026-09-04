@@ -5,6 +5,23 @@
   "timestampInventory": "governance/a05-persisted-timestamp-surface-v2.json",
   "surfaces": [
     {
+      "id": "quality-monitoring-creation-outbox",
+      "file": "lib/features/quality/services/monitoring_creation_store.dart",
+      "markers": [
+        "Map<String, dynamic>? _read(",
+        "Map<String, dynamic> _validate(",
+        "Future<Map<String, dynamic>> prepare("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "quality",
+      "authorityBoundary": "account/project-scoped durable identity of an unconfirmed monitoring creation",
+      "malformedDisposition": "fail closed and retain the pending request; never rotate an uncertain request or entity ID",
+      "compatibility": "wholly absent pre-feature pending request only",
+      "regression": "test/quality_command_result_test.dart",
+      "reArmCondition": "malformed pending state is discarded, unchanged intent acquires a new ID, or one account confirms another account's request",
+      "riskFingerprint": "1bceac146da1bbd434537aecce2f7fe2b22a5ac70d32c5ed6479627407d9fece"
+    },
+    {
       "id": "global-pull-cursor",
       "file": "lib/core/services/global_pull_cursor_store.dart",
       "markers": [
@@ -703,9 +720,9 @@
       "authorityBoundary": "physical asset, installed-component, and tag-claim registry",
       "malformedDisposition": "fail closed before a malformed installation can resolve a tag or enter business evidence",
       "compatibility": "none for physical identity, lifecycle, ownership, or version authority",
-      "regression": "test/asset_hierarchy_model_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js",
+      "regression": "test/asset_hierarchy_model_test.dart; test/asset_display_label_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js",
       "reArmCondition": "physical identity, ownership, lifecycle, installed-component state, or tag authority is coerced or defaulted",
-      "riskFingerprint": "e73f0250f4b7fa6d4a3183c6136af2fb11bc9230c0f7ab3e9d631a435173d9c2"
+      "riskFingerprint": "b1ce5c22b0944a34b8df67f86b6a666615497d8a215cf293dd8fe631f1d4b3d2"
     },
     {
       "id": "asset-operational-condition-records",
@@ -798,7 +815,7 @@
       "compatibility": "schema version 1 only; no partial lifecycle evidence or malformed charge references",
       "regression": "test/quality_warning_lifecycle_test.dart; functions/test/qualityMutation.test.js",
       "reArmCondition": "quality schema, lifecycle bundle, charge-reference, actor, timestamp, or version validation changes",
-      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "riskFingerprint": "6c23431eb0deede3437b2175b858daf3ca30a7ad5c9d5f1fea21d55e09fcf8e8"
     },
     {
       "id": "issue-quality-intent",
@@ -1699,17 +1716,17 @@
       "reArmCondition": "a malformed present hierarchy identity is ignored or admitted for publication or assignment"
     },
     {
-      "id": "quality-command-transport-translation",
+      "id": "quality-command-firebase-transport-translation",
       "file": "lib/features/quality/services/quality_command_service.dart",
-      "siteFingerprint": "264b39ac9ec88eda2daddc1dd95886022ef177dcc3afa6383d2a9973ea82ff4f",
+      "siteFingerprint": "173eb52482f70c41238dc591888c0365e878dde769a838729af015ca24588b72",
       "classification": "TRANSPORT_ERROR_TRANSLATION",
-      "purpose": "translate callable transport failures while preserving strict response-format failure",
-      "authorityBoundary": "governed quality mutation response",
+      "purpose": "translate Firebase callable exceptions into a failed command while leaving strict result validation in force",
+      "authorityBoundary": "governed quality mutation transport and request-bound response",
       "mutability": "remote mutation already governed by the server; no local success state is manufactured",
-      "dataScope": "quality callable response and Firebase transport error",
-      "malformedDisposition": "throw a data-loss command error and do not report success",
+      "dataScope": "quality callable Firebase exception only",
+      "malformedDisposition": "throw a command error and retain uncertain monitoring identity for safe retry",
       "regression": "test/quality_command_result_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "transport or response-format failure becomes a successful quality decision"
+      "reArmCondition": "transport failure reports success, rotates uncertain creation identity, or suppresses response validation"
     },
     {
       "id": "operational-event-command-transport-translation",

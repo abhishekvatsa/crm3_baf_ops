@@ -98,6 +98,18 @@
       ]
     },
     {
+      "id": "governed-directive-acknowledgement-comparison",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "directives-synchronization",
+      "purpose": "normalize typed local and remote directive timestamps to UTC for immutable-source comparison without rewriting server-owned chronology",
+      "authorityBoundary": "governed-burner-directive-acknowledgement-admission",
+      "regression": "test/governed_directive_acknowledgement_test.dart",
+      "reArmCondition": "malformed chronology is defaulted, comparison accepts changed source evidence, or normalized immutable timestamps are written back",
+      "sites": [
+        {"file": "lib/features/directives/data/governed_directive_acknowledgement.dart", "expression": "DateTime.parse(", "occurrence": 1}
+      ]
+    },
+    {
       "id": "morning-review-report-day-boundary",
       "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
       "owner": "morning-review",

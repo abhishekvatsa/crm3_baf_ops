@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "9CBA19E704B685F3908F4CED9E9D997486CBDC2221C211F79AD0C3FF40B97377",
+  "inventoryDigest": "51E1ECC7DB0C24759989EC91E8B651B12A89A32C7F8927B081884C274F14726F",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "4B30A2923C8763A1BA80D488F593306747A0CEF97CAE74D309B144459FE3282E",
+  "a05ManifestSha256": "13CEC51CB6204D9BA4559CA46DD247BB062ED9067E11074DFC8A43D07C8D3C57",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -821,7 +821,7 @@
       "authorityBoundary": "physical asset, installed-component, and tag-claim registry",
       "malformedDisposition": "fail closed before a malformed installation can resolve a tag or enter business evidence",
       "compatibility": "none for physical identity, lifecycle, ownership, or version authority",
-      "regression": "test/asset_hierarchy_model_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js"
+      "regression": "test/asset_hierarchy_model_test.dart; test/asset_display_label_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js"
     },
     {
       "id": "assignment-idempotency",
@@ -1326,6 +1326,15 @@
       "malformedDisposition": "translate malformed callable evidence to data-loss and never report command success",
       "compatibility": "none for request identity, operation, entity, result version, audit identity, or commit time",
       "regression": "test/quality_command_result_test.dart; test/quality_warning_lifecycle_test.dart; functions/test/qualityMutation.test.js"
+    },
+    {
+      "id": "quality-monitoring-creation-outbox",
+      "file": "lib/features/quality/services/monitoring_creation_store.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "account/project-scoped durable identity of an unconfirmed monitoring creation",
+      "malformedDisposition": "fail closed and retain the pending request; never rotate an uncertain request or entity ID",
+      "compatibility": "wholly absent pre-feature pending request only",
+      "regression": "test/quality_command_result_test.dart"
     },
     {
       "id": "quality-warning-and-monitoring-records",
