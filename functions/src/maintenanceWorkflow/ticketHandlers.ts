@@ -11,6 +11,7 @@ import {cleanText, iso, stableJson} from "./utils";
 import {WorkflowTransaction} from "./store";
 import {eventPlan} from "./events";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
+import {persistedInstantMillis} from "../persistedInstant";
 import {
   PersistedActionPayloadError,
   readComponentActionPayload,
@@ -363,7 +364,7 @@ const requiredPersistedInstantDate = (
   if (value instanceof Date) {
     parsed = value;
   } else if (typeof value === "string" && value.trim().length > 0) {
-    parsed = new Date(value);
+    parsed = new Date(persistedInstantMillis(value));
   } else if (
     value != null &&
     typeof value === "object" &&

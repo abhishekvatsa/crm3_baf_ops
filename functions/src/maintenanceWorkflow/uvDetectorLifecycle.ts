@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {persistedInstantMillis} from "../persistedInstant";
 
 import {
   PersistedActionPayloadError,
@@ -138,7 +139,7 @@ const establishesServiceableUvCondition = (row: ActionRow): boolean =>
 
 const parseInstant = (value: unknown, field: string): string => {
   const text = requiredText(value, field);
-  const parsed = new Date(text);
+  const parsed = new Date(persistedInstantMillis(text));
   if (!Number.isFinite(parsed.getTime())) {
     throw new WorkflowError(
       "failed-precondition",

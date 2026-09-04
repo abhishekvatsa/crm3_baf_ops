@@ -795,7 +795,10 @@ describe('maintenance workflow command integration', () => {
     expect(receipt.result).toMatchObject({redAction: 'notApplicable', equipmentState: 'available'});
   });
 
-  test('new furnace RED successor is gated by Operations preparation', async () => {
+  test.each([
+    '2026-07-20T04:55:00.000Z',
+    '2026-07-20T10:25:00.000',
+  ])('new furnace RED successor is gated by Operations preparation (action %s)', async (actionTime) => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf1', 'readyForClosure', 8);
     store.seed('maintenance_workflows/wf1', {jobExecutionId: 'wf1-exec', status: 'readyForClosure', version: 8, assetTypeKey: 'furnace', assetNumber: 7, laneSetFinalizedAt: '2026-07-20T00:00:00Z', createdAt: '2026-07-20T00:00:00.000Z'});
     store.seed('job_lanes/wf1_mech_1', {workflowId: 'wf1', jobExecutionId: 'wf1-exec', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
@@ -811,7 +814,7 @@ describe('maintenance workflow command integration', () => {
     const service = serviceFor(store);
     const requestedActionsJson = JSON.stringify([{
       asset: 'untrusted', component: 'untrusted', actionType: 'inspection',
-      isAutoResolved: false, createdAt: '2026-07-20T04:55:00.000Z',
+      isAutoResolved: false, createdAt: actionTime,
       severity: 'medium', version: 1, tag: null,
       assetHierarchyRef: {
         schemaVersion: 4, scope: 'componentDefinitionOnAsset',

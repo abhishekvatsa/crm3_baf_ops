@@ -2356,6 +2356,82 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  describe('component action client/server time contract', () => {
+    const fixture = JSON.parse(fs.readFileSync(path.join(
+      __dirname, '../../test/fixtures/component_action_time_contract_v1.json',
+    ), 'utf8'));
+
+    test.each([...fixture.cases, {
+      name: 'Legacy Indian phone without timezone suffix',
+      createdAtWire: '2026-08-14T21:15:00.123456',
+      updatedAtWire: '2026-08-14T21:16:00.123456',
+    }])('$name payload resolves without rewriting the action time', async (row) => {
+      const retained = hierarchyAction({createdAt: '2026-08-14T15:00:00.123456'});
+      const seeded = serviceFor(admin, {
+        startDate: fixture.workStartedAt,
+        actionsJson: JSON.stringify([retained]),
+      });
+      seedFurnaceHierarchy(seeded.store);
+      const command = {
+        commandId: 'resolve-time-contract',
+        commandType: 'resolveMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          endDate: fixture.endDate,
+          remarks: 'Inspection completed.',
+          teamsInvolved: ['mechanical'],
+          actionsJson: JSON.stringify([retained, hierarchyAction({
+            createdAt: row.createdAtWire,
+            updatedAt: row.updatedAtWire,
+          })]),
+          actionTargetContractVersion: 1,
+        },
+      };
+      await expect(seeded.service.execute(command, seeded.context))
+        .resolves.toMatchObject({aggregateVersion: 4});
+      const saved = seeded.store.read('maintenance_records/ticket-1');
+      const actions = JSON.parse(saved.actionsJson);
+      expect(actions[0]).toEqual(retained);
+      expect(actions[1].createdAt).toBe(row.createdAtWire);
+      expect(actions[1].updatedAt).toBe(row.updatedAtWire);
+      await expect(seeded.service.execute(command, seeded.context))
+        .resolves.toMatchObject({aggregateVersion: 4});
+      expect(seeded.store.read('maintenance_records/ticket-1')).toEqual(saved);
+    });
+
+    test.each([
+      ['before work began', '2026-08-14T14:29:59.999Z'],
+      ['after closure tolerance', '2026-08-14T16:05:00.001Z'],
+      ['legacy time before work began', '2026-08-14T19:59:59.999'],
+      ['legacy time after closure tolerance', '2026-08-14T21:35:00.001'],
+    ])('%s is still rejected without changing the ticket', async (_, createdAt) => {
+      const seeded = serviceFor(admin, {
+        startDate: fixture.workStartedAt,
+        actionsJson: '[]',
+      });
+      seedFurnaceHierarchy(seeded.store);
+      const before = seeded.store.read('maintenance_records/ticket-1');
+      await expect(seeded.service.execute({
+        commandId: 'reject-action-time',
+        commandType: 'resolveMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          endDate: fixture.endDate,
+          remarks: 'Inspection completed.',
+          teamsInvolved: ['mechanical'],
+          actionsJson: JSON.stringify([hierarchyAction({createdAt})]),
+          actionTargetContractVersion: 1,
+        },
+      }, seeded.context)).rejects.toMatchObject({
+        code: 'invalid-argument',
+        details: {reasonCode: 'maintenance-ticket-action-time-invalid'},
+      });
+      expect(seeded.store.read('maintenance_records/ticket-1')).toEqual(before);
+    });
+  });
+
   test('resolution preserves a verified hierarchy-definition tag', async () => {
     const seeded = serviceFor(admin, {
       startDate: '2026-08-14T14:30:00.000Z',

@@ -163,6 +163,30 @@ async function prepare(store, row = action(), overrides = {}) {
 }
 
 describe('UV-detector lifecycle projection', () => {
+  test.each(['maintenanceIssue', 'legacyPlannedJob', 'workflowPlannedJob'])(
+    '%s accepts legacy Indian action time and preserves the actual installation instant', async (sourceType) => {
+      const store = seedStore();
+      const row = action({createdAt: '2026-08-28T13:30:00.000'});
+      await prepare(store, row, {sourceType});
+      const [, event] = store.entries().find(([entryPath]) =>
+        entryPath.startsWith('uv_detector_lifecycle_events/'));
+      expect(event).toMatchObject({
+        actionPerformedAt: '2026-08-28T08:00:00.000Z',
+        completedAt: '2026-08-28T09:00:00.000Z',
+        sourceType,
+      });
+      expect(row.createdAt).toBe('2026-08-28T13:30:00.000');
+    },
+  );
+
+  test('legacy Indian time still cannot move installation after closure', async () => {
+    const store = seedStore();
+    await expect(prepare(store, action({createdAt: '2026-08-28T14:36:00.000'})))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+    expect(store.entries().filter(([entryPath]) =>
+      entryPath.startsWith('uv_detector_lifecycle_events/'))).toHaveLength(0);
+  });
+
   test('rejects a receipt time that differs from authoritative closure', async () => {
     const store = seedStore();
 
