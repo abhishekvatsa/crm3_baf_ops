@@ -23,15 +23,16 @@ governed package SHA-256 is
 `649E41398D74ADC3ADEBC7F27F93493F57288EF80668877AF14CA16D83B661DA`.
 
 Build 25 (`1.0.0-rc.15+25`) is source-authorized for governed construction from
-the admitted PR 348 baseline `8cb7af1`. All 15 production Functions match that
-source and passed strict readback with existing IAM preserved. The existing
+the admitted PR 349 baseline `b148a78`, whose exact post-merge CI passed.
+All 15 production Functions match the unchanged PR 348 backend source
+`8cb7af1` and passed strict readback with existing IAM preserved. The existing
 Firestore Rules and 66 indexes remain unchanged and verified.
 
 Build 24 remains finalized, immutable and non-distributable. Build 25 has not
-yet been constructed; its source approval must be rebound after these release
-records are admitted with clean CI. No consumed build number may be reused.
-Exact-package device acceptance and pilot promotion remain separate decisions
-after construction.
+yet been constructed. Its source approval now includes the admitted release
+governance corrections; construction still requires exact merged source and
+clean CI. No consumed build number may be reused. Exact-package device
+acceptance and pilot promotion remain separate decisions after construction.
 
 Authoritative status sources:
 
