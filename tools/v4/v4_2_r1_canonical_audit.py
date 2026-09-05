@@ -4583,13 +4583,33 @@ candidate_environment_relative = combined_policy.get("github", {}).get(
     "environmentReviewControl", {}
 ).get("approvalReceiptFile", "")
 candidate_environment_approval = data(candidate_environment_relative)
-# Preserve the finalized predecessor independently of a pending successor.
-build23_finalization = (
-    combined_policy.get("finalization", {})
-    if candidate_build_number == 23
-    else prior_completed_build
+# Preserve every finalized predecessor independently of how many source-only
+# candidates have followed it.
+candidate_finalization = combined_policy.get("finalization", {})
+latest_completed_finalization = (
+    prior_completed_build
+    if candidate_pending
+    else {**candidate_finalization, "buildNumber": candidate_build_number}
 )
-build22_preserved_finalization = build23_finalization.get("priorCompletedBuild", {})
+
+
+def completed_finalization_for(build_number: int) -> dict:
+    current = latest_completed_finalization
+    seen: set[int] = set()
+    while isinstance(current, dict) and current:
+        current_number = current.get("buildNumber")
+        if current_number == build_number:
+            return current
+        identity = id(current)
+        if identity in seen:
+            break
+        seen.add(identity)
+        current = current.get("priorCompletedBuild", {})
+    return {}
+
+
+build23_finalization = completed_finalization_for(23)
+build22_preserved_finalization = completed_finalization_for(22)
 deployed_functions_tree = git_tree_object_id(
     str(current_deployed_backend.get("functionFleetSourceCommit", "")),
     "functions",
@@ -7197,7 +7217,7 @@ check(
     ) == "MUTATING_FLOWS_NOT_ADJUDICATED"
     and current_successor_planes.get("nextCandidate", {}).get(
         "minimumBuildNumber"
-    ) == candidate_build_number + 1
+    ) == candidate_build_number + (0 if candidate_pending else 1)
     and current_successor_planes.get("nextCandidate", {}).get("status")
         == expected_next_candidate_status,
 )
