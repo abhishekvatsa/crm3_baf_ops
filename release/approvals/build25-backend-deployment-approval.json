@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-current-source-backend-deployment-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-09-05T19:24:30Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalEvidence": {
+    "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
+    "codexTurnId": "01a07307-8f32-7663-a8f4-c5cbdbcf97a7",
+    "turnStartedAtUnixSeconds": 1788636270,
+    "authorityType": "project-owner instruction",
+    "instructionVerbatim": "after this we go on to build next build",
+    "instructionSummary": "Proceed with the governed next-build sequence after the current work and its verification are complete.",
+    "timestampSource": "Codex task history turn.startedAt",
+    "scopeInterpretation": "The instruction continues the owner's already authorized governed-build procedure. This receipt binds that authority to reviewed PR 348 and its successful exact post-merge release gate; it does not invent a broader production, device, or distribution authorization."
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "sourceAuthority": {
+    "commit": "8cb7af107ca8c2e00d0ca4b5502efa7003e1d12b",
+    "tree": "422b3d2d35f61853f0cf14bdb0c609c99d868d30",
+    "functionTree": "30eeb17c853b67dafb31429ab94632f6bc6ee273",
+    "pullRequestNumber": 348,
+    "requiredPostMergeReleaseGateRunId": 33993937777
+  },
+  "approvedDeployment": {
+    "functionCount": 15,
+    "existingDedicatedServiceAccountsRequired": true,
+    "preserveExistingIamRequired": true,
+    "appCheckEnforcement": false,
+    "firestoreRulesSha256": "9B0A8B0E9F316AE104C0507B70B94C9B7A6F04D379C86A67933CD4FC27CD54DC",
+    "firestoreRulesMutationAuthorized": false,
+    "firestoreIndexCount": 66,
+    "firestoreIndexSetSha256": "E58BEAEF69212C4B00035C120F345D25F962588EE84ACC6D88363CD5EE2D95A4",
+    "firestoreIndexMutationAuthorized": false,
+    "strictLiveReadbackRequired": true,
+    "postMergeReleaseGateMustPassBeforeDeployment": true
+  },
+  "notAuthorized": [
+    "IAM mutation",
+    "App Check activation",
+    "production business-data deletion or mutation",
+    "device-data clearing",
+    "installation",
+    "distribution",
+    "unrestricted distribution",
+    "Play Store publication"
+  ]
+}

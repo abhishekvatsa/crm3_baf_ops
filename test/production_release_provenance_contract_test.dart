@@ -1507,6 +1507,9 @@ void main() {
                     ? finalization['priorCompletedBuild']
                     : finalization)
                 as Map<String, dynamic>;
+        final finalizedBuildNumber = pendingConstruction
+            ? finalizedBuild['buildNumber'] as int
+            : candidateBuildNumber;
         expect(
           finalization['status'],
           pendingConstruction
@@ -1570,7 +1573,7 @@ void main() {
         );
         expect(
           finalizedBuild['completionReceiptFile'],
-          'release/evidence/build-$candidateBuildNumber-finalization-closure.json',
+          'release/evidence/build-$finalizedBuildNumber-finalization-closure.json',
         );
         expect(
           _sha256(finalizedBuild['completionReceiptFile'] as String),
