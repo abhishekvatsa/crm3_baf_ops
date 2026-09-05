@@ -322,12 +322,29 @@ int _compareInnerCoverSerial(InnerCoverProfile left, InnerCoverProfile right) {
   if (leftMatch != null && rightMatch != null) {
     final prefix = leftMatch.group(1)!.compareTo(rightMatch.group(1)!);
     if (prefix != 0) return prefix;
-    final number = int.parse(
+    final number = _compareDecimalStrings(
       leftMatch.group(2)!,
-    ).compareTo(int.parse(rightMatch.group(2)!));
+      rightMatch.group(2)!,
+    );
     if (number != 0) return number;
   }
   return left.normalizedSerialNumber.compareTo(right.normalizedSerialNumber);
+}
+
+int _compareDecimalStrings(String left, String right) {
+  String withoutLeadingZeroes(String value) {
+    var firstSignificantDigit = 0;
+    while (firstSignificantDigit < value.length - 1 &&
+        value.codeUnitAt(firstSignificantDigit) == 0x30) {
+      firstSignificantDigit += 1;
+    }
+    return value.substring(firstSignificantDigit);
+  }
+
+  final normalizedLeft = withoutLeadingZeroes(left);
+  final normalizedRight = withoutLeadingZeroes(right);
+  final length = normalizedLeft.length.compareTo(normalizedRight.length);
+  return length != 0 ? length : normalizedLeft.compareTo(normalizedRight);
 }
 
 bool _isBulgeCause(FurnaceStuckupCause? cause) => const {

@@ -101,6 +101,12 @@ void main() {
       receivedOrCompletedOn: DateTime.utc(2025, 12, 5, 12),
       incorporatedOn: DateTime.utc(2025, 12, 13, 12),
     );
+    final longSerial = _profile(
+      id: 'cover-long-serial',
+      serial: 'GR${'9' * 150}',
+      state: InnerCoverLifecycleState.available,
+      now: now,
+    );
     final assignment = BaseInnerCoverAssignment(
       baseAssetInstanceId: base.id,
       baseAssetClassId: assetClass.id,
@@ -126,7 +132,7 @@ void main() {
           ),
           allAssetInstancesProvider.overrideWith((ref) => Stream.value([base])),
           innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream.value([installed, available]),
+            (ref) => Stream.value([installed, longSerial, available]),
           ),
           innerCoverAssignmentsProvider.overrideWith(
             (ref) => Stream.value([assignment]),
@@ -149,12 +155,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('1 installed'), findsOneWidget);
-    expect(find.text('1 available'), findsOneWidget);
+    expect(find.text('2 available'), findsOneWidget);
     expect(find.byTooltip('Register Inner Cover'), findsNothing);
 
     await tester.tap(find.text('Pool'));
     await tester.pumpAndSettle();
     expect(find.text('GR30'), findsOneWidget);
+    expect(find.text(longSerial.serialNumber), findsOneWidget);
     expect(find.textContaining('Available'), findsWidgets);
     expect(find.textContaining('Incorporated 13 Dec 2025'), findsOneWidget);
     await tester.tap(find.text('GR30'));
