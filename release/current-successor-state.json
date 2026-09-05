@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-06-BUILD25",
   "asOfDate": "2026-09-06",
-  "status": "BUILD25_SOURCE_SUCCESSOR_BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND",
+  "status": "BUILD25_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.15+25",
       "relationshipToLatestFinalizedArtifact": "BUILD25_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD24",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": false,
+      "artifactConstructionAuthority": true,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
@@ -75,7 +75,7 @@
     },
     "nextCandidate": {
       "minimumBuildNumber": 25,
-      "status": "SOURCE_SUCCESSOR_AWAITING_BUILD25_ARTIFACT_SOURCE_REBIND",
+      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD25_CONSTRUCTION",
       "constructionRequiresFreshGovernedApproval": false,
       "deviceValidationRequiresExactNewArtifact": true,
       "pilotPromotionRequiresSeparateDecision": true,

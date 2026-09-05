@@ -3,7 +3,7 @@
   "documentType": "governed-build-number-rollover-approval",
   "approved": true,
   "approvedAtUtc": "2026-09-05T19:24:30Z",
-  "evidenceBoundAtUtc": "2026-09-05T22:26:30.494Z",
+  "evidenceBoundAtUtc": "2026-09-05T23:14:37.288Z",
   "approverName": "Abhishek Vatsa",
   "approvalEvidence": {
     "codexTaskId": "019ee05b-70ae-7312-92d3-48f67e5c8b49",
@@ -16,11 +16,11 @@
     "scopeInterpretation": "The instruction continues the owner's governed-build authorization and is bound to the admitted source and protected construction controls. It does not authorize installation, production business-data mutation, IAM changes, App Check activation, or distribution."
   },
   "approvalReference": "BAF-REF-003-C24",
-  "authorityBasis": "Actual project-owner instruction in the identified Codex task and turn: \"after this we go on to build next build\". This record binds that instruction to admitted PR 348, its successful post-merge release gate, and the completed IAM-preserving backend deployment. It authorizes one protected Build 25 construction and does not create installation or distribution authority.",
+  "authorityBasis": "Actual project-owner instruction in the identified Codex task and turn: \"after this we go on to build next build\". This record binds that instruction to admitted PR 348, its successful post-merge release gate, and the completed IAM-preserving backend deployment. It authorizes one protected Build 25 construction and does not create installation or distribution authority. The construction source is now rebound to admitted PR 349 after its exact post-merge CI passed, preserving the separately verified PR 348 backend source.",
   "approvalScope": "Allocate unused Build 25, version 1.0.0-rc.15, for one governed production-signed successor of finalized Build 24. Include the reviewed Morning Review, generalized inspection, Inner Cover lifecycle, mobile usability and release-authority corrections in PR 348. Independent package verification and dual custody are authorized. Installation, business-data mutation, IAM changes, App Check activation and distribution remain separate.",
   "sourceBaseline": {
-    "commit": "8cb7af107ca8c2e00d0ca4b5502efa7003e1d12b",
-    "tree": "422b3d2d35f61853f0cf14bdb0c609c99d868d30"
+    "commit": "b148a785ceacc7b55f737b114a84e8d248e46c09",
+    "tree": "3de899433ebb3bc2471496501a4a90530fed7626"
   },
   "consumedBuild": {
     "buildNumber": 24,
@@ -192,11 +192,11 @@
     "build22BackendReconciliationPullRequest": 338,
     "build22BackendReconciliationMergeCommit": "2dfa186e269a59269e713df5d915b236c5e9ef04",
     "build22BackendReconciliationTree": "57e39da9b26177d8e66a0be12a4bac9ca5a1e873",
-    "successorFreezePullRequest": 348,
-    "successorFreezeBaselineCommit": "8cb7af107ca8c2e00d0ca4b5502efa7003e1d12b",
-    "successorFreezeBaselineTree": "422b3d2d35f61853f0cf14bdb0c609c99d868d30",
+    "successorFreezePullRequest": 349,
+    "successorFreezeBaselineCommit": "b148a785ceacc7b55f737b114a84e8d248e46c09",
+    "successorFreezeBaselineTree": "3de899433ebb3bc2471496501a4a90530fed7626",
     "successorFreezeMustBeAncestorOfDispatchCommit": true,
-    "successorFreezePostMergeGithubRunId": 33993937777,
+    "successorFreezePostMergeGithubRunId": 33997514890,
     "successorFreezePostMergeGithubRunConclusion": "success",
     "successorFreezeCanonicalAuditPassCount": 149,
     "build20AcceptancePolicyShapeCorrectionCommit": "1ff169cbb0e4b6cf796798a8baa0ccc30f4a89e2",
@@ -310,7 +310,7 @@
     "build25MorningReviewAndInspectionTree": "422b3d2d35f61853f0cf14bdb0c609c99d868d30"
   },
   "liveAllocationEvidence": {
-    "capturedAtUtc": "2026-09-05T22:26:30.494Z",
+    "capturedAtUtc": "2026-09-05T23:14:37.288Z",
     "build24ReservationTagPresent": true,
     "build24BuiltTagPresent": true,
     "build25ReservationTagPresent": false,
@@ -392,5 +392,14 @@
     "Remote reservation consumes Build 25 even if a later step fails; the number must never be reused.",
     "Play Store publication and unrestricted public distribution remain prohibited."
   ],
-  "sourceRebindHistory": []
+  "sourceRebindHistory": [
+    {
+      "sourceBaseline": {
+        "commit": "8cb7af107ca8c2e00d0ca4b5502efa7003e1d12b",
+        "tree": "422b3d2d35f61853f0cf14bdb0c609c99d868d30"
+      },
+      "approvalDocumentSha256": "BBF7C8B0F381CD2ABDE5D287C8DAD3E15F8E79A5265F3CBE154265EC39908BDD",
+      "reason": "The Build 25 governance tranche introduced the approved package version and corrected artifact-bound release contracts. PR 349 and its exact post-merge CI are now admitted; no application, Function or Firestore Rules behavior changed in this rebind."
+    }
+  ]
 }

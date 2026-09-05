@@ -29,12 +29,12 @@
     {
       "path": "release/production-release-policy.json",
       "bytes": 20448,
-      "sha256": "9FC0D275F4F9173176444BC19D359F1DBEE7989F943860589085CEE1CF275B03"
+      "sha256": "FE2EB222F887C758E34C41FA5F1630329AE3DAAAADEAC7E5EA92CD46126BA99C"
     },
     {
       "path": "release/build-number-ledger.json",
       "bytes": 76387,
-      "sha256": "2585A0D3A33A21D697944EEC56C5129C50E4AADFC45E6455D790B5EA2C7D2A1B"
+      "sha256": "81BD673F277B49F01A986B051368F58B7726E74C173B81B85698BF95B1485774"
     },
     {
       "path": "release/evidence/build-8-finalization-closure.json",
