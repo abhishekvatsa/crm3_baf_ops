@@ -225,7 +225,9 @@ const STATE_TRANSITIONS: Readonly<Record<string, ReadonlySet<string>>> = {
     "underInspection", "underRepair", "rejected", "retiredForSalvage",
   ]),
   rejected: new Set(["retiredForSalvage", "disposed"]),
-  retiredForSalvage: new Set(["partiallyDismantled", "disposed"]),
+  retiredForSalvage: new Set([
+    "awaitingInspection", "partiallyDismantled", "disposed",
+  ]),
   partiallyDismantled: new Set(["fullyConsumedAsDonor", "disposed"]),
   fullyConsumedAsDonor: new Set(["disposed"]),
   installed: new Set(),
@@ -666,7 +668,13 @@ export function parseInnerCoverLifecycleMutationRequest(
   const retirementConditionRequired =
     operation === "SET_INNER_COVER_STATE" &&
     request.targetState === "retiredForSalvage";
-  if (retirementConditionRequired !== (request.retirementCondition != null)) {
+  const retirementConditionAllowedOnLegacyReturn =
+    operation === "SET_INNER_COVER_STATE" &&
+    request.targetState === "awaitingInspection";
+  if ((retirementConditionRequired && request.retirementCondition == null) ||
+      (!retirementConditionRequired &&
+        !retirementConditionAllowedOnLegacyReturn &&
+        request.retirementCondition != null)) {
     invalid(
       "retirementCondition",
       retirementConditionRequired ?
@@ -817,10 +825,44 @@ function requireProfile(
     "retiredForSalvage", "partiallyDismantled",
     "fullyConsumedAsDonor", "disposed",
   ]).has(data.lifecycleState as string);
+  const retirementAuthority = [
+    data.retiredAt,
+    data.retiredByUid,
+    data.retiredByName,
+    data.retirementReason,
+  ];
+  const retirementAuthorityCount = retirementAuthority
+    .filter((value) => value != null).length;
+  const returnAuthority = [
+    data.returnedToInspectionAt,
+    data.returnedToInspectionByUid,
+    data.returnedToInspectionByName,
+    data.returnToInspectionReason,
+  ];
+  const returnAuthorityCount = returnAuthority
+    .filter((value) => value != null).length;
+  const completeReturnAuthority = returnAuthorityCount === returnAuthority.length;
+  const retiredAt = data.retiredAt == null ? null : timestampMillis(data.retiredAt);
+  const returnedAt = data.returnedToInspectionAt == null ? null :
+    timestampMillis(data.returnedToInspectionAt);
   if (retirementCondition != null &&
       (!RETIREMENT_CONDITIONS.has(
         retirementCondition as InnerCoverRetirementCondition,
-      ) || !retirementState)) {
+      ) || (!retirementState && !completeReturnAuthority)) ||
+      (retirementAuthorityCount !== 0 &&
+        retirementAuthorityCount !== retirementAuthority.length) ||
+      (retirementAuthorityCount === retirementAuthority.length &&
+        (retirementCondition == null || retiredAt == null ||
+          typeof data.retiredByUid !== "string" ||
+          typeof data.retiredByName !== "string" ||
+          typeof data.retirementReason !== "string")) ||
+      (returnAuthorityCount !== 0 && !completeReturnAuthority) ||
+      (completeReturnAuthority &&
+        (retirementCondition == null || returnedAt == null ||
+          typeof data.returnedToInspectionByUid !== "string" ||
+          typeof data.returnedToInspectionByName !== "string" ||
+          typeof data.returnToInspectionReason !== "string" ||
+          (retiredAt != null && returnedAt < retiredAt)))) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       `${label} has malformed retirement-condition evidence.`,
@@ -943,6 +985,17 @@ function profileSnapshot(data: JsonMap | null): JsonMap | null {
     ),
     lifecycleState: data.lifecycleState,
     retirementCondition: data.retirementCondition ?? null,
+    retiredAt: optionalTimestampIso(data.retiredAt, "Inner Cover retirement time"),
+    retiredByUid: data.retiredByUid ?? null,
+    retiredByName: data.retiredByName ?? null,
+    retirementReason: data.retirementReason ?? null,
+    returnedToInspectionAt: optionalTimestampIso(
+      data.returnedToInspectionAt,
+      "Inner Cover return-to-inspection time",
+    ),
+    returnedToInspectionByUid: data.returnedToInspectionByUid ?? null,
+    returnedToInspectionByName: data.returnedToInspectionByName ?? null,
+    returnToInspectionReason: data.returnToInspectionReason ?? null,
     currentBaseAssetInstanceId: data.currentBaseAssetInstanceId ?? null,
     currentBaseAssetNumber: data.currentBaseAssetNumber ?? null,
     currentLinkageId: data.currentLinkageId ?? null,
@@ -1549,6 +1602,17 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
             {reasonCode: "inner-cover-state-transition-invalid"},
           );
         }
+        const returnsRetiredCover =
+          current.lifecycleState === "retiredForSalvage" &&
+          target === "awaitingInspection";
+        if (request.retirementCondition != null && !returnsRetiredCover &&
+            target !== "retiredForSalvage") {
+          throw new AssetHierarchyMutationError(
+            "invalid-argument",
+            "A historical retirement condition is accepted only while returning a retired cover to inspection.",
+            {reasonCode: "inner-cover-return-condition-unexpected"},
+          );
+        }
         nextVersion = currentVersion + 1;
         after = uninstalledProfile(
           current, target, nextVersion, committedAt, actorUid, actorName,
@@ -1556,6 +1620,42 @@ export async function mutateInnerCoverLifecycleWithDb(args: {
         );
         if (target === "retiredForSalvage") {
           after.retirementCondition = request.retirementCondition;
+          after.retiredAt = committedAt;
+          after.retiredByUid = actorUid;
+          after.retiredByName = actorName;
+          after.retirementReason = request.reason;
+          after.returnedToInspectionAt = null;
+          after.returnedToInspectionByUid = null;
+          after.returnedToInspectionByName = null;
+          after.returnToInspectionReason = null;
+        } else if (current.lifecycleState === "retiredForSalvage" &&
+            target === "awaitingInspection") {
+          const historicalCondition = current.retirementCondition ??
+            request.retirementCondition;
+          if (historicalCondition == null ||
+              !RETIREMENT_CONDITIONS.has(
+                historicalCondition as InnerCoverRetirementCondition,
+              )) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "Record whether the retired Inner Cover was bulged before returning it to inspection.",
+              {reasonCode: "inner-cover-return-condition-required"},
+            );
+          }
+          if (current.retirementCondition != null &&
+              request.retirementCondition != null &&
+              current.retirementCondition !== request.retirementCondition) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "The submitted retirement condition differs from the retained record.",
+              {reasonCode: "inner-cover-return-condition-mismatch"},
+            );
+          }
+          after.retirementCondition = historicalCondition;
+          after.returnedToInspectionAt = committedAt;
+          after.returnedToInspectionByUid = actorUid;
+          after.returnedToInspectionByName = actorName;
+          after.returnToInspectionReason = request.reason;
         }
         transaction.set(profileRef, after);
       } else if (request.operation === "LINK_INNER_COVER") {

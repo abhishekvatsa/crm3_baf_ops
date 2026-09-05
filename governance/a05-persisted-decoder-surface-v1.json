@@ -22,6 +22,22 @@
       "riskFingerprint": "1bceac146da1bbd434537aecce2f7fe2b22a5ac70d32c5ed6479627407d9fece"
     },
     {
+      "id": "morning-review-command-pending-identity",
+      "file": "lib/features/morning_review/services/morning_review_command_idempotency_store.dart",
+      "markers": [
+        "MorningReviewPendingCommandIdentity? _read(",
+        "Future<MorningReviewPendingCommandIdentity> resolve("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "morning-review",
+      "authorityBoundary": "actor-scoped durable identity of one unconfirmed Morning Review command",
+      "malformedDisposition": "fail closed and retain the pending bytes; never rotate an uncertain request ID or submit a different command over it",
+      "compatibility": "wholly absent pre-feature pending identity only",
+      "regression": "test/morning_review_command_idempotency_store_test.dart",
+      "reArmCondition": "malformed pending state is discarded, unchanged intent acquires a new request ID, or a changed command reuses an unresolved identity",
+      "riskFingerprint": "7cea9d76ee74e74e5b14877ed91d7c2594b41e46a7160fc2d5d35f8123199927"
+    },
+    {
       "id": "global-pull-cursor",
       "file": "lib/core/services/global_pull_cursor_store.dart",
       "markers": [
@@ -705,7 +721,7 @@
       "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, and acceptance evidence remains optional only where explicitly modelled",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js",
       "reArmCondition": "Inner Cover identity, projection, chronology, state, or genealogy fields are defaulted or coerced from malformed input",
-      "riskFingerprint": "c10b463fbf46b481fb5a37acfef2d3337bb6a705cc3ac9e966c21901400c5b93"
+      "riskFingerprint": "6f39ed0231d66a7d51a66494de87d89936a54dc8c9d5494c1d0603d9af4401dc"
     },
     {
       "id": "asset-registry-records",
@@ -1256,7 +1272,7 @@
       "compatibility": "none for exact fields, request and operation identity, entity identity, status, version, canonical commit time, or replay state",
       "regression": "test/morning_review_command_contract_test.dart; functions/test/morningReviewMutation.test.js",
       "reArmCondition": "any Morning Review callable response field is defaulted, coerced, or accepted without request binding",
-      "riskFingerprint": "9bee0572492df4f1fcc365137fb7dbe1942cab6c46e8fe30e7b3692d79e1aef9"
+      "riskFingerprint": "279e013d2ea4bbbc3cac898d8de76f2de632879d399c896e318093641ece3963"
     }
   ],
   "catchSites": [
@@ -1783,7 +1799,7 @@
     {
       "id": "backend-release-identity-response-translation",
       "file": "lib/core/release/backend_release_identity_service.dart",
-      "siteFingerprint": "b647175e6fb3e863ede11bb631f170cdeacff3adf9a5df817578b90199f83728",
+      "siteFingerprint": "fb06036e165d13e32a4af26c6165723449acb270f7868b544cd2901bfdec8b34",
       "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
       "purpose": "translate malformed backend-release identity evidence into a stable invalid-response error",
       "authorityBoundary": "read-only deployed backend release identity",
@@ -1900,7 +1916,7 @@
     {
       "id": "morning-review-response-translation",
       "file": "lib/features/morning_review/services/morning_review_command_service.dart",
-      "siteFingerprint": "1377107a46e300ab05ee4bb218ed4ed6c8bc80a248c0aea97da30255376dace7",
+      "siteFingerprint": "4a8ec71e290961b8a60975c8e0cdfb1d1408ebdfc7b3af98bc3d7ab92b810586",
       "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
       "purpose": "translate malformed Morning Review command evidence into a stable data-loss response without manufacturing success",
       "authorityBoundary": "governed Morning Review callable response",

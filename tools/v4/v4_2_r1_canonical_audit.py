@@ -4131,6 +4131,12 @@ build23_completion_path = (
 build23_completion = data(
     "release/evidence/build-23-finalization-closure.json"
 )
+build24_completion_path = (
+    ROOT / "release/evidence/build-24-finalization-closure.json"
+)
+build24_completion = data(
+    "release/evidence/build-24-finalization-closure.json"
+)
 build20_physical_installation_path = (
     ROOT / "release/evidence/build-20-physical-installation-acceptance.json"
 )
@@ -4553,6 +4559,12 @@ build23_entries = [
     if entry.get("buildNumber") == 23
 ]
 build23_entry = build23_entries[0] if len(build23_entries) == 1 else {}
+build24_entries = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber") == 24
+]
+build24_entry = build24_entries[0] if len(build24_entries) == 1 else {}
 candidate_build_number = combined_policy.get("versionPolicy", {}).get(
     "buildNumber"
 )
@@ -4876,8 +4888,30 @@ else:
     expected_next_candidate_status = (
         f"AWAITING_FRESH_GOVERNED_BUILD{candidate_build_number + 1}_APPROVAL"
     )
+latest_finalized_build_number = (
+    candidate_build_number - 1 if candidate_pending else candidate_build_number
+)
+latest_finalized_completion_path = ROOT / (
+    "release/evidence/"
+    f"build-{latest_finalized_build_number}-finalization-closure.json"
+)
+if candidate_pending:
+    expected_current_source_artifact_relationship = (
+        f"BUILD{candidate_build_number}_SOURCE_SUCCESSOR_OF_"
+        f"FINALIZED_BUILD{latest_finalized_build_number}"
+    )
+elif artifact_source_matches_approval:
+    expected_current_source_artifact_relationship = (
+        f"BUILD{candidate_build_number}_SOURCE_CONTAINS_"
+        f"FINALIZED_BUILD{latest_finalized_build_number}"
+    )
+else:
+    expected_current_source_artifact_relationship = (
+        f"BUILD{candidate_build_number}_SOURCE_SUCCESSOR_OF_"
+        f"FINALIZED_BUILD{latest_finalized_build_number}"
+    )
 check(
-    "Builds 6-23 are preserved and current candidate authority is exact",
+    "Historical builds are preserved and current candidate authority is exact",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -7073,6 +7107,69 @@ check(
     and build23_completion.get("releaseBoundary", {}).get(
         "controlledPilotApproved"
     ) is False
+    and build24_entry.get("status")
+        == "remote-consumed-artifact-built-finalized-non-distributable"
+    and build24_entry.get("remoteReservationTag")
+        == "crm3-build-reserved/24"
+    and build24_entry.get("remoteBuiltTag") == "crm3-build-built/24"
+    and build24_entry.get("remoteReservationCommit")
+        == "7eb093159c612eed93f90c69a250dd89ea66e7f0"
+    and build24_entry.get("remoteBuiltCommit")
+        == "7eb093159c612eed93f90c69a250dd89ea66e7f0"
+    and build24_entry.get("githubRunId") == 33905922841
+    and build24_entry.get("githubArtifactId") == 9950364675
+    and build24_entry.get("governedPackageSha256")
+        == "649E41398D74ADC3ADEBC7F27F93493F57288EF80668877AF14CA16D83B661DA"
+    and build24_entry.get("completionReceiptSha256")
+        == sha(build24_completion_path)
+    and build24_entry.get("dualCustodyCompleted") is True
+    and build24_entry.get("runtimeValidationPassed") is False
+    and build24_entry.get("controlledPilotApproved") is False
+    and build24_entry.get("distributionPerformed") is False
+    and build24_completion.get("status") == "passed-non-distributable"
+    and build24_completion.get("sourceAuthority", {}).get("commit")
+        == "7eb093159c612eed93f90c69a250dd89ea66e7f0"
+    and build24_completion.get("sourceAuthority", {}).get("tree")
+        == "74c9a1c3b436441ef07721d9e548738e3048ac4a"
+    and build24_completion.get("sourceAuthority", {}).get(
+        "pullRequestNumber"
+    ) == 347
+    and build24_completion.get("workflow", {}).get("runId") == 33905922841
+    and build24_completion.get("githubArtifact", {}).get("id")
+        == 9950364675
+    and build24_completion.get("governedPackage", {}).get("sha256")
+        == build24_entry.get("governedPackageSha256")
+    and build24_completion.get("governedPackage", {}).get("apkSha256")
+        == "858F04C63A5ACEEFF678CA9F2524EC958507E8A9A0AAD7461E6985670FD734C8"
+    and build24_completion.get("governedPackage", {}).get(
+        "independentVerificationCompleted"
+    ) is True
+    and build24_completion.get("dualCustody", {}).get("distinctVolumes")
+        is True
+    and build24_completion.get("runtimeAdjudication", {}).get(
+        "runtimeValidationPassed"
+    ) is False
+    and build24_completion.get("releaseBoundary", {}).get(
+        "controlledPilotApproved"
+    ) is False
+    and (
+        candidate_pending
+        or (
+            combined_policy.get("finalization", {}).get(
+                "completionReceiptFile"
+            ) == "release/evidence/build-24-finalization-closure.json"
+            and combined_policy.get("finalization", {}).get(
+                "completionReceiptSha256"
+            ) == sha(build24_completion_path)
+            and combined_policy.get("finalization", {}).get("sourceCommit")
+                == "7eb093159c612eed93f90c69a250dd89ea66e7f0"
+            and combined_policy.get("finalization", {}).get("githubRunId")
+                == 33905922841
+            and combined_policy.get("finalization", {}).get(
+                "governedPackageSha256"
+            ) == build24_entry.get("governedPackageSha256")
+        )
+    )
     and current_successor_state.get("status")
         == expected_successor_state_status
     and current_successor_planes.get("currentSource", {}).get("packageVersion")
@@ -7082,29 +7179,25 @@ check(
     ) is expected_artifact_construction_authority
     and current_successor_planes.get("currentSource", {}).get(
         "relationshipToLatestFinalizedArtifact"
-    ) == (
-        f"BUILD{candidate_build_number}_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD23"
-        if candidate_build_number > 23
-        else "BUILD23_SOURCE_CONTAINS_FINALIZED_BUILD23"
-    )
+    ) == expected_current_source_artifact_relationship
     and current_successor_planes.get("currentSource", {}).get(
         "productionRuntimeUseAuthorized"
     ) is False
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "buildNumber"
-    ) == 23
+    ) == latest_finalized_build_number
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "completionReceiptSha256"
-    ) == sha(build23_completion_path)
+    ) == sha(latest_finalized_completion_path)
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "runtimeValidation"
-    ) == "NOT_ADJUDICATED_FOR_EXACT_BUILD23"
+    ) == f"NOT_ADJUDICATED_FOR_EXACT_BUILD{latest_finalized_build_number}"
     and current_successor_planes.get("latestFinalizedArtifact", {}).get(
         "fullBusinessFlowValidation"
     ) == "MUTATING_FLOWS_NOT_ADJUDICATED"
     and current_successor_planes.get("nextCandidate", {}).get(
         "minimumBuildNumber"
-    ) == 24
+    ) == candidate_build_number + 1
     and current_successor_planes.get("nextCandidate", {}).get("status")
         == expected_next_candidate_status,
 )
@@ -12139,10 +12232,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 563
-    and a03_inventory_report.get("siteCount") == 1940
+    and a03_inventory_report.get("operationCount") == 564
+    and a03_inventory_report.get("siteCount") == 1942
     and a03_inventory_report.get("inventoryDigest")
-        == "218B42299EF3F68BE69E5CF9D81B7902CAFEA763A51B80A5A478ED4EF087399C"
+        == "6E9391ABC427EFEFD85D8F533B37614E96E02A87576DF08FBB6472D2F62C0055"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -12193,9 +12286,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 79
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 80
     and a04_inventory_report.get("inventoryDigest")
-        == "51E1ECC7DB0C24759989EC91E8B651B12A89A32C7F8927B081884C274F14726F"
+        == "05BF7B7EB5594983A51F460159E9E0154CDFCAFE616B7A0352362E32044B1FDD"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -12203,8 +12296,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 53
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 79
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 79
+    and len(a04_inherited_decoders) == 80
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 80
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -12473,9 +12566,9 @@ check(
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
     and a05_timestamp_inventory_report.get("readerCount") == 90
-    and a05_timestamp_inventory_report.get("directCallCount") == 222
+    and a05_timestamp_inventory_report.get("directCallCount") == 226
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 134
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 86
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 90
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 30
@@ -12514,16 +12607,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 79
+    and a05_decoder_inventory_report.get("surfaceCount") == 80
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 50
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 53
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 39
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 408
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 40
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 416
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 79
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 80
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 50
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
@@ -13459,8 +13552,13 @@ lr07_successor_ledger = [
     if entry.get("buildNumber", -1)
     > lr07_latest_artifact.get("buildNumber", -1)
 ]
+lr07_ledger_by_build = {
+    entry.get("buildNumber"): entry
+    for entry in build_number_ledger.get("entries", [])
+    if isinstance(entry.get("buildNumber"), int)
+}
 check(
-    "LR-07 preserves finalized Builds 9-23 and source-only successors",
+    "LR-07 preserves contiguous finalized build evidence and source-only successors",
     lr07_policy.get("schemaVersion") == 1
     and lr07_policy.get("policyId")
         == "LR07-DISTRIBUTION-INSTALLATION-READBACK-POLICY-V1"
@@ -13470,39 +13568,52 @@ check(
     and lr07_policy.get("workflow", {}).get(
         "requiredArtifactRetentionDays"
     ) == 1
-    and len(lr07_artifacts) == 20
+    and isinstance(lr07_latest_artifact.get("buildNumber"), int)
+    and len(lr07_artifacts)
+        == lr07_latest_artifact.get("buildNumber") - 3
     and [entry.get("buildNumber") for entry in lr07_artifacts]
-        == [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-    and {entry.get("id") for entry in lr07_artifacts}
-        == {
-            8711253816,
-            8730747624,
-            8771948980,
-            8836687771,
-            8866525607,
-            9116320474,
-            9122790773,
-            9125100777,
-            9307950694,
-            9468702427,
-            9475994815,
-            9547514373,
-            9567065107,
-            9614787514,
-            9683214490,
-            9717908539,
-            9748603697,
-            9783168726,
-            9827494259,
-            9834070276,
-        }
-    and sum(entry.get("sizeBytes", 0) for entry in lr07_artifacts)
-        == 3120205627
-    and sum(
-        1
+        == list(range(4, lr07_latest_artifact.get("buildNumber") + 1))
+    and len({entry.get("id") for entry in lr07_artifacts})
+        == len(lr07_artifacts)
+    and all(
+        entry.get("id")
+            == lr07_ledger_by_build.get(build_number, {}).get(
+                "githubArtifactId"
+            )
+        and entry.get("name")
+            == lr07_ledger_by_build.get(build_number, {}).get(
+                "githubArtifactName"
+            )
+        and entry.get("sizeBytes")
+            == lr07_ledger_by_build.get(build_number, {}).get(
+                "githubArtifactSizeBytes"
+            )
+        and entry.get("digest")
+            == lr07_ledger_by_build.get(build_number, {}).get(
+                "githubArtifactDigest"
+            )
+        and entry.get("workflowRunId")
+            == lr07_ledger_by_build.get(build_number, {}).get("githubRunId")
+        and entry.get("headSha")
+            == lr07_ledger_by_build.get(build_number, {}).get(
+                "remoteReservationCommit"
+            )
+        and entry.get("ledgerDisposition")
+            == lr07_ledger_by_build.get(build_number, {}).get("disposition")
+        and entry.get("dualCustodyCompleted")
+            is lr07_ledger_by_build.get(build_number, {}).get(
+                "dualCustodyCompleted"
+            )
+        and (
+            entry.get("governedPackageSha256") is None
+            or entry.get("governedPackageSha256")
+                == lr07_ledger_by_build.get(build_number, {}).get(
+                    "governedPackageSha256"
+                )
+        )
         for entry in lr07_artifacts
-        if entry.get("dualCustodyCompleted") is True
-    ) == 18
+        for build_number in [entry.get("buildNumber")]
+    )
     and lr07_policy.get("installationReceipt", {}).get("bytes") == 8119
     and lr07_policy.get("installationReceipt", {}).get("sha256")
         == "4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC"
@@ -13518,10 +13629,13 @@ check(
     and lr07_policy.get("executionAuthority", {}).get(
         "requiredOwnerApprovalPhrase"
     )
-        == "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-9834070276"
+        == (
+            "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-"
+            f"{lr07_latest_artifact.get('id')}"
+        )
     and lr07_policy.get("executionAuthority", {}).get(
         "requiredPresentArtifactIds"
-    ) == [9834070276]
+    ) == [lr07_latest_artifact.get("id")]
     and lr07_policy.get("executionAuthority", {}).get(
         "deleteOnlyExactArtifactIds"
     ) is True
@@ -13534,27 +13648,9 @@ check(
         and (ROOT / entry["path"]).stat().st_size == entry.get("bytes")
         and sha(ROOT / entry["path"]) == entry.get("sha256")
         for entry in lr07_source_evidence
-        if entry.get("path") not in {
-            "release/production-release-policy.json",
-            "release/build-number-ledger.json",
-        }
-    )
-    and any(
-        entry.get("path") == "release/production-release-policy.json"
-        and entry.get("bytes") == 14558
-        and entry.get("sha256")
-            == "567DD024308A0BBCE8B5827EB06F9E98C465BD7703E54B84189EA8F3A96D310C"
-        for entry in lr07_source_evidence
-    )
-    and any(
-        entry.get("path") == "release/build-number-ledger.json"
-        and entry.get("bytes") == 72122
-        and entry.get("sha256")
-            == "C80FD33FB53453EB0259B3116ABDD07B78E916209A7107B618C0549227D25D93"
-        for entry in lr07_source_evidence
     )
     and lr07_preserved_finalization.get("buildNumber")
-        == lr07_latest_completed_artifact.get("buildNumber") == 23
+        == lr07_latest_completed_artifact.get("buildNumber")
     and lr07_preserved_finalization.get("status")
         == "completed-non-distributable"
     and lr07_preserved_finalization.get("completionReceiptFile")

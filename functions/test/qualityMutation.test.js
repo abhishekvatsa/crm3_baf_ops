@@ -44,12 +44,42 @@ function fakeDb(seed = {}) {
     };
   }
 
+  function query(collection, field, value) {
+    let maximum = Number.MAX_SAFE_INTEGER;
+    const result = {
+      limit(count) {
+        maximum = count;
+        return result;
+      },
+      async get() {
+        const prefix = `${collection}/`;
+        const docs = [];
+        for (const [path, data] of store.entries()) {
+          if (!path.startsWith(prefix) || path.slice(prefix.length).includes('/')) {
+            continue;
+          }
+          if (data?.[field] !== value) continue;
+          docs.push(snapshot(path, path.slice(prefix.length)));
+          if (docs.length >= maximum) break;
+        }
+        return {docs};
+      },
+    };
+    return result;
+  }
+
   return {
     store,
     writes,
     db: {
       collection(name) {
-        return {doc(id) { return ref(name, id); }};
+        return {
+          doc(id) { return ref(name, id); },
+          where(field, operator, value) {
+            if (operator !== '==') throw new Error('Unsupported fake query');
+            return query(name, field, value);
+          },
+        };
       },
       async runTransaction(fn) {
         const staged = [];
@@ -128,6 +158,25 @@ function seed() {
     'users/si-1': user('si', 'SI One'),
     'users/admin-1': user('admin', 'Admin One'),
     'quality_warnings/issue_ticket-1': warning(),
+    'asset_classes/base-class': {
+      schemaVersion: 1,
+      assetClassId: 'base-class',
+      code: 'BASE',
+      name: 'Base',
+      legacyAssetTypeKey: 'base',
+      status: 'active',
+    },
+    'asset_instances/base-12': {
+      schemaVersion: 1,
+      assetInstanceId: 'base-12',
+      assetClassId: 'base-class',
+      assetClassCode: 'BASE',
+      assetClassName: 'Base',
+      assetNumber: 12,
+      name: 'Base 12',
+      status: 'active',
+      version: 4,
+    },
   };
 }
 
@@ -1054,6 +1103,9 @@ describe('quality mutation', () => {
       expectedVersion: 0,
       reason: 'Monitor atmosphere stability for the selected product campaign.',
       baseNumber: 12,
+      baseAssetClassId: 'base-class',
+      baseAssetInstanceId: 'base-12',
+      baseAssetInstanceVersion: 4,
       grade: 'CRGO M4',
       cycleReference: 'Cycle family 7A',
       chargeNumbers: [12011, 12012],
@@ -1062,12 +1114,15 @@ describe('quality mutation', () => {
     expect(memory.store.get(
       `quality_monitoring_requests/${IDS.monitoring}`,
     )).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       status: 'active',
       visibilityState: 'active',
       visibleUntil: null,
       archivedAt: null,
       baseNumber: 12,
+      baseAssetClassId: 'base-class',
+      baseAssetInstanceId: 'base-12',
+      baseAssetInstanceVersion: 4,
       grade: 'CRGO M4',
     });
 
@@ -1108,5 +1163,82 @@ describe('quality mutation', () => {
       version: 2,
       entity: {visibilityState: 'archived'},
     });
+  });
+
+  test('older number-only creation resolves one active governed Base', async () => {
+    const memory = fakeDb(seed());
+
+    await invoke(memory, 'si-1', {
+      requestId: IDS.request,
+      operation: 'CREATE_QUALITY_MONITORING_REQUEST',
+      monitoringRequestId: IDS.monitoring,
+      expectedVersion: 0,
+      reason: 'Older client monitoring request.',
+      baseNumber: 12,
+      grade: 'CRGO M4',
+      cycleReference: 'Cycle family 7A',
+      chargeNumbers: [12011],
+    });
+
+    expect(memory.store.get(
+      `quality_monitoring_requests/${IDS.monitoring}`,
+    )).toMatchObject({
+      schemaVersion: 3,
+      baseNumber: 12,
+      baseAssetClassId: 'base-class',
+      baseAssetInstanceId: 'base-12',
+      baseAssetInstanceVersion: 4,
+    });
+  });
+
+  test('monitoring rejects stale, missing, and ambiguous governed Bases', async () => {
+    const request = {
+      requestId: IDS.request,
+      operation: 'CREATE_QUALITY_MONITORING_REQUEST',
+      monitoringRequestId: IDS.monitoring,
+      expectedVersion: 0,
+      reason: 'Governed Base contract test.',
+      baseNumber: 12,
+      baseAssetClassId: 'base-class',
+      baseAssetInstanceId: 'base-12',
+      baseAssetInstanceVersion: 3,
+      grade: 'CRGO M4',
+      cycleReference: 'Cycle family 7A',
+      chargeNumbers: [12011],
+    };
+    const stale = fakeDb(seed());
+    await expect(invoke(stale, 'si-1', request)).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'quality-monitoring-base-version-mismatch'},
+    });
+    expect(stale.writes).toHaveLength(0);
+
+    const missing = fakeDb(seed());
+    await expect(invoke(missing, 'si-1', {
+      ...request,
+      baseNumber: 999,
+      baseAssetInstanceVersion: 4,
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'quality-monitoring-base-invalid'},
+    });
+    expect(missing.writes).toHaveLength(0);
+
+    const ambiguousSeed = seed();
+    ambiguousSeed['asset_instances/base-12-copy'] = {
+      ...ambiguousSeed['asset_instances/base-12'],
+      assetInstanceId: 'base-12-copy',
+    };
+    const ambiguous = fakeDb(ambiguousSeed);
+    const legacyRequest = {...request};
+    delete legacyRequest.baseAssetClassId;
+    delete legacyRequest.baseAssetInstanceId;
+    delete legacyRequest.baseAssetInstanceVersion;
+    await expect(invoke(ambiguous, 'si-1', legacyRequest))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'quality-monitoring-base-ambiguous'},
+      });
+    expect(ambiguous.writes).toHaveLength(0);
   });
 });

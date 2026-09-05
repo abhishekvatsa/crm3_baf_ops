@@ -544,6 +544,9 @@ class QualityMonitoringRequest {
   const QualityMonitoringRequest({
     required this.requestId,
     required this.baseNumber,
+    this.baseAssetClassId,
+    this.baseAssetInstanceId,
+    this.baseAssetInstanceVersion,
     required this.grade,
     required this.cycleReference,
     required this.chargeNumbers,
@@ -567,6 +570,9 @@ class QualityMonitoringRequest {
 
   final String requestId;
   final int baseNumber;
+  final String? baseAssetClassId;
+  final String? baseAssetInstanceId;
+  final int? baseAssetInstanceVersion;
   final String grade;
   final String cycleReference;
   final List<int> chargeNumbers;
@@ -598,11 +604,28 @@ class QualityMonitoringRequest {
       source: source,
       minimum: 1,
     );
-    if (schemaVersion != 1 && schemaVersion != 2) {
+    if (schemaVersion != 1 && schemaVersion != 2 && schemaVersion != 3) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
         detail: 'unsupported monitoring schema version',
+      );
+    }
+    const identityFields = <String>{
+      'baseAssetClassId',
+      'baseAssetInstanceId',
+      'baseAssetInstanceVersion',
+    };
+    final identityFieldCount = identityFields.where(map.containsKey).length;
+    if ((schemaVersion < 3 && identityFieldCount != 0) ||
+        (schemaVersion == 3 && identityFieldCount != identityFields.length)) {
+      throw PersistedDataFormatException(
+        field: 'baseAssetInstanceId',
+        source: source,
+        detail:
+            schemaVersion < 3
+                ? 'legacy monitoring must omit governed Base identity'
+                : 'schema v3 requires the complete governed Base identity',
       );
     }
     final id = readRequiredPersistedString(
@@ -806,6 +829,31 @@ class QualityMonitoringRequest {
         source: source,
         minimum: 1,
       ),
+      baseAssetClassId:
+          schemaVersion == 3
+              ? readRequiredPersistedString(
+                map['baseAssetClassId'],
+                field: 'baseAssetClassId',
+                source: source,
+              )
+              : null,
+      baseAssetInstanceId:
+          schemaVersion == 3
+              ? readRequiredPersistedString(
+                map['baseAssetInstanceId'],
+                field: 'baseAssetInstanceId',
+                source: source,
+              )
+              : null,
+      baseAssetInstanceVersion:
+          schemaVersion == 3
+              ? readRequiredPersistedInt(
+                map['baseAssetInstanceVersion'],
+                field: 'baseAssetInstanceVersion',
+                source: source,
+                minimum: 1,
+              )
+              : null,
       grade: readRequiredPersistedString(
         map['grade'],
         field: 'grade',

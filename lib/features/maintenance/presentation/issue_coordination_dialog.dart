@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/baf_design_system.dart';
-import '../../../core/widgets/baf_ui.dart';
 import '../../../core/validation/charge_number.dart';
 import '../data/maintenance_model.dart';
 import '../domain/issue_coordination_draft.dart';
@@ -104,26 +103,33 @@ class _IssueCoordinationDialogState extends State<_IssueCoordinationDialog> {
                 ),
               ),
               const SizedBox(height: BafSpacing.lg),
-              BafHorizontalControlRail(
-                child: SegmentedButton<IssueCoordinationPurpose>(
-                  segments: const [
-                    ButtonSegment(
-                      value: IssueCoordinationPurpose.deferment,
-                      icon: Icon(Icons.pause_circle_outline_rounded),
-                      label: Text('Deferment'),
-                    ),
-                    ButtonSegment(
-                      value: IssueCoordinationPurpose.operationsSupport,
-                      icon: Icon(Icons.precision_manufacturing_outlined),
-                      label: Text('Operations support'),
-                    ),
-                  ],
-                  selected: <IssueCoordinationPurpose>{_purpose},
-                  onSelectionChanged: (selection) {
-                    if (selection.isEmpty) return;
-                    _setPurpose(selection.first);
-                  },
-                ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 430;
+                  return SegmentedButton<IssueCoordinationPurpose>(
+                    key: const ValueKey('issue-coordination-purpose'),
+                    direction: compact ? Axis.vertical : Axis.horizontal,
+                    expandedInsets: compact ? null : EdgeInsets.zero,
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: IssueCoordinationPurpose.deferment,
+                        icon: Icon(Icons.pause_circle_outline_rounded),
+                        label: Text('Deferment'),
+                      ),
+                      ButtonSegment(
+                        value: IssueCoordinationPurpose.operationsSupport,
+                        icon: Icon(Icons.precision_manufacturing_outlined),
+                        label: Text('Operations support'),
+                      ),
+                    ],
+                    selected: <IssueCoordinationPurpose>{_purpose},
+                    onSelectionChanged: (selection) {
+                      if (selection.isEmpty) return;
+                      _setPurpose(selection.first);
+                    },
+                  );
+                },
               ),
               const SizedBox(height: BafSpacing.lg),
               if (_purpose == IssueCoordinationPurpose.deferment)
@@ -221,32 +227,39 @@ class _IssueCoordinationDialogState extends State<_IssueCoordinationDialog> {
       },
     ),
     const SizedBox(height: BafSpacing.md),
-    BafHorizontalControlRail(
-      child: SegmentedButton<IssueCoordinationCondition>(
-        segments: const [
-          ButtonSegment(
-            value: IssueCoordinationCondition.chargeComplete,
-            icon: Icon(Icons.confirmation_number_outlined),
-            label: Text('Charge complete'),
-          ),
-          ButtonSegment(
-            value: IssueCoordinationCondition.activityRef,
-            icon: Icon(Icons.task_alt_outlined),
-            label: Text('Activity complete'),
-          ),
-        ],
-        selected: <IssueCoordinationCondition>{_condition},
-        onSelectionChanged: (selection) {
-          if (selection.isNotEmpty) {
-            setState(() {
-              final replaceTitle = _titleController.text == _defaultTitle;
-              _condition = selection.first;
-              _validationMessage = null;
-              if (replaceTitle) _titleController.text = _defaultTitle;
-            });
-          }
-        },
-      ),
+    LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 430;
+        return SegmentedButton<IssueCoordinationCondition>(
+          key: const ValueKey('issue-coordination-condition'),
+          direction: compact ? Axis.vertical : Axis.horizontal,
+          expandedInsets: compact ? null : EdgeInsets.zero,
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(
+              value: IssueCoordinationCondition.chargeComplete,
+              icon: Icon(Icons.confirmation_number_outlined),
+              label: Text('Charge complete'),
+            ),
+            ButtonSegment(
+              value: IssueCoordinationCondition.activityRef,
+              icon: Icon(Icons.task_alt_outlined),
+              label: Text('Activity complete'),
+            ),
+          ],
+          selected: <IssueCoordinationCondition>{_condition},
+          onSelectionChanged: (selection) {
+            if (selection.isNotEmpty) {
+              setState(() {
+                final replaceTitle = _titleController.text == _defaultTitle;
+                _condition = selection.first;
+                _validationMessage = null;
+                if (replaceTitle) _titleController.text = _defaultTitle;
+              });
+            }
+          },
+        );
+      },
     ),
     const SizedBox(height: BafSpacing.md),
     if (_condition == IssueCoordinationCondition.chargeComplete)

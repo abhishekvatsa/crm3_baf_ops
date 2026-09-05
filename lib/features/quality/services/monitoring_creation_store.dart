@@ -17,6 +17,14 @@ class MonitoringCreationStore {
     r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
   );
 
+  static bool _validDocumentId(Object? value) =>
+      value is String &&
+      value.trim().isNotEmpty &&
+      value.length <= 512 &&
+      value != '.' &&
+      value != '..' &&
+      !value.contains('/');
+
   Future<T> _serial<T>(Future<T> Function() action) {
     final result = _tail.then((_) => action());
     _tail = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
@@ -37,9 +45,12 @@ class MonitoringCreationStore {
   }
 
   Map<String, dynamic> _validate(dynamic value) {
+    final schemaVersion =
+        value is Map<String, dynamic> ? value['schemaVersion'] : null;
+    final hasGovernedBaseIdentity = schemaVersion == 2;
     if (value is! Map<String, dynamic> ||
-        value.length != 10 ||
-        value['schemaVersion'] != 1 ||
+        (schemaVersion != 1 && schemaVersion != 2) ||
+        value.length != (hasGovernedBaseIdentity ? 13 : 10) ||
         value['operation'] != 'CREATE_QUALITY_MONITORING_REQUEST' ||
         value['expectedVersion'] != 0 ||
         value['requestId'] is! String ||
@@ -49,6 +60,13 @@ class MonitoringCreationStore {
         value['baseNumber'] is! int ||
         (value['baseNumber'] as int) <= 0 ||
         (value['baseNumber'] as int) > 9007199254740991 ||
+        (hasGovernedBaseIdentity &&
+            (!_validDocumentId(value['baseAssetClassId']) ||
+                !_validDocumentId(value['baseAssetInstanceId']) ||
+                value['baseAssetInstanceVersion'] is! int ||
+                (value['baseAssetInstanceVersion'] as int) <= 0 ||
+                (value['baseAssetInstanceVersion'] as int) >
+                    9007199254740991)) ||
         value['grade'] is! String ||
         (value['grade'] as String).trim().isEmpty ||
         (value['grade'] as String).length > 120 ||
@@ -100,7 +118,7 @@ class MonitoringCreationStore {
       return existing;
     }
     final request = <String, dynamic>{
-      'schemaVersion': 1,
+      'schemaVersion': 2,
       'requestId': _uuid.v4(),
       'monitoringRequestId': _uuid.v4(),
       'operation': 'CREATE_QUALITY_MONITORING_REQUEST',

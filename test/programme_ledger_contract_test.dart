@@ -757,10 +757,10 @@ void main() {
     expect(a04Manifest['findingId'], 'A-04');
     expect(
       a04Manifest['inventoryDigest'],
-      '51E1ECC7DB0C24759989EC91E8B651B12A89A32C7F8927B081884C274F14726F',
+      '05BF7B7EB5594983A51F460159E9E0154CDFCAFE616B7A0352362E32044B1FDD',
     );
     expect(_objects(a04Manifest['fields']), hasLength(53));
-    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(79));
+    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(80));
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

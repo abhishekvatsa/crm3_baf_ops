@@ -176,6 +176,78 @@ Map<String, dynamic> findingMap() => <String, dynamic>{
   'updatedAt': '2026-08-21T06:01:00.000Z',
 };
 
+Map<String, dynamic> innerCoverCampaignMap() {
+  final definition =
+      frozenDefinition()
+        ..['assetTypeKeys'] = <String>['innerCover']
+        ..['assetClassIds'] = <String>['class-inner-cover']
+        ..['componentNodeIds'] = <String>['inner-cover-shell'];
+  final target = <String, dynamic>{
+    'schemaVersion': 1,
+    'targetKey':
+        'class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205',
+    'assetTypeKey': 'innerCover',
+    'assetClassId': 'class-inner-cover',
+    'assetNumber': 205,
+    'assetInstanceId': 'inner-cover-n4',
+    'assetInstanceVersion': 7,
+    'assetInstanceName': 'Inner Cover N4',
+    'hostAssetClassId': 'class-base',
+    'hostAssetInstanceId': 'base-205',
+    'hostAssetInstanceVersion': 3,
+    'hostAssetNumber': 205,
+    'hostAssetInstanceName': 'Base 205',
+    'subjectSerialNumber': 'N4',
+    'linkageId': 'link-n4-base-205',
+    'linkageVersion': 1,
+    'linkedAt': '2026-08-21T04:00:00.000Z',
+    'componentNodeId': 'inner-cover-shell',
+    'physicalPosition': 'Shell',
+    'disposition': 'pending',
+    'dispositionReason': null,
+    'dispositionAt': '2026-08-21T04:00:00.000Z',
+    'dispositionByUid': 'admin-1',
+    'dispositionByName': 'Admin 1',
+    'addedLater': false,
+    'lastObservationId': null,
+    'lastObservedAt': null,
+  };
+  return <String, dynamic>{
+    'schemaVersion': 2,
+    'campaignId': 'campaign-inner-cover',
+    'version': 1,
+    'status': 'open',
+    'definition': definition,
+    'definitionId': 'definition-1',
+    'definitionVersion': 2,
+    'definitionCode': 'FURNACE_PT_SETTING',
+    'definitionTitle': 'Furnace pressure-transmitter setting',
+    'purpose': 'Inspect installed Inner Covers by their current Base position.',
+    'assetTypeKey': 'innerCover',
+    'assetClassId': 'class-inner-cover',
+    'populationMode': 'installedInnerCoversByBase',
+    'hostAssetClassId': 'class-base',
+    'targetAssetNumbers': <int>[205],
+    'physicalPositionLabels': <String>['Shell'],
+    'targetPopulation': <Map<String, dynamic>>[target],
+    'targetDispositionCounts': <String, int>{
+      'pending': 1,
+      'observed': 0,
+      'deferred': 0,
+      'unavailable': 0,
+      'excludedWithReason': 0,
+      'requiresReaudit': 0,
+    },
+    'expectedPopulation': 1,
+    'baselineCampaignId': null,
+    'observerRoleKeys': <String>['seniorMechanical'],
+    'observationCount': 0,
+    'distinctTargetKeys': <String>[],
+    'latestObservationAt': null,
+    'createdAt': '2026-08-21T04:00:00.000Z',
+  };
+}
+
 void main() {
   test('separates observed coverage from total population accounting', () {
     final campaign = InspectionCampaign.fromMap(campaignMap(), 'campaign-1');
@@ -186,6 +258,46 @@ void main() {
     expect(campaign.coverageFraction, closeTo(1 / 3, 0.0001));
     expect(campaign.canClose, isFalse);
     expect(campaign.observationCount, 2);
+  });
+
+  test(
+    'legacy campaign defaults to the governed asset-instance population',
+    () {
+      final campaign = InspectionCampaign.fromMap(campaignMap(), 'campaign-1');
+
+      expect(
+        campaign.populationMode,
+        InspectionCampaignPopulationMode.assetInstances,
+      );
+      expect(campaign.hostAssetClassId, isNull);
+    },
+  );
+
+  test('installed Inner Cover campaign retains Base and serial identity', () {
+    final campaign = InspectionCampaign.fromMap(
+      innerCoverCampaignMap(),
+      'campaign-inner-cover',
+    );
+
+    expect(
+      campaign.populationMode,
+      InspectionCampaignPopulationMode.installedInnerCoversByBase,
+    );
+    expect(campaign.hostAssetClassId, 'class-base');
+    expect(campaign.targets.single.assetInstanceId, 'inner-cover-n4');
+    expect(campaign.targets.single.linkageId, 'link-n4-base-205');
+    expect(campaign.targets.single.rowLabel, 'Base 205 (N4)');
+  });
+
+  test('partial installed Inner Cover context fails closed', () {
+    final malformed = innerCoverCampaignMap();
+    final target = (malformed['targetPopulation'] as List).single as Map;
+    target.remove('linkageId');
+
+    expect(
+      () => InspectionCampaign.fromMap(malformed, 'campaign-inner-cover'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
   });
 
   test('campaign target population fails closed on duplicate identity', () {
@@ -235,6 +347,56 @@ void main() {
     );
   });
 
+  test('exact class scope overrides the broader legacy type scope', () {
+    final classOnly = campaignMap();
+    (classOnly['definition'] as Map<String, dynamic>)['assetTypeKeys'] =
+        <String>[];
+    expect(
+      InspectionCampaign.fromMap(classOnly, 'campaign-1').assetClassId,
+      'class-furnace',
+    );
+
+    final wrongClass = campaignMap()..['assetClassId'] = 'class-other-furnace';
+    final targets =
+        wrongClass['targetPopulation'] as List<Map<String, dynamic>>;
+    for (final target in targets) {
+      final number = target['assetNumber'] as int;
+      target
+        ..['assetClassId'] = 'class-other-furnace'
+        ..['targetKey'] =
+            'class-other-furnace:furnace-$number|pressure-transmitter|Gas train';
+    }
+    wrongClass['distinctTargetKeys'] = <String>[
+      'class-other-furnace:furnace-1|pressure-transmitter|Gas train',
+    ];
+
+    expect(
+      () => InspectionCampaign.fromMap(wrongClass, 'campaign-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
+  test('campaign and observation target keys remain content-bound', () {
+    final campaign = campaignMap();
+    final target =
+        (campaign['targetPopulation'] as List<Map<String, dynamic>>).first;
+    target['targetKey'] =
+        'class-furnace:furnace-1|pressure-transmitter|Other position';
+    final observation =
+        observationMap()
+          ..['targetKey'] =
+              'class-furnace:furnace-1|pressure-transmitter|Other position';
+
+    expect(
+      () => InspectionCampaign.fromMap(campaign, 'campaign-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+    expect(
+      () => InspectionObservation.fromMap(observation, 'observation-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
   test('observation requires paired asset and component identities', () {
     final missingAssetInstance = observationMap()..['assetInstanceId'] = null;
     final missingComponentVersion =
@@ -273,6 +435,47 @@ void main() {
     expect(observation.displayValue, '1.8 bar');
     expect(observation.chargeNo, 12345);
     expect(observation.componentName, 'Pressure transmitter');
+  });
+
+  test('Inner Cover observation and finding use the Base-facing row label', () {
+    final observationData =
+        observationMap()
+          ..['definition'] = (innerCoverCampaignMap()['definition'] as Map)
+          ..['assetTypeKey'] = 'innerCover'
+          ..['assetNumber'] = 205
+          ..['assetClassId'] = 'class-inner-cover'
+          ..['assetInstanceId'] = 'inner-cover-n4'
+          ..['hostAssetClassId'] = 'class-base'
+          ..['hostAssetInstanceId'] = 'base-205'
+          ..['hostAssetInstanceVersion'] = 3
+          ..['hostAssetNumber'] = 205
+          ..['hostAssetInstanceName'] = 'Base 205'
+          ..['subjectSerialNumber'] = 'N4'
+          ..['linkageId'] = 'link-n4-base-205'
+          ..['linkageVersion'] = 1
+          ..['linkedAt'] = '2026-08-21T04:00:00.000Z'
+          ..['componentNodeId'] = 'inner-cover-shell'
+          ..['componentName'] = 'Inner Cover shell'
+          ..['physicalPosition'] = 'Shell'
+          ..['targetKey'] =
+              'class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205';
+    final findingData =
+        findingMap()
+          ..['assetTypeKey'] = 'innerCover'
+          ..['assetNumber'] = 205
+          ..['assetClassId'] = 'class-inner-cover'
+          ..['assetInstanceId'] = 'inner-cover-n4'
+          ..['hostAssetNumber'] = 205
+          ..['subjectSerialNumber'] = 'N4';
+
+    final observation = InspectionObservation.fromMap(
+      observationData,
+      'observation-1',
+    );
+    final finding = InspectionFinding.fromMap(findingData, 'finding-1');
+
+    expect(observation.rowLabel, 'Base 205 (N4)');
+    expect(finding.rowLabel, 'Base 205 (N4)');
   });
   test('durable finding exposes closure state and corrective issue', () {
     final finding = InspectionFinding.fromMap(findingMap(), 'finding-1');

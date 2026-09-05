@@ -136,6 +136,78 @@ void main() {
     },
   );
 
+  testWidgets('deep hierarchy keeps useful width and actions below copy', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 820));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2026, 9, 5, 8);
+    final assetClass = _assetClass(now);
+    final nodes = <AssetHierarchyNode>[];
+    for (var index = 0; index < 8; index++) {
+      nodes.add(
+        _hierarchyNode(
+          index + 1,
+          assetClass.id,
+          now,
+          parentNodeId: index == 0 ? null : 'component-$index',
+          ancestorNodeIds: [
+            for (var ancestor = 1; ancestor <= index; ancestor++)
+              'component-$ancestor',
+          ],
+          name:
+              index == 7
+                  ? 'Deep governed component with a deliberately descriptive maintenance name'
+                  : 'Hierarchy level ${index + 1}',
+          activeChildCount: index == 7 ? 0 : 1,
+        ),
+      );
+    }
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value(<AssetClassRecord>[assetClass]),
+          ),
+          assetHierarchyNodesProvider(
+            assetClass.id,
+          ).overrideWith((ref) => Stream.value(nodes)),
+          assetInstancesProvider(
+            assetClass.id,
+          ).overrideWith((ref) => Stream.value(const <AssetInstanceRecord>[])),
+        ],
+        child: MaterialApp(
+          home: Scaffold(body: AssetHierarchyAdminTab(actor: _admin(now))),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final lastCard = find.byKey(
+      const ValueKey('asset-hierarchy-node-component-8'),
+    );
+    await tester.ensureVisible(lastCard);
+    await tester.pumpAndSettle();
+    final actionRow = find.byKey(
+      const ValueKey('asset-hierarchy-node-actions-component-8'),
+    );
+    final name = find.descendant(
+      of: lastCard,
+      matching: find.text(
+        'Deep governed component with a deliberately descriptive maintenance name',
+      ),
+    );
+
+    expect(tester.getSize(lastCard).width, greaterThan(300));
+    expect(
+      tester.getTopLeft(actionRow).dy,
+      greaterThan(tester.getBottomLeft(name).dy),
+    );
+    expect(tester.getBottomRight(lastCard).dy, lessThan(820));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('compact hierarchy search survives a selected-class switch', (
     tester,
   ) async {
@@ -360,12 +432,17 @@ AssetClassRecord _baseAssetClass(DateTime now) => AssetClassRecord(
 AssetHierarchyNode _hierarchyNode(
   int index,
   String assetClassId,
-  DateTime now,
-) => AssetHierarchyNode(
+  DateTime now, {
+  String? parentNodeId,
+  List<String> ancestorNodeIds = const <String>[],
+  String? name,
+  int activeChildCount = 0,
+}) => AssetHierarchyNode(
   id: 'component-$index',
   assetClassId: assetClassId,
+  parentNodeId: parentNodeId,
   nodeType: AssetHierarchyNodeType.component,
-  name: 'Component $index',
+  name: name ?? 'Component $index',
   shortDescription:
       'Component description retained in the scrollable hierarchy tree.',
   contactArrangement: ElectricalContactArrangement.notApplicable,
@@ -373,9 +450,9 @@ AssetHierarchyNode _hierarchyNode(
   ownerDiscipline: 'Mechanical',
   accountableRoleKeys: const <String>['seniorMechanical'],
   sortOrder: index,
-  ancestorNodeIds: const <String>[],
-  hierarchyPath: <String>['Component $index'],
-  activeChildCount: 0,
+  ancestorNodeIds: ancestorNodeIds,
+  hierarchyPath: <String>[...ancestorNodeIds, name ?? 'Component $index'],
+  activeChildCount: activeChildCount,
   status: AssetHierarchyStatus.active,
   version: 1,
   createdAt: now,

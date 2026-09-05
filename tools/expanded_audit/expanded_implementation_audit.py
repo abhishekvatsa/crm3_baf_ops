@@ -100,7 +100,7 @@ inbox = text('lib/features/maintenance_workflow/presentation/screens/compliance_
 add(
     all(token in inbox for token in [
         'For my lane', 'Raised by us', "ComplianceRequestView.all",
-        'escalationTier', 'Dormant until', 'Overdue since',
+        'escalationTier', 'complianceNextStepLabel', 'Overdue since',
     ]),
     'compliance inbox exposes role-aware operational views and due state',
     'target, origin, supervisory, dormant/due and tier surfaces present',
@@ -200,7 +200,9 @@ add(
     'raise, details, support, resolve, mistaken-raise withdrawal and contacts',
 )
 add(
-    'CriticalAlarmHost(navigatorKey: _navigatorKey, child: app)' in main
+    'CriticalAlarmHost(' in main
+    and 'navigatorKey: _navigatorKey' in main
+    and 'launcherObscuredListenable:' in main
     and '_CriticalAlarmHomeStrip' in home
     and 'onCriticalAlarms' in control
     and 'CriticalAlarmContactsPanel(administrationMode: true)' in admin_browser

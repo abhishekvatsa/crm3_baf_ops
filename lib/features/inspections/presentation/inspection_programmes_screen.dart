@@ -7,6 +7,7 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../auth/data/user_model.dart';
@@ -18,6 +19,8 @@ import '../data/inspection_campaign.dart';
 import '../providers/inspection_provider.dart';
 
 part 'inspection_programmes_editors.dart';
+part 'inspection_programmes_audit_board.dart';
+part 'inspection_programmes_target_picker.dart';
 
 class InspectionProgrammesScreen extends ConsumerWidget {
   const InspectionProgrammesScreen({super.key});
@@ -107,12 +110,35 @@ class _CampaignList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final campaigns = ref.watch(inspectionCampaignsProvider);
+    final definitionsState = ref.watch(inspectionDefinitionsProvider);
     final definitions =
-        ref.watch(inspectionDefinitionsProvider).value ??
-        const <InspectionDefinition>[];
-    final assets =
-        ref.watch(allAssetInstancesProvider).value ??
-        const <AssetInstanceRecord>[];
+        definitionsState.value ?? const <InspectionDefinition>[];
+    final assetsState = ref.watch(allAssetInstancesProvider);
+    final assets = assetsState.value ?? const <AssetInstanceRecord>[];
+    final needsInnerCoverPopulation = definitions.any(
+      (item) => item.isActive && _assetTypeKey(item) == 'innerCover',
+    );
+    final assetClassesState =
+        needsInnerCoverPopulation ? ref.watch(assetClassesProvider) : null;
+    final assetClasses = assetClassesState?.value ?? const <AssetClassRecord>[];
+    final innerCoversState =
+        needsInnerCoverPopulation
+            ? ref.watch(innerCoverProfilesProvider)
+            : null;
+    final innerCovers = innerCoversState?.value ?? const <InnerCoverProfile>[];
+    final innerCoverAssignmentsState =
+        needsInnerCoverPopulation
+            ? ref.watch(innerCoverAssignmentsProvider)
+            : null;
+    final innerCoverAssignments =
+        innerCoverAssignmentsState?.value ?? const <BaseInnerCoverAssignment>[];
+    final governedPopulationReady =
+        definitionsState.hasValue &&
+        assetsState.hasValue &&
+        (!needsInnerCoverPopulation ||
+            (assetClassesState?.hasValue == true &&
+                innerCoversState?.hasValue == true &&
+                innerCoverAssignmentsState?.hasValue == true));
     return campaigns.when(
       loading:
           () => const BafLoadingPanel(
@@ -148,12 +174,16 @@ class _CampaignList extends ConsumerWidget {
                 onCreate:
                     !closed &&
                             actor.canManageInspectionCampaigns &&
+                            governedPopulationReady &&
                             definitions.any((item) => item.isActive)
                         ? () => _createCampaign(
                           context,
                           ref,
                           definitions,
                           assets,
+                          assetClasses,
+                          innerCovers,
+                          innerCoverAssignments,
                           all
                               .where(
                                 (item) =>
@@ -639,10 +669,47 @@ class _CampaignDetail extends ConsumerWidget {
     final nodes =
         ref.watch(assetHierarchyNodesProvider(classId)).value ??
         const <AssetHierarchyNode>[];
-    final instances = (ref.watch(allAssetInstancesProvider).value ??
-            const <AssetInstanceRecord>[])
-        .where((item) => item.assetClassId == classId)
-        .toList(growable: false);
+    final allInstances =
+        ref.watch(allAssetInstancesProvider).value ??
+        const <AssetInstanceRecord>[];
+    final usesInstalledInnerCovers =
+        campaign.populationMode ==
+        InspectionCampaignPopulationMode.installedInnerCoversByBase;
+    final innerCoverProfiles =
+        usesInstalledInnerCovers
+            ? (ref.watch(innerCoverProfilesProvider).value ??
+                const <InnerCoverProfile>[])
+            : const <InnerCoverProfile>[];
+    final installedInnerCoversById = <String, InnerCoverProfile>{
+      for (final profile in innerCoverProfiles)
+        if (profile.isInstalled) profile.id: profile,
+    };
+    final innerCoverAssignments =
+        usesInstalledInnerCovers
+            ? (ref.watch(innerCoverAssignmentsProvider).value ??
+                const <BaseInnerCoverAssignment>[])
+            : const <BaseInnerCoverAssignment>[];
+    final availableTargetOptions =
+        usesInstalledInnerCovers
+            ? _installedInnerCoverTargetOptions(
+              subjectAssetClassId: campaign.assetClassId,
+              hostAssetClassId: campaign.hostAssetClassId!,
+              assets: allInstances,
+              profilesById: installedInnerCoversById,
+              assignments: innerCoverAssignments,
+            )
+            : (allInstances
+              .where((asset) => asset.isActive && asset.assetClassId == classId)
+              .map(
+                (asset) => _InspectionTargetOption(
+                  number: asset.assetNumber,
+                  label: asset.name,
+                  detail: 'Governed asset ${asset.assetNumber}',
+                ),
+              )
+              .toList(
+                growable: false,
+              )..sort((left, right) => left.number.compareTo(right.number)));
     return Scaffold(
       appBar: AppBar(
         title: BafAppBarTitle(
@@ -658,7 +725,12 @@ class _CampaignDetail extends ConsumerWidget {
               tooltip: 'Campaign actions',
               onSelected: (action) {
                 if (action == 'addTargets') {
-                  _addCampaignTargets(context, ref, campaign, instances);
+                  _addCampaignTargets(
+                    context,
+                    ref,
+                    campaign,
+                    availableTargetOptions,
+                  );
                 } else {
                   _transitionCampaign(context, ref, campaign, action);
                 }
@@ -706,13 +778,7 @@ class _CampaignDetail extends ConsumerWidget {
                   actor.canObserveInspectionCampaign(campaign.observerRoleKeys)
               ? FloatingActionButton.extended(
                 onPressed:
-                    () => _recordObservation(
-                      context,
-                      ref,
-                      campaign,
-                      nodes,
-                      instances,
-                    ),
+                    () => _recordObservation(context, ref, campaign, nodes),
                 icon: const Icon(Icons.add_chart_rounded),
                 label: const Text('Add reading'),
               )
@@ -759,6 +825,26 @@ class _CampaignDetail extends ConsumerWidget {
               _CampaignSummary(
                 campaign: campaign,
                 currentFindingCount: blockingFindings,
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              _InspectionAuditBoard(
+                campaign: campaign,
+                nodes: nodes,
+                observations: currentRows,
+                canRecord:
+                    campaign.status == InspectionCampaignStatus.open &&
+                    actor.canObserveInspectionCampaign(
+                      campaign.observerRoleKeys,
+                    ),
+                onTargetPressed:
+                    (target, observation) => _openAuditTarget(
+                      context,
+                      ref,
+                      campaign,
+                      nodes,
+                      target,
+                      observation,
+                    ),
               ),
               const SizedBox(height: BafSpacing.lg),
               if (campaign.definition.preconditions.isNotEmpty)
@@ -858,7 +944,6 @@ class _CampaignDetail extends ConsumerWidget {
                             ref,
                             campaign,
                             nodes,
-                            instances,
                             correction: observation,
                           ),
                       onLink:
@@ -1022,7 +1107,7 @@ class _ObservationCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${_assetTypeLabel(observation.assetTypeKey)} ${observation.assetNumber} · ${observation.componentName ?? 'Asset level'}',
+                    '${observation.rowLabel} · ${observation.componentName ?? 'Asset level'}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 3),
@@ -1108,7 +1193,7 @@ class _ObservationCard extends StatelessWidget {
   }
 }
 
-class _TargetPopulationPanel extends StatelessWidget {
+class _TargetPopulationPanel extends StatefulWidget {
   const _TargetPopulationPanel({
     required this.campaign,
     required this.targets,
@@ -1128,21 +1213,30 @@ class _TargetPopulationPanel extends StatelessWidget {
   onDisposition;
 
   @override
+  State<_TargetPopulationPanel> createState() => _TargetPopulationPanelState();
+}
+
+class _TargetPopulationPanelState extends State<_TargetPopulationPanel> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final pending =
-        targets
+        widget.targets
             .where(
               (target) =>
                   target.disposition == InspectionTargetDisposition.pending,
             )
             .length;
-    return Container(
-      decoration: BoxDecoration(
-        color: BafColors.instrument.withValues(alpha: 0.06),
+    return Material(
+      color: BafColors.instrument.withValues(alpha: 0.06),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: BafColors.instrument.withValues(alpha: 0.2)),
+        side: BorderSide(color: BafColors.instrument.withValues(alpha: 0.2)),
       ),
       child: ExpansionTile(
+        onExpansionChanged: (value) => setState(() => _expanded = value),
         leading: const Icon(
           Icons.pending_actions_outlined,
           color: BafColors.instrument,
@@ -1154,59 +1248,72 @@ class _TargetPopulationPanel extends StatelessWidget {
         subtitle: const Text(
           'Record evidence or give each target an explicit field disposition.',
         ),
-        children: [
-          const Divider(height: 1),
-          for (final target in targets)
-            ListTile(
-              dense: true,
-              leading: const Icon(Icons.my_location_rounded, size: 20),
-              title: Text(_targetLabel(target, nodes)),
-              subtitle: Text(
-                [
-                  _targetDispositionLabel(target.disposition),
-                  if (target.dispositionReason != null)
-                    target.dispositionReason!,
-                  if (target.addedLater) 'Added after campaign opening',
-                ].join(' · '),
-              ),
-              trailing:
-                  canManage &&
-                          campaign.status != InspectionCampaignStatus.closed
-                      ? PopupMenuButton<InspectionTargetDisposition>(
-                        tooltip: 'Account for target',
-                        onSelected: (value) => onDisposition(target, value),
-                        itemBuilder:
-                            (_) => [
-                              if (target.disposition !=
-                                  InspectionTargetDisposition.pending)
-                                const PopupMenuItem(
-                                  value: InspectionTargetDisposition.pending,
-                                  child: Text('Return to pending'),
-                                ),
-                              const PopupMenuItem(
-                                value: InspectionTargetDisposition.deferred,
-                                child: Text('Defer to another window'),
-                              ),
-                              const PopupMenuItem(
-                                value: InspectionTargetDisposition.unavailable,
-                                child: Text('Asset unavailable'),
-                              ),
-                              const PopupMenuItem(
-                                value:
-                                    InspectionTargetDisposition
-                                        .excludedWithReason,
-                                child: Text('Exclude with reason'),
-                              ),
-                              const PopupMenuItem(
-                                value:
-                                    InspectionTargetDisposition.requiresReaudit,
-                                child: Text('Requires re-audit'),
-                              ),
-                            ],
-                      )
-                      : null,
-            ),
-        ],
+        children:
+            _expanded
+                ? [
+                  const Divider(height: 1),
+                  for (final target in widget.targets)
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.my_location_rounded, size: 20),
+                      title: Text(_targetLabel(target, widget.nodes)),
+                      subtitle: Text(
+                        [
+                          _targetDispositionLabel(target.disposition),
+                          if (target.dispositionReason != null)
+                            target.dispositionReason!,
+                          if (target.addedLater) 'Added after campaign opening',
+                        ].join(' · '),
+                      ),
+                      trailing:
+                          widget.canManage &&
+                                  widget.campaign.status !=
+                                      InspectionCampaignStatus.closed
+                              ? PopupMenuButton<InspectionTargetDisposition>(
+                                tooltip: 'Account for target',
+                                onSelected:
+                                    (value) =>
+                                        widget.onDisposition(target, value),
+                                itemBuilder:
+                                    (_) => [
+                                      if (target.disposition !=
+                                          InspectionTargetDisposition.pending)
+                                        const PopupMenuItem(
+                                          value:
+                                              InspectionTargetDisposition
+                                                  .pending,
+                                          child: Text('Return to pending'),
+                                        ),
+                                      const PopupMenuItem(
+                                        value:
+                                            InspectionTargetDisposition
+                                                .deferred,
+                                        child: Text('Defer to another window'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value:
+                                            InspectionTargetDisposition
+                                                .unavailable,
+                                        child: Text('Asset unavailable'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value:
+                                            InspectionTargetDisposition
+                                                .excludedWithReason,
+                                        child: Text('Exclude with reason'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value:
+                                            InspectionTargetDisposition
+                                                .requiresReaudit,
+                                        child: Text('Requires re-audit'),
+                                      ),
+                                    ],
+                              )
+                              : null,
+                    ),
+                ]
+                : const <Widget>[],
       ),
     );
   }
@@ -1261,7 +1368,7 @@ class _FindingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${_assetTypeLabel(finding.assetTypeKey)} ${finding.assetNumber} · ${finding.componentName ?? 'Asset level'}',
+                    '${finding.rowLabel} · ${finding.componentName ?? 'Asset level'}',
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 3),
@@ -1651,6 +1758,9 @@ Future<void> _createCampaign(
   WidgetRef ref,
   List<InspectionDefinition> definitions,
   List<AssetInstanceRecord> assets,
+  List<AssetClassRecord> assetClasses,
+  List<InnerCoverProfile> innerCovers,
+  List<BaseInnerCoverAssignment> innerCoverAssignments,
   List<InspectionCampaign> closedCampaigns,
 ) async {
   final draft = await showDialog<_InspectionCampaignDraft>(
@@ -1659,6 +1769,9 @@ Future<void> _createCampaign(
         (_) => _InspectionCampaignEditor(
           definitions: definitions.where((item) => item.isActive).toList(),
           assets: assets.where((item) => item.isActive).toList(),
+          assetClasses: assetClasses.where((item) => item.isActive).toList(),
+          innerCovers: innerCovers,
+          innerCoverAssignments: innerCoverAssignments,
           closedCampaigns: closedCampaigns,
         ),
   );
@@ -1751,7 +1864,7 @@ Future<void> _setTargetDisposition(
                 (_) => _InspectionReasonDialog(
                   title: _targetDispositionLabel(disposition),
                   message:
-                      '${target.assetInstanceName}${target.physicalPosition == null ? '' : ' · ${target.physicalPosition}'} remains visible in the campaign population.',
+                      '${target.rowLabel}${target.physicalPosition == null ? '' : ' · ${target.physicalPosition}'} remains visible in the campaign population.',
                 ),
           );
   if ((disposition != InspectionTargetDisposition.pending && reason == null) ||
@@ -1781,21 +1894,17 @@ Future<void> _addCampaignTargets(
   BuildContext context,
   WidgetRef ref,
   InspectionCampaign campaign,
-  List<AssetInstanceRecord> instances,
+  List<_InspectionTargetOption> availableTargetOptions,
 ) async {
   final draft = await showDialog<_AddedTargetDraft>(
     context: context,
     builder:
         (_) => _AddInspectionTargetsDialog(
-          availableNumbers:
-              instances
-                  .where(
-                    (asset) =>
-                        asset.isActive &&
-                        asset.assetClassId == campaign.assetClassId,
-                  )
-                  .map((asset) => asset.assetNumber)
-                  .toList(),
+          availableOptions: availableTargetOptions,
+          installedInnerCovers:
+              campaign.populationMode ==
+              InspectionCampaignPopulationMode.installedInnerCoversByBase,
+          initialPhysicalPositions: campaign.physicalPositionLabels,
         ),
   );
   if (draft == null || !context.mounted) return;
@@ -1909,9 +2018,9 @@ Future<void> _recordObservation(
   BuildContext context,
   WidgetRef ref,
   InspectionCampaign campaign,
-  List<AssetHierarchyNode> nodes,
-  List<AssetInstanceRecord> instances, {
+  List<AssetHierarchyNode> nodes, {
   InspectionObservation? correction,
+  String? initialTargetKey,
 }) async {
   final draft = await showDialog<_InspectionObservationDraft>(
     context: context,
@@ -1919,8 +2028,8 @@ Future<void> _recordObservation(
         (_) => _InspectionObservationEditor(
           campaign: campaign,
           nodes: nodes,
-          instances: instances,
           correction: correction,
+          initialTargetKey: initialTargetKey,
         ),
   );
   if (draft == null || !context.mounted) return;
@@ -1949,6 +2058,63 @@ Future<void> _recordObservation(
       ),
     );
   }
+}
+
+Future<void> _openAuditTarget(
+  BuildContext context,
+  WidgetRef ref,
+  InspectionCampaign campaign,
+  List<AssetHierarchyNode> nodes,
+  InspectionCampaignTarget target,
+  InspectionObservation? currentObservation,
+) async {
+  if (currentObservation == null) {
+    await _recordObservation(
+      context,
+      ref,
+      campaign,
+      nodes,
+      initialTargetKey: target.targetKey,
+    );
+    return;
+  }
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder:
+        (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.add_chart_rounded),
+                title: const Text('Add follow-up reading'),
+                subtitle: Text(target.rowLabel),
+                onTap: () => Navigator.pop(context, 'followUp'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit_note_rounded),
+                title: const Text('Correct current reading'),
+                subtitle: Text(
+                  '${currentObservation.displayValue} · ${DateFormat('dd MMM, HH:mm').format(currentObservation.observedAt.toLocal())}',
+                ),
+                onTap: () => Navigator.pop(context, 'correct'),
+              ),
+              const SizedBox(height: BafSpacing.sm),
+            ],
+          ),
+        ),
+  );
+  if (action == null || !context.mounted) return;
+  await _recordObservation(
+    context,
+    ref,
+    campaign,
+    nodes,
+    correction: action == 'correct' ? currentObservation : null,
+    initialTargetKey: target.targetKey,
+  );
 }
 
 Future<void> _linkIssue(
@@ -2037,123 +2203,6 @@ class _InspectionReasonDialog extends StatefulWidget {
   @override
   State<_InspectionReasonDialog> createState() =>
       _InspectionReasonDialogState();
-}
-
-class _AddedTargetDraft {
-  const _AddedTargetDraft({
-    required this.assetNumbers,
-    required this.physicalPositions,
-    required this.reason,
-  });
-
-  final List<int> assetNumbers;
-  final List<String> physicalPositions;
-  final String reason;
-}
-
-class _AddInspectionTargetsDialog extends StatefulWidget {
-  const _AddInspectionTargetsDialog({required this.availableNumbers});
-
-  final List<int> availableNumbers;
-
-  @override
-  State<_AddInspectionTargetsDialog> createState() =>
-      _AddInspectionTargetsDialogState();
-}
-
-class _AddInspectionTargetsDialogState
-    extends State<_AddInspectionTargetsDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _numbers;
-  final _positions = TextEditingController();
-  final _reason = TextEditingController(
-    text: 'Extend the live campaign through a governed population exception.',
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    _numbers = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _numbers.dispose();
-    _positions.dispose();
-    _reason.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Add inspection targets'),
-    content: SizedBox(
-      width: 520,
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _numbers,
-              decoration: InputDecoration(
-                labelText: 'Asset numbers',
-                hintText: _compactNumberRanges(widget.availableNumbers),
-                helperText: 'Use comma-separated values or ranges.',
-              ),
-              validator: (value) {
-                final parsed = _parseNumbers(value);
-                if (parsed == null || parsed.isEmpty) return 'Add a target.';
-                final available = widget.availableNumbers.toSet();
-                return parsed.every(available.contains)
-                    ? null
-                    : 'One or more assets are absent or inactive.';
-              },
-            ),
-            const SizedBox(height: BafSpacing.md),
-            TextFormField(
-              controller: _positions,
-              decoration: const InputDecoration(
-                labelText: 'Physical positions (optional)',
-                hintText: 'B01, B02',
-              ),
-            ),
-            const SizedBox(height: BafSpacing.md),
-            TextFormField(
-              controller: _reason,
-              decoration: const InputDecoration(labelText: 'Reason'),
-              validator:
-                  (value) =>
-                      (value?.trim().isNotEmpty ?? false)
-                          ? null
-                          : 'Record a reason.',
-            ),
-          ],
-        ),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton.icon(
-        onPressed: () {
-          if (!_formKey.currentState!.validate()) return;
-          Navigator.pop(
-            context,
-            _AddedTargetDraft(
-              assetNumbers: _parseNumbers(_numbers.text)!,
-              physicalPositions: _commaValues(_positions.text),
-              reason: _reason.text.trim(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.playlist_add_rounded),
-        label: const Text('Add'),
-      ),
-    ],
-  );
 }
 
 class _InspectionReasonDialogState extends State<_InspectionReasonDialog> {

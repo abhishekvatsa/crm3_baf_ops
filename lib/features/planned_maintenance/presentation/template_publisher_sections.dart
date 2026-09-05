@@ -1142,6 +1142,7 @@ class _PublishBar extends StatelessWidget {
               BafSpacing.md,
             ),
             child: Center(
+              heightFactor: 1,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1180),
                 child: LayoutBuilder(

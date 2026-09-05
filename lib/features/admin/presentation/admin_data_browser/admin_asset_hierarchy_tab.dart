@@ -593,6 +593,7 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
           ),
       data: (nodes) {
         final tree = AssetHierarchyTree.build(nodes);
+        final bottomClearance = 96.0 + MediaQuery.viewPaddingOf(context).bottom;
         final visibleNodes =
             _showRetiredNodes
                 ? nodes
@@ -639,7 +640,12 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                       )
                       : ListView(
                         key: const ValueKey('asset-hierarchy-definition-list'),
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          0,
+                          12,
+                          bottomClearance,
+                        ),
                         children: [
                           for (final root in visibleTree.roots)
                             _HierarchyBranch(
@@ -857,129 +863,160 @@ class _HierarchyBranch extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final children = tree.childrenOf(node.id);
-    return Padding(
-      padding: EdgeInsets.only(left: level * 18.0, top: 6),
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: node.isActive ? Colors.white : const Color(0xFFF2F4F7),
-              border: Border.all(color: BafColors.border),
-              borderRadius: BorderRadius.circular(BafRadius.small),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                Icon(
-                  _nodeIcon(node.nodeType),
-                  size: 20,
-                  color:
-                      node.isActive
-                          ? BafColors.assets
-                          : BafColors.textSecondary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final children = tree.childrenOf(node.id);
+      final compact = constraints.maxWidth < 560;
+      final indentation =
+          level == 0
+              ? 0.0
+              : compact
+              ? level <= 3
+                  ? 10.0
+                  : 0.0
+              : 18.0;
+      return Padding(
+        padding: EdgeInsets.only(left: indentation, top: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              key: ValueKey('asset-hierarchy-node-${node.id}'),
+              decoration: BoxDecoration(
+                color: node.isActive ? Colors.white : const Color(0xFFF2F4F7),
+                border: Border.all(color: BafColors.border),
+                borderRadius: BorderRadius.circular(BafRadius.small),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child:
+                  compact
+                      ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Flexible(
-                            child: Text(
-                              node.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                color: BafColors.textPrimary,
-                              ),
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _nodeLeadingIcon(),
+                              const SizedBox(width: 10),
+                              Expanded(child: _nodeCopy(compact: true)),
+                            ],
                           ),
-                          if (node.componentTag != null) ...[
-                            const SizedBox(width: 8),
-                            _TagPill(label: node.componentTag!),
-                          ],
-                          if (!node.isActive) ...[
-                            const SizedBox(width: 8),
-                            const _StatusPill(active: false),
-                          ],
-                          const SizedBox(width: 8),
-                          _OwnershipPill(status: node.ownershipStatus),
+                          const SizedBox(height: 4),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: _nodeActions(compact: true),
+                          ),
+                        ],
+                      )
+                      : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _nodeLeadingIcon(),
+                          const SizedBox(width: 10),
+                          Expanded(child: _nodeCopy(compact: false)),
+                          _nodeActions(compact: false),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        [
-                          node.nodeType.label,
-                          if (node.discipline != null) node.discipline!,
-                          if (node.operatingType != null) node.operatingType!,
-                          if (node.contactArrangement !=
-                              ElectricalContactArrangement.notStated)
-                            node.contactArrangement.label,
-                        ].join(' · '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: BafColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                      if (node.shortDescription != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          node.shortDescription!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: BafColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Add child',
-                  onPressed:
-                      busy || !node.isActive ? null : () => onAddChild(node),
-                  icon: const Icon(Icons.add_rounded),
-                ),
-                IconButton(
-                  tooltip: 'Edit item',
-                  onPressed: busy || !node.isActive ? null : () => onEdit(node),
-                  icon: const Icon(Icons.edit_rounded),
-                ),
-                IconButton(
-                  tooltip: node.isActive ? 'Retire item' : 'Restore item',
-                  onPressed:
-                      busy || (node.isActive && node.activeChildCount > 0)
-                          ? null
-                          : () => onToggleStatus(node),
-                  icon: Icon(
-                    node.isActive
-                        ? Icons.archive_outlined
-                        : Icons.restore_rounded,
-                  ),
-                ),
-              ],
             ),
-          ),
-          for (final child in children)
-            _HierarchyBranch(
-              node: child,
-              tree: tree,
-              level: level + 1,
-              busy: busy,
-              onAddChild: onAddChild,
-              onEdit: onEdit,
-              onToggleStatus: onToggleStatus,
-            ),
+            for (final child in children)
+              _HierarchyBranch(
+                node: child,
+                tree: tree,
+                level: level + 1,
+                busy: busy,
+                onAddChild: onAddChild,
+                onEdit: onEdit,
+                onToggleStatus: onToggleStatus,
+              ),
+          ],
+        ),
+      );
+    },
+  );
+
+  Widget _nodeLeadingIcon() => Icon(
+    _nodeIcon(node.nodeType),
+    size: 20,
+    color: node.isActive ? BafColors.assets : BafColors.textSecondary,
+  );
+
+  Widget _nodeCopy({required bool compact}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        node.name,
+        maxLines: compact ? null : 2,
+        overflow: compact ? null : TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontWeight: FontWeight.w900,
+          color: BafColors.textPrimary,
+        ),
+      ),
+      const SizedBox(height: 5),
+      Wrap(
+        spacing: 8,
+        runSpacing: 5,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (node.componentTag != null) _TagPill(label: node.componentTag!),
+          if (!node.isActive) const _StatusPill(active: false),
+          _OwnershipPill(status: node.ownershipStatus),
         ],
       ),
-    );
-  }
+      const SizedBox(height: 4),
+      Text(
+        [
+          node.nodeType.label,
+          if (node.discipline != null) node.discipline!,
+          if (node.operatingType != null) node.operatingType!,
+          if (node.contactArrangement != ElectricalContactArrangement.notStated)
+            node.contactArrangement.label,
+        ].join(' · '),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: BafColors.textSecondary, fontSize: 11),
+      ),
+      if (node.shortDescription != null) ...[
+        const SizedBox(height: 3),
+        Text(
+          node.shortDescription!,
+          maxLines: compact ? 3 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: BafColors.textSecondary, fontSize: 12),
+        ),
+      ],
+    ],
+  );
+
+  Widget _nodeActions({required bool compact}) => Row(
+    key: ValueKey('asset-hierarchy-node-actions-${node.id}'),
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        tooltip: 'Add child',
+        visualDensity: compact ? VisualDensity.compact : null,
+        onPressed: busy || !node.isActive ? null : () => onAddChild(node),
+        icon: const Icon(Icons.add_rounded),
+      ),
+      IconButton(
+        tooltip: 'Edit item',
+        visualDensity: compact ? VisualDensity.compact : null,
+        onPressed: busy || !node.isActive ? null : () => onEdit(node),
+        icon: const Icon(Icons.edit_rounded),
+      ),
+      IconButton(
+        tooltip: node.isActive ? 'Retire item' : 'Restore item',
+        visualDensity: compact ? VisualDensity.compact : null,
+        onPressed:
+            busy || (node.isActive && node.activeChildCount > 0)
+                ? null
+                : () => onToggleStatus(node),
+        icon: Icon(
+          node.isActive ? Icons.archive_outlined : Icons.restore_rounded,
+        ),
+      ),
+    ],
+  );
 }
 
 IconData _nodeIcon(AssetHierarchyNodeType type) => switch (type) {

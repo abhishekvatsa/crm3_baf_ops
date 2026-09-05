@@ -133,8 +133,23 @@ void main() {
         final actions = report.sections.singleWhere(
           (section) => section.title == 'Actions and ownership',
         );
+        final furnace = report.sections.singleWhere(
+          (section) => section.title == 'Furnaces',
+        );
         expect(actions.tables.single.headers, contains('Completion evidence'));
         expect(actions.tables.single.rows.single.last, 'Pending');
+        expect(furnace.tables.single.headers, const [
+          'Asset No.',
+          'Issues',
+          'Current compliance',
+          'Remaining compliance',
+        ]);
+        expect(furnace.tables.single.rows, hasLength(1));
+        expect(furnace.tables.single.rows.single.first, 'Furnace 12');
+        expect(
+          furnace.tables.single.rows.single[2],
+          contains('Draft seal inspection will precede'),
+        );
         expect(
           report.sections.map((section) => section.title),
           containsAllInOrder([
@@ -241,6 +256,14 @@ void main() {
           File(
             'lib/features/morning_review/data/morning_review_repository.dart',
           ).readAsStringSync();
+      final commandService =
+          File(
+            'lib/features/morning_review/services/morning_review_command_service.dart',
+          ).readAsStringSync();
+      final idempotencyStore =
+          File(
+            'lib/features/morning_review/services/morning_review_command_idempotency_store.dart',
+          ).readAsStringSync();
       expect(
         providers,
         contains('Provider.family<MorningReviewCommandService, String>'),
@@ -249,6 +272,14 @@ void main() {
       expect(
         providers,
         contains('_morningReviewCommandServiceByActorProvider'),
+      );
+      expect(commandService, contains('payloadFingerprint'));
+      expect(commandService, contains('_idempotencyStore.resolve'));
+      expect(commandService, isNot(contains('_pendingRequestIds')));
+      expect(idempotencyStore, contains('PENDING_MORNING_REVIEW_COMMAND::'));
+      expect(
+        idempotencyStore,
+        contains('sha256.convert(utf8.encode(normalized))'),
       );
       expect(repository, contains('MorningReviewFeedUnverifiedException'));
       expect(repository, contains('_serverVerificationGrace'));

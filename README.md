@@ -15,20 +15,21 @@ conflated:
   certificate, backend and roster evidence recorded by the release policy and
   programme ledger.
 
-Build 24 (`1.0.0-rc.14+24`) is source-authorized for governed construction from
-the admitted PR 346 baseline `5e5e9d6`, whose exact post-merge CI passed.
-All 15 production Functions match the unchanged PR 345 backend source
-`a546e73` and passed strict readback with existing IAM preserved. The existing
-Firestore Rules and 66 indexes remain unchanged and verified. The owner-approved
-staged rollout retains older-phone compatibility; the known legacy direct-write
-nested-asset validation gap remains deferred, not resolved.
+Build 24 (`1.0.0-rc.14+24`) was constructed from exact merged commit
+`7eb0931`, independently verified and copied to dual custody. It is finalized
+non-distributable; device acceptance, mutating-flow validation and pilot
+promotion were not adjudicated by its construction receipt. Its immutable
+governed package SHA-256 is
+`649E41398D74ADC3ADEBC7F27F93493F57288EF80668877AF14CA16D83B661DA`.
 
-Build 23 remains production-signed, independently verified, dual-custodied and
-finalized non-distributable; its evidence is immutable. Build 24 has not yet been
-constructed. Its source approval includes the admitted release-contract
-correction; construction still requires exact merged source and clean CI.
-No consumed build number may be reused. Exact-package device
-acceptance and pilot promotion remain separate decisions after construction.
+Current source contains post-Build-24 application and Function changes. Those
+Function changes await governed production deployment and strict readback; the
+existing Firestore Rules and 66 indexes remain unchanged and verified. Build 24
+is consumed and cannot be reused. The next eligible artifact is Build 25, after
+the exact successor is admitted with clean CI, its backend is reconciled and a
+fresh governed construction approval is recorded. The owner-approved staged
+rollout retains older-phone compatibility; the known legacy direct-write
+nested-asset validation gap remains deferred, not resolved.
 
 Authoritative status sources:
 

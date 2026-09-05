@@ -12,6 +12,9 @@ import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../abnormalities/providers/abnormality_provider.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/asset_registry_model.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../data/quality_warning.dart';
 import '../providers/quality_provider.dart';
 import '../services/quality_command_service.dart';
@@ -433,9 +436,21 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
       }
       return;
     }
+    late final List<AssetInstanceRecord> governedBases;
+    try {
+      governedBases = await _loadGovernedBases();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$error'), backgroundColor: BafColors.danger),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     final request = await showDialog<_MonitoringInput>(
       context: context,
-      builder: (context) => const _MonitoringRequestDialog(),
+      builder: (context) => _MonitoringRequestDialog(bases: governedBases),
     );
     if (request == null) return;
     await _runCommand(
@@ -443,12 +458,49 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
           .read(qualityCommandServiceProvider)
           .createMonitoringRequest(
             baseNumber: request.baseNumber,
+            baseAssetClassId: request.baseAssetClassId,
+            baseAssetInstanceId: request.baseAssetInstanceId,
+            baseAssetInstanceVersion: request.baseAssetInstanceVersion,
             grade: request.grade,
             cycleReference: request.cycleReference,
             chargeNumbers: request.chargeNumbers,
             reason: request.reason,
           ),
     );
+  }
+
+  Future<List<AssetInstanceRecord>> _loadGovernedBases() async {
+    final values = await Future.wait<Object>([
+      ref.read(assetClassesProvider.future),
+      ref.read(allAssetInstancesProvider.future),
+    ]);
+    final classes = values[0] as List<AssetClassRecord>;
+    final assets = values[1] as List<AssetInstanceRecord>;
+    final baseClasses = classes
+        .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
+        .toList(growable: false);
+    if (baseClasses.length != 1) {
+      throw StateError(
+        'Exactly one active governed Base class is required before creating monitoring.',
+      );
+    }
+    final classId = baseClasses.single.id;
+    final bases = assets
+        .where((item) => item.isActive && item.assetClassId == classId)
+        .toList(growable: false)
+      ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
+    if (bases.isEmpty) {
+      throw StateError(
+        'No active governed Base is available for cycle monitoring.',
+      );
+    }
+    final numbers = <int>{};
+    if (bases.any((base) => !numbers.add(base.assetNumber))) {
+      throw StateError(
+        'The governed Base register contains duplicate active numbers. Reconcile it before creating monitoring.',
+      );
+    }
+    return bases;
   }
 
   Future<void> _closeMonitoringRequest(QualityMonitoringRequest request) async {
@@ -549,7 +601,9 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
 }
 
 class _MonitoringRequestDialog extends StatefulWidget {
-  const _MonitoringRequestDialog();
+  const _MonitoringRequestDialog({required this.bases});
+
+  final List<AssetInstanceRecord> bases;
 
   @override
   State<_MonitoringRequestDialog> createState() =>
@@ -557,16 +611,15 @@ class _MonitoringRequestDialog extends StatefulWidget {
 }
 
 class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
-  final _base = TextEditingController();
   final _grade = TextEditingController();
   final _cycle = TextEditingController();
   final _charges = TextEditingController();
   final _reason = TextEditingController();
+  String? _selectedBaseId;
   String? _error;
 
   @override
   void dispose() {
-    _base.dispose();
     _grade.dispose();
     _cycle.dispose();
     _charges.dispose();
@@ -581,10 +634,29 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
-            controller: _base,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Base number'),
+          DropdownButtonFormField<String>(
+            key: const ValueKey('quality-monitoring-governed-base'),
+            initialValue: _selectedBaseId,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Governed Base',
+              prefixIcon: Icon(Icons.precision_manufacturing_outlined),
+            ),
+            items: [
+              for (final base in widget.bases)
+                DropdownMenuItem(
+                  value: base.id,
+                  child: Text(
+                    base.displayLabel,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged:
+                (value) => setState(() {
+                  _selectedBaseId = value;
+                  _error = null;
+                }),
           ),
           const SizedBox(height: BafSpacing.md),
           TextField(
@@ -634,20 +706,21 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
       ),
       FilledButton(
         onPressed: () {
-          final base = int.tryParse(_base.text.trim());
+          final selectedBases = widget.bases
+              .where((base) => base.id == _selectedBaseId)
+              .toList(growable: false);
           final grade = _grade.text.trim();
           final cycle = _cycle.text.trim();
           final reason = _reason.text.trim();
           final charges = _tryParsePositiveInts(_charges.text, maximum: 50);
-          if (base == null ||
-              base <= 0 ||
+          if (selectedBases.length != 1 ||
               grade.isEmpty ||
               cycle.isEmpty ||
               reason.isEmpty) {
             setState(
               () =>
                   _error =
-                      'Enter a positive Base number, Grade, cycle and a reason.',
+                      'Select a governed Base and enter Grade, cycle and a reason.',
             );
             return;
           }
@@ -657,10 +730,14 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
             );
             return;
           }
+          final base = selectedBases.single;
           Navigator.pop(
             context,
             _MonitoringInput(
-              baseNumber: base,
+              baseNumber: base.assetNumber,
+              baseAssetClassId: base.assetClassId,
+              baseAssetInstanceId: base.id,
+              baseAssetInstanceVersion: base.version,
               grade: grade,
               cycleReference: cycle,
               chargeNumbers: charges,
@@ -750,6 +827,9 @@ class _ReasonDialogState extends State<_ReasonDialog> {
 class _MonitoringInput {
   const _MonitoringInput({
     required this.baseNumber,
+    required this.baseAssetClassId,
+    required this.baseAssetInstanceId,
+    required this.baseAssetInstanceVersion,
     required this.grade,
     required this.cycleReference,
     required this.chargeNumbers,
@@ -757,6 +837,9 @@ class _MonitoringInput {
   });
 
   final int baseNumber;
+  final String baseAssetClassId;
+  final String baseAssetInstanceId;
+  final int baseAssetInstanceVersion;
   final String grade;
   final String cycleReference;
   final List<int> chargeNumbers;

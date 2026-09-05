@@ -61,6 +61,26 @@ describe('quality monitoring operational retention', () => {
     expect(patch).not.toHaveProperty('lastMutationId');
   });
 
+  test('preserves governed Base identity and schema while archiving', () => {
+    const patch = planQualityMonitoringArchive({
+      data: monitoring({
+        schemaVersion: 3,
+        baseAssetClassId: 'base-class',
+        baseAssetInstanceId: 'base-12',
+        baseAssetInstanceVersion: 4,
+      }),
+      requestId,
+      now: visibleUntil,
+    });
+
+    expect(patch).toEqual({
+      schemaVersion: 3,
+      visibilityState: 'archived',
+      visibleUntil: null,
+      archivedAt: visibleUntil,
+    });
+  });
+
   test('archives an exact legacy closure through a schema-v2 upgrade', () => {
     const legacy = monitoring({schemaVersion: 1});
     delete legacy.visibilityState;

@@ -193,6 +193,9 @@ class _OperationalEventsScreenState
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                           child: SegmentedButton<bool>(
+                            key: const ValueKey(
+                              'operational-event-status-filter',
+                            ),
                             segments: const [
                               ButtonSegment(
                                 value: true,
@@ -497,6 +500,16 @@ class _EventCard extends StatelessWidget {
             text:
                 'Started ${DateFormat('dd MMM yyyy, HH:mm').format(event.startedAt.toLocal())}',
           ),
+          if (event.resolvedAt != null) ...[
+            const SizedBox(height: 6),
+            _DetailLine(
+              key: ValueKey('operational-event-resolution-${event.eventId}'),
+              icon: Icons.task_alt_rounded,
+              text:
+                  'Resolved ${DateFormat('dd MMM yyyy, HH:mm').format(event.resolvedAt!.toLocal())}'
+                  '${event.resolvedByName == null ? '' : ' by ${event.resolvedByName}'}',
+            ),
+          ],
           const SizedBox(height: 6),
           _DetailLine(
             icon: Icons.timer_outlined,
@@ -586,7 +599,7 @@ class _EventCard extends StatelessWidget {
 }
 
 class _DetailLine extends StatelessWidget {
-  const _DetailLine({required this.icon, required this.text});
+  const _DetailLine({super.key, required this.icon, required this.text});
   final IconData icon;
   final String text;
 

@@ -4,6 +4,11 @@ enum InspectionDefinitionStatus { active, retired }
 
 enum InspectionCampaignStatus { open, paused, closed }
 
+enum InspectionCampaignPopulationMode {
+  assetInstances,
+  installedInnerCoversByBase,
+}
+
 enum InspectionValueType { number, boolean, text, choice }
 
 enum InspectionTargetDisposition {
@@ -14,6 +19,17 @@ enum InspectionTargetDisposition {
   excludedWithReason,
   requiresReaudit,
 }
+
+String _inspectionTargetKey({
+  required String assetClassId,
+  required String assetInstanceId,
+  required String? componentNodeId,
+  required String? physicalPosition,
+  required String? linkageId,
+}) =>
+    '$assetClassId:$assetInstanceId'
+    '|${componentNodeId ?? 'asset'}|${physicalPosition ?? '-'}'
+    '${linkageId == null ? '' : '|link:$linkageId'}';
 
 enum InspectionFindingStatus {
   open,
@@ -338,6 +354,8 @@ class InspectionCampaign {
     required this.purpose,
     required this.assetTypeKey,
     required this.assetClassId,
+    required this.populationMode,
+    required this.hostAssetClassId,
     required this.targetAssetNumbers,
     required this.physicalPositionLabels,
     required this.targets,
@@ -357,6 +375,8 @@ class InspectionCampaign {
   final String purpose;
   final String assetTypeKey;
   final String assetClassId;
+  final InspectionCampaignPopulationMode populationMode;
+  final String? hostAssetClassId;
   final List<int> targetAssetNumbers;
   final List<String> physicalPositionLabels;
   final List<InspectionCampaignTarget> targets;
@@ -500,6 +520,19 @@ class InspectionCampaign {
         field: 'assetClassId',
         source: source,
       ),
+      populationMode:
+          readOptionalPersistedEnum(
+            InspectionCampaignPopulationMode.values,
+            map['populationMode'],
+            field: 'populationMode',
+            source: source,
+          ) ??
+          InspectionCampaignPopulationMode.assetInstances,
+      hostAssetClassId: readOptionalPersistedString(
+        map['hostAssetClassId'],
+        field: 'hostAssetClassId',
+        source: source,
+      ),
       targetAssetNumbers: _integers(
         map['targetAssetNumbers'],
         field: 'targetAssetNumbers',
@@ -555,10 +588,12 @@ class InspectionCampaign {
         source: source,
       ),
     );
-    if ((!campaign.definition.assetTypeKeys.contains(campaign.assetTypeKey) &&
-            !campaign.definition.assetClassIds.contains(
-              campaign.assetClassId,
-            )) ||
+    final exactDefinitionClasses = campaign.definition.assetClassIds;
+    final definitionScopeMatches =
+        exactDefinitionClasses.isNotEmpty
+            ? exactDefinitionClasses.contains(campaign.assetClassId)
+            : campaign.definition.assetTypeKeys.contains(campaign.assetTypeKey);
+    if (!definitionScopeMatches ||
         campaign.expectedPopulation != campaign.targets.length ||
         campaign.observationCount < campaign.distinctTargetKeys.length ||
         campaign.targetAssetNumbers.toSet().length !=
@@ -573,6 +608,21 @@ class InspectionCampaign {
               target.assetTypeKey != campaign.assetTypeKey ||
               !campaign.targetAssetNumbers.contains(target.assetNumber),
         ) ||
+        (campaign.populationMode ==
+                InspectionCampaignPopulationMode.assetInstances &&
+            (campaign.hostAssetClassId != null ||
+                campaign.targets.any(
+                  (target) => target.hasInstalledInnerCoverContext,
+                ))) ||
+        (campaign.populationMode ==
+                InspectionCampaignPopulationMode.installedInnerCoversByBase &&
+            (campaign.assetTypeKey != 'innerCover' ||
+                campaign.hostAssetClassId == null ||
+                campaign.targets.any(
+                  (target) =>
+                      !target.hasInstalledInnerCoverContext ||
+                      target.hostAssetClassId != campaign.hostAssetClassId,
+                ))) ||
         InspectionTargetDisposition.values.any(
           (disposition) =>
               storedDispositionCounts[disposition.name] !=
@@ -597,6 +647,15 @@ class InspectionCampaignTarget {
     required this.assetInstanceId,
     required this.assetInstanceVersion,
     required this.assetInstanceName,
+    required this.hostAssetClassId,
+    required this.hostAssetInstanceId,
+    required this.hostAssetInstanceVersion,
+    required this.hostAssetNumber,
+    required this.hostAssetInstanceName,
+    required this.subjectSerialNumber,
+    required this.linkageId,
+    required this.linkageVersion,
+    required this.linkedAt,
     required this.componentNodeId,
     required this.physicalPosition,
     required this.disposition,
@@ -616,6 +675,15 @@ class InspectionCampaignTarget {
   final String assetInstanceId;
   final int assetInstanceVersion;
   final String assetInstanceName;
+  final String? hostAssetClassId;
+  final String? hostAssetInstanceId;
+  final int? hostAssetInstanceVersion;
+  final int? hostAssetNumber;
+  final String? hostAssetInstanceName;
+  final String? subjectSerialNumber;
+  final String? linkageId;
+  final int? linkageVersion;
+  final DateTime? linkedAt;
   final String? componentNodeId;
   final String? physicalPosition;
   final InspectionTargetDisposition disposition;
@@ -626,6 +694,22 @@ class InspectionCampaignTarget {
   final bool addedLater;
   final String? lastObservationId;
   final DateTime? lastObservedAt;
+
+  bool get hasInstalledInnerCoverContext =>
+      hostAssetClassId != null &&
+      hostAssetInstanceId != null &&
+      hostAssetInstanceVersion != null &&
+      hostAssetNumber != null &&
+      hostAssetInstanceName != null &&
+      subjectSerialNumber != null &&
+      linkageId != null &&
+      linkageVersion != null &&
+      linkedAt != null;
+
+  String get rowLabel =>
+      hasInstalledInnerCoverContext
+          ? 'Base $hostAssetNumber ($subjectSerialNumber)'
+          : assetInstanceName;
 
   factory InspectionCampaignTarget.fromMap(
     Map<String, dynamic> map, {
@@ -681,6 +765,54 @@ class InspectionCampaignTarget {
         field: 'assetInstanceName',
         source: source,
       ),
+      hostAssetClassId: readOptionalPersistedString(
+        map['hostAssetClassId'],
+        field: 'hostAssetClassId',
+        source: source,
+      ),
+      hostAssetInstanceId: readOptionalPersistedString(
+        map['hostAssetInstanceId'],
+        field: 'hostAssetInstanceId',
+        source: source,
+      ),
+      hostAssetInstanceVersion: readOptionalPersistedInt(
+        map['hostAssetInstanceVersion'],
+        field: 'hostAssetInstanceVersion',
+        source: source,
+        minimum: 1,
+      ),
+      hostAssetNumber: readOptionalPersistedInt(
+        map['hostAssetNumber'],
+        field: 'hostAssetNumber',
+        source: source,
+        minimum: 1,
+      ),
+      hostAssetInstanceName: readOptionalPersistedString(
+        map['hostAssetInstanceName'],
+        field: 'hostAssetInstanceName',
+        source: source,
+      ),
+      subjectSerialNumber: readOptionalPersistedString(
+        map['subjectSerialNumber'],
+        field: 'subjectSerialNumber',
+        source: source,
+      ),
+      linkageId: readOptionalPersistedString(
+        map['linkageId'],
+        field: 'linkageId',
+        source: source,
+      ),
+      linkageVersion: readOptionalPersistedInt(
+        map['linkageVersion'],
+        field: 'linkageVersion',
+        source: source,
+        minimum: 1,
+      ),
+      linkedAt: readOptionalPersistedDateTime(
+        map['linkedAt'],
+        field: 'linkedAt',
+        source: source,
+      ),
       componentNodeId: readOptionalPersistedString(
         map['componentNodeId'],
         field: 'componentNodeId',
@@ -733,7 +865,33 @@ class InspectionCampaignTarget {
         source: source,
       ),
     );
-    if ((target.disposition == InspectionTargetDisposition.observed &&
+    final installedContextFields = <Object?>[
+      target.hostAssetClassId,
+      target.hostAssetInstanceId,
+      target.hostAssetInstanceVersion,
+      target.hostAssetNumber,
+      target.hostAssetInstanceName,
+      target.subjectSerialNumber,
+      target.linkageId,
+      target.linkageVersion,
+      target.linkedAt,
+    ];
+    final contextAbsent = installedContextFields.every(
+      (value) => value == null,
+    );
+    if (target.targetKey !=
+            _inspectionTargetKey(
+              assetClassId: target.assetClassId,
+              assetInstanceId: target.assetInstanceId,
+              componentNodeId: target.componentNodeId,
+              physicalPosition: target.physicalPosition,
+              linkageId: target.linkageId,
+            ) ||
+        (!contextAbsent && !target.hasInstalledInnerCoverContext) ||
+        (target.hasInstalledInnerCoverContext &&
+            (target.assetTypeKey != 'innerCover' ||
+                target.assetNumber != target.hostAssetNumber)) ||
+        (target.disposition == InspectionTargetDisposition.observed &&
             (target.lastObservationId == null ||
                 target.lastObservedAt == null)) ||
         (target.disposition == InspectionTargetDisposition.pending &&
@@ -762,6 +920,15 @@ class InspectionObservation {
     required this.assetNumber,
     required this.assetClassId,
     required this.assetInstanceId,
+    required this.hostAssetClassId,
+    required this.hostAssetInstanceId,
+    required this.hostAssetInstanceVersion,
+    required this.hostAssetNumber,
+    required this.hostAssetInstanceName,
+    required this.subjectSerialNumber,
+    required this.linkageId,
+    required this.linkageVersion,
+    required this.linkedAt,
     required this.componentNodeId,
     required this.componentNodeVersion,
     required this.componentName,
@@ -795,6 +962,15 @@ class InspectionObservation {
   final int assetNumber;
   final String? assetClassId;
   final String? assetInstanceId;
+  final String? hostAssetClassId;
+  final String? hostAssetInstanceId;
+  final int? hostAssetInstanceVersion;
+  final int? hostAssetNumber;
+  final String? hostAssetInstanceName;
+  final String? subjectSerialNumber;
+  final String? linkageId;
+  final int? linkageVersion;
+  final DateTime? linkedAt;
   final String? componentNodeId;
   final int? componentNodeVersion;
   final String? componentName;
@@ -819,6 +995,22 @@ class InspectionObservation {
   final String? baselineObservationId;
   final InspectionComparisonOutcome? comparisonOutcome;
   final DateTime recordedAt;
+
+  bool get hasInstalledInnerCoverContext =>
+      hostAssetClassId != null &&
+      hostAssetInstanceId != null &&
+      hostAssetInstanceVersion != null &&
+      hostAssetNumber != null &&
+      hostAssetInstanceName != null &&
+      subjectSerialNumber != null &&
+      linkageId != null &&
+      linkageVersion != null &&
+      linkedAt != null;
+
+  String get rowLabel =>
+      hasInstalledInnerCoverContext
+          ? 'Base $hostAssetNumber ($subjectSerialNumber)'
+          : '${_assetTypeLabelForRecord(assetTypeKey)} $assetNumber';
 
   String get displayValue => switch (definition.valueType) {
     InspectionValueType.number => '${numericValue ?? '-'} ${unit ?? ''}'.trim(),
@@ -900,6 +1092,54 @@ class InspectionObservation {
       assetInstanceId: readOptionalPersistedString(
         map['assetInstanceId'],
         field: 'assetInstanceId',
+        source: source,
+      ),
+      hostAssetClassId: readOptionalPersistedString(
+        map['hostAssetClassId'],
+        field: 'hostAssetClassId',
+        source: source,
+      ),
+      hostAssetInstanceId: readOptionalPersistedString(
+        map['hostAssetInstanceId'],
+        field: 'hostAssetInstanceId',
+        source: source,
+      ),
+      hostAssetInstanceVersion: readOptionalPersistedInt(
+        map['hostAssetInstanceVersion'],
+        field: 'hostAssetInstanceVersion',
+        source: source,
+        minimum: 1,
+      ),
+      hostAssetNumber: readOptionalPersistedInt(
+        map['hostAssetNumber'],
+        field: 'hostAssetNumber',
+        source: source,
+        minimum: 1,
+      ),
+      hostAssetInstanceName: readOptionalPersistedString(
+        map['hostAssetInstanceName'],
+        field: 'hostAssetInstanceName',
+        source: source,
+      ),
+      subjectSerialNumber: readOptionalPersistedString(
+        map['subjectSerialNumber'],
+        field: 'subjectSerialNumber',
+        source: source,
+      ),
+      linkageId: readOptionalPersistedString(
+        map['linkageId'],
+        field: 'linkageId',
+        source: source,
+      ),
+      linkageVersion: readOptionalPersistedInt(
+        map['linkageVersion'],
+        field: 'linkageVersion',
+        source: source,
+        minimum: 1,
+      ),
+      linkedAt: readOptionalPersistedDateTime(
+        map['linkedAt'],
+        field: 'linkedAt',
         source: source,
       ),
       componentNodeId: readOptionalPersistedString(
@@ -1032,6 +1272,30 @@ class InspectionObservation {
     );
     final hasAssetClass = observation.assetClassId != null;
     final hasAssetInstance = observation.assetInstanceId != null;
+    final expectedTargetKey =
+        hasAssetClass && hasAssetInstance
+            ? _inspectionTargetKey(
+              assetClassId: observation.assetClassId!,
+              assetInstanceId: observation.assetInstanceId!,
+              componentNodeId: observation.componentNodeId,
+              physicalPosition: observation.physicalPosition,
+              linkageId: observation.linkageId,
+            )
+            : null;
+    final installedContextFields = <Object?>[
+      observation.hostAssetClassId,
+      observation.hostAssetInstanceId,
+      observation.hostAssetInstanceVersion,
+      observation.hostAssetNumber,
+      observation.hostAssetInstanceName,
+      observation.subjectSerialNumber,
+      observation.linkageId,
+      observation.linkageVersion,
+      observation.linkedAt,
+    ];
+    final hasAnyInstalledContext = installedContextFields.any(
+      (value) => value != null,
+    );
     final componentParts = [
       observation.componentNodeId,
       observation.componentNodeVersion,
@@ -1056,6 +1320,14 @@ class InspectionObservation {
             definition.choiceValues.contains(observation.choiceValue),
     };
     if (hasAssetClass != hasAssetInstance ||
+        (expectedTargetKey != null &&
+            observation.targetKey != expectedTargetKey) ||
+        (hasAnyInstalledContext &&
+            !observation.hasInstalledInnerCoverContext) ||
+        (observation.hasInstalledInnerCoverContext &&
+            (!hasAssetClass ||
+                observation.assetTypeKey != 'innerCover' ||
+                observation.assetNumber != observation.hostAssetNumber)) ||
         (componentPartCount != 0 && componentPartCount != 3) ||
         (definition.componentNodeIds.isNotEmpty &&
             !definition.componentNodeIds.contains(
@@ -1078,6 +1350,14 @@ class InspectionObservation {
   }
 }
 
+String _assetTypeLabelForRecord(String key) => switch (key) {
+  'base' => 'Base',
+  'furnace' => 'Furnace',
+  'forceCooler' => 'Forced Cooler',
+  'innerCover' => 'Inner Cover',
+  _ => 'Asset',
+};
+
 class InspectionFinding {
   const InspectionFinding({
     required this.id,
@@ -1088,6 +1368,8 @@ class InspectionFinding {
     required this.assetNumber,
     required this.assetClassId,
     required this.assetInstanceId,
+    this.hostAssetNumber,
+    this.subjectSerialNumber,
     required this.componentNodeId,
     required this.componentName,
     required this.physicalPosition,
@@ -1111,6 +1393,8 @@ class InspectionFinding {
   final int assetNumber;
   final String assetClassId;
   final String assetInstanceId;
+  final int? hostAssetNumber;
+  final String? subjectSerialNumber;
   final String? componentNodeId;
   final String? componentName;
   final String? physicalPosition;
@@ -1132,6 +1416,11 @@ class InspectionFinding {
         InspectionFindingStatus.acceptedCondition,
         InspectionFindingStatus.invalidated,
       }.contains(status);
+
+  String get rowLabel =>
+      hostAssetNumber != null && subjectSerialNumber != null
+          ? 'Base $hostAssetNumber ($subjectSerialNumber)'
+          : '${_assetTypeLabelForRecord(assetTypeKey)} $assetNumber';
 
   factory InspectionFinding.fromMap(
     Map<String, dynamic> map,
@@ -1156,7 +1445,7 @@ class InspectionFinding {
         detail: 'finding identity or schema is invalid',
       );
     }
-    return InspectionFinding(
+    final finding = InspectionFinding(
       id: id,
       version: readRequiredPersistedInt(
         map['version'],
@@ -1193,6 +1482,17 @@ class InspectionFinding {
       assetInstanceId: readRequiredPersistedString(
         map['assetInstanceId'],
         field: 'assetInstanceId',
+        source: source,
+      ),
+      hostAssetNumber: readOptionalPersistedInt(
+        map['hostAssetNumber'],
+        field: 'hostAssetNumber',
+        source: source,
+        minimum: 1,
+      ),
+      subjectSerialNumber: readOptionalPersistedString(
+        map['subjectSerialNumber'],
+        field: 'subjectSerialNumber',
         source: source,
       ),
       componentNodeId: readOptionalPersistedString(
@@ -1265,5 +1565,17 @@ class InspectionFinding {
         source: source,
       ),
     );
+    if ((finding.hostAssetNumber == null) !=
+            (finding.subjectSerialNumber == null) ||
+        (finding.hostAssetNumber != null &&
+            (finding.assetTypeKey != 'innerCover' ||
+                finding.assetNumber != finding.hostAssetNumber))) {
+      throw PersistedDataFormatException(
+        field: 'findingProjection',
+        source: source,
+        detail: 'installed Inner Cover identity is inconsistent',
+      );
+    }
+    return finding;
   }
 }

@@ -307,6 +307,147 @@ describe('Inner Cover lifecycle mutation', () => {
       lifecycleState: 'retiredForSalvage',
       retirementCondition: 'bulged',
     });
+
+    const returnRequestId = '20202020-2020-4020-8020-202020202020';
+    const returned = await invoke(memory, {
+      requestId: returnRequestId,
+      operation: 'SET_INNER_COVER_STATE',
+      innerCoverId: IDS.cover,
+      expectedVersion: 3,
+      targetState: 'awaitingInspection',
+      reason: 'Return the retired cover for a fresh governed fitness check.',
+    });
+    expect(returned).toMatchObject({version: 4, idempotentReplay: false});
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({
+        lifecycleState: 'awaitingInspection',
+        retirementCondition: 'bulged',
+        returnedToInspectionByUid: 'admin-1',
+        returnToInspectionReason:
+          'Return the retired cover for a fresh governed fitness check.',
+        version: 4,
+      });
+
+    await expect(invoke(memory, linkRequest(IDS.cover, 4)))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inner-cover-not-available'},
+      });
+    await invoke(memory, acceptRequest(IDS.cover, 4));
+    await invoke(memory, linkRequest(IDS.cover, 5));
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({
+        lifecycleState: 'installed',
+        retirementCondition: 'bulged',
+        currentBaseAssetNumber: 201,
+        version: 6,
+      });
+  });
+
+  test('a dismantled salvage cover cannot return to inspection', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: profile(
+        IDS.cover,
+        'GR26',
+        'partiallyDismantled',
+        5,
+        {retirementCondition: 'bulged'},
+      ),
+    });
+
+    await expect(invoke(memory, {
+      requestId: '21212121-2121-4121-8121-212121212121',
+      operation: 'SET_INNER_COVER_STATE',
+      innerCoverId: IDS.cover,
+      expectedVersion: 5,
+      targetState: 'awaitingInspection',
+      reason: 'Attempt to restore a cover after donor dismantling.',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inner-cover-state-transition-invalid'},
+    });
+  });
+
+  test('legacy retirement can supply its missing condition during return', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: profile(
+        IDS.cover,
+        'GR26',
+        'retiredForSalvage',
+        3,
+      ),
+    });
+
+    const returned = await invoke(memory, {
+      requestId: '22222222-3333-4222-8222-333333333333',
+      operation: 'SET_INNER_COVER_STATE',
+      innerCoverId: IDS.cover,
+      expectedVersion: 3,
+      targetState: 'awaitingInspection',
+      retirementCondition: 'notBulged',
+      reason: 'Reconstruct the old retirement condition before inspection.',
+    });
+
+    expect(returned).toMatchObject({version: 4});
+    expect(memory.store.get(`inner_cover_profiles/${IDS.cover}`))
+      .toMatchObject({
+        lifecycleState: 'awaitingInspection',
+        retirementCondition: 'notBulged',
+        version: 4,
+      });
+  });
+
+  test('return cannot rewrite a retained retirement condition', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: profile(
+        IDS.cover,
+        'GR26',
+        'retiredForSalvage',
+        3,
+        {retirementCondition: 'bulged'},
+      ),
+    });
+
+    await expect(invoke(memory, {
+      requestId: '23232323-2323-4323-8323-232323232323',
+      operation: 'SET_INNER_COVER_STATE',
+      innerCoverId: IDS.cover,
+      expectedVersion: 3,
+      targetState: 'awaitingInspection',
+      retirementCondition: 'notBulged',
+      reason: 'Attempt to contradict the retained retirement record.',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inner-cover-return-condition-mismatch'},
+    });
+  });
+
+  test('ordinary inspection transition cannot inject retirement history', async () => {
+    const memory = fakeDb({
+      ...seed(),
+      [`inner_cover_profiles/${IDS.cover}`]: profile(
+        IDS.cover,
+        'GR26',
+        'underRepair',
+        3,
+      ),
+    });
+
+    await expect(invoke(memory, {
+      requestId: '24242424-2424-4424-8424-242424242424',
+      operation: 'SET_INNER_COVER_STATE',
+      innerCoverId: IDS.cover,
+      expectedVersion: 3,
+      targetState: 'awaitingInspection',
+      retirementCondition: 'notBulged',
+      reason: 'Complete repair and send the cover for inspection.',
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {reasonCode: 'inner-cover-return-condition-unexpected'},
+    });
   });
 
   test('owner-declared new origin remains limited-trace rather than T3', async () => {

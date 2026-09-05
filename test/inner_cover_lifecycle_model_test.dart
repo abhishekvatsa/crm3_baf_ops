@@ -140,7 +140,7 @@ void main() {
     );
   });
 
-  test('retirement condition is retained only after salvage retirement', () {
+  test('retirement history survives a governed return to inspection', () {
     final retired = InnerCoverProfile.fromMap({
       ...profileMap(state: 'retiredForSalvage'),
       'retirementCondition': 'bulged',
@@ -151,6 +151,40 @@ void main() {
       () => InnerCoverProfile.fromMap({
         ...profileMap(),
         'retirementCondition': 'notBulged',
+      }, 'cover-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+
+    final returned = InnerCoverProfile.fromMap({
+      ...profileMap(state: 'awaitingInspection'),
+      'retirementCondition': 'bulged',
+      'retiredAt': DateTime.utc(2026, 8, 1, 16),
+      'retiredByUid': 'admin-1',
+      'retiredByName': 'Admin One',
+      'retirementReason': 'Retired after a bulge finding.',
+      'returnedToInspectionAt': DateTime.utc(2026, 8, 2),
+      'returnedToInspectionByUid': 'admin-2',
+      'returnedToInspectionByName': 'Admin Two',
+      'returnToInspectionReason': 'Scarcity requires a fresh fitness check.',
+    }, 'cover-1');
+    expect(returned.returnedToInspectionByName, 'Admin Two');
+
+    expect(
+      () => InnerCoverProfile.fromMap({
+        ...profileMap(state: 'awaitingInspection'),
+        'retirementCondition': 'bulged',
+        'returnedToInspectionAt': DateTime.utc(2026, 8, 2),
+      }, 'cover-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+
+    expect(
+      () => InnerCoverProfile.fromMap({
+        ...profileMap(state: 'retiredForSalvage'),
+        'retiredAt': DateTime.utc(2026, 8, 2),
+        'retiredByUid': 'admin-1',
+        'retiredByName': 'Admin One',
+        'retirementReason': 'Retired after inspection.',
       }, 'cover-1'),
       throwsA(isA<PersistedDataFormatException>()),
     );
@@ -217,5 +251,15 @@ void main() {
       }, 'link-1'),
       throwsA(isA<PersistedDataFormatException>()),
     );
+    final closed = InnerCoverLinkage.fromMap({
+      ...active,
+      'active': false,
+      'removedAt': DateTime.utc(2026, 8, 2),
+      'removedByUid': 'admin-2',
+      'removedByName': 'Admin Two',
+      'removalAction': 'DELINK_INNER_COVER',
+      'removalReason': 'Moved to inspection.',
+    }, 'link-1');
+    expect(closed.removedByName, 'Admin Two');
   });
 }

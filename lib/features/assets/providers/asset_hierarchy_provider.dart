@@ -84,6 +84,13 @@ final innerCoverHistoryProvider =
           .watchInnerCoverHistory(innerCoverId);
     });
 
+final baseInnerCoverHistoryProvider =
+    StreamProvider.family<List<InnerCoverLinkage>, String>((ref, baseId) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchBaseInnerCoverHistory(baseId);
+    });
+
 final innerCoverFabricationProvider =
     StreamProvider.family<InnerCoverFabricationDossier?, String>((
       ref,

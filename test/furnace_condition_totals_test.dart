@@ -153,6 +153,66 @@ void main() {
     expect(find.byTooltip('Condition totals'), findsNothing);
   });
 
+  testWidgets(
+    'furnace and UV headings remain visible while auditing Furnace 22',
+    (tester) async {
+      final boundary = GlobalKey();
+      await _pump(
+        tester,
+        size: const Size(390, 844),
+        furnaceNumbers: List<int>.generate(26, (index) => index + 1),
+        boundary: boundary,
+      );
+      await _tab(tester, 'UV missing (2)');
+
+      final corner = find.byKey(const ValueKey('furnace-audit-fixed-corner'));
+      final verticalPane = find.descendant(
+        of: find.byKey(const ValueKey('furnace-audit-vertical-scroll')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      final furnace22 = find.byKey(
+        const ValueKey('furnace-audit-row-label-furnace-22'),
+      );
+      final cornerTop = tester.getTopLeft(corner).dy;
+
+      await tester.scrollUntilVisible(furnace22, 420, scrollable: verticalPane);
+      await tester.pumpAndSettle();
+
+      expect(furnace22.hitTestable(), findsOneWidget);
+      expect(tester.getTopLeft(corner).dy, moreOrLessEquals(cornerTop));
+      final furnaceColumnLeft = tester.getTopLeft(furnace22).dx;
+      final uv8Header = find.byKey(const ValueKey('furnace-audit-header-8'));
+      final uv8HeaderBefore = tester.getTopLeft(uv8Header).dx;
+
+      await tester.drag(
+        find.byKey(const ValueKey('uv-missing-furnace-22-1')),
+        const Offset(-500, 0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(furnace22).dx,
+        moreOrLessEquals(furnaceColumnLeft),
+      );
+      expect(tester.getTopLeft(uv8Header).dx, lessThan(uv8HeaderBefore));
+      expect(uv8Header.hitTestable(), findsOneWidget);
+      final uv8Cell = find.byKey(const ValueKey('uv-missing-furnace-22-8'));
+      expect(uv8Cell.hitTestable(), findsOneWidget);
+      expect(
+        tester.getCenter(uv8Header).dx,
+        moreOrLessEquals(tester.getCenter(uv8Cell).dx),
+      );
+      expect(tester.takeException(), isNull);
+      if (const bool.fromEnvironment('CAPTURE_SCREEN_EVIDENCE')) {
+        await _capture(tester, boundary, 'frozen-pane-furnace-22-uv8');
+      }
+    },
+  );
+
   for (final viewport in [
     (size: const Size(320, 720), scale: 2.0),
     (size: const Size(390, 844), scale: 1.0),
@@ -203,6 +263,7 @@ Future<void> _pump(
   WidgetTester tester, {
   Size size = const Size(800, 900),
   double scale = 1,
+  List<int> furnaceNumbers = const [1, 2, 3, 27],
   Stream<Map<String, BurnerConditionRound>>? rounds,
   GlobalKey? boundary,
 }) async {
@@ -246,7 +307,7 @@ Future<void> _pump(
         ),
         allAssetInstancesProvider.overrideWith(
           (ref) => Stream.value([
-            for (final number in [1, 2, 3, 27])
+            for (final number in furnaceNumbers)
               AssetInstanceRecord(
                 id: 'furnace-$number',
                 assetClassId: 'furnace-class',

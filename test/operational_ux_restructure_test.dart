@@ -296,13 +296,14 @@ void main() {
         ],
         child: MaterialApp(
           theme: BafAppTheme.light,
-          home: const Scaffold(body: DirectivesScreen()),
+          home: const DirectivesScreen(),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('New Directive'), findsOneWidget);
+    expect(find.text('Directives'), findsNWidgets(2));
     expect(find.text('Inspect furnace seal'), findsOneWidget);
     expect(find.text('Verify cooler alignment'), findsOneWidget);
 

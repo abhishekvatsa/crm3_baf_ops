@@ -15,6 +15,7 @@ import '../domain/morning_review_models.dart';
 import '../domain/morning_review_report.dart';
 import '../providers/morning_review_providers.dart';
 import '../services/morning_review_command_service.dart';
+import 'morning_review_agenda_view.dart';
 import 'morning_review_editors.dart';
 
 class MorningReviewScreen extends ConsumerStatefulWidget {
@@ -27,6 +28,7 @@ class MorningReviewScreen extends ConsumerStatefulWidget {
 
 class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
   bool _busy = false;
+  String? _reconciliationScheduledFor;
 
   @override
   Widget build(BuildContext context) {
@@ -61,9 +63,57 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
             ),
           );
         }
+        _schedulePendingReconciliation(actor);
         return _buildAuthorized(context, actor);
       },
     );
+  }
+
+  void _schedulePendingReconciliation(AppUser actor) {
+    if (_reconciliationScheduledFor == actor.uid) return;
+    _reconciliationScheduledFor = actor.uid;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_reconcilePending(actor.uid));
+    });
+  }
+
+  Future<void> _reconcilePending(String actorUid) async {
+    if (_busy) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (!mounted || _reconciliationScheduledFor != actorUid) return;
+      return _reconcilePending(actorUid);
+    }
+    setState(() => _busy = true);
+    try {
+      final result =
+          await ref
+              .read(morningReviewCommandServiceProvider)
+              .reconcilePending();
+      if (!mounted ||
+          _reconciliationScheduledFor != actorUid ||
+          result == null) {
+        return;
+      }
+      _refreshSession(result.sessionId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A previously submitted Morning Review change was confirmed.',
+          ),
+          backgroundColor: BafColors.success,
+        ),
+      );
+    } on MorningReviewCommandException catch (error) {
+      if (!mounted || _reconciliationScheduledFor != actorUid) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Widget _buildAuthorized(BuildContext context, AppUser actor) {
@@ -576,9 +626,13 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
     }
   }
 
-  void _refresh() => _refreshSession(
-    ref.read(currentMorningReviewSessionProvider).value?.sessionId,
-  );
+  void _refresh() {
+    final actorUid = ref.read(currentAppUserProvider).value?.uid;
+    _refreshSession(
+      ref.read(currentMorningReviewSessionProvider).value?.sessionId,
+    );
+    if (actorUid != null) unawaited(_reconcilePending(actorUid));
+  }
 
   void _refreshSession(String? sessionId) {
     ref.invalidate(morningReviewPlantDayProvider);
@@ -758,7 +812,7 @@ class _NoSessionAgenda extends StatelessWidget {
                 ...activeConcerns.map(
                   (concern) => Padding(
                     padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                    child: _ConcernCard(concern: concern),
+                    child: MorningReviewConcernCard(concern: concern),
                   ),
                 ),
               ],
@@ -925,7 +979,7 @@ class _AgendaBoundary extends StatelessWidget {
         checksAsync.isLoading) {
       return const BafLoadingPanel(label: 'Loading the meeting agenda');
     }
-    return _AgendaTab(
+    return MorningReviewAgendaView(
       session: session,
       joined: joined,
       busy: busy,
@@ -937,172 +991,6 @@ class _AgendaBoundary extends StatelessWidget {
       onCheckConcern: onCheckConcern,
       onResolveConcern: onResolveConcern,
       onAddAddendum: onAddAddendum,
-    );
-  }
-}
-
-class _AgendaTab extends StatelessWidget {
-  const _AgendaTab({
-    required this.session,
-    required this.joined,
-    required this.busy,
-    required this.entries,
-    required this.concerns,
-    required this.checks,
-    required this.onAddEntry,
-    required this.onAddConcern,
-    required this.onCheckConcern,
-    required this.onResolveConcern,
-    required this.onAddAddendum,
-  });
-
-  final MorningReviewSession session;
-  final bool joined;
-  final bool busy;
-  final List<MorningReviewEntry> entries;
-  final List<MorningReviewStandingConcern> concerns;
-  final List<MorningReviewConcernCheck> checks;
-  final ValueChanged<MorningReviewSourceFact?>? onAddEntry;
-  final VoidCallback? onAddConcern;
-  final ValueChanged<MorningReviewStandingConcern>? onCheckConcern;
-  final ValueChanged<MorningReviewStandingConcern>? onResolveConcern;
-  final VoidCallback? onAddAddendum;
-
-  @override
-  Widget build(BuildContext context) {
-    final checksByConcern = {
-      for (final check in checks) check.concernId: check,
-    };
-    return ListView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      children: [
-        BafContentFrame(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              BafScreenIntro(
-                title: session.isOpen ? 'Today\'s room' : 'Frozen meeting',
-                subtitle:
-                    session.isOpen
-                        ? joined
-                            ? 'Add updates under your own name; source facts remain read-only.'
-                            : 'Join explicitly to contribute. Viewing alone is not attendance.'
-                        : session.finalSummary ?? 'Meeting finalized.',
-                icon:
-                    session.isOpen
-                        ? Icons.forum_outlined
-                        : Icons.inventory_2_outlined,
-                accent: BafColors.cobalt,
-                trailing:
-                    onAddEntry != null
-                        ? FilledButton.icon(
-                          onPressed: busy ? null : () => onAddEntry!(null),
-                          icon: const Icon(Icons.add_comment_outlined),
-                          label: const Text('Add contribution'),
-                        )
-                        : onAddAddendum != null
-                        ? OutlinedButton.icon(
-                          onPressed: busy ? null : onAddAddendum,
-                          icon: const Icon(Icons.note_add_outlined),
-                          label: const Text('Add addendum'),
-                        )
-                        : null,
-              ),
-              if (session.sourceCaptureState ==
-                  MorningReviewSourceCaptureState.bounded) ...[
-                const SizedBox(height: BafSpacing.md),
-                _InlineNotice(
-                  icon: Icons.info_outline_rounded,
-                  color: BafColors.warning,
-                  text:
-                      'Source capture reached its governed bound for '
-                      '${session.sourceCollectionsAtLimit.join(', ')}. The meeting may proceed, but the PDF will retain this limitation.',
-                ),
-              ],
-              if (session.isOpen) ...[
-                const SizedBox(height: BafSpacing.md),
-                const _InlineNotice(
-                  icon: Icons.info_outline_rounded,
-                  color: BafColors.cobalt,
-                  text:
-                      'Meeting updates are attributed discussion records only. They do not alter maintenance workflow, lane completion or formal compliance.',
-                ),
-              ],
-              for (final section in MorningReviewSection.values) ...[
-                const SizedBox(height: BafSpacing.xl),
-                BafSectionLabel(
-                  title: morningReviewSectionLabel(section),
-                  subtitle: _sectionSubtitle(section),
-                  trailing:
-                      section == MorningReviewSection.safety &&
-                              onAddConcern != null
-                          ? IconButton.filledTonal(
-                            tooltip: 'Add standing concern',
-                            style: IconButton.styleFrom(
-                              backgroundColor: BafColors.cobalt,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: BafColors.surfaceStrong,
-                              disabledForegroundColor: BafColors.textTertiary,
-                            ),
-                            onPressed: busy ? null : onAddConcern,
-                            icon: const Icon(Icons.push_pin_outlined),
-                          )
-                          : null,
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                if (section == MorningReviewSection.safety)
-                  ...concerns.map(
-                    (concern) => Padding(
-                      padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                      child: _ConcernCard(
-                        concern: concern,
-                        check: checksByConcern[concern.concernId],
-                        onCheck:
-                            concern.status ==
-                                        MorningReviewConcernStatus.active &&
-                                    checksByConcern[concern.concernId] == null
-                                ? onCheckConcern == null
-                                    ? null
-                                    : () => onCheckConcern!(concern)
-                                : null,
-                        onResolve:
-                            concern.status ==
-                                        MorningReviewConcernStatus.active &&
-                                    onResolveConcern != null
-                                ? () => onResolveConcern!(concern)
-                                : null,
-                      ),
-                    ),
-                  ),
-                ...session.sourceFacts
-                    .where((fact) => fact.section == section)
-                    .map(
-                      (fact) => Padding(
-                        padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                        child: _FactCard(
-                          fact: fact,
-                          onDiscuss:
-                              onAddEntry == null
-                                  ? null
-                                  : () => onAddEntry!(fact),
-                        ),
-                      ),
-                    ),
-                ...entries
-                    .where((entry) => entry.section == section)
-                    .map(
-                      (entry) => Padding(
-                        padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                        child: _EntryCard(entry: entry),
-                      ),
-                    ),
-                if (!_hasSectionItems(session, entries, concerns, section))
-                  const _QuietEmpty(label: 'Nothing recorded in this area.'),
-              ],
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1521,209 +1409,6 @@ class MorningReviewRecordScreen extends ConsumerWidget {
   }
 }
 
-class _FactCard extends StatelessWidget {
-  const _FactCard({required this.fact, required this.onDiscuss});
-
-  final MorningReviewSourceFact fact;
-  final VoidCallback? onDiscuss;
-
-  @override
-  Widget build(BuildContext context) => BafRecordSurface(
-    accent: BafColors.cobalt,
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.cloud_done_outlined, color: BafColors.cobalt),
-        const SizedBox(width: BafSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      fact.title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const _StatusPill(
-                    icon: Icons.lock_outline_rounded,
-                    label: 'Source fact',
-                    color: BafColors.cobalt,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(fact.summary),
-              const SizedBox(height: 8),
-              Text(
-                '${_assetLabel(fact.assetClassName, fact.assetNumber)} · '
-                '${fact.status} · ${fact.sourceType}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              if (onDiscuss != null) ...[
-                const SizedBox(height: BafSpacing.sm),
-                TextButton.icon(
-                  onPressed: onDiscuss,
-                  icon: const Icon(Icons.forum_outlined),
-                  label: const Text('Discuss this fact'),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _EntryCard extends StatelessWidget {
-  const _EntryCard({required this.entry});
-
-  final MorningReviewEntry entry;
-
-  @override
-  Widget build(BuildContext context) => BafRecordSurface(
-    accent: _entryColor(entry.kind),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(_entryIcon(entry.kind), color: _entryColor(entry.kind)),
-            const SizedBox(width: BafSpacing.sm),
-            Expanded(
-              child: Text(
-                morningReviewEntryKindLabel(entry.kind),
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ),
-            Text(
-              '${DateFormat('HH:mm').format(_indiaTime(entry.createdAt))} IST',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-        const SizedBox(height: BafSpacing.sm),
-        Text(entry.text),
-        const SizedBox(height: BafSpacing.sm),
-        Text(
-          '${entry.authorName} · '
-          '${_assetLabel(entry.assetClassName, entry.assetNumber)}',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        if (entry.addendumReason != null) ...[
-          const SizedBox(height: BafSpacing.sm),
-          _InlineNotice(
-            icon: Icons.history_edu_outlined,
-            color: BafColors.audit,
-            text: 'Addendum reason: ${entry.addendumReason}',
-          ),
-        ],
-      ],
-    ),
-  );
-}
-
-class _ConcernCard extends StatelessWidget {
-  const _ConcernCard({
-    required this.concern,
-    this.check,
-    this.onCheck,
-    this.onResolve,
-  });
-
-  final MorningReviewStandingConcern concern;
-  final MorningReviewConcernCheck? check;
-  final VoidCallback? onCheck;
-  final VoidCallback? onResolve;
-
-  @override
-  Widget build(BuildContext context) {
-    final active = concern.status == MorningReviewConcernStatus.active;
-    final color =
-        concern.criticality == MorningReviewConcernCriticality.safety
-            ? BafColors.danger
-            : BafColors.warning;
-    return BafRecordSurface(
-      accent: active ? color : BafColors.success,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                concern.criticality == MorningReviewConcernCriticality.safety
-                    ? Icons.health_and_safety_outlined
-                    : Icons.push_pin_outlined,
-                color: color,
-              ),
-              const SizedBox(width: BafSpacing.sm),
-              Expanded(
-                child: Text(
-                  concern.title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              _StatusPill(
-                icon: active ? Icons.schedule_outlined : Icons.check_rounded,
-                label: active ? 'Carried' : 'Resolved',
-                color: active ? color : BafColors.success,
-              ),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          Text(concern.detail),
-          const SizedBox(height: BafSpacing.sm),
-          Text(
-            'Raised by ${concern.createdByName} · '
-            '${DateFormat('dd MMM yyyy').format(_indiaTime(concern.createdAt))}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          if (check != null) ...[
-            const SizedBox(height: BafSpacing.sm),
-            _InlineNotice(
-              icon:
-                  check!.state == MorningReviewConcernCheckState.complied
-                      ? Icons.check_circle_outline
-                      : Icons.error_outline_rounded,
-              color:
-                  check!.state == MorningReviewConcernCheckState.complied
-                      ? BafColors.success
-                      : BafColors.danger,
-              text:
-                  '${check!.state.name}: ${check!.note} · ${check!.checkedByName}',
-            ),
-          ],
-          if (onCheck != null || onResolve != null) ...[
-            const SizedBox(height: BafSpacing.sm),
-            Wrap(
-              spacing: BafSpacing.sm,
-              runSpacing: BafSpacing.sm,
-              children: [
-                if (onCheck != null)
-                  OutlinedButton.icon(
-                    onPressed: onCheck,
-                    icon: const Icon(Icons.fact_check_outlined),
-                    label: const Text('Record today\'s check'),
-                  ),
-                if (onResolve != null)
-                  TextButton.icon(
-                    onPressed: onResolve,
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Resolve concern'),
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _ActionCard extends StatelessWidget {
   const _ActionCard({
     required this.action,
@@ -1927,69 +1612,6 @@ class _StatusPill extends StatelessWidget {
   );
 }
 
-class _InlineNotice extends StatelessWidget {
-  const _InlineNotice({
-    required this.icon,
-    required this.color,
-    required this.text,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.06),
-      border: Border.all(color: color.withValues(alpha: 0.18)),
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(BafSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: BafSpacing.sm),
-          Expanded(child: Text(text)),
-        ],
-      ),
-    ),
-  );
-}
-
-class _QuietEmpty extends StatelessWidget {
-  const _QuietEmpty({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: BafSpacing.md),
-    child: Row(
-      children: [
-        const Icon(
-          Icons.horizontal_rule_rounded,
-          color: BafColors.textTertiary,
-        ),
-        const SizedBox(width: BafSpacing.sm),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    ),
-  );
-}
-
-bool _hasSectionItems(
-  MorningReviewSession session,
-  List<MorningReviewEntry> entries,
-  List<MorningReviewStandingConcern> concerns,
-  MorningReviewSection section,
-) =>
-    session.sourceFacts.any((fact) => fact.section == section) ||
-    entries.any((entry) => entry.section == section) ||
-    (section == MorningReviewSection.safety && concerns.isNotEmpty);
-
 bool _canMutateAction(AppUser actor, MorningReviewAction action) =>
     actor.isAdmin ||
     actor.isSI ||
@@ -2017,50 +1639,3 @@ String _assetLabel(String? assetClassName, String? assetNumber) =>
 
 DateTime _indiaTime(DateTime value) =>
     value.toUtc().add(const Duration(hours: 5, minutes: 30));
-
-String _sectionSubtitle(MorningReviewSection section) => switch (section) {
-  MorningReviewSection.safety =>
-    'Human-entered standing concerns and prior-day critical alarm facts',
-  MorningReviewSection.furnace =>
-    'Yesterday\'s outcomes, today\'s conditions and forward plan',
-  MorningReviewSection.base =>
-    'Bases together with linked Inner Cover condition and maintenance',
-  MorningReviewSection.forcedCooler =>
-    'Forced Cooler availability, work and operating plan',
-  MorningReviewSection.otherAsset =>
-    'Registered or provisional equipment outside the primary classes',
-  MorningReviewSection.plantWide =>
-    'Utilities, directives, disruptions, ideas and room conclusions',
-};
-
-IconData _entryIcon(MorningReviewEntryKind kind) => switch (kind) {
-  MorningReviewEntryKind.update => Icons.notes_rounded,
-  MorningReviewEntryKind.observation => Icons.visibility_outlined,
-  MorningReviewEntryKind.plan => Icons.event_note_outlined,
-  MorningReviewEntryKind.blocker => Icons.block_outlined,
-  MorningReviewEntryKind.decision => Icons.gavel_outlined,
-  MorningReviewEntryKind.idea => Icons.lightbulb_outline_rounded,
-  MorningReviewEntryKind.currentCompliance => Icons.fact_check_outlined,
-  MorningReviewEntryKind.remainingCompliance => Icons.pending_actions_outlined,
-  MorningReviewEntryKind.maintenanceUpdate => Icons.handyman_outlined,
-  MorningReviewEntryKind.conclusion => Icons.fact_check_outlined,
-  MorningReviewEntryKind.safetyConcern => Icons.health_and_safety_outlined,
-  MorningReviewEntryKind.standingConcernCheck => Icons.checklist_rounded,
-  MorningReviewEntryKind.addendum => Icons.note_add_outlined,
-};
-
-Color _entryColor(MorningReviewEntryKind kind) => switch (kind) {
-  MorningReviewEntryKind.update => BafColors.cobalt,
-  MorningReviewEntryKind.observation => BafColors.instrument,
-  MorningReviewEntryKind.plan => BafColors.cobalt,
-  MorningReviewEntryKind.blocker => BafColors.warning,
-  MorningReviewEntryKind.decision => BafColors.audit,
-  MorningReviewEntryKind.idea => BafColors.warning,
-  MorningReviewEntryKind.currentCompliance => BafColors.success,
-  MorningReviewEntryKind.remainingCompliance => BafColors.maintenance,
-  MorningReviewEntryKind.maintenanceUpdate => BafColors.maintenance,
-  MorningReviewEntryKind.conclusion => BafColors.success,
-  MorningReviewEntryKind.safetyConcern => BafColors.danger,
-  MorningReviewEntryKind.standingConcernCheck => BafColors.instrument,
-  MorningReviewEntryKind.addendum => BafColors.audit,
-};
