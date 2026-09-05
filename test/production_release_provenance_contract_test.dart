@@ -1393,6 +1393,11 @@ void main() {
                   read('release/evidence/build-23-finalization-closure.json'),
                 )
                 as Map<String, dynamic>;
+        final build24Receipt =
+            jsonDecode(
+                  read('release/evidence/build-24-finalization-closure.json'),
+                )
+                as Map<String, dynamic>;
         final receipt =
             jsonDecode(
                   read('release/evidence/build-11-finalization-closure.json'),
@@ -1536,9 +1541,36 @@ void main() {
               as Map<String, dynamic>)['controlledPilotApproved'],
           isFalse,
         );
+        expect(build24Receipt['schemaVersion'], 1);
+        expect(build24Receipt['status'], 'passed-non-distributable');
+        expect(
+          (build24Receipt['release'] as Map<String, dynamic>)['buildNumber'],
+          24,
+        );
+        expect(
+          (build24Receipt['sourceAuthority'] as Map<String, dynamic>)['commit'],
+          '7eb093159c612eed93f90c69a250dd89ea66e7f0',
+        );
+        expect(
+          (build24Receipt['workflow'] as Map<String, dynamic>)['runId'],
+          33905922841,
+        );
+        expect(
+          (build24Receipt['githubArtifact'] as Map<String, dynamic>)['id'],
+          9950364675,
+        );
+        expect(
+          (build24Receipt['governedPackage'] as Map<String, dynamic>)['sha256'],
+          '649E41398D74ADC3ADEBC7F27F93493F57288EF80668877AF14CA16D83B661DA',
+        );
+        expect(
+          (build24Receipt['releaseBoundary']
+              as Map<String, dynamic>)['controlledPilotApproved'],
+          isFalse,
+        );
         expect(
           finalizedBuild['completionReceiptFile'],
-          'release/evidence/build-23-finalization-closure.json',
+          'release/evidence/build-$candidateBuildNumber-finalization-closure.json',
         );
         expect(
           _sha256(finalizedBuild['completionReceiptFile'] as String),

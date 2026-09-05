@@ -1,6 +1,7 @@
 import {createHash} from "crypto";
 
 import {AssetHierarchyMutationError} from "./assetHierarchyMutation";
+import {validateQualityWarningRecord} from "./qualityMutation";
 import {stableJson} from "./stableJson";
 import {
   canonicalApprovedUserAuthority,
@@ -63,6 +64,8 @@ type DocumentRefLike = {
 
 type QueryLike = {
   where: (field: string, op: string, value: unknown) => QueryLike;
+  orderBy: (field: string) => QueryLike;
+  startAfter: (snapshot: SnapshotLike) => QueryLike;
   limit: (value: number) => QueryLike;
   get: () => Promise<QuerySnapshotLike>;
 };
@@ -171,12 +174,39 @@ const INDIA_OFFSET_MINUTES = 330;
 const START_MINUTE = 8 * 60;
 const END_MINUTE = 10 * 60;
 const MAX_SOURCE_FACTS = 220;
+const SOURCE_SCAN_PAGE_SIZE = 300;
+const MAX_SOURCE_SCAN_PAGES = 10;
+const MAX_SOURCE_COLLECTION_MARKERS = 10;
 const MAX_SESSION_ENTRIES = 180;
 const MAX_SESSION_ACTIONS = 100;
 const MAX_SESSION_PARTICIPANTS = 100;
 const MAX_STANDING_CONCERNS = 250;
 const MAX_SOURCE_REFERENCES = 12;
 const MAX_FROZEN_DOCUMENT_BYTES = 800 * 1024;
+const ACTIVE_SOURCE_STATUSES = new Set([
+  "open", "raised", "supportconfirmed", "acknowledged", "accepted",
+  "inprogress", "active", "deferred", "actionable", "awaitingconfirmation",
+  "down", "unfit", "unavailable", "stuckup", "temporarilyblocked", "due",
+  "overdue", "closurerequested", "correctiveactionlinked",
+  "awaitingverification", "closedwithoutresolutionstillrelevant",
+]);
+const INSPECTION_FINDING_STATUSES = new Set([
+  "open", "correctiveActionLinked", "awaitingVerification",
+  "verifiedResolved", "acceptedCondition", "invalidated",
+]);
+const TERMINAL_INSPECTION_FINDING_STATUSES = new Set([
+  "verifiedResolved", "acceptedCondition", "invalidated",
+]);
+const INSPECTION_COMPARISON_OUTCOMES = new Set([
+  "improved", "unchanged", "deteriorated", "resolved", "recurred",
+  "notComparable",
+]);
+const SOURCE_MUTATION_TIME_FIELDS = [
+  "updatedAt", "createdAt", "raisedAt", "openedAt", "reportedAt",
+  "startedAt", "resolvedAt", "restoredAt", "completedAt", "cancelledAt",
+  "closedAt", "withdrawnAt", "reopenedAt", "closureRequestedAt",
+  "latestObservedAt", "morningReviewObservedAt",
+] as const;
 const START_ROLES = new Set(["admin", "si"]);
 const MAINTENANCE_UPDATE_ROLES = new Set([
   "admin", "si", "contractSupervisor", "shiftSupervisor",
@@ -715,25 +745,313 @@ function touchedDuring(
   });
 }
 
-function sourceSection(data: JsonMap): MorningReviewSection {
+type SourceAssetIdentity = {
+  assetClassId: string | null;
+  assetClassName: string | null;
+  assetInstanceId: string | null;
+  assetNumber: string | null;
+};
+
+function parsedObject(value: unknown): JsonMap | null {
+  if (value != null && typeof value === "object" && !Array.isArray(value)) {
+    return value as JsonMap;
+  }
+  if (typeof value !== "string" || value.trim().length === 0) return null;
+  try {
+    const decoded: unknown = JSON.parse(value);
+    return decoded != null && typeof decoded === "object" &&
+      !Array.isArray(decoded) ? decoded as JsonMap : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizedStatusKey(value: unknown): string {
+  return typeof value === "string" ?
+    value.replace(/[^a-z]/gi, "").toLowerCase() : "";
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function optionalNonEmptyString(value: unknown): boolean {
+  return value == null || nonEmptyString(value);
+}
+
+function qualityAssetLabel(asset: JsonMap): string {
+  const type = boundedDisplay(asset.assetType, 40) ?? "Asset";
+  const normalizedType = normalizedStatusKey(type);
+  const label = ({
+    base: "Base",
+    furnace: "Furnace",
+    forcecooler: "Forced Cooler",
+    innercover: "Inner Cover",
+    governedcustom: "Asset",
+  } as Record<string, string>)[normalizedType] ?? type;
+  return `${label} ${String(asset.assetNumber)}`;
+}
+
+function qualityWarningSourceProjection(
+  snapshot: SnapshotLike,
+): JsonMap | null {
+  let data: JsonMap;
+  try {
+    data = validateQualityWarningRecord(
+      snapshot.data() ?? {},
+      snapshot.id,
+    );
+  } catch (_) {
+    return null;
+  }
+  const affectedAssets = data.affectedAssets as JsonMap[];
+  const affectedLabels = affectedAssets.map(qualityAssetLabel);
+  const linkedCharges = data.linkedReannealingChargeNos as number[];
+  const details = [
+    boundedDisplay(data.sourceSummary, 180),
+    boundedDisplay(data.warningReason, 180),
+    boundedDisplay(data.component, 100),
+    affectedLabels.length === 0 ? null :
+      `Affected: ${affectedLabels.join(", ")}`,
+    boundedDisplay(data.closureRequestReason, 160),
+    boundedDisplay(data.decisionReason, 160),
+    linkedCharges.length === 0 ? null :
+      `Linked RA charges: ${linkedCharges.join(", ")}`,
+  ].filter((value): value is string => value != null);
+  const singleAsset = affectedAssets.length === 1 ? affectedAssets[0] : null;
+  const status = data.status as string;
+  return {
+    ...data,
+    morningReviewTitle: `Quality warning · Charge ${data.sourceChargeNo}`,
+    morningReviewSummary: boundedDisplay(details.join(" · "), 420),
+    morningReviewObservedAt: status === "closed" ? data.closedAt :
+      status === "closureRequested" ? data.closureRequestedAt : data.updatedAt,
+    ...(singleAsset == null ? {} : {
+      assetType: singleAsset.assetType,
+      assetNumber: singleAsset.assetNumber,
+      assetHierarchyRef: singleAsset.assetHierarchyRef ?? null,
+    }),
+  };
+}
+
+function inspectionFindingIsValid(
+  data: JsonMap,
+  documentId: string,
+): boolean {
+  const requiredStrings = [
+    data.campaignId,
+    data.targetKey,
+    data.assetTypeKey,
+    data.assetClassId,
+    data.assetInstanceId,
+    data.firstObservationId,
+    data.currentObservationId,
+  ];
+  const optionalStrings = [
+    data.subjectSerialNumber,
+    data.componentNodeId,
+    data.componentName,
+    data.physicalPosition,
+    data.linkedTicketId,
+  ];
+  const positiveIntegers = [
+    data.version,
+    data.assetNumber,
+    data.recurrenceCount,
+  ];
+  if (data.schemaVersion !== 1 || data.findingId !== documentId ||
+      requiredStrings.some((value) => !nonEmptyString(value)) ||
+      optionalStrings.some((value) => !optionalNonEmptyString(value)) ||
+      positiveIntegers.some((value) =>
+        !Number.isSafeInteger(value) || (value as number) < 1) ||
+      !Number.isSafeInteger(data.verificationCount) ||
+      (data.verificationCount as number) < 0 ||
+      !INSPECTION_FINDING_STATUSES.has(String(data.status)) ||
+      timestampDate(data.firstObservedAt) == null ||
+      timestampDate(data.latestObservedAt) == null ||
+      timestampDate(data.updatedAt) == null ||
+      (data.lastVerificationOutcome != null &&
+        !INSPECTION_COMPARISON_OUTCOMES.has(
+          String(data.lastVerificationOutcome),
+        ))) {
+    return false;
+  }
+  const hostAssetNumber = data.hostAssetNumber;
+  if (hostAssetNumber != null &&
+      (!Number.isSafeInteger(hostAssetNumber) ||
+        (hostAssetNumber as number) < 1)) {
+    return false;
+  }
+  const hasHost = hostAssetNumber != null;
+  const hasSubject = data.subjectSerialNumber != null;
+  return hasHost === hasSubject && (!hasHost ||
+    (data.assetTypeKey === "innerCover" &&
+      data.assetNumber === hostAssetNumber));
+}
+
+function inspectionFindingSourceProjection(
+  snapshot: SnapshotLike,
+): JsonMap | null {
+  const data = snapshot.data() ?? {};
+  if (!inspectionFindingIsValid(data, snapshot.id)) return null;
+  const hostAssetNumber = data.hostAssetNumber as number | null | undefined;
+  const subjectSerialNumber = boundedDisplay(data.subjectSerialNumber, 40);
+  const isInstalledInnerCover = hostAssetNumber != null &&
+    subjectSerialNumber != null;
+  const rawAssetNumber = data.assetNumber as number;
+  const displayAssetNumber = isInstalledInnerCover ?
+    subjectSerialNumber : rawAssetNumber;
+  const assetTypeKey = data.assetTypeKey as string;
+  const identityLabel = isInstalledInnerCover ?
+    `Inner Cover ${subjectSerialNumber} installed at Base ${hostAssetNumber}` :
+    qualityAssetLabel({
+      assetType: assetTypeKey,
+      assetNumber: rawAssetNumber,
+    });
+  const component = boundedDisplay(data.componentName, 120) ??
+    boundedDisplay(data.physicalPosition, 120);
+  const details = [
+    identityLabel,
+    data.physicalPosition == null ? null :
+      `Position: ${boundedDisplay(data.physicalPosition, 100)}`,
+    (data.recurrenceCount as number) > 1 ?
+      `Observed ${data.recurrenceCount} times` : null,
+    data.linkedTicketId == null ? null :
+      `Corrective ticket: ${boundedDisplay(data.linkedTicketId, 100)}`,
+  ].filter((value): value is string => value != null);
+  const terminal = TERMINAL_INSPECTION_FINDING_STATUSES.has(
+    data.status as string,
+  );
+  return {
+    ...data,
+    assetType: assetTypeKey,
+    assetNumber: displayAssetNumber,
+    morningReviewTitle: component == null ? "Inspection finding" :
+      `Inspection finding · ${component}`,
+    morningReviewSummary: boundedDisplay(details.join(" · "), 420),
+    morningReviewObservedAt: terminal ? data.updatedAt : data.latestObservedAt,
+  };
+}
+
+function morningReviewSourceProjection(
+  collection: string,
+  snapshot: SnapshotLike,
+): JsonMap | null {
+  if (collection === "quality_warnings") {
+    return qualityWarningSourceProjection(snapshot);
+  }
+  if (collection === "inspection_findings") {
+    return inspectionFindingSourceProjection(snapshot);
+  }
+  return snapshot.data() ?? {};
+}
+
+function sourceHierarchyReference(data: JsonMap): JsonMap | null {
+  const direct = parsedObject(data.assetHierarchyRefJson) ??
+    parsedObject(data.assetHierarchyRef);
+  if (direct != null) return direct;
+  const metadata = parsedObject(data.metadataJson);
+  if (metadata == null) return null;
+  const snapshot = parsedObject(metadata.jobTemplateSnapshot);
+  return snapshot == null ? null :
+    parsedObject(snapshot.assetHierarchyRefJson) ??
+    parsedObject(snapshot.assetHierarchyRef);
+}
+
+function sourceAssetIdentity(data: JsonMap): SourceAssetIdentity {
+  const hierarchy = sourceHierarchyReference(data);
+  const metadata = parsedObject(data.metadataJson);
+  const assignment = metadata == null ? null :
+    parsedObject(metadata.assignmentAssetIdentity);
+  const rawNumber = hierarchy?.assetNumber ?? assignment?.assetNumber ??
+    data.assetNumber ?? data.baseNumber ?? data.furnaceNumber;
+  const assetNumber = typeof rawNumber === "number" && Number.isFinite(rawNumber) ?
+    String(rawNumber) : boundedDisplay(rawNumber, 40);
+  const rawAssetClassName = firstText({
+    hierarchyClassName: hierarchy?.assetClassName,
+    assignmentClassName: assignment?.assetClassName,
+    assetClassName: data.assetClassName,
+    assetType: data.assetType,
+    assetTypeKey: data.assetTypeKey,
+    assetFamily: data.assetFamily,
+    className: data.className,
+  }, [
+    "hierarchyClassName", "assignmentClassName", "assetClassName",
+    "assetType", "assetTypeKey", "assetFamily", "className",
+  ], 120);
+  if (rawAssetClassName == null) {
+    return {
+      assetClassId: null,
+      assetClassName: null,
+      assetInstanceId: null,
+      assetNumber: null,
+    };
+  }
+  const normalizedClassName = rawAssetClassName.replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
+  const assetClassName = ({
+    furnace: "Furnace",
+    base: "Base",
+    innercover: "Inner Cover",
+    forcecooler: "Forced Cooler",
+    forcedcooler: "Forced Cooler",
+  } as Record<string, string>)[normalizedClassName] ?? rawAssetClassName;
+  const assetClassId = optionalSnapshotText(
+    hierarchy?.assetClassId ?? assignment?.assetClassId ?? data.assetClassId,
+    180,
+  );
+  const candidateInstanceId = optionalSnapshotText(
+    hierarchy?.assetInstanceId ?? assignment?.assetInstanceId ??
+      data.assetInstanceId,
+    180,
+  );
+  const assetInstanceId = candidateInstanceId != null &&
+      assetClassId != null && assetNumber != null ? candidateInstanceId : null;
+  return {
+    assetClassId,
+    assetClassName,
+    assetInstanceId,
+    assetNumber,
+  };
+}
+
+function sourceLifecycleStatus(collection: string, data: JsonMap): string {
+  const explicit = firstText(data, [
+    "status", "availabilityState", "condition", "workflowQueueState",
+  ], 80);
+  if (collection === "asset_operational_conditions" && data.active === false) {
+    return "restored";
+  }
+  if (collection === "maintenance_records" &&
+      explicit === "closedWithoutResolution") {
+    return data.issueClosureDisposition === "stillRelevant" ?
+      "closed without resolution · still relevant" :
+      data.issueClosureDisposition === "relevanceEnded" ?
+        "closed without resolution · relevance ended" : explicit;
+  }
+  if (collection === "maintenance_burner_closures") return "resolved";
+  if (collection === "job_executions") {
+    if (data.isCancelled === true) return "cancelled";
+    if (data.isCompleted === true) return "completed";
+    return "open";
+  }
+  return explicit ?? "recorded";
+}
+
+function sourceSection(
+  data: JsonMap,
+  identity: SourceAssetIdentity = sourceAssetIdentity(data),
+): MorningReviewSection {
   if (typeof data.section === "string" &&
       SECTIONS.has(data.section as MorningReviewSection)) {
     return data.section as MorningReviewSection;
   }
-  const type = firstText(data, [
-    "assetType", "assetTypeKey", "assetClassName", "assetFamily", "className",
-  ], 80)?.toLowerCase() ?? "";
+  const type = (identity.assetClassName ?? "").toLowerCase();
   if (type.includes("furnace")) return "furnace";
   if (type.includes("base") || type.includes("innercover") ||
       type.includes("inner cover")) return "base";
   if (type.includes("cooler")) return "forcedCooler";
   return type.length > 0 ? "otherAsset" : "plantWide";
-}
-
-function sourceAssetNumber(data: JsonMap): string | null {
-  const raw = data.assetNumber ?? data.baseNumber ?? data.furnaceNumber;
-  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
-  return boundedDisplay(raw, 40);
 }
 
 function sourceFact(args: {
@@ -743,34 +1061,51 @@ function sourceFact(args: {
   section?: MorningReviewSection;
 }): MorningReviewSourceFact {
   const data = args.snapshot.data() ?? {};
-  const status = firstText(data, [
-    "status", "availabilityState", "condition", "workflowQueueState",
-  ], 80) ?? "recorded";
+  const identity = sourceAssetIdentity(data);
+  const status = sourceLifecycleStatus(args.collection, data);
   const title = firstText(data, [
-    "alarmTypeName", "title", "description", "name", "templateName",
-    "resolutionSummary", "reason", "text",
-  ], 180) ?? `${args.sourceType} ${args.snapshot.id}`;
+    "morningReviewTitle", "alarmTypeName", "title", "description", "name",
+    "templateName", "resolutionSummary", "reason", "text",
+  ], 180) ?? boundedDisplay(
+    `${args.sourceType} ${args.snapshot.id}`,
+    180,
+  )!;
   const detail = firstText(data, [
-    "details", "description", "component", "resolutionNote", "remarks",
-    "currentCompliance", "reason",
+    "morningReviewSummary", "component", "subsystem", "resolutionNote",
+    "completionNote", "remarks", "currentCompliance", "reason", "details",
+    "description",
   ], 420);
-  const observedAt = firstTimestamp(data, [
-    "resolvedAt", "restoredAt", "endDate", "completedAt", "closedAt",
-    "updatedAt", "raisedAt", "createdAt", "startedAt",
-  ]);
+  const closureReason = args.collection === "maintenance_records" &&
+      data.status === "closedWithoutResolution" ?
+    boundedDisplay(data.issueClosureReason, 420) : null;
+  const summaryDetails = [...new Set([detail, closureReason]
+    .filter((value): value is string => value != null && value !== title))];
+  const summary = boundedDisplay(
+    summaryDetails.length === 0 ?
+      status : `${status}: ${summaryDetails.join(" · ")}`,
+    500,
+  )!;
+  const observedAt = firstTimestamp(data,
+    args.collection === "morning_review_actions" ?
+      ["completedAt", "acceptedAt", "updatedAt", "createdAt"] : [
+        "morningReviewObservedAt",
+        "resolvedAt", "restoredAt", "endDate", "completedAt", "cancelledAt",
+        "closedAt", "withdrawnAt", "updatedAt", "raisedAt", "createdAt",
+        "startedAt",
+      ]);
   return {
     factId: `${args.collection}/${args.snapshot.id}`,
-    section: args.section ?? sourceSection(data),
+    section: args.section ?? sourceSection(data, identity),
     sourceType: args.sourceType,
     sourceCollection: args.collection,
     sourceDocumentId: args.snapshot.id,
     title,
-    summary: detail == null || detail === title ? status : `${status}: ${detail}`,
+    summary,
     status,
-    assetClassId: optionalSnapshotText(data.assetClassId, 180),
-    assetClassName: firstText(data, ["assetClassName", "assetType", "assetTypeKey"], 120),
-    assetInstanceId: optionalSnapshotText(data.assetInstanceId, 180),
-    assetNumber: sourceAssetNumber(data),
+    assetClassId: identity.assetClassId,
+    assetClassName: identity.assetClassName,
+    assetInstanceId: identity.assetInstanceId,
+    assetNumber: identity.assetNumber,
     observedAtIso: observedAt?.toISOString() ?? null,
   };
 }
@@ -783,15 +1118,60 @@ function sourceRecordRelevant(args: {
   collection: string;
   data: JsonMap;
   priorStart: Date;
-  currentStart: Date;
+  captureEnd: Date;
 }): boolean {
   if (args.data.isDeleted === true) return false;
+  const normalizedStatus = normalizedStatusKey(firstText(args.data, [
+    "status", "availabilityState", "condition", "workflowQueueState",
+  ], 80));
+  if (args.collection === "quality_warnings") {
+    if (normalizedStatus === "open" ||
+        normalizedStatus === "closurerequested") {
+      return true;
+    }
+    return normalizedStatus === "closed" && touchedDuring(
+      args.data,
+      ["closedAt"],
+      args.priorStart,
+      args.captureEnd,
+    );
+  }
+  if (args.collection === "inspection_findings") {
+    if ([
+      "open", "correctiveactionlinked", "awaitingverification",
+    ].includes(normalizedStatus)) {
+      return true;
+    }
+    return [
+      "verifiedresolved", "acceptedcondition", "invalidated",
+    ].includes(normalizedStatus) && touchedDuring(
+      args.data,
+      ["updatedAt"],
+      args.priorStart,
+      args.captureEnd,
+    );
+  }
+  if (args.collection === "maintenance_records") {
+    if (normalizedStatus === "closedwithoutresolution") {
+      if (args.data.issueClosureDisposition === "stillRelevant") return true;
+      return touchedDuring(args.data, [
+        "endDate", "closedAt", "issueClosureRelevanceEndedAt", "updatedAt",
+      ], args.priorStart, args.captureEnd);
+    }
+    if (args.data.isResolved === false || [
+      "open", "raised", "supportconfirmed", "acknowledged", "accepted",
+      "inprogress", "deferred", "actionable", "awaitingconfirmation",
+    ].includes(normalizedStatus)) return true;
+    return touchedDuring(args.data, [
+      "resolvedAt", "endDate", "closedAt",
+    ], args.priorStart, args.captureEnd);
+  }
   if (args.collection === "maintenance_burner_closures") {
     return touchedDuring(
       args.data,
       ["updatedAt"],
       args.priorStart,
-      args.currentStart,
+      args.captureEnd,
     );
   }
   if (args.collection === "job_executions") {
@@ -800,50 +1180,103 @@ function sourceRecordRelevant(args: {
         args.data,
         ["completedAt", "cancelledAt", "endDate"],
         args.priorStart,
-        args.currentStart,
+        args.captureEnd,
       );
   }
   if (args.collection === "asset_operational_conditions") {
-    const condition = firstText(args.data, ["condition"], 80)
-      ?.toLowerCase() ?? "";
-    return (args.data.active === true && ["down", "unfit"].includes(condition)) ||
+    const condition = normalizedStatus;
+    return (args.data.active === true && [
+      "down", "unfit", "unavailable", "stuckup",
+    ].includes(condition)) ||
       (args.data.active === false && touchedDuring(
         args.data,
         ["restoredAt"],
         args.priorStart,
-        args.currentStart,
+        args.captureEnd,
       ));
   }
   if (args.collection === "asset_availability_current") {
-    const availability = firstText(args.data, ["availabilityState"], 80)
-      ?.replace(/[^a-z]/gi, "").toLowerCase() ?? "";
-    return availability === "temporarilyblocked" ||
-      (availability === "clear" && touchedDuring(
-        args.data,
-        ["updatedAt"],
-        args.priorStart,
-        args.currentStart,
-      ));
+    // A generic projection update does not prove when a clear state was
+    // restored. Only the active blocking projection is safe meeting evidence.
+    return normalizedStatus === "temporarilyblocked";
   }
-  const status = firstText(args.data, [
-    "status", "availabilityState", "condition", "workflowQueueState",
-  ], 80)?.toLowerCase() ?? "";
-  const active = [
-    "open", "raised", "supportconfirmed", "acknowledged", "accepted", "inprogress",
-    "active", "deferred", "actionable", "awaitingconfirmation", "down",
-    "unfit", "unavailable", "stuckup", "temporarilyblocked", "due", "overdue",
-  ].includes(status.replace(/[^a-z]/g, ""));
+  const active = ACTIVE_SOURCE_STATUSES.has(normalizedStatus);
   if (active || args.data.isResolved === false) return true;
   return touchedDuring(args.data, [
     "resolvedAt", "endDate", "completedAt", "closedAt", "withdrawnAt",
-  ], args.priorStart, args.currentStart);
+  ], args.priorStart, args.captureEnd);
+}
+
+function sourceRecordChangedAfterCapture(
+  data: JsonMap,
+  captureEnd: Date,
+): boolean {
+  return SOURCE_MUTATION_TIME_FIELDS.some((field) => {
+    const value = timestampDate(data[field]);
+    return value != null && value > captureEnd;
+  });
+}
+
+function compareAssetNumbers(left: string | null, right: string | null): number {
+  const leftNumber = left == null ? Number.NaN : Number(left);
+  const rightNumber = right == null ? Number.NaN : Number(right);
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber;
+  }
+  if (Number.isFinite(leftNumber)) return -1;
+  if (Number.isFinite(rightNumber)) return 1;
+  return (left ?? "").localeCompare(right ?? "");
+}
+
+function sourceFactIsActive(fact: MorningReviewSourceFact): boolean {
+  return ACTIVE_SOURCE_STATUSES.has(normalizedStatusKey(fact.status));
+}
+
+function boundedSourceCollectionMarkers(
+  values: Iterable<string>,
+): ReadonlyArray<string> {
+  const markers = [...new Set(values)].sort();
+  if (markers.length <= MAX_SOURCE_COLLECTION_MARKERS) return markers;
+  return [
+    ...markers.slice(0, MAX_SOURCE_COLLECTION_MARKERS - 1),
+    "additional_source_collections",
+  ];
+}
+
+async function scanMorningReviewSourceCollection(
+  collection: CollectionLike,
+): Promise<{docs: ReadonlyArray<SnapshotLike>; exhausted: boolean}> {
+  const docs: SnapshotLike[] = [];
+  let cursor: SnapshotLike | null = null;
+  for (let pageIndex = 0; pageIndex < MAX_SOURCE_SCAN_PAGES; pageIndex += 1) {
+    let query = collection.orderBy("__name__");
+    if (cursor != null) query = query.startAfter(cursor);
+    const page = await query.limit(SOURCE_SCAN_PAGE_SIZE + 1).get();
+    const accepted = page.docs.slice(0, SOURCE_SCAN_PAGE_SIZE);
+    docs.push(...accepted);
+    if (page.docs.length <= SOURCE_SCAN_PAGE_SIZE) {
+      return {docs, exhausted: true};
+    }
+    cursor = accepted[accepted.length - 1] ?? null;
+    if (cursor == null) return {docs, exhausted: true};
+  }
+  return {docs, exhausted: false};
 }
 
 export async function collectMorningReviewSourceFacts(args: {
   db: MorningReviewFirestoreLike;
   plantDay: string;
+  capturedAt: Date;
 }): Promise<MorningReviewSourceCapture> {
-  const currentStart = dayBoundsUtc(args.plantDay).start;
+  if (Number.isNaN(args.capturedAt.valueOf()) ||
+      morningReviewPlantClock(args.capturedAt).plantDay !== args.plantDay) {
+    throw new AssetHierarchyMutationError(
+      "invalid-argument",
+      "Morning Review source capture time does not belong to its plant day.",
+      {reasonCode: "morning-review-source-capture-day-mismatch"},
+    );
+  }
+  const captureEnd = args.capturedAt;
   const priorStart = dayBoundsUtc(priorPlantDay(args.plantDay)).start;
   const specs = [
     ["critical_alarms", "criticalAlarm", "safety"],
@@ -852,34 +1285,81 @@ export async function collectMorningReviewSourceFacts(args: {
     ["job_executions", "plannedMaintenance", null],
     ["asset_operational_conditions", "assetCondition", null],
     ["asset_availability_current", "plantCondition", null],
+    ["quality_warnings", "qualityWarning", null],
+    ["inspection_findings", "inspectionFinding", null],
     ["operational_events", "plantDisruption", "plantWide"],
     ["directives", "directive", "plantWide"],
     ["morning_review_actions", "carriedAction", null],
   ] as const;
   const snapshots = await Promise.all(specs.map(async ([collection]) => ({
     collection,
-    page: await args.db.collection(collection).limit(300).get(),
+    scan: await scanMorningReviewSourceCollection(
+      args.db.collection(collection),
+    ),
   })));
   const maintenanceRecords = new Map(
     snapshots
       .find(({collection}) => collection === "maintenance_records")!
-      .page.docs.map((snapshot) => [snapshot.id, snapshot] as const),
+      .scan.docs.map((snapshot) => [snapshot.id, snapshot] as const),
   );
+  const representedMaintenanceIds = new Set<string>();
+  for (const snapshot of snapshots
+    .find(({collection}) => collection === "maintenance_burner_closures")!
+    .scan.docs) {
+    const closure = snapshot.data() ?? {};
+    if (!sourceRecordRelevant({
+      collection: "maintenance_burner_closures",
+      data: closure,
+      priorStart,
+      captureEnd,
+    })) continue;
+    const sourceMaintenanceId = typeof closure.sourceMaintenanceId === "string" ?
+      closure.sourceMaintenanceId.trim() : "";
+    const parent = maintenanceRecords.get(sourceMaintenanceId)?.data() ?? null;
+    // A closure replaces its parent only while it is evidence for the parent's
+    // current terminal version. A later reopen must remain visible as open work.
+    if (sourceMaintenanceId.length > 0 && parent != null &&
+        parent.status === "resolved" && parent.isResolved === true &&
+        Number.isSafeInteger(parent.version) &&
+        closure.sourceVersion === parent.version) {
+      representedMaintenanceIds.add(sourceMaintenanceId);
+    }
+  }
   const facts: MorningReviewSourceFact[] = [];
-  for (const {collection, page} of snapshots) {
+  const incompleteSourceCollections = new Set<string>();
+  for (const {collection, scan} of snapshots) {
     const spec = specs.find(([name]) => name === collection)!;
-    for (const snapshot of page.docs) {
-      const data = snapshot.data() ?? {};
-      if (!sourceRecordRelevant({collection, data, priorStart, currentStart})) {
+    for (const snapshot of scan.docs) {
+      const factId = `${collection}/${snapshot.id}`;
+      if (snapshot.id.trim().length === 0 || snapshot.id.length > 240 ||
+          factId.length > 300) {
+        incompleteSourceCollections.add(collection);
+        continue;
+      }
+      const data = morningReviewSourceProjection(collection, snapshot);
+      if (data == null) {
+        incompleteSourceCollections.add(collection);
+        continue;
+      }
+      if (sourceRecordChangedAfterCapture(data, captureEnd)) {
+        incompleteSourceCollections.add(collection);
+        continue;
+      }
+      if (!sourceRecordRelevant({collection, data, priorStart, captureEnd})) {
+        continue;
+      }
+      if (collection === "maintenance_records" &&
+          representedMaintenanceIds.has(snapshot.id)) {
         continue;
       }
       const linkedMaintenance = collection === "maintenance_burner_closures" &&
         typeof data.sourceMaintenanceId === "string" ?
         maintenanceRecords.get(data.sourceMaintenanceId) : null;
-      const factSnapshot = linkedMaintenance == null ? snapshot : {
+      const factSnapshot = {
         exists: true,
         id: snapshot.id,
-        data: () => ({...(linkedMaintenance.data() ?? {}), ...data}),
+        data: () => linkedMaintenance == null ? data :
+          ({...(linkedMaintenance.data() ?? {}), ...data}),
       };
       facts.push(sourceFact({
         collection,
@@ -898,18 +1378,23 @@ export async function collectMorningReviewSourceFacts(args: {
     plantWide: 5,
   };
   facts.sort((left, right) =>
+    Number(sourceFactIsActive(right)) - Number(sourceFactIsActive(left)) ||
     sectionRank[left.section] - sectionRank[right.section] ||
-    left.assetNumber?.localeCompare(right.assetNumber ?? "") ||
+    compareAssetNumbers(left.assetNumber, right.assetNumber) ||
     left.title.localeCompare(right.title));
-  const sourceCollectionsAtLimit: string[] = snapshots
-    .filter(({page}) => page.docs.length >= 300)
-    .map(({collection}) => collection);
+  const sourceCollectionsAtLimit = new Set<string>(snapshots
+    .filter(({scan}) => !scan.exhausted)
+    .map(({collection}) => collection));
+  incompleteSourceCollections.forEach((collection) =>
+    sourceCollectionsAtLimit.add(collection));
   if (facts.length > MAX_SOURCE_FACTS) {
-    sourceCollectionsAtLimit.push("morning_review_compiled_source_facts");
+    sourceCollectionsAtLimit.add("morning_review_compiled_source_facts");
   }
   return {
     facts: facts.slice(0, MAX_SOURCE_FACTS),
-    sourceCollectionsAtLimit,
+    sourceCollectionsAtLimit: boundedSourceCollectionMarkers(
+      sourceCollectionsAtLimit,
+    ),
   };
 }
 
@@ -988,9 +1473,26 @@ function resultFromReceipt(
     );
   }
   const map = result as JsonMap;
+  const expectedResultKeys = new Set([
+    "requestId", "operation", "sessionId", "entityId", "status", "version",
+    "committedAt",
+  ]);
+  const actualResultKeys = Object.keys(map);
+  const committedAt = typeof map.committedAt === "string" ?
+    new Date(map.committedAt) : null;
   if (map.requestId !== request.requestId || map.operation !== request.operation ||
-      typeof map.entityId !== "string" || typeof map.status !== "string" ||
-      !Number.isSafeInteger(map.version) || typeof map.committedAt !== "string") {
+      actualResultKeys.length !== expectedResultKeys.size ||
+      actualResultKeys.some((key) => !expectedResultKeys.has(key)) ||
+      typeof map.sessionId !== "string" || !PLANT_DAY.test(map.sessionId) ||
+      (request.sessionId != null && map.sessionId !== request.sessionId) ||
+      typeof map.entityId !== "string" || map.entityId.trim().length === 0 ||
+      map.entityId.length > 256 ||
+      typeof map.status !== "string" || map.status.trim().length === 0 ||
+      map.status.length > 80 ||
+      !resultStatusMatchesOperation(request.operation, map.status as string) ||
+      !Number.isSafeInteger(map.version) || (map.version as number) < 1 ||
+      committedAt == null || Number.isNaN(committedAt.valueOf()) ||
+      committedAt.toISOString() !== map.committedAt) {
     throw new AssetHierarchyMutationError(
       "data-loss",
       "The Morning Review replay result is incomplete.",
@@ -1001,13 +1503,45 @@ function resultFromReceipt(
     ok: true,
     requestId: request.requestId,
     operation: request.operation,
-    sessionId: map.sessionId == null ? null : String(map.sessionId),
+    sessionId: map.sessionId as string,
     entityId: map.entityId as string,
     status: map.status as string,
     version: map.version as number,
     committedAt: map.committedAt as string,
     idempotentReplay: true,
   };
+}
+
+function resultStatusMatchesOperation(
+  operation: MorningReviewOperation,
+  status: string,
+): boolean {
+  switch (operation) {
+  case "START_MORNING_REVIEW":
+  case "CREATE_MORNING_REVIEW_ACTION":
+  case "TAKE_OVER_MORNING_REVIEW":
+    return status === "open";
+  case "JOIN_MORNING_REVIEW":
+    return status === "joined";
+  case "ADD_MORNING_REVIEW_ENTRY":
+    return status === "recorded";
+  case "ACCEPT_MORNING_REVIEW_ACTION":
+    return status === "accepted";
+  case "COMPLETE_MORNING_REVIEW_ACTION":
+    return status === "completed";
+  case "FINALIZE_MORNING_REVIEW":
+    return status === "finalized";
+  case "RECORD_MORNING_REVIEW_NOT_HELD":
+    return status === "notHeld";
+  case "CREATE_MORNING_REVIEW_STANDING_CONCERN":
+    return status === "active";
+  case "RESOLVE_MORNING_REVIEW_STANDING_CONCERN":
+    return status === "resolved";
+  case "CHECK_MORNING_REVIEW_STANDING_CONCERN":
+    return status === "complied" || status === "exception";
+  case "ADD_MORNING_REVIEW_ADDENDUM":
+    return status === "addendum";
+  }
 }
 
 function result(args: {
@@ -1045,6 +1579,7 @@ function persistedResult(value: MorningReviewMutationResult): JsonMap {
 
 async function sessionPopulation(args: {
   db: MorningReviewFirestoreLike;
+  transaction: TransactionLike;
   sessionId: string;
   committed: Date;
 }): Promise<{
@@ -1055,18 +1590,25 @@ async function sessionPopulation(args: {
   concernChecks: ReadonlyArray<SnapshotLike>;
 }> {
   const query = async (collection: string, limit: number) =>
-    (await args.db.collection(collection)
-      .where("sessionId", "==", args.sessionId)
-      .limit(limit)
-      .get()).docs;
+    asQuerySnapshot(
+      await args.transaction.get(
+        args.db.collection(collection)
+          .where("sessionId", "==", args.sessionId)
+          .limit(limit),
+      ),
+      `Morning Review ${collection} finalization lookup`,
+    ).docs;
   const [entries, actions, participants, standingConcerns, concernChecks] =
     await Promise.all([
       query("morning_review_entries", MAX_SESSION_ENTRIES + 1),
       query("morning_review_actions", MAX_SESSION_ACTIONS + 1),
       query("morning_review_participants", MAX_SESSION_PARTICIPANTS + 1),
-      args.db.collection("morning_review_standing_concerns")
-        .get()
-        .then((page) => page.docs),
+      args.transaction.get(
+        args.db.collection("morning_review_standing_concerns"),
+      ).then((page) => asQuerySnapshot(
+        page,
+        "Morning Review standing concern finalization lookup",
+      ).docs),
       query("morning_review_concern_checks", MAX_SESSION_ENTRIES + 1),
     ]);
   const retainedConcerns = standingConcerns.filter((snapshot) => {
@@ -1161,9 +1703,13 @@ function ensureSourceReferences(
 
 async function mutateMorningReviewActionLifecycle(args: {
   transaction: TransactionLike;
+  sessions: CollectionLike;
+  participants: CollectionLike;
+  entries: CollectionLike;
   actions: CollectionLike;
   request: ParsedRequest;
   sessionId: string;
+  currentPlantDay: string;
   actorUid: string;
   actorName: string;
   actorRoles: ReadonlySet<string>;
@@ -1206,13 +1752,103 @@ async function mutateMorningReviewActionLifecycle(args: {
   }
   const nextVersion = (action.version as number) + 1;
   const at = args.timestampFromDate(args.committed);
-  if (args.request.operation === "ACCEPT_MORNING_REVIEW_ACTION") {
-    if (action.status !== "open") {
-      throw new AssetHierarchyMutationError(
-        "failed-precondition",
-        "Only an open Morning Review action can be accepted.",
+  const accepting = args.request.operation === "ACCEPT_MORNING_REVIEW_ACTION";
+  if (accepting && action.status !== "open") {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "Only an open Morning Review action can be accepted.",
+    );
+  }
+  if (!accepting && action.status !== "open" && action.status !== "accepted") {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "Only an open or accepted Morning Review action can be completed.",
+    );
+  }
+
+  let carriedEntryRef: DocumentRefLike | null = null;
+  let carriedEntry: JsonMap | null = null;
+  let currentSessionRef: DocumentRefLike | null = null;
+  let currentSessionVersion: number | null = null;
+  if (args.sessionId !== args.currentPlantDay) {
+    const candidateSessionRef = args.sessions.doc(args.currentPlantDay);
+    const candidateSessionSnapshot = asSnapshot(
+      await args.transaction.get(candidateSessionRef),
+      "Current Morning Review session lookup for carried action",
+    );
+    const candidateSession = candidateSessionSnapshot.data() ?? {};
+    if (candidateSessionSnapshot.exists && candidateSession.status === "open") {
+      const candidateParticipantSnapshot = asSnapshot(
+        await args.transaction.get(
+          args.participants.doc(`${args.currentPlantDay}_${args.actorUid}`),
+        ),
+        "Current Morning Review participant lookup for carried action",
       );
+      const candidateEntryPage = asQuerySnapshot(
+        await args.transaction.get(
+          args.entries.where("sessionId", "==", args.currentPlantDay)
+            .limit(MAX_SESSION_ENTRIES + 1),
+        ),
+        "Current Morning Review entry capacity lookup for carried action",
+      );
+      if (candidateParticipantSnapshot.exists &&
+          candidateParticipantSnapshot.data()?.state === "joined" &&
+          candidateParticipantSnapshot.data()?.userUid === args.actorUid &&
+          candidateEntryPage.docs.length < MAX_SESSION_ENTRIES) {
+        const candidateEntryRef = args.entries.doc(args.request.requestId);
+        const candidateEntrySnapshot = asSnapshot(
+          await args.transaction.get(candidateEntryRef),
+          "Carried action review entry lookup",
+        );
+        if (candidateEntrySnapshot.exists) {
+          throw new AssetHierarchyMutationError(
+            "data-loss",
+            "A carried-action meeting entry exists without its mutation receipt.",
+          );
+        }
+        const identity = sourceAssetIdentity(action);
+        const sourceFactId = `morning_review_actions/${actionRef.id}`;
+        const capturedSource = Array.isArray(candidateSession.sourceFacts) &&
+          candidateSession.sourceFacts.some((value) =>
+            value != null && typeof value === "object" && !Array.isArray(value) &&
+            (value as JsonMap).factId === sourceFactId);
+        const actionText = boundedDisplay(action.text, 1100) ??
+          `Morning Review action ${actionRef.id}`;
+        const transitionText = accepting ?
+          `Action ${actionRef.id} accepted: ${actionText}` :
+          `Action ${actionRef.id} completed: ${actionText}. Evidence: ${args.request.reason}`;
+        carriedEntryRef = candidateEntryRef;
+        carriedEntry = {
+          schemaVersion: 1,
+          entryId: args.request.requestId,
+          sessionId: args.currentPlantDay,
+          plantDay: args.currentPlantDay,
+          section: SECTIONS.has(action.section as MorningReviewSection) ?
+            action.section : "plantWide",
+          kind: accepting ? "update" : "currentCompliance",
+          text: boundedDisplay(transitionText, 2000),
+          assetClassId: identity.assetClassId,
+          assetClassName: identity.assetClassName,
+          assetInstanceId: identity.assetInstanceId,
+          assetNumber: identity.assetNumber,
+          sourceReferences: capturedSource ? [sourceFactId] : [],
+          authorUid: args.actorUid,
+          authorName: args.actorName,
+          authorRoleKeys: normalizeCanonicalUserRoles(args.actorRoles),
+          createdAt: at,
+          addendumReason: null,
+          expiresAt: args.completedExpiresAt,
+        };
+        currentSessionRef = candidateSessionRef;
+        currentSessionVersion = sessionVersion(
+          candidateSession,
+          args.currentPlantDay,
+        );
+      }
     }
+  }
+
+  if (args.request.operation === "ACCEPT_MORNING_REVIEW_ACTION") {
     args.transaction.set(actionRef, {
       status: "accepted",
       version: nextVersion,
@@ -1224,39 +1860,38 @@ async function mutateMorningReviewActionLifecycle(args: {
       updatedByName: args.actorName,
       lastMutationId: args.request.requestId,
     }, {merge: true});
-    return result({
-      request: args.request,
-      sessionId: args.sessionId,
-      entityId: actionRef.id,
-      status: "accepted",
+  } else {
+    args.transaction.set(actionRef, {
+      status: "completed",
       version: nextVersion,
-      committed: args.committed,
-    });
+      completedAt: at,
+      completedByUid: args.actorUid,
+      completedByName: args.actorName,
+      completionNote: args.request.reason,
+      updatedAt: at,
+      updatedByUid: args.actorUid,
+      updatedByName: args.actorName,
+      expiresAt: args.completedExpiresAt,
+      lastMutationId: args.request.requestId,
+    }, {merge: true});
   }
-  if (action.status !== "open" && action.status !== "accepted") {
-    throw new AssetHierarchyMutationError(
-      "failed-precondition",
-      "Only an open or accepted Morning Review action can be completed.",
-    );
+  if (carriedEntryRef != null && carriedEntry != null &&
+      currentSessionRef != null && currentSessionVersion != null) {
+    args.transaction.set(carriedEntryRef, carriedEntry);
+    args.transaction.set(currentSessionRef, {
+      version: currentSessionVersion + 1,
+      updatedAt: at,
+      updatedByUid: args.actorUid,
+      updatedByName: args.actorName,
+      expiresAt: args.completedExpiresAt,
+      lastMutationId: args.request.requestId,
+    }, {merge: true});
   }
-  args.transaction.set(actionRef, {
-    status: "completed",
-    version: nextVersion,
-    completedAt: at,
-    completedByUid: args.actorUid,
-    completedByName: args.actorName,
-    completionNote: args.request.reason,
-    updatedAt: at,
-    updatedByUid: args.actorUid,
-    updatedByName: args.actorName,
-    expiresAt: args.completedExpiresAt,
-    lastMutationId: args.request.requestId,
-  }, {merge: true});
   return result({
     request: args.request,
     sessionId: args.sessionId,
     entityId: actionRef.id,
-    status: "completed",
+    status: accepting ? "accepted" : "completed",
     version: nextVersion,
     committed: args.committed,
   });
@@ -1325,12 +1960,12 @@ export async function mutateMorningReviewWithDb(args: {
   }
   const sourceCapture = request.operation === "START_MORNING_REVIEW" &&
       !preflightReceipt.exists ?
-    await collectMorningReviewSourceFacts({db: args.db, plantDay: sessionId}) :
+    await collectMorningReviewSourceFacts({
+      db: args.db,
+      plantDay: sessionId,
+      capturedAt: committed,
+    }) :
     {facts: [], sourceCollectionsAtLimit: []};
-  const population = request.operation === "FINALIZE_MORNING_REVIEW" &&
-      !preflightReceipt.exists ?
-    await sessionPopulation({db: args.db, sessionId, committed}) : null;
-
   return args.db.runTransaction(async (transaction) => {
     const actorSnapshot = asSnapshot(
       await transaction.get(users.doc(actorUid)),
@@ -1366,9 +2001,13 @@ export async function mutateMorningReviewWithDb(args: {
     if (actionLifecycleOperation && !sessionSnapshot.exists) {
       mutationResult = await mutateMorningReviewActionLifecycle({
         transaction,
+        sessions,
+        participants,
+        entries,
         actions,
         request,
         sessionId,
+        currentPlantDay: clock.plantDay,
         actorUid,
         actorName: name,
         actorRoles: authority.roles,
@@ -1813,9 +2452,13 @@ export async function mutateMorningReviewWithDb(args: {
           request.operation === "COMPLETE_MORNING_REVIEW_ACTION") {
         mutationResult = await mutateMorningReviewActionLifecycle({
           transaction,
+          sessions,
+          participants,
+          entries,
           actions,
           request,
           sessionId,
+          currentPlantDay: clock.plantDay,
           actorUid,
           actorName: name,
           actorRoles: authority.roles,
@@ -2098,7 +2741,6 @@ export async function mutateMorningReviewWithDb(args: {
             {reasonCode: "morning-review-session-version-mismatch"},
           );
         }
-        const frozen = population!;
         const documentRef = documents.doc(sessionId);
         const documentSnapshot = asSnapshot(
           await transaction.get(documentRef),
@@ -2110,6 +2752,12 @@ export async function mutateMorningReviewWithDb(args: {
             "A frozen Morning Review document already exists without a receipt.",
           );
         }
+        const frozen = await sessionPopulation({
+          db: args.db,
+          transaction,
+          sessionId,
+          committed,
+        });
         const at = timestampFromDate(committed);
         const version = currentVersion + 1;
         const document = {

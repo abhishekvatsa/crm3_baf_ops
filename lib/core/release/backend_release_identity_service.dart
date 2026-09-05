@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../serialization/persisted_data_reader.dart';
@@ -78,9 +79,13 @@ class BackendReleaseIdentity {
 
 class BackendReleaseIdentityService {
   final FirebaseFunctions? _functions;
+  final FirebaseAuth? _auth;
 
-  BackendReleaseIdentityService({FirebaseFunctions? functions})
-    : _functions = functions;
+  BackendReleaseIdentityService({
+    FirebaseFunctions? functions,
+    FirebaseAuth? auth,
+  }) : _functions = functions,
+       _auth = auth;
 
   FirebaseFunctions get _client =>
       _functions ??
@@ -88,19 +93,34 @@ class BackendReleaseIdentityService {
         region: backendReleaseIdentityCallableRegion,
       );
 
+  FirebaseAuth get _authClient => _auth ?? FirebaseAuth.instance;
+
   Future<BackendReleaseIdentity> fetch() async {
     final callable = _client.httpsCallable(backendReleaseIdentityCallableName);
     try {
+      return await _fetch(callable);
+    } on FirebaseFunctionsException catch (firstError) {
+      final currentUser = _authClient.currentUser;
+      if (firstError.code != 'unauthenticated' || currentUser == null) {
+        throw _identityException(firstError);
+      }
+      try {
+        await currentUser.getIdToken(true);
+      } on FirebaseAuthException {
+        throw _identityException(firstError);
+      }
+      try {
+        return await _fetch(callable);
+      } on FirebaseFunctionsException catch (retryError) {
+        throw _identityException(retryError);
+      }
+    }
+  }
+
+  Future<BackendReleaseIdentity> _fetch(HttpsCallable callable) async {
+    try {
       final result = await callable.call(const <String, dynamic>{});
       return BackendReleaseIdentity.fromCallableData(result.data);
-    } on FirebaseFunctionsException catch (error) {
-      throw BackendReleaseIdentityException(
-        code: error.code,
-        message:
-            _clean(error.message) ??
-            'Backend release identity could not be loaded.',
-        details: error.details,
-      );
     } on FormatException catch (error) {
       throw BackendReleaseIdentityException(
         code: 'invalid-response',
@@ -159,3 +179,12 @@ String? _clean(Object? value) {
   final text = value.toString().trim();
   return text.isEmpty ? null : text;
 }
+
+BackendReleaseIdentityException _identityException(
+  FirebaseFunctionsException error,
+) => BackendReleaseIdentityException(
+  code: error.code,
+  message:
+      _clean(error.message) ?? 'Backend release identity could not be loaded.',
+  details: error.details,
+);

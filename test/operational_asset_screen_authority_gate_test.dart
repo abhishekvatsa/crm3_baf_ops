@@ -189,6 +189,12 @@ void main() {
           innerCoverAssignmentsProvider.overrideWith(
             (ref) => Stream<List<BaseInnerCoverAssignment>>.value(const []),
           ),
+          furnaceStuckupCasesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          assetConditionDeclarationsProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
           assetClassesProvider.overrideWith(
             (ref) => Stream<List<AssetClassRecord>>.value(const []),
           ),

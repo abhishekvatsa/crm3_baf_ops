@@ -32,49 +32,55 @@ class DirectivesScreen extends ConsumerStatefulWidget {
 }
 
 class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
+  static const _screenTitle = 'Directives';
+  static const _screenSubtitle =
+      'Operational instructions, ownership and closure';
+  static const _screenIcon = Icons.assignment_late_outlined;
+
   String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
-      return const ColoredBox(
-        color: BafColors.background,
-        child: BafLoadingPanel(
-          label: 'Checking directive access',
-          color: BafColors.directives,
-        ),
+      return BafScreenStateScaffold.loading(
+        appBarTitle: _screenTitle,
+        appBarSubtitle: _screenSubtitle,
+        appBarIcon: _screenIcon,
+        accent: BafColors.directives,
+        label: 'Checking directive access',
       );
     }
     if (actorAsync.hasError) {
-      return const ColoredBox(
-        color: BafColors.background,
-        child: BafStatePanel(
-          icon: Icons.cloud_off_outlined,
-          color: BafColors.danger,
-          title: 'Could not verify directive access',
-          message: 'Directive access could not be verified.',
-        ),
+      return BafScreenStateScaffold.error(
+        appBarTitle: _screenTitle,
+        appBarSubtitle: _screenSubtitle,
+        appBarIcon: _screenIcon,
+        accent: BafColors.directives,
+        title: 'Could not verify directive access',
+        message: 'Directive access could not be verified.',
+        onRetry: () => ref.invalidate(currentAppUserProvider),
       );
     }
     final appUser = actorAsync.value;
     if (appUser == null || !appUser.isApproved) {
-      return const ColoredBox(
-        color: BafColors.background,
-        child: BafStatePanel(
-          icon: Icons.lock_outline_rounded,
-          color: BafColors.directives,
-          title: 'Directive access required',
-          message:
-              'An approved operational role is required to view directives.',
-        ),
+      return BafScreenStateScaffold.access(
+        appBarTitle: _screenTitle,
+        appBarSubtitle: _screenSubtitle,
+        appBarIcon: _screenIcon,
+        accent: BafColors.directives,
+        title: 'Directive access required',
+        message: 'An approved operational role is required to view directives.',
       );
     }
     final directivesAsync = ref.watch(openDirectivesProvider);
 
-    return ColoredBox(
-      color: BafColors.background,
-      child: directivesAsync.when(
+    return BafScreenScaffold(
+      title: _screenTitle,
+      subtitle: _screenSubtitle,
+      icon: _screenIcon,
+      accent: BafColors.directives,
+      body: directivesAsync.when(
         loading:
             () => const BafLoadingPanel(
               label: 'Loading operational directives',

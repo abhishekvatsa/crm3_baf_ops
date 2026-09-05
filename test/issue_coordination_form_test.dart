@@ -57,6 +57,26 @@ void main() {
     );
     await tester.tap(find.text('Coordinate'));
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SegmentedButton<IssueCoordinationPurpose>>(
+            find.byKey(const ValueKey('issue-coordination-purpose')),
+          )
+          .direction,
+      Axis.vertical,
+    );
+    expect(
+      tester
+          .widget<SegmentedButton<IssueCoordinationCondition>>(
+            find.byKey(const ValueKey('issue-coordination-condition')),
+          )
+          .direction,
+      Axis.vertical,
+    );
+    expect(
+      tester.getSize(find.text('Operations support')).width,
+      greaterThan(100),
+    );
     Finder field(String label) => find.byWidgetPredicate(
       (widget) => widget is TextField && widget.decoration?.labelText == label,
     );

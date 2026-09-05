@@ -5,8 +5,10 @@ import {
   inspectionPopulationCounts,
   inspectionTargetDispositionValues,
   inspectionTargetPopulationJson,
+  InspectionPopulationMode,
   InspectionTargetDisposition,
   parseInspectionTargetPopulation,
+  resolveInspectionPopulationAssets,
   setInspectionTargetDisposition as applyInspectionTargetDisposition,
 } from "./inspectionPopulation";
 import {JsonMap, RoleKey} from "./types";
@@ -141,30 +143,25 @@ export const addInspectionCampaignTargets: CommandHandler = async ({
   }
   const assetClassId = documentId(campaign.data.assetClassId, "campaign.assetClassId");
   const assetTypeKey = cleanText(campaign.data.assetTypeKey, "campaign.assetTypeKey");
-  const rows = await tx.query("asset_instances", [
-    {field: "assetClassId", op: "==", value: assetClassId},
-  ]);
-  const byNumber = new Map<number, (typeof rows)[number]>();
-  for (const row of rows) {
-    if (row.data?.status !== "active" || !Number.isSafeInteger(row.data.assetNumber) ||
-        !assetNumbers.includes(row.data.assetNumber as number)) continue;
-    const number = row.data.assetNumber as number;
-    if (byNumber.has(number)) {
-      throw new WorkflowError(
-        "failed-precondition",
-        "The governed asset class contains duplicate active asset numbers.",
-      );
-    }
-    byNumber.set(number, row);
-  }
-  const missing = assetNumbers.filter((number) => !byNumber.has(number));
-  if (missing.length > 0) {
+  const populationMode = (campaign.data.populationMode ??
+    "assetInstances") as InspectionPopulationMode;
+  if (!["assetInstances", "installedInnerCoversByBase"].includes(populationMode)) {
     throw new WorkflowError(
       "failed-precondition",
-      "One or more added targets are absent or inactive.",
-      {reasonCode: "inspection-campaign-assets-missing", missingAssetNumbers: missing},
+      "Inspection campaign population mode is malformed.",
+      {reasonCode: "inspection-target-population-malformed"},
     );
   }
+  const hostAssetClassId = campaign.data.hostAssetClassId == null ? null :
+    documentId(campaign.data.hostAssetClassId, "campaign.hostAssetClassId");
+  const populationAssets = await resolveInspectionPopulationAssets({
+    tx,
+    populationMode,
+    assetTypeKey,
+    assetClassId,
+    hostAssetClassId,
+    targetAssetNumbers: assetNumbers,
+  });
   const definition = campaign.data.definition;
   if (definition == null || typeof definition !== "object" || Array.isArray(definition)) {
     throw new WorkflowError("failed-precondition", "Campaign definition is malformed.");
@@ -176,22 +173,7 @@ export const addInspectionCampaignTargets: CommandHandler = async ({
   const additions = buildInspectionTargetPopulation({
     assetTypeKey,
     assetClassId,
-    assets: assetNumbers.map((number) => {
-      const data = byNumber.get(number)!.data!;
-      if (typeof data.assetInstanceId !== "string" || typeof data.name !== "string" ||
-          !Number.isSafeInteger(data.version) || (data.version as number) < 1) {
-        throw new WorkflowError(
-          "failed-precondition",
-          "An added inspection asset has malformed identity.",
-        );
-      }
-      return {
-        assetNumber: number,
-        assetInstanceId: data.assetInstanceId,
-        assetInstanceVersion: data.version as number,
-        assetInstanceName: data.name,
-      };
-    }),
+    assets: populationAssets,
     componentNodeIds,
     physicalPositions,
     at: now,
@@ -265,7 +247,7 @@ export const setInspectionTargetDisposition: CommandHandler = async ({
 }) => {
   exactKeys(command.payload, ["targetKey", "disposition", "reason"], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
-  const targetKey = boundedText(command.payload.targetKey, "targetKey", 3, 520);
+  const targetKey = boundedText(command.payload.targetKey, "targetKey", 3, 1000);
   const disposition = cleanText(command.payload.disposition, "disposition");
   if (disposition === "observed" ||
       !inspectionTargetDispositionValues.has(disposition as never)) {

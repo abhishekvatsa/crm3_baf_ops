@@ -15,6 +15,9 @@ void main() {
       String reason = 'Monitor temperature uniformity',
     }) => service.createMonitoringRequest(
       baseNumber: 4,
+      baseAssetClassId: 'base-class',
+      baseAssetInstanceId: 'base-4',
+      baseAssetInstanceVersion: 3,
       grade: 'CRCA',
       cycleReference: 'Cycle 4412',
       chargeNumbers: [12345, 12346],
@@ -116,6 +119,9 @@ void main() {
         final store = MonitoringCreationStore();
         final payload = <String, dynamic>{
           'baseNumber': 4,
+          'baseAssetClassId': 'base-class',
+          'baseAssetInstanceId': 'base-4',
+          'baseAssetInstanceVersion': 3,
           'grade': 'CRCA',
           'cycleReference': 'Cycle 4412',
           'chargeNumbers': [12345],
@@ -512,9 +518,12 @@ Map<String, dynamic> _monitoringResult({
   'committedAt': '2026-08-14T12:00:00.000Z',
   'idempotentReplay': false,
   'entity': <String, dynamic>{
-    'schemaVersion': 2,
+    'schemaVersion': 3,
     'requestId': monitoringId,
     'baseNumber': 4,
+    'baseAssetClassId': 'base-class',
+    'baseAssetInstanceId': 'base-4',
+    'baseAssetInstanceVersion': 3,
     'grade': 'CRCA',
     'cycleReference': 'Cycle 4412',
     'chargeNumbers': <int>[12345, 12346],

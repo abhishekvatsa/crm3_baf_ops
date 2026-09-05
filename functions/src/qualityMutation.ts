@@ -57,6 +57,15 @@ type SnapshotLike = {
   data: () => UserAuthorityJsonMap | undefined;
 };
 
+type QuerySnapshotLike = {
+  docs: SnapshotLike[];
+};
+
+type QueryLike = {
+  limit: (count: number) => QueryLike;
+  get: () => Promise<QuerySnapshotLike>;
+};
+
 type DocumentRefLike = {
   id?: string;
   path?: string;
@@ -75,6 +84,7 @@ type TransactionLike = {
 export type QualityMutationFirestoreLike = {
   collection: (name: string) => {
     doc: (id: string) => DocumentRefLike;
+    where?: (field: string, operator: "==", value: unknown) => QueryLike;
   };
   runTransaction: <T>(fn: (transaction: TransactionLike) => Promise<T>) =>
     Promise<T>;
@@ -106,6 +116,9 @@ type ParsedMonitoringRequest = {
   expectedVersion: number;
   reason: string;
   baseNumber: number | null;
+  baseAssetClassId: string | null;
+  baseAssetInstanceId: string | null;
+  baseAssetInstanceVersion: number | null;
   grade: string | null;
   cycleReference: string | null;
   chargeNumbers: ReadonlyArray<number>;
@@ -236,6 +249,9 @@ const MONITORING_FIELDS = new Set([
   "schemaVersion",
   "requestId",
   "baseNumber",
+  "baseAssetClassId",
+  "baseAssetInstanceId",
+  "baseAssetInstanceVersion",
   "grade",
   "cycleReference",
   "chargeNumbers",
@@ -262,6 +278,11 @@ const MONITORING_VISIBILITY_FIELDS = new Set([
   "visibilityState",
   "visibleUntil",
   "archivedAt",
+]);
+const MONITORING_BASE_IDENTITY_FIELDS = new Set([
+  "baseAssetClassId",
+  "baseAssetInstanceId",
+  "baseAssetInstanceVersion",
 ]);
 const ABNORMALITY_CATEGORIES = new Set([
   "process",
@@ -424,6 +445,9 @@ export function parseQualityMutationRequest(
       "reason",
       ...(create ? [
         "baseNumber",
+        "baseAssetClassId",
+        "baseAssetInstanceId",
+        "baseAssetInstanceVersion",
         "grade",
         "cycleReference",
         "chargeNumbers",
@@ -443,7 +467,29 @@ export function parseQualityMutationRequest(
     if (!create && expectedVersion === 0) {
       invalid("expectedVersion", "must identify the current monitoring version");
     }
-    const canonical = {
+    const identityKeys = [
+      "baseAssetClassId",
+      "baseAssetInstanceId",
+      "baseAssetInstanceVersion",
+    ];
+    const identityFieldCount = create ? identityKeys.filter((key) =>
+      Object.prototype.hasOwnProperty.call(raw, key)).length : 0;
+    if (identityFieldCount !== 0 && identityFieldCount !== identityKeys.length) {
+      invalid(
+        "baseAssetInstanceId",
+        "requires the complete governed Base identity",
+      );
+    }
+    const baseAssetClassId = identityFieldCount === identityKeys.length ?
+      documentId(raw.baseAssetClassId, "baseAssetClassId") : null;
+    const baseAssetInstanceId = identityFieldCount === identityKeys.length ?
+      documentId(raw.baseAssetInstanceId, "baseAssetInstanceId") : null;
+    const baseAssetInstanceVersion = identityFieldCount === identityKeys.length ?
+      positiveInteger(
+        raw.baseAssetInstanceVersion,
+        "baseAssetInstanceVersion",
+      ) : null;
+    const legacyCanonical = {
       requestId,
       operation: monitoringOperation,
       monitoringRequestId,
@@ -456,7 +502,20 @@ export function parseQualityMutationRequest(
       chargeNumbers: create ?
         positiveIntegerList(raw.chargeNumbers, "chargeNumbers", 50) : [],
     };
-    return {...canonical, fingerprint: requestFingerprint(canonical)};
+    const fingerprintPayload = baseAssetClassId == null ?
+      legacyCanonical : {
+        ...legacyCanonical,
+        baseAssetClassId,
+        baseAssetInstanceId,
+        baseAssetInstanceVersion,
+      };
+    return {
+      ...legacyCanonical,
+      baseAssetClassId,
+      baseAssetInstanceId,
+      baseAssetInstanceVersion,
+      fingerprint: requestFingerprint(fingerprintPayload),
+    };
   }
 
   const close = operation === "CLOSE_QUALITY_WARNING";
@@ -1199,19 +1258,29 @@ export function validateQualityMonitoringRecord(
     if (!MONITORING_FIELDS.has(key)) malformed("quality-monitoring", key);
   }
   const schemaVersion = data.schemaVersion;
-  if (schemaVersion !== 1 && schemaVersion !== 2) {
+  if (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== 3) {
     malformed("quality-monitoring", "schemaVersion");
   }
   const visibilityFieldCount = [...MONITORING_VISIBILITY_FIELDS]
     .filter((field) => Object.prototype.hasOwnProperty.call(data, field)).length;
+  const baseIdentityFieldCount = [...MONITORING_BASE_IDENTITY_FIELDS]
+    .filter((field) => Object.prototype.hasOwnProperty.call(data, field)).length;
   if ((schemaVersion === 1 && visibilityFieldCount !== 0) ||
-      (schemaVersion === 2 &&
+      (schemaVersion >= 2 &&
         visibilityFieldCount !== MONITORING_VISIBILITY_FIELDS.size)) {
     malformed("quality-monitoring", "visibilityState");
+  }
+  if ((schemaVersion < 3 && baseIdentityFieldCount !== 0) ||
+      (schemaVersion === 3 &&
+        baseIdentityFieldCount !== MONITORING_BASE_IDENTITY_FIELDS.size)) {
+    malformed("quality-monitoring", "baseAssetInstanceId");
   }
   for (const field of [...MONITORING_FIELDS].filter((value) =>
     value !== "_globalPullServerUpdatedAt")) {
     if (schemaVersion === 1 && MONITORING_VISIBILITY_FIELDS.has(field)) {
+      continue;
+    }
+    if (schemaVersion < 3 && MONITORING_BASE_IDENTITY_FIELDS.has(field)) {
       continue;
     }
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
@@ -1222,6 +1291,25 @@ export function validateQualityMonitoringRecord(
     malformed("quality-monitoring", "requestId");
   }
   positiveExistingInteger(data.baseNumber, "baseNumber", "quality-monitoring");
+  if (schemaVersion === 3) {
+    requiredExistingString(
+      data.baseAssetClassId,
+      "baseAssetClassId",
+      "quality-monitoring",
+      512,
+    );
+    requiredExistingString(
+      data.baseAssetInstanceId,
+      "baseAssetInstanceId",
+      "quality-monitoring",
+      512,
+    );
+    positiveExistingInteger(
+      data.baseAssetInstanceVersion,
+      "baseAssetInstanceVersion",
+      "quality-monitoring",
+    );
+  }
   requiredExistingString(data.grade, "grade", "quality-monitoring");
   requiredExistingString(data.cycleReference, "cycleReference", "quality-monitoring");
   requiredExistingString(data.reason, "reason", "quality-monitoring");
@@ -1390,6 +1478,151 @@ function targetIdentity(request: ParsedRequest): string {
   return "warningId" in request ? request.warningId : request.monitoringRequestId;
 }
 
+type MonitoringBaseIdentity = {
+  classId: string;
+  instanceId: string;
+  expectedInstanceVersion: number | null;
+};
+
+function isActiveBaseCandidate(
+  asset: UserAuthorityJsonMap,
+  assetDocumentId: string | undefined,
+  assetClass: UserAuthorityJsonMap,
+  baseNumber: number,
+): boolean {
+  const instanceId = asset.assetInstanceId;
+  const classId = asset.assetClassId;
+  return asset.schemaVersion === 1 &&
+    typeof instanceId === "string" &&
+    (assetDocumentId == null || assetDocumentId === instanceId) &&
+    typeof classId === "string" &&
+    asset.assetNumber === baseNumber &&
+    asset.status === "active" &&
+    assetClass.schemaVersion === 1 &&
+    assetClass.assetClassId === classId &&
+    assetClass.status === "active" &&
+    assetClass.legacyAssetTypeKey === "base";
+}
+
+async function resolveMonitoringBaseIdentity(args: {
+  db: QualityMutationFirestoreLike;
+  request: ParsedMonitoringRequest;
+}): Promise<MonitoringBaseIdentity> {
+  const {db, request} = args;
+  if (request.baseAssetClassId != null &&
+      request.baseAssetInstanceId != null &&
+      request.baseAssetInstanceVersion != null) {
+    return {
+      classId: request.baseAssetClassId,
+      instanceId: request.baseAssetInstanceId,
+      expectedInstanceVersion: request.baseAssetInstanceVersion,
+    };
+  }
+  const baseNumber = request.baseNumber;
+  if (baseNumber == null) {
+    throw new QualityMutationError(
+      "invalid-argument",
+      "A Base number is required for monitoring creation.",
+      {reasonCode: "quality-monitoring-base-number-missing"},
+    );
+  }
+  const assets = db.collection("asset_instances");
+  if (assets.where == null) {
+    throw new QualityMutationError(
+      "internal",
+      "The governed Base register could not be queried.",
+      {reasonCode: "quality-monitoring-base-query-unavailable"},
+    );
+  }
+  const candidates = await assets
+    .where("assetNumber", "==", baseNumber)
+    .limit(50)
+    .get();
+  const matches: MonitoringBaseIdentity[] = [];
+  for (const snapshot of candidates.docs) {
+    if (!snapshot.exists) continue;
+    const asset = snapshot.data() ?? {};
+    const classId = asset.assetClassId;
+    const instanceId = asset.assetInstanceId;
+    if (typeof classId !== "string" || typeof instanceId !== "string") {
+      continue;
+    }
+    const classSnapshot = await db.collection("asset_classes").doc(classId).get();
+    if (!classSnapshot.exists) continue;
+    const assetClass = classSnapshot.data() ?? {};
+    if (isActiveBaseCandidate(asset, snapshot.id, assetClass, baseNumber)) {
+      matches.push({
+        classId,
+        instanceId,
+        expectedInstanceVersion: null,
+      });
+    }
+  }
+  if (matches.length !== 1) {
+    throw new QualityMutationError(
+      "failed-precondition",
+      matches.length === 0 ?
+        `Base ${baseNumber} is not an active governed asset.` :
+        `Base ${baseNumber} is ambiguous in the governed asset register.`,
+      {
+        reasonCode: matches.length === 0 ?
+          "quality-monitoring-base-not-found" :
+          "quality-monitoring-base-ambiguous",
+        baseNumber,
+        matchCount: matches.length,
+      },
+    );
+  }
+  return matches[0];
+}
+
+function certifyMonitoringBase(args: {
+  request: ParsedMonitoringRequest;
+  identity: MonitoringBaseIdentity;
+  classSnapshot: SnapshotLike;
+  assetSnapshot: SnapshotLike;
+}): {instanceVersion: number} {
+  const {request, identity, classSnapshot, assetSnapshot} = args;
+  const assetClass = classSnapshot.data() ?? {};
+  const asset = assetSnapshot.data() ?? {};
+  const baseNumber = request.baseNumber;
+  if (!classSnapshot.exists || !assetSnapshot.exists || baseNumber == null ||
+      !isActiveBaseCandidate(
+        asset,
+        assetSnapshot.id,
+        assetClass,
+        baseNumber,
+      ) ||
+      asset.assetClassId !== identity.classId ||
+      asset.assetInstanceId !== identity.instanceId ||
+      typeof assetClass.code !== "string" ||
+      typeof assetClass.name !== "string" ||
+      asset.assetClassCode !== assetClass.code ||
+      asset.assetClassName !== assetClass.name ||
+      typeof asset.name !== "string" ||
+      !Number.isSafeInteger(asset.version) ||
+      (asset.version as number) < 1) {
+    throw new QualityMutationError(
+      "failed-precondition",
+      "The selected Base identity is missing, retired, or inconsistent.",
+      {reasonCode: "quality-monitoring-base-invalid"},
+    );
+  }
+  const instanceVersion = asset.version as number;
+  if (identity.expectedInstanceVersion != null &&
+      identity.expectedInstanceVersion !== instanceVersion) {
+    throw new QualityMutationError(
+      "aborted",
+      "The selected Base changed before monitoring was created. Refresh and select it again.",
+      {
+        reasonCode: "quality-monitoring-base-version-mismatch",
+        currentVersion: instanceVersion,
+      },
+    );
+  }
+  return {instanceVersion};
+}
+
 function replayResult(args: {
   request: ParsedRequest;
   actorUid: string;
@@ -1500,6 +1733,11 @@ export async function mutateQualityWithDb(args: {
   const auditId = `server_quality_${request.requestId}`;
   const auditRef = args.db.collection("audit_logs").doc(auditId);
   actorFromSnapshot(await actorRef.get(), actorUid, request.operation);
+  const receiptProbe = await receiptRef.get();
+  const monitoringBaseIdentity =
+    request.operation === "CREATE_QUALITY_MONITORING_REQUEST" &&
+    !receiptProbe.exists ?
+      await resolveMonitoringBaseIdentity({db: args.db, request}) : null;
 
   const now = args.now ?? (() => new Date());
   const timestampFromDate = args.timestampFromDate ?? ((date: Date) => date);
@@ -1542,6 +1780,33 @@ export async function mutateQualityWithDb(args: {
         "The immutable quality audit identity is already occupied.",
         {reasonCode: "quality-audit-collision", auditId},
       );
+    }
+
+    let certifiedMonitoringBaseVersion: number | null = null;
+    if (request.operation === "CREATE_QUALITY_MONITORING_REQUEST") {
+      if (monitoringBaseIdentity == null) {
+        throw new QualityMutationError(
+          "data-loss",
+          "The governed Base identity could not be reconstructed.",
+          {reasonCode: "quality-monitoring-base-identity-missing"},
+        );
+      }
+      const classSnapshot = await transaction.get(
+        args.db
+          .collection("asset_classes")
+          .doc(monitoringBaseIdentity.classId),
+      );
+      const assetSnapshot = await transaction.get(
+        args.db
+          .collection("asset_instances")
+          .doc(monitoringBaseIdentity.instanceId),
+      );
+      certifiedMonitoringBaseVersion = certifyMonitoringBase({
+        request,
+        identity: monitoringBaseIdentity,
+        classSnapshot,
+        assetSnapshot,
+      }).instanceVersion;
     }
 
     let before: UserAuthorityJsonMap | null = null;
@@ -1821,10 +2086,21 @@ export async function mutateQualityWithDb(args: {
         );
       }
       resultVersion = 1;
+      if (monitoringBaseIdentity == null ||
+          certifiedMonitoringBaseVersion == null) {
+        throw new QualityMutationError(
+          "data-loss",
+          "The governed Base certification is unavailable.",
+          {reasonCode: "quality-monitoring-base-certification-missing"},
+        );
+      }
       after = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         requestId: request.monitoringRequestId,
         baseNumber: request.baseNumber,
+        baseAssetClassId: monitoringBaseIdentity.classId,
+        baseAssetInstanceId: monitoringBaseIdentity.instanceId,
+        baseAssetInstanceVersion: certifiedMonitoringBaseVersion,
         grade: request.grade,
         cycleReference: request.cycleReference,
         chargeNumbers: request.chargeNumbers,
@@ -1883,7 +2159,7 @@ export async function mutateQualityWithDb(args: {
       resultVersion = request.expectedVersion + 1;
       after = {
         ...before,
-        schemaVersion: 2,
+        schemaVersion: before.schemaVersion === 1 ? 2 : before.schemaVersion,
         status: "closed",
         visibilityState: "recent",
         visibleUntil: timestampFromDate(new Date(

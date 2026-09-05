@@ -77,4 +77,13 @@ void main() {
       );
     }
   });
+
+  test('authentication failure retains the sign-in remedy', () {
+    const error = BackendReleaseIdentityException(
+      code: 'unauthenticated',
+      message: 'Unauthenticated',
+    );
+
+    expect(error.toString(), 'Sign in again to read backend release identity.');
+  });
 }

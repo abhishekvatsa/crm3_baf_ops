@@ -465,7 +465,7 @@ void main() {
       expect(currentSource['packageVersion'], _packageVersion());
       expect(
         currentSource['relationshipToLatestFinalizedArtifact'],
-        pendingConstruction
+        pendingConstruction || !artifactSourceMatchesApproval
             ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_OF_'
                 'FINALIZED_BUILD$finalizedBuildNumber'
             : 'BUILD${candidateBuildNumber}_SOURCE_CONTAINS_'

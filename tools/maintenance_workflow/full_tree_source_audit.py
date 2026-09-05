@@ -216,7 +216,8 @@ def main() -> int:
     add(
         checks,
         "workflow notification routing derives from generated lane policy",
-        'import {LANE_POLICY} from "./policy.generated"' in notification_policy,
+        'from "./policy.generated"' in notification_policy
+        and "LANE_POLICY" in notification_policy,
         "no parallel per-lane hardcode",
     )
     add(

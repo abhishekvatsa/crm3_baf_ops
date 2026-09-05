@@ -514,7 +514,8 @@ void main() {
       const paths = <String>[
         'lib/features/inspections/presentation/'
             'inspection_programmes_screen.dart',
-        'lib/features/morning_review/presentation/morning_review_screen.dart',
+        'lib/features/morning_review/presentation/'
+            'morning_review_agenda_view.dart',
         'lib/features/maintenance/presentation/'
             'maintenance_ticket_detail_screen.dart',
       ];

@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 
 import '../../reports/domain/report_provenance.dart';
 import '../../reports/domain/structured_report_document.dart';
+import 'morning_review_agenda.dart';
 import 'morning_review_models.dart';
 
 StructuredReportDocument buildMorningReviewReport({
@@ -9,6 +10,10 @@ StructuredReportDocument buildMorningReviewReport({
   List<MorningReviewEntry> addenda = const [],
 }) {
   final dateTime = DateFormat('dd MMM yyyy, HH:mm');
+  final agenda = compileMorningReviewAgenda(
+    sourceFacts: document.sourceFacts,
+    entries: document.entries,
+  );
   final sections = <StructuredReportSection>[
     StructuredReportSection(
       title: 'Meeting record',
@@ -78,8 +83,8 @@ StructuredReportDocument buildMorningReviewReport({
       paragraphs: [document.finalSummary],
     ),
     for (final section in MorningReviewSection.values)
-      if (_hasSectionContent(document, section))
-        _agendaSection(document, section, dateTime),
+      if (_hasSectionContent(document, agenda, section))
+        _agendaSection(document, agenda, section, dateTime),
     StructuredReportSection(
       title: 'Actions and ownership',
       subtitle:
@@ -226,72 +231,71 @@ StructuredReportDocument buildMorningReviewReport({
 
 StructuredReportSection _agendaSection(
   MorningReviewDocument document,
+  MorningReviewAgenda agenda,
   MorningReviewSection section,
   DateFormat dateTime,
 ) {
-  final facts = document.sourceFacts.where((fact) => fact.section == section);
-  final entries = document.entries.where((entry) => entry.section == section);
-  final rows = <List<String>>[
-    ...facts.map(
-      (fact) => [
-        _assetLabel(section, fact.assetClassName, fact.assetNumber),
-        'Source · ${fact.sourceType}',
-        fact.title,
-        fact.summary,
-        fact.observedAt == null
-            ? fact.status
-            : dateTime.format(_indiaTime(fact.observedAt!)),
-      ],
-    ),
-    ...entries.map(
-      (entry) => [
-        _assetLabel(section, entry.assetClassName, entry.assetNumber),
-        entry.kind.name,
-        entry.text,
-        entry.authorName,
-        dateTime.format(_indiaTime(entry.createdAt)),
-      ],
-    ),
-  ];
+  final rows = <List<String>>[];
+  for (final subject in agenda.subjects.where(
+    (subject) => subject.section == section,
+  )) {
+    for (var index = 0; index < subject.matters.length; index++) {
+      final matter = subject.matters[index];
+      rows.add([
+        index == 0 ? subject.label : '',
+        _issueNarrative(matter, dateTime),
+        _entryNarrative(
+          [...matter.currentCompliance, ...matter.discussion],
+          dateTime,
+          fallback: _currentFallback(matter, dateTime),
+        ),
+        _entryNarrative(
+          matter.remainingCompliance,
+          dateTime,
+          fallback: _remainingFallback(matter),
+        ),
+      ]);
+    }
+  }
   if (section == MorningReviewSection.safety) {
-    rows.addAll(
-      document.standingConcerns.map(
-        (concern) => [
-          'Standing concern',
-          '${concern.criticality.name} · ${concern.status.name}',
-          concern.title,
-          concern.status == MorningReviewConcernStatus.resolved
-              ? '${concern.detail} · Resolved by ${concern.resolvedByName}: ${concern.resolutionReason}'
-              : '${concern.detail} · Raised by ${concern.createdByName}',
-          dateTime.format(_indiaTime(concern.resolvedAt ?? concern.createdAt)),
-        ],
-      ),
-    );
-    rows.addAll(
-      document.standingConcernChecks.map(
-        (check) => [
-          'Standing concern',
-          check.state.name,
-          check.concernTitle,
-          '${check.note} · ${check.checkedByName}',
-          dateTime.format(_indiaTime(check.checkedAt)),
-        ],
-      ),
-    );
+    for (final concern in document.standingConcerns) {
+      final checks = document.standingConcernChecks
+          .where((check) => check.concernId == concern.concernId)
+          .toList(growable: false);
+      rows.add([
+        'Standing concern',
+        '${concern.title}\n${concern.detail}',
+        checks.isEmpty
+            ? 'No check recorded in this meeting.'
+            : checks
+                .map(
+                  (check) =>
+                      '${check.state.name}: ${check.note}\n'
+                      '${check.checkedByName} · '
+                      '${dateTime.format(_indiaTime(check.checkedAt))} IST',
+                )
+                .join('\n\n'),
+        concern.status == MorningReviewConcernStatus.active
+            ? 'Carried forward from ${dateTime.format(_indiaTime(concern.createdAt))} IST.'
+            : 'Resolved by ${concern.resolvedByName}: '
+                '${concern.resolutionReason}',
+      ]);
+    }
   }
   return StructuredReportSection(
     title: _sectionLabel(section),
+    subtitle:
+        'Asset No. · issues discussed · current compliance · remaining compliance',
     tables: [
       StructuredReportTable(
         headers: const [
-          'Asset / scope',
-          'Record',
-          'Subject',
-          'Detail / owner',
-          'Time',
+          'Asset No.',
+          'Issues',
+          'Current compliance',
+          'Remaining compliance',
         ],
         rows: rows,
-        columnFlex: const [1.4, 1.3, 2.2, 3.5, 1.6],
+        columnFlex: const [1.3, 3.2, 3.1, 3.1],
       ),
     ],
   );
@@ -299,13 +303,64 @@ StructuredReportSection _agendaSection(
 
 bool _hasSectionContent(
   MorningReviewDocument document,
+  MorningReviewAgenda agenda,
   MorningReviewSection section,
 ) =>
-    document.sourceFacts.any((fact) => fact.section == section) ||
-    document.entries.any((entry) => entry.section == section) ||
+    agenda.subjects.any((subject) => subject.section == section) ||
     (section == MorningReviewSection.safety &&
-        (document.standingConcerns.isNotEmpty ||
-            document.standingConcernChecks.isNotEmpty));
+        document.standingConcerns.isNotEmpty);
+
+String _issueNarrative(MorningReviewAgendaMatter matter, DateFormat dateTime) {
+  final evidence = matter.sourceFacts
+      .map((fact) {
+        final observed =
+            fact.observedAt == null
+                ? ''
+                : ' · ${dateTime.format(_indiaTime(fact.observedAt!))} IST';
+        return '${fact.sourceType} · ${fact.status}$observed';
+      })
+      .toSet()
+      .join('\n');
+  return [
+    matter.title,
+    if (matter.sourceFacts.length > 1 && matter.linkedAssetLabels.isNotEmpty)
+      'Linked assets: ${matter.linkedAssetLabels.join(', ')}',
+    if (matter.summary.isNotEmpty) matter.summary,
+    if (evidence.isNotEmpty) evidence,
+  ].join('\n');
+}
+
+String _entryNarrative(
+  List<MorningReviewEntry> entries,
+  DateFormat dateTime, {
+  required String fallback,
+}) {
+  if (entries.isEmpty) return fallback;
+  return entries
+      .map(
+        (entry) =>
+            '${entry.text}\n${entry.authorName} · '
+            '${dateTime.format(_indiaTime(entry.createdAt))} IST',
+      )
+      .join('\n\n');
+}
+
+String _currentFallback(MorningReviewAgendaMatter matter, DateFormat dateTime) {
+  final observed = matter.primaryFact?.observedAt;
+  if (matter.categories.contains(MorningReviewAgendaFilter.resolved) &&
+      !matter.categories.contains(MorningReviewAgendaFilter.open)) {
+    return observed == null
+        ? 'Source records the matter as ${matter.status}.'
+        : 'Source records ${matter.status} at '
+            '${dateTime.format(_indiaTime(observed))} IST.';
+  }
+  return 'No current-compliance update was recorded in the meeting.';
+}
+
+String _remainingFallback(MorningReviewAgendaMatter matter) =>
+    matter.categories.contains(MorningReviewAgendaFilter.open)
+        ? 'Matter remained open; no remaining-compliance update was recorded.'
+        : 'No remaining compliance was recorded.';
 
 String _sourceCaptureLabel(MorningReviewDocument document) {
   if (document.sourceCaptureState == MorningReviewSourceCaptureState.bounded) {

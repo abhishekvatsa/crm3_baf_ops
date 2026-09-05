@@ -505,6 +505,8 @@ class _InspectionCampaignDraft {
     required this.purpose,
     required this.assetTypeKey,
     required this.assetClassId,
+    required this.populationMode,
+    required this.hostAssetClassId,
     required this.targetNumbers,
     required this.expectedPopulation,
     required this.physicalPositionLabels,
@@ -517,6 +519,8 @@ class _InspectionCampaignDraft {
   final String purpose;
   final String assetTypeKey;
   final String? assetClassId;
+  final InspectionCampaignPopulationMode populationMode;
+  final String? hostAssetClassId;
   final List<int> targetNumbers;
   final int expectedPopulation;
   final List<String> physicalPositionLabels;
@@ -530,6 +534,8 @@ class _InspectionCampaignDraft {
     'purpose': purpose,
     'assetTypeKey': assetTypeKey,
     'assetClassId': assetClassId,
+    'populationMode': populationMode.name,
+    'hostAssetClassId': hostAssetClassId,
     'targetAssetNumbers': targetNumbers,
     'expectedPopulation': expectedPopulation,
     'physicalPositionLabels': physicalPositionLabels,
@@ -543,11 +549,17 @@ class _InspectionCampaignEditor extends StatefulWidget {
   const _InspectionCampaignEditor({
     required this.definitions,
     required this.assets,
+    required this.assetClasses,
+    required this.innerCovers,
+    required this.innerCoverAssignments,
     required this.closedCampaigns,
   });
 
   final List<InspectionDefinition> definitions;
   final List<AssetInstanceRecord> assets;
+  final List<AssetClassRecord> assetClasses;
+  final List<InnerCoverProfile> innerCovers;
+  final List<BaseInnerCoverAssignment> innerCoverAssignments;
   final List<InspectionCampaign> closedCampaigns;
 
   @override
@@ -559,9 +571,9 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
   final _formKey = GlobalKey<FormState>();
   late InspectionDefinition _definition;
   late final TextEditingController _purpose;
-  late final TextEditingController _targets;
   late final TextEditingController _positions;
   late final TextEditingController _reason;
+  final Set<int> _selectedTargetNumbers = <int>{};
   String? _baselineCampaignId;
   final Set<String> _roles = {
     'operations',
@@ -576,17 +588,18 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
     super.initState();
     _definition = widget.definitions.first;
     _purpose = TextEditingController();
-    _targets = TextEditingController(text: _defaultTargets(_definition));
     _positions = TextEditingController();
     _reason = TextEditingController(
       text: 'Open a governed cross-asset inspection programme.',
+    );
+    _selectedTargetNumbers.addAll(
+      _targetOptionsFor(_definition).map((item) => item.number),
     );
   }
 
   @override
   void dispose() {
     _purpose.dispose();
-    _targets.dispose();
     _positions.dispose();
     _reason.dispose();
     super.dispose();
@@ -631,7 +644,11 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                   onChanged:
                       (value) => setState(() {
                         _definition = value!;
-                        _targets.text = _defaultTargets(value);
+                        _selectedTargetNumbers
+                          ..clear()
+                          ..addAll(
+                            _targetOptionsFor(value).map((item) => item.number),
+                          );
                         _positions.clear();
                         _baselineCampaignId = null;
                       }),
@@ -653,22 +670,14 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                               : 'Describe the campaign purpose.',
                 ),
                 const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _targets,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Exact target asset numbers',
-                    hintText: '1-26 or 1, 2, 3, 8, 12',
-                    helperText:
-                        'Every target remains accounted. Use ranges or comma-separated numbers.',
-                    prefixIcon: Icon(Icons.format_list_numbered_rounded),
-                  ),
-                  validator:
-                      (value) =>
-                          _parseNumbers(value) == null ||
-                                  _parseNumbers(value)!.isEmpty
-                              ? 'Use comma-separated positive whole numbers.'
-                              : null,
+                _GovernedInspectionTargetField(
+                  options: _targetOptions,
+                  selectedNumbers: _selectedTargetNumbers,
+                  installedInnerCovers:
+                      _populationMode ==
+                      InspectionCampaignPopulationMode
+                          .installedInnerCoversByBase,
+                  onChoose: _chooseTargets,
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -769,8 +778,21 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
       _showEditorError(context, 'Select at least one observer role.');
       return;
     }
-    final numbers = _parseNumbers(_targets.text)!;
-    final available = _matchingAssets.map((item) => item.assetNumber).toSet();
+    final numbers = _selectedTargetNumbers.toList()..sort();
+    if (numbers.isEmpty) {
+      _showEditorError(context, 'Choose at least one governed target.');
+      return;
+    }
+    if (_populationMode ==
+            InspectionCampaignPopulationMode.installedInnerCoversByBase &&
+        _hostAssetClassId == null) {
+      _showEditorError(
+        context,
+        'The active governed Base class is unavailable or ambiguous.',
+      );
+      return;
+    }
+    final available = _targetOptions.map((item) => item.number).toSet();
     final unknown =
         numbers.where((number) => !available.contains(number)).toList();
     if (unknown.isNotEmpty) {
@@ -803,6 +825,8 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
         purpose: _purpose.text.trim(),
         assetTypeKey: _assetTypeKey(_definition),
         assetClassId: _definition.frozen.assetClassIds.firstOrNull,
+        populationMode: _populationMode,
+        hostAssetClassId: _hostAssetClassId,
         targetNumbers: numbers,
         expectedPopulation: expected,
         physicalPositionLabels: positions,
@@ -813,12 +837,80 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
     );
   }
 
-  List<AssetInstanceRecord> get _matchingAssets {
-    final classId = _definition.frozen.assetClassIds.firstOrNull;
-    return widget.assets
-        .where((asset) => asset.assetClassId == classId)
-        .toList(growable: false)
-      ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
+  InspectionCampaignPopulationMode get _populationMode =>
+      _assetTypeKey(_definition) == 'innerCover'
+          ? InspectionCampaignPopulationMode.installedInnerCoversByBase
+          : InspectionCampaignPopulationMode.assetInstances;
+
+  String? get _hostAssetClassId {
+    if (_populationMode == InspectionCampaignPopulationMode.assetInstances) {
+      return null;
+    }
+    final baseClasses = widget.assetClasses
+        .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
+        .toList(growable: false);
+    return baseClasses.length == 1 ? baseClasses.single.id : null;
+  }
+
+  List<_InspectionTargetOption> get _targetOptions =>
+      _targetOptionsFor(_definition);
+
+  List<_InspectionTargetOption> _targetOptionsFor(
+    InspectionDefinition definition,
+  ) {
+    if (_assetTypeKey(definition) != 'innerCover') {
+      final classId = definition.frozen.assetClassIds.firstOrNull;
+      final options = widget.assets
+          .where((asset) => asset.isActive && asset.assetClassId == classId)
+          .map(
+            (asset) => _InspectionTargetOption(
+              number: asset.assetNumber,
+              label: asset.name,
+              detail: 'Governed asset ${asset.assetNumber}',
+            ),
+          )
+          .toList(growable: false)
+        ..sort((left, right) => left.number.compareTo(right.number));
+      return options;
+    }
+    final innerCoverClassId = definition.frozen.assetClassIds.firstOrNull;
+    final hostClassId =
+        widget.assetClasses
+            .where((item) => item.isActive && item.legacyAssetTypeKey == 'base')
+            .map((item) => item.id)
+            .singleOrNull;
+    if (innerCoverClassId == null || hostClassId == null) {
+      return const <_InspectionTargetOption>[];
+    }
+    final profilesById = <String, InnerCoverProfile>{
+      for (final profile in widget.innerCovers)
+        if (profile.assetClassId == innerCoverClassId && profile.isInstalled)
+          profile.id: profile,
+    };
+    return _installedInnerCoverTargetOptions(
+      subjectAssetClassId: innerCoverClassId,
+      hostAssetClassId: hostClassId,
+      assets: widget.assets,
+      profilesById: profilesById,
+      assignments: widget.innerCoverAssignments,
+    );
+  }
+
+  Future<void> _chooseTargets() async {
+    final selected = await showDialog<Set<int>>(
+      context: context,
+      builder:
+          (_) => _InspectionTargetPickerDialog(
+            options: _targetOptions,
+            selectedNumbers: _selectedTargetNumbers,
+          ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _selectedTargetNumbers
+        ..clear()
+        ..addAll(selected);
+    });
   }
 
   List<InspectionCampaign> get _baselineOptions => widget.closedCampaigns
@@ -826,28 +918,18 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
         (campaign) =>
             campaign.definition.id == _definition.id &&
             campaign.assetClassId ==
-                _definition.frozen.assetClassIds.firstOrNull,
+                _definition.frozen.assetClassIds.firstOrNull &&
+            campaign.populationMode == _populationMode &&
+            campaign.hostAssetClassId == _hostAssetClassId,
       )
       .toList(growable: false);
-
-  String _defaultTargets(InspectionDefinition definition) {
-    final classId = definition.frozen.assetClassIds.firstOrNull;
-    final numbers =
-        widget.assets
-            .where((asset) => asset.assetClassId == classId)
-            .map((asset) => asset.assetNumber)
-            .toList()
-          ..sort();
-    return _compactNumberRanges(numbers);
-  }
 }
 
 class _InspectionObservationDraft {
   const _InspectionObservationDraft({
     required this.observationId,
     required this.campaign,
-    required this.assetNumber,
-    required this.asset,
+    required this.target,
     required this.component,
     required this.physicalPosition,
     required this.observedAt,
@@ -864,8 +946,7 @@ class _InspectionObservationDraft {
 
   final String observationId;
   final InspectionCampaign campaign;
-  final int assetNumber;
-  final AssetInstanceRecord? asset;
+  final InspectionCampaignTarget target;
   final AssetHierarchyNode? component;
   final String? physicalPosition;
   final DateTime observedAt;
@@ -881,11 +962,12 @@ class _InspectionObservationDraft {
 
   Map<String, Object?> toPayload() => {
     'observationId': observationId,
+    'targetKey': target.targetKey,
     'definitionVersion': campaign.definition.version,
     'assetTypeKey': campaign.assetTypeKey,
-    'assetNumber': assetNumber,
-    'assetClassId': asset?.assetClassId,
-    'assetInstanceId': asset?.id,
+    'assetNumber': target.assetNumber,
+    'assetClassId': target.assetClassId,
+    'assetInstanceId': target.assetInstanceId,
     'componentNodeId': component?.id,
     'componentNodeVersion': component?.version,
     'componentName': component?.name,
@@ -912,14 +994,14 @@ class _InspectionObservationEditor extends StatefulWidget {
   const _InspectionObservationEditor({
     required this.campaign,
     required this.nodes,
-    required this.instances,
     required this.correction,
+    required this.initialTargetKey,
   });
 
   final InspectionCampaign campaign;
   final List<AssetHierarchyNode> nodes;
-  final List<AssetInstanceRecord> instances;
   final InspectionObservation? correction;
+  final String? initialTargetKey;
 
   @override
   State<_InspectionObservationEditor> createState() =>
@@ -943,8 +1025,14 @@ class _InspectionObservationEditorState
   void initState() {
     super.initState();
     final correction = widget.correction;
+    final requestedTarget =
+        _selectableTargets
+            .where((target) => target.targetKey == widget.initialTargetKey)
+            .firstOrNull;
     _targetKey =
-        correction?.targetKey ?? _selectableTargets.firstOrNull?.targetKey;
+        correction?.targetKey ??
+        requestedTarget?.targetKey ??
+        _selectableTargets.firstOrNull?.targetKey;
     _observedAt = DateTime.now();
     _booleanValue = correction?.booleanValue ?? false;
     _choiceValue =
@@ -1246,10 +1334,6 @@ class _InspectionObservationEditorState
             .where((item) => item.targetKey == _targetKey)
             .firstOrNull;
     if (target == null) return;
-    final asset =
-        widget.instances
-            .where((item) => item.id == target.assetInstanceId)
-            .firstOrNull;
     final component =
         _eligibleNodes(
           widget,
@@ -1261,8 +1345,7 @@ class _InspectionObservationEditorState
       _InspectionObservationDraft(
         observationId: 'inspection-observation-${const Uuid().v4()}',
         campaign: widget.campaign,
-        assetNumber: target.assetNumber,
-        asset: asset,
+        target: target,
         component: component,
         physicalPosition: target.physicalPosition,
         observedAt: _observedAt,
@@ -1395,30 +1478,6 @@ List<String> _lines(String? value) =>
         .toSet()
         .toList();
 
-List<int>? _parseNumbers(String? value) {
-  final text = value?.trim() ?? '';
-  if (text.isEmpty) return <int>[];
-  final numbers = <int>{};
-  for (final part in text.split(RegExp(r'[,\s]+'))) {
-    final range = part.split('-');
-    if (range.length == 1) {
-      final parsed = int.tryParse(part);
-      if (parsed == null || parsed < 1) return null;
-      numbers.add(parsed);
-      continue;
-    }
-    if (range.length != 2) return null;
-    final start = int.tryParse(range.first);
-    final end = int.tryParse(range.last);
-    if (start == null || end == null || start < 1 || end < start) return null;
-    if (end - start > 500) return null;
-    for (var number = start; number <= end; number += 1) {
-      numbers.add(number);
-    }
-  }
-  return numbers.toList()..sort();
-}
-
 List<String> _commaValues(String? value) =>
     (value ?? '')
         .split(RegExp(r'[,\r\n]+'))
@@ -1427,24 +1486,6 @@ List<String> _commaValues(String? value) =>
         .toSet()
         .toList()
       ..sort();
-
-String _compactNumberRanges(List<int> values) {
-  if (values.isEmpty) return '';
-  final sorted = values.toSet().toList()..sort();
-  final parts = <String>[];
-  var start = sorted.first;
-  var previous = start;
-  for (final value in sorted.skip(1)) {
-    if (value == previous + 1) {
-      previous = value;
-      continue;
-    }
-    parts.add(start == previous ? '$start' : '$start-$previous');
-    start = previous = value;
-  }
-  parts.add(start == previous ? '$start' : '$start-$previous');
-  return parts.join(', ');
-}
 
 Map<String, String>? _parseConditions(String? value) {
   final result = <String, String>{};
@@ -1482,7 +1523,7 @@ String _targetLabel(
   final component =
       nodes.where((node) => node.id == target.componentNodeId).firstOrNull;
   return [
-    target.assetInstanceName,
+    target.rowLabel,
     if (component != null) component.name,
     if (target.physicalPosition != null) target.physicalPosition!,
   ].join(' · ');

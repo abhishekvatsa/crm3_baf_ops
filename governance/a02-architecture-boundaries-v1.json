@@ -214,6 +214,36 @@
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
+      "path": "lib/features/assets/presentation/furnace_component_condition_audit_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / assets",
+      "purpose": "Owns the governed Furnace burner-block, draft-seal, and UV condition audit, including fixed matrix headings and unsaved-change evidence.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved-user capability controls whether observations may be changed; governed audit providers remain authoritative for the Furnace inventory and recorded condition evidence.",
+      "persistenceOwnership": "No direct persistence is admitted; typed providers own reads and the audit command boundary owns writes.",
+      "transactionOwnership": "No database transaction is owned by this presentation surface.",
+      "rationale": "The fixed-heading condition matrix, its local draft state, totals, filters, and submission affordances form one operational audit surface. Focused tests exercise the fixed panes through Furnace 22 and the changing condition totals.",
+      "regressionTests": [
+        "test/furnace_condition_totals_test.dart",
+        "test/operational_asset_screen_authority_gate_test.dart"
+      ],
+      "maximumLines": 1300,
+      "requiredMarkers": [
+        "class FurnaceComponentConditionAuditScreen",
+        "furnace-audit-fixed-corner",
+        "furnace-audit-fixed-furnace-column"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a fixed-pane marker disappears, direct persistence appears, or the named regressions no longer pass."
+    },
+    {
       "path": "lib/features/assets/presentation/inner_cover_lifecycle_screen.dart",
       "disposition": "bounded-exception",
       "owner": "Architecture / assets",
@@ -241,6 +271,36 @@
         "Isar.getInstance()"
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/directives/presentation/directives_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / directives",
+      "purpose": "Owns the operational-directive queue, search, creation, acknowledgement, closure, and complete-record presentation as one route.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved-user capabilities determine visible commands; repository and backend boundaries independently enforce directive mutation authority.",
+      "persistenceOwnership": "No direct persistence is admitted; directive providers and repositories own local and remote reads and mutations.",
+      "transactionOwnership": "No database or cross-source transaction is owned by this presentation surface.",
+      "rationale": "The route coordinates one directive lifecycle and its responsive loading, denial, queue, and record states while persistence remains decomposed into explicit provider adapters.",
+      "regressionTests": [
+        "test/business_screen_authority_gate_test.dart",
+        "test/operational_ux_restructure_test.dart",
+        "test/a05_operational_directive_integrity_test.dart"
+      ],
+      "maximumLines": 1250,
+      "requiredMarkers": [
+        "class DirectivesScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()",
+        ".writeTxn("
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, direct persistence appears, directive mutation bypasses governed authority, or any named regression fails."
     },
     {
       "path": "lib/features/directives/providers/operational_directive_provider.dart",

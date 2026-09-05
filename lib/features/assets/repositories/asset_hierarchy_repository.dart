@@ -553,6 +553,25 @@ class AssetHierarchyRepository {
         });
   }
 
+  Stream<List<InnerCoverLinkage>> watchBaseInnerCoverHistory(
+    String baseAssetInstanceId,
+  ) {
+    return _innerCoverLinkages
+        .where('baseAssetInstanceId', isEqualTo: baseAssetInstanceId)
+        .snapshots()
+        .map((snapshot) {
+          final records =
+              snapshot.docs
+                  .map((doc) => InnerCoverLinkage.fromMap(doc.data(), doc.id))
+                  .toList()
+                ..sort(
+                  (left, right) =>
+                      right.installedAt.compareTo(left.installedAt),
+                );
+          return List<InnerCoverLinkage>.unmodifiable(records);
+        });
+  }
+
   Stream<InnerCoverFabricationDossier?> watchInnerCoverFabrication(
     String innerCoverId,
   ) {
@@ -993,9 +1012,13 @@ class AssetHierarchyRepository {
   }) async {
     _requireAdmin(actor);
     final retiring = targetState == InnerCoverLifecycleState.retiredForSalvage;
-    if (retiring != (retirementCondition != null)) {
+    final legacyReturn =
+        cover.lifecycleState == InnerCoverLifecycleState.retiredForSalvage &&
+        targetState == InnerCoverLifecycleState.awaitingInspection &&
+        cover.retirementCondition == null;
+    if ((retiring || legacyReturn) != (retirementCondition != null)) {
       throw const AssetHierarchyException(
-        'Record whether the Inner Cover is bulged when retiring it for salvage.',
+        'Record whether the Inner Cover was bulged at retirement.',
       );
     }
     await _invoke(<String, dynamic>{

@@ -5,11 +5,12 @@ import {JsonMap, RoleKey} from "./types";
 import {cleanText, iso, persistedInstantText, stableJson} from "./utils";
 import {
   buildInspectionTargetPopulation,
+  InspectionPopulationMode,
   inspectionPopulationCounts,
-  inspectionTargetKey,
   inspectionTargetPopulationJson,
   markInspectionTargetObserved,
   parseInspectionTargetPopulation,
+  resolveInspectionPopulationAssets,
 } from "./inspectionPopulation";
 
 const definitionPath = (id: string): string => `inspection_definitions/${id}`;
@@ -31,6 +32,24 @@ const OBSERVER_ROLES = new Set<RoleKey>([
 
 const exactKeys = (value: JsonMap, expected: readonly string[], field: string): void => {
   if (Object.keys(value).sort().join(",") !== [...expected].sort().join(",")) {
+    throw new WorkflowError(
+      "invalid-argument",
+      `${field} has unsupported or missing fields.`,
+      {reasonCode: "inspection-shape-invalid", field},
+    );
+  }
+};
+
+const keysWithOptional = (
+  value: JsonMap,
+  required: readonly string[],
+  optional: readonly string[],
+  field: string,
+): void => {
+  const keys = new Set(Object.keys(value));
+  const allowed = new Set([...required, ...optional]);
+  if (required.some((key) => !keys.has(key)) ||
+      [...keys].some((key) => !allowed.has(key))) {
     throw new WorkflowError(
       "invalid-argument",
       `${field} has unsupported or missing fields.`,
@@ -436,11 +455,11 @@ export const setInspectionDefinitionStatus: CommandHandler = async ({tx, command
 };
 
 export const createInspectionCampaign: CommandHandler = async ({tx, command, context}) => {
-  exactKeys(command.payload, [
+  keysWithOptional(command.payload, [
     "definitionId", "definitionVersion", "purpose", "assetTypeKey",
     "assetClassId", "targetAssetNumbers", "expectedPopulation",
     "physicalPositionLabels", "baselineCampaignId", "observerRoleKeys", "reason",
-  ], "payload");
+  ], ["populationMode", "hostAssetClassId"], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   if (command.expectedVersion !== 0) {
     throw new WorkflowError("invalid-argument", "New inspection campaign expectedVersion must be zero.");
@@ -460,6 +479,27 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
       "invalid-argument",
       "Inspection campaigns require one exact governed asset class.",
       {reasonCode: "inspection-campaign-asset-class-required"},
+    );
+  }
+  const populationMode = (optionalText(
+    command.payload.populationMode,
+    "populationMode",
+    80,
+  ) ?? "assetInstances") as InspectionPopulationMode;
+  if (!["assetInstances", "installedInnerCoversByBase"].includes(populationMode)) {
+    throw new WorkflowError("invalid-argument", "Inspection population mode is unsupported.");
+  }
+  const hostAssetClassId = optionalDocumentId(
+    command.payload.hostAssetClassId,
+    "hostAssetClassId",
+  );
+  if ((populationMode === "assetInstances" && hostAssetClassId != null) ||
+      (populationMode === "installedInnerCoversByBase" &&
+       (assetTypeKey !== "innerCover" || hostAssetClassId == null))) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Installed Inner Cover campaigns require the governed Base host class.",
+      {reasonCode: "inspection-population-mode-invalid"},
     );
   }
   const targetAssetNumbers = integerList(
@@ -501,14 +541,13 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     throw new WorkflowError("invalid-argument", "observerRoleKeys contains an unsupported role.");
   }
   const reason = boundedText(command.payload.reason, "reason", 1, 500);
-  const [current, definition, audit, campaignClass, campaignAssets, baseline] = await Promise.all([
+  const [current, definition, audit, campaignClass, hostClass, baseline] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(definitionPath(definitionId)),
     tx.get(campaignAuditPath(command.commandId)),
     tx.get(`asset_classes/${assetClassId}`),
-    tx.query("asset_instances", [
-      {field: "assetClassId", op: "==", value: assetClassId},
-    ]),
+    hostAssetClassId == null ? Promise.resolve(null) :
+      tx.get(`asset_classes/${hostAssetClassId}`),
     baselineCampaignId == null ? Promise.resolve(null) :
       tx.get(campaignPath(baselineCampaignId)),
   ]);
@@ -526,71 +565,52 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
        campaignClass.data.legacyAssetTypeKey !== assetTypeKey)) {
     throw new WorkflowError("failed-precondition", "Campaign asset class is inactive or mismatched.");
   }
+  if (hostAssetClassId != null &&
+      (hostClass == null || !hostClass.exists || hostClass.data == null ||
+       hostClass.data.status !== "active" ||
+       hostClass.data.assetClassId !== hostAssetClassId ||
+       hostClass.data.legacyAssetTypeKey !== "base")) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The installed Inner Cover campaign host must be the active governed Base class.",
+      {reasonCode: "inspection-inner-cover-host-class-invalid"},
+    );
+  }
   const types = definition.data.assetTypeKeys;
   const classes = definition.data.assetClassIds;
-  if ((!Array.isArray(types) || !types.includes(assetTypeKey)) &&
-      (assetClassId == null || !Array.isArray(classes) || !classes.includes(assetClassId))) {
+  const typeMatches = Array.isArray(types) && types.includes(assetTypeKey);
+  const definitionHasExactClasses = Array.isArray(classes) && classes.length > 0;
+  const classMatches = definitionHasExactClasses && classes.includes(assetClassId);
+  if (definitionHasExactClasses ? !classMatches : !typeMatches) {
     throw new WorkflowError("failed-precondition", "Campaign asset scope does not match its definition.");
   }
   if (baseline != null && (!baseline.exists || baseline.data == null ||
       baseline.data.status !== "closed" ||
       baseline.data.definitionId !== definitionId ||
-      baseline.data.assetClassId !== assetClassId)) {
+      baseline.data.assetClassId !== assetClassId ||
+      (baseline.data.populationMode ?? "assetInstances") !== populationMode ||
+      (baseline.data.hostAssetClassId ?? null) !== hostAssetClassId)) {
     throw new WorkflowError(
       "failed-precondition",
       "A re-audit baseline must be a closed campaign for the same definition and asset class.",
       {reasonCode: "inspection-baseline-invalid"},
     );
   }
-  const assetRows = campaignAssets.filter((row) => row.data != null &&
-    row.data.status === "active" &&
-    Number.isSafeInteger(row.data.assetNumber) &&
-    targetAssetNumbers.includes(row.data.assetNumber as number));
-  const byNumber = new Map<number, (typeof assetRows)[number]>();
-  for (const row of assetRows) {
-    const number = row.data!.assetNumber as number;
-    if (byNumber.has(number)) {
-      throw new WorkflowError(
-        "failed-precondition",
-        "The governed asset class contains duplicate active asset numbers.",
-        {reasonCode: "inspection-campaign-asset-number-ambiguous", assetNumber: number},
-      );
-    }
-    byNumber.set(number, row);
-  }
-  const missingAssets = targetAssetNumbers.filter((number) => !byNumber.has(number));
-  if (missingAssets.length > 0) {
-    throw new WorkflowError(
-      "failed-precondition",
-      "One or more inspection targets are absent or inactive in the governed asset registry.",
-      {reasonCode: "inspection-campaign-assets-missing", missingAssetNumbers: missingAssets},
-    );
-  }
+  const populationAssets = await resolveInspectionPopulationAssets({
+    tx,
+    populationMode,
+    assetTypeKey,
+    assetClassId,
+    hostAssetClassId,
+    targetAssetNumbers,
+  });
   const now = iso(context.serverNow);
   const componentNodeIds = Array.isArray(definition.data.componentNodeIds) ?
     definition.data.componentNodeIds.filter((item): item is string => typeof item === "string") : [];
   const targetPopulation = buildInspectionTargetPopulation({
     assetTypeKey,
     assetClassId,
-    assets: targetAssetNumbers.map((number) => {
-      const row = byNumber.get(number)!;
-      const data = row.data!;
-      if (typeof data.assetInstanceId !== "string" ||
-          typeof data.name !== "string" || !Number.isSafeInteger(data.version) ||
-          (data.version as number) < 1) {
-        throw new WorkflowError(
-          "failed-precondition",
-          "An inspection target has malformed governed identity.",
-          {reasonCode: "inspection-campaign-asset-identity-malformed", assetNumber: number},
-        );
-      }
-      return {
-        assetNumber: number,
-        assetInstanceId: data.assetInstanceId,
-        assetInstanceVersion: data.version as number,
-        assetInstanceName: data.name,
-      };
-    }),
+    assets: populationAssets,
     componentNodeIds,
     physicalPositions: physicalPositionLabels,
     at: now,
@@ -622,6 +642,8 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     purpose: boundedText(command.payload.purpose, "purpose", 1, 1000),
     assetTypeKey,
     assetClassId,
+    populationMode,
+    hostAssetClassId,
     targetAssetNumbers,
     physicalPositionLabels,
     targetPopulation: inspectionTargetPopulationJson(targetPopulation),
@@ -851,13 +873,13 @@ const operatingConditions = (value: unknown): JsonMap => {
 };
 
 export const recordInspectionObservation: CommandHandler = async ({tx, command, context}) => {
-  exactKeys(command.payload, [
+  keysWithOptional(command.payload, [
     "observationId", "definitionVersion", "assetTypeKey", "assetNumber",
     "assetClassId", "assetInstanceId", "componentNodeId", "componentNodeVersion",
     "componentName", "hierarchyPath", "physicalPosition", "observedAt", "value",
     "unit", "operatingConditions", "chargeNo", "note", "evidenceUrls",
     "supersedesObservationId",
-  ], "payload");
+  ], ["targetKey"], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   const observationId = documentId(command.payload.observationId, "observationId");
   const [campaign, existingObservation, superseded] = await Promise.all([
@@ -904,12 +926,14 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       !targetAssetNumbers.includes(assetNumber)) {
     throw new WorkflowError("failed-precondition", "Observation asset is not in the target list.");
   }
-  const assetClassId = optionalDocumentId(command.payload.assetClassId, "assetClassId");
-  const assetInstanceId = optionalDocumentId(command.payload.assetInstanceId, "assetInstanceId");
-  if (assetClassId == null || assetInstanceId == null ||
-      assetClassId !== campaign.data.assetClassId) {
-    throw new WorkflowError("invalid-argument", "Observation registry identity is invalid.");
-  }
+  const payloadAssetClassId = optionalDocumentId(
+    command.payload.assetClassId,
+    "assetClassId",
+  );
+  const payloadAssetInstanceId = optionalDocumentId(
+    command.payload.assetInstanceId,
+    "assetInstanceId",
+  );
   const componentNodeId = optionalDocumentId(command.payload.componentNodeId, "componentNodeId");
   const componentNodeVersion = command.payload.componentNodeVersion;
   const componentName = optionalText(command.payload.componentName, "componentName", 160);
@@ -930,24 +954,53 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     "physicalPosition",
     80,
   );
-  const targetKey = inspectionTargetKey({
-    assetClassId,
-    assetInstanceId,
-    componentNodeId,
-    physicalPosition,
-  });
   const targetPopulation = parseInspectionTargetPopulation(
     campaign.data.targetPopulation,
   );
-  const governedTarget = targetPopulation.find((target) =>
-    target.targetKey === targetKey);
+  const populationMode = (campaign.data.populationMode ??
+    "assetInstances") as InspectionPopulationMode;
+  if (!["assetInstances", "installedInnerCoversByBase"].includes(populationMode)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Inspection campaign population mode is malformed.",
+      {reasonCode: "inspection-target-population-malformed"},
+    );
+  }
+  const requestedTargetKey = optionalText(command.payload.targetKey, "targetKey", 1000);
+  const candidateTargets = requestedTargetKey == null ?
+    targetPopulation.filter((target) =>
+      target.assetNumber === assetNumber &&
+      target.componentNodeId === componentNodeId &&
+      target.physicalPosition === physicalPosition) :
+    targetPopulation.filter((target) => target.targetKey === requestedTargetKey);
+  if (candidateTargets.length > 1) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The requested inspection target is ambiguous; refresh and select the exact row.",
+      {reasonCode: "inspection-target-ambiguous"},
+    );
+  }
+  const governedTarget = candidateTargets[0];
+  const targetKey = governedTarget?.targetKey ?? requestedTargetKey ?? "";
   if (governedTarget == null || governedTarget.assetNumber !== assetNumber ||
-      governedTarget.assetTypeKey !== assetTypeKey) {
+      governedTarget.assetTypeKey !== assetTypeKey ||
+      governedTarget.componentNodeId !== componentNodeId ||
+      governedTarget.physicalPosition !== physicalPosition) {
     throw new WorkflowError(
       "failed-precondition",
       "Observation target is not part of the governed campaign population.",
       {reasonCode: "inspection-target-not-in-population", targetKey},
     );
+  }
+  const assetClassId = governedTarget.assetClassId;
+  const assetInstanceId = governedTarget.assetInstanceId;
+  const payloadIdentityInvalid = populationMode === "assetInstances" ?
+    payloadAssetClassId !== assetClassId ||
+      payloadAssetInstanceId !== assetInstanceId :
+    (payloadAssetClassId != null && payloadAssetClassId !== assetClassId) ||
+      (payloadAssetInstanceId != null && payloadAssetInstanceId !== assetInstanceId);
+  if (assetClassId !== campaign.data.assetClassId || payloadIdentityInvalid) {
+    throw new WorkflowError("invalid-argument", "Observation registry identity is invalid.");
   }
   const value = parseObservationValue(command.payload.value, definition);
   const unit = optionalText(command.payload.unit, "unit", 40);
@@ -973,17 +1026,84 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       throw new WorkflowError("permission-denied", "Actor cannot correct this observation.");
     }
   }
-  const instance = assetInstanceId == null ? null : await tx.get(`asset_instances/${assetInstanceId}`);
+  const instance = populationMode === "assetInstances" ?
+    await tx.get(`asset_instances/${assetInstanceId}`) : null;
   const node = componentNodeId == null ? null : await tx.get(`asset_hierarchy_nodes/${componentNodeId}`);
   if (instance != null && (!instance.exists || instance.data == null ||
       instance.data.status !== "active" || instance.data.assetNumber !== assetNumber ||
-      instance.data.assetClassId !== assetClassId)) {
-    throw new WorkflowError("failed-precondition", "Observation asset identity is stale.");
+      instance.data.assetClassId !== assetClassId ||
+      instance.data.version !== governedTarget.assetInstanceVersion ||
+      instance.data.name !== governedTarget.assetInstanceName)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Observation asset identity changed after this campaign opened.",
+      {reasonCode: "inspection-asset-context-changed", targetKey},
+    );
   }
   if (node != null && (!node.exists || node.data == null || node.data.status !== "active" ||
       node.data.version !== componentNodeVersion || node.data.name !== componentName ||
       (assetClassId != null && node.data.assetClassId !== assetClassId))) {
     throw new WorkflowError("failed-precondition", "Observation component identity is stale.");
+  }
+  if (populationMode === "installedInnerCoversByBase") {
+    const hostAssetInstanceId = governedTarget.hostAssetInstanceId;
+    const linkageId = governedTarget.linkageId;
+    if (hostAssetInstanceId == null || linkageId == null ||
+        governedTarget.hostAssetClassId == null ||
+        governedTarget.hostAssetNumber == null ||
+        governedTarget.subjectSerialNumber == null) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The installed Inner Cover target context is incomplete.",
+        {reasonCode: "inspection-inner-cover-context-inconsistent"},
+      );
+    }
+    const [profile, host, assignment, linkage] = await Promise.all([
+      tx.get(`inner_cover_profiles/${assetInstanceId}`),
+      tx.get(`asset_instances/${hostAssetInstanceId}`),
+      tx.get(`base_inner_cover_assignments/${hostAssetInstanceId}`),
+      tx.get(`inner_cover_linkages/${linkageId}`),
+    ]);
+    const assignmentLinkedAt = assignment.data == null ? null :
+      persistedInstantText(assignment.data.linkedAt);
+    const linkageInstalledAt = linkage.data == null ? null :
+      persistedInstantText(linkage.data.installedAt);
+    if (!profile.exists || profile.data == null ||
+        profile.data.innerCoverId !== assetInstanceId ||
+        profile.data.assetClassId !== assetClassId ||
+        profile.data.version !== governedTarget.assetInstanceVersion ||
+        profile.data.serialNumber !== governedTarget.subjectSerialNumber ||
+        profile.data.lifecycleState !== "installed" ||
+        profile.data.currentBaseAssetInstanceId !== hostAssetInstanceId ||
+        profile.data.currentBaseAssetNumber !== governedTarget.hostAssetNumber ||
+        profile.data.currentLinkageId !== linkageId ||
+        !host.exists || host.data == null || host.data.status !== "active" ||
+        host.data.assetInstanceId !== hostAssetInstanceId ||
+        host.data.assetClassId !== governedTarget.hostAssetClassId ||
+        host.data.version !== governedTarget.hostAssetInstanceVersion ||
+        host.data.assetNumber !== governedTarget.hostAssetNumber ||
+        host.data.name !== governedTarget.hostAssetInstanceName ||
+        !assignment.exists || assignment.data == null ||
+        assignment.data.baseAssetInstanceId !== hostAssetInstanceId ||
+        assignment.data.baseAssetClassId !== governedTarget.hostAssetClassId ||
+        assignment.data.baseAssetNumber !== governedTarget.hostAssetNumber ||
+        assignment.data.innerCoverId !== assetInstanceId ||
+        assignment.data.innerCoverSerialNumber !== governedTarget.subjectSerialNumber ||
+        assignment.data.linkageId !== linkageId ||
+        !linkage.exists || linkage.data == null || linkage.data.active !== true ||
+        linkage.data.linkageId !== linkageId ||
+        linkage.data.version !== governedTarget.linkageVersion ||
+        linkage.data.baseAssetInstanceId !== hostAssetInstanceId ||
+        linkage.data.innerCoverId !== assetInstanceId ||
+        linkage.data.innerCoverSerialNumber !== governedTarget.subjectSerialNumber ||
+        assignmentLinkedAt !== governedTarget.linkedAt ||
+        linkageInstalledAt !== governedTarget.linkedAt) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The Inner Cover or its Base linkage changed after this campaign opened.",
+        {reasonCode: "inspection-inner-cover-context-changed", targetKey},
+      );
+    }
   }
   const observedAt = isoDate(command.payload.observedAt, "observedAt");
   if (new Date(observedAt).getTime() > context.serverNow.getTime() + 5 * 60 * 1000) {
@@ -1000,6 +1120,14 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     throw new WorkflowError(
       "failed-precondition",
       "A correction must retain the original inspected target and definition.",
+    );
+  }
+  if (superseded?.data != null &&
+      governedTarget.lastObservationId !== superseded.data.observationId) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only the current certified reading can be corrected.",
+      {reasonCode: "inspection-correction-not-current", targetKey},
     );
   }
   const distinct = Array.isArray(campaign.data.distinctTargetKeys) ?
@@ -1063,6 +1191,15 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     assetNumber: assetNumber as number,
     assetClassId,
     assetInstanceId,
+    hostAssetClassId: governedTarget.hostAssetClassId,
+    hostAssetInstanceId: governedTarget.hostAssetInstanceId,
+    hostAssetInstanceVersion: governedTarget.hostAssetInstanceVersion,
+    hostAssetNumber: governedTarget.hostAssetNumber,
+    hostAssetInstanceName: governedTarget.hostAssetInstanceName,
+    subjectSerialNumber: governedTarget.subjectSerialNumber,
+    linkageId: governedTarget.linkageId,
+    linkageVersion: governedTarget.linkageVersion,
+    linkedAt: governedTarget.linkedAt,
     componentNodeId,
     componentNodeVersion: componentNodeVersion as number | null,
     componentName,
@@ -1121,6 +1258,12 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       assetNumber: assetNumber as number,
       assetClassId,
       assetInstanceId,
+      hostAssetClassId: governedTarget.hostAssetClassId,
+      hostAssetInstanceId: governedTarget.hostAssetInstanceId,
+      hostAssetNumber: governedTarget.hostAssetNumber,
+      hostAssetInstanceName: governedTarget.hostAssetInstanceName,
+      subjectSerialNumber: governedTarget.subjectSerialNumber,
+      linkageId: governedTarget.linkageId,
       componentNodeId,
       componentName,
       physicalPosition,

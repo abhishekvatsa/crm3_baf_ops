@@ -194,6 +194,63 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('resolved event card shows closure date, time, and actor', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final resolvedAt = DateTime(2026, 9, 5, 14, 35);
+    final event = _resolvedCraneEvent(resolvedAt);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_operationsUser(resolvedAt)),
+          ),
+          assetClassesProvider.overrideWith((ref) => Stream.value(const [])),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(const []),
+          ),
+          operationalEventsProvider.overrideWith(
+            (ref, actorUid) => Stream.value([event]),
+          ),
+          operationalEventsForReportsProvider.overrideWith(
+            (ref, actorUid) => Stream.value([event]),
+          ),
+          operationsReportClockProvider.overrideWith(
+            (ref) => Stream.value(resolvedAt),
+          ),
+        ],
+        child: const MaterialApp(home: OperationalEventsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('operational-event-status-filter')),
+        matching: find.text('Recent resolved'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final closure = find.byKey(
+      const ValueKey('operational-event-resolution-crane-event-resolved'),
+    );
+    await tester.scrollUntilVisible(
+      closure,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(closure, findsOneWidget);
+    expect(
+      find.text('Resolved 05 Sep 2026, 14:35 by Operations Two'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('unapproved direct entry performs no operational data reads', (
     tester,
   ) async {
@@ -378,6 +435,34 @@ OperationalEvent _openCraneEvent(
     updatedByUid: 'operations-1',
     updatedByName: 'Operations One',
     lastMutationId: 'event-create-1',
+  );
+}
+
+OperationalEvent _resolvedCraneEvent(DateTime resolvedAt) {
+  final startedAt = resolvedAt.subtract(const Duration(hours: 2));
+  return OperationalEvent(
+    eventId: 'crane-event-resolved',
+    eventType: OperationalEventType.crane,
+    title: 'Charging crane restored',
+    description: 'Crane movement was restored after inspection.',
+    severity: OperationalEventSeverity.significant,
+    scope: OperationalEventScope.plantWide,
+    affectedAssetClassIds: const [],
+    affectedAssetInstanceIds: const [],
+    startedAt: startedAt,
+    status: OperationalEventStatus.resolved,
+    createdAt: startedAt,
+    createdByUid: 'operations-1',
+    createdByName: 'Operations One',
+    resolvedAt: resolvedAt,
+    resolvedByUid: 'operations-2',
+    resolvedByName: 'Operations Two',
+    resolutionNote: 'Crane movement remained stable after restoration.',
+    version: 2,
+    updatedAt: resolvedAt,
+    updatedByUid: 'operations-2',
+    updatedByName: 'Operations Two',
+    lastMutationId: 'event-resolve-1',
   );
 }
 

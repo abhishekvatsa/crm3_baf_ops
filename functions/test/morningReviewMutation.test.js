@@ -2,6 +2,7 @@ const {
   isMorningReviewOperation,
   morningReviewCommandContractSnapshot,
   morningReviewPlantClock,
+  collectMorningReviewSourceFacts,
   mutateMorningReviewWithDb,
   parseMorningReviewMutationRequest,
   userCanMutateMorningReview,
@@ -27,27 +28,56 @@ function fakeDb(seed = {}) {
     return {exists: value != null, id, data: () => clone(value)};
   }
 
-  function query(collection, filters = [], maximum = Number.MAX_SAFE_INTEGER) {
+  function query(
+    collection,
+    filters = [],
+    maximum = Number.MAX_SAFE_INTEGER,
+    orderedById = false,
+    afterId = null,
+  ) {
     return {
       where(field, op, value) {
         if (op !== '==') throw new Error(`Unsupported fake query ${op}`);
-        return query(collection, [...filters, {field, value}], maximum);
+        return query(
+          collection,
+          [...filters, {field, value}],
+          maximum,
+          orderedById,
+          afterId,
+        );
+      },
+      orderBy(field) {
+        if (field !== '__name__') {
+          throw new Error(`Unsupported fake order ${field}`);
+        }
+        return query(collection, filters, maximum, true, afterId);
+      },
+      startAfter(value) {
+        if (!orderedById || typeof value?.id !== 'string') {
+          throw new Error('Fake cursor requires a document-ID ordered snapshot');
+        }
+        return query(collection, filters, maximum, orderedById, value.id);
       },
       limit(value) {
-        return query(collection, filters, value);
+        return query(collection, filters, value, orderedById, afterId);
       },
       async get() {
         reads.push({kind: 'query', collection});
         const prefix = `${collection}/`;
-        const docs = [];
+        const candidates = [];
         for (const [path, data] of store.entries()) {
           if (!path.startsWith(prefix) || path.slice(prefix.length).includes('/')) {
             continue;
           }
           if (filters.some(({field, value}) => data?.[field] !== value)) continue;
-          docs.push(snapshot(path, path.slice(prefix.length)));
-          if (docs.length >= maximum) break;
+          const id = path.slice(prefix.length);
+          if (afterId != null && id <= afterId) continue;
+          candidates.push({path, id});
         }
+        if (orderedById) candidates.sort((left, right) => left.id.localeCompare(right.id));
+        const docs = candidates
+          .slice(0, maximum)
+          .map(({path, id}) => snapshot(path, id));
         return {docs};
       },
     };
@@ -155,6 +185,101 @@ function baseSeed() {
       description: 'Draft seal requires inspection.',
       createdAt: new Date('2026-08-30T06:00:00.000Z'),
     },
+  };
+}
+
+function governedQualityAsset(assetNumber = 7) {
+  return {
+    assetType: 'furnace',
+    assetNumber,
+    assetHierarchyRef: {
+      schemaVersion: 4,
+      scope: 'componentDefinitionOnAsset',
+      assetClassId: 'furnace-class',
+      assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace',
+      nodeId: 'burner-block',
+      nodeVersion: 2,
+      nodeName: 'Burner block',
+      assetInstanceId: `furnace-${assetNumber}`,
+      assetInstanceVersion: 3,
+      assetNumber,
+      assetInstanceName: `Furnace ${assetNumber}`,
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Furnace', 'Combustion system', 'Burner block'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Mechanical',
+      accountableRoleKeys: ['contractSupervisor'],
+      innerCoverAssociation: null,
+    },
+  };
+}
+
+function qualityWarning(warningId, overrides = {}) {
+  const sourceId = warningId.replace(/^issue_/, '');
+  return {
+    schemaVersion: 1,
+    warningId,
+    sourceType: 'issue',
+    sourceId,
+    sourceVersion: 1,
+    sourceChargeNo: 51139,
+    sourceSummary: 'Atmosphere interruption during the cycle.',
+    sourceSeverity: 'high',
+    warningReason: 'Review the affected charge before release.',
+    affectedAssets: [governedQualityAsset()],
+    component: 'Atmosphere control',
+    status: 'open',
+    closureRequestReason: null,
+    closureRequestedAt: null,
+    closureRequestedByUid: null,
+    closureRequestedByName: null,
+    closedAt: null,
+    closedByUid: null,
+    closedByName: null,
+    closureDisposition: null,
+    linkedReannealingChargeNos: [],
+    decisionReason: null,
+    createdAt: '2026-08-29T05:00:00.000Z',
+    createdByUid: 'ops-1',
+    createdByName: 'Operations One',
+    updatedAt: '2026-08-29T05:00:00.000Z',
+    updatedByUid: 'ops-1',
+    updatedByName: 'Operations One',
+    version: 1,
+    ...overrides,
+  };
+}
+
+function inspectionFinding(findingId, overrides = {}) {
+  return {
+    schemaVersion: 1,
+    findingId,
+    version: 1,
+    campaignId: 'campaign-1',
+    targetKey: `target-${findingId}`,
+    assetTypeKey: 'furnace',
+    assetNumber: 7,
+    assetClassId: 'furnace-class',
+    assetInstanceId: 'furnace-7',
+    hostAssetNumber: null,
+    subjectSerialNumber: null,
+    componentNodeId: 'burner-block',
+    componentName: 'Burner block',
+    physicalPosition: 'Burner 3',
+    status: 'open',
+    firstObservationId: `first-${findingId}`,
+    currentObservationId: `current-${findingId}`,
+    firstObservedAt: '2026-08-29T05:00:00.000Z',
+    latestObservedAt: '2026-08-30T05:00:00.000Z',
+    recurrenceCount: 1,
+    linkedTicketId: null,
+    verificationCount: 0,
+    lastVerificationOutcome: null,
+    updatedAt: '2026-08-30T05:00:00.000Z',
+    ...overrides,
   };
 }
 
@@ -335,17 +460,48 @@ describe('Morning Review governed lifecycle', () => {
     )).rejects.toMatchObject({code: 'already-exists'});
   });
 
+  test('rejects malformed replay result identity instead of confirming it', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    const receiptPath = `morning_review_mutation_receipts/${IDS.start}`;
+    const receipt = memory.store.get(receiptPath);
+    memory.store.set(receiptPath, {
+      ...receipt,
+      result: {...receipt.result, sessionId: 'wrong-day'},
+    });
+
+    await expect(invoke(memory, 'si-1', startRequest())).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {reasonCode: 'morning-review-receipt-result-malformed'},
+    });
+
+    const statusMemory = fakeDb(baseSeed());
+    await invoke(statusMemory, 'si-1', startRequest());
+    const statusReceipt = statusMemory.store.get(receiptPath);
+    statusMemory.store.set(receiptPath, {
+      ...statusReceipt,
+      result: {...statusReceipt.result, status: 'finalized'},
+    });
+    await expect(invoke(statusMemory, 'si-1', startRequest()))
+      .rejects.toMatchObject({
+        code: 'data-loss',
+        details: {reasonCode: 'morning-review-receipt-result-malformed'},
+      });
+  });
+
   test('captures active condition projections and prior-day burner closure evidence', async () => {
     const memory = fakeDb({
       ...baseSeed(),
       'maintenance_burner_closures/burner-1': {
         sourceMaintenanceId: 'burner-1',
+        sourceVersion: 4,
         updatedAt: '2026-08-30T06:30:00.000Z',
       },
       'maintenance_records/burner-1': {
         status: 'resolved',
         isResolved: true,
         isDeleted: false,
+        version: 4,
         assetType: 'furnace',
         assetNumber: 26,
         description: 'Burner lockouts attended and returned to service.',
@@ -359,6 +515,16 @@ describe('Morning Review governed lifecycle', () => {
         assetInstanceId: 'base-201',
         assetNumber: 201,
         reason: 'Inner Cover inspection pending.',
+      },
+      'asset_operational_conditions/base-202': {
+        active: false,
+        condition: 'down',
+        assetClassId: 'base-class',
+        assetClassName: 'Base',
+        assetInstanceId: 'base-202',
+        assetNumber: 202,
+        reason: 'Hydraulic clamp restored.',
+        restoredAt: '2026-08-30T07:00:00.000Z',
       },
       'asset_availability_current/furnace-12': {
         availabilityState: 'temporarilyBlocked',
@@ -400,6 +566,653 @@ describe('Morning Review governed lifecycle', () => {
     expect(facts.find((fact) => fact.factId ===
       'maintenance_burner_closures/burner-1'))
       .toMatchObject({assetNumber: '26', section: 'furnace'});
+    expect(facts.find((fact) => fact.factId ===
+      'asset_operational_conditions/base-202'))
+      .toMatchObject({status: 'restored', assetNumber: '202'});
+  });
+
+  test('a stale burner closure cannot hide its reopened maintenance issue', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'maintenance_records/reopened-burner': {
+        status: 'open',
+        isResolved: false,
+        isDeleted: false,
+        version: 9,
+        assetType: 'furnace',
+        assetNumber: 12,
+        description: 'Burner lockout requires further work.',
+        reopenedAt: '2026-08-30T07:00:00.000Z',
+      },
+      'maintenance_burner_closures/reopened-burner': {
+        sourceMaintenanceId: 'reopened-burner',
+        sourceVersion: 8,
+        updatedAt: '2026-08-30T06:30:00.000Z',
+      },
+    });
+
+    await invoke(memory, 'si-1', startRequest());
+    const facts = memory.store.get(`morning_review_sessions/${sessionId}`).sourceFacts;
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_records/reopened-burner')).toMatchObject({
+      status: 'open',
+      assetNumber: '12',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_burner_closures/reopened-burner')).toMatchObject({
+      status: 'resolved',
+      assetNumber: '12',
+    });
+  });
+
+  test('captures native quality warning states with truthful asset scope', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'quality_warnings/issue_quality-open': qualityWarning(
+        'issue_quality-open',
+      ),
+      'quality_warnings/issue_quality-requested': qualityWarning(
+        'issue_quality-requested',
+        {
+          status: 'closureRequested',
+          closureRequestReason: 'Quality review is ready for adjudication.',
+          closureRequestedAt: '2026-08-30T05:30:00.000Z',
+          closureRequestedByUid: 'ops-1',
+          closureRequestedByName: 'Operations One',
+          updatedAt: '2026-08-30T05:30:00.000Z',
+        },
+      ),
+      'quality_warnings/issue_quality-closed': qualityWarning(
+        'issue_quality-closed',
+        {
+          status: 'closed',
+          closedAt: '2026-08-30T06:00:00.000Z',
+          closedByUid: 'si-1',
+          closedByName: 'SI One',
+          closureDisposition: 'coilFoundAcceptable',
+          decisionReason: 'Inspection confirmed the charge was acceptable.',
+          updatedAt: '2026-08-30T06:00:00.000Z',
+        },
+      ),
+      'quality_warnings/issue_quality-old': qualityWarning(
+        'issue_quality-old',
+        {
+          status: 'closed',
+          createdAt: '2026-08-01T05:00:00.000Z',
+          closedAt: '2026-08-20T06:00:00.000Z',
+          closedByUid: 'si-1',
+          closedByName: 'SI One',
+          closureDisposition: 'coilFoundAcceptable',
+          decisionReason: 'Historical warning already reviewed.',
+          updatedAt: '2026-08-20T06:00:00.000Z',
+        },
+      ),
+      'quality_warnings/issue_quality-shared': qualityWarning(
+        'issue_quality-shared',
+        {
+          affectedAssets: [
+            {assetType: 'furnace', assetNumber: 7},
+            {assetType: 'base', assetNumber: 205},
+          ],
+        },
+      ),
+      'quality_warnings/issue_quality-malformed': qualityWarning(
+        'issue_quality-malformed',
+        {sourceSummary: null},
+      ),
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+    const open = capture.facts.find((fact) =>
+      fact.factId === 'quality_warnings/issue_quality-open');
+    expect(open).toMatchObject({
+      sourceType: 'qualityWarning',
+      section: 'furnace',
+      status: 'open',
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-7',
+      assetNumber: '7',
+    });
+    expect(capture.facts.find((fact) =>
+      fact.factId === 'quality_warnings/issue_quality-requested'))
+      .toMatchObject({status: 'closureRequested'});
+    expect(capture.facts.find((fact) =>
+      fact.factId === 'quality_warnings/issue_quality-closed'))
+      .toMatchObject({
+        status: 'closed',
+        observedAtIso: '2026-08-30T06:00:00.000Z',
+      });
+    expect(capture.facts.some((fact) =>
+      fact.factId === 'quality_warnings/issue_quality-old')).toBe(false);
+    const shared = capture.facts.find((fact) =>
+      fact.factId === 'quality_warnings/issue_quality-shared');
+    expect(shared).toMatchObject({
+      section: 'plantWide',
+      assetClassId: null,
+      assetInstanceId: null,
+      assetNumber: null,
+    });
+    expect(shared.summary).toContain('Furnace 7');
+    expect(shared.summary).toContain('Base 205');
+    expect(capture.sourceCollectionsAtLimit).toContain('quality_warnings');
+  });
+
+  test('captures native inspection findings and installed cover identity', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'inspection_findings/finding-cooler': inspectionFinding(
+        'finding-cooler',
+        {
+          assetTypeKey: 'forceCooler',
+          assetNumber: 4,
+          assetClassId: 'cooler-class',
+          assetInstanceId: 'cooler-4',
+        },
+      ),
+      'inspection_findings/finding-cover': inspectionFinding(
+        'finding-cover',
+        {
+          assetTypeKey: 'innerCover',
+          assetNumber: 205,
+          assetClassId: 'inner-cover-class',
+          assetInstanceId: 'inner-cover-n4',
+          hostAssetNumber: 205,
+          subjectSerialNumber: 'N4',
+          componentNodeId: 'inner-cover-shell',
+          componentName: 'Inner Cover shell',
+          physicalPosition: 'Crown',
+          status: 'awaitingVerification',
+        },
+      ),
+      'inspection_findings/finding-accepted': inspectionFinding(
+        'finding-accepted',
+        {
+          status: 'acceptedCondition',
+          updatedAt: '2026-08-30T06:00:00.000Z',
+        },
+      ),
+      'inspection_findings/finding-old': inspectionFinding(
+        'finding-old',
+        {
+          status: 'verifiedResolved',
+          firstObservedAt: '2026-08-01T05:00:00.000Z',
+          latestObservedAt: '2026-08-02T05:00:00.000Z',
+          updatedAt: '2026-08-20T06:00:00.000Z',
+          lastVerificationOutcome: 'resolved',
+        },
+      ),
+      'inspection_findings/finding-malformed': inspectionFinding(
+        'finding-malformed',
+        {recurrenceCount: 0},
+      ),
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+    expect(capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-cooler')).toMatchObject({
+      sourceType: 'inspectionFinding',
+      section: 'forcedCooler',
+      assetClassName: 'Forced Cooler',
+      assetNumber: '4',
+    });
+    const cover = capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-cover');
+    expect(cover).toMatchObject({
+      section: 'base',
+      status: 'awaitingVerification',
+      assetClassName: 'Inner Cover',
+      assetInstanceId: 'inner-cover-n4',
+      assetNumber: 'N4',
+    });
+    expect(cover.summary).toContain('installed at Base 205');
+    expect(capture.facts.find((fact) =>
+      fact.factId === 'inspection_findings/finding-accepted'))
+      .toMatchObject({
+        status: 'acceptedCondition',
+        observedAtIso: '2026-08-30T06:00:00.000Z',
+      });
+    expect(capture.facts.some((fact) =>
+      fact.factId === 'inspection_findings/finding-old')).toBe(false);
+    expect(capture.sourceCollectionsAtLimit).toContain('inspection_findings');
+  });
+
+  test('bounds incomplete-source markers for existing client readers', async () => {
+    const seed = baseSeed();
+    const longId = 'x'.repeat(241);
+    for (const collection of [
+      'critical_alarms',
+      'maintenance_records',
+      'maintenance_burner_closures',
+      'job_executions',
+      'asset_operational_conditions',
+      'asset_availability_current',
+      'quality_warnings',
+      'inspection_findings',
+      'operational_events',
+      'directives',
+      'morning_review_actions',
+    ]) {
+      seed[`${collection}/${longId}`] = {};
+    }
+    const capture = await collectMorningReviewSourceFacts({
+      db: fakeDb(seed).db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    expect(capture.sourceCollectionsAtLimit).toHaveLength(10);
+    expect(capture.sourceCollectionsAtLimit).toContain(
+      'additional_source_collections',
+    );
+  });
+
+  test('retains active obligations before terminal history at the fact cap', async () => {
+    const seed = {
+      ...baseSeed(),
+      'inspection_findings/finding-active': inspectionFinding(
+        'finding-active',
+      ),
+    };
+    for (let index = 0; index < 220; index += 1) {
+      seed[`maintenance_records/resolved-${index}`] = {
+        status: 'resolved',
+        isResolved: true,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: index + 1,
+        description: `Resolved issue ${index}`,
+        endDate: '2026-08-30T05:00:00.000Z',
+      };
+    }
+    const capture = await collectMorningReviewSourceFacts({
+      db: fakeDb(seed).db,
+      plantDay: sessionId,
+      capturedAt: meetingTime,
+    });
+
+    expect(capture.facts).toHaveLength(220);
+    expect(capture.facts.some((fact) =>
+      fact.factId === 'inspection_findings/finding-active')).toBe(true);
+    expect(capture.sourceCollectionsAtLimit).toContain(
+      'morning_review_compiled_source_facts',
+    );
+  });
+
+  test('paginates source capture without treating an exact page as incomplete', async () => {
+    const seed = baseSeed();
+    for (let index = 0; index < 300; index += 1) {
+      seed[`maintenance_records/${String(index).padStart(4, '0')}`] = {
+        status: 'resolved',
+        isResolved: true,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: index + 1,
+        endDate: '2026-08-01T00:00:00.000Z',
+      };
+    }
+    const exactPage = await collectMorningReviewSourceFacts({
+      db: fakeDb(seed).db,
+      plantDay: sessionId,
+      capturedAt: new Date('2026-08-31T03:00:00.000Z'),
+    });
+    expect(exactPage.sourceCollectionsAtLimit).not.toContain(
+      'maintenance_records',
+    );
+
+    seed['maintenance_records/0300'] = {
+      status: 'open',
+      isResolved: false,
+      isDeleted: false,
+      assetType: 'furnace',
+      assetNumber: 26,
+      description: 'Active issue beyond the first source page.',
+    };
+    const nextPage = await collectMorningReviewSourceFacts({
+      db: fakeDb(seed).db,
+      plantDay: sessionId,
+      capturedAt: new Date('2026-08-31T03:00:00.000Z'),
+    });
+    expect(nextPage.sourceCollectionsAtLimit).not.toContain(
+      'maintenance_records',
+    );
+    expect(nextPage.facts.some((fact) =>
+      fact.factId === 'maintenance_records/0300',
+    )).toBe(true);
+  });
+
+  test('does not present a post-capture mutation as opening-time evidence', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      'maintenance_records/known-at-opening': {
+        status: 'open',
+        isResolved: false,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: 21,
+        description: 'Known before the meeting opened.',
+        updatedAt: '2026-08-31T02:59:00.000Z',
+      },
+      'maintenance_records/changed-after-opening': {
+        status: 'open',
+        isResolved: false,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: 22,
+        description: 'Changed while source capture was running.',
+        updatedAt: '2026-08-31T03:01:00.000Z',
+      },
+    });
+
+    const capture = await collectMorningReviewSourceFacts({
+      db: memory.db,
+      plantDay: sessionId,
+      capturedAt: new Date('2026-08-31T03:00:00.000Z'),
+    });
+
+    expect(capture.facts.some((fact) =>
+      fact.factId === 'maintenance_records/known-at-opening',
+    )).toBe(true);
+    expect(capture.facts.some((fact) =>
+      fact.factId === 'maintenance_records/changed-after-opening',
+    )).toBe(false);
+    expect(capture.sourceCollectionsAtLimit).toContain('maintenance_records');
+  });
+
+  test('uses governed identity and source-specific relevance without duplicate issues', async () => {
+    const hierarchy = {
+      schemaVersion: 3,
+      scope: 'physicalAsset',
+      assetClassId: 'furnace-class',
+      assetClassCode: 'FUR',
+      assetClassName: 'Furnace',
+      nodeId: 'furnace-root',
+      nodeVersion: 1,
+      nodeName: 'Furnace',
+      assetInstanceId: 'furnace-7',
+      assetInstanceVersion: 1,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      componentInstanceId: null,
+      componentInstanceVersion: null,
+      componentTag: null,
+      hierarchyPath: ['Furnace'],
+      ownershipStatus: 'confirmed',
+      ownerDiscipline: 'Mechanical',
+      accountableRoleKeys: ['seniorMechanical'],
+      innerCoverAssociation: null,
+    };
+    const memory = fakeDb({
+      ...baseSeed(),
+      'maintenance_records/hierarchy-ticket': {
+        status: 'open',
+        isResolved: false,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: 7,
+        assetHierarchyRefJson: JSON.stringify(hierarchy),
+        description: 'Furnace 7 burner investigation.',
+        createdAt: '2026-08-29T05:00:00.000Z',
+      },
+      'maintenance_records/still-relevant': {
+        status: 'closedWithoutResolution',
+        isResolved: true,
+        isDeleted: false,
+        issueClosureDisposition: 'stillRelevant',
+        issueClosureReason: 'The shared crane constraint remains active.',
+        assetType: 'base',
+        assetNumber: 113,
+        description: 'Crane constraint remains relevant.',
+        endDate: '2026-08-01T05:00:00.000Z',
+      },
+      'maintenance_records/relevance-ended': {
+        status: 'closedWithoutResolution',
+        isResolved: true,
+        isDeleted: false,
+        issueClosureDisposition: 'relevanceEnded',
+        assetType: 'base',
+        assetNumber: 114,
+        description: 'Old constraint no longer relevant.',
+        endDate: '2026-08-01T05:00:00.000Z',
+        updatedAt: '2026-08-01T05:00:00.000Z',
+      },
+      'maintenance_records/resolved-this-morning': {
+        status: 'resolved',
+        isResolved: true,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: 7,
+        description: 'Draft seal restored before the meeting.',
+        endDate: '2026-08-31T02:30:00.000Z',
+      },
+      'maintenance_records/burner-parent': {
+        status: 'resolved',
+        isResolved: true,
+        isDeleted: false,
+        version: 8,
+        assetType: 'furnace',
+        assetNumber: 26,
+        description: 'Burner lockout restored.',
+        endDate: '2026-08-30T05:00:00.000Z',
+      },
+      'maintenance_burner_closures/burner-evidence': {
+        sourceMaintenanceId: 'burner-parent',
+        sourceVersion: 8,
+        updatedAt: '2026-08-30T05:00:00.000Z',
+      },
+      'asset_availability_current/clear-with-generic-update': {
+        availabilityState: 'clear',
+        assetType: 'furnace',
+        assetNumber: 9,
+        updatedAt: '2026-08-30T05:00:00.000Z',
+      },
+      'job_executions/governed-job': {
+        isCompleted: false,
+        isCancelled: false,
+        isDeleted: false,
+        assetType: 'furnace',
+        assetNumber: 7,
+        templateName: 'Furnace pressure inspection',
+        metadataJson: JSON.stringify({
+          assignmentAssetIdentity: {
+            assetClassId: 'furnace-class',
+            assetInstanceId: 'furnace-7',
+            assetNumber: 7,
+          },
+          jobTemplateSnapshot: {
+            assetHierarchyRefJson: JSON.stringify(hierarchy),
+          },
+        }),
+        createdAt: '2026-08-29T05:00:00.000Z',
+      },
+      'job_executions/metadata-only-job': {
+        isCompleted: false,
+        isCancelled: false,
+        isDeleted: false,
+        templateName: 'Inner Cover inspection',
+        metadataJson: JSON.stringify({
+          assignmentAssetIdentity: {
+            assetClassId: 'inner-cover-class',
+            assetClassName: 'Inner Cover',
+            assetInstanceId: 'inner-cover-n4',
+            assetNumber: 'N4',
+          },
+        }),
+        createdAt: '2026-08-29T05:00:00.000Z',
+      },
+      'maintenance_records/long-summary': {
+        status: 'closedWithoutResolution',
+        isResolved: true,
+        isDeleted: false,
+        issueClosureDisposition: 'stillRelevant',
+        issueClosureReason: 'R'.repeat(420),
+        assetType: 'base',
+        assetNumber: 116,
+        description: 'D'.repeat(420),
+        endDate: '2026-08-01T05:00:00.000Z',
+      },
+      'job_executions/completed-job': {
+        isCompleted: true,
+        isCancelled: false,
+        isDeleted: false,
+        assetType: 'forcedCooler',
+        assetNumber: 8,
+        templateName: 'Forced Cooler alignment',
+        completedAt: '2026-08-30T06:00:00.000Z',
+        updatedAt: '2026-08-30T06:00:00.000Z',
+        createdAt: '2026-08-29T05:00:00.000Z',
+      },
+      'job_executions/cancelled-job': {
+        isCompleted: false,
+        isCancelled: true,
+        isDeleted: false,
+        assetType: 'base',
+        assetNumber: 115,
+        templateName: 'Base seal inspection',
+        cancelledAt: '2026-08-30T06:30:00.000Z',
+        updatedAt: '2026-08-30T06:30:00.000Z',
+        createdAt: '2026-08-29T05:00:00.000Z',
+      },
+      'morning_review_actions/carried-action': {
+        status: 'accepted',
+        text: 'Confirm Furnace 7 burner health.',
+        assetClassId: 'furnace-class',
+        assetClassName: 'Furnace',
+        assetInstanceId: 'furnace-7',
+        assetNumber: '7',
+        createdAt: '2026-08-28T05:00:00.000Z',
+        updatedAt: '2026-08-30T05:00:00.000Z',
+      },
+    });
+
+    await invoke(memory, 'si-1', startRequest());
+    const facts = memory.store.get(`morning_review_sessions/${sessionId}`).sourceFacts;
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_records/hierarchy-ticket')).toMatchObject({
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-7',
+      assetNumber: '7',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'job_executions/governed-job')).toMatchObject({
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-7',
+      assetNumber: '7',
+      assetClassName: 'Furnace',
+      status: 'open',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'job_executions/metadata-only-job')).toMatchObject({
+      assetClassId: 'inner-cover-class',
+      assetClassName: 'Inner Cover',
+      assetInstanceId: 'inner-cover-n4',
+      assetNumber: 'N4',
+      section: 'base',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_records/long-summary').summary.length).toBeLessThanOrEqual(500);
+    expect(facts.find((fact) => fact.factId ===
+      'job_executions/completed-job')).toMatchObject({
+      assetClassName: 'Forced Cooler',
+      status: 'completed',
+      observedAtIso: '2026-08-30T06:00:00.000Z',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'job_executions/cancelled-job')).toMatchObject({
+      assetClassName: 'Base',
+      status: 'cancelled',
+      observedAtIso: '2026-08-30T06:30:00.000Z',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_records/still-relevant')).toMatchObject({
+      status: 'closed without resolution · still relevant',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_records/still-relevant').summary)
+      .toContain('The shared crane constraint remains active.');
+    expect(facts.some((fact) => fact.factId ===
+      'maintenance_records/relevance-ended')).toBe(false);
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_records/resolved-this-morning')).toMatchObject({
+      status: 'resolved',
+      observedAtIso: '2026-08-31T02:30:00.000Z',
+    });
+    expect(facts.some((fact) => fact.factId ===
+      'asset_availability_current/clear-with-generic-update')).toBe(false);
+    expect(facts.some((fact) => fact.factId ===
+      'maintenance_records/burner-parent')).toBe(false);
+    expect(facts.some((fact) => fact.factId ===
+      'maintenance_burner_closures/burner-evidence')).toBe(true);
+    expect(facts.find((fact) => fact.factId ===
+      'maintenance_burner_closures/burner-evidence')).toMatchObject({
+      status: 'resolved',
+    });
+    expect(facts.find((fact) => fact.factId ===
+      'morning_review_actions/carried-action')).toMatchObject({
+      observedAtIso: '2026-08-30T05:00:00.000Z',
+      status: 'accepted',
+    });
+  });
+
+  test('records a joined participant carried-action completion in today meeting', async () => {
+    const priorActionId = 'prior-action';
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`morning_review_actions/${priorActionId}`]: {
+        schemaVersion: 1,
+        actionId: priorActionId,
+        sessionId: '2026-08-30',
+        originPlantDay: '2026-08-30',
+        section: 'furnace',
+        text: 'Confirm Furnace 7 burner health.',
+        assetClassId: 'furnace-class',
+        assetClassName: 'Furnace',
+        assetInstanceId: 'furnace-7',
+        assetNumber: '7',
+        assigneeUid: 'ops-1',
+        assigneeName: 'Operations One',
+        assigneeRole: null,
+        status: 'accepted',
+        version: 1,
+        createdAt: '2026-08-30T03:00:00.000Z',
+      },
+    });
+    await invoke(memory, 'si-1', startRequest());
+    await invoke(memory, 'ops-1', {
+      requestId: IDS.join,
+      operation: 'JOIN_MORNING_REVIEW',
+      sessionId,
+    });
+
+    await invoke(memory, 'ops-1', {
+      requestId: IDS.complete,
+      operation: 'COMPLETE_MORNING_REVIEW_ACTION',
+      sessionId: '2026-08-30',
+      actionId: priorActionId,
+      expectedVersion: 1,
+      reason: 'Burner health verified in service.',
+    });
+
+    expect(memory.store.get(`morning_review_actions/${priorActionId}`))
+      .toMatchObject({status: 'completed', version: 2});
+    expect(memory.store.get(`morning_review_entries/${IDS.complete}`))
+      .toMatchObject({
+        sessionId,
+        kind: 'currentCompliance',
+        sourceReferences: [`morning_review_actions/${priorActionId}`],
+        authorUid: 'ops-1',
+      });
+    expect(memory.store.get(`morning_review_entries/${IDS.complete}`).text)
+      .toContain(priorActionId);
+    expect(memory.store.get(`morning_review_sessions/${sessionId}`).version)
+      .toBe(3);
   });
 
   test('requires explicit attendance and preserves attributed append-only entries', async () => {

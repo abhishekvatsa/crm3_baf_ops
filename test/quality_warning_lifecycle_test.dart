@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
+import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -11,9 +13,11 @@ import 'package:crm3_baf_ops/features/quality/domain/issue_quality_intent.dart';
 import 'package:crm3_baf_ops/features/quality/domain/quality_warning_projection.dart';
 import 'package:crm3_baf_ops/features/quality/presentation/quality_home_screen.dart';
 import 'package:crm3_baf_ops/features/quality/providers/quality_provider.dart';
+import 'package:crm3_baf_ops/features/quality/services/quality_command_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('quality warning projections', () {
@@ -273,6 +277,30 @@ void main() {
   });
 
   group('quality monitoring strict reader', () {
+    test('schema v3 retains the exact governed Base identity', () {
+      final request = QualityMonitoringRequest.fromMap(
+        _monitoring()
+          ..['schemaVersion'] = 3
+          ..['baseAssetClassId'] = 'base-class'
+          ..['baseAssetInstanceId'] = 'base-12'
+          ..['baseAssetInstanceVersion'] = 4,
+        'monitoring-1',
+      );
+
+      expect(request.baseAssetClassId, 'base-class');
+      expect(request.baseAssetInstanceId, 'base-12');
+      expect(request.baseAssetInstanceVersion, 4);
+      expect(
+        () => QualityMonitoringRequest.fromMap(
+          _monitoring()
+            ..['schemaVersion'] = 3
+            ..['baseAssetClassId'] = 'base-class',
+          'monitoring-1',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('derives exact legacy visibility without accepting partial shape', () {
       final active = QualityMonitoringRequest.fromMap(
         _legacyMonitoring(),
@@ -591,6 +619,76 @@ void main() {
     expect(find.text('Monitoring (1)'), findsOneWidget);
     expect(find.text('Base 12 · CRGO M4'), findsOneWidget);
     expect(find.text('No warnings in this view'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('monitoring creation selects only an active governed Base', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2026, 9, 5, 8);
+    final baseClass = _baseClass(now);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_qualityManager()),
+          ),
+          qualityWarningsProvider.overrideWith(
+            (ref) => Stream.value(const <QualityWarning>[]),
+          ),
+          qualityMonitoringRequestsProvider.overrideWith(
+            (ref) => Stream.value(const <QualityMonitoringRequest>[]),
+          ),
+          assetClassesProvider.overrideWith(
+            (ref) =>
+                Stream.value(<AssetClassRecord>[baseClass, _nonBaseClass(now)]),
+          ),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value(<AssetInstanceRecord>[
+              _baseAsset(now, number: 101),
+              _baseAsset(
+                now,
+                number: 102,
+                status: AssetHierarchyStatus.retired,
+              ),
+              _baseAsset(
+                now,
+                number: 7,
+                assetClassId: 'furnace-class',
+                assetClassCode: 'FURNACE',
+                assetClassName: 'Furnace',
+              ),
+            ]),
+          ),
+          qualityCommandServiceProvider.overrideWithValue(
+            QualityCommandService(
+              monitoringScope: () => 'project:si-1',
+              transport: (_) async => throw StateError('not submitted'),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const QualityHomeScreen.monitoring(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New monitoring request'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('quality-monitoring-governed-base')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Base 101'), findsOneWidget);
+    expect(find.text('Base 102'), findsNothing);
+    expect(find.text('Furnace 7'), findsNothing);
+    expect(find.text('Base number'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1078,6 +1176,71 @@ AppUser _qualityViewer() => AppUser(
   roles: const <AppRole>[AppRole.operations],
   isApproved: true,
   createdAt: DateTime.utc(2026, 8, 14),
+);
+
+AppUser _qualityManager() => AppUser(
+  uid: 'si-1',
+  name: 'SI One',
+  email: 'si-1@example.com',
+  roles: const <AppRole>[AppRole.si],
+  isApproved: true,
+  createdAt: DateTime.utc(2026, 9, 5),
+);
+
+AssetClassRecord _baseClass(DateTime now) => AssetClassRecord(
+  id: 'base-class',
+  code: 'BASE',
+  name: 'Base',
+  majorArea: 'BAF shop',
+  legacyAssetTypeKey: 'base',
+  status: AssetHierarchyStatus.active,
+  version: 2,
+  createdAt: now,
+  createdByUid: 'admin-1',
+  updatedAt: now,
+  updatedByUid: 'admin-1',
+  lastMutationId: 'base-class-mutation',
+);
+
+AssetClassRecord _nonBaseClass(DateTime now) => AssetClassRecord(
+  id: 'furnace-class',
+  code: 'FURNACE',
+  name: 'Furnace',
+  majorArea: 'BAF shop',
+  legacyAssetTypeKey: 'furnace',
+  status: AssetHierarchyStatus.active,
+  version: 2,
+  createdAt: now,
+  createdByUid: 'admin-1',
+  updatedAt: now,
+  updatedByUid: 'admin-1',
+  lastMutationId: 'furnace-class-mutation',
+);
+
+AssetInstanceRecord _baseAsset(
+  DateTime now, {
+  required int number,
+  String assetClassId = 'base-class',
+  String assetClassCode = 'BASE',
+  String assetClassName = 'Base',
+  AssetHierarchyStatus status = AssetHierarchyStatus.active,
+}) => AssetInstanceRecord(
+  id: '${assetClassName.toLowerCase()}-$number',
+  assetClassId: assetClassId,
+  assetClassCode: assetClassCode,
+  assetClassName: assetClassName,
+  assetNumber: number,
+  name: '$assetClassName $number',
+  serviceState: AssetServiceState.inService,
+  ownershipStatus: AssetOwnershipStatus.confirmed,
+  ownerDiscipline: 'Operations',
+  accountableRoleKeys: const <String>['shiftSupervisor'],
+  status: status,
+  activeComponentCount: 0,
+  version: 4,
+  createdAt: now,
+  updatedAt: now,
+  lastMutationId: 'asset-$number-mutation',
 );
 
 ChargeAbnormality _linkedIssueAbnormality(ReannealingStatus status) {

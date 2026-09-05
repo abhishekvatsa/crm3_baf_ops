@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/morning_review/domain/morning_review_models.dart';
 import 'package:crm3_baf_ops/features/morning_review/services/morning_review_command_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -168,5 +169,46 @@ void main() {
     ]) {
       expect(isUncertainMorningReviewCommandCode(code), isFalse, reason: code);
     }
+  });
+
+  test('receipt identity must match the submitted session', () {
+    final receipt = <String, dynamic>{
+      'ok': true,
+      'requestId': requestId,
+      'operation': MorningReviewCommand.join.wireName,
+      'sessionId': sessionId,
+      'entityId': '${sessionId}_operator-1',
+      'status': 'joined',
+      'version': 2,
+      'committedAt': '2026-08-31T03:00:00.000Z',
+      'idempotentReplay': true,
+    };
+    expect(
+      MorningReviewCommandResult.fromMap(
+        receipt,
+        expectedRequestId: requestId,
+        expectedOperation: MorningReviewCommand.join,
+        expectedSessionId: sessionId,
+      ).sessionId,
+      sessionId,
+    );
+    expect(
+      () => MorningReviewCommandResult.fromMap(
+        {...receipt, 'sessionId': '2026-09-01'},
+        expectedRequestId: requestId,
+        expectedOperation: MorningReviewCommand.join,
+        expectedSessionId: sessionId,
+      ),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+    expect(
+      () => MorningReviewCommandResult.fromMap(
+        {...receipt, 'status': 'finalized'},
+        expectedRequestId: requestId,
+        expectedOperation: MorningReviewCommand.join,
+        expectedSessionId: sessionId,
+      ),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
   });
 }

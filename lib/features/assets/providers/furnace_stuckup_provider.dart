@@ -25,6 +25,7 @@ final assetConditionDeclarationsProvider =
     StreamProvider<List<AssetConditionDeclarationRecord>>((ref) {
       return FirebaseFirestore.instance
           .collection('asset_condition_declarations')
+          .where('conditionType', isEqualTo: 'innerCoverBulged')
           .snapshots()
           .map((snapshot) {
             final records =

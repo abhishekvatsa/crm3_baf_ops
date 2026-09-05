@@ -898,7 +898,7 @@ typedef _MatrixCellBuilder =
       int position,
     );
 
-class _MatrixFrame extends StatelessWidget {
+class _MatrixFrame extends StatefulWidget {
   const _MatrixFrame({
     required this.headers,
     required this.furnaces,
@@ -916,135 +916,276 @@ class _MatrixFrame extends StatelessWidget {
   final double cellWidth;
 
   @override
+  State<_MatrixFrame> createState() => _MatrixFrameState();
+}
+
+class _MatrixFrameState extends State<_MatrixFrame> {
+  late final ScrollController _headerHorizontalController;
+  late final ScrollController _bodyHorizontalController;
+  late final ScrollController _verticalController;
+  bool _synchronizingHorizontalScroll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerHorizontalController = ScrollController();
+    _bodyHorizontalController = ScrollController();
+    _verticalController = ScrollController();
+    _headerHorizontalController.addListener(_syncHeaderToBody);
+    _bodyHorizontalController.addListener(_syncBodyToHeader);
+  }
+
+  @override
+  void dispose() {
+    _headerHorizontalController
+      ..removeListener(_syncHeaderToBody)
+      ..dispose();
+    _bodyHorizontalController
+      ..removeListener(_syncBodyToHeader)
+      ..dispose();
+    _verticalController.dispose();
+    super.dispose();
+  }
+
+  void _syncHeaderToBody() => _synchronizeHorizontalControllers(
+    source: _headerHorizontalController,
+    target: _bodyHorizontalController,
+  );
+
+  void _syncBodyToHeader() => _synchronizeHorizontalControllers(
+    source: _bodyHorizontalController,
+    target: _headerHorizontalController,
+  );
+
+  void _synchronizeHorizontalControllers({
+    required ScrollController source,
+    required ScrollController target,
+  }) {
+    if (_synchronizingHorizontalScroll ||
+        !source.hasClients ||
+        !target.hasClients ||
+        !target.position.hasContentDimensions) {
+      return;
+    }
+    final targetOffset = source.offset.clamp(
+      target.position.minScrollExtent,
+      target.position.maxScrollExtent,
+    );
+    if ((target.offset - targetOffset).abs() < 0.5) return;
+    _synchronizingHorizontalScroll = true;
+    target.jumpTo(targetOffset);
+    _synchronizingHorizontalScroll = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final identityWidth = (168.0 * textScale).clamp(168.0, 220.0);
-    final width = identityWidth + headers.length * cellWidth;
-    return Scrollbar(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: width,
-          child: ListView.builder(
-            padding: const EdgeInsets.only(bottom: BafSpacing.xl),
-            itemCount: furnaces.length + 1,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return Container(
-                  height: 48 * textScale.clamp(1.0, double.infinity),
-                  color: BafColors.surfaceStrong,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: identityWidth,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Furnace',
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ),
-                      ),
-                      for (final header in headers)
-                        SizedBox(
-                          width: cellWidth,
-                          child: Text(
-                            header,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              }
-              final furnace = furnaces[index - 1];
-              final draft = drafts[furnace.id]!;
-              return Container(
-                height: 58 * textScale.clamp(1.0, double.infinity),
+    final headerHeight = 48 * textScale.clamp(1.0, double.infinity);
+    final rowHeight = 58 * textScale.clamp(1.0, double.infinity);
+    final gridWidth = widget.headers.length * widget.cellWidth;
+    return Column(
+      children: [
+        SizedBox(
+          height: headerHeight,
+          child: Row(
+            children: [
+              Container(
+                key: const ValueKey('furnace-audit-fixed-corner'),
+                width: identityWidth,
                 decoration: const BoxDecoration(
-                  color: BafColors.card,
-                  border: Border(bottom: BorderSide(color: BafColors.border)),
+                  color: BafColors.surfaceStrong,
+                  border: Border(
+                    right: BorderSide(color: BafColors.borderStrong),
+                    bottom: BorderSide(color: BafColors.border),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: identityWidth,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'Furnace',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  key: const ValueKey('furnace-audit-scrollable-header'),
+                  controller: _headerHorizontalController,
+                  scrollDirection: Axis.horizontal,
+                  child: Container(
+                    width: gridWidth,
+                    height: headerHeight,
+                    decoration: const BoxDecoration(
+                      color: BafColors.surfaceStrong,
+                      border: Border(
+                        bottom: BorderSide(color: BafColors.border),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < widget.headers.length;
+                          index++
+                        )
+                          SizedBox(
+                            key: ValueKey('furnace-audit-header-${index + 1}'),
+                            width: widget.cellWidth,
+                            child: Text(
+                              widget.headers[index],
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Scrollbar(
+            controller: _verticalController,
+            child: SingleChildScrollView(
+              key: const ValueKey('furnace-audit-vertical-scroll'),
+              controller: _verticalController,
+              padding: const EdgeInsets.only(bottom: BafSpacing.xl),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    key: const ValueKey('furnace-audit-fixed-furnace-column'),
+                    width: identityWidth,
+                    child: Column(
+                      children: [
+                        for (final furnace in widget.furnaces)
+                          _buildFurnaceIdentityRow(
+                            furnace: furnace,
+                            draft: widget.drafts[furnace.id]!,
+                            rowHeight: rowHeight,
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      key: const ValueKey('furnace-audit-scrollable-grid'),
+                      controller: _bodyHorizontalController,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: gridWidth,
+                        child: Column(
                           children: [
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Furnace ${furnace.assetNumber.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  Text(
-                                    draft.sourceAt == null
-                                        ? 'No prior audit'
-                                        : DateFormat(
-                                          'dd MMM, HH:mm',
-                                        ).format(draft.sourceAt!.toLocal()),
-                                    style: const TextStyle(
-                                      color: BafColors.textSecondary,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
+                            for (final furnace in widget.furnaces)
+                              _buildConditionRow(
+                                furnace: furnace,
+                                draft: widget.drafts[furnace.id]!,
+                                rowHeight: rowHeight,
                               ),
-                            ),
-                            Tooltip(
-                              message:
-                                  draft.dirty
-                                      ? 'This Furnace is ready to record'
-                                      : 'Confirm this Furnace as reviewed',
-                              child: IconButton(
-                                visualDensity: VisualDensity.compact,
-                                onPressed:
-                                    furnace.serviceState ==
-                                            AssetServiceState.outOfService
-                                        ? null
-                                        : () => onConfirm(furnace),
-                                icon: Icon(
-                                  draft.dirty
-                                      ? Icons.task_alt_rounded
-                                      : Icons.fact_check_outlined,
-                                  size: 19,
-                                  color:
-                                      draft.dirty
-                                          ? BafColors.success
-                                          : BafColors.textSecondary,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
                     ),
-                    for (
-                      var position = 1;
-                      position <= headers.length;
-                      position++
-                    )
-                      SizedBox(
-                        width: cellWidth,
-                        child: cellBuilder(furnace, draft, position),
-                      ),
-                  ],
-                ),
-              );
-            },
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildFurnaceIdentityRow({
+    required AssetInstanceRecord furnace,
+    required _FurnaceAuditDraft draft,
+    required double rowHeight,
+  }) {
+    return Container(
+      key: ValueKey('furnace-audit-row-label-${furnace.id}'),
+      height: rowHeight,
+      decoration: const BoxDecoration(
+        color: BafColors.card,
+        border: Border(
+          right: BorderSide(color: BafColors.borderStrong),
+          bottom: BorderSide(color: BafColors.border),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Furnace ${furnace.assetNumber.toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  draft.sourceAt == null
+                      ? 'No prior audit'
+                      : DateFormat(
+                        'dd MMM, HH:mm',
+                      ).format(draft.sourceAt!.toLocal()),
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Tooltip(
+            message:
+                draft.dirty
+                    ? 'This Furnace is ready to record'
+                    : 'Confirm this Furnace as reviewed',
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed:
+                  furnace.serviceState == AssetServiceState.outOfService
+                      ? null
+                      : () => widget.onConfirm(furnace),
+              icon: Icon(
+                draft.dirty
+                    ? Icons.task_alt_rounded
+                    : Icons.fact_check_outlined,
+                size: 19,
+                color:
+                    draft.dirty ? BafColors.success : BafColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConditionRow({
+    required AssetInstanceRecord furnace,
+    required _FurnaceAuditDraft draft,
+    required double rowHeight,
+  }) {
+    return Container(
+      height: rowHeight,
+      decoration: const BoxDecoration(
+        color: BafColors.card,
+        border: Border(bottom: BorderSide(color: BafColors.border)),
+      ),
+      child: Row(
+        children: [
+          for (var position = 1; position <= widget.headers.length; position++)
+            SizedBox(
+              width: widget.cellWidth,
+              child: widget.cellBuilder(furnace, draft, position),
+            ),
+        ],
       ),
     );
   }

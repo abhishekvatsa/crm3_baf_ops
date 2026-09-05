@@ -49,6 +49,75 @@ function seedFurnaceHierarchy(store) {
   }
 }
 
+function seedInstalledInnerCoverHierarchy(store) {
+  store.seed('asset_classes/class-base', {
+    schemaVersion: 1,
+    assetClassId: 'class-base',
+    status: 'active',
+    legacyAssetTypeKey: 'base',
+  });
+  store.seed('asset_classes/class-inner-cover', {
+    schemaVersion: 1,
+    assetClassId: 'class-inner-cover',
+    status: 'active',
+    legacyAssetTypeKey: 'innerCover',
+  });
+  store.seed('asset_hierarchy_nodes/inner-cover-shell', {
+    schemaVersion: 1,
+    nodeId: 'inner-cover-shell',
+    assetClassId: 'class-inner-cover',
+    nodeType: 'component',
+    name: 'Inner Cover shell',
+    version: 3,
+    status: 'active',
+  });
+  store.seed('asset_instances/base-205', {
+    schemaVersion: 1,
+    assetInstanceId: 'base-205',
+    assetClassId: 'class-base',
+    assetNumber: 205,
+    name: 'Base 205',
+    version: 2,
+    status: 'active',
+  });
+  store.seed('inner_cover_profiles/inner-cover-n4', {
+    schemaVersion: 1,
+    innerCoverId: 'inner-cover-n4',
+    assetClassId: 'class-inner-cover',
+    serialNumber: 'N4',
+    lifecycleState: 'installed',
+    currentBaseAssetInstanceId: 'base-205',
+    currentBaseAssetNumber: 205,
+    currentLinkageId: 'link-n4-base-205',
+    version: 7,
+  });
+  store.seed('base_inner_cover_assignments/base-205', {
+    schemaVersion: 1,
+    baseAssetInstanceId: 'base-205',
+    baseAssetClassId: 'class-base',
+    baseAssetNumber: 205,
+    baseAssetName: 'Base 205',
+    innerCoverId: 'inner-cover-n4',
+    innerCoverSerialNumber: 'N4',
+    linkageId: 'link-n4-base-205',
+    linkedAt: '2026-08-21T04:00:00.000Z',
+    version: 4,
+  });
+  store.seed('inner_cover_linkages/link-n4-base-205', {
+    schemaVersion: 1,
+    linkageId: 'link-n4-base-205',
+    baseAssetInstanceId: 'base-205',
+    baseAssetClassId: 'class-base',
+    baseAssetNumber: 205,
+    baseAssetName: 'Base 205',
+    innerCoverId: 'inner-cover-n4',
+    innerCoverSerialNumber: 'N4',
+    installedAt: '2026-08-21T04:00:00.000Z',
+    active: true,
+    version: 1,
+  });
+}
+
 function definition(overrides = {}) {
   return {
     schemaVersion: 1,
@@ -214,6 +283,194 @@ describe('cross-asset inspection campaigns', () => {
     });
   });
 
+  test('rejects evidence after the governed asset identity version changes', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    store.seed('asset_instances/furnace-1', {
+      ...store.read('asset_instances/furnace-1'),
+      version: 2,
+    });
+
+    await expect(service.execute(observation(), {
+      actor: observer,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-asset-context-changed'},
+    });
+    expect(store.read('inspection_observations/observation-1')).toBeNull();
+  });
+
+  test('freezes installed Inner Cover identity by Base and rejects changed governed context', async () => {
+    const store = new MemoryWorkflowStore();
+    seedInstalledInnerCoverHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const mechanical = seedActor(store, 'mechanical-1', ['seniorMechanical']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition({
+      commandId: 'definition-inner-cover',
+      overrides: {
+        code: 'INNER_COVER_SHELL_CONDITION',
+        title: 'Installed Inner Cover shell condition',
+        description: 'Audit installed Inner Covers at their governed Base positions.',
+        assetTypeKeys: ['innerCover'],
+        assetClassIds: ['class-inner-cover'],
+        componentNodeIds: ['inner-cover-shell'],
+        valueType: 'boolean',
+        unit: null,
+        minimumValue: null,
+        maximumValue: null,
+        preconditions: [],
+      },
+    }), {actor: admin, serverNow: at('2026-08-21T04:05:00Z')});
+    const createResult = await service.execute({
+      commandId: 'campaign-inner-cover',
+      commandType: 'createInspectionCampaign',
+      aggregateId: 'campaign-inner-cover-shell',
+      expectedVersion: 0,
+      payload: {
+        definitionId: 'inspection-definition-furnace-pt',
+        definitionVersion: 1,
+        purpose: 'Audit each currently installed Inner Cover without losing its Base context.',
+        assetTypeKey: 'innerCover',
+        assetClassId: 'class-inner-cover',
+        populationMode: 'installedInnerCoversByBase',
+        hostAssetClassId: 'class-base',
+        targetAssetNumbers: [205],
+        expectedPopulation: 1,
+        physicalPositionLabels: ['Shell'],
+        baselineCampaignId: null,
+        observerRoleKeys: ['seniorMechanical'],
+        reason: 'Open the governed installed Inner Cover audit.',
+      },
+    }, {actor: admin, serverNow: at('2026-08-21T04:10:00Z')});
+    expect(createResult).toMatchObject({
+      resultKey: 'inspection-campaign-created',
+      aggregateVersion: 1,
+    });
+    const target = store.read('inspection_campaigns/campaign-inner-cover-shell')
+      .targetPopulation[0];
+    expect(target).toMatchObject({
+      assetTypeKey: 'innerCover',
+      assetNumber: 205,
+      assetInstanceId: 'inner-cover-n4',
+      hostAssetNumber: 205,
+      subjectSerialNumber: 'N4',
+      linkageId: 'link-n4-base-205',
+      assetInstanceVersion: 7,
+      hostAssetInstanceVersion: 2,
+      linkageVersion: 1,
+      linkedAt: '2026-08-21T04:00:00.000Z',
+    });
+    expect(target.targetKey).toBe(
+      'class-inner-cover:inner-cover-n4|inner-cover-shell|Shell|link:link-n4-base-205',
+    );
+
+    const record = (commandId, expectedVersion) => ({
+      commandId,
+      commandType: 'recordInspectionObservation',
+      aggregateId: 'campaign-inner-cover-shell',
+      expectedVersion,
+      payload: {
+        observationId: commandId,
+        targetKey: target.targetKey,
+        definitionVersion: 1,
+        assetTypeKey: 'innerCover',
+        assetNumber: 205,
+        assetClassId: 'class-inner-cover',
+        assetInstanceId: 'inner-cover-n4',
+        componentNodeId: 'inner-cover-shell',
+        componentNodeVersion: 3,
+        componentName: 'Inner Cover shell',
+        hierarchyPath: ['Inner Cover', 'Shell'],
+        physicalPosition: 'Shell',
+        observedAt: '2026-08-21T05:00:00.000Z',
+        value: {
+          valueType: 'boolean',
+          numericValue: null,
+          booleanValue: true,
+          textValue: null,
+          choiceValue: null,
+        },
+        unit: null,
+        operatingConditions: {},
+        chargeNo: null,
+        note: 'Observed against the serial shown beside Base 205.',
+        evidenceUrls: [],
+        supersedesObservationId: null,
+      },
+    });
+    const legacyCompatibleRecord = record('inner-cover-observation-1', 1);
+    delete legacyCompatibleRecord.payload.targetKey;
+    legacyCompatibleRecord.payload.assetClassId = null;
+    legacyCompatibleRecord.payload.assetInstanceId = null;
+    await expect(service.execute(legacyCompatibleRecord, {
+      actor: mechanical,
+      serverNow: at('2026-08-21T05:05:00Z'),
+    })).resolves.toMatchObject({
+      resultKey: 'inspection-observation-recorded',
+      aggregateVersion: 2,
+    });
+    expect(store.read('inspection_observations/inner-cover-observation-1'))
+      .toMatchObject({
+        hostAssetNumber: 205,
+        subjectSerialNumber: 'N4',
+        linkageId: 'link-n4-base-205',
+      });
+
+    const profile = store.read('inner_cover_profiles/inner-cover-n4');
+    store.seed('inner_cover_profiles/inner-cover-n4', {
+      ...profile,
+      version: 8,
+    });
+    await expect(service.execute(record('inner-cover-observation-profile-changed', 2), {
+      actor: mechanical,
+      serverNow: at('2026-08-21T05:08:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-inner-cover-context-changed'},
+    });
+    store.seed('inner_cover_profiles/inner-cover-n4', profile);
+
+    const linkage = store.read('inner_cover_linkages/link-n4-base-205');
+    store.seed('inner_cover_linkages/link-n4-base-205', {
+      ...linkage,
+      version: 2,
+    });
+    await expect(service.execute(record('inner-cover-observation-link-version-changed', 2), {
+      actor: mechanical,
+      serverNow: at('2026-08-21T05:09:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-inner-cover-context-changed'},
+    });
+    store.seed('inner_cover_linkages/link-n4-base-205', linkage);
+
+    store.seed('inner_cover_linkages/link-n4-base-205', {
+      ...linkage,
+      active: false,
+    });
+    await expect(service.execute(record('inner-cover-observation-2', 2), {
+      actor: mechanical,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-inner-cover-context-changed'},
+    });
+  });
+
   test('corrections are immutable, target-bound and preserve the latest timestamp', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceHierarchy(store);
@@ -255,6 +512,19 @@ describe('cross-asset inspection campaigns', () => {
       observationCount: 2,
       latestObservationAt: '2026-08-21T05:00:00.000Z',
     });
+
+    await expect(service.execute(observation({
+      commandId: 'stale-correction',
+      observationId: 'stale-correction',
+      expectedVersion: 3,
+      numericValue: 3.1,
+      supersedesObservationId: 'observation-1',
+    }), {actor: observer, serverNow: at('2026-08-21T05:30:00Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inspection-correction-not-current'},
+      });
+    expect(store.read('inspection_observations/stale-correction')).toBeNull();
   });
 
   test('blocks silent partial closure and links a finding only to the same asset', async () => {
@@ -371,6 +641,100 @@ describe('cross-asset inspection campaigns', () => {
       overrides: {componentNodeIds: ['base-water-jacket']},
     }), {actor: admin, serverNow: at('2026-08-21T04:00:00Z')}))
       .rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
+  test('honours an exact definition class and registry document identity', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    store.seed('asset_classes/class-furnace-alternate', {
+      schemaVersion: 1,
+      assetClassId: 'class-furnace-alternate',
+      status: 'active',
+      legacyAssetTypeKey: 'furnace',
+    });
+    store.seed('asset_instances/furnace-alternate-1', {
+      schemaVersion: 1,
+      assetInstanceId: 'furnace-alternate-1',
+      assetClassId: 'class-furnace-alternate',
+      assetNumber: 1,
+      name: 'Alternate Furnace 1',
+      version: 1,
+      status: 'active',
+    });
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition({
+      overrides: {assetClassIds: ['class-furnace']},
+    }), {actor: admin, serverNow: at('2026-08-21T04:00:00Z')});
+    const wrongClassCampaign = createCampaign({targetAssetNumbers: [1]});
+    wrongClassCampaign.payload.assetClassId = 'class-furnace-alternate';
+    await expect(service.execute(wrongClassCampaign, {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    })).rejects.toMatchObject({code: 'failed-precondition'});
+
+    store.seed('asset_instances/furnace-1', {
+      ...store.read('asset_instances/furnace-1'),
+      assetInstanceId: 'different-document-identity',
+    });
+    await expect(service.execute(createCampaign({
+      commandId: 'campaign-malformed-identity',
+      campaignId: 'campaign-malformed-identity',
+      targetAssetNumbers: [1],
+    }), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:11:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-campaign-asset-identity-malformed'},
+    });
+  });
+
+  test('allows an exact class-only definition without weakening its scope', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition({
+      overrides: {assetTypeKeys: [], assetClassIds: ['class-furnace']},
+    }), {actor: admin, serverNow: at('2026-08-21T04:00:00Z')});
+
+    await expect(service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    })).resolves.toMatchObject({
+      resultKey: 'inspection-campaign-created',
+      aggregateVersion: 1,
+    });
+  });
+
+  test('binds an explicit target key to its governed component and position', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    const request = observation();
+    request.payload.targetKey = store.read(
+      'inspection_campaigns/campaign-furnace-pt-august',
+    ).targetPopulation[0].targetKey;
+    request.payload.physicalPosition = 'Different test point';
+
+    await expect(service.execute(request, {
+      actor: observer,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'inspection-target-not-in-population'},
+    });
   });
 
   test('adds later campaign targets without hiding the population change', async () => {

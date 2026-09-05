@@ -271,6 +271,14 @@ class InnerCoverProfile {
   final InnerCoverOriginClassification originClassification;
   final InnerCoverLifecycleState lifecycleState;
   final InnerCoverRetirementCondition? retirementCondition;
+  final DateTime? retiredAt;
+  final String? retiredByUid;
+  final String? retiredByName;
+  final String? retirementReason;
+  final DateTime? returnedToInspectionAt;
+  final String? returnedToInspectionByUid;
+  final String? returnedToInspectionByName;
+  final String? returnToInspectionReason;
   final InnerCoverTraceabilityGrade traceabilityGrade;
   final String? supplierOrFabricator;
   final DateTime? receivedOrCompletedOn;
@@ -302,6 +310,14 @@ class InnerCoverProfile {
         InnerCoverOriginClassification.legacyUndocumented,
     required this.lifecycleState,
     this.retirementCondition,
+    this.retiredAt,
+    this.retiredByUid,
+    this.retiredByName,
+    this.retirementReason,
+    this.returnedToInspectionAt,
+    this.returnedToInspectionByUid,
+    this.returnedToInspectionByName,
+    this.returnToInspectionReason,
     required this.traceabilityGrade,
     this.supplierOrFabricator,
     this.receivedOrCompletedOn,
@@ -372,17 +388,102 @@ class InnerCoverProfile {
       field: 'retirementCondition',
       source: source,
     );
-    final retirementEvidenceAllowed = const <InnerCoverLifecycleState>{
+    final retiredAt = readOptionalPersistedDateTime(
+      map['retiredAt'],
+      field: 'retiredAt',
+      source: source,
+    );
+    final retiredByUid = readOptionalPersistedString(
+      map['retiredByUid'],
+      field: 'retiredByUid',
+      source: source,
+    );
+    final retiredByName = readOptionalPersistedString(
+      map['retiredByName'],
+      field: 'retiredByName',
+      source: source,
+    );
+    final retirementReason = readOptionalPersistedString(
+      map['retirementReason'],
+      field: 'retirementReason',
+      source: source,
+    );
+    final retirementAuthority = <Object?>[
+      retiredAt,
+      retiredByUid,
+      retiredByName,
+      retirementReason,
+    ];
+    final completeRetirementAuthority = retirementAuthority.every(
+      (value) => value != null,
+    );
+    final absentRetirementAuthority = retirementAuthority.every(
+      (value) => value == null,
+    );
+    if ((!completeRetirementAuthority && !absentRetirementAuthority) ||
+        (completeRetirementAuthority && retirementCondition == null)) {
+      throw PersistedDataFormatException(
+        field: 'retiredAt',
+        source: source,
+        detail: 'retirement authority and condition must be complete together',
+      );
+    }
+    final returnedToInspectionAt = readOptionalPersistedDateTime(
+      map['returnedToInspectionAt'],
+      field: 'returnedToInspectionAt',
+      source: source,
+    );
+    final returnedToInspectionByUid = readOptionalPersistedString(
+      map['returnedToInspectionByUid'],
+      field: 'returnedToInspectionByUid',
+      source: source,
+    );
+    final returnedToInspectionByName = readOptionalPersistedString(
+      map['returnedToInspectionByName'],
+      field: 'returnedToInspectionByName',
+      source: source,
+    );
+    final returnToInspectionReason = readOptionalPersistedString(
+      map['returnToInspectionReason'],
+      field: 'returnToInspectionReason',
+      source: source,
+    );
+    final returnAuthority = <Object?>[
+      returnedToInspectionAt,
+      returnedToInspectionByUid,
+      returnedToInspectionByName,
+      returnToInspectionReason,
+    ];
+    final completeReturnAuthority = returnAuthority.every(
+      (value) => value != null,
+    );
+    final absentReturnAuthority = returnAuthority.every(
+      (value) => value == null,
+    );
+    if ((!completeReturnAuthority && !absentReturnAuthority) ||
+        (completeReturnAuthority && retirementCondition == null) ||
+        (retiredAt != null &&
+            returnedToInspectionAt != null &&
+            returnedToInspectionAt.isBefore(retiredAt))) {
+      throw PersistedDataFormatException(
+        field: 'returnedToInspectionAt',
+        source: source,
+        detail: 'return-to-inspection evidence is incomplete or inconsistent',
+      );
+    }
+    final currentlyRetired = const <InnerCoverLifecycleState>{
       InnerCoverLifecycleState.retiredForSalvage,
       InnerCoverLifecycleState.partiallyDismantled,
       InnerCoverLifecycleState.fullyConsumedAsDonor,
       InnerCoverLifecycleState.disposed,
     }.contains(state);
-    if (retirementCondition != null && !retirementEvidenceAllowed) {
+    if (retirementCondition != null &&
+        !currentlyRetired &&
+        !completeReturnAuthority) {
       throw PersistedDataFormatException(
         field: 'retirementCondition',
         source: source,
-        detail: 'is allowed only after retirement for salvage',
+        detail: 'requires a retained retirement or return-to-inspection record',
       );
     }
     final sourceType = readRequiredPersistedEnum(
@@ -538,6 +639,8 @@ class InnerCoverProfile {
             incorporatedOn != null &&
             receivedOrCompletedOn.isAfter(incorporatedOn)) ||
         (acceptedAt?.isAfter(updatedAt) ?? false) ||
+        (retiredAt?.isAfter(updatedAt) ?? false) ||
+        (returnedToInspectionAt?.isAfter(updatedAt) ?? false) ||
         (receivedOrCompletedOn != null &&
             acceptedAt != null &&
             receivedOrCompletedOn.isAfter(acceptedAt))) {
@@ -570,6 +673,14 @@ class InnerCoverProfile {
       originClassification: originClassification,
       lifecycleState: state,
       retirementCondition: retirementCondition,
+      retiredAt: retiredAt,
+      retiredByUid: retiredByUid,
+      retiredByName: retiredByName,
+      retirementReason: retirementReason,
+      returnedToInspectionAt: returnedToInspectionAt,
+      returnedToInspectionByUid: returnedToInspectionByUid,
+      returnedToInspectionByName: returnedToInspectionByName,
+      returnToInspectionReason: returnToInspectionReason,
       traceabilityGrade: traceabilityGrade,
       supplierOrFabricator: readOptionalPersistedString(
         map['supplierOrFabricator'],
@@ -753,6 +864,8 @@ class InnerCoverLinkage {
   final String installedByUid;
   final String installedByName;
   final DateTime? removedAt;
+  final String? removedByUid;
+  final String? removedByName;
   final String? removalAction;
   final String? removalReason;
   final bool active;
@@ -769,6 +882,8 @@ class InnerCoverLinkage {
     required this.installedByUid,
     required this.installedByName,
     this.removedAt,
+    this.removedByUid,
+    this.removedByName,
     this.removalAction,
     this.removalReason,
     required this.active,
@@ -803,6 +918,16 @@ class InnerCoverLinkage {
       field: 'removedAt',
       source: source,
     );
+    final removedByUid = readOptionalPersistedString(
+      map['removedByUid'],
+      field: 'removedByUid',
+      source: source,
+    );
+    final removedByName = readOptionalPersistedString(
+      map['removedByName'],
+      field: 'removedByName',
+      source: source,
+    );
     final removalAction = readOptionalPersistedString(
       map['removalAction'],
       field: 'removalAction',
@@ -815,10 +940,14 @@ class InnerCoverLinkage {
     );
     if ((active &&
             (removedAt != null ||
+                removedByUid != null ||
+                removedByName != null ||
                 removalAction != null ||
                 removalReason != null)) ||
         (!active &&
             (removedAt == null ||
+                removedByUid == null ||
+                removedByName == null ||
                 removalAction == null ||
                 removalReason == null))) {
       throw PersistedDataFormatException(
@@ -872,6 +1001,8 @@ class InnerCoverLinkage {
         source: source,
       ),
       removedAt: removedAt,
+      removedByUid: removedByUid,
+      removedByName: removedByName,
       removalAction: removalAction,
       removalReason: removalReason,
       active: active,

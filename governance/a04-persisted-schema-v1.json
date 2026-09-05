@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "51E1ECC7DB0C24759989EC91E8B651B12A89A32C7F8927B081884C274F14726F",
+  "inventoryDigest": "05BF7B7EB5594983A51F460159E9E0154CDFCAFE616B7A0352362E32044B1FDD",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "13CEC51CB6204D9BA4559CA46DD247BB062ED9067E11074DFC8A43D07C8D3C57",
+  "a05ManifestSha256": "18760F5BF91B36C58E3A52EF0622D9F6E492166C4D7F845CD12CAA9534443DFD",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1227,6 +1227,15 @@
       "malformedDisposition": "fail closed",
       "compatibility": "documented historical aliases only",
       "regression": "test/a05_module_registry_integrity_test.dart"
+    },
+    {
+      "id": "morning-review-command-pending-identity",
+      "file": "lib/features/morning_review/services/morning_review_command_idempotency_store.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "actor-scoped durable identity of one unconfirmed Morning Review command",
+      "malformedDisposition": "fail closed and retain the pending bytes; never rotate an uncertain request ID or submit a different command over it",
+      "compatibility": "wholly absent pre-feature pending identity only",
+      "regression": "test/morning_review_command_idempotency_store_test.dart"
     },
     {
       "id": "morning-review-command-receipt",

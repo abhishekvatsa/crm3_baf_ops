@@ -70,36 +70,34 @@ class _JsonPanelState extends State<_JsonPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.title,
-                          style: const TextStyle(
-                            color: BafColors.textPrimary,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14.5,
-                          ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final copy = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
+                          color: BafColors.textPrimary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14.5,
                         ),
-                        const SizedBox(height: BafSpacing.xs),
-                        Text(
-                          widget.subtitle,
-                          style: const TextStyle(
-                            color: BafColors.textSecondary,
-                            fontSize: 12.5,
-                            height: 1.3,
-                          ),
+                      ),
+                      const SizedBox(height: BafSpacing.xs),
+                      Text(
+                        widget.subtitle,
+                        style: const TextStyle(
+                          color: BafColors.textSecondary,
+                          fontSize: 12.5,
+                          height: 1.3,
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: BafSpacing.sm),
-                  Wrap(
+                      ),
+                    ],
+                  );
+                  final actions = Wrap(
+                    alignment: WrapAlignment.end,
                     spacing: BafSpacing.xs,
+                    runSpacing: BafSpacing.xs,
                     children: [
                       _TinyActionButton(
                         label: 'Paste',
@@ -121,8 +119,26 @@ class _JsonPanelState extends State<_JsonPanel> {
                             ),
                       ),
                     ],
-                  ),
-                ],
+                  );
+                  if (constraints.maxWidth < 430) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        copy,
+                        const SizedBox(height: BafSpacing.sm),
+                        Align(alignment: Alignment.centerRight, child: actions),
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: copy),
+                      const SizedBox(width: BafSpacing.sm),
+                      actions,
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: BafSpacing.md),
               TextField(

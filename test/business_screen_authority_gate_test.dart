@@ -297,7 +297,7 @@ void main() {
 
     await _pumpUnapproved(
       tester,
-      screen: const Scaffold(body: DirectivesScreen()),
+      screen: const DirectivesScreen(),
       overrides: [
         openDirectivesProvider.overrideWith((ref) {
           directiveReads++;

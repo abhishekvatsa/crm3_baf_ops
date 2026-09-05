@@ -407,6 +407,9 @@ class QualityCommandService {
 
   Future<QualityCommandResult> createMonitoringRequest({
     required int baseNumber,
+    required String baseAssetClassId,
+    required String baseAssetInstanceId,
+    required int baseAssetInstanceVersion,
     required String grade,
     required String cycleReference,
     required List<int> chargeNumbers,
@@ -416,6 +419,9 @@ class QualityCommandService {
     final pending = await _monitoringStore.prepare(scope, <String, dynamic>{
       'reason': reason,
       'baseNumber': baseNumber,
+      'baseAssetClassId': baseAssetClassId,
+      'baseAssetInstanceId': baseAssetInstanceId,
+      'baseAssetInstanceVersion': baseAssetInstanceVersion,
       'grade': grade,
       'cycleReference': cycleReference,
       'chargeNumbers': chargeNumbers,
