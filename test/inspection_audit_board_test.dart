@@ -71,7 +71,7 @@ void main() {
     expect(find.byTooltip('Create audit PDF'), findsOneWidget);
   });
 
-  for (final unverifiedSource in ['observations', 'findings']) {
+  for (final unverifiedSource in ['campaign', 'observations', 'findings']) {
     testWidgets('audit PDF stays disabled for cached $unverifiedSource', (
       tester,
     ) async {
@@ -100,6 +100,7 @@ void main() {
               value: true,
             ),
           ],
+          campaignServerVerified: unverifiedSource != 'campaign',
           observationsServerVerified: unverifiedSource != 'observations',
           findingsServerVerified: unverifiedSource != 'findings',
         ),
@@ -437,6 +438,7 @@ Widget _testApp(
   InspectionCampaign campaign, {
   double textScale = 1,
   List<InspectionObservation> observations = const <InspectionObservation>[],
+  bool campaignServerVerified = true,
   bool observationsServerVerified = true,
   bool findingsServerVerified = true,
 }) => ProviderScope(
@@ -444,7 +446,14 @@ Widget _testApp(
     currentAppUserProvider.overrideWith(
       (_) => Stream<AppUser?>.value(_admin()),
     ),
-    inspectionCampaignsProvider.overrideWith((_) => Stream.value([campaign])),
+    inspectionCampaignsProvider.overrideWith(
+      (_) => Stream.value(
+        InspectionEvidenceSnapshot<InspectionCampaign>(
+          records: <InspectionCampaign>[campaign],
+          isServerVerified: campaignServerVerified,
+        ),
+      ),
+    ),
     inspectionObservationsProvider(campaign.id).overrideWith(
       (_) => Stream.value(
         InspectionEvidenceSnapshot<InspectionObservation>(

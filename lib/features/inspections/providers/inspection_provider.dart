@@ -13,11 +13,10 @@ final inspectionDefinitionsProvider =
       return ref.watch(inspectionRepositoryProvider).watchDefinitions();
     });
 
-final inspectionCampaignsProvider = StreamProvider<List<InspectionCampaign>>((
-  ref,
-) {
-  return ref.watch(inspectionRepositoryProvider).watchCampaigns();
-});
+final inspectionCampaignsProvider =
+    StreamProvider<InspectionEvidenceSnapshot<InspectionCampaign>>((ref) {
+      return ref.watch(inspectionRepositoryProvider).watchCampaigns();
+    });
 
 final inspectionObservationsProvider = StreamProvider.autoDispose
     .family<InspectionEvidenceSnapshot<InspectionObservation>, String>((

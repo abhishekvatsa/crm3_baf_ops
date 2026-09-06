@@ -26,20 +26,32 @@ class InspectionRepository {
         return List<InspectionDefinition>.unmodifiable(rows);
       });
 
-  Stream<List<InspectionCampaign>> watchCampaigns() =>
-      _firestore.collection('inspection_campaigns').snapshots().map((snapshot) {
-        final rows =
-            snapshot.docs
-                .map((doc) => InspectionCampaign.fromMap(doc.data(), doc.id))
-                .toList(growable: false)
-              ..sort((left, right) {
-                final status = left.status.index.compareTo(right.status.index);
-                return status != 0
-                    ? status
-                    : right.createdAt.compareTo(left.createdAt);
-              });
-        return List<InspectionCampaign>.unmodifiable(rows);
-      });
+  Stream<InspectionEvidenceSnapshot<InspectionCampaign>> watchCampaigns() =>
+      _firestore
+          .collection('inspection_campaigns')
+          .snapshots(includeMetadataChanges: true)
+          .map((snapshot) {
+            final rows =
+                snapshot.docs
+                    .map(
+                      (doc) => InspectionCampaign.fromMap(doc.data(), doc.id),
+                    )
+                    .toList(growable: false)
+                  ..sort((left, right) {
+                    final status = left.status.index.compareTo(
+                      right.status.index,
+                    );
+                    return status != 0
+                        ? status
+                        : right.createdAt.compareTo(left.createdAt);
+                  });
+            return InspectionEvidenceSnapshot<InspectionCampaign>(
+              records: List<InspectionCampaign>.unmodifiable(rows),
+              isServerVerified:
+                  !snapshot.metadata.isFromCache &&
+                  !snapshot.metadata.hasPendingWrites,
+            );
+          });
 
   Stream<InspectionEvidenceSnapshot<InspectionObservation>> watchObservations(
     String campaignId,

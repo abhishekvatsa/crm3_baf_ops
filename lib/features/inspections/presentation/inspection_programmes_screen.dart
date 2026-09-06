@@ -182,7 +182,8 @@ class _CampaignList extends ConsumerWidget {
         message: 'Inspection campaigns could not be read safely.',
         onRetry: () => ref.invalidate(inspectionCampaignsProvider),
       ),
-      data: (all) {
+      data: (evidence) {
+        final all = evidence.records;
         final rows = all
             .where(
               (item) => closed
@@ -637,7 +638,8 @@ class InspectionCampaignDetailScreen extends ConsumerWidget {
         accent: BafColors.instrument,
         message: 'The campaign could not be read safely.',
       ),
-      data: (rows) {
+      data: (evidence) {
+        final rows = evidence.records;
         InspectionCampaign? campaign;
         for (final row in rows) {
           if (row.id == campaignId) campaign = row;
@@ -656,17 +658,26 @@ class InspectionCampaignDetailScreen extends ConsumerWidget {
             ),
           );
         }
-        return _CampaignDetail(actor: actor, campaign: campaign);
+        return _CampaignDetail(
+          actor: actor,
+          campaign: campaign,
+          campaignServerVerified: evidence.isServerVerified,
+        );
       },
     );
   }
 }
 
 class _CampaignDetail extends ConsumerWidget {
-  const _CampaignDetail({required this.actor, required this.campaign});
+  const _CampaignDetail({
+    required this.actor,
+    required this.campaign,
+    required this.campaignServerVerified,
+  });
 
   final AppUser actor;
   final InspectionCampaign campaign;
+  final bool campaignServerVerified;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -688,6 +699,7 @@ class _CampaignDetail extends ConsumerWidget {
     final canCreateReport =
         hasReportEvidence &&
         loadedFindings != null &&
+        campaignServerVerified &&
         observationEvidence!.isServerVerified &&
         findingEvidence!.isServerVerified;
     final classId = campaign.assetClassId;
