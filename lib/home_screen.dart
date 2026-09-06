@@ -58,6 +58,7 @@ import 'features/directives/providers/operational_directive_provider.dart';
 
 import 'core/theme/baf_design_system.dart';
 import 'core/widgets/baf_ui.dart';
+import 'core/widgets/baf_home_back_scope.dart';
 import 'core/widgets/brand/brand_widgets.dart';
 import 'core/widgets/dashboard/dashboard_widgets.dart';
 import 'core/widgets/dashboard/status_badge.dart';
@@ -163,7 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final appUserAsync = ref.watch(currentAppUserProvider);
 
-    return appUserAsync.when(
+    final workspace = appUserAsync.when(
       loading: () => const Scaffold(
         backgroundColor: BafColors.background,
         body: BafLoadingPanel(label: 'Preparing your operations workspace'),
@@ -413,6 +414,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         );
       },
+    );
+
+    return BafHomeBackScope(
+      isHomeSelected: _currentIndex == 0,
+      onReturnHome: () {
+        if (mounted) setState(() => _currentIndex = 0);
+      },
+      child: workspace,
     );
   }
 
