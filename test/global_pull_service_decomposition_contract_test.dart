@@ -369,6 +369,7 @@ void sample(String id, {String? reason}) {
 
     test('server cursor and failure logging contracts remain anchored', () {
       final shell = _read(_shellFile);
+      final coordinator = _read('lib/core/services/sync_coordinator.dart');
       final cursorStore = _read(
         'lib/core/services/global_pull_cursor_store.dart',
       );
@@ -403,13 +404,16 @@ void sample(String id, {String? reason}) {
       );
       expect(protocol, contains('orderBy(globalPullServerUpdatedAtField)'));
 
-      expect(shell, contains("reason: 'global_delta_sync_failed'"));
+      expect(shell, isNot(contains('AppLogger.')));
       expect(
-        shell,
+        coordinator,
         contains(
-          "context: const {'app_area': 'sync', 'sync_phase': 'global_pull'}",
+          "AppLogger.error(\n        'Full sync threw before normal completion'",
         ),
       );
+      expect(coordinator, contains('fatal: false'));
+      expect(coordinator, contains('syncFailureDiagnosticContext('));
+      expect(coordinator, contains('pullDomain: _pull.lastFailedDomain'));
     });
 
     test('static constants are qualified from extension slices', () {

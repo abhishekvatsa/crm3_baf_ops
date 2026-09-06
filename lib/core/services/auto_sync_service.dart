@@ -216,6 +216,9 @@ class AutoSyncService with WidgetsBindingObserver {
 
   bool get _lastFailureMayBeTransient {
     final health = _ref.read(syncRunHealthProvider);
+    if (health.lastFailureLikelyPermanent) {
+      return false;
+    }
     if (health.failureDetails.isEmpty) {
       return true;
     }

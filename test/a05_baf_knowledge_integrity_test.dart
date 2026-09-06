@@ -40,6 +40,16 @@ void main() {
       },
     );
 
+    test('legacy confirmed confidence is adopted as canonical manual evidence', () {
+      final row = BafKnowledgeRow.fromCloudMap(<String, dynamic>{
+        ..._validRow(),
+        'confidence': 'confirmed',
+      }, 'KB-001');
+
+      expect(row.confidence, 'confirmedManual');
+      expect(row.toEntryMap()['confidence'], 'confirmedManual');
+    });
+
     test(
       'every authority-critical field is required with its persisted type',
       () {

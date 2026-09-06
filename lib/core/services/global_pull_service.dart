@@ -29,7 +29,6 @@ import '../../features/audit/repositories/audit_repository.dart';
 import '../../features/audit/providers/audit_provider.dart';
 import 'remote_tombstone_apply_result.dart';
 import 'sync_remote_freshness_policy.dart';
-import 'app_logger.dart';
 import 'global_pull_cursor_store.dart';
 import 'global_pull_protocol.dart';
 import 'isar_schema_migration.dart';
@@ -80,6 +79,7 @@ class GlobalPullService {
 
   bool _isPulling = false;
   bool _hadRecordProcessingError = false;
+  GlobalPullDomain? lastFailedDomain;
 
   int lastInserted = 0;
   int lastUpdated = 0;
@@ -128,6 +128,7 @@ class GlobalPullService {
     lastConflicted = 0;
     lastConflictKeys.clear();
     _hadRecordProcessingError = false;
+    lastFailedDomain = null;
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -233,15 +234,6 @@ class GlobalPullService {
     } catch (e, stackTrace) {
       debugPrint('Global pull failed: $e');
       debugPrintStack(stackTrace: stackTrace);
-      unawaited(
-        AppLogger.recordNonFatalError(
-          e,
-          stackTrace,
-          reason: 'global_delta_sync_failed',
-          context: const {'app_area': 'sync', 'sync_phase': 'global_pull'},
-        ),
-      );
-
       rethrow;
     } finally {
       _isPulling = false;
@@ -263,9 +255,15 @@ class GlobalPullService {
 
     _requireCurrentActor(envelope.actorUid);
     _hadRecordProcessingError = false;
-    await pull(cursor.cursor, envelope.serverAnchor);
+    try {
+      await pull(cursor.cursor, envelope.serverAnchor);
+    } catch (_) {
+      lastFailedDomain = domain;
+      rethrow;
+    }
     _requireCurrentActor(envelope.actorUid);
     if (_hadRecordProcessingError) {
+      lastFailedDomain = domain;
       throw GlobalPullCursorException(
         'Global pull domain ${domain.wireName} had record processing errors.',
         reasonCode: 'domain-record-processing-failed',

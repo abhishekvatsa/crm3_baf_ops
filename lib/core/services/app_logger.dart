@@ -234,13 +234,15 @@ class AppLogger {
     }
 
     _safeFireAndForget(() {
+      final fatal = flutterFrameworkErrorIsFatal(details);
       return FirebaseCrashlytics.instance.recordError(
         CrashReportSanitizer.error(details.exception),
         CrashReportSanitizer.stackTrace(details.stack),
         reason: _composeMessage('flutter_framework_uncaught', {
           'library': details.library,
+          'flutter_error_recoverable': !fatal,
         }),
-        fatal: true,
+        fatal: fatal,
       );
     });
   }
@@ -325,4 +327,16 @@ class AppLogger {
         )
         .toList(growable: false);
   }
+}
+
+@visibleForTesting
+bool flutterFrameworkErrorIsFatal(FlutterErrorDetails details) {
+  if (details.silent) return false;
+  if (details.library != 'image resource service') return true;
+  return !const <String>{
+    'HandshakeException',
+    'HttpException',
+    'NetworkImageLoadException',
+    'SocketException',
+  }.contains(details.exception.runtimeType.toString());
 }

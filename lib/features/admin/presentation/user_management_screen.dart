@@ -854,17 +854,15 @@ class _UserAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: 21,
       backgroundColor: BafColors.navySoft.withValues(alpha: 0.10),
-      backgroundImage: hasPhoto ? NetworkImage(user.photoUrl!) : null,
-      child:
-          hasPhoto
-              ? null
-              : Text(
-                fallback,
-                style: const TextStyle(
-                  color: BafColors.navySoft,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+      foregroundImage: hasPhoto ? NetworkImage(user.photoUrl!) : null,
+      onForegroundImageError: hasPhoto ? (_, _) {} : null,
+      child: Text(
+        fallback,
+        style: const TextStyle(
+          color: BafColors.navySoft,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }

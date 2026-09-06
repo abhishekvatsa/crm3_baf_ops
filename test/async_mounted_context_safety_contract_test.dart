@@ -396,6 +396,135 @@ void main() {
       },
     );
 
+    test('startup gates never read providers during teardown', () {
+      final source = _read('lib/main.dart');
+      final pendingGate = _bodyStartingAt(
+        source,
+        'class _PendingApprovalRecoveryGateState',
+      );
+      final startupGate = _bodyStartingAt(
+        source,
+        'class _StartupSyncGateState',
+      );
+
+      expect(
+        _bodyStartingAt(pendingGate, 'void dispose()'),
+        isNot(contains('ref.read(')),
+      );
+      expect(
+        _bodyStartingAt(startupGate, 'void dispose()'),
+        isNot(contains('ref.read(')),
+      );
+      expect(pendingGate, contains('_deviceRecoveryListener = ref.read('));
+      expect(startupGate, contains('_autoSyncService = ref.read('));
+
+      final initialSync = _bodyStartingAt(
+        startupGate,
+        'void _startInitialSyncOnce()',
+      );
+      _expectBefore(
+        initialSync,
+        'if (!mounted) {',
+        'final syncOutcome = await ref',
+      );
+    });
+
+    test(
+      'profile bootstrap captures its service and guards provider invalidation',
+      () {
+        final body = _bodyStartingAt(
+          _read('lib/main.dart'),
+          'Future<void> _repairProfile()',
+        );
+
+        _expectBefore(
+          body,
+          'final authService = ref.read(authServiceProvider);',
+          'await authService.ensureUserDocument',
+        );
+        final continuation = body.substring(
+          body.indexOf('await authService.ensureUserDocument'),
+        );
+        _expectBefore(
+          continuation,
+          'if (!mounted) {',
+          'ref.invalidate(currentAppUserProvider);',
+        );
+      },
+    );
+
+    test('sync rejection actions do not use WidgetRef after disposal', () {
+      final source = _read('lib/core/widgets/sync_status_indicator.dart');
+      final discard = _bodyStartingAt(
+        source,
+        'Future<void> _discardRejectedLocalChanges',
+      );
+      final recheck = _bodyStartingAt(
+        source,
+        'Future<void> _recheckSyncRejections',
+      );
+      final resolve = _bodyStartingAt(
+        source,
+        'Future<void> _resolveSyncRejection',
+      );
+
+      _expectBefore(
+        discard,
+        'final recoveryService = ref.read(localSyncRecoveryServiceProvider);',
+        'await coordinator.runWithSyncPaused(',
+      );
+      _expectBefore(
+        discard,
+        'if (!mounted || !context.mounted) return;',
+        'ref.invalidate(syncPendingCountsProvider);',
+      );
+      _expectBefore(
+        recheck,
+        'final coordinator = ref.read(syncCoordinatorProvider);',
+        'await coordinator.runFullSyncWithResult(',
+      );
+      _expectBefore(
+        recheck,
+        'if (!context.mounted) return;',
+        'ref.invalidate(recentSyncRejectionsProvider);',
+      );
+      _expectBefore(
+        resolve,
+        'final rejectionService = ref.read(syncRejectionServiceProvider);',
+        'await rejectionService.resolve(',
+      );
+      _expectBefore(
+        resolve,
+        'if (!context.mounted) return;',
+        'ref.invalidate(recentSyncRejectionsProvider);',
+      );
+    });
+
+    test(
+      'notification navigation cannot outlive the Home consumer element',
+      () {
+        final source = _read('lib/home_screen.dart');
+        final initialNotification = _bodyStartingAt(
+          source,
+          'Future<void> _openInitialNotification()',
+        );
+        final notificationTap = _bodyStartingAt(
+          source,
+          'void _handleNotificationTap(RemoteMessage message)',
+        );
+
+        _expectBefore(
+          initialNotification,
+          'if (!mounted) {',
+          '_handleNotificationTap(message);',
+        );
+        expect(
+          RegExp(r'^\{\s*if \(!mounted\) \{').hasMatch(notificationTap),
+          isTrue,
+        );
+      },
+    );
+
     test(
       'route-pop success feedback captures nullable messenger before popping routes',
       () {
@@ -536,12 +665,11 @@ void _expectCapturedSyncBeforeAwaitInSource({
     isTrue,
     reason: 'Expected syncCoordinator to be captured before: $awaitMarker',
   );
-  final captureIndex =
-      finalCapture >= 0
-          ? finalCapture
-          : assignmentCapture >= 0
-          ? assignmentCapture
-          : localCoordinatorCapture;
+  final captureIndex = finalCapture >= 0
+      ? finalCapture
+      : assignmentCapture >= 0
+      ? assignmentCapture
+      : localCoordinatorCapture;
   expect(captureIndex, lessThan(awaitIndex));
   expect(
     body,

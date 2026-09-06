@@ -700,17 +700,14 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
     );
     if (approved != true || !mounted || !context.mounted) return;
 
+    final coordinator = ref.read(syncCoordinatorProvider);
+    final recoveryService = ref.read(localSyncRecoveryServiceProvider);
     try {
-      final result = await ref
-          .read(syncCoordinatorProvider)
-          .runWithSyncPaused(
-            operation:
-                () => ref
-                    .read(localSyncRecoveryServiceProvider)
-                    .discardOwnRejectedChanges(actor: actor),
-          );
-      ref.invalidate(syncPendingCountsProvider);
+      final result = await coordinator.runWithSyncPaused(
+        operation: () => recoveryService.discardOwnRejectedChanges(actor: actor),
+      );
       if (!mounted || !context.mounted) return;
+      ref.invalidate(syncPendingCountsProvider);
 
       final preserved =
           result.preservedCount == 0
@@ -855,14 +852,16 @@ Future<void> _showResolveSyncRejectionDialog(
 }
 
 Future<void> _recheckSyncRejections(BuildContext context, WidgetRef ref) async {
+  final coordinator = ref.read(syncCoordinatorProvider);
   try {
-    final outcome = await ref
-        .read(syncCoordinatorProvider)
-        .runFullSyncWithResult(reason: 'manual_rejection_recheck', force: true);
+    final outcome = await coordinator.runFullSyncWithResult(
+      reason: 'manual_rejection_recheck',
+      force: true,
+    );
+    if (!context.mounted) return;
     ref.invalidate(recentSyncRejectionsProvider);
     ref.invalidate(syncPendingCountsProvider);
 
-    if (!context.mounted) return;
     final (message, color) = switch (outcome) {
       SyncRequestOutcome.succeeded => (
         'Held items were rechecked against the server. Accepted or identical records are now synchronized.',
@@ -895,15 +894,18 @@ Future<void> _resolveSyncRejection(
   AppUser actor, {
   required String notes,
 }) async {
+  final rejectionService = ref.read(syncRejectionServiceProvider);
   try {
-    await ref
-        .read(syncRejectionServiceProvider)
-        .resolve(rejectionId: rejection.id, actor: actor, notes: notes);
+    await rejectionService.resolve(
+      rejectionId: rejection.id,
+      actor: actor,
+      notes: notes,
+    );
 
+    if (!context.mounted) return;
     ref.invalidate(recentSyncRejectionsProvider);
     ref.invalidate(syncPendingCountsProvider);
 
-    if (!context.mounted) return;
     _showSyncSnack(
       context,
       'Sync rejection marked resolved. The source record remains dirty and may retry on the next sync.',
