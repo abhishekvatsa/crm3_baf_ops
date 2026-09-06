@@ -85,8 +85,9 @@ void _normalizeDiaryEntryForUserSave(
   }
 
   final existingCreatedAt = _readCreatedAtSafely(entry);
-  entry.createdAt =
-      preserveCreatedAt && existingCreatedAt != null ? existingCreatedAt : now;
+  entry.createdAt = preserveCreatedAt && existingCreatedAt != null
+      ? existingCreatedAt
+      : now;
 
   entry
     ..jobExecutionFirestoreId = _cleanOptionalText(
@@ -250,6 +251,9 @@ abstract class JobDiaryRepository {
   Future<List<JobDiaryEntry>> getUnsyncedEntries();
   Future<void> markEntriesSynced(List<int> ids);
   Future<void> markEntriesSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
+  Future<RemoteRecordApplyResult<JobDiaryEntry>> applyEntryFromRemote(
+    JobDiaryEntry remote,
+  );
   Future<void> insertEntryFromRemote(JobDiaryEntry remote);
   Future<void> updateEntryFromRemote(JobDiaryEntry remote);
   Future<RemoteTombstoneApplyResult> applyTombstoneFromRemote(

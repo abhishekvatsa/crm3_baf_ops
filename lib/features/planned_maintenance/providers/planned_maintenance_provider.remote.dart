@@ -40,10 +40,9 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) =>
-          snap.docs
-              .map((doc) => JobTemplate.fromMap(doc.data(), doc.id))
-              .toList(),
+      (snap) => snap.docs
+          .map((doc) => JobTemplate.fromMap(doc.data(), doc.id))
+          .toList(),
     );
   }
 
@@ -58,10 +57,9 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) =>
-          snap.docs
-              .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
-              .toList(),
+      (snap) => snap.docs
+          .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+          .toList(),
     );
   }
 
@@ -144,11 +142,10 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map(
-          (snap) =>
-              snap.docs
-                  .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
-                  .where((execution) => !execution.isCancelled)
-                  .toList(),
+          (snap) => snap.docs
+              .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+              .where((execution) => !execution.isCancelled)
+              .toList(),
         );
   }
 
@@ -169,10 +166,9 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) =>
-          snap.docs
-              .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
-              .toList(),
+      (snap) => snap.docs
+          .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+          .toList(),
     );
   }
 
@@ -191,10 +187,9 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) =>
-          snap.docs
-              .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
-              .toList(),
+      (snap) => snap.docs
+          .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+          .toList(),
     );
   }
 
@@ -230,11 +225,10 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   Future<List<JobExecution>> getExecutionsForTemplate(
     String templateFirestoreId,
   ) async {
-    final snap =
-        await _executions
-            .where('templateFirestoreId', isEqualTo: templateFirestoreId)
-            .where('isDeleted', isEqualTo: false)
-            .get();
+    final snap = await _executions
+        .where('templateFirestoreId', isEqualTo: templateFirestoreId)
+        .where('isDeleted', isEqualTo: false)
+        .get();
     return snap.docs
         .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
@@ -365,11 +359,10 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
 
   @override
   Future<List<JobExecution>> getOpenExecutions() async {
-    final snap =
-        await _executions
-            .where('isCompleted', isEqualTo: false)
-            .where('isDeleted', isEqualTo: false)
-            .get();
+    final snap = await _executions
+        .where('isCompleted', isEqualTo: false)
+        .where('isDeleted', isEqualTo: false)
+        .get();
     return snap.docs
         .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .where((execution) => !execution.isCancelled)
@@ -381,12 +374,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     AssetType type,
     int number,
   ) async {
-    final snap =
-        await _executions
-            .where('assetType', isEqualTo: type.name)
-            .where('assetNumber', isEqualTo: number)
-            .where('isDeleted', isEqualTo: false)
-            .get();
+    final snap = await _executions
+        .where('assetType', isEqualTo: type.name)
+        .where('assetNumber', isEqualTo: number)
+        .where('isDeleted', isEqualTo: false)
+        .get();
     return snap.docs
         .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
@@ -486,6 +478,15 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<JobTemplate>> applyTemplateFromRemote(
+    JobTemplate remote,
+  ) {
+    throw UnsupportedError(
+      'Firestore cannot apply a remote job template to itself.',
+    );
+  }
+
+  @override
   Future<void> insertTemplateFromRemote(JobTemplate remote) async {}
 
   @override
@@ -507,6 +508,15 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     final doc = await _executions.doc(firestoreId).get();
     if (!doc.exists) return null;
     return JobExecution.fromMap(doc.data()!, doc.id);
+  }
+
+  @override
+  Future<RemoteRecordApplyResult<JobExecution>> applyExecutionFromRemote(
+    JobExecution remote,
+  ) {
+    throw UnsupportedError(
+      'Firestore cannot apply a remote job execution to itself.',
+    );
   }
 
   @override
@@ -542,10 +552,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
       throughInclusive: through,
     );
     if (startAfter != null) q = q.startAfterDocument(startAfter);
-    final snap = await q.limit(limit).get();
+    final snap = await q.limit(limit).get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateResult(
-      records:
-          snap.docs.map((d) => JobTemplate.fromMap(d.data(), d.id)).toList(),
+      records: snap.docs
+          .map((d) => JobTemplate.fromMap(d.data(), d.id))
+          .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
   }
@@ -569,10 +580,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
       throughInclusive: through,
     );
     if (startAfter != null) q = q.startAfterDocument(startAfter);
-    final snap = await q.limit(limit).get();
+    final snap = await q.limit(limit).get(authoritativeGlobalPullReadOptions);
     return PaginatedExecutionResult(
-      records:
-          snap.docs.map((d) => JobExecution.fromMap(d.data(), d.id)).toList(),
+      records: snap.docs
+          .map((d) => JobExecution.fromMap(d.data(), d.id))
+          .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
   }
@@ -583,8 +595,9 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     final results = <JobTemplate>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
-      final snap =
-          await _templates.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _templates
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(
         snap.docs.map((doc) => JobTemplate.fromMap(doc.data(), doc.id)),
       );
@@ -615,8 +628,9 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     final results = <JobExecution>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
-      final snap =
-          await _executions.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _executions
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(
         snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id)),
       );

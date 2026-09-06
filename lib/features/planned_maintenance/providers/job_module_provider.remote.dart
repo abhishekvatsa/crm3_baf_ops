@@ -25,14 +25,13 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     AppUser? actor,
     AuditContext? auditContext,
   }) async {
-    final existing =
-        module.firestoreId == null
-            ? null
-            : await _modules.doc(module.firestoreId).get();
+    final existing = module.firestoreId == null
+        ? null
+        : await _modules.doc(module.firestoreId).get();
     final before =
         existing != null && existing.exists && existing.data() != null
-            ? JobModuleInstance.fromMap(existing.data()!, existing.id)
-            : null;
+        ? JobModuleInstance.fromMap(existing.data()!, existing.id)
+        : null;
 
     if (actor == null) {
       throw StateError('Actor is required when saving planned-job modules.');
@@ -147,10 +146,9 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (limit != null) query = query.limit(limit);
 
     return query.snapshots().map(
-      (snap) =>
-          snap.docs
-              .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
-              .toList(),
+      (snap) => snap.docs
+          .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+          .toList(),
     );
   }
 
@@ -169,18 +167,16 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (before.isDeleted) return;
 
     final now = DateTime.now();
-    final tombstone =
-        JobModuleInstance.fromMap(before.toMap(), doc.id)
-          ..isDeleted = true
-          ..deletedAt = now
-          ..deletedByUid = actor.uid
-          ..deletedByName = _cleanOptionalText(actor.name)
-          ..deleteReason =
-              auditContext?.reason?.name ?? auditContext?.reasonNotes
-          ..updatedAt = now
-          ..updatedByUid = actor.uid
-          ..updatedByName = _cleanOptionalText(actor.name)
-          ..version = before.version + 1;
+    final tombstone = JobModuleInstance.fromMap(before.toMap(), doc.id)
+      ..isDeleted = true
+      ..deletedAt = now
+      ..deletedByUid = actor.uid
+      ..deletedByName = _cleanOptionalText(actor.name)
+      ..deleteReason = auditContext?.reason?.name ?? auditContext?.reasonNotes
+      ..updatedAt = now
+      ..updatedByUid = actor.uid
+      ..updatedByName = _cleanOptionalText(actor.name)
+      ..version = before.version + 1;
 
     final after = await _populationService.softDeleteModule(tombstone);
     _copyRemoteModuleIntoLocal(tombstone, after.module);
@@ -206,15 +202,14 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         _requireCanSubmitModule(actor, module);
         _requireOpenForWork(module, 'submit this module');
       },
-      buildUpdate:
-          (now) => {
-            'status': JobModuleStatus.submitted.name,
-            'isOpenForWork': false,
-            'submittedByUid': actor.uid,
-            'submittedByName': _cleanOptionalText(actor.name),
-            'submittedAt': now.toIso8601String(),
-            'submissionNote': _cleanOptionalText(submissionNote),
-          },
+      buildUpdate: (now) => {
+        'status': JobModuleStatus.submitted.name,
+        'isOpenForWork': false,
+        'submittedByUid': actor.uid,
+        'submittedByName': _cleanOptionalText(actor.name),
+        'submittedAt': now.toIso8601String(),
+        'submissionNote': _cleanOptionalText(submissionNote),
+      },
     );
   }
 
@@ -234,15 +229,14 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         _requireCanModerateModule(actor, ModuleModerationAction.reopen);
         _requireReopenable(module);
       },
-      buildUpdate:
-          (now) => {
-            'status': JobModuleStatus.reopened.name,
-            'isOpenForWork': true,
-            'reopenedByUid': actor.uid,
-            'reopenedByName': _cleanOptionalText(actor.name),
-            'reopenedAt': now.toIso8601String(),
-            'reopenReason': _cleanOptionalText(reopenReason),
-          },
+      buildUpdate: (now) => {
+        'status': JobModuleStatus.reopened.name,
+        'isOpenForWork': true,
+        'reopenedByUid': actor.uid,
+        'reopenedByName': _cleanOptionalText(actor.name),
+        'reopenedAt': now.toIso8601String(),
+        'reopenReason': _cleanOptionalText(reopenReason),
+      },
     );
   }
 
@@ -276,15 +270,14 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         );
         _requireOpenForWork(module, 'mark this module not applicable');
       },
-      buildUpdate:
-          (now) => {
-            'status': JobModuleStatus.notApplicable.name,
-            'isOpenForWork': false,
-            'notApplicableByUid': actor.uid,
-            'notApplicableByName': _cleanOptionalText(actor.name),
-            'notApplicableAt': now.toIso8601String(),
-            'notApplicableReason': _cleanRequiredText(reason, 'Not applicable'),
-          },
+      buildUpdate: (now) => {
+        'status': JobModuleStatus.notApplicable.name,
+        'isOpenForWork': false,
+        'notApplicableByUid': actor.uid,
+        'notApplicableByName': _cleanOptionalText(actor.name),
+        'notApplicableAt': now.toIso8601String(),
+        'notApplicableReason': _cleanRequiredText(reason, 'Not applicable'),
+      },
     );
   }
 
@@ -308,15 +301,14 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         _requireCanModerateModule(actor, ModuleModerationAction.accept);
         _requireSubmitted(module, 'accept this module');
       },
-      buildUpdate:
-          (now) => {
-            'status': JobModuleStatus.accepted.name,
-            'isOpenForWork': false,
-            'acceptedByUid': actor.uid,
-            'acceptedByName': _cleanOptionalText(actor.name),
-            'acceptedAt': now.toIso8601String(),
-            'acceptanceNote': _cleanOptionalText(acceptanceNote),
-          },
+      buildUpdate: (now) => {
+        'status': JobModuleStatus.accepted.name,
+        'isOpenForWork': false,
+        'acceptedByUid': actor.uid,
+        'acceptedByName': _cleanOptionalText(actor.name),
+        'acceptedAt': now.toIso8601String(),
+        'acceptanceNote': _cleanOptionalText(acceptanceNote),
+      },
     );
   }
 
@@ -358,10 +350,9 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     if (result == null || auditContext == null) return;
 
     final afterDoc = await docRef.get();
-    final after =
-        afterDoc.data() != null
-            ? JobModuleInstance.fromMap(afterDoc.data()!, afterDoc.id)
-            : null;
+    final after = afterDoc.data() != null
+        ? JobModuleInstance.fromMap(afterDoc.data()!, afterDoc.id)
+        : null;
 
     final auditRepo = _auditRepo;
     try {
@@ -401,6 +392,15 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
   Future<void> markModulesSyncedIfUnchanged(
     List<SyncPushSnapshot> snapshots,
   ) async {}
+
+  @override
+  Future<RemoteRecordApplyResult<JobModuleInstance>> applyModuleFromRemote(
+    JobModuleInstance remote,
+  ) {
+    throw UnsupportedError(
+      'Firestore cannot apply a remote job module to itself.',
+    );
+  }
 
   @override
   Future<void> insertModuleFromRemote(JobModuleInstance remote) async {}
@@ -449,12 +449,13 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       query = query.startAfterDocument(startAfter);
     }
 
-    final snap = await query.limit(limit).get();
+    final snap = await query
+        .limit(limit)
+        .get(authoritativeGlobalPullReadOptions);
     return PaginatedJobModuleResult(
-      records:
-          snap.docs
-              .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
-              .toList(),
+      records: snap.docs
+          .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+          .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
   }
@@ -468,8 +469,9 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     final results = <JobModuleInstance>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
-      final snap =
-          await _modules.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _modules
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(
         snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id)),
       );

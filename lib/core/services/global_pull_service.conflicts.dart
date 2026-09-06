@@ -47,15 +47,6 @@ extension _GlobalPullConflicts on GlobalPullService {
     }
   }
 
-  bool _isRemoteNewer(dynamic local, dynamic remote) {
-    return SyncRemoteFreshnessPolicy.isRemoteNewer(
-      localVersion: local.version as int,
-      localUpdatedAt: local.updatedAt as DateTime,
-      remoteVersion: remote.version as int,
-      remoteUpdatedAt: remote.updatedAt as DateTime,
-    );
-  }
-
   Object? _jsonSafeValue(Object? value) {
     if (value == null || value is num || value is bool || value is String) {
       return value;
@@ -143,20 +134,20 @@ extension _GlobalPullConflicts on GlobalPullService {
 
     final firebaseUser = FirebaseAuth.instance.currentUser;
     final actorUid = firebaseUser?.uid;
-    final actorName =
-        firebaseUser?.displayName?.trim().isNotEmpty == true
-            ? firebaseUser!.displayName!.trim()
-            : firebaseUser?.email?.trim().isNotEmpty == true
-            ? firebaseUser!.email!.trim()
-            : 'Sync Engine';
+    final actorName = firebaseUser?.displayName?.trim().isNotEmpty == true
+        ? firebaseUser!.displayName!.trim()
+        : firebaseUser?.email?.trim().isNotEmpty == true
+        ? firebaseUser!.email!.trim()
+        : 'Sync Engine';
 
     final event = AuditEvent(
       entityType: normalizedEntityType,
       entityId: _auditEntityId(local),
       action: action,
       performedByUid: actorUid ?? 'sync_engine',
-      performedByName:
-          actorUid == null ? 'Sync Engine' : 'Sync Engine ($actorName)',
+      performedByName: actorUid == null
+          ? 'Sync Engine'
+          : 'Sync Engine ($actorName)',
       reason: AuditReason.manualOverride,
       reasonNotes:
           reasonNotes ??
@@ -187,6 +178,41 @@ extension _GlobalPullConflicts on GlobalPullService {
       'local.updatedAt=${local.updatedAt}, remote.updatedAt=${remote.updatedAt}',
     );
     _logConflictAudit(entityLabel, local, remote);
+  }
+
+  void _recordRemoteApplyResult<T extends Object>(
+    String entityLabel,
+    T remote,
+    RemoteRecordApplyResult<T> result,
+  ) {
+    switch (result.outcome) {
+      case RemoteRecordApplyOutcome.inserted:
+        lastInserted++;
+        return;
+      case RemoteRecordApplyOutcome.updated:
+        lastUpdated++;
+        return;
+      case RemoteRecordApplyOutcome.unchanged:
+      case RemoteRecordApplyOutcome.staleRemoteSkipped:
+        lastSkipped++;
+        return;
+      case RemoteRecordApplyOutcome.localDirtyPreserved:
+        final local = result.localRecord;
+        if (result.remoteIsNewer && local != null) {
+          _logPullConflict(entityLabel, local, remote);
+        } else {
+          lastSkipped++;
+        }
+        return;
+      case RemoteRecordApplyOutcome.duplicateLocalIdentity:
+        lastSkipped++;
+        _hadRecordProcessingError = true;
+        debugPrint(
+          'Global pull found ${result.duplicateCount} local $entityLabel rows '
+          'for one remote identity; this domain cursor will not advance.',
+        );
+        return;
+    }
   }
 
   void _recordTombstoneApplyResult(

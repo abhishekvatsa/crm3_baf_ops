@@ -10,11 +10,10 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   Future<TemplatePublishAudit?> _latestDraftLifecycleAudit(
     String versionFirestoreId,
   ) async {
-    final audits =
-        await isar.templatePublishAudits
-            .filter()
-            .versionFirestoreIdEqualTo(versionFirestoreId)
-            .findAll();
+    final audits = await isar.templatePublishAudits
+        .filter()
+        .versionFirestoreIdEqualTo(versionFirestoreId)
+        .findAll();
     audits.sort((a, b) => b.performedAt.compareTo(a.performedAt));
     for (final audit in audits) {
       if (audit.action == TemplatePublishAuditAction.archived ||
@@ -74,11 +73,10 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     await isar.writeTxn(() async {
       final firestoreId = _cleanOptionalText(record.firestoreId);
       if (firestoreId != null) {
-        final current =
-            await isar.templateVersions
-                .filter()
-                .firestoreIdEqualTo(firestoreId)
-                .findFirst();
+        final current = await isar.templateVersions
+            .filter()
+            .firestoreIdEqualTo(firestoreId)
+            .findFirst();
         if (current != null) {
           if (current.version != record.version) {
             throw StateError(
@@ -145,18 +143,17 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
       final packageId = record.packageFirestoreId;
       if (packageId != null) {
-        final package =
-            await isar.templatePackages
-                .filter()
-                .firestoreIdEqualTo(packageId)
-                .findFirst();
+        final package = await isar.templatePackages
+            .filter()
+            .firestoreIdEqualTo(packageId)
+            .findFirst();
         if (package != null) {
           package
             ..activeVersionFirestoreId = record.firestoreId
             ..latestVersionNumber =
                 record.versionNumber > package.latestVersionNumber
-                    ? record.versionNumber
-                    : package.latestVersionNumber;
+                ? record.versionNumber
+                : package.latestVersionNumber;
           _normalizePackageForUserSave(
             package,
             actor: actor,
@@ -205,11 +202,10 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
       final packageId = record.packageFirestoreId;
       if (packageId != null) {
-        final package =
-            await isar.templatePackages
-                .filter()
-                .firestoreIdEqualTo(packageId)
-                .findFirst();
+        final package = await isar.templatePackages
+            .filter()
+            .firestoreIdEqualTo(packageId)
+            .findFirst();
         if (package?.activeVersionFirestoreId == record.firestoreId) {
           package!.activeVersionFirestoreId = null;
           _normalizePackageForUserSave(
@@ -241,11 +237,10 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
     late TemplateVersion archived;
     await isar.writeTxn(() async {
-      final current =
-          await isar.templateVersions
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final current = await isar.templateVersions
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (current == null) {
         throw StateError('Saved TemplateVersion draft was not found locally.');
       }
@@ -312,11 +307,10 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
     late TemplateVersion restored;
     await isar.writeTxn(() async {
-      final current =
-          await isar.templateVersions
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final current = await isar.templateVersions
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (current == null) {
         throw StateError(
           'Archived TemplateVersion draft was not found locally.',
@@ -387,8 +381,10 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
   @override
   Future<List<TemplatePackage>> getAllPackages() async {
-    final records =
-        await isar.templatePackages.filter().isDeletedEqualTo(false).findAll();
+    final records = await isar.templatePackages
+        .filter()
+        .isDeletedEqualTo(false)
+        .findAll();
     records.sort((a, b) => a.title.compareTo(b.title));
     return records;
   }
@@ -428,13 +424,12 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   Future<List<TemplateVersion>> getVersionsForPackage(
     String packageFirestoreId,
   ) async {
-    final records =
-        await isar.templateVersions
-            .filter()
-            .packageFirestoreIdEqualTo(packageFirestoreId)
-            .and()
-            .isDeletedEqualTo(false)
-            .findAll();
+    final records = await isar.templateVersions
+        .filter()
+        .packageFirestoreIdEqualTo(packageFirestoreId)
+        .and()
+        .isDeletedEqualTo(false)
+        .findAll();
     records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
     return records;
   }
@@ -472,13 +467,12 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   Future<List<TemplatePublishAudit>> getAuditsForVersion(
     String versionFirestoreId,
   ) async {
-    final records =
-        await isar.templatePublishAudits
-            .filter()
-            .versionFirestoreIdEqualTo(versionFirestoreId)
-            .and()
-            .isDeletedEqualTo(false)
-            .findAll();
+    final records = await isar.templatePublishAudits
+        .filter()
+        .versionFirestoreIdEqualTo(versionFirestoreId)
+        .and()
+        .isDeletedEqualTo(false)
+        .findAll();
     records.sort((a, b) => b.performedAt.compareTo(a.performedAt));
     return records;
   }
@@ -501,10 +495,9 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   @override
   Future<void> markPackagesSynced(List<int> ids) async {
     await isar.writeTxn(() async {
-      final records =
-          (await isar.templatePackages.getAll(
-            ids,
-          )).whereType<TemplatePackage>().toList();
+      final records = (await isar.templatePackages.getAll(
+        ids,
+      )).whereType<TemplatePackage>().toList();
       for (final record in records) {
         record.isSynced = true;
       }
@@ -520,10 +513,9 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     final byId = {for (final snapshot in snapshots) snapshot.id: snapshot};
 
     await isar.writeTxn(() async {
-      final records =
-          (await isar.templatePackages.getAll(
-            byId.keys.toList(),
-          )).whereType<TemplatePackage>().toList();
+      final records = (await isar.templatePackages.getAll(
+        byId.keys.toList(),
+      )).whereType<TemplatePackage>().toList();
       final unchanged = <TemplatePackage>[];
       for (final record in records) {
         final pushed = byId[record.id];
@@ -542,42 +534,96 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<TemplatePackage>> applyPackageFromRemote(
+    TemplatePackage remote,
+  ) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted template package remote with an identity is required.',
+      );
+    }
+
+    return isar.writeTxn<RemoteRecordApplyResult<TemplatePackage>>(() async {
+      final locals = await isar.templatePackages
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<TemplatePackage>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+      if (locals.isEmpty) {
+        remote
+          ..id = Isar.autoIncrement
+          ..firestoreId = firestoreId
+          ..isSynced = true;
+        await isar.templatePackages.put(remote);
+        return RemoteRecordApplyResult<TemplatePackage>(
+          RemoteRecordApplyOutcome.inserted,
+          localRecord: remote,
+        );
+      }
+
+      final local = locals.single;
+      final remoteIsNewer = SyncRemoteFreshnessPolicy.isRemoteNewer(
+        localVersion: local.version,
+        localUpdatedAt: local.updatedAt,
+        remoteVersion: remote.version,
+        remoteUpdatedAt: remote.updatedAt,
+      );
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<TemplatePackage>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (sameBoundary) {
+        return RemoteRecordApplyResult<TemplatePackage>(
+          RemoteRecordApplyOutcome.unchanged,
+          localRecord: local,
+        );
+      }
+      if (!remoteIsNewer) {
+        return RemoteRecordApplyResult<TemplatePackage>(
+          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+        );
+      }
+
+      remote
+        ..id = local.id
+        ..firestoreId = firestoreId
+        ..isSynced = true;
+      await isar.templatePackages.put(remote);
+      return RemoteRecordApplyResult<TemplatePackage>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: remote,
+      );
+    });
+  }
+
+  @override
   Future<void> insertPackageFromRemote(TemplatePackage remote) async {
     if (remote.isDeleted) return;
-    remote.isSynced = true;
-    await isar.writeTxn(() => isar.templatePackages.put(remote));
+    await applyPackageFromRemote(remote);
   }
 
   @override
   Future<void> updatePackageFromRemote(TemplatePackage remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'template package',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
-    await isar.writeTxn(() async {
-      final local = await getPackageByFirestoreId(remote.firestoreId!);
-      if (local == null) return;
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced template package against remote tombstone in updatePackageFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-      }
-      if (!local.isSynced && remote.updatedAt.isBefore(local.updatedAt)) return;
-      remote
-        ..id = local.id
-        ..isSynced = true;
-      await isar.templatePackages.put(remote);
-    });
+    if (remote.isDeleted) {
+      await applyTombstoneFromPackageRemote(remote);
+      return;
+    }
+    await applyPackageFromRemote(remote);
   }
 
   @override
@@ -634,10 +680,9 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   @override
   Future<void> markVersionsSynced(List<int> ids) async {
     await isar.writeTxn(() async {
-      final records =
-          (await isar.templateVersions.getAll(
-            ids,
-          )).whereType<TemplateVersion>().toList();
+      final records = (await isar.templateVersions.getAll(
+        ids,
+      )).whereType<TemplateVersion>().toList();
       for (final record in records) {
         record.isSynced = true;
       }
@@ -653,10 +698,9 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     final byId = {for (final snapshot in snapshots) snapshot.id: snapshot};
 
     await isar.writeTxn(() async {
-      final records =
-          (await isar.templateVersions.getAll(
-            byId.keys.toList(),
-          )).whereType<TemplateVersion>().toList();
+      final records = (await isar.templateVersions.getAll(
+        byId.keys.toList(),
+      )).whereType<TemplateVersion>().toList();
       final unchanged = <TemplateVersion>[];
       for (final record in records) {
         final pushed = byId[record.id];
@@ -675,42 +719,96 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<TemplateVersion>> applyVersionFromRemote(
+    TemplateVersion remote,
+  ) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted template version remote with an identity is required.',
+      );
+    }
+
+    return isar.writeTxn<RemoteRecordApplyResult<TemplateVersion>>(() async {
+      final locals = await isar.templateVersions
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<TemplateVersion>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+      if (locals.isEmpty) {
+        remote
+          ..id = Isar.autoIncrement
+          ..firestoreId = firestoreId
+          ..isSynced = true;
+        await isar.templateVersions.put(remote);
+        return RemoteRecordApplyResult<TemplateVersion>(
+          RemoteRecordApplyOutcome.inserted,
+          localRecord: remote,
+        );
+      }
+
+      final local = locals.single;
+      final remoteIsNewer = SyncRemoteFreshnessPolicy.isRemoteNewer(
+        localVersion: local.version,
+        localUpdatedAt: local.updatedAt,
+        remoteVersion: remote.version,
+        remoteUpdatedAt: remote.updatedAt,
+      );
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<TemplateVersion>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (sameBoundary) {
+        return RemoteRecordApplyResult<TemplateVersion>(
+          RemoteRecordApplyOutcome.unchanged,
+          localRecord: local,
+        );
+      }
+      if (!remoteIsNewer) {
+        return RemoteRecordApplyResult<TemplateVersion>(
+          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+        );
+      }
+
+      remote
+        ..id = local.id
+        ..firestoreId = firestoreId
+        ..isSynced = true;
+      await isar.templateVersions.put(remote);
+      return RemoteRecordApplyResult<TemplateVersion>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: remote,
+      );
+    });
+  }
+
+  @override
   Future<void> insertVersionFromRemote(TemplateVersion remote) async {
     if (remote.isDeleted) return;
-    remote.isSynced = true;
-    await isar.writeTxn(() => isar.templateVersions.put(remote));
+    await applyVersionFromRemote(remote);
   }
 
   @override
   Future<void> updateVersionFromRemote(TemplateVersion remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'template version',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
-    await isar.writeTxn(() async {
-      final local = await getVersionByFirestoreId(remote.firestoreId!);
-      if (local == null) return;
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced template version against remote tombstone in updateVersionFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-      }
-      if (!local.isSynced && remote.updatedAt.isBefore(local.updatedAt)) return;
-      remote
-        ..id = local.id
-        ..isSynced = true;
-      await isar.templateVersions.put(remote);
-    });
+    if (remote.isDeleted) {
+      await applyTombstoneFromVersionRemote(remote);
+      return;
+    }
+    await applyVersionFromRemote(remote);
   }
 
   @override
@@ -767,10 +865,9 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   @override
   Future<void> markAuditsSynced(List<int> ids) async {
     await isar.writeTxn(() async {
-      final records =
-          (await isar.templatePublishAudits.getAll(
-            ids,
-          )).whereType<TemplatePublishAudit>().toList();
+      final records = (await isar.templatePublishAudits.getAll(
+        ids,
+      )).whereType<TemplatePublishAudit>().toList();
       for (final record in records) {
         record.isSynced = true;
       }
@@ -786,10 +883,9 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     final byId = {for (final snapshot in snapshots) snapshot.id: snapshot};
 
     await isar.writeTxn(() async {
-      final records =
-          (await isar.templatePublishAudits.getAll(
-            byId.keys.toList(),
-          )).whereType<TemplatePublishAudit>().toList();
+      final records = (await isar.templatePublishAudits.getAll(
+        byId.keys.toList(),
+      )).whereType<TemplatePublishAudit>().toList();
       final unchanged = <TemplatePublishAudit>[];
       for (final record in records) {
         final pushed = byId[record.id];
@@ -810,10 +906,89 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<TemplatePublishAudit>> applyAuditFromRemote(
+    TemplatePublishAudit remote,
+  ) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted template publish audit remote with an identity is required.',
+      );
+    }
+
+    return isar.writeTxn<RemoteRecordApplyResult<TemplatePublishAudit>>(
+      () async {
+        final locals = await isar.templatePublishAudits
+            .filter()
+            .firestoreIdEqualTo(firestoreId)
+            .findAll();
+        if (locals.length > 1) {
+          return RemoteRecordApplyResult<TemplatePublishAudit>(
+            RemoteRecordApplyOutcome.duplicateLocalIdentity,
+            localRecord: locals.first,
+            duplicateCount: locals.length,
+          );
+        }
+        if (locals.isEmpty) {
+          remote
+            ..id = Isar.autoIncrement
+            ..firestoreId = firestoreId
+            ..isSynced = true;
+          await isar.templatePublishAudits.put(remote);
+          return RemoteRecordApplyResult<TemplatePublishAudit>(
+            RemoteRecordApplyOutcome.inserted,
+            localRecord: remote,
+          );
+        }
+
+        final local = locals.single;
+        final remoteIsNewer = SyncRemoteFreshnessPolicy.isRemoteNewer(
+          localVersion: local.version,
+          localUpdatedAt: local.updatedAt,
+          remoteVersion: remote.version,
+          remoteUpdatedAt: remote.updatedAt,
+        );
+        if (!local.isSynced) {
+          return RemoteRecordApplyResult<TemplatePublishAudit>(
+            RemoteRecordApplyOutcome.localDirtyPreserved,
+            localRecord: local,
+            remoteIsNewer: remoteIsNewer,
+          );
+        }
+        final sameBoundary =
+            local.version == remote.version &&
+            local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+            local.isDeleted == remote.isDeleted;
+        if (sameBoundary) {
+          return RemoteRecordApplyResult<TemplatePublishAudit>(
+            RemoteRecordApplyOutcome.unchanged,
+            localRecord: local,
+          );
+        }
+        if (!remoteIsNewer) {
+          return RemoteRecordApplyResult<TemplatePublishAudit>(
+            RemoteRecordApplyOutcome.staleRemoteSkipped,
+            localRecord: local,
+          );
+        }
+
+        remote
+          ..id = local.id
+          ..firestoreId = firestoreId
+          ..isSynced = true;
+        await isar.templatePublishAudits.put(remote);
+        return RemoteRecordApplyResult<TemplatePublishAudit>(
+          RemoteRecordApplyOutcome.updated,
+          localRecord: remote,
+        );
+      },
+    );
+  }
+
+  @override
   Future<void> insertAuditFromRemote(TemplatePublishAudit remote) async {
     if (remote.isDeleted) return;
-    remote.isSynced = true;
-    await isar.writeTxn(() => isar.templatePublishAudits.put(remote));
+    await applyAuditFromRemote(remote);
   }
 
   @override
@@ -994,8 +1169,8 @@ Map<String, dynamic> _templateVersionLifecycleTransitionData(
     'closureCriticalModuleCount': record.closureCriticalModuleCount,
     'closureReviewConfirmedByUid': record.closureReviewConfirmedByUid,
     'closureReviewConfirmedByName': record.closureReviewConfirmedByName,
-    'closureReviewConfirmedAt':
-        record.closureReviewConfirmedAt?.toIso8601String(),
+    'closureReviewConfirmedAt': record.closureReviewConfirmedAt
+        ?.toIso8601String(),
     'updatedByUid': record.updatedByUid,
     'updatedByName': record.updatedByName,
     'updatedAt': record.updatedAt.toIso8601String(),

@@ -76,18 +76,17 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
 
   @override
   Future<List<OperationalDirective>> getOpenDirectives() async {
-    final snap =
-        await _col
-            .where(
-              'status',
-              whereIn: [
-                DirectiveStatus.open.name,
-                DirectiveStatus.acknowledged.name,
-              ],
-            )
-            .where('isDeleted', isEqualTo: false)
-            .orderBy('createdAt', descending: true)
-            .get();
+    final snap = await _col
+        .where(
+          'status',
+          whereIn: [
+            DirectiveStatus.open.name,
+            DirectiveStatus.acknowledged.name,
+          ],
+        )
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .get();
     return snap.docs.map((doc) => _mapDirective(doc)).toList();
   }
 
@@ -121,7 +120,7 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
       query = query.startAfterDocument(startAfter);
     }
 
-    final snap = await query.get();
+    final snap = await query.get(authoritativeGlobalPullReadOptions);
     if (snap.docs.isEmpty) {
       return PaginatedDirectivesResult(records: [], lastDoc: null);
     }
@@ -346,6 +345,14 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
     final doc = await _col.doc(firestoreId).get();
     if (!doc.exists) return null;
     return _mapDirective(doc);
+  }
+
+  @override
+  Future<RemoteRecordApplyResult<OperationalDirective>>
+  applyDirectiveFromRemote(OperationalDirective remote) {
+    throw UnsupportedError(
+      'Firestore cannot apply a remote directive to itself.',
+    );
   }
 
   @override

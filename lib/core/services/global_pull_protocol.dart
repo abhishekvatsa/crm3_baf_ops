@@ -9,6 +9,9 @@ const String globalPullWriterVersion = 'global-pull-server-stamp-v1';
 const int globalPullProtocolVersion = 1;
 const String globalPullCallableRegion = 'asia-south1';
 const String globalPullBeginCallableName = 'beginGlobalPullRun';
+const GetOptions authoritativeGlobalPullReadOptions = GetOptions(
+  source: Source.server,
+);
 
 enum GlobalPullDomain {
   abnormalityTypes('abnormality_types'),
@@ -31,12 +34,10 @@ enum GlobalPullDomain {
   static GlobalPullDomain fromWireName(String value) {
     return values.firstWhere(
       (domain) => domain.wireName == value,
-      orElse:
-          () =>
-              throw const GlobalPullProtocolException(
-                'The global pull domain is unknown.',
-                reasonCode: 'unknown-domain',
-              ),
+      orElse: () => throw const GlobalPullProtocolException(
+        'The global pull domain is unknown.',
+        reasonCode: 'unknown-domain',
+      ),
     );
   }
 }

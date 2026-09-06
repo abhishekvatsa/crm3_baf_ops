@@ -85,7 +85,6 @@ export type NotificationEventExecutionResult =
       reason:
         | "already-completed"
         | "already-suppressed"
-        | "preparation-in-progress"
         | "delivery-uncertain";
     };
 
@@ -108,6 +107,17 @@ export class NotificationRetryableDeliveryError extends Error {
   }
 }
 
+export class NotificationPreparationInProgressError extends Error {
+  readonly code = "notification-preparation-in-progress";
+  readonly receiptId: string;
+
+  constructor(receiptId: string) {
+    super("Notification preparation is still leased by another attempt.");
+    this.name = "NotificationPreparationInProgressError";
+    this.receiptId = receiptId;
+  }
+}
+
 interface ReceiptIdentity {
   triggerName: string;
   cloudEventId: string;
@@ -127,7 +137,15 @@ interface AcquiredReceipt {
   attemptId: string;
 }
 
-type ReceiptAcquisition = AcquiredReceipt | NotificationEventExecutionResult;
+interface ActivePreparationReceipt {
+  kind: "active-preparation";
+  receiptId: string;
+}
+
+type ReceiptAcquisition =
+  | AcquiredReceipt
+  | ActivePreparationReceipt
+  | NotificationEventExecutionResult;
 
 const RECEIPT_STATUSES = new Set<NotificationReceiptStatus>([
   "preparing",
@@ -271,9 +289,8 @@ async function acquireReceipt(
           existing.leaseExpiresAtEpochMs != null &&
           existing.leaseExpiresAtEpochMs > now) {
         return {
-          kind: "skipped",
+          kind: "active-preparation",
           receiptId,
-          reason: "preparation-in-progress",
         };
       }
       if (existing.attemptCount === Number.MAX_SAFE_INTEGER) {
@@ -397,6 +414,9 @@ export async function executeIdempotentNotificationEvent<T>(args: {
   requireNonEmpty(identity.sourceDocumentPath, "sourceDocumentPath");
 
   const acquisition = await acquireReceipt(args.runtime, identity);
+  if (acquisition.kind === "active-preparation") {
+    throw new NotificationPreparationInProgressError(acquisition.receiptId);
+  }
   if (acquisition.kind !== "acquired") return acquisition;
   const transition = (
     expectedStatus: NotificationReceiptStatus,

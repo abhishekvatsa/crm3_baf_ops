@@ -367,10 +367,12 @@ void main() {
     final payload = _readJson('governance/programme-ledger.json');
     final statusVocabulary = _strings(payload['statusVocabulary']).toSet();
     final trackVocabulary = _strings(payload['trackVocabulary']).toSet();
-    final authorityTypeVocabulary =
-        _strings(payload['authorityTypeVocabulary']).toSet();
-    final transitionProfileVocabulary =
-        _strings(payload['transitionProfileVocabulary']).toSet();
+    final authorityTypeVocabulary = _strings(
+      payload['authorityTypeVocabulary'],
+    ).toSet();
+    final transitionProfileVocabulary = _strings(
+      payload['transitionProfileVocabulary'],
+    ).toSet();
     final authorityDefaults = _object(
       payload['authorityTypeDefaultTransitionProfile'],
     );
@@ -479,16 +481,16 @@ void main() {
         'CLOSED',
       ]);
 
-      final evidenceShas =
-          _objects(
-            gate['evidence'],
-          ).map((entry) => entry['sha256'] as String).toSet();
+      final evidenceShas = _objects(
+        gate['evidence'],
+      ).map((entry) => entry['sha256'] as String).toSet();
       expect(evidenceShas, contains(mergeEvidenceSha));
       expect(evidenceShas, contains(closureEvidenceSha));
     }
 
-    final findingIds =
-        findings.map((item) => item['findingId'] as String).toSet();
+    final findingIds = findings
+        .map((item) => item['findingId'] as String)
+        .toSet();
     expect(findingIds, <String>{
       'P-01',
       'P-02',
@@ -548,10 +550,9 @@ void main() {
         'CLOSED',
       ]);
 
-      final evidenceShas =
-          _objects(
-            finding['evidence'],
-          ).map((entry) => entry['sha256'] as String).toSet();
+      final evidenceShas = _objects(
+        finding['evidence'],
+      ).map((entry) => entry['sha256'] as String).toSet();
       expect(evidenceShas, contains(mergeEvidenceSha));
       expect(evidenceShas, contains(closureEvidenceSha));
     }
@@ -698,7 +699,7 @@ void main() {
     );
     expect(a03Manifest['findingId'], 'A-03');
     expect(a03Manifest['inventoryDigest'], matches(RegExp(r'^[A-F0-9]{64}$')));
-    expect(_objects(a03Manifest['surfaces']), hasLength(60));
+    expect(_objects(a03Manifest['surfaces']), hasLength(61));
 
     final a04 = architecture['A-04']!;
     expect(a04['currentStatus'], 'CLOSED');
@@ -757,7 +758,7 @@ void main() {
     expect(a04Manifest['findingId'], 'A-04');
     expect(
       a04Manifest['inventoryDigest'],
-      '05BF7B7EB5594983A51F460159E9E0154CDFCAFE616B7A0352362E32044B1FDD',
+      '06CCC3CDA26D04DBE181E8ADE091BE0DE3E83A3099D8FF96BA7037C695C4B1F8',
     );
     expect(_objects(a04Manifest['fields']), hasLength(53));
     expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(80));
@@ -1107,14 +1108,12 @@ void main() {
     expect(severityVocabulary, contains(attestation['trackASeverity']));
     expect(severityVocabulary, contains(attestation['trackBSeverity']));
 
-    final scopeTriggerIds =
-        _objects(
-          scope['reArmTriggers'],
-        ).map((item) => item['id'] as String).toSet();
-    final sourceTriggerIds =
-        _objects(
-          s02SourcePolicy['sourceReArmTriggers'],
-        ).map((item) => item['id'] as String).toSet();
+    final scopeTriggerIds = _objects(
+      scope['reArmTriggers'],
+    ).map((item) => item['id'] as String).toSet();
+    final sourceTriggerIds = _objects(
+      s02SourcePolicy['sourceReArmTriggers'],
+    ).map((item) => item['id'] as String).toSet();
     final s02 = _objects(
       ledger['technicalFindings'],
     ).singleWhere((item) => item['findingId'] == 'S-02');

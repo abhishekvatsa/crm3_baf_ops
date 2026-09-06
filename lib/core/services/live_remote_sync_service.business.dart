@@ -14,6 +14,63 @@ enum _LiveBusinessMirrorKind {
   knowledgeRow,
 }
 
+enum _RemoteMirrorApplyOutcome {
+  applied,
+  unchanged,
+  localDirtyPreserved,
+  duplicateLocalIdentity,
+}
+
+class _RemoteMirrorApplyReceipt {
+  const _RemoteMirrorApplyReceipt(this.outcome, {this.duplicateCount = 0});
+
+  final _RemoteMirrorApplyOutcome outcome;
+  final int duplicateCount;
+}
+
+_RemoteMirrorApplyReceipt _remoteMirrorReceiptFromRecord<T extends Object>(
+  RemoteRecordApplyResult<T> result,
+) {
+  switch (result.outcome) {
+    case RemoteRecordApplyOutcome.inserted:
+    case RemoteRecordApplyOutcome.updated:
+      return const _RemoteMirrorApplyReceipt(_RemoteMirrorApplyOutcome.applied);
+    case RemoteRecordApplyOutcome.unchanged:
+    case RemoteRecordApplyOutcome.staleRemoteSkipped:
+      return const _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.unchanged,
+      );
+    case RemoteRecordApplyOutcome.localDirtyPreserved:
+      return const _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.localDirtyPreserved,
+      );
+    case RemoteRecordApplyOutcome.duplicateLocalIdentity:
+      return _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.duplicateLocalIdentity,
+        duplicateCount: result.duplicateCount,
+      );
+  }
+}
+
+_RemoteMirrorApplyReceipt _remoteMirrorReceiptFromTombstone(
+  RemoteTombstoneApplyResult result,
+) {
+  switch (result.outcome) {
+    case RemoteTombstoneApplyOutcome.applied:
+      return const _RemoteMirrorApplyReceipt(_RemoteMirrorApplyOutcome.applied);
+    case RemoteTombstoneApplyOutcome.localDirtyPreserved:
+      return const _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.localDirtyPreserved,
+      );
+    case RemoteTombstoneApplyOutcome.localMissing:
+    case RemoteTombstoneApplyOutcome.alreadyDeleted:
+    case RemoteTombstoneApplyOutcome.notDeletedRemote:
+      return const _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.unchanged,
+      );
+  }
+}
+
 class _LiveBusinessListenerSpec {
   final _LiveBusinessMirrorKind kind;
   final String collectionPath;
@@ -31,43 +88,58 @@ class _LiveBusinessListenerSpec {
 }
 
 class _LiveBusinessAdapter {
-  final Future<dynamic> Function(Isar, String) find;
+  final Future<List<dynamic>> Function(Isar, String) matches;
   final Future<List<dynamic>> Function(Isar)? activeRows;
   final Future<void> Function(Isar, dynamic) put;
   final Future<void> Function(Isar, int) delete;
   final dynamic Function(Map<String, dynamic>, String) decode;
   final String? Function(dynamic) documentId;
+  final Future<_RemoteMirrorApplyReceipt> Function(dynamic)? applyRemote;
 
   const _LiveBusinessAdapter({
-    required this.find,
+    required this.matches,
     required this.activeRows,
     required this.put,
     required this.delete,
     required this.decode,
     required this.documentId,
+    required this.applyRemote,
   });
 
-  static _LiveBusinessAdapter typed<T>({
+  static _LiveBusinessAdapter typed<T extends Object>({
     required IsarCollection<T> Function(Isar) collection,
-    required Future<T?> Function(Isar, String) find,
+    required Future<List<T>> Function(Isar, String) matches,
     required T Function(Map<String, dynamic>, String) decode,
     required String? Function(T) documentId,
     Future<List<T>> Function(Isar)? activeRows,
+    Future<RemoteRecordApplyResult<T>> Function(T)? applyRecord,
+    Future<RemoteTombstoneApplyResult> Function(T)? applyTombstone,
   }) {
+    assert((applyRecord == null) == (applyTombstone == null));
     return _LiveBusinessAdapter(
-      find: (database, identifier) => find(database, identifier),
-      activeRows:
-          activeRows == null
-              ? null
-              : (database) async => await activeRows(database),
-      put:
-          (database, record) =>
-              collection(database).put(record as T).then<void>((_) {}),
-      delete:
-          (database, identifier) =>
-              collection(database).delete(identifier).then<void>((_) {}),
+      matches: (database, identifier) => matches(database, identifier),
+      activeRows: activeRows == null
+          ? null
+          : (database) async => await activeRows(database),
+      put: (database, record) =>
+          collection(database).put(record as T).then<void>((_) {}),
+      delete: (database, identifier) =>
+          collection(database).delete(identifier).then<void>((_) {}),
       decode: (data, identifier) => decode(data, identifier),
       documentId: (record) => documentId(record as T),
+      applyRemote: applyRecord == null
+          ? null
+          : (record) async {
+              final typedRecord = record as T;
+              if ((typedRecord as dynamic).isDeleted == true) {
+                return _remoteMirrorReceiptFromTombstone(
+                  await applyTombstone!(typedRecord),
+                );
+              }
+              return _remoteMirrorReceiptFromRecord(
+                await applyRecord(typedRecord),
+              );
+            },
     );
   }
 }
@@ -176,18 +248,20 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
     ];
   }
 
-  void _startBusinessListener(_LiveBusinessListenerSpec spec) {
+  void _startBusinessListener(_LiveBusinessListenerSpec spec, int generation) {
     final subscription = spec.query
         .snapshots(includeMetadataChanges: true)
         .listen(
-          (snapshot) => _handleBusinessSnapshot(spec, snapshot),
-          onError:
-              (Object error, StackTrace stackTrace) => _recordBusinessError(
-                kind: spec.kind,
-                documentId: '*',
-                error: error,
-                stackTrace: stackTrace,
-              ),
+          (snapshot) => _handleBusinessSnapshot(spec, snapshot, generation),
+          onError: (Object error, StackTrace stackTrace) {
+            if (!_acceptsLiveWork(generation)) return;
+            _recordBusinessError(
+              kind: spec.kind,
+              documentId: '*',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          },
         );
     _maintenanceSubs.add(subscription);
   }
@@ -195,7 +269,9 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
   void _handleBusinessSnapshot(
     _LiveBusinessListenerSpec spec,
     QuerySnapshot<Map<String, dynamic>> snapshot,
+    int generation,
   ) {
+    if (!_acceptsLiveWork(generation)) return;
     _setHealth(
       _health.copyWith(
         maintenanceState: LiveRemoteSyncConnectionState.listening,
@@ -208,14 +284,24 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
       switch (change.type) {
         case DocumentChangeType.added:
         case DocumentChangeType.modified:
-          unawaited(_applyBusinessDocument(spec.kind, change.doc));
+          unawaited(
+            _applyBusinessDocument(
+              spec.kind,
+              change.doc,
+              generation: generation,
+            ),
+          );
           break;
         case DocumentChangeType.removed:
           _setHealth(
             _health.copyWith(removedEventCount: _health.removedEventCount + 1),
           );
           unawaited(
-            _applyRemovedBusinessDocument(spec.kind, change.doc.reference),
+            _applyRemovedBusinessDocument(
+              spec.kind,
+              change.doc.reference,
+              generation: generation,
+            ),
           );
           break;
       }
@@ -229,6 +315,7 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
         _reconcileInitiallyActiveBusiness(
           spec,
           snapshot.docs.map((document) => document.id).toSet(),
+          generation,
         ),
       );
     }
@@ -237,7 +324,9 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
   Future<void> _reconcileInitiallyActiveBusiness(
     _LiveBusinessListenerSpec spec,
     Set<String> activeRemoteIds,
+    int generation,
   ) async {
+    if (!_acceptsLiveWork(generation)) return;
     try {
       final adapter = _businessAdapter(spec.kind);
       final activeRows = adapter.activeRows;
@@ -246,7 +335,10 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
         _businessReconciliationRetries.remove(spec.kind)?.cancel();
         return;
       }
-      for (final record in await activeRows(_isar)) {
+      final records = await activeRows(_isar);
+      if (!_acceptsLiveWork(generation)) return;
+      for (final record in records) {
+        if (!_acceptsLiveWork(generation)) return;
         final identifier = adapter.documentId(record)?.trim();
         if (record.isSynced != true ||
             identifier == null ||
@@ -259,12 +351,15 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
           FirebaseFirestore.instance
               .collection(spec.collectionPath)
               .doc(identifier),
+          generation: generation,
           propagateFailure: true,
         );
       }
+      if (!_acceptsLiveWork(generation)) return;
       _businessReconciliationFailures.remove(spec.kind);
       _businessReconciliationRetries.remove(spec.kind)?.cancel();
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       _reconciledBusinessKinds.remove(spec.kind);
       _recordBusinessError(
         kind: spec.kind,
@@ -272,15 +367,16 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
         error: error,
         stackTrace: stackTrace,
       );
-      _scheduleBusinessReconciliationRetry(spec, activeRemoteIds);
+      _scheduleBusinessReconciliationRetry(spec, activeRemoteIds, generation);
     }
   }
 
   void _scheduleBusinessReconciliationRetry(
     _LiveBusinessListenerSpec spec,
     Set<String> activeRemoteIds,
+    int generation,
   ) {
-    if (!_maintenanceStarted || _pausedForLifecycle) {
+    if (!_acceptsLiveWork(generation)) {
       return;
     }
 
@@ -295,28 +391,33 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
     _businessReconciliationRetries.remove(spec.kind)?.cancel();
     _businessReconciliationRetries[spec.kind] = Timer(delay, () {
       _businessReconciliationRetries.remove(spec.kind);
-      if (!_maintenanceStarted ||
-          _pausedForLifecycle ||
+      if (!_acceptsLiveWork(generation) ||
           !_reconciledBusinessKinds.add(spec.kind)) {
         return;
       }
-      unawaited(_reconcileInitiallyActiveBusiness(spec, expectedRemoteIds));
+      unawaited(
+        _reconcileInitiallyActiveBusiness(spec, expectedRemoteIds, generation),
+      );
     });
   }
 
   Future<void> _applyRemovedBusinessDocument(
     _LiveBusinessMirrorKind kind,
     DocumentReference<Map<String, dynamic>> reference, {
+    required int generation,
     bool propagateFailure = false,
   }) async {
+    if (!_acceptsLiveWork(generation)) return;
     try {
       final remote = await reference.get(
         const GetOptions(source: Source.server),
       );
+      if (!_acceptsLiveWork(generation)) return;
       if (remote.exists) {
         await _applyBusinessDocument(
           kind,
           remote,
+          generation: generation,
           propagateFailure: propagateFailure,
         );
         return;
@@ -324,12 +425,16 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
 
       final adapter = _businessAdapter(kind);
       await _isar.writeTxn(() async {
-        final local = await adapter.find(_isar, reference.id);
-        if (local != null && local.isSynced == true) {
-          await adapter.delete(_isar, local.id as int);
+        if (!_acceptsLiveWork(generation)) return;
+        final locals = await adapter.matches(_isar, reference.id);
+        for (final local in locals) {
+          if (local.isSynced == true) {
+            await adapter.delete(_isar, local.id as int);
+          }
         }
       });
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       if (propagateFailure) rethrow;
       _recordBusinessError(
         kind: kind,
@@ -343,38 +448,33 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
   Future<void> _applyBusinessDocument(
     _LiveBusinessMirrorKind kind,
     DocumentSnapshot<Map<String, dynamic>> snapshot, {
+    required int generation,
     bool propagateFailure = false,
   }) async {
+    if (!_acceptsLiveWork(generation)) return;
     final data = snapshot.data();
     if (data == null || snapshot.metadata.hasPendingWrites) return;
 
     try {
       final adapter = _businessAdapter(kind);
       final remote = adapter.decode(data, snapshot.id);
-      var applied = false;
-      var protectedUnsynced = false;
-      await _isar.writeTxn(() async {
-        final local = await adapter.find(_isar, snapshot.id);
-        if (local == null) {
-          if (remote.isDeleted == true) return;
-          remote.isSynced = true;
-          await adapter.put(_isar, remote);
-          applied = true;
-          return;
-        }
-        if (local.isSynced != true) {
-          protectedUnsynced = true;
-          return;
-        }
-        if (!_isRemoteNewerByPolicy(local, remote)) return;
+      final receipt = adapter.applyRemote == null
+          ? await _applyKnowledgeDocument(
+              adapter,
+              remote,
+              snapshot.id,
+              generation,
+            )
+          : await adapter.applyRemote!(remote);
 
-        remote.id = local.id;
-        remote.isSynced = true;
-        await adapter.put(_isar, remote);
-        applied = true;
-      });
-
-      if (applied) {
+      if (!_acceptsLiveWork(generation)) return;
+      if (receipt.outcome == _RemoteMirrorApplyOutcome.duplicateLocalIdentity) {
+        throw StateError(
+          'Live ${kind.name} mirror found ${receipt.duplicateCount} local rows '
+          'for remote identity ${snapshot.id}.',
+        );
+      }
+      if (receipt.outcome == _RemoteMirrorApplyOutcome.applied) {
         _setHealth(
           _health.copyWith(
             maintenanceState: LiveRemoteSyncConnectionState.listening,
@@ -383,7 +483,8 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
             clearLastError: true,
           ),
         );
-      } else if (protectedUnsynced) {
+      } else if (receipt.outcome ==
+          _RemoteMirrorApplyOutcome.localDirtyPreserved) {
         _setHealth(
           _health.copyWith(
             skippedUnsyncedLocalCount: _health.skippedUnsyncedLocalCount + 1,
@@ -391,6 +492,7 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
         );
       }
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       if (propagateFailure) rethrow;
       _recordBusinessError(
         kind: kind,
@@ -401,61 +503,103 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
     }
   }
 
+  Future<_RemoteMirrorApplyReceipt> _applyKnowledgeDocument(
+    _LiveBusinessAdapter adapter,
+    dynamic remote,
+    String documentId,
+    int generation,
+  ) async {
+    var receipt = const _RemoteMirrorApplyReceipt(
+      _RemoteMirrorApplyOutcome.unchanged,
+    );
+    await _isar.writeTxn(() async {
+      if (!_acceptsLiveWork(generation)) return;
+      final locals = await adapter.matches(_isar, documentId);
+      if (locals.length > 1) {
+        receipt = _RemoteMirrorApplyReceipt(
+          _RemoteMirrorApplyOutcome.duplicateLocalIdentity,
+          duplicateCount: locals.length,
+        );
+        return;
+      }
+      if (locals.isEmpty) {
+        if (remote.isDeleted == true) return;
+        remote.isSynced = true;
+        await adapter.put(_isar, remote);
+        receipt = const _RemoteMirrorApplyReceipt(
+          _RemoteMirrorApplyOutcome.applied,
+        );
+        return;
+      }
+
+      final local = locals.single;
+      if (local.isSynced != true) {
+        receipt = const _RemoteMirrorApplyReceipt(
+          _RemoteMirrorApplyOutcome.localDirtyPreserved,
+        );
+        return;
+      }
+      if (!_isRemoteNewerByPolicy(local, remote)) return;
+
+      remote.id = local.id;
+      remote.isSynced = true;
+      await adapter.put(_isar, remote);
+      receipt = const _RemoteMirrorApplyReceipt(
+        _RemoteMirrorApplyOutcome.applied,
+      );
+    });
+    return receipt;
+  }
+
   _LiveBusinessAdapter _businessAdapter(_LiveBusinessMirrorKind kind) {
     switch (kind) {
       case _LiveBusinessMirrorKind.directive:
         return _LiveBusinessAdapter.typed<OperationalDirective>(
           collection: (database) => database.operationalDirectives,
-          find:
-              (database, identifier) =>
-                  database.operationalDirectives
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
-          activeRows:
-              (database) =>
-                  database.operationalDirectives
-                      .filter()
-                      .isActiveEqualTo(true)
-                      .and()
-                      .isDeletedEqualTo(false)
-                      .findAll(),
-          decode:
-              (data, identifier) =>
-                  readRemoteOperationalDirective(data, documentId: identifier),
+          matches: (database, identifier) => database.operationalDirectives
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
+          activeRows: (database) => database.operationalDirectives
+              .filter()
+              .isActiveEqualTo(true)
+              .and()
+              .isDeletedEqualTo(false)
+              .findAll(),
+          decode: (data, identifier) =>
+              readRemoteOperationalDirective(data, documentId: identifier),
           documentId: (record) => record.firestoreId,
+          applyRecord: _directiveRepository.applyDirectiveFromRemote,
+          applyTombstone:
+              _directiveRepository.applyTombstoneFromDirectiveRemote,
         );
       case _LiveBusinessMirrorKind.jobExecution:
         return _LiveBusinessAdapter.typed<JobExecution>(
           collection: (database) => database.jobExecutions,
-          find:
-              (database, identifier) =>
-                  database.jobExecutions
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
-          activeRows:
-              (database) =>
-                  database.jobExecutions
-                      .filter()
-                      .isCompletedEqualTo(false)
-                      .and()
-                      .isCancelledEqualTo(false)
-                      .and()
-                      .isDeletedEqualTo(false)
-                      .findAll(),
+          matches: (database, identifier) => database.jobExecutions
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
+          activeRows: (database) => database.jobExecutions
+              .filter()
+              .isCompletedEqualTo(false)
+              .and()
+              .isCancelledEqualTo(false)
+              .and()
+              .isDeletedEqualTo(false)
+              .findAll(),
           decode: JobExecution.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _plannedRepository.applyExecutionFromRemote,
+          applyTombstone: _plannedRepository.applyTombstoneFromExecutionRemote,
         );
       case _LiveBusinessMirrorKind.jobModule:
         return _LiveBusinessAdapter.typed<JobModuleInstance>(
           collection: (database) => database.jobModuleInstances,
-          find:
-              (database, identifier) =>
-                  database.jobModuleInstances
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
+          matches: (database, identifier) => database.jobModuleInstances
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
           activeRows: (database) async {
             final records = await database.jobModuleInstances.where().findAll();
             return records
@@ -469,122 +613,120 @@ extension _LiveBusinessMirror on LiveRemoteSyncService {
           },
           decode: JobModuleInstance.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _jobModuleRepository.applyModuleFromRemote,
+          applyTombstone: _jobModuleRepository.applyTombstoneFromRemote,
         );
       case _LiveBusinessMirrorKind.jobDiary:
         return _LiveBusinessAdapter.typed<JobDiaryEntry>(
           collection: (database) => database.jobDiaryEntrys,
-          find:
-              (database, identifier) =>
-                  database.jobDiaryEntrys
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
+          matches: (database, identifier) => database.jobDiaryEntrys
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
           decode: JobDiaryEntry.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _jobDiaryRepository.applyEntryFromRemote,
+          applyTombstone: _jobDiaryRepository.applyTombstoneFromRemote,
         );
       case _LiveBusinessMirrorKind.abnormalityType:
         return _LiveBusinessAdapter.typed<AbnormalityType>(
           collection: (database) => database.abnormalityTypes,
-          find:
-              (database, identifier) =>
-                  database.abnormalityTypes
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
-          activeRows:
-              (database) =>
-                  database.abnormalityTypes
-                      .filter()
-                      .isActiveEqualTo(true)
-                      .and()
-                      .isDeletedEqualTo(false)
-                      .findAll(),
+          matches: (database, identifier) => database.abnormalityTypes
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
+          activeRows: (database) => database.abnormalityTypes
+              .filter()
+              .isActiveEqualTo(true)
+              .and()
+              .isDeletedEqualTo(false)
+              .findAll(),
           decode: AbnormalityType.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _abnormalityRepository.applyTypeFromRemote,
+          applyTombstone: _abnormalityRepository.applyTombstoneFromTypeRemote,
         );
       case _LiveBusinessMirrorKind.chargeAbnormality:
         return _LiveBusinessAdapter.typed<ChargeAbnormality>(
           collection: (database) => database.chargeAbnormalitys,
-          find:
-              (database, identifier) =>
-                  database.chargeAbnormalitys
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
+          matches: (database, identifier) => database.chargeAbnormalitys
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
           decode: ChargeAbnormality.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _abnormalityRepository.applyAbnormalityFromRemote,
+          applyTombstone:
+              _abnormalityRepository.applyTombstoneFromAbnormalityRemote,
         );
       case _LiveBusinessMirrorKind.jobTemplate:
         return _LiveBusinessAdapter.typed<JobTemplate>(
           collection: (database) => database.jobTemplates,
-          find:
-              (database, identifier) =>
-                  database.jobTemplates
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
-          activeRows:
-              (database) =>
-                  database.jobTemplates
-                      .filter()
-                      .isActiveEqualTo(true)
-                      .and()
-                      .isDeletedEqualTo(false)
-                      .findAll(),
+          matches: (database, identifier) => database.jobTemplates
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
+          activeRows: (database) => database.jobTemplates
+              .filter()
+              .isActiveEqualTo(true)
+              .and()
+              .isDeletedEqualTo(false)
+              .findAll(),
           decode: JobTemplate.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _plannedRepository.applyTemplateFromRemote,
+          applyTombstone: _plannedRepository.applyTombstoneFromTemplateRemote,
         );
       case _LiveBusinessMirrorKind.templatePackage:
         return _LiveBusinessAdapter.typed<TemplatePackage>(
           collection: (database) => database.templatePackages,
-          find:
-              (database, identifier) =>
-                  database.templatePackages
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
-          activeRows:
-              (database) =>
-                  database.templatePackages
-                      .filter()
-                      .isDeletedEqualTo(false)
-                      .findAll(),
+          matches: (database, identifier) => database.templatePackages
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
+          activeRows: (database) => database.templatePackages
+              .filter()
+              .isDeletedEqualTo(false)
+              .findAll(),
           decode: TemplatePackage.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _templateGovernanceRepository.applyPackageFromRemote,
+          applyTombstone:
+              _templateGovernanceRepository.applyTombstoneFromPackageRemote,
         );
       case _LiveBusinessMirrorKind.templateVersion:
         return _LiveBusinessAdapter.typed<TemplateVersion>(
           collection: (database) => database.templateVersions,
-          find:
-              (database, identifier) =>
-                  database.templateVersions
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
+          matches: (database, identifier) => database.templateVersions
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
           decode: TemplateVersion.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _templateGovernanceRepository.applyVersionFromRemote,
+          applyTombstone:
+              _templateGovernanceRepository.applyTombstoneFromVersionRemote,
         );
       case _LiveBusinessMirrorKind.templatePublishAudit:
         return _LiveBusinessAdapter.typed<TemplatePublishAudit>(
           collection: (database) => database.templatePublishAudits,
-          find:
-              (database, identifier) =>
-                  database.templatePublishAudits
-                      .filter()
-                      .firestoreIdEqualTo(identifier)
-                      .findFirst(),
+          matches: (database, identifier) => database.templatePublishAudits
+              .filter()
+              .firestoreIdEqualTo(identifier)
+              .findAll(),
           decode: TemplatePublishAudit.fromMap,
           documentId: (record) => record.firestoreId,
+          applyRecord: _templateGovernanceRepository.applyAuditFromRemote,
+          applyTombstone:
+              _templateGovernanceRepository.applyTombstoneFromAuditRemote,
         );
       case _LiveBusinessMirrorKind.knowledgeRow:
         return _LiveBusinessAdapter.typed<BafKnowledgeRow>(
           collection: (database) => database.bafKnowledgeRows,
-          find:
-              (database, identifier) =>
-                  database.bafKnowledgeRows
-                      .filter()
-                      .rowCodeEqualTo(identifier)
-                      .findFirst(),
+          matches: (database, identifier) => database.bafKnowledgeRows
+              .filter()
+              .rowCodeEqualTo(identifier)
+              .findAll(),
           decode: BafKnowledgeRow.fromCloudMap,
           documentId: (record) => record.rowCode,
         );

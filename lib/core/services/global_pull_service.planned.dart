@@ -22,71 +22,23 @@ extension _GlobalPullPlanned on GlobalPullService {
 
       if (templates.isEmpty) break;
 
-      final inserts = <JobTemplate>[];
-      final updates = <JobTemplate>[];
-      final tombstones = <JobTemplate>[];
-
       for (final remote in templates) {
         try {
           if (remote.firestoreId == null) continue;
-
-          final local = await _plannedRepo.getTemplateByFirestoreId(
-            remote.firestoreId!,
-          );
-
           if (remote.isDeleted) {
-            if (local != null) {
-              tombstones.add(remote);
-            }
+            final result = await _plannedRepo.applyTombstoneFromTemplateRemote(
+              remote,
+            );
+            _recordTombstoneApplyResult('job template', remote, result);
             continue;
           }
-
-          if (local == null) {
-            inserts.add(remote);
-          } else {
-            final bool isLocalUnsynced = !local.isSynced;
-            final bool isRemoteNewer = _isRemoteNewer(local, remote);
-
-            if (!isLocalUnsynced && local.updatedAt.isAfter(remote.updatedAt)) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && !isRemoteNewer) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && isRemoteNewer) {
-              _logPullConflict('template', local, remote);
-              continue;
-            }
-
-            updates.add(remote);
-          }
+          final result = await _plannedRepo.applyTemplateFromRemote(remote);
+          _recordRemoteApplyResult('job template', remote, result);
         } catch (e) {
           lastSkipped++;
           _hadRecordProcessingError = true;
           debugPrint('⚠️ Template pull error: $e');
         }
-      }
-
-      for (final remote in tombstones) {
-        final result = await _plannedRepo.applyTombstoneFromTemplateRemote(
-          remote,
-        );
-        _recordTombstoneApplyResult('job template', remote, result);
-      }
-
-      for (final record in inserts) {
-        record.isSynced = true;
-        await _plannedRepo.insertTemplateFromRemote(record);
-        lastInserted++;
-      }
-
-      for (final remote in updates) {
-        await _plannedRepo.updateTemplateFromRemote(remote);
-        lastUpdated++;
       }
 
       if (templates.length < GlobalPullService._pageSize) break;
@@ -111,71 +63,23 @@ extension _GlobalPullPlanned on GlobalPullService {
 
       if (executions.isEmpty) break;
 
-      final inserts = <JobExecution>[];
-      final updates = <JobExecution>[];
-      final tombstones = <JobExecution>[];
-
       for (final remote in executions) {
         try {
           if (remote.firestoreId == null) continue;
-
-          final local = await _plannedRepo.getExecutionByFirestoreId(
-            remote.firestoreId!,
-          );
-
           if (remote.isDeleted) {
-            if (local != null) {
-              tombstones.add(remote);
-            }
+            final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
+              remote,
+            );
+            _recordTombstoneApplyResult('job execution', remote, result);
             continue;
           }
-
-          if (local == null) {
-            inserts.add(remote);
-          } else {
-            final bool isLocalUnsynced = !local.isSynced;
-            final bool isRemoteNewer = _isRemoteNewer(local, remote);
-
-            if (!isLocalUnsynced && local.updatedAt.isAfter(remote.updatedAt)) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && !isRemoteNewer) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && isRemoteNewer) {
-              _logPullConflict('execution', local, remote);
-              continue;
-            }
-
-            updates.add(remote);
-          }
+          final result = await _plannedRepo.applyExecutionFromRemote(remote);
+          _recordRemoteApplyResult('job execution', remote, result);
         } catch (e) {
           lastSkipped++;
           _hadRecordProcessingError = true;
           debugPrint('⚠️ Execution pull error: $e');
         }
-      }
-
-      for (final remote in tombstones) {
-        final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
-          remote,
-        );
-        _recordTombstoneApplyResult('job execution', remote, result);
-      }
-
-      for (final record in inserts) {
-        record.isSynced = true;
-        await _plannedRepo.insertExecutionFromRemote(record);
-        lastInserted++;
-      }
-
-      for (final remote in updates) {
-        await _plannedRepo.updateExecutionFromRemote(remote);
-        lastUpdated++;
       }
 
       if (executions.length < GlobalPullService._pageSize) break;

@@ -42,10 +42,9 @@ void main() {
   test(
     'an active protected reset blocks session exit until terminal',
     () async {
-      final guard =
-          LocalRecoverySessionGuard()
-            ..beginRecovery()
-            ..beginRecovery();
+      final guard = LocalRecoverySessionGuard()
+        ..beginRecovery()
+        ..beginRecovery();
 
       await expectLater(
         guard.beginSessionEnd(),
@@ -78,12 +77,12 @@ void main() {
   });
 
   test('auth and recovery wiring acquires the interlock before either race', () {
-    final auth =
-        File(
-          'lib/features/auth/providers/auth_provider.dart',
-        ).readAsStringSync();
-    final coordinator =
-        File('lib/core/services/sync_coordinator.dart').readAsStringSync();
+    final auth = File(
+      'lib/features/auth/services/auth_service.dart',
+    ).readAsStringSync();
+    final coordinator = File(
+      'lib/core/services/sync_coordinator.dart',
+    ).readAsStringSync();
 
     final signOutStart = auth.indexOf('Future<void> signOut()');
     final signOutEnd = auth.indexOf(
@@ -101,18 +100,15 @@ void main() {
     );
     expect(signOut, contains('.endSessionEnd()'));
 
-    final guardSource =
-        File(
-          'lib/core/services/local_recovery_session_guard.dart',
-        ).readAsStringSync();
-    final recoveryIoSource =
-        File(
-          'lib/core/services/isar_production_recovery_io.dart',
-        ).readAsStringSync();
-    final recoveryListenerSource =
-        File(
-          'lib/features/admin/services/device_recovery_listener.dart',
-        ).readAsStringSync();
+    final guardSource = File(
+      'lib/core/services/local_recovery_session_guard.dart',
+    ).readAsStringSync();
+    final recoveryIoSource = File(
+      'lib/core/services/isar_production_recovery_io.dart',
+    ).readAsStringSync();
+    final recoveryListenerSource = File(
+      'lib/features/admin/services/device_recovery_listener.dart',
+    ).readAsStringSync();
     expect(guardSource, contains('startupRecoveryProbe:'));
     expect(guardSource, contains('hasActiveCrashDurableIsarRecoveryJournal'));
     expect(

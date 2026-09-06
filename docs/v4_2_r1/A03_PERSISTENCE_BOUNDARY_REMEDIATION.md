@@ -89,6 +89,19 @@ current manifest covers 565 operations and 1,940 sites across 60 surfaces with
 digest `8EEF2E38B103F506BBD98BA1EA0F3308065AF5B849D01437B532D98726F39BEA`.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.
 
+## Predictive Audit Re-arm, 2026-09-06
+
+The current governed successor contains 555 operations across 1,917
+persistence sites and 61 classified surfaces. Its measured inventory digest is
+`2A106D857ECCAEFE44509087E4571A7EDC1F651DE44CBDDE054110524C886415`.
+The lower operation and site counts are the reviewed result of replacing broad
+workflow collection reads and deferred in-memory filtering with scoped Isar
+queries, and of consolidating identity-based remote application inside local
+transactions. The additional surface is the separated authentication service;
+it owns profile mutations while provider wiring remains read-only. Historical
+closure counts and receipts above remain unchanged and continue to describe
+their original source snapshots.
+
 The audit fails when the operation digest changes, a persistence-owning file is
 unclassified, declared stores or access modes drift, presentation or widget
 code gains direct persistence, a mutation is not repository/service owned, a

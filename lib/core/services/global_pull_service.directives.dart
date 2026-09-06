@@ -22,71 +22,26 @@ extension _GlobalPullDirectives on GlobalPullService {
 
       if (directives.isEmpty) break;
 
-      final inserts = <OperationalDirective>[];
-      final updates = <OperationalDirective>[];
-      final tombstones = <OperationalDirective>[];
-
       for (final remote in directives) {
         try {
           if (remote.firestoreId == null) continue;
-
-          final local = await _directiveRepo.getByFirestoreId(
-            remote.firestoreId!,
-          );
-
           if (remote.isDeleted) {
-            if (local != null) {
-              tombstones.add(remote);
-            }
+            final result = await _directiveRepo
+                .applyTombstoneFromDirectiveRemote(remote);
+            _recordTombstoneApplyResult(
+              'operational directive',
+              remote,
+              result,
+            );
             continue;
           }
-
-          if (local == null) {
-            inserts.add(remote);
-          } else {
-            final bool isLocalUnsynced = !local.isSynced;
-            final bool isRemoteNewer = _isRemoteNewer(local, remote);
-
-            if (!isLocalUnsynced && local.updatedAt.isAfter(remote.updatedAt)) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && !isRemoteNewer) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && isRemoteNewer) {
-              _logPullConflict('directive', local, remote);
-              continue;
-            }
-
-            updates.add(remote);
-          }
+          final result = await _directiveRepo.applyDirectiveFromRemote(remote);
+          _recordRemoteApplyResult('operational directive', remote, result);
         } catch (e) {
           lastSkipped++;
           _hadRecordProcessingError = true;
           debugPrint('⚠️ Directive pull error: $e');
         }
-      }
-
-      for (final remote in tombstones) {
-        final result = await _directiveRepo.applyTombstoneFromDirectiveRemote(
-          remote,
-        );
-        _recordTombstoneApplyResult('operational directive', remote, result);
-      }
-
-      for (final record in inserts) {
-        record.isSynced = true;
-        await _directiveRepo.insertFromRemote(record);
-        lastInserted++;
-      }
-
-      for (final remote in updates) {
-        await _directiveRepo.updateFromRemote(remote);
-        lastUpdated++;
       }
 
       if (directives.length < GlobalPullService._pageSize) break;

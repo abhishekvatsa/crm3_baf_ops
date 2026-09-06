@@ -29,10 +29,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-          final records =
-              snapshot.docs
-                  .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
-                  .toList();
+          final records = snapshot.docs
+              .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+              .toList();
 
           records.sort(_sortTypes);
           return records;
@@ -44,10 +43,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     return _types.where('isDeleted', isEqualTo: false).snapshots().map((
       snapshot,
     ) {
-      final records =
-          snapshot.docs
-              .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
-              .toList();
+      final records = snapshot.docs
+          .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+          .toList();
 
       records.sort(_sortTypes);
       return records;
@@ -56,16 +54,14 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
 
   @override
   Future<List<AbnormalityType>> getActiveTypes() async {
-    final snapshot =
-        await _types
-            .where('isDeleted', isEqualTo: false)
-            .where('isActive', isEqualTo: true)
-            .get();
+    final snapshot = await _types
+        .where('isDeleted', isEqualTo: false)
+        .where('isActive', isEqualTo: true)
+        .get();
 
-    final records =
-        snapshot.docs
-            .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
-            .toList();
+    final records = snapshot.docs
+        .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+        .toList();
 
     records.sort(_sortTypes);
     return records;
@@ -75,10 +71,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<List<AbnormalityType>> getAllTypes() async {
     final snapshot = await _types.where('isDeleted', isEqualTo: false).get();
 
-    final records =
-        snapshot.docs
-            .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
-            .toList();
+    final records = snapshot.docs
+        .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+        .toList();
 
     records.sort(_sortTypes);
     return records;
@@ -112,15 +107,17 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     type.firestoreId ??= _uuid.v4();
 
     final beforeDoc = await _types.doc(type.firestoreId).get();
-    final beforeSnapshot =
-        beforeDoc.exists ? _sanitizeForAudit(beforeDoc.data()) : null;
+    final beforeSnapshot = beforeDoc.exists
+        ? _sanitizeForAudit(beforeDoc.data())
+        : null;
 
     final isCreate = beforeSnapshot == null;
 
     type
       ..updatedAt = DateTime.now()
-      ..version =
-          isCreate ? (type.version <= 0 ? 1 : type.version) : type.version + 1
+      ..version = isCreate
+          ? (type.version <= 0 ? 1 : type.version)
+          : type.version + 1
       ..isSynced = true;
 
     await _types
@@ -154,8 +151,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     final beforeDoc = await _types.doc(type.firestoreId).get();
-    final beforeSnapshot =
-        beforeDoc.exists ? _sanitizeForAudit(beforeDoc.data()) : null;
+    final beforeSnapshot = beforeDoc.exists
+        ? _sanitizeForAudit(beforeDoc.data())
+        : null;
 
     type.markEdited(
       editedByUid: auditContext?.performedByUid ?? type.lastEditedByUid,
@@ -190,8 +188,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     final docId = id as String;
 
     final beforeDoc = await _types.doc(docId).get();
-    final beforeSnapshot =
-        beforeDoc.exists ? _sanitizeForAudit(beforeDoc.data()) : null;
+    final beforeSnapshot = beforeDoc.exists
+        ? _sanitizeForAudit(beforeDoc.data())
+        : null;
 
     final now = DateTime.now().toIso8601String();
     final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
@@ -267,10 +266,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snapshot) {
-          final records =
-              snapshot.docs
-                  .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
-                  .toList();
+          final records = snapshot.docs
+              .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+              .toList();
 
           records.sort(_sortAbnormalities);
           return records;
@@ -281,16 +279,14 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<List<ChargeAbnormality>> getAbnormalitiesForCharge(
     int sourceChargeNo,
   ) async {
-    final snapshot =
-        await _abnormalities
-            .where('sourceChargeNo', isEqualTo: sourceChargeNo)
-            .where('isDeleted', isEqualTo: false)
-            .get();
+    final snapshot = await _abnormalities
+        .where('sourceChargeNo', isEqualTo: sourceChargeNo)
+        .where('isDeleted', isEqualTo: false)
+        .get();
 
-    final records =
-        snapshot.docs
-            .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
-            .toList();
+    final records = snapshot.docs
+        .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+        .toList();
 
     records.sort(_sortAbnormalities);
     return records;
@@ -298,13 +294,13 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
 
   @override
   Future<List<ChargeAbnormality>> getAllAbnormalities() async {
-    final snapshot =
-        await _abnormalities.where('isDeleted', isEqualTo: false).get();
+    final snapshot = await _abnormalities
+        .where('isDeleted', isEqualTo: false)
+        .get();
 
-    final records =
-        snapshot.docs
-            .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
-            .toList();
+    final records = snapshot.docs
+        .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+        .toList();
 
     records.sort(_sortAbnormalities);
     return records;
@@ -360,8 +356,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     final beforeDoc = await _abnormalities.doc(abnormality.firestoreId).get();
-    final beforeSnapshot =
-        beforeDoc.exists ? _sanitizeForAudit(beforeDoc.data()) : null;
+    final beforeSnapshot = beforeDoc.exists
+        ? _sanitizeForAudit(beforeDoc.data())
+        : null;
 
     abnormality.markEdited(
       editedByUid: auditContext?.performedByUid ?? abnormality.updatedByUid,
@@ -396,8 +393,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     final docId = id as String;
 
     final beforeDoc = await _abnormalities.doc(docId).get();
-    final beforeSnapshot =
-        beforeDoc.exists ? _sanitizeForAudit(beforeDoc.data()) : null;
+    final beforeSnapshot = beforeDoc.exists
+        ? _sanitizeForAudit(beforeDoc.data())
+        : null;
 
     final now = DateTime.now().toIso8601String();
     final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
@@ -500,17 +498,16 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       query = query.startAfterDocument(startAfter);
     }
 
-    final snapshot = await query.get();
+    final snapshot = await query.get(authoritativeGlobalPullReadOptions);
 
     if (snapshot.docs.isEmpty) {
       return PaginatedAbnormalityTypesResult(records: [], lastDoc: null);
     }
 
     return PaginatedAbnormalityTypesResult(
-      records:
-          snapshot.docs
-              .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
-              .toList(),
+      records: snapshot.docs
+          .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+          .toList(),
       lastDoc: snapshot.docs.last,
     );
   }
@@ -540,17 +537,16 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       query = query.startAfterDocument(startAfter);
     }
 
-    final snapshot = await query.get();
+    final snapshot = await query.get(authoritativeGlobalPullReadOptions);
 
     if (snapshot.docs.isEmpty) {
       return PaginatedChargeAbnormalitiesResult(records: [], lastDoc: null);
     }
 
     return PaginatedChargeAbnormalitiesResult(
-      records:
-          snapshot.docs
-              .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
-              .toList(),
+      records: snapshot.docs
+          .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+          .toList(),
       lastDoc: snapshot.docs.last,
     );
   }
@@ -567,8 +563,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       final end = i + 30 > firestoreIds.length ? firestoreIds.length : i + 30;
       final chunk = firestoreIds.sublist(i, end);
 
-      final snapshot =
-          await _types.where(fs.FieldPath.documentId, whereIn: chunk).get();
+      final snapshot = await _types
+          .where(fs.FieldPath.documentId, whereIn: chunk)
+          .get();
 
       results.addAll(
         snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id)),
@@ -590,10 +587,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       final end = i + 30 > firestoreIds.length ? firestoreIds.length : i + 30;
       final chunk = firestoreIds.sublist(i, end);
 
-      final snapshot =
-          await _abnormalities
-              .where(fs.FieldPath.documentId, whereIn: chunk)
-              .get();
+      final snapshot = await _abnormalities
+          .where(fs.FieldPath.documentId, whereIn: chunk)
+          .get();
 
       results.addAll(
         snapshot.docs.map(
@@ -606,10 +602,28 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<AbnormalityType>> applyTypeFromRemote(
+    AbnormalityType remote,
+  ) {
+    throw UnsupportedError(
+      'Firestore cannot apply a remote abnormality type to itself.',
+    );
+  }
+
+  @override
   Future<void> insertTypeFromRemote(AbnormalityType remote) async {}
 
   @override
   Future<void> updateTypeFromRemote(AbnormalityType remote) async {}
+
+  @override
+  Future<RemoteRecordApplyResult<ChargeAbnormality>> applyAbnormalityFromRemote(
+    ChargeAbnormality remote,
+  ) {
+    throw UnsupportedError(
+      'Firestore cannot apply a remote charge abnormality to itself.',
+    );
+  }
 
   @override
   Future<void> insertAbnormalityFromRemote(ChargeAbnormality remote) async {}

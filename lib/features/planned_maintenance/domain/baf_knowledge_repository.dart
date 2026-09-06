@@ -65,10 +65,9 @@ class BafKnowledgeMatrixMeta {
       tagRowCount: BafKnowledgeLayer.tagRowCount,
       isStaticFallback: true,
       cloudUnavailable: cloudUnavailable,
-      note:
-          cloudUnavailable
-              ? 'Cloud/local knowledge source unavailable; using embedded safety baseline.'
-              : 'Using embedded safety baseline.',
+      note: cloudUnavailable
+          ? 'Cloud/local knowledge source unavailable; using embedded safety baseline.'
+          : 'Using embedded safety baseline.',
     );
   }
 
@@ -311,22 +310,24 @@ class BafKnowledgeRepository {
       );
     }
     final collection = _firestore.collection(collectionPath);
-    final Query<Map<String, dynamic>> baseQuery =
-        through == null
-            ? collection
-                .orderBy(FieldPath.documentId)
-                .limit(_knowledgePullPageSize)
-            : globalPullServerWindowQuery(
-              collection,
-              afterInclusive: since,
-              throughInclusive: through,
-            ).limit(_knowledgePullPageSize);
+    final Query<Map<String, dynamic>> baseQuery = through == null
+        ? collection.orderBy(FieldPath.documentId).limit(_knowledgePullPageSize)
+        : globalPullServerWindowQuery(
+            collection,
+            afterInclusive: since,
+            throughInclusive: through,
+          ).limit(_knowledgePullPageSize);
 
     late final QuerySnapshot<Map<String, dynamic>> firstPage;
     late final DocumentSnapshot<Map<String, dynamic>> metaDoc;
     await Future.wait<void>(<Future<void>>[
-      baseQuery.get().then((value) => firstPage = value),
-      _firestore.doc(metaPath).get().then((value) => metaDoc = value),
+      baseQuery
+          .get(authoritativeGlobalPullReadOptions)
+          .then((value) => firstPage = value),
+      _firestore
+          .doc(metaPath)
+          .get(authoritativeGlobalPullReadOptions)
+          .then((value) => metaDoc = value),
     ]);
 
     final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
@@ -340,16 +341,17 @@ class BafKnowledgeRepository {
       }
       docs.addAll(page.docs);
       if (page.docs.length < _knowledgePullPageSize) break;
-      page = await baseQuery.startAfterDocument(page.docs.last).get();
+      page = await baseQuery
+          .startAfterDocument(page.docs.last)
+          .get(authoritativeGlobalPullReadOptions);
     }
     final metaData = metaDoc.data();
-    final metaStore =
-        metaData == null
-            ? null
-            : BafKnowledgeMatrixMetaStore.fromCloudMap(<String, dynamic>{
-              ...metaData,
-              'source': 'cloud',
-            }, localCachedAt: DateTime.now());
+    final metaStore = metaData == null
+        ? null
+        : BafKnowledgeMatrixMetaStore.fromCloudMap(<String, dynamic>{
+            ...metaData,
+            'source': 'cloud',
+          }, localCachedAt: DateTime.now());
 
     if (docs.isEmpty) return const BafKnowledgePullResult(skipped: 1);
 
@@ -364,8 +366,10 @@ class BafKnowledgeRepository {
 
     await _isar.writeTxn(() async {
       for (final remote in remotes) {
-        final current =
-            await _rows!.where().rowCodeEqualTo(remote.rowCode).findFirst();
+        final current = await _rows!
+            .where()
+            .rowCodeEqualTo(remote.rowCode)
+            .findFirst();
 
         if (current == null) {
           inserted++;
@@ -427,19 +431,18 @@ class BafKnowledgeRepository {
     if (existing.isNotEmpty) return;
 
     final now = DateTime.now();
-    final rows =
-        BafKnowledgeLayer.entries
-            .map(
-              (entry) => BafKnowledgeRow.fromEntry(
-                entry,
-                actorUid: 'staticFallback',
-                actorName: 'Embedded safety baseline',
-                now: now,
-                changeSummary: 'Embedded BAF Knowledge Matrix safety baseline.',
-                isSynced: true,
-              ),
-            )
-            .toList();
+    final rows = BafKnowledgeLayer.entries
+        .map(
+          (entry) => BafKnowledgeRow.fromEntry(
+            entry,
+            actorUid: 'staticFallback',
+            actorName: 'Embedded safety baseline',
+            now: now,
+            changeSummary: 'Embedded BAF Knowledge Matrix safety baseline.',
+            isSynced: true,
+          ),
+        )
+        .toList();
     final meta = BafKnowledgeMatrixMetaStore.staticFallback();
 
     await _isar.writeTxn(() async {
@@ -586,11 +589,10 @@ class BafKnowledgeRepository {
   }
 
   Future<BafKnowledgeBundle> _loadFromCloudOnly() async {
-    final rowsSnap =
-        await _firestore
-            .collection(collectionPath)
-            .where('lifecycleStatus', isEqualTo: 'active')
-            .get();
+    final rowsSnap = await _firestore
+        .collection(collectionPath)
+        .where('lifecycleStatus', isEqualTo: 'active')
+        .get();
     final entries = _entriesFromCloudDocs(rowsSnap.docs);
     final meta =
         await fetchCloudMeta() ??
@@ -599,8 +601,9 @@ class BafKnowledgeRepository {
           sourceLabel: 'Cloud Knowledge Base',
           source: 'cloud',
           knowledgeRowCount: entries.length,
-          tagRowCount:
-              entries.where((entry) => entry.deviceTags.isNotEmpty).length,
+          tagRowCount: entries
+              .where((entry) => entry.deviceTags.isNotEmpty)
+              .length,
           note: 'Cloud rows loaded but metadata document was not found.',
         );
     return BafKnowledgeBundle(
@@ -631,16 +634,16 @@ class BafKnowledgeRepository {
     final rows = await _rows!.where().findAll();
     final entries = _entriesFromRows(rows);
     final metaStore = await _currentMetaStore();
-    final meta =
-        metaStore == null
-            ? BafKnowledgeMatrixMeta.staticFallback()
-            : BafKnowledgeMatrixMeta.fromStore(
-              metaStore,
-              sourceOverride: 'isarCache',
-              rowCountOverride: entries.length,
-              tagCountOverride:
-                  entries.where((entry) => entry.deviceTags.isNotEmpty).length,
-            );
+    final meta = metaStore == null
+        ? BafKnowledgeMatrixMeta.staticFallback()
+        : BafKnowledgeMatrixMeta.fromStore(
+            metaStore,
+            sourceOverride: 'isarCache',
+            rowCountOverride: entries.length,
+            tagCountOverride: entries
+                .where((entry) => entry.deviceTags.isNotEmpty)
+                .length,
+          );
     return BafKnowledgeBundle(
       entries: entries,
       meta: meta,
@@ -733,14 +736,12 @@ class BafKnowledgeRepository {
     Map<String, dynamic> remoteData,
   ) {
     final remote = BafKnowledgeRow.fromCloudMap(remoteData, local.rowCode);
-    final localPayload =
-        local.toCloudMap()
-          ..remove('createdAt')
-          ..remove('updatedAt');
-    final remotePayload =
-        remote.toCloudMap()
-          ..remove('createdAt')
-          ..remove('updatedAt');
+    final localPayload = local.toCloudMap()
+      ..remove('createdAt')
+      ..remove('updatedAt');
+    final remotePayload = remote.toCloudMap()
+      ..remove('createdAt')
+      ..remove('updatedAt');
     return persistedJsonEquivalent(
       jsonEncode(localPayload),
       jsonEncode(remotePayload),
@@ -769,16 +770,17 @@ class BafKnowledgeRepository {
       'partRefs': entry.partRefs,
       'deviceTags': entry.deviceTags,
       'targetRefs': entry.targetRefs,
-      'suggestedFields':
-          entry.suggestedFields.map((field) => field.label).toList(),
-      'suggestedFieldPresets':
-          entry.suggestedFields.map((field) => field.toMap()).toList(),
-      'requiredForClosure':
-          entry.requiredForClosureSuggestion == null
-              ? 'consult'
-              : entry.requiredForClosureSuggestion == true
-              ? 'yes'
-              : 'no',
+      'suggestedFields': entry.suggestedFields
+          .map((field) => field.label)
+          .toList(),
+      'suggestedFieldPresets': entry.suggestedFields
+          .map((field) => field.toMap())
+          .toList(),
+      'requiredForClosure': entry.requiredForClosureSuggestion == null
+          ? 'consult'
+          : entry.requiredForClosureSuggestion == true
+          ? 'yes'
+          : 'no',
       'resolverImpact': entry.resolverImpact,
       'composerReadiness': entry.composerReadiness.name,
       'confidence': entry.confidence.name,

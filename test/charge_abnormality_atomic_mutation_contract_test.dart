@@ -55,14 +55,13 @@ Map<String, dynamic> _response({
   required ChargeAbnormalityMutationOperation operation,
   int version = 5,
 }) {
-  final remote =
-      _record(version: version)
-        ..abnormalityTypeTitle = 'Canonical server title'
-        ..abnormalityTypeCode = 'NEW-CODE'
-        ..category = AbnormalityCategory.process
-        ..updatedAt = DateTime.parse('2026-07-26T10:00:00.000Z')
-        ..updatedByUid = 'admin-1'
-        ..updatedByName = 'Admin One';
+  final remote = _record(version: version)
+    ..abnormalityTypeTitle = 'Canonical server title'
+    ..abnormalityTypeCode = 'NEW-CODE'
+    ..category = AbnormalityCategory.process
+    ..updatedAt = DateTime.parse('2026-07-26T10:00:00.000Z')
+    ..updatedByUid = 'admin-1'
+    ..updatedByName = 'Admin One';
   if (operation == ChargeAbnormalityMutationOperation.softDelete) {
     remote
       ..isDeleted = true
@@ -353,15 +352,13 @@ void main() {
   test(
     'source contract routes admin mutations only through governed callable',
     () {
-      final screen =
-          File(
-            'lib/features/abnormalities/presentation/'
-            'charge_abnormalities_screen.dart',
-          ).readAsStringSync();
-      final sync =
-          File(
-            'lib/core/services/sync_service.directives_abnormalities.dart',
-          ).readAsStringSync();
+      final screen = File(
+        'lib/features/abnormalities/presentation/'
+        'charge_abnormalities_screen.dart',
+      ).readAsStringSync();
+      final sync = File(
+        'lib/core/services/sync_service.directives_abnormalities.dart',
+      ).readAsStringSync();
       final rules = File('firestore.rules').readAsStringSync();
       final functions = File('functions/src/index.ts').readAsStringSync();
 
@@ -376,7 +373,9 @@ void main() {
       );
       expect(
         rules,
-        contains("!docId.matches('^server_charge_abnormality_.*')"),
+        contains(
+          "allow create: if !docId.matches('^server_.*') && validAuditCreate();",
+        ),
       );
       expect(functions, contains('export const mutateChargeAbnormality'));
       expect(

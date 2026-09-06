@@ -256,7 +256,10 @@ String _profileFor(String path, Set<String> modes) {
   if (path.endsWith('local_diagnostics_read_adapter.dart')) {
     return 'diagnostic-read-adapter';
   }
-  if (path.endsWith('auth_provider.dart')) return 'auth-provider';
+  if (path.endsWith('auth_provider.dart') ||
+      path.endsWith('auth_service.dart')) {
+    return 'auth-provider';
+  }
   if (path.contains('/services/')) return 'service';
   if (path.contains('/repositories/') ||
       path.contains('/domain/') && path.endsWith('_repository.dart')) {

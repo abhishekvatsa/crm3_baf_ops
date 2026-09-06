@@ -62,6 +62,11 @@ void main() {
         1,
         reason: 'tombstone apply-result accounting must stay centralized.',
       );
+      expect(
+        _declarationCount(allPullSource, '_recordRemoteApplyResult'),
+        1,
+        reason: 'non-deleted apply-result accounting must stay centralized.',
+      );
     });
 
     test('part files remain import-free same-library implementation slices', () {
@@ -295,6 +300,40 @@ void sample(String id, {String? reason}) {
       );
       expect(nonConflictParts, isNot(contains('void _logPullConflict(')));
       expect(nonConflictParts, isNot(contains('void _logConflictAudit(')));
+      expect(
+        nonConflictParts,
+        isNot(contains('void _recordRemoteApplyResult')),
+      );
+    });
+
+    test('non-deleted pull records use atomic repository application', () {
+      for (final entry in _atomicRemoteApplyMethods.entries) {
+        final source = _read(entry.key);
+        for (final method in entry.value) {
+          expect(
+            source,
+            matches(
+              RegExp('${RegExp.escape(method)}\\s*\\(\\s*remote\\s*,?\\s*\\)'),
+            ),
+            reason: '${entry.key} must reconcile with $method.',
+          );
+        }
+
+        expect(
+          source,
+          isNot(
+            matches(
+              RegExp(
+                r'final\s+(?:inserts|updates)\s*=|'
+                r'get\w*ByFirestoreId\s*\(|'
+                r'(?:insert|update)\w*FromRemote\s*\(',
+              ),
+            ),
+          ),
+          reason:
+              '${entry.key} must not classify records before the repository transaction.',
+        );
+      }
     });
 
     test('template publish-audit tombstones are applied and hidden', () {
@@ -341,6 +380,20 @@ void sample(String id, {String? reason}) {
         nonWatermarkParts,
         isNot(contains('void _validateFetchedServerBoundary(')),
       );
+    });
+
+    test('authoritative pull pages cannot fall back to local cache', () {
+      final protocol = _read('lib/core/services/global_pull_protocol.dart');
+      expect(protocol, contains('authoritativeGlobalPullReadOptions'));
+      expect(protocol, contains('source: Source.server'));
+
+      for (final path in _authoritativePullRepositoryFiles) {
+        expect(
+          readDartLibrarySource(path),
+          contains('get(authoritativeGlobalPullReadOptions)'),
+          reason: '$path must require a server response for cursor pages.',
+        );
+      }
     });
 
     test('shell imports and pull files remain data-layer only', () {
@@ -586,12 +639,13 @@ const _expectedMethodOwners = <String, String>{
   '_validateFetchedServerBoundary':
       'lib/core/services/global_pull_service.watermark.dart',
   '_conflictKey': 'lib/core/services/global_pull_service.conflicts.dart',
-  '_isRemoteNewer': 'lib/core/services/global_pull_service.conflicts.dart',
   '_jsonSafeValue': 'lib/core/services/global_pull_service.conflicts.dart',
   '_safeAuditMap': 'lib/core/services/global_pull_service.conflicts.dart',
   '_auditEntityId': 'lib/core/services/global_pull_service.conflicts.dart',
   '_logConflictAudit': 'lib/core/services/global_pull_service.conflicts.dart',
   '_logPullConflict': 'lib/core/services/global_pull_service.conflicts.dart',
+  '_recordRemoteApplyResult':
+      'lib/core/services/global_pull_service.conflicts.dart',
   '_recordTombstoneApplyResult':
       'lib/core/services/global_pull_service.conflicts.dart',
   '_pullMaintenance': 'lib/core/services/global_pull_service.maintenance.dart',
@@ -617,14 +671,42 @@ const _expectedMethodOwners = <String, String>{
 
 const _sharedConflictHelpers = <String>[
   '_conflictKey',
-  '_isRemoteNewer',
   '_jsonSafeValue',
   '_safeAuditMap',
   '_auditEntityId',
   '_logConflictAudit',
   '_logPullConflict',
+  '_recordRemoteApplyResult',
   '_recordTombstoneApplyResult',
 ];
+
+const _atomicRemoteApplyMethods = <String, List<String>>{
+  'lib/core/services/global_pull_service.maintenance.dart': [
+    'applyMaintenanceRecordFromRemote',
+  ],
+  'lib/core/services/global_pull_service.template_governance.dart': [
+    'applyPackageFromRemote',
+    'applyVersionFromRemote',
+    'applyAuditFromRemote',
+  ],
+  'lib/core/services/global_pull_service.planned.dart': [
+    'applyTemplateFromRemote',
+    'applyExecutionFromRemote',
+  ],
+  'lib/core/services/global_pull_service.job_diary.dart': [
+    'applyEntryFromRemote',
+  ],
+  'lib/core/services/global_pull_service.job_modules.dart': [
+    'applyModuleFromRemote',
+  ],
+  'lib/core/services/global_pull_service.directives.dart': [
+    'applyDirectiveFromRemote',
+  ],
+  'lib/core/services/global_pull_service.abnormalities.dart': [
+    'applyTypeFromRemote',
+    'applyAbnormalityFromRemote',
+  ],
+};
 
 const _watermarkHelpers = <String>['_validateFetchedServerBoundary'];
 
@@ -651,6 +733,17 @@ const _forbiddenUiFragments = <String>[
   'BafColors',
   'BafSpacing',
   'BafDesign',
+];
+
+const _authoritativePullRepositoryFiles = <String>[
+  'lib/features/maintenance/providers/maintenance_provider.dart',
+  'lib/features/directives/providers/operational_directive_provider.dart',
+  'lib/features/abnormalities/providers/abnormality_provider.dart',
+  'lib/features/planned_maintenance/providers/template_governance_provider.dart',
+  'lib/features/planned_maintenance/providers/planned_maintenance_provider.dart',
+  'lib/features/planned_maintenance/providers/job_module_provider.dart',
+  'lib/features/planned_maintenance/providers/job_diary_provider.dart',
+  'lib/features/planned_maintenance/domain/baf_knowledge_repository.dart',
 ];
 
 String _read(String path) => File(path).readAsStringSync();

@@ -103,22 +103,34 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     }
     final classesAsync = ref.watch(assetClassesProvider);
     final assetsAsync = ref.watch(allAssetInstancesProvider);
-    final classes = classesAsync.value ?? const [];
-    final assets = assetsAsync.value ?? const [];
+    if (classesAsync.isLoading || assetsAsync.isLoading) {
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Operations report',
+        appBarSubtitle: 'Loading governed report scope',
+        appBarIcon: Icons.bar_chart_rounded,
+        accent: BafColors.planned,
+        label: 'Loading governed assets',
+      );
+    }
+    if (classesAsync.hasError || assetsAsync.hasError) {
+      return BafScreenStateScaffold.error(
+        appBarTitle: 'Operations report',
+        appBarSubtitle: 'Loading governed report scope',
+        appBarIcon: Icons.bar_chart_rounded,
+        accent: BafColors.planned,
+        message: 'Governed assets could not be loaded for reporting.',
+      );
+    }
+    final classes = classesAsync.requireValue;
+    final assets = assetsAsync.requireValue;
     final currentClassId = _assetClassId;
     final currentAssetId = _assetInstanceId;
-    final selection =
-        classesAsync.hasValue && assetsAsync.hasValue
-            ? reconcileOperationsReportSelection(
-              assetClassId: currentClassId,
-              assetInstanceId: currentAssetId,
-              classes: classes,
-              assets: assets,
-            )
-            : OperationsReportSelection(
-              assetClassId: currentClassId,
-              assetInstanceId: currentAssetId,
-            );
+    final selection = reconcileOperationsReportSelection(
+      assetClassId: currentClassId,
+      assetInstanceId: currentAssetId,
+      classes: classes,
+      assets: assets,
+    );
     if (selection.assetClassId != currentClassId ||
         selection.assetInstanceId != currentAssetId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -142,19 +154,18 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     final reportScope = (actorUid: actor.uid, filter: filter);
     final reportAsync = ref.watch(operationsReportProvider(reportScope));
     final readyReport = reportAsync.asData?.value;
-    final createPdfReport =
-        readyReport == null
-            ? null
-            : () => _createPdfReport(
-              report: readyReport,
-              actorUid: actor.uid,
-              actorName: actor.name,
-              actorEmail: actor.email,
-              initialPreset: _recommendedReportPreset(actor),
-              classes: classes,
-              assets: assets,
-              selection: selection,
-            );
+    final createPdfReport = readyReport == null
+        ? null
+        : () => _createPdfReport(
+            report: readyReport,
+            actorUid: actor.uid,
+            actorName: actor.name,
+            actorEmail: actor.email,
+            initialPreset: _recommendedReportPreset(actor),
+            classes: classes,
+            assets: assets,
+            selection: selection,
+          );
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -172,76 +183,72 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
             icon: const Icon(Icons.picture_as_pdf_outlined),
           ),
           IconButton(
-            onPressed:
-                () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const OperationalEventsScreen(),
-                  ),
-                ),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const OperationalEventsScreen(),
+              ),
+            ),
             tooltip: 'Operational events',
             icon: const Icon(Icons.crisis_alert_outlined),
           ),
         ],
       ),
       body: reportAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Building operations report',
-              color: BafColors.planned,
-            ),
-        error:
-            (error, _) => _ErrorState(
-              message: error.toString(),
-              onRetry: () => _invalidateReportSources(ref, reportScope),
-            ),
-        data:
-            (report) => RefreshIndicator(
-              onRefresh: () async {
-                _invalidateReportSources(ref, reportScope);
-              },
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                children: [
-                  ReportLibraryBand(onOpen: createPdfReport),
-                  const SizedBox(height: BafSpacing.md),
-                  _ReportFilters(
-                    classes: classes,
-                    assets: assets,
-                    assetClassId: selection.assetClassId,
-                    assetInstanceId: selection.assetInstanceId,
-                    startDate: _startDate,
-                    endDate: _endDate,
-                    onClassChanged: (value) {
-                      setState(() {
-                        _assetClassId = value;
-                        _assetInstanceId = null;
-                      });
-                    },
-                    onAssetChanged:
-                        (value) => setState(() => _assetInstanceId = value),
-                    onDatesChanged: (start, end) {
-                      setState(() {
-                        _startDate = start;
-                        _endDate = end;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: BafSpacing.md),
-                  OperationsReportViewSelector(
-                    selected: _view,
-                    onChanged: (view) => setState(() => _view = view),
-                  ),
-                  const SizedBox(height: BafSpacing.lg),
-                  ..._buildReportView(
-                    report: report,
-                    classes: classes,
-                    selection: selection,
-                  ),
-                  const SizedBox(height: 20),
-                  _SourceWindowNotice(report: report),
-                ],
+        loading: () => const BafLoadingPanel(
+          label: 'Building operations report',
+          color: BafColors.planned,
+        ),
+        error: (error, _) => _ErrorState(
+          message: error.toString(),
+          onRetry: () => _invalidateReportSources(ref, reportScope),
+        ),
+        data: (report) => RefreshIndicator(
+          onRefresh: () async {
+            _invalidateReportSources(ref, reportScope);
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            children: [
+              ReportLibraryBand(onOpen: createPdfReport),
+              const SizedBox(height: BafSpacing.md),
+              _ReportFilters(
+                classes: classes,
+                assets: assets,
+                assetClassId: selection.assetClassId,
+                assetInstanceId: selection.assetInstanceId,
+                startDate: _startDate,
+                endDate: _endDate,
+                onClassChanged: (value) {
+                  setState(() {
+                    _assetClassId = value;
+                    _assetInstanceId = null;
+                  });
+                },
+                onAssetChanged: (value) =>
+                    setState(() => _assetInstanceId = value),
+                onDatesChanged: (start, end) {
+                  setState(() {
+                    _startDate = start;
+                    _endDate = end;
+                  });
+                },
               ),
-            ),
+              const SizedBox(height: BafSpacing.md),
+              OperationsReportViewSelector(
+                selected: _view,
+                onChanged: (view) => setState(() => _view = view),
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              ..._buildReportView(
+                report: report,
+                classes: classes,
+                selection: selection,
+              ),
+              const SizedBox(height: 20),
+              _SourceWindowNotice(report: report),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -296,14 +303,13 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     const SizedBox(height: BafSpacing.xl),
     _SectionTitle(
       title: 'Current plant picture',
-      subtitle:
-          selection.assetClassId == null
-              ? 'All governed asset classes'
-              : classes
-                      .where((item) => item.id == selection.assetClassId)
-                      .map((item) => item.name)
-                      .firstOrNull ??
-                  'Selected class',
+      subtitle: selection.assetClassId == null
+          ? 'All governed asset classes'
+          : classes
+                    .where((item) => item.id == selection.assetClassId)
+                    .map((item) => item.name)
+                    .firstOrNull ??
+                'Selected class',
     ),
     const SizedBox(height: BafSpacing.sm),
     _MetricGrid(
@@ -502,24 +508,21 @@ class _ReportFilters extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final availableClasses = classes.where((item) => item.isActive).toList();
-    final availableAssets =
-        assets
-            .where(
-              (item) =>
-                  item.isActive &&
-                  (assetClassId == null || item.assetClassId == assetClassId),
-            )
-            .toList();
-    final selectedClassName =
-        availableClasses
-            .where((item) => item.id == assetClassId)
-            .map((item) => item.name)
-            .firstOrNull;
-    final selectedAssetName =
-        availableAssets
-            .where((item) => item.id == assetInstanceId)
-            .map((item) => '${item.assetClassName} ${item.assetNumber}')
-            .firstOrNull;
+    final availableAssets = assets
+        .where(
+          (item) =>
+              item.isActive &&
+              (assetClassId == null || item.assetClassId == assetClassId),
+        )
+        .toList();
+    final selectedClassName = availableClasses
+        .where((item) => item.id == assetClassId)
+        .map((item) => item.name)
+        .firstOrNull;
+    final selectedAssetName = availableAssets
+        .where((item) => item.id == assetInstanceId)
+        .map((item) => '${item.assetClassName} ${item.assetNumber}')
+        .firstOrNull;
     final scopeLabel = selectedAssetName ?? selectedClassName ?? 'All assets';
     final periodLabel =
         '${DateFormat('dd MMM').format(startDate)} - '
@@ -756,13 +759,14 @@ class _MetricGrid extends StatelessWidget {
       return Wrap(
         spacing: 8,
         runSpacing: 8,
-        children:
-            metrics
-                .map(
-                  (metric) =>
-                      SizedBox(width: width, child: _Metric(metric: metric)),
-                )
-                .toList(),
+        children: metrics
+            .map(
+              (metric) => SizedBox(
+                width: width,
+                child: _Metric(metric: metric),
+              ),
+            )
+            .toList(),
       );
     },
   );
@@ -1086,10 +1090,9 @@ class _BurnerHistorySection extends StatelessWidget {
                           Text(
                             '${row.openCount}',
                             style: TextStyle(
-                              color:
-                                  row.openCount > 0
-                                      ? BafColors.danger
-                                      : BafColors.textPrimary,
+                              color: row.openCount > 0
+                                  ? BafColors.danger
+                                  : BafColors.textPrimary,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -1104,8 +1107,8 @@ class _BurnerHistorySection extends StatelessWidget {
                             row.latestMicroampReading == null
                                 ? '-'
                                 : NumberFormat(
-                                  '0.###',
-                                ).format(row.latestMicroampReading),
+                                    '0.###',
+                                  ).format(row.latestMicroampReading),
                           ),
                         ),
                         DataCell(
@@ -1204,10 +1207,9 @@ class _OpenIssuesSection extends StatelessWidget {
                     color: BafColors.card,
                     borderRadius: BorderRadius.circular(BafRadius.medium),
                     border: Border.all(
-                      color:
-                          issue.isCritical
-                              ? BafColors.danger.withValues(alpha: 0.28)
-                              : BafColors.border,
+                      color: issue.isCritical
+                          ? BafColors.danger.withValues(alpha: 0.28)
+                          : BafColors.border,
                     ),
                   ),
                   child: Row(
@@ -1217,10 +1219,9 @@ class _OpenIssuesSection extends StatelessWidget {
                         issue.isCritical
                             ? Icons.priority_high_rounded
                             : Icons.report_problem_outlined,
-                        color:
-                            issue.isCritical
-                                ? BafColors.danger
-                                : BafColors.maintenance,
+                        color: issue.isCritical
+                            ? BafColors.danger
+                            : BafColors.maintenance,
                         size: 21,
                       ),
                       const SizedBox(width: 10),
@@ -1297,10 +1298,9 @@ class _InspectionFindingsSection extends StatelessWidget {
                   color: BafColors.card,
                   borderRadius: BorderRadius.circular(BafRadius.medium),
                   border: Border.all(
-                    color:
-                        finding.status == InspectionFindingStatus.open
-                            ? BafColors.danger.withValues(alpha: 0.28)
-                            : BafColors.border,
+                    color: finding.status == InspectionFindingStatus.open
+                        ? BafColors.danger.withValues(alpha: 0.28)
+                        : BafColors.border,
                   ),
                 ),
                 child: Row(
@@ -1311,10 +1311,9 @@ class _InspectionFindingsSection extends StatelessWidget {
                               InspectionFindingStatus.awaitingVerification
                           ? Icons.verified_outlined
                           : Icons.fact_check_outlined,
-                      color:
-                          finding.status == InspectionFindingStatus.open
-                              ? BafColors.danger
-                              : BafColors.maintenance,
+                      color: finding.status == InspectionFindingStatus.open
+                          ? BafColors.danger
+                          : BafColors.maintenance,
                       size: 21,
                     ),
                     const SizedBox(width: 10),
@@ -1365,16 +1364,16 @@ class _InspectionFindingsSection extends StatelessWidget {
   );
 }
 
-String _inspectionFindingStatusLabel(
-  InspectionFindingStatus status,
-) => switch (status) {
-  InspectionFindingStatus.open => 'Open',
-  InspectionFindingStatus.correctiveActionLinked => 'Corrective issue linked',
-  InspectionFindingStatus.awaitingVerification => 'Awaiting verification',
-  InspectionFindingStatus.verifiedResolved => 'Verified resolved',
-  InspectionFindingStatus.acceptedCondition => 'Accepted condition',
-  InspectionFindingStatus.invalidated => 'Invalidated',
-};
+String _inspectionFindingStatusLabel(InspectionFindingStatus status) =>
+    switch (status) {
+      InspectionFindingStatus.open => 'Open',
+      InspectionFindingStatus.correctiveActionLinked =>
+        'Corrective issue linked',
+      InspectionFindingStatus.awaitingVerification => 'Awaiting verification',
+      InspectionFindingStatus.verifiedResolved => 'Verified resolved',
+      InspectionFindingStatus.acceptedCondition => 'Accepted condition',
+      InspectionFindingStatus.invalidated => 'Invalidated',
+    };
 
 class _DisruptionSection extends StatelessWidget {
   const _DisruptionSection({required this.occurrences});
@@ -1397,8 +1396,9 @@ class _DisruptionSection extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: Icon(
                 occurrence.isOpen ? Icons.crisis_alert : Icons.task_alt_rounded,
-                color:
-                    occurrence.isOpen ? BafColors.warning : BafColors.success,
+                color: occurrence.isOpen
+                    ? BafColors.warning
+                    : BafColors.success,
               ),
               title: Text(
                 occurrence.interval.title,

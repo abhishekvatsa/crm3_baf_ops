@@ -4461,13 +4461,9 @@ service cloud.firestore {
 
     match /audit_logs/{docId} {
       allow read: if isAdmin() || canReadMaintenanceTicketCorrectionAudit();
-      // Deterministic server-population audit identities are reserved for the
-      // Admin-SDK transaction and cannot be pre-created by a client.
-      allow create: if !docId.matches('^server_module_population_.*')
-        && !docId.matches('^server_authority_.*')
-        && !docId.matches('^server_charge_abnormality_.*')
-        && !docId.matches('^server_maintenance_ticket_.*')
-        && validAuditCreate();
+      // Every server-owned audit identity shares this namespace. Keeping the
+      // reservation generic also protects future server audit operations.
+      allow create: if !docId.matches('^server_.*') && validAuditCreate();
       allow update, delete: if false;
     }
 

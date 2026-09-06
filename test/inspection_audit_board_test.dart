@@ -11,6 +11,65 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('audit PDF action stays hidden for an empty campaign', (
+    tester,
+  ) async {
+    final campaign = _assetCampaign(
+      assetTypeKey: 'furnace',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-22',
+      assetNumber: 22,
+      label: 'Furnace 22',
+    );
+
+    await tester.pumpWidget(_testApp(campaign));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('inspection-campaign-pdf-action')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('audit PDF action appears after a reading exists', (
+    tester,
+  ) async {
+    final observedAt = DateTime.utc(2026, 9, 5, 10);
+    final campaign = _assetCampaign(
+      assetTypeKey: 'furnace',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-22',
+      assetNumber: 22,
+      label: 'Furnace 22',
+      disposition: InspectionTargetDisposition.observed,
+      lastObservationId: 'reading-1',
+      lastObservedAt: observedAt,
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        campaign,
+        observations: <InspectionObservation>[
+          _observation(
+            campaign: campaign,
+            target: campaign.targets.single,
+            id: 'reading-1',
+            observedAt: observedAt,
+            recordedAt: observedAt,
+            value: true,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('inspection-campaign-pdf-action')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Create audit PDF'), findsOneWidget);
+  });
+
   testWidgets(
     'Inner Cover audit keeps Base identity and headings visible deep in the grid',
     (tester) async {
@@ -355,13 +414,12 @@ Widget _testApp(
     innerCoverAssignmentsProvider.overrideWith((_) => Stream.value(const [])),
   ],
   child: MaterialApp(
-    builder:
-        (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child!,
+    ),
     home: InspectionCampaignDetailScreen(campaignId: campaign.id),
   ),
 );

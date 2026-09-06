@@ -2235,6 +2235,20 @@ export async function mutateMorningReviewWithDb(args: {
             committed,
           });
         } else {
+          const participantPage = asQuerySnapshot(
+            await transaction.get(
+              participants.where("sessionId", "==", sessionId)
+                .limit(MAX_SESSION_PARTICIPANTS + 1),
+            ),
+            "Morning Review participant capacity lookup",
+          );
+          if (participantPage.docs.length >= MAX_SESSION_PARTICIPANTS) {
+            throw new AssetHierarchyMutationError(
+              "failed-precondition",
+              "This Morning Review already contains the maximum participant count.",
+              {reasonCode: "morning-review-participant-capacity-reached"},
+            );
+          }
           transaction.set(participantRef, {
             schemaVersion: 1,
             participantId: participantRef.id,
@@ -2306,6 +2320,20 @@ export async function mutateMorningReviewWithDb(args: {
           throw new AssetHierarchyMutationError(
             "data-loss",
             "A Morning Review entry exists without its mutation receipt.",
+          );
+        }
+        const entryPage = asQuerySnapshot(
+          await transaction.get(
+            entries.where("sessionId", "==", sessionId)
+              .limit(MAX_SESSION_ENTRIES + 1),
+          ),
+          "Morning Review entry capacity lookup",
+        );
+        if (entryPage.docs.length >= MAX_SESSION_ENTRIES) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "This Morning Review already contains the maximum entry count.",
+            {reasonCode: "morning-review-entry-capacity-reached"},
           );
         }
         if (draft.kind === "conclusion" && !isFacilitator && !isAdmin) {

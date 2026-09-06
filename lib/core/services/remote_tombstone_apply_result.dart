@@ -25,6 +25,35 @@ DateTime requireRemoteTombstoneDeletedAt(
   );
 }
 
+/// Outcome from atomically reconciling one non-deleted remote record into the
+/// local cache by its Firestore identity.
+enum RemoteRecordApplyOutcome {
+  inserted,
+  updated,
+  unchanged,
+  staleRemoteSkipped,
+  localDirtyPreserved,
+  duplicateLocalIdentity,
+}
+
+class RemoteRecordApplyResult<T extends Object> {
+  const RemoteRecordApplyResult(
+    this.outcome, {
+    this.localRecord,
+    this.remoteIsNewer = false,
+    this.duplicateCount = 0,
+  });
+
+  final RemoteRecordApplyOutcome outcome;
+  final T? localRecord;
+  final bool remoteIsNewer;
+  final int duplicateCount;
+
+  bool get applied =>
+      outcome == RemoteRecordApplyOutcome.inserted ||
+      outcome == RemoteRecordApplyOutcome.updated;
+}
+
 /// Outcome from applying a remote tombstone to the local Isar cache.
 ///
 /// This lets pull orchestration distinguish a genuinely applied delete from a
@@ -46,17 +75,17 @@ class RemoteTombstoneApplyResult {
   const RemoteTombstoneApplyResult._(this.outcome, [this.localRecord]);
 
   const RemoteTombstoneApplyResult.applied([Object? localRecord])
-      : this._(RemoteTombstoneApplyOutcome.applied, localRecord);
+    : this._(RemoteTombstoneApplyOutcome.applied, localRecord);
 
   const RemoteTombstoneApplyResult.localDirtyPreserved(Object localRecord)
-      : this._(RemoteTombstoneApplyOutcome.localDirtyPreserved, localRecord);
+    : this._(RemoteTombstoneApplyOutcome.localDirtyPreserved, localRecord);
 
   const RemoteTombstoneApplyResult.localMissing()
-      : this._(RemoteTombstoneApplyOutcome.localMissing);
+    : this._(RemoteTombstoneApplyOutcome.localMissing);
 
   const RemoteTombstoneApplyResult.alreadyDeleted([Object? localRecord])
-      : this._(RemoteTombstoneApplyOutcome.alreadyDeleted, localRecord);
+    : this._(RemoteTombstoneApplyOutcome.alreadyDeleted, localRecord);
 
   const RemoteTombstoneApplyResult.notDeletedRemote()
-      : this._(RemoteTombstoneApplyOutcome.notDeletedRemote);
+    : this._(RemoteTombstoneApplyOutcome.notDeletedRemote);
 }

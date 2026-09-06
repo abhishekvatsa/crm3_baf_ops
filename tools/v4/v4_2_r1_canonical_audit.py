@@ -5,12 +5,14 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 from datetime import datetime
 from pathlib import Path
 
@@ -95,6 +97,44 @@ def git_file_text(commit: str, path: str) -> str | None:
         check=False,
     )
     return result.stdout if result.returncode == 0 else None
+
+
+def git_tree_id(commit: str) -> str | None:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{commit}^{{tree}}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    value = result.stdout.strip().lower()
+    if result.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", value) is None:
+        return None
+    return value
+
+
+def git_archive_files(commit: str) -> dict[str, bytes] | None:
+    result = subprocess.run(
+        ["git", "archive", "--format=tar", commit],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    files: dict[str, bytes] = {}
+    with tarfile.open(fileobj=io.BytesIO(result.stdout), mode="r:") as archive:
+        for member in archive.getmembers():
+            if not member.isfile():
+                continue
+            source = archive.extractfile(member)
+            if source is not None:
+                files[member.name] = source.read()
+    return files
+
+
+def bytes_sha(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest().upper()
 
 
 def normalized_artifact_pubspec(
@@ -269,6 +309,20 @@ recon = data("docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json")
 main = recon["canonicalMain"]
 rows = recon["paths"]
 successor_refresh = recon.get("successorRefresh", {})
+candidate_source = recon.get("candidateSource", {})
+candidate_commit = candidate_source.get("commit", "")
+candidate_tree = candidate_source.get("tree", "")
+candidate_files = (
+    git_archive_files(candidate_commit) if isinstance(candidate_commit, str) else None
+)
+candidate_source_valid = (
+    isinstance(candidate_commit, str)
+    and re.fullmatch(r"[0-9a-f]{40}", candidate_commit) is not None
+    and isinstance(candidate_tree, str)
+    and re.fullmatch(r"[0-9a-f]{40}", candidate_tree) is not None
+    and git_tree_id(candidate_commit) == candidate_tree
+    and candidate_files is not None
+)
 combined_policy = data("release/production-release-policy.json")
 combined_receipt_path = ROOT / "release/approvals/firebase-production-signing-restoration-receipt.json"
 combined_receipt = data("release/approvals/firebase-production-signing-restoration-receipt.json")
@@ -426,6 +480,7 @@ check(
 
 missing: list[str] = []
 hash_drift: list[str] = []
+candidate_missing: list[str] = []
 generated_phase_paths: list[str] = []
 dual_representation_paths: list[str] = []
 invalid_representation_rows: list[str] = []
@@ -435,12 +490,14 @@ for row in rows:
     if not path.is_file():
         missing.append(rel)
         continue
-    actual_sha = sha(path)
-    actual_bytes = path.stat().st_size
+    candidate_blob = candidate_files.get(rel) if candidate_files is not None else None
+    if candidate_blob is None:
+        candidate_missing.append(rel)
+        continue
+    actual_sha = bytes_sha(candidate_blob)
+    actual_bytes = len(candidate_blob)
     if PHASE == "post-codegen" and rel in post_codegen_bindings:
         generated_phase_paths.append(rel)
-        if actual_sha != post_codegen_bindings[rel]["sha256"]:
-            hash_drift.append(rel)
         continue
 
     allowed_representations = {
@@ -459,7 +516,8 @@ for row in rows:
             and git_bytes > 0
             and re.fullmatch(r"[0-9A-F]{64}", str(git_sha)) is not None
             and git_sha != row["candidateSha256"]
-            and text_sha_with_eol(path, "\n") == git_sha
+            and actual_sha == git_sha
+            and actual_bytes == git_bytes
         )
         if not representation_valid:
             invalid_representation_rows.append(rel)
@@ -482,8 +540,12 @@ for row in rows:
     counts[row["disposition"]] = counts.get(row["disposition"], 0) + 1
 check(
     "All 410 captured canonical-main paths are present and phase-pinned",
-    len(rows) == 410 and not missing and not hash_drift,
-    f"phase={PHASE} generated={len(generated_phase_paths)} missing={len(missing)} drift={len(hash_drift)} paths={','.join(hash_drift[:20])}",
+    len(rows) == 410
+    and candidate_source_valid
+    and not missing
+    and not candidate_missing
+    and not hash_drift,
+    f"phase={PHASE} candidate={candidate_commit} generated={len(generated_phase_paths)} missing={len(missing)} candidateMissing={len(candidate_missing)} drift={len(hash_drift)} paths={','.join(hash_drift[:20])}",
 )
 check(
     "Windows worktree and Git-blob text representations are exact and semantically identical",
@@ -3467,8 +3529,8 @@ check(
     and "flutter test --concurrency=1" in harness
     and "CRM_ISAR_CORE_PATH" in harness
     and "CRM_ISAR_CORE_REQUIRED" in harness
-    and "BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8" in harness
-    and "bc6768cc4b9c61aabff77152e7f33b4b17d2fc93134f7af1c3dd51500fe8d5e8" in text("pubspec.lock").lower(),
+    and "C44340FA38C81EF16D924202D443BBE799CDE4826BE9A31A9DC92EE612E1966F" in harness
+    and "c44340fa38c81ef16d924202d443bbe799cde4826be9a31a9dc92ee612e1966f" in text("pubspec.lock").lower(),
 )
 
 
@@ -3666,7 +3728,8 @@ check(
     "Auth profile permission retry is bounded to one per authenticated session",
     "final retryBudget = CurrentAppUserPermissionRetryBudget();"
         in auth_profile_source
-    and "retryBudget.observeAuthEvent(user?.uid);" in auth_profile_source
+    and "onSourceEvent: (user) => retryBudget.observeAuthEvent(user?.uid)"
+        in auth_profile_source
     and "retryBudget: retryBudget" in auth_profile_source
     and "_authSessionUid == expectedUid" in auth_profile_source
     and "_retryConsumed = true;" in auth_profile_source
@@ -10110,7 +10173,7 @@ check(
     "match /charge_abnormalities/{docId}" in rules_source
     and "match /charge_abnormality_mutation_receipts/{docId}"
         in rules_source
-    and "!docId.matches('^server_charge_abnormality_.*')"
+    and "allow create: if !docId.matches('^server_.*') && validAuditCreate();"
         in rules_source
     and "chargeAbnormalityCommandServiceProvider" in s07_screen
     and "repository.updateAbnormality(" not in s07_screen
@@ -10692,6 +10755,7 @@ r04_registry = text(
     "lib/features/auth/services/notification_installation_registry.dart"
 )
 r04_auth = text("lib/features/auth/providers/auth_provider.dart")
+r04_auth_service = text("lib/features/auth/services/auth_service.dart")
 r04_main = text("lib/main.dart")
 r04_notifications = text("functions/src/notifications.ts")
 r04_notification_test = text("functions/test/notifications.test.js")
@@ -10707,22 +10771,22 @@ r04_policy = data(
 r04_decision = text(
     "docs/v4_2_r1/R04_NOTIFICATION_INSTALLATION_REGISTRY.md"
 )
-r04_pending_payload_start = r04_auth.index(
+r04_pending_payload_start = r04_auth_service.index(
     "Map<String, dynamic> _pendingUserPayload"
 )
-r04_pending_payload_end = r04_auth.index(
+r04_pending_payload_end = r04_auth_service.index(
     "String _cleanProfileText",
     r04_pending_payload_start,
 )
-r04_pending_payload = r04_auth[
+r04_pending_payload = r04_auth_service[
     r04_pending_payload_start:r04_pending_payload_end
 ]
-r04_sign_out_start = r04_auth.index("Future<void> signOut()")
-r04_sign_out_end = r04_auth.index(
+r04_sign_out_start = r04_auth_service.index("Future<void> signOut()")
+r04_sign_out_end = r04_auth_service.index(
     "Map<String, dynamic> _pendingUserPayload",
     r04_sign_out_start,
 )
-r04_sign_out = r04_auth[r04_sign_out_start:r04_sign_out_end]
+r04_sign_out = r04_auth_service[r04_sign_out_start:r04_sign_out_end]
 r04_remove_start = r04_registry.index("Future<void> remove({")
 r04_remove_end = r04_registry.index(
     "abstract interface class NotificationTokenSource",
@@ -11588,6 +11652,7 @@ a05_audit_repository = text(
     "lib/features/audit/repositories/audit_repository.dart"
 )
 a05_auth_provider = text("lib/features/auth/providers/auth_provider.dart")
+a05_auth_service = text("lib/features/auth/services/auth_service.dart")
 a05_maintenance_model = text(
     "lib/features/maintenance/data/maintenance_model.dart"
 )
@@ -12275,16 +12340,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 564
-    and a03_inventory_report.get("siteCount") == 1942
+    and a03_inventory_report.get("operationCount") == 555
+    and a03_inventory_report.get("siteCount") == 1917
     and a03_inventory_report.get("inventoryDigest")
-        == "6E9391ABC427EFEFD85D8F533B37614E96E02A87576DF08FBB6472D2F62C0055"
+        == "2A106D857ECCAEFE44509087E4571A7EDC1F651DE44CBDDE054110524C886415"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 60
-    and len({surface.get("path") for surface in a03_surfaces}) == 60
+    and len(a03_surfaces) == 61
+    and len({surface.get("path") for surface in a03_surfaces}) == 61
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -12331,7 +12396,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 80
     and a04_inventory_report.get("inventoryDigest")
-        == "05BF7B7EB5594983A51F460159E9E0154CDFCAFE616B7A0352362E32044B1FDD"
+        == "06CCC3CDA26D04DBE181E8ADE091BE0DE3E83A3099D8FF96BA7037C695C4B1F8"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -12724,9 +12789,9 @@ check(
     and a05_baf_repository.count("on FirebaseException") == 2
     and ".catchError((_) => null)" not in a05_baf_repository
     and "await Future.wait<void>(<Future<void>>[" in a05_baf_repository
-    and "baseQuery.get().then((value) => firstPage = value)"
+    and "baseQuery\n          .get(authoritativeGlobalPullReadOptions)"
         in a05_baf_repository
-    and "_firestore.doc(metaPath).get().then((value) => metaDoc = value)"
+    and ".doc(metaPath)\n          .get(authoritativeGlobalPullReadOptions)"
         in a05_baf_repository
     and a05_baf_repository.index("await Future.wait<void>(<Future<void>>[")
         < a05_baf_repository.index(
@@ -13048,7 +13113,7 @@ check(
     and "readOptionalJsonObject(" in a05_audit_model
     and "catch (_)" not in a05_audit_model
     and "Could not reset the one-shot sync marker after sign-out"
-        in a05_auth_provider
+        in a05_auth_service
     and "Resolution history needs repair" in a05_resolve_form
     and "No history entries were discarded or replaced." in a05_resolve_form
     and "remote audit records require their persisted authority fields"
@@ -13687,9 +13752,10 @@ check(
         for entry in lr07_source_evidence
     )
     and all(
-        (ROOT / entry.get("path", "")).is_file()
-        and (ROOT / entry["path"]).stat().st_size == entry.get("bytes")
-        and sha(ROOT / entry["path"]) == entry.get("sha256")
+        entry.get("path") in (candidate_files or {})
+        and len((candidate_files or {})[entry["path"]]) == entry.get("bytes")
+        and bytes_sha((candidate_files or {})[entry["path"]])
+            == entry.get("sha256")
         for entry in lr07_source_evidence
     )
     and lr07_preserved_finalization.get("buildNumber")

@@ -18,15 +18,15 @@ final inspectionCampaignsProvider = StreamProvider<List<InspectionCampaign>>((
   return ref.watch(inspectionRepositoryProvider).watchCampaigns();
 });
 
-final inspectionObservationsProvider = StreamProvider.family<
-  List<InspectionObservation>,
-  String
->((ref, campaignId) {
-  return ref.watch(inspectionRepositoryProvider).watchObservations(campaignId);
-});
+final inspectionObservationsProvider = StreamProvider.autoDispose
+    .family<List<InspectionObservation>, String>((ref, campaignId) {
+      return ref
+          .watch(inspectionRepositoryProvider)
+          .watchObservations(campaignId);
+    });
 
-final inspectionFindingsProvider =
-    StreamProvider.family<List<InspectionFinding>, String>((ref, campaignId) {
+final inspectionFindingsProvider = StreamProvider.autoDispose
+    .family<List<InspectionFinding>, String>((ref, campaignId) {
       return ref.watch(inspectionRepositoryProvider).watchFindings(campaignId);
     });
 

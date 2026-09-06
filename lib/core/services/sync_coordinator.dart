@@ -188,18 +188,15 @@ class SyncRunHealth {
           failureDetailOverflowCount ?? this.failureDetailOverflowCount,
       lastFailureLikelyPermanent:
           lastFailureLikelyPermanent ?? this.lastFailureLikelyPermanent,
-      hasPendingFollowUp:
-          clearPendingFollowUp
-              ? false
-              : (hasPendingFollowUp ?? this.hasPendingFollowUp),
-      pendingFollowUpReason:
-          clearPendingFollowUp
-              ? null
-              : (pendingFollowUpReason ?? this.pendingFollowUpReason),
-      pendingFollowUpForce:
-          clearPendingFollowUp
-              ? false
-              : (pendingFollowUpForce ?? this.pendingFollowUpForce),
+      hasPendingFollowUp: clearPendingFollowUp
+          ? false
+          : (hasPendingFollowUp ?? this.hasPendingFollowUp),
+      pendingFollowUpReason: clearPendingFollowUp
+          ? null
+          : (pendingFollowUpReason ?? this.pendingFollowUpReason),
+      pendingFollowUpForce: clearPendingFollowUp
+          ? false
+          : (pendingFollowUpForce ?? this.pendingFollowUpForce),
     );
   }
 }
@@ -394,10 +391,9 @@ class SyncCoordinator {
         ..._sync.lastConflictKeys,
         ..._pull.lastConflictKeys,
       };
-      final conflictCount =
-          conflictKeys.isNotEmpty
-              ? conflictKeys.length
-              : _sync.lastConflictCount + _pull.lastConflicted;
+      final conflictCount = conflictKeys.isNotEmpty
+          ? conflictKeys.length
+          : _sync.lastConflictCount + _pull.lastConflicted;
 
       if (conflictCount > 0) {
         _ref.read(syncConflictProvider.notifier).state = conflictCount;
@@ -405,8 +401,9 @@ class SyncCoordinator {
 
       final hasFailures = _sync.lastFailureCount > 0;
 
-      _ref.read(syncStatusProvider.notifier).state =
-          hasFailures ? SyncStatus.failed : SyncStatus.success;
+      _ref.read(syncStatusProvider.notifier).state = hasFailures
+          ? SyncStatus.failed
+          : SyncStatus.success;
 
       final completedAt = DateTime.now();
       final nextRunCount = _health.runCount + 1;
@@ -450,8 +447,9 @@ class SyncCoordinator {
       );
 
       if (hasFailures) {
-        final firstFailure =
-            failureDetails.isEmpty ? null : failureDetails.first;
+        final firstFailure = failureDetails.isEmpty
+            ? null
+            : failureDetails.first;
         AppLogger.warning(
           'Full sync completed with push failures',
           context: {
@@ -816,6 +814,8 @@ class SyncCoordinator {
       final hasConnection = results.any((r) => r != ConnectivityResult.none);
 
       if (hasConnection) {
+        final actor = _ref.read(currentAppUserProvider).asData?.value;
+        if (actor == null || !actor.isApproved) return;
         unawaited(runFullSync(reason: 'reconnected', force: true));
       }
     });

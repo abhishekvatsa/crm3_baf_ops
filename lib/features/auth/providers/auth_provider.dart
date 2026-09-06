@@ -1,18 +1,17 @@
 // FILE: lib/features/auth/providers/auth_provider.dart
 
-import 'dart:async' show unawaited;
+import 'dart:async'
+    show Stream, StreamController, StreamSubscription, unawaited;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 import '../data/user_model.dart';
+import '../services/auth_service.dart';
 import '../services/notification_installation_registry.dart';
-import '../../maintenance/data/maintenance_model.dart';
-import '../../../core/providers/sync_providers.dart';
 import '../../../core/services/app_logger.dart';
 import '../../../core/services/local_recovery_session_guard.dart';
 
@@ -27,18 +26,123 @@ final authStateProvider = StreamProvider<User?>((ref) {
 final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
   final auth = ref.watch(firebaseAuthProvider);
   final retryBudget = CurrentAppUserPermissionRetryBudget();
-  return auth.idTokenChanges().asyncExpand((user) {
-    retryBudget.observeAuthEvent(user?.uid);
-    if (user == null) return Stream<AppUser?>.value(null);
-
-    return _watchCurrentAppUser(
+  return switchLatestNullableStream<User, AppUser>(
+    source: auth.idTokenChanges(),
+    onSourceEvent: (user) => retryBudget.observeAuthEvent(user?.uid),
+    mapper: (user) => _watchCurrentAppUser(
       auth: auth,
       firestore: FirebaseFirestore.instance,
       user: user,
       retryBudget: retryBudget,
-    );
-  });
+    ),
+  );
 });
+
+@visibleForTesting
+Stream<T?> switchLatestNullableStream<S, T>({
+  required Stream<S?> source,
+  required Stream<T?> Function(S value) mapper,
+  void Function(S? value)? onSourceEvent,
+}) {
+  late final StreamController<T?> controller;
+  StreamSubscription<S?>? sourceSubscription;
+  StreamSubscription<T?>? activeSubscription;
+  var generation = 0;
+  var sourceCompleted = false;
+  var replacementCount = 0;
+
+  Future<void> closeWhenFinished() async {
+    if (sourceCompleted &&
+        replacementCount == 0 &&
+        activeSubscription == null &&
+        !controller.isClosed) {
+      await controller.close();
+    }
+  }
+
+  Future<void> replace(S? value) async {
+    final replacementGeneration = ++generation;
+    onSourceEvent?.call(value);
+    final previous = activeSubscription;
+    activeSubscription = null;
+    replacementCount++;
+    try {
+      await previous?.cancel();
+      if (replacementGeneration != generation || controller.isClosed) return;
+      if (value == null) {
+        controller.add(null);
+        return;
+      }
+
+      var completedSynchronously = false;
+      StreamSubscription<T?>? next;
+      next = mapper(value).listen(
+        (event) {
+          if (replacementGeneration == generation && !controller.isClosed) {
+            controller.add(event);
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (replacementGeneration == generation && !controller.isClosed) {
+            controller.addError(error, stackTrace);
+          }
+        },
+        onDone: () {
+          if (next == null) {
+            completedSynchronously = true;
+            return;
+          }
+          if (replacementGeneration == generation &&
+              identical(activeSubscription, next)) {
+            activeSubscription = null;
+            unawaited(closeWhenFinished());
+          }
+        },
+      );
+      final started = next;
+      if (completedSynchronously) {
+        await started.cancel();
+        return;
+      }
+      if (replacementGeneration != generation || controller.isClosed) {
+        await started.cancel();
+        return;
+      }
+      activeSubscription = started;
+    } catch (error, stackTrace) {
+      if (replacementGeneration == generation && !controller.isClosed) {
+        controller.addError(error, stackTrace);
+      }
+    } finally {
+      replacementCount--;
+      await closeWhenFinished();
+    }
+  }
+
+  controller = StreamController<T?>(
+    onListen: () {
+      sourceSubscription = source.listen(
+        (value) => unawaited(replace(value)),
+        onError: (Object error, StackTrace stackTrace) {
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        },
+        onDone: () {
+          sourceCompleted = true;
+          unawaited(closeWhenFinished());
+        },
+      );
+    },
+    onCancel: () async {
+      generation++;
+      final active = activeSubscription;
+      activeSubscription = null;
+      await active?.cancel();
+      await sourceSubscription?.cancel();
+    },
+  );
+
+  return controller.stream;
+}
 
 @visibleForTesting
 bool shouldRetryCurrentAppUserPermissionDenied({
@@ -176,7 +280,7 @@ final notificationInstallationSyncProvider = Provider<void>((ref) {
         return;
       }
       unawaited(
-        _syncNotificationInstallation(registry: registry, uid: user.uid),
+        syncNotificationInstallation(registry: registry, uid: user.uid),
       );
     });
   }, fireImmediately: true);
@@ -187,7 +291,7 @@ final notificationInstallationSyncProvider = Provider<void>((ref) {
         final uid = auth.currentUser?.uid;
         if (uid == null) return;
         unawaited(
-          _syncNotificationInstallation(
+          syncNotificationInstallation(
             registry: registry,
             uid: uid,
             token: token,
@@ -219,199 +323,6 @@ final notificationInstallationSyncProvider = Provider<void>((ref) {
     );
   }
 });
-
-Future<void> _syncNotificationInstallation({
-  required NotificationInstallationRegistry registry,
-  required String uid,
-  String? token,
-}) async {
-  try {
-    if (token == null) {
-      await registry.registerCurrentToken(uid: uid);
-    } else {
-      await registry.registerToken(uid: uid, token: token);
-    }
-  } catch (error, stackTrace) {
-    AppLogger.warning(
-      'Notification installation registration failed',
-      error: error,
-      stackTrace: stackTrace,
-      context: const {
-        'app_area': 'auth',
-        'auth_stage': 'notification_installation_registration',
-      },
-    );
-  }
-}
-
-class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
-  final Ref _ref;
-  final NotificationInstallationRegistry _notificationRegistry;
-  final LocalRecoverySessionGuard _recoverySessionGuard;
-
-  AuthService(
-    this._ref,
-    this._notificationRegistry,
-    this._recoverySessionGuard,
-  );
-
-  Future<void> signInWithGoogle() async {
-    final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) return;
-
-    final googleAuth = await googleUser.authentication;
-
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-
-    final userCredential = await _auth.signInWithCredential(credential);
-    final user = userCredential.user;
-    if (user == null) return;
-
-    // Set a minimal pre-bootstrap identity so any crashes during profile
-    // hydration are attributed to this Firebase UID without sending email/name.
-    unawaited(
-      AppLogger.setUserContext(
-        uid: user.uid,
-        roles: const [],
-        isApproved: false,
-      ),
-    );
-
-    await ensureUserDocument(firebaseUser: user);
-  }
-
-  /// Ensures the signed-in Firebase user has a safe pending/approved app profile.
-  Future<void> ensureUserDocument({User? firebaseUser}) async {
-    final user = firebaseUser ?? _auth.currentUser;
-    if (user == null) return;
-
-    final userRef = _firestore.collection('users').doc(user.uid);
-
-    await _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(userRef);
-
-      if (!snapshot.exists) {
-        transaction.set(userRef, _pendingUserPayload(user));
-        return;
-      }
-
-      final updateMap = <String, dynamic>{
-        'name': _cleanProfileText(user.displayName),
-        'email': _cleanProfileText(user.email),
-        'photoUrl': _cleanOptionalText(user.photoURL),
-      };
-
-      transaction.update(userRef, updateMap);
-    });
-
-    await _syncNotificationInstallation(
-      registry: _notificationRegistry,
-      uid: user.uid,
-    );
-  }
-
-  Future<void> signOut() async {
-    await _recoverySessionGuard.beginSessionEnd();
-    try {
-      await _performSignOut();
-    } finally {
-      _recoverySessionGuard.endSessionEnd();
-    }
-  }
-
-  Future<void> _performSignOut() async {
-    unawaited(AppLogger.clearUserContext());
-
-    final user = _auth.currentUser;
-    if (user != null) {
-      try {
-        await _notificationRegistry.removeCurrentInstallation(uid: user.uid);
-      } catch (e, st) {
-        debugPrint(
-          'Could not remove notification installation during sign out: $e',
-        );
-        AppLogger.warning(
-          'Could not remove notification installation during sign out',
-          error: e,
-          stackTrace: st,
-          context: const {
-            'app_area': 'auth',
-            'auth_stage': 'sign_out_remove_notification_installation',
-          },
-        );
-      }
-    }
-
-    await _auth.signOut();
-
-    try {
-      await _googleSignIn.signOut();
-    } catch (e, st) {
-      debugPrint('Google sign-out cleanup failed after Firebase sign-out: $e');
-      AppLogger.warning(
-        'Google sign-out cleanup failed after Firebase sign-out',
-        error: e,
-        stackTrace: st,
-        context: const {'app_area': 'auth', 'auth_stage': 'google_sign_out'},
-      );
-    }
-
-    try {
-      await _notificationRegistry.retireMessagingToken();
-    } catch (e, st) {
-      debugPrint('Could not retire the local messaging token: $e');
-      AppLogger.warning(
-        'Could not retire the local messaging token',
-        error: e,
-        stackTrace: st,
-        context: const {
-          'app_area': 'auth',
-          'auth_stage': 'sign_out_retire_notification_token',
-        },
-      );
-    } finally {
-      _notificationRegistry.observeSignedOut();
-    }
-
-    try {
-      _ref.read(syncOnceProvider.notifier).state = false;
-    } catch (error, stackTrace) {
-      AppLogger.warning(
-        'Could not reset the one-shot sync marker after sign-out',
-        error: error,
-        stackTrace: stackTrace,
-        context: const {
-          'app_area': 'auth',
-          'auth_stage': 'sign_out_reset_sync_marker',
-        },
-      );
-    }
-  }
-
-  Map<String, dynamic> _pendingUserPayload(User user) {
-    return {
-      'name': _cleanProfileText(user.displayName),
-      'email': _cleanProfileText(user.email),
-      'photoUrl': _cleanOptionalText(user.photoURL),
-      'roles': [AppRole.operations.name],
-      'isApproved': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
-  }
-
-  String _cleanProfileText(String? value) => value?.trim() ?? '';
-
-  String? _cleanOptionalText(String? value) {
-    final trimmed = value?.trim();
-    return trimmed == null || trimmed.isEmpty ? null : trimmed;
-  }
-}
 
 final authServiceProvider = Provider<AuthService>(
   (ref) => AuthService(

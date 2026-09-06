@@ -168,9 +168,15 @@ abstract class AbnormalityRepository {
     List<String> firestoreIds,
   );
 
+  Future<RemoteRecordApplyResult<AbnormalityType>> applyTypeFromRemote(
+    AbnormalityType remote,
+  );
   Future<void> insertTypeFromRemote(AbnormalityType remote);
   Future<void> updateTypeFromRemote(AbnormalityType remote);
 
+  Future<RemoteRecordApplyResult<ChargeAbnormality>> applyAbnormalityFromRemote(
+    ChargeAbnormality remote,
+  );
   Future<void> insertAbnormalityFromRemote(ChargeAbnormality remote);
   Future<void> updateAbnormalityFromRemote(ChargeAbnormality remote);
   Future<bool> applyAbnormalityCommandReadback(ChargeAbnormality remote);
@@ -262,31 +268,30 @@ final abnormalitiesForChargeProvider = StreamProvider.autoDispose
 
 /// Creates a detached abnormality-type copy for safe edit dialogs.
 AbnormalityType copyAbnormalityType(AbnormalityType source) {
-  final copy =
-      AbnormalityType()
-        ..id = source.id
-        ..firestoreId = source.firestoreId
-        ..code = source.code
-        ..title = source.title
-        ..description = source.description
-        ..category = source.category
-        ..severity = source.severity
-        ..applicableAssetTypeIndexes = [...source.applicableAssetTypeIndexes]
-        ..suggestsReannealing = source.suggestsReannealing
-        ..isActive = source.isActive
-        ..isDeleted = source.isDeleted
-        ..deletedAt = source.deletedAt
-        ..deletedByUid = source.deletedByUid
-        ..deletedByName = source.deletedByName
-        ..deleteReason = source.deleteReason
-        ..version = source.version
-        ..isSynced = source.isSynced
-        ..createdAt = source.createdAt
-        ..updatedAt = source.updatedAt
-        ..createdByUid = source.createdByUid
-        ..createdByName = source.createdByName
-        ..lastEditedByUid = source.lastEditedByUid
-        ..lastEditedByName = source.lastEditedByName;
+  final copy = AbnormalityType()
+    ..id = source.id
+    ..firestoreId = source.firestoreId
+    ..code = source.code
+    ..title = source.title
+    ..description = source.description
+    ..category = source.category
+    ..severity = source.severity
+    ..applicableAssetTypeIndexes = [...source.applicableAssetTypeIndexes]
+    ..suggestsReannealing = source.suggestsReannealing
+    ..isActive = source.isActive
+    ..isDeleted = source.isDeleted
+    ..deletedAt = source.deletedAt
+    ..deletedByUid = source.deletedByUid
+    ..deletedByName = source.deletedByName
+    ..deleteReason = source.deleteReason
+    ..version = source.version
+    ..isSynced = source.isSynced
+    ..createdAt = source.createdAt
+    ..updatedAt = source.updatedAt
+    ..createdByUid = source.createdByUid
+    ..createdByName = source.createdByName
+    ..lastEditedByUid = source.lastEditedByUid
+    ..lastEditedByName = source.lastEditedByName;
 
   _normalizeType(copy);
   return copy;
@@ -294,39 +299,38 @@ AbnormalityType copyAbnormalityType(AbnormalityType source) {
 
 /// Creates a detached charge-abnormality copy for safe edit dialogs.
 ChargeAbnormality copyChargeAbnormality(ChargeAbnormality source) {
-  final copy =
-      ChargeAbnormality()
-        ..id = source.id
-        ..firestoreId = source.firestoreId
-        ..sourceChargeNo = source.sourceChargeNo
-        ..abnormalityTypeId = source.abnormalityTypeId
-        ..abnormalityTypeTitle = source.abnormalityTypeTitle
-        ..abnormalityTypeCode = source.abnormalityTypeCode
-        ..category = source.category
-        ..severity = source.severity
-        ..affectedAssetsJson = source.affectedAssetsJson
-        ..component = source.component
-        ..observedReason = source.observedReason
-        ..description = source.description
-        ..possibleRootReasonCategory = source.possibleRootReasonCategory
-        ..possibleRootReasonNotes = source.possibleRootReasonNotes
-        ..reannealingStatus = source.reannealingStatus
-        ..reannealedToChargeNo = source.reannealedToChargeNo
-        ..loggedAt = source.loggedAt
-        ..updatedAt = source.updatedAt
-        ..loggedByUid = source.loggedByUid
-        ..loggedByName = source.loggedByName
-        ..updatedByUid = source.updatedByUid
-        ..updatedByName = source.updatedByName
-        ..linkedTicketFirestoreId = source.linkedTicketFirestoreId
-        ..linkedExecutionFirestoreId = source.linkedExecutionFirestoreId
-        ..version = source.version
-        ..isSynced = source.isSynced
-        ..isDeleted = source.isDeleted
-        ..deletedAt = source.deletedAt
-        ..deletedByUid = source.deletedByUid
-        ..deletedByName = source.deletedByName
-        ..deleteReason = source.deleteReason;
+  final copy = ChargeAbnormality()
+    ..id = source.id
+    ..firestoreId = source.firestoreId
+    ..sourceChargeNo = source.sourceChargeNo
+    ..abnormalityTypeId = source.abnormalityTypeId
+    ..abnormalityTypeTitle = source.abnormalityTypeTitle
+    ..abnormalityTypeCode = source.abnormalityTypeCode
+    ..category = source.category
+    ..severity = source.severity
+    ..affectedAssetsJson = source.affectedAssetsJson
+    ..component = source.component
+    ..observedReason = source.observedReason
+    ..description = source.description
+    ..possibleRootReasonCategory = source.possibleRootReasonCategory
+    ..possibleRootReasonNotes = source.possibleRootReasonNotes
+    ..reannealingStatus = source.reannealingStatus
+    ..reannealedToChargeNo = source.reannealedToChargeNo
+    ..loggedAt = source.loggedAt
+    ..updatedAt = source.updatedAt
+    ..loggedByUid = source.loggedByUid
+    ..loggedByName = source.loggedByName
+    ..updatedByUid = source.updatedByUid
+    ..updatedByName = source.updatedByName
+    ..linkedTicketFirestoreId = source.linkedTicketFirestoreId
+    ..linkedExecutionFirestoreId = source.linkedExecutionFirestoreId
+    ..version = source.version
+    ..isSynced = source.isSynced
+    ..isDeleted = source.isDeleted
+    ..deletedAt = source.deletedAt
+    ..deletedByUid = source.deletedByUid
+    ..deletedByName = source.deletedByName
+    ..deleteReason = source.deleteReason;
 
   _normalizeAbnormality(copy);
   return copy;
@@ -663,13 +667,12 @@ Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {
         'longitude': value.longitude,
       };
     } else if (value is Iterable) {
-      sanitized[key] =
-          value.map((item) {
-            if (item is fs.Timestamp) return item.toDate().toIso8601String();
-            if (item is fs.DocumentReference) return item.path;
-            if (item is Map) return Map<String, dynamic>.from(item);
-            return item;
-          }).toList();
+      sanitized[key] = value.map((item) {
+        if (item is fs.Timestamp) return item.toDate().toIso8601String();
+        if (item is fs.DocumentReference) return item.path;
+        if (item is Map) return Map<String, dynamic>.from(item);
+        return item;
+      }).toList();
     } else if (value is Map) {
       sanitized[key] = Map<String, dynamic>.from(value);
     } else {

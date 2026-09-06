@@ -25,13 +25,12 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
 
   @override
   Future<List<MaintenanceRecord>> getOpenTickets() async {
-    final results =
-        await isar.maintenanceRecords
-            .filter()
-            .isResolvedEqualTo(false)
-            .and()
-            .isDeletedEqualTo(false)
-            .findAll();
+    final results = await isar.maintenanceRecords
+        .filter()
+        .isResolvedEqualTo(false)
+        .and()
+        .isDeletedEqualTo(false)
+        .findAll();
 
     results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return results;
@@ -218,15 +217,14 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   Future<List<MaintenanceRecord>> getOpenTicketsByAssetType(
     AssetType type,
   ) async {
-    final results =
-        await isar.maintenanceRecords
-            .filter()
-            .assetTypeEqualTo(type)
-            .and()
-            .isResolvedEqualTo(false)
-            .and()
-            .isDeletedEqualTo(false)
-            .findAll();
+    final results = await isar.maintenanceRecords
+        .filter()
+        .assetTypeEqualTo(type)
+        .and()
+        .isResolvedEqualTo(false)
+        .and()
+        .isDeletedEqualTo(false)
+        .findAll();
 
     results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return results;
@@ -347,11 +345,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
-      final local =
-          await isar.maintenanceRecords
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
+      final local = await isar.maintenanceRecords
+          .filter()
+          .firestoreIdEqualTo(remote.firestoreId!)
+          .findFirst();
 
       if (local == null) return const RemoteTombstoneApplyResult.localMissing();
       if (local.isDeleted) {
@@ -597,69 +594,89 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
-  Future<void> insertFromRemote(MaintenanceRecord remote) async {
-    if (remote.isDeleted) return;
-    await isar.writeTxn(() async {
-      remote.isSynced = true;
-      await isar.maintenanceRecords.put(remote);
+  Future<RemoteRecordApplyResult<MaintenanceRecord>>
+  applyMaintenanceRecordFromRemote(MaintenanceRecord remote) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted maintenance remote with an identity is required.',
+      );
+    }
+
+    return isar.writeTxn<RemoteRecordApplyResult<MaintenanceRecord>>(() async {
+      final locals = await isar.maintenanceRecords
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<MaintenanceRecord>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+
+      if (locals.isEmpty) {
+        remote
+          ..id = Isar.autoIncrement
+          ..firestoreId = firestoreId
+          ..isSynced = true;
+        await isar.maintenanceRecords.put(remote);
+        return RemoteRecordApplyResult<MaintenanceRecord>(
+          RemoteRecordApplyOutcome.inserted,
+          localRecord: remote,
+        );
+      }
+
+      final local = locals.single;
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<MaintenanceRecord>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: _isRemoteNewerByPolicy(local, remote),
+        );
+      }
+
+      final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.toUtc() == remote.updatedAt.toUtc();
+      if (sameBoundary) {
+        return RemoteRecordApplyResult<MaintenanceRecord>(
+          RemoteRecordApplyOutcome.unchanged,
+          localRecord: local,
+        );
+      }
+      if (!remoteIsNewer) {
+        return RemoteRecordApplyResult<MaintenanceRecord>(
+          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+        );
+      }
+
+      _overwriteLocalMaintenanceRecord(local, remote);
+      await isar.maintenanceRecords.put(local);
+      return RemoteRecordApplyResult<MaintenanceRecord>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: local,
+      );
     });
   }
 
   @override
+  Future<void> insertFromRemote(MaintenanceRecord remote) async {
+    if (remote.isDeleted) return;
+    await applyMaintenanceRecordFromRemote(remote);
+  }
+
+  @override
   Future<void> updateFromRemote(MaintenanceRecord remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'maintenance ticket',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
-    await isar.writeTxn(() async {
-      final local =
-          await isar.maintenanceRecords
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
-      if (local == null) return;
-
-      // 🔥 FIXED: replaced hard delete with soft tombstone copy
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced local ticket against remote tombstone in updateFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-
-        if (!local.isDeleted) {
-          local.isDeleted = true;
-          local.deletedAt = remoteDeleteTime;
-          local.deletedByUid = remote.deletedByUid;
-          local.deletedByName = remote.deletedByName;
-          local.deleteReason = remote.deleteReason;
-          local.updatedAt = remote.updatedAt;
-          local.version = remote.version;
-          local.isSynced = true;
-          await isar.maintenanceRecords.put(local);
-        }
-        return;
-      }
-
-      final bool isLocalUnsynced = !local.isSynced;
-      final bool isRemoteNewer = _isRemoteNewerByPolicy(local, remote);
-      final bool isLocalNewer = local.updatedAt.isAfter(remote.updatedAt);
-
-      if (isLocalUnsynced && !isRemoteNewer) return;
-      if (!isLocalUnsynced && isLocalNewer) return;
-
-      _overwriteLocalMaintenanceRecord(local, remote);
-
-      await isar.maintenanceRecords.put(local);
-    });
+    if (remote.isDeleted) {
+      await applyTombstoneFromMaintenanceRemote(remote);
+      return;
+    }
+    await applyMaintenanceRecordFromRemote(remote);
   }
 
   @override
@@ -677,11 +694,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     }
     final expectedUpdatedAt = expectedLocalUpdatedAt.toUtc();
     return isar.writeTxn<bool>(() async {
-      final local =
-          await isar.maintenanceRecords
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final local = await isar.maintenanceRecords
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (local == null || local.isDeleted || !local.isSynced) return false;
 
       final alreadyAtServerVersion =
@@ -713,11 +729,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     }
     final expectedUpdatedAt = expectedLocalUpdatedAt.toUtc();
     return isar.writeTxn<bool>(() async {
-      final local =
-          await isar.maintenanceRecords
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final local = await isar.maintenanceRecords
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (local == null || !local.isSynced) return false;
 
       final alreadyAtServerVersion =
@@ -751,11 +766,10 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     if (firestoreIds.isEmpty) return [];
     final results = <MaintenanceRecord>[];
     for (final fid in firestoreIds) {
-      final local =
-          await isar.maintenanceRecords
-              .filter()
-              .firestoreIdEqualTo(fid)
-              .findFirst();
+      final local = await isar.maintenanceRecords
+          .filter()
+          .firestoreIdEqualTo(fid)
+          .findFirst();
       if (local != null) results.add(local);
     }
     return results;
@@ -853,10 +867,9 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   @override
   Future<void> markTicketsSynced(List<int> ids) async {
     await isar.writeTxn(() async {
-      final records =
-          (await isar.maintenanceRecords.getAll(
-            ids,
-          )).whereType<MaintenanceRecord>().toList();
+      final records = (await isar.maintenanceRecords.getAll(
+        ids,
+      )).whereType<MaintenanceRecord>().toList();
       for (final r in records) {
         r.isSynced = true;
       }
@@ -872,10 +885,9 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     final byId = {for (final snapshot in snapshots) snapshot.id: snapshot};
 
     await isar.writeTxn(() async {
-      final records =
-          (await isar.maintenanceRecords.getAll(
-            byId.keys.toList(),
-          )).whereType<MaintenanceRecord>().toList();
+      final records = (await isar.maintenanceRecords.getAll(
+        byId.keys.toList(),
+      )).whereType<MaintenanceRecord>().toList();
       final unchanged = <MaintenanceRecord>[];
       for (final record in records) {
         final pushed = byId[record.id];

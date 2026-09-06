@@ -53,6 +53,7 @@ export const CALLABLE_ABUSE_CONTROL_COLLECTION = "callable_abuse_controls";
 
 const DAY_SECONDS = 24 * 60 * 60;
 const MAX_STORED_COUNTER = 1_000_000_000;
+const MAX_TRANSACTION_CLOCK_REORDER_MILLIS = 5_000;
 
 export const CALLABLE_ABUSE_POLICIES: Readonly<
   Record<MutatingCallableName, CallableAbusePolicy>
@@ -406,6 +407,24 @@ function normalizedState(
   return normalized;
 }
 
+function monotonicTransactionNowMs(
+  state: CallableAbuseState,
+  sampledNowMs: number,
+): number {
+  const latestRecordedMs = Math.max(
+    state.burstWindowStartedAtMs,
+    state.dailyWindowStartedAtMs,
+    state.anomalyWindowStartedAtMs,
+    state.lastRequestAtMs,
+  );
+  if (sampledNowMs >= latestRecordedMs) return sampledNowMs;
+  if (latestRecordedMs - sampledNowMs <=
+      MAX_TRANSACTION_CLOCK_REORDER_MILLIS) {
+    return latestRecordedMs;
+  }
+  throw internalError(state.callableName, "abuse-control-clock-regressed");
+}
+
 function increment(value: number): number {
   return Math.min(value + 1, MAX_STORED_COUNTER);
 }
@@ -448,15 +467,20 @@ async function admitRequest(args: {
   const nowMs = assertNow(now, callableName);
 
   const decision = await db.runTransaction(async (transaction) => {
-    const state = normalizedState(
-      stateFromSnapshot(
-        await transaction.get(ref),
-        callableName,
-        actorHash,
-        nowMs,
-      ),
-      policy,
+    const observedState = stateFromSnapshot(
+      await transaction.get(ref),
+      callableName,
+      actorHash,
       nowMs,
+    );
+    const transactionNowMs = monotonicTransactionNowMs(
+      observedState,
+      nowMs,
+    );
+    const state = normalizedState(
+      observedState,
+      policy,
+      transactionNowMs,
     );
     const blockedWindows: Array<{reasonCode: string; retryAtMs: number}> = [];
     if (state.burstRequestCount >= policy.burstRequestLimit) {
@@ -484,10 +508,10 @@ async function admitRequest(args: {
 
     state.burstRequestCount = increment(state.burstRequestCount);
     state.dailyRequestCount = increment(state.dailyRequestCount);
-    state.lastRequestAtMs = nowMs;
+    state.lastRequestAtMs = transactionNowMs;
     if (blockedWindows.length > 0) {
       state.blockedRequestCount = increment(state.blockedRequestCount);
-      state.lastBlockedAtMs = nowMs;
+      state.lastBlockedAtMs = transactionNowMs;
     }
     transaction.set(ref, state);
 
@@ -534,13 +558,23 @@ async function recordAnomaly(args: {
     if (!snapshot.exists) {
       throw internalError(callableName, "abuse-control-record-disappeared");
     }
-    const state = normalizedState(
-      stateFromSnapshot(snapshot, callableName, actorHash, nowMs),
-      policy,
+    const observedState = stateFromSnapshot(
+      snapshot,
+      callableName,
+      actorHash,
       nowMs,
     );
+    const transactionNowMs = monotonicTransactionNowMs(
+      observedState,
+      nowMs,
+    );
+    const state = normalizedState(
+      observedState,
+      policy,
+      transactionNowMs,
+    );
     state.anomalyCount = increment(state.anomalyCount);
-    state.lastAnomalyAtMs = nowMs;
+    state.lastAnomalyAtMs = transactionNowMs;
     state.lastAnomalyCode = code;
     transaction.set(ref, state);
   });

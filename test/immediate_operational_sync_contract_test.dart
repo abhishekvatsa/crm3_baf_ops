@@ -12,22 +12,21 @@ void main() {
     late String localRecovery;
 
     setUpAll(() {
-      automatic =
-          File('lib/core/services/auto_sync_service.dart').readAsStringSync();
-      live =
-          File(
-            'lib/core/services/live_remote_sync_service.business.dart',
-          ).readAsStringSync();
-      liveRoot =
-          File(
-            'lib/core/services/live_remote_sync_service.dart',
-          ).readAsStringSync();
-      coordinator =
-          File('lib/core/services/sync_coordinator.dart').readAsStringSync();
-      localRecovery =
-          File(
-            'lib/core/services/local_sync_recovery_service.dart',
-          ).readAsStringSync();
+      automatic = File(
+        'lib/core/services/auto_sync_service.dart',
+      ).readAsStringSync();
+      live = File(
+        'lib/core/services/live_remote_sync_service.business.dart',
+      ).readAsStringSync();
+      liveRoot = File(
+        'lib/core/services/live_remote_sync_service.dart',
+      ).readAsStringSync();
+      coordinator = File(
+        'lib/core/services/sync_coordinator.dart',
+      ).readAsStringSync();
+      localRecovery = File(
+        'lib/core/services/local_sync_recovery_service.dart',
+      ).readAsStringSync();
     });
 
     test(
@@ -67,6 +66,11 @@ void main() {
           coordinator,
           contains("runFullSync(reason: 'reconnected', force: true)"),
         );
+        expect(
+          coordinator,
+          contains('_ref.read(currentAppUserProvider).asData?.value'),
+        );
+        expect(coordinator, contains('actor == null || !actor.isApproved'));
       },
     );
 
@@ -104,6 +108,9 @@ void main() {
           liveRoot,
           contains('_scheduleMaintenanceTicketReconciliationRetry'),
         );
+        expect(liveRoot, contains('_lifecycleGeneration++'));
+        expect(liveRoot, contains('_acceptsLiveWork(generation)'));
+        expect(live, contains('_acceptsLiveWork(generation)'));
         expect(
           liveRoot,
           contains(
@@ -121,6 +128,43 @@ void main() {
       },
     );
 
+    test('live mirrors share the atomic repository apply contract', () {
+      expect(
+        liveRoot,
+        contains('_maintenanceRepository.applyMaintenanceRecordFromRemote'),
+      );
+      expect(liveRoot, contains('applyTombstoneFromMaintenanceRemote'));
+
+      const repositoryCallbacks = <String>[
+        '_directiveRepository.applyDirectiveFromRemote',
+        '_directiveRepository.applyTombstoneFromDirectiveRemote',
+        '_plannedRepository.applyExecutionFromRemote',
+        '_plannedRepository.applyTombstoneFromExecutionRemote',
+        '_jobModuleRepository.applyModuleFromRemote',
+        '_jobModuleRepository.applyTombstoneFromRemote',
+        '_jobDiaryRepository.applyEntryFromRemote',
+        '_jobDiaryRepository.applyTombstoneFromRemote',
+        '_abnormalityRepository.applyTypeFromRemote',
+        '_abnormalityRepository.applyTombstoneFromTypeRemote',
+        '_abnormalityRepository.applyAbnormalityFromRemote',
+        '_abnormalityRepository.applyTombstoneFromAbnormalityRemote',
+        '_plannedRepository.applyTemplateFromRemote',
+        '_plannedRepository.applyTombstoneFromTemplateRemote',
+        '_templateGovernanceRepository.applyPackageFromRemote',
+        '_templateGovernanceRepository.applyTombstoneFromPackageRemote',
+        '_templateGovernanceRepository.applyVersionFromRemote',
+        '_templateGovernanceRepository.applyTombstoneFromVersionRemote',
+        '_templateGovernanceRepository.applyAuditFromRemote',
+        '_templateGovernanceRepository.applyTombstoneFromAuditRemote',
+      ];
+      for (final callback in repositoryCallbacks) {
+        expect(live, contains(callback), reason: callback);
+      }
+
+      expect(live, contains('RemoteRecordApplyOutcome.duplicateLocalIdentity'));
+      expect(live, contains('final locals = await adapter.matches'));
+    });
+
     test('only failed synchronization uses bounded recovery backoff', () {
       expect(automaticSyncFailureRetryDelay(1), const Duration(seconds: 1));
       expect(automaticSyncFailureRetryDelay(2), const Duration(seconds: 3));
@@ -135,10 +179,9 @@ void main() {
       'local recovery pauses both synchronization and live remote listeners',
       () {
         final app = File('lib/main.dart').readAsStringSync();
-        final indicator =
-            File(
-              'lib/core/widgets/sync_status_indicator.dart',
-            ).readAsStringSync();
+        final indicator = File(
+          'lib/core/widgets/sync_status_indicator.dart',
+        ).readAsStringSync();
 
         expect(coordinator, contains('Future<T> runWithSyncPaused<T>'));
         expect(coordinator, contains('await activeRun.future'));
@@ -153,17 +196,16 @@ void main() {
     test(
       'irreversible pilot removal stays Admin-only, receipted and bounded',
       () {
-        final handler =
-            File('functions/src/pilotRecordPurge.ts').readAsStringSync();
-        final authority =
-            File(
-              'functions/src/maintenanceWorkflow/commandAuthority.ts',
-            ).readAsStringSync();
+        final handler = File(
+          'functions/src/pilotRecordPurge.ts',
+        ).readAsStringSync();
+        final authority = File(
+          'functions/src/maintenanceWorkflow/commandAuthority.ts',
+        ).readAsStringSync();
         final rules = File('firestore.rules').readAsStringSync();
-        final dialog =
-            File(
-              'lib/features/admin/presentation/admin_data_browser/admin_pilot_purge.dart',
-            ).readAsStringSync();
+        final dialog = File(
+          'lib/features/admin/presentation/admin_data_browser/admin_pilot_purge.dart',
+        ).readAsStringSync();
 
         expect(handler, contains('PILOT_PURGE_ALLOWED_COLLECTIONS'));
         expect(handler, contains('source.data.isDeleted !== true'));

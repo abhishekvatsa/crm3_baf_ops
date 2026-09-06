@@ -125,24 +125,23 @@ Map<String, dynamic>? burnerRedHotDirectiveProjectionForIssueMap(
   if (assetNumber is! int || loggedByUid is! String) {
     throw StateError('Burner safety directive source evidence is incomplete.');
   }
-  final record =
-      MaintenanceRecord()
-        ..firestoreId = ticketId
-        ..assetType = AssetType.furnace
-        ..assetNumber = assetNumber
-        ..maintenanceType = MaintenanceType.breakdown
-        ..classification = burnerLockoutClassification
-        ..description = issue['description'] as String
-        ..routedTo = RoutedTo.instrumentation
-        ..component = 'Burner system'
-        ..status = TicketStatus.open
-        ..isResolved = false
-        ..isCritical = true
-        ..loggedByUid = loggedByUid
-        ..loggedByName = issue['loggedByName'] as String?
-        ..startDate = createdAt
-        ..createdAt = createdAt
-        ..updatedAt = createdAt;
+  final record = MaintenanceRecord()
+    ..firestoreId = ticketId
+    ..assetType = AssetType.furnace
+    ..assetNumber = assetNumber
+    ..maintenanceType = MaintenanceType.breakdown
+    ..classification = burnerLockoutClassification
+    ..description = issue['description'] as String
+    ..routedTo = RoutedTo.instrumentation
+    ..component = 'Burner system'
+    ..status = TicketStatus.open
+    ..isResolved = false
+    ..isCritical = true
+    ..loggedByUid = loggedByUid
+    ..loggedByName = issue['loggedByName'] as String?
+    ..startDate = createdAt
+    ..createdAt = createdAt
+    ..updatedAt = createdAt;
   record.burnerLockoutCase = lockout;
   return burnerRedHotDirectiveProjection(record);
 }
@@ -344,8 +343,9 @@ abstract class MaintenanceRepository {
     final records = await getClosedTickets(
       limit: limit,
       offset: offset,
-      lastDocument:
-          cursor is _FirestoreClosedTicketPageCursor ? cursor.snapshot : null,
+      lastDocument: cursor is _FirestoreClosedTicketPageCursor
+          ? cursor.snapshot
+          : null,
     );
     return ClosedTicketPage(records: records);
   }
@@ -360,6 +360,13 @@ abstract class MaintenanceRepository {
   Future<MaintenanceRecord?> readMaintenanceIssueCommandServerState(
     String firestoreId,
   );
+
+  /// Atomically resolves a remote identity against the current local row and
+  /// applies it only when no unsynced operator edit or duplicate identity is
+  /// present. Pull and live synchronization must not split this decision from
+  /// the write that follows it.
+  Future<RemoteRecordApplyResult<MaintenanceRecord>>
+  applyMaintenanceRecordFromRemote(MaintenanceRecord remote);
 
   Future<void> insertFromRemote(MaintenanceRecord remote);
   Future<void> updateFromRemote(MaintenanceRecord remote);
@@ -476,8 +483,9 @@ void _requireMaintenanceWorkflowAllowsAction(
 ) {
   if (!record.workflowDeferred) return;
   final lane = record.workflowTargetLaneKey?.trim();
-  final suffix =
-      lane == null || lane.isEmpty ? '' : ' for ${lane.toUpperCase()}';
+  final suffix = lane == null || lane.isEmpty
+      ? ''
+      : ' for ${lane.toUpperCase()}';
   throw StateError(
     'Cannot $action while this ticket is deferred by maintenance workflow$suffix. '
     'Use the linked compliance request to reactivate or release it.',
@@ -508,8 +516,9 @@ void _requireMaintenanceWorkflowMapAllowsAction(
 ) {
   if (data['workflowDeferred'] != true) return;
   final lane = data['workflowTargetLaneKey']?.toString().trim();
-  final suffix =
-      lane == null || lane.isEmpty ? '' : ' for ${lane.toUpperCase()}';
+  final suffix = lane == null || lane.isEmpty
+      ? ''
+      : ' for ${lane.toUpperCase()}';
   throw StateError(
     'Cannot $action while this ticket is deferred by maintenance workflow$suffix. '
     'Use the linked compliance request to reactivate or release it.',
@@ -534,10 +543,9 @@ final firestoreMaintenanceRepo = Provider<FirestoreMaintenanceRepository>((
 });
 
 final maintenanceRepositoryProvider = Provider<MaintenanceRepository>(
-  (ref) =>
-      kIsWeb
-          ? ref.watch(firestoreMaintenanceRepo)
-          : ref.watch(isarMaintenanceRepo),
+  (ref) => kIsWeb
+      ? ref.watch(firestoreMaintenanceRepo)
+      : ref.watch(isarMaintenanceRepo),
 );
 
 // 🔥 CONVERTED: From FutureProvider to StreamProvider

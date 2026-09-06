@@ -21,6 +21,9 @@ function snapshot(data, writes) {
     exists: data != null,
     data: () => data,
     ref: {
+      create: async (value) => {
+        writes.push({value, options: {merge: false}});
+      },
       set: async (value, options) => {
         writes.push({value, options});
       },
@@ -201,5 +204,28 @@ describe("global pull server stamp", () => {
         options: {merge: false},
       },
     ]);
+  });
+
+  test("a delayed delete event cannot overwrite a newer restoration", async () => {
+    const writes = [];
+    const before = snapshot(
+      {firestoreId: "directive-1", version: 1, isDeleted: false},
+      writes,
+    );
+    before.ref.create = async () => {
+      throw Object.assign(new Error("Document already exists"), {code: 6});
+    };
+
+    const action = await applyGlobalPullServerClock({
+      collectionId: "directives",
+      change: {
+        before,
+        after: snapshot(undefined, writes),
+      },
+      serverTimestamp: () => "SERVER_TIME",
+    });
+
+    expect(action).toBe("ignored-existing-document");
+    expect(writes).toEqual([]);
   });
 });

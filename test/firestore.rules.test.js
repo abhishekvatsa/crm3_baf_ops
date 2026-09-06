@@ -4387,17 +4387,27 @@ describe("audit_logs", () => {
     );
   });
 
-  test("clients cannot reserve deterministic maintenance-ticket audit IDs", async () => {
+  test("clients cannot reserve any server-owned audit identity", async () => {
     const db = dbAs("admin1");
-    await assertFails(
-      setDoc(
-        doc(db, "audit_logs/server_maintenance_ticket_request1"),
-        auditEventPayload({
-          performedByUid: "admin1",
-          performedByName: "Admin One",
-        })
-      )
-    );
+    const reservedIds = [
+      "server_maintenance_ticket_request1",
+      "server_quality_request1",
+      "server_asset_integrity_request1",
+      "server_closure_request1",
+      "server_future_namespace_request1",
+    ];
+
+    for (const auditId of reservedIds) {
+      await assertFails(
+        setDoc(
+          doc(db, `audit_logs/${auditId}`),
+          auditEventPayload({
+            performedByUid: "admin1",
+            performedByName: "Admin One",
+          })
+        )
+      );
+    }
   });
 
   test("remote device recovery state and reserved audits remain server-only", async () => {

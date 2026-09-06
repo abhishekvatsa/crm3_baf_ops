@@ -42,8 +42,9 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
     });
 
     if (auditContext != null && afterSnapshot != null && entityId != null) {
-      final action =
-          beforeSnapshot == null ? AuditAction.create : AuditAction.update;
+      final action = beforeSnapshot == null
+          ? AuditAction.create
+          : AuditAction.update;
       final auditRepo = _auditRepo;
       unawaited(
         auditRepo.log(
@@ -73,12 +74,11 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
     int? limit,
     bool includeDeleted = false,
   }) async {
-    final entries =
-        await _baseJobQuery(
-          jobExecutionFirestoreId: jobExecutionFirestoreId,
-          jobExecutionLocalId: jobExecutionLocalId,
-          includeDeleted: includeDeleted,
-        ).findAll();
+    final entries = await _baseJobQuery(
+      jobExecutionFirestoreId: jobExecutionFirestoreId,
+      jobExecutionLocalId: jobExecutionLocalId,
+      includeDeleted: includeDeleted,
+    ).findAll();
 
     entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     if (limit != null && entries.length > limit) {
@@ -242,62 +242,90 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<JobDiaryEntry>> applyEntryFromRemote(
+    JobDiaryEntry remote,
+  ) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted job diary remote with an identity is required.',
+      );
+    }
+
+    return isar.writeTxn<RemoteRecordApplyResult<JobDiaryEntry>>(() async {
+      final locals = await isar.jobDiaryEntrys
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<JobDiaryEntry>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+      if (locals.isEmpty) {
+        remote
+          ..id = Isar.autoIncrement
+          ..firestoreId = firestoreId
+          ..jobExecutionLocalId = null
+          ..moduleInstanceLocalId = null
+          ..isSynced = true;
+        await isar.jobDiaryEntrys.put(remote);
+        return RemoteRecordApplyResult<JobDiaryEntry>(
+          RemoteRecordApplyOutcome.inserted,
+          localRecord: remote,
+        );
+      }
+
+      final local = locals.single;
+      final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<JobDiaryEntry>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (sameBoundary) {
+        return RemoteRecordApplyResult<JobDiaryEntry>(
+          RemoteRecordApplyOutcome.unchanged,
+          localRecord: local,
+        );
+      }
+      if (!remoteIsNewer) {
+        return RemoteRecordApplyResult<JobDiaryEntry>(
+          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+        );
+      }
+
+      _copyRemoteEntryIntoLocal(local, remote);
+      await isar.jobDiaryEntrys.put(local);
+      return RemoteRecordApplyResult<JobDiaryEntry>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: local,
+      );
+    });
+  }
+
+  @override
   Future<void> insertEntryFromRemote(JobDiaryEntry remote) async {
-    remote
-      ..jobExecutionLocalId = null
-      ..moduleInstanceLocalId = null
-      ..isSynced = true;
-    await isar.writeTxn(() => isar.jobDiaryEntrys.put(remote));
+    if (remote.isDeleted) return;
+    await applyEntryFromRemote(remote);
   }
 
   @override
   Future<void> updateEntryFromRemote(JobDiaryEntry remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'job diary entry',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
-
-    await isar.writeTxn(() async {
-      final local =
-          await isar.jobDiaryEntrys
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
-
-      if (local == null) return;
-
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced diary entry against remote tombstone in updateEntryFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-
-        if (!local.isDeleted) {
-          _copyRemoteEntryIntoLocal(local, remote);
-          await isar.jobDiaryEntrys.put(local);
-        }
-        return;
-      }
-
-      final isLocalUnsynced = !local.isSynced;
-      final isRemoteNewer = _isRemoteNewerByPolicy(local, remote);
-      final isLocalNewer = local.updatedAt.isAfter(remote.updatedAt);
-
-      if (isLocalUnsynced && !isRemoteNewer) return;
-      if (!isLocalUnsynced && isLocalNewer) return;
-
-      _copyRemoteEntryIntoLocal(local, remote);
-      await isar.jobDiaryEntrys.put(local);
-    });
+    if (remote.isDeleted) {
+      await applyTombstoneFromRemote(remote);
+      return;
+    }
+    await applyEntryFromRemote(remote);
   }
 
   @override
@@ -317,11 +345,10 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
     );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
-      final local =
-          await isar.jobDiaryEntrys
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
+      final local = await isar.jobDiaryEntrys
+          .filter()
+          .firestoreIdEqualTo(remote.firestoreId!)
+          .findFirst();
 
       if (local == null) return const RemoteTombstoneApplyResult.localMissing();
       if (local.isDeleted) {
@@ -358,11 +385,10 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
     if (ids.isEmpty) return [];
     final results = <JobDiaryEntry>[];
     for (final firestoreId in ids) {
-      final entry =
-          await isar.jobDiaryEntrys
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final entry = await isar.jobDiaryEntrys
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (entry != null) results.add(entry);
     }
     return results;
