@@ -63,6 +63,9 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Regenerate current Isar bindings
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Canonical source and authority audit
         run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
 

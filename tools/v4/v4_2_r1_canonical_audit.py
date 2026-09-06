@@ -99,6 +99,29 @@ def git_file_text(commit: str, path: str) -> str | None:
     return result.stdout if result.returncode == 0 else None
 
 
+def git_file_bytes(commit: str, path: str) -> bytes | None:
+    result = subprocess.run(
+        ["git", "show", f"{commit}:{path}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
+def git_tracked_files(commit: str, root: str) -> list[str] | None:
+    result = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", commit, "--", root],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
 def git_tree_id(commit: str) -> str | None:
     result = subprocess.run(
         ["git", "rev-parse", "--verify", f"{commit}^{{tree}}"],
@@ -498,7 +521,6 @@ for row in rows:
     actual_bytes = len(candidate_blob)
     if PHASE == "post-codegen" and rel in post_codegen_bindings:
         generated_phase_paths.append(rel)
-        continue
 
     allowed_representations = {
         (row["candidateSha256"], row["candidateBytes"]),
@@ -527,12 +549,28 @@ for row in rows:
 
 post_codegen_missing: list[str] = []
 post_codegen_drift: list[str] = []
+post_codegen_untracked: list[str] = []
+current_generated_paths = sorted(
+    path.relative_to(ROOT).as_posix()
+    for path in ROOT.glob("lib/**/*.g.dart")
+    if path.is_file()
+)
+tracked_lib_paths = git_tracked_files("HEAD", "lib")
+tracked_generated_paths = sorted(
+    path for path in (tracked_lib_paths or []) if path.endswith(".g.dart")
+)
 if PHASE == "post-codegen":
-    for rel, entry in post_codegen_bindings.items():
-        path = ROOT / rel
-        if not path.is_file():
-            post_codegen_missing.append(rel)
-        elif sha(path) != entry["sha256"]:
+    # The historical Windows register remains immutable evidence. Current
+    # bindings are regenerated first and must reproduce the checked-in tree.
+    post_codegen_missing = sorted(
+        set(tracked_generated_paths) - set(current_generated_paths)
+    )
+    post_codegen_untracked = sorted(
+        set(current_generated_paths) - set(tracked_generated_paths)
+    )
+    for rel in sorted(set(current_generated_paths) & set(tracked_generated_paths)):
+        tracked_bytes = git_file_bytes("HEAD", rel)
+        if tracked_bytes is None or (ROOT / rel).read_bytes() != tracked_bytes:
             post_codegen_drift.append(rel)
 
 counts = {key: 0 for key in ("BYTE_IDENTICAL", "SUCCESSOR_MODIFIED", "MISSING")}
@@ -554,9 +592,16 @@ check(
     f"dual={len(dual_representation_paths)} invalid={','.join(invalid_representation_rows)}",
 )
 check(
-    "Authentic generated bindings are exact in post-codegen phase",
-    PHASE != "post-codegen" or (not post_codegen_missing and not post_codegen_drift),
-    f"phase={PHASE} expected={len(post_codegen_bindings)} missing={len(post_codegen_missing)} drift={len(post_codegen_drift)}",
+    "Current generated bindings reproduce tracked source in post-codegen phase",
+    PHASE != "post-codegen"
+    or (
+        tracked_lib_paths is not None
+        and bool(current_generated_paths)
+        and not post_codegen_missing
+        and not post_codegen_untracked
+        and not post_codegen_drift
+    ),
+    f"phase={PHASE} tracked={len(tracked_generated_paths)} current={len(current_generated_paths)} missing={len(post_codegen_missing)} untracked={len(post_codegen_untracked)} drift={len(post_codegen_drift)}",
 )
 check(
     "Canonical reconciliation is no-loss with explicit successor delta",
@@ -1509,7 +1554,15 @@ check(
     and harness.index("17_post_codegen_custody")
     < harness.index("18_canonical_isar_semantic_continuity")
     < harness.index("19_isar_release_authority")
-    < harness.index("20_v42_r1_audit"),
+    < harness.index("20_v42_r1_audit")
+    and "dart run build_runner build --delete-conflicting-outputs"
+        in release_gate_source
+    and release_gate_source.index(
+        "dart run build_runner build --delete-conflicting-outputs"
+    )
+    < release_gate_source.index(
+        "python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen"
+    ),
 )
 check(
     "Trial harness contains no remote/deploy/destructive command and is structurally balanced",

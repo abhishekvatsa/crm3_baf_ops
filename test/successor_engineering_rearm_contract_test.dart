@@ -252,6 +252,33 @@ void main() {
     },
   );
 
+  test('post-codegen custody is derived from current generated source', () {
+    final workflow = File(
+      '.github/workflows/release-gate.yml',
+    ).readAsStringSync();
+    final audit = File(
+      'tools/v4/v4_2_r1_canonical_audit.py',
+    ).readAsStringSync();
+    const generator =
+        'dart run build_runner build --delete-conflicting-outputs';
+    const canonicalAudit =
+        'python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen';
+
+    expect(workflow, contains(generator));
+    expect(
+      workflow.indexOf(generator),
+      lessThan(workflow.indexOf(canonicalAudit)),
+    );
+    expect(audit, contains('git_tracked_files("HEAD", "lib")'));
+    expect(audit, contains('ROOT.glob("lib/**/*.g.dart")'));
+    expect(
+      audit,
+      contains(
+        'Current generated bindings reproduce tracked source in post-codegen phase',
+      ),
+    );
+  });
+
   test(
     'current index derives each release plane from live authority records',
     () {
