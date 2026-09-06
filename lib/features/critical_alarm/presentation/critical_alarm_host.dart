@@ -63,6 +63,9 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   late final ProviderSubscription<AsyncValue<AppUser?>> _alarmActorSubscription;
   late final ProviderSubscription<AsyncValue<CriticalAlarmLiveSnapshot>>
   _alarmFeedSubscription;
+  late final CriticalAlarmPlatformService _alarmPlatform;
+  AppUser? _latestAlarmActor;
+  CriticalAlarmLiveSnapshot? _latestAlarmSnapshot;
   String? _pendingOpenedAlarmId;
   Offset _launcherFraction = const Offset(1, 0.52);
   Offset? _dragStartGlobalPosition;
@@ -72,22 +75,22 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    final platform = ref.read(criticalAlarmPlatformServiceProvider);
-    _openedAlarmSubscription = platform.openedAlarmIds.listen(
+    _alarmPlatform = ref.read(criticalAlarmPlatformServiceProvider);
+    _openedAlarmSubscription = _alarmPlatform.openedAlarmIds.listen(
       _queueOpenedAlarm,
     );
     _alarmActorSubscription = ref.listenManual<AsyncValue<AppUser?>>(
       currentAppUserProvider,
       (previous, next) {
         final actor = next.asData?.value;
+        _latestAlarmActor = actor;
         if (actor?.isApproved != true) {
           _verifiedAlarmActorUid = null;
           _liveAlarmStateVerified = false;
           _hideUnverifiedAlarmWarning();
           return;
         }
-        final feed = ref.read(activeCriticalAlarmsProvider);
-        final snapshot = feed.asData?.value;
+        final snapshot = _latestAlarmSnapshot;
         if (snapshot?.isServerVerified == true) {
           _verifiedAlarmActorUid = actor!.uid;
           _liveAlarmStateVerified = true;
@@ -103,8 +106,9 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
       AsyncValue<CriticalAlarmLiveSnapshot>
     >(activeCriticalAlarmsProvider, (previous, next) {
       final snapshot = next.asData?.value;
+      _latestAlarmSnapshot = snapshot;
       if (snapshot?.isServerVerified == true) {
-        final actor = ref.read(currentAppUserProvider).asData?.value;
+        final actor = _latestAlarmActor;
         _verifiedAlarmActorUid = actor?.isApproved == true ? actor!.uid : null;
         _liveAlarmStateVerified = true;
         _hideUnverifiedAlarmWarning();
@@ -112,7 +116,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
         return;
       }
       _liveAlarmStateVerified = false;
-      final actor = ref.read(currentAppUserProvider).asData?.value;
+      final actor = _latestAlarmActor;
       final actorUid = actor?.isApproved == true ? actor!.uid : null;
       if (actorUid != null && actorUid == _verifiedAlarmActorUid) {
         _showUnverifiedAlarmWarningNow();
@@ -121,7 +125,7 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
       }
     }, fireImmediately: true);
     unawaited(
-      platform.initializeAlarmOpenListener().then((alarmId) {
+      _alarmPlatform.initializeAlarmOpenListener().then((alarmId) {
         if (alarmId != null) _queueOpenedAlarm(alarmId);
       }),
     );
@@ -141,10 +145,11 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed || !_liveAlarmStateVerified) return;
-    final platform = ref.read(criticalAlarmPlatformServiceProvider);
-    unawaited(platform.reconcileActiveNotifications(_latestRingingIds));
+    unawaited(
+      _alarmPlatform.reconcileActiveNotifications(_latestRingingIds),
+    );
     for (final alarm in _latestRingingAlarms.values) {
-      _attemptNotification(platform, alarm);
+      _attemptNotification(_alarmPlatform, alarm);
     }
   }
 
@@ -264,15 +269,8 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     _initialFeedWarningTimer = Timer(_initialFeedWarningDelay, () {
       _initialFeedWarningTimer = null;
       if (!mounted) return;
-      final actor = ref.read(currentAppUserProvider).asData?.value;
-      final feed = ref.read(activeCriticalAlarmsProvider);
-      final snapshot = feed.asData?.value;
-      final remainsUnverified =
-          feed.isLoading ||
-          feed.hasError ||
-          snapshot == null ||
-          !snapshot.isServerVerified;
-      if (actor?.isApproved == true && remainsUnverified) {
+      if (_latestAlarmActor?.isApproved == true &&
+          !_liveAlarmStateVerified) {
         _showUnverifiedAlarmWarningNow();
       }
     });
@@ -388,21 +386,21 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
   }
 
   void _reconcileNotifications(List<CriticalAlarm> alarms) {
+    if (!mounted) return;
     final ringing = alarms.where((alarm) => alarm.isRinging).toList();
     final ringingIds = ringing.map((alarm) => alarm.id).toSet();
     _latestRingingIds = ringingIds;
     _latestRingingAlarms = {for (final alarm in ringing) alarm.id: alarm};
-    final platform = ref.read(criticalAlarmPlatformServiceProvider);
     // The verified server set also clears tagged FCM notifications created
     // while this Dart process was not running.
-    unawaited(platform.reconcileActiveNotifications(ringingIds));
+    unawaited(_alarmPlatform.reconcileActiveNotifications(ringingIds));
     for (final alarm in ringing) {
-      _attemptNotification(platform, alarm);
+      _attemptNotification(_alarmPlatform, alarm);
     }
     final noLongerRinging = _notifiedRingingIds.difference(ringingIds).toList();
     for (final alarmId in noLongerRinging) {
       _notifiedRingingIds.remove(alarmId);
-      unawaited(platform.cancelNotification(alarmId));
+      unawaited(_alarmPlatform.cancelNotification(alarmId));
     }
   }
 

@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../providers/sync_status_provider.dart';
 import '../serialization/persisted_data_reader.dart';
@@ -97,6 +97,7 @@ class SyncPendingCounts {
   final int templateVersions;
   final int templatePublishAudits;
   final int knowledgeBaseRows;
+  final int auditEvents;
 
   const SyncPendingCounts({
     this.maintenanceTickets = 0,
@@ -111,6 +112,7 @@ class SyncPendingCounts {
     this.templateVersions = 0,
     this.templatePublishAudits = 0,
     this.knowledgeBaseRows = 0,
+    this.auditEvents = 0,
   });
 
   int get total =>
@@ -125,7 +127,8 @@ class SyncPendingCounts {
       templatePackages +
       templateVersions +
       templatePublishAudits +
-      knowledgeBaseRows;
+      knowledgeBaseRows +
+      auditEvents;
 
   bool get hasPending => total > 0;
 }
@@ -255,6 +258,7 @@ class SyncService {
       _directiveRepo.getUnsyncedDirectives().then((items) => items.length),
       _abnormalityRepo.getUnsyncedTypes().then((items) => items.length),
       _abnormalityRepo.getUnsyncedAbnormalities().then((items) => items.length),
+      _auditRepo.countPendingAuditEvents(),
     ]);
 
     return SyncPendingCounts(
@@ -270,6 +274,7 @@ class SyncService {
       directives: results[9],
       abnormalityTypes: results[10],
       chargeAbnormalities: results[11],
+      auditEvents: results[12],
     );
   }
 
@@ -320,7 +325,19 @@ class SyncService {
 
       if (!kIsWeb) {
         try {
-          await _auditRepo.syncPendingAuditEvents();
+          final auditResult = await _auditRepo.syncPendingAuditEvents();
+          lastSuccessCount += auditResult.synced;
+          if (auditResult.failed > 0) {
+            lastFailureCount += auditResult.failed;
+            _recordPushFailureDetail(
+              entityType: 'audit_event',
+              entityId: 'pending_audit_batch',
+              error: StateError(
+                '${auditResult.failed} of ${auditResult.attempted} pending '
+                'audit events remain unsynced.',
+              ),
+            );
+          }
         } catch (e, stackTrace) {
           lastFailureCount++;
           _recordPushFailureDetail(

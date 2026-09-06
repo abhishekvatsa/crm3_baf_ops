@@ -58,6 +58,7 @@ import 'features/directives/providers/operational_directive_provider.dart';
 
 import 'core/theme/baf_design_system.dart';
 import 'core/widgets/baf_ui.dart';
+import 'core/widgets/baf_home_back_scope.dart';
 import 'core/widgets/brand/brand_widgets.dart';
 import 'core/widgets/dashboard/dashboard_widgets.dart';
 import 'core/widgets/dashboard/status_badge.dart';
@@ -96,13 +97,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _openInitialNotification() async {
-    if (_initialNotificationHandled) return;
+    if (_initialNotificationHandled) {
+      return;
+    }
     _initialNotificationHandled = true;
     final message = await FirebaseMessaging.instance.getInitialMessage();
+    if (!mounted) {
+      return;
+    }
     if (message != null) _handleNotificationTap(message);
   }
 
   void _handleNotificationTap(RemoteMessage message) {
+    if (!mounted) {
+      return;
+    }
     if (message.data['destinationType'] == 'admin_device_reset') {
       unawaited(
         ref
@@ -155,20 +164,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final appUserAsync = ref.watch(currentAppUserProvider);
 
-    return appUserAsync.when(
-      loading:
-          () => const Scaffold(
-            backgroundColor: BafColors.background,
-            body: BafLoadingPanel(label: 'Preparing your operations workspace'),
-          ),
-      error:
-          (e, _) => Scaffold(
-            backgroundColor: BafColors.background,
-            body: BafStatePanel.error(
-              title: 'Workspace unavailable',
-              message: 'Your approved profile could not be loaded. $e',
-            ),
-          ),
+    final workspace = appUserAsync.when(
+      loading: () => const Scaffold(
+        backgroundColor: BafColors.background,
+        body: BafLoadingPanel(label: 'Preparing your operations workspace'),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: BafColors.background,
+        body: BafStatePanel.error(
+          title: 'Workspace unavailable',
+          message: 'Your approved profile could not be loaded. $e',
+        ),
+      ),
       data: (appUser) {
         if (appUser == null) {
           return Scaffold(
@@ -186,21 +193,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final ticketCountAsync = ref.watch(
           visibleOpenTicketCountProvider(appUser),
         );
-        final executionCountAsync =
-            appUser.canViewPlannedMaintenance
-                ? ref.watch(openExecutionCountProvider)
-                : null;
+        final executionCountAsync = appUser.canViewPlannedMaintenance
+            ? ref.watch(openExecutionCountProvider)
+            : null;
         final directiveCountAsync = ref.watch(
           visibleOpenDirectiveCountProvider(appUser),
         );
-        final workflowLanesAsync =
-            appUser.canViewPlannedMaintenance
-                ? ref.watch(workflowAllLanesProvider)
-                : null;
-        final workflowComplianceAsync =
-            appUser.canViewPlannedMaintenance
-                ? ref.watch(workflowAllComplianceProvider)
-                : null;
+        final workflowLanesAsync = appUser.canViewPlannedMaintenance
+            ? ref.watch(workflowAllLanesProvider)
+            : null;
+        final workflowComplianceAsync = appUser.canViewPlannedMaintenance
+            ? ref.watch(workflowAllComplianceProvider)
+            : null;
         final plantOverviewAsync = ref.watch(plantAssetOverviewProvider);
         final operationalEventsAsync = ref.watch(
           operationalEventsProvider(appUser.uid),
@@ -220,12 +224,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final ticketCount = ticketCountAsync.valueOrNull ?? 0;
         final executionCount = executionCountAsync?.valueOrNull ?? 0;
         final directiveCount = directiveCountAsync.valueOrNull ?? 0;
-        final workflowAttentionCount =
-            summarizeWorkflowAttention(
-              actor: appUser,
-              lanes: workflowLanesAsync?.valueOrNull ?? const [],
-              compliance: workflowComplianceAsync?.valueOrNull ?? const [],
-            ).total;
+        final workflowAttentionCount = summarizeWorkflowAttention(
+          actor: appUser,
+          lanes: workflowLanesAsync?.valueOrNull ?? const [],
+          compliance: workflowComplianceAsync?.valueOrNull ?? const [],
+        ).total;
         final openOperationalEventCount =
             operationalEventsAsync.valueOrNull
                 ?.where((event) => event.isOpen)
@@ -264,10 +267,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final criticalAlarmSnapshot = criticalAlarmsAsync.asData?.value;
         final criticalAlarmsUnavailable =
             criticalAlarmSnapshot?.isServerVerified != true;
-        final activeCriticalAlarmCount =
-            criticalAlarmsUnavailable
-                ? 0
-                : criticalAlarmSnapshot!.alarms.length;
+        final activeCriticalAlarmCount = criticalAlarmsUnavailable
+            ? 0
+            : criticalAlarmSnapshot!.alarms.length;
         final operationalEventsUnavailable =
             operationalEventsAsync.valueOrNull == null;
         final qualityWarningsUnavailable =
@@ -324,8 +326,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: _LazyIndexedStack(
                 index: safeIndex,
                 itemCount: tabs.length,
-                itemBuilder:
-                    (context, index) => tabs[index].buildScreen(context),
+                itemBuilder: (context, index) =>
+                    tabs[index].buildScreen(context),
               ),
             );
             final useRail = constraints.maxWidth >= 900;
@@ -356,17 +358,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               top: BafSpacing.sm,
                               bottom: BafSpacing.lg,
                             ),
-                            child:
-                                constraints.maxWidth >= 1200
-                                    ? const BafBrandLockup(compact: true)
-                                    : const ManmithasMark(size: 38),
+                            child: constraints.maxWidth >= 1200
+                                ? const BafBrandLockup(compact: true)
+                                : const ManmithasMark(size: 38),
                           ),
-                          onDestinationSelected:
-                              (index) => setState(() => _currentIndex = index),
-                          labelType:
-                              constraints.maxWidth >= 1200
-                                  ? NavigationRailLabelType.none
-                                  : NavigationRailLabelType.all,
+                          onDestinationSelected: (index) =>
+                              setState(() => _currentIndex = index),
+                          labelType: constraints.maxWidth >= 1200
+                              ? NavigationRailLabelType.none
+                              : NavigationRailLabelType.all,
                           destinations: tabs
                               .map(
                                 (tab) => NavigationRailDestination(
@@ -404,8 +404,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 child: NavigationBar(
                   selectedIndex: safeIndex,
-                  onDestinationSelected:
-                      (index) => setState(() => _currentIndex = index),
+                  onDestinationSelected: (index) =>
+                      setState(() => _currentIndex = index),
                   labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                   destinations: tabs.map((t) => t.destination).toList(),
                 ),
@@ -414,6 +414,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         );
       },
+    );
+
+    return BafHomeBackScope(
+      isHomeSelected: _currentIndex == 0,
+      onReturnHome: () {
+        if (mounted) setState(() => _currentIndex = 0);
+      },
+      child: workspace,
     );
   }
 
@@ -442,56 +450,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return [
       _AppTab(
         label: 'Home',
-        screenBuilder:
-            (_) => _DashboardHome(
-              appUser: appUser,
-              ticketCount: ticketCount,
-              executionCount: executionCount,
-              directiveCount: directiveCount,
-              workflowAttentionCount: workflowAttentionCount,
-              openOperationalEventCount: openOperationalEventCount,
-              openQualityWarningCount: openQualityWarningCount,
-              activeQualityMonitoringCount: activeQualityMonitoringCount,
-              overdueMaintenanceCount: overdueMaintenanceCount,
-              activeInspectionFindingCount: activeInspectionFindingCount,
-              activeCriticalAlarmCount: activeCriticalAlarmCount,
-              operationalEventsUnavailable: operationalEventsUnavailable,
-              qualityWarningsUnavailable: qualityWarningsUnavailable,
-              qualityMonitoringUnavailable: qualityMonitoringUnavailable,
-              attentionDataUnavailable: attentionDataUnavailable,
-              criticalAlarmsUnavailable: criticalAlarmsUnavailable,
-              plantOverview: plantOverview,
-              onProfileTap: () => _showProfileSheet(context, ref, appUser),
-              onRaiseIssue: () => _openMaintenanceForm(context),
-              onIssues: () => setState(() => _currentIndex = 1),
-              onWork: () => setState(() => _currentIndex = 2),
-              onDirectives: () => setState(() => _currentIndex = 3),
-              onAbnormalities:
-                  () => _push(context, const AbnormalitiesHomeScreen()),
-              onQuality: () => _push(context, const QualityHomeScreen()),
-              onQualityMonitoring:
-                  () => _push(context, const QualityHomeScreen.monitoring()),
-              onOperationalEvents:
-                  () => _push(context, const OperationalEventsScreen()),
-              onPlantCondition:
-                  () => _push(context, const AssetConditionBoard()),
-              onPlantConditionFiltered:
-                  (filter) => _push(
-                    context,
-                    AssetConditionBoard(initialFilter: filter),
-                  ),
-              onMorningReview:
-                  () => _push(context, const MorningReviewScreen()),
-              onReports: () => _push(context, const FleetStatusScreen()),
-              onControl: () => setState(() => _currentIndex = 3),
-              onMaintenanceRhythm:
-                  () => _push(context, const MaintenanceIntelligenceScreen()),
-              onInspectionProgrammes:
-                  () => _push(context, const InspectionProgrammesScreen()),
-              onCriticalAlarms:
-                  () => _push(context, const CriticalAlarmScreen()),
-              onManualSync: () => _retryAttentionData(context, appUser),
-            ),
+        screenBuilder: (_) => _DashboardHome(
+          appUser: appUser,
+          ticketCount: ticketCount,
+          executionCount: executionCount,
+          directiveCount: directiveCount,
+          workflowAttentionCount: workflowAttentionCount,
+          openOperationalEventCount: openOperationalEventCount,
+          openQualityWarningCount: openQualityWarningCount,
+          activeQualityMonitoringCount: activeQualityMonitoringCount,
+          overdueMaintenanceCount: overdueMaintenanceCount,
+          activeInspectionFindingCount: activeInspectionFindingCount,
+          activeCriticalAlarmCount: activeCriticalAlarmCount,
+          operationalEventsUnavailable: operationalEventsUnavailable,
+          qualityWarningsUnavailable: qualityWarningsUnavailable,
+          qualityMonitoringUnavailable: qualityMonitoringUnavailable,
+          attentionDataUnavailable: attentionDataUnavailable,
+          criticalAlarmsUnavailable: criticalAlarmsUnavailable,
+          plantOverview: plantOverview,
+          onProfileTap: () => _showProfileSheet(context, ref, appUser),
+          onRaiseIssue: () => _openMaintenanceForm(context),
+          onIssues: () => setState(() => _currentIndex = 1),
+          onWork: () => setState(() => _currentIndex = 2),
+          onDirectives: () => setState(() => _currentIndex = 3),
+          onAbnormalities: () =>
+              _push(context, const AbnormalitiesHomeScreen()),
+          onQuality: () => _push(context, const QualityHomeScreen()),
+          onQualityMonitoring: () =>
+              _push(context, const QualityHomeScreen.monitoring()),
+          onOperationalEvents: () =>
+              _push(context, const OperationalEventsScreen()),
+          onPlantCondition: () => _push(context, const AssetConditionBoard()),
+          onPlantConditionFiltered: (filter) =>
+              _push(context, AssetConditionBoard(initialFilter: filter)),
+          onMorningReview: () => _push(context, const MorningReviewScreen()),
+          onReports: () => _push(context, const FleetStatusScreen()),
+          onControl: () => setState(() => _currentIndex = 3),
+          onMaintenanceRhythm: () =>
+              _push(context, const MaintenanceIntelligenceScreen()),
+          onInspectionProgrammes: () =>
+              _push(context, const InspectionProgrammesScreen()),
+          onCriticalAlarms: () => _push(context, const CriticalAlarmScreen()),
+          onManualSync: () => _retryAttentionData(context, appUser),
+        ),
         destination: const NavigationDestination(
           icon: Icon(Icons.dashboard_outlined),
           selectedIcon: Icon(Icons.dashboard_rounded, color: BafColors.teal),
@@ -520,15 +521,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       _AppTab(
         label: 'Work',
-        screenBuilder:
-            (_) =>
-                appUser.canViewPlannedMaintenance
-                    ? const TemplatesScreen()
-                    : const _AccessLimitedScreen(
-                      title: 'Planned Work',
-                      message:
-                          'Planned maintenance jobs are available to supervisors and authorized teams.',
-                    ),
+        screenBuilder: (_) => appUser.canViewPlannedMaintenance
+            ? const TemplatesScreen()
+            : const _AccessLimitedScreen(
+                title: 'Planned Work',
+                message:
+                    'Planned maintenance jobs are available to supervisors and authorized teams.',
+              ),
         destination: NavigationDestination(
           icon: Badge(
             isLabelVisible: executionCount + workflowAttentionCount > 0,
@@ -545,37 +544,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       _AppTab(
         label: 'Control',
-        screenBuilder:
-            (_) => OperationalControlScreen(
-              appUser: appUser,
-              directiveCount: directiveCount,
-              workflowAttentionCount: workflowAttentionCount,
-              operationalEventCount: openOperationalEventCount,
-              qualityWarningCount: openQualityWarningCount,
-              qualityMonitoringCount: activeQualityMonitoringCount,
-              inspectionFindingCount: activeInspectionFindingCount,
-              criticalAlarmCount: activeCriticalAlarmCount,
-              directiveDataUnavailable: directiveDataUnavailable,
-              workflowDataUnavailable: workflowDataUnavailable,
-              operationalEventsUnavailable: operationalEventsUnavailable,
-              qualityWarningsUnavailable: qualityWarningsUnavailable,
-              qualityMonitoringUnavailable: qualityMonitoringUnavailable,
-              inspectionFindingsUnavailable: inspectionFindingsUnavailable,
-              criticalAlarmsUnavailable: criticalAlarmsUnavailable,
-              onDirectives: () => _push(context, const DirectivesScreen()),
-              onWorkflow: () => setState(() => _currentIndex = 2),
-              onOperationalEvents:
-                  () => _push(context, const OperationalEventsScreen()),
-              onQuality: () => _push(context, const QualityHomeScreen()),
-              onQualityMonitoring:
-                  () => _push(context, const QualityHomeScreen.monitoring()),
-              onAbnormalities:
-                  () => _push(context, const AbnormalitiesHomeScreen()),
-              onInspections:
-                  () => _push(context, const InspectionProgrammesScreen()),
-              onCriticalAlarms:
-                  () => _push(context, const CriticalAlarmScreen()),
-            ),
+        screenBuilder: (_) => OperationalControlScreen(
+          appUser: appUser,
+          directiveCount: directiveCount,
+          workflowAttentionCount: workflowAttentionCount,
+          operationalEventCount: openOperationalEventCount,
+          qualityWarningCount: openQualityWarningCount,
+          qualityMonitoringCount: activeQualityMonitoringCount,
+          inspectionFindingCount: activeInspectionFindingCount,
+          criticalAlarmCount: activeCriticalAlarmCount,
+          directiveDataUnavailable: directiveDataUnavailable,
+          workflowDataUnavailable: workflowDataUnavailable,
+          operationalEventsUnavailable: operationalEventsUnavailable,
+          qualityWarningsUnavailable: qualityWarningsUnavailable,
+          qualityMonitoringUnavailable: qualityMonitoringUnavailable,
+          inspectionFindingsUnavailable: inspectionFindingsUnavailable,
+          criticalAlarmsUnavailable: criticalAlarmsUnavailable,
+          onDirectives: () => _push(context, const DirectivesScreen()),
+          onWorkflow: () => setState(() => _currentIndex = 2),
+          onOperationalEvents: () =>
+              _push(context, const OperationalEventsScreen()),
+          onQuality: () => _push(context, const QualityHomeScreen()),
+          onQualityMonitoring: () =>
+              _push(context, const QualityHomeScreen.monitoring()),
+          onAbnormalities: () =>
+              _push(context, const AbnormalitiesHomeScreen()),
+          onInspections: () =>
+              _push(context, const InspectionProgrammesScreen()),
+          onCriticalAlarms: () => _push(context, const CriticalAlarmScreen()),
+        ),
         destination: NavigationDestination(
           icon: Badge(
             isLabelVisible:
@@ -610,55 +607,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       _AppTab(
         label: 'More',
-        screenBuilder:
-            (_) => _MoreScreen(
-              appUser: appUser,
-              onRaiseIssue: () => _openMaintenanceForm(context),
-              onIssues: () => setState(() => _currentIndex = 1),
-              onWork: () => setState(() => _currentIndex = 2),
-              onControl: () => setState(() => _currentIndex = 3),
-              onDirectives: () => _push(context, const DirectivesScreen()),
-              onMorningReview:
-                  () => _push(context, const MorningReviewScreen()),
-              onWorkflow: () => _push(context, const WorkflowHubScreen()),
-              onAssetRegistry:
-                  () => _push(context, const AssetRegistryScreen()),
-              onPlantCondition:
-                  () => _push(context, const AssetConditionBoard()),
-              onAssets: () => _push(context, const AssetTimelineScreen()),
-              onInnerCovers:
-                  () => _push(context, const InnerCoverLifecycleScreen()),
-              onFurnaceStuckup:
-                  () => _push(context, const FurnaceStuckupBoard()),
-              onClosed: () => _push(context, const ClosedTicketsScreen()),
-              onClosedJobs:
-                  () => _push(context, const ClosedJobDossiersScreen()),
-              onMaintenanceRhythm:
-                  () => _push(context, const MaintenanceIntelligenceScreen()),
-              onInspectionProgrammes:
-                  () => _push(context, const InspectionProgrammesScreen()),
-              onReports: () => _push(context, const FleetStatusScreen()),
-              onBurnerReliability:
-                  () => _push(context, const BurnerReliabilityScreen()),
-              onAdmin: () => _push(context, const AdminDataBrowser()),
-              onAuditLog: () => _push(context, const RecentAuditLogScreen()),
-              onAbnormalities:
-                  () => _push(context, const AbnormalitiesHomeScreen()),
-              onQuality: () => _push(context, const QualityHomeScreen()),
-              onQualityMonitoring:
-                  () => _push(context, const QualityHomeScreen.monitoring()),
-              onOperationalEvents:
-                  () => _push(context, const OperationalEventsScreen()),
-              onTemplateAuthoring: () => _openModuleComposer(context, appUser),
-              onTemplatePublisher:
-                  () => _push(context, const TemplatePublisherScreen()),
-              onKnowledgeGovernance:
-                  () => _push(context, const KnowledgeGovernanceScreen()),
-              onFrequentIssues:
-                  () => _push(context, const FrequentIssueCatalogueScreen()),
-              onLocalDiagnostics:
-                  () => _push(context, const LocalDiagnosticsScreen()),
-            ),
+        screenBuilder: (_) => _MoreScreen(
+          appUser: appUser,
+          onRaiseIssue: () => _openMaintenanceForm(context),
+          onIssues: () => setState(() => _currentIndex = 1),
+          onWork: () => setState(() => _currentIndex = 2),
+          onControl: () => setState(() => _currentIndex = 3),
+          onDirectives: () => _push(context, const DirectivesScreen()),
+          onMorningReview: () => _push(context, const MorningReviewScreen()),
+          onWorkflow: () => _push(context, const WorkflowHubScreen()),
+          onAssetRegistry: () => _push(context, const AssetRegistryScreen()),
+          onPlantCondition: () => _push(context, const AssetConditionBoard()),
+          onAssets: () => _push(context, const AssetTimelineScreen()),
+          onInnerCovers: () =>
+              _push(context, const InnerCoverLifecycleScreen()),
+          onFurnaceStuckup: () => _push(context, const FurnaceStuckupBoard()),
+          onClosed: () => _push(context, const ClosedTicketsScreen()),
+          onClosedJobs: () => _push(context, const ClosedJobDossiersScreen()),
+          onMaintenanceRhythm: () =>
+              _push(context, const MaintenanceIntelligenceScreen()),
+          onInspectionProgrammes: () =>
+              _push(context, const InspectionProgrammesScreen()),
+          onReports: () => _push(context, const FleetStatusScreen()),
+          onBurnerReliability: () =>
+              _push(context, const BurnerReliabilityScreen()),
+          onAdmin: () => _push(context, const AdminDataBrowser()),
+          onAuditLog: () => _push(context, const RecentAuditLogScreen()),
+          onAbnormalities: () =>
+              _push(context, const AbnormalitiesHomeScreen()),
+          onQuality: () => _push(context, const QualityHomeScreen()),
+          onQualityMonitoring: () =>
+              _push(context, const QualityHomeScreen.monitoring()),
+          onOperationalEvents: () =>
+              _push(context, const OperationalEventsScreen()),
+          onTemplateAuthoring: () => _openModuleComposer(context, appUser),
+          onTemplatePublisher: () =>
+              _push(context, const TemplatePublisherScreen()),
+          onKnowledgeGovernance: () =>
+              _push(context, const KnowledgeGovernanceScreen()),
+          onFrequentIssues: () =>
+              _push(context, const FrequentIssueCatalogueScreen()),
+          onLocalDiagnostics: () =>
+              _push(context, const LocalDiagnosticsScreen()),
+        ),
         destination: const NavigationDestination(
           icon: Icon(Icons.grid_view_outlined),
           selectedIcon: Icon(
@@ -687,15 +678,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => ModuleComposerScreen(
-              initialJobTemplateJson: '{}',
-              initialModuleSnapshotsJson: '[]',
-              initialFieldDefinitionsJson: '[]',
-              initialChecklistJson: '[]',
-              canSeedCloudKnowledge: appUser.canManageTemplateGovernance,
-              showSaveToPublisher: false,
-            ),
+        builder: (_) => ModuleComposerScreen(
+          initialJobTemplateJson: '{}',
+          initialModuleSnapshotsJson: '[]',
+          initialFieldDefinitionsJson: '[]',
+          initialChecklistJson: '[]',
+          canSeedCloudKnowledge: appUser.canManageTemplateGovernance,
+          showSaveToPublisher: false,
+        ),
       ),
     );
   }
@@ -704,10 +694,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        settings:
-            screen is CriticalAlarmScreen
-                ? const RouteSettings(name: CriticalAlarmScreen.routeName)
-                : null,
+        settings: screen is CriticalAlarmScreen
+            ? const RouteSettings(name: CriticalAlarmScreen.routeName)
+            : null,
         builder: (_) => screen,
       ),
     );
@@ -745,10 +734,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       messenger?.showSnackBar(
         SnackBar(
           content: Text(outcome.manualSyncMessage),
-          backgroundColor:
-              outcome.isFailure
-                  ? BafColors.danger
-                  : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
+          backgroundColor: outcome.isFailure
+              ? BafColors.danger
+              : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
       );
     } catch (error) {
@@ -768,122 +756,120 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      builder:
-          (sheetContext) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      BafSpacing.xl,
-                      BafSpacing.sm,
-                      BafSpacing.xl,
-                      BafSpacing.xl,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (sheetContext) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  BafSpacing.xl,
+                  BafSpacing.sm,
+                  BafSpacing.xl,
+                  BafSpacing.xl,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            _UserAvatar(appUser: appUser),
-                            const SizedBox(width: BafSpacing.md),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    appUser.name,
-                                    style: const TextStyle(
-                                      color: BafColors.textPrimary,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const SizedBox(height: BafSpacing.xs),
-                                  Text(
-                                    appUser.email,
-                                    style: const TextStyle(
-                                      color: BafColors.textSecondary,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: BafSpacing.md),
-                        Wrap(
-                          spacing: BafSpacing.sm,
-                          runSpacing: BafSpacing.sm,
-                          children:
-                              appUser.roles.map<Widget>((r) {
-                                final roleName =
-                                    r.toString().split('.').last.toUpperCase();
-
-                                return Chip(
-                                  label: Text(
-                                    roleName,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  backgroundColor: BafColors.navySoft,
-                                  padding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                );
-                              }).toList(),
-                        ),
-                        const SizedBox(height: BafSpacing.lg),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              Navigator.pop(sheetContext);
-                              try {
-                                await ref.read(authServiceProvider).signOut();
-                              } catch (error) {
-                                messenger?.showSnackBar(
-                                  SnackBar(
-                                    content: Text('$error'),
-                                    backgroundColor: BafColors.warning,
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(
-                              Icons.logout,
-                              color: BafColors.danger,
-                            ),
-                            label: const Text(
-                              'Sign Out',
-                              style: TextStyle(color: BafColors.danger),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: BafColors.danger),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  BafRadius.medium,
+                        _UserAvatar(appUser: appUser),
+                        const SizedBox(width: BafSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                appUser.name,
+                                style: const TextStyle(
+                                  color: BafColors.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
+                              const SizedBox(height: BafSpacing.xs),
+                              Text(
+                                appUser.email,
+                                style: const TextStyle(
+                                  color: BafColors.textSecondary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: BafSpacing.md),
+                    Wrap(
+                      spacing: BafSpacing.sm,
+                      runSpacing: BafSpacing.sm,
+                      children: appUser.roles.map<Widget>((r) {
+                        final roleName = r
+                            .toString()
+                            .split('.')
+                            .last
+                            .toUpperCase();
+
+                        return Chip(
+                          label: Text(
+                            roleName,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          backgroundColor: BafColors.navySoft,
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(sheetContext);
+                          try {
+                            await ref.read(authServiceProvider).signOut();
+                          } catch (error) {
+                            messenger?.showSnackBar(
+                              SnackBar(
+                                content: Text('$error'),
+                                backgroundColor: BafColors.warning,
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.logout, color: BafColors.danger),
+                        label: const Text(
+                          'Sign Out',
+                          style: TextStyle(color: BafColors.danger),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: BafColors.danger),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              BafRadius.medium,
                             ),
                           ),
                         ),
-                        const SizedBox(height: BafSpacing.lg),
-                        const Divider(),
-                        const SizedBox(height: BafSpacing.md),
-                        const Center(child: BafBrandLockup(compact: true)),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: BafSpacing.lg),
+                    const Divider(),
+                    const SizedBox(height: BafSpacing.md),
+                    const Center(child: BafBrandLockup(compact: true)),
+                  ],
                 ),
               ),
             ),
           ),
+        ),
+      ),
     );
   }
 }
@@ -1059,18 +1045,16 @@ class _DashboardHome extends StatelessWidget {
                 title: 'Needs attention',
                 icon: Icons.rule_folder_outlined,
                 trailing: StatusBadge(
-                  label:
-                      attentionDataUnavailable
-                          ? 'Incomplete'
-                          : totalAttention == 0
-                          ? 'All clear'
-                          : '$totalAttention',
-                  color:
-                      attentionDataUnavailable
-                          ? BafColors.danger
-                          : totalAttention == 0
-                          ? BafColors.success
-                          : BafColors.warning,
+                  label: attentionDataUnavailable
+                      ? 'Incomplete'
+                      : totalAttention == 0
+                      ? 'All clear'
+                      : '$totalAttention',
+                  color: attentionDataUnavailable
+                      ? BafColors.danger
+                      : totalAttention == 0
+                      ? BafColors.success
+                      : BafColors.warning,
                 ),
               ),
               const SizedBox(height: BafSpacing.sm),
@@ -1140,10 +1124,9 @@ class _CriticalAlarmHomeStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color:
-        unavailable
-            ? BafColors.warning.withValues(alpha: 0.13)
-            : BafColors.danger.withValues(alpha: 0.1),
+    color: unavailable
+        ? BafColors.warning.withValues(alpha: 0.13)
+        : BafColors.danger.withValues(alpha: 0.1),
     borderRadius: BorderRadius.circular(BafRadius.medium),
     child: InkWell(
       borderRadius: BorderRadius.circular(BafRadius.medium),
@@ -1251,38 +1234,34 @@ class _OperationalWatch extends StatelessWidget {
       final tiles = <Widget>[
         _WatchTile(
           icon: Icons.crisis_alert_outlined,
-          color:
-              operationalEventsUnavailable
-                  ? BafColors.danger
-                  : BafColors.warning,
-          value:
-              operationalEventsUnavailable
-                  ? 'Unavailable'
-                  : '$operationalEventCount',
+          color: operationalEventsUnavailable
+              ? BafColors.danger
+              : BafColors.warning,
+          value: operationalEventsUnavailable
+              ? 'Unavailable'
+              : '$operationalEventCount',
           label: 'Events',
           onTap: onOperationalEvents,
         ),
         _WatchTile(
           icon: Icons.verified_user_outlined,
-          color:
-              qualityWarningsUnavailable ? BafColors.danger : BafColors.charges,
-          value:
-              qualityWarningsUnavailable
-                  ? 'Unavailable'
-                  : '$qualityWarningCount',
+          color: qualityWarningsUnavailable
+              ? BafColors.danger
+              : BafColors.charges,
+          value: qualityWarningsUnavailable
+              ? 'Unavailable'
+              : '$qualityWarningCount',
           label: 'Warnings',
           onTap: onQuality,
         ),
         _WatchTile(
           icon: Icons.monitor_heart_outlined,
-          color:
-              qualityMonitoringUnavailable
-                  ? BafColors.danger
-                  : BafColors.instrument,
-          value:
-              qualityMonitoringUnavailable
-                  ? 'Unavailable'
-                  : '$qualityMonitoringCount',
+          color: qualityMonitoringUnavailable
+              ? BafColors.danger
+              : BafColors.instrument,
+          value: qualityMonitoringUnavailable
+              ? 'Unavailable'
+              : '$qualityMonitoringCount',
           label: 'Monitoring',
           onTap: onQualityMonitoring,
         ),
@@ -1442,10 +1421,9 @@ class _MoreScreen extends StatelessWidget {
       _RoleRoute(
         icon: Icons.report_problem_outlined,
         color: BafColors.warning,
-        label:
-            appUser.canCloseMaintenanceTicket
-                ? 'Issue supervision'
-                : 'Issue queue',
+        label: appUser.canCloseMaintenanceTicket
+            ? 'Issue supervision'
+            : 'Issue queue',
         onTap: onIssues,
       ),
       if (appUser.canViewPlannedMaintenance)
@@ -2205,32 +2183,27 @@ class _WorkspaceSearch extends StatelessWidget {
         ),
       ];
     },
-    builder:
-        (context, controller) => SearchBar(
-          controller: controller,
-          hintText: 'Find a screen or function',
-          leading: const Icon(Icons.search_rounded),
-          trailing: const [
-            Tooltip(
-              message: 'Search your permitted workspace',
-              child: Icon(Icons.manage_search_rounded),
-            ),
-          ],
-          elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: const WidgetStatePropertyAll(
-            BafColors.surfaceRaised,
-          ),
-          side: const WidgetStatePropertyAll(
-            BorderSide(color: BafColors.border),
-          ),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-            ),
-          ),
-          onTap: controller.openView,
-          onChanged: (_) => controller.openView(),
+    builder: (context, controller) => SearchBar(
+      controller: controller,
+      hintText: 'Find a screen or function',
+      leading: const Icon(Icons.search_rounded),
+      trailing: const [
+        Tooltip(
+          message: 'Search your permitted workspace',
+          child: Icon(Icons.manage_search_rounded),
         ),
+      ],
+      elevation: const WidgetStatePropertyAll(0),
+      backgroundColor: const WidgetStatePropertyAll(BafColors.surfaceRaised),
+      side: const WidgetStatePropertyAll(BorderSide(color: BafColors.border)),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+        ),
+      ),
+      onTap: controller.openView,
+      onChanged: (_) => controller.openView(),
+    ),
   );
 }
 
@@ -2335,13 +2308,13 @@ class _MoreSection extends StatelessWidget {
             ) {
               return index.isEven
                   ? _MoreDestinationTile(
-                    icon: destinations[index ~/ 2].icon,
-                    color: destinations[index ~/ 2].color,
-                    title: destinations[index ~/ 2].title,
-                    subtitle: destinations[index ~/ 2].subtitle,
-                    badge: destinations[index ~/ 2].badge,
-                    onTap: destinations[index ~/ 2].onTap,
-                  )
+                      icon: destinations[index ~/ 2].icon,
+                      color: destinations[index ~/ 2].color,
+                      title: destinations[index ~/ 2].title,
+                      subtitle: destinations[index ~/ 2].subtitle,
+                      badge: destinations[index ~/ 2].badge,
+                      onTap: destinations[index ~/ 2].onTap,
+                    )
                   : const Divider(height: 1, color: BafColors.border);
             }),
           ),
@@ -2398,30 +2371,29 @@ class _MoreDestinationTile extends StatelessWidget {
             height: 1.25,
           ),
         ),
-        trailing:
-            badge == null
-                ? Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: BafColors.surfaceMuted,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 19,
-                    color: BafColors.textSecondary,
-                  ),
-                )
-                : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    StatusBadge(label: badge!, color: BafColors.textSecondary),
-                    const SizedBox(width: BafSpacing.xs),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
+        trailing: badge == null
+            ? Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: BafColors.surfaceMuted,
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 19,
+                  color: BafColors.textSecondary,
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StatusBadge(label: badge!, color: BafColors.textSecondary),
+                  const SizedBox(width: BafSpacing.xs),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
         onTap: onTap,
       ),
     );
@@ -2516,23 +2488,22 @@ class _UserAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final photoUrl = appUser.photoUrl?.trim();
     final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
-    final fallback =
-        appUser.name.isNotEmpty ? appUser.name[0].toUpperCase() : 'U';
+    final fallback = appUser.name.isNotEmpty
+        ? appUser.name[0].toUpperCase()
+        : 'U';
 
     return CircleAvatar(
       radius: 18,
       backgroundColor: BafColors.navySoft.withValues(alpha: 0.10),
-      backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-      child:
-          hasPhoto
-              ? null
-              : Text(
-                fallback,
-                style: const TextStyle(
-                  color: BafColors.navySoft,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+      foregroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+      onForegroundImageError: hasPhoto ? (_, _) {} : null,
+      child: Text(
+        fallback,
+        style: const TextStyle(
+          color: BafColors.navySoft,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }

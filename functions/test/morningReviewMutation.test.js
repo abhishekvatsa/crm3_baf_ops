@@ -1392,6 +1392,48 @@ describe('Morning Review governed lifecycle', () => {
       .toBe(false);
   });
 
+  test('rejects an entry that would make finalization exceed capacity', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    for (let index = 0; index < 180; index += 1) {
+      memory.store.set(`morning_review_entries/existing-${index}`, {
+        sessionId,
+      });
+    }
+
+    await expect(invoke(memory, 'si-1', entryRequest()))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'morning-review-entry-capacity-reached'},
+      });
+    expect(memory.store.has(`morning_review_entries/${IDS.entry}`))
+      .toBe(false);
+  });
+
+  test('rejects a join that would make finalization exceed capacity', async () => {
+    const memory = fakeDb(baseSeed());
+    await invoke(memory, 'si-1', startRequest());
+    for (let index = 1; index < 100; index += 1) {
+      memory.store.set(`morning_review_participants/existing-${index}`, {
+        sessionId,
+        userUid: `existing-${index}`,
+        state: 'joined',
+      });
+    }
+
+    await expect(invoke(memory, 'contract-1', {
+      requestId: IDS.join,
+      operation: 'JOIN_MORNING_REVIEW',
+      sessionId,
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'morning-review-participant-capacity-reached'},
+    });
+    expect(memory.store.has(
+      `morning_review_participants/${sessionId}_contract-1`,
+    )).toBe(false);
+  });
+
   test('carries a standing concern, records the daily check, and retains it while active', async () => {
     const memory = fakeDb(baseSeed());
     await invoke(memory, 'admin-1', startRequest());

@@ -438,6 +438,25 @@ describe('S-03 callable abuse control', () => {
     }
   });
 
+  test('accepts normal transaction reordering without regressing stored time', async () => {
+    const db = new MemoryFirestore();
+    const timer = clock();
+    await invoke({db, now: timer.now});
+    const [record] = db.abuseRecords();
+    record.data.burstWindowStartedAtMs += 1;
+    record.data.dailyWindowStartedAtMs += 1;
+    record.data.anomalyWindowStartedAtMs += 1;
+    record.data.lastRequestAtMs += 1;
+    db.documents.set(
+      `${CALLABLE_ABUSE_CONTROL_COLLECTION}/${record.id}`,
+      record.data,
+    );
+
+    await expect(invoke({db, now: timer.now})).resolves.toEqual({ok: true});
+    expect(db.abuseRecords()[0].data.lastRequestAtMs)
+      .toBe(record.data.lastRequestAtMs);
+  });
+
   test('separates quota state by actor and callable', async () => {
     const db = new MemoryFirestore();
     const timer = clock();

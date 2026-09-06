@@ -60,7 +60,7 @@ describe('user document schema perimeter', () => {
 
   test('server authority receipts and deterministic audits are client-inaccessible', () => {
     expect(rules).toContain('match /user_authority_mutation_receipts/{docId}');
-    expect(rules).toContain("!docId.matches('^server_authority_.*')");
+    expect(rules).toContain("!docId.matches('^server_.*')");
   });
 
   test('roles are restricted to the canonical vocabulary and non-empty list', () => {

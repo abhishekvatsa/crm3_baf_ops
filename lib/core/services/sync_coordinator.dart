@@ -2,8 +2,9 @@
 
 import 'dart:async' show Completer, StreamSubscription, unawaited;
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/auth_provider.dart';
@@ -11,6 +12,8 @@ import '../../features/maintenance_workflow/providers/workflow_providers.dart';
 import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import 'app_logger.dart';
+import 'global_pull_cursor_store.dart';
+import 'global_pull_protocol.dart';
 import 'global_pull_service.dart';
 import 'local_recovery_session_guard.dart';
 import 'local_sync_recovery_service.dart';
@@ -43,6 +46,63 @@ extension SyncRequestOutcomeX on SyncRequestOutcome {
   };
 }
 
+const _permanentCallableErrorCodes = <String>{
+  'already-exists',
+  'data-loss',
+  'failed-precondition',
+  'invalid-argument',
+  'not-found',
+  'out-of-range',
+  'permission-denied',
+  'unauthenticated',
+  'unimplemented',
+};
+
+@visibleForTesting
+bool syncFailureLikelyPermanent(Object error) {
+  if (error is GlobalPullCursorException ||
+      error is GlobalPullProtocolException) {
+    return true;
+  }
+  return error is FirebaseFunctionsException &&
+      _permanentCallableErrorCodes.contains(error.code);
+}
+
+@visibleForTesting
+Map<String, Object?> syncFailureDiagnosticContext(
+  Object error, {
+  GlobalPullDomain? pullDomain,
+}) {
+  final context = <String, Object?>{};
+  if (pullDomain != null) {
+    context['sync_pull_domain_${_diagnosticToken(pullDomain.wireName)}'] = true;
+  }
+  if (error is FirebaseFunctionsException) {
+    context['sync_callable_code_${_diagnosticToken(error.code)}'] = true;
+    final details = error.details;
+    if (details is Map && details['reason'] is String) {
+      context['sync_callable_reason_${_diagnosticToken(details['reason'] as String)}'] =
+          true;
+    }
+  } else if (error is GlobalPullProtocolException) {
+    context['sync_protocol_reason_${_diagnosticToken(error.reasonCode)}'] =
+        true;
+  } else if (error is GlobalPullCursorException) {
+    context['sync_cursor_reason_${_diagnosticToken(error.reasonCode)}'] = true;
+  }
+  return context;
+}
+
+String _diagnosticToken(String value) {
+  final normalized = value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9_-]'), '_')
+      .replaceAll(RegExp(r'_+'), '_');
+  if (normalized.isEmpty) return 'unknown';
+  return normalized.length <= 48 ? normalized : normalized.substring(0, 48);
+}
+
 // ─────────────────────────────────────────────────────────────
 // COORDINATOR HEALTH
 // ─────────────────────────────────────────────────────────────
@@ -62,6 +122,7 @@ class SyncRunHealth {
   final String? lastError;
   final List<SyncFailureDetail> failureDetails;
   final int failureDetailOverflowCount;
+  final bool lastFailureLikelyPermanent;
   final bool hasPendingFollowUp;
   final String? pendingFollowUpReason;
   final bool pendingFollowUpForce;
@@ -81,6 +142,7 @@ class SyncRunHealth {
     this.lastError,
     this.failureDetails = const <SyncFailureDetail>[],
     this.failureDetailOverflowCount = 0,
+    this.lastFailureLikelyPermanent = false,
     this.hasPendingFollowUp = false,
     this.pendingFollowUpReason,
     this.pendingFollowUpForce = false,
@@ -101,6 +163,7 @@ class SyncRunHealth {
     String? lastError,
     List<SyncFailureDetail>? failureDetails,
     int? failureDetailOverflowCount,
+    bool? lastFailureLikelyPermanent,
     bool? hasPendingFollowUp,
     String? pendingFollowUpReason,
     bool? pendingFollowUpForce,
@@ -123,18 +186,17 @@ class SyncRunHealth {
       failureDetails: failureDetails ?? this.failureDetails,
       failureDetailOverflowCount:
           failureDetailOverflowCount ?? this.failureDetailOverflowCount,
-      hasPendingFollowUp:
-          clearPendingFollowUp
-              ? false
-              : (hasPendingFollowUp ?? this.hasPendingFollowUp),
-      pendingFollowUpReason:
-          clearPendingFollowUp
-              ? null
-              : (pendingFollowUpReason ?? this.pendingFollowUpReason),
-      pendingFollowUpForce:
-          clearPendingFollowUp
-              ? false
-              : (pendingFollowUpForce ?? this.pendingFollowUpForce),
+      lastFailureLikelyPermanent:
+          lastFailureLikelyPermanent ?? this.lastFailureLikelyPermanent,
+      hasPendingFollowUp: clearPendingFollowUp
+          ? false
+          : (hasPendingFollowUp ?? this.hasPendingFollowUp),
+      pendingFollowUpReason: clearPendingFollowUp
+          ? null
+          : (pendingFollowUpReason ?? this.pendingFollowUpReason),
+      pendingFollowUpForce: clearPendingFollowUp
+          ? false
+          : (pendingFollowUpForce ?? this.pendingFollowUpForce),
     );
   }
 }
@@ -297,6 +359,7 @@ class SyncCoordinator {
       lastSucceeded: false,
       failureDetails: const <SyncFailureDetail>[],
       failureDetailOverflowCount: 0,
+      lastFailureLikelyPermanent: false,
       hasPendingFollowUp: _followUpRequested,
       pendingFollowUpReason: _followUpReason,
       pendingFollowUpForce: _followUpForce,
@@ -328,10 +391,9 @@ class SyncCoordinator {
         ..._sync.lastConflictKeys,
         ..._pull.lastConflictKeys,
       };
-      final conflictCount =
-          conflictKeys.isNotEmpty
-              ? conflictKeys.length
-              : _sync.lastConflictCount + _pull.lastConflicted;
+      final conflictCount = conflictKeys.isNotEmpty
+          ? conflictKeys.length
+          : _sync.lastConflictCount + _pull.lastConflicted;
 
       if (conflictCount > 0) {
         _ref.read(syncConflictProvider.notifier).state = conflictCount;
@@ -339,8 +401,9 @@ class SyncCoordinator {
 
       final hasFailures = _sync.lastFailureCount > 0;
 
-      _ref.read(syncStatusProvider.notifier).state =
-          hasFailures ? SyncStatus.failed : SyncStatus.success;
+      _ref.read(syncStatusProvider.notifier).state = hasFailures
+          ? SyncStatus.failed
+          : SyncStatus.success;
 
       final completedAt = DateTime.now();
       final nextRunCount = _health.runCount + 1;
@@ -360,6 +423,11 @@ class SyncCoordinator {
         lastError: hasFailures ? 'Push sync reported failures.' : null,
         failureDetails: failureDetails,
         failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
+        lastFailureLikelyPermanent:
+            hasFailures &&
+            failureDetails.isNotEmpty &&
+            _sync.lastFailureDetailOverflowCount == 0 &&
+            failureDetails.every((detail) => detail.isLikelyPermanent),
         clearLastError: !hasFailures,
       );
 
@@ -379,8 +447,9 @@ class SyncCoordinator {
       );
 
       if (hasFailures) {
-        final firstFailure =
-            failureDetails.isEmpty ? null : failureDetails.first;
+        final firstFailure = failureDetails.isEmpty
+            ? null
+            : failureDetails.first;
         AppLogger.warning(
           'Full sync completed with push failures',
           context: {
@@ -432,6 +501,7 @@ class SyncCoordinator {
         lastError: '$error',
         failureDetails: failureDetails,
         failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
+        lastFailureLikelyPermanent: syncFailureLikelyPermanent(error),
       );
 
       unawaited(
@@ -461,6 +531,10 @@ class SyncCoordinator {
           'sync_success_count': _sync.lastSuccessCount,
           'sync_failure_count': _sync.lastFailureCount,
           'sync_conflict_count': conflictCount,
+          ...syncFailureDiagnosticContext(
+            error,
+            pullDomain: _pull.lastFailedDomain,
+          ),
         },
       );
       return SyncRequestOutcome.failed;
@@ -740,6 +814,8 @@ class SyncCoordinator {
       final hasConnection = results.any((r) => r != ConnectivityResult.none);
 
       if (hasConnection) {
+        final actor = _ref.read(currentAppUserProvider).asData?.value;
+        if (actor == null || !actor.isApproved) return;
         unawaited(runFullSync(reason: 'reconnected', force: true));
       }
     });

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../assets/data/asset_hierarchy_model.dart';

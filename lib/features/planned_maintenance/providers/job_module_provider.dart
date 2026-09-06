@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart' hide Query;
+import 'package:isar_community/isar.dart' hide Query;
 
 import '../../../core/persistence/app_database.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -178,10 +178,9 @@ void _requireRuntimeModuleAddControl(AppUser actor, JobModuleInstance module) {
   if (!_requiresElevatedRuntimeAddControl(module)) return;
   if (_canConfirmElevatedRuntimeModuleAdd(actor)) return;
 
-  final source =
-      _isEmergencyManualSeedModule(module)
-          ? 'Emergency/manual seed catalogue'
-          : 'published governed catalogue';
+  final source = _isEmergencyManualSeedModule(module)
+      ? 'Emergency/manual seed catalogue'
+      : 'published governed catalogue';
   throw StateError(
     'Supervisor/Admin/SI confirmation is required to add safety-critical, '
     'shared or closure-critical modules from the $source.',
@@ -255,8 +254,9 @@ void _normaliseModuleForUserSave(
   module.firestoreId ??= _newModuleFirestoreId();
 
   final existingCreatedAt = _readCreatedAtSafely(module);
-  module.createdAt =
-      preserveCreatedAt && existingCreatedAt != null ? existingCreatedAt : now;
+  module.createdAt = preserveCreatedAt && existingCreatedAt != null
+      ? existingCreatedAt
+      : now;
 
   final existingUpdatedAt = _readUpdatedAtSafely(module);
   if (existingUpdatedAt == null) {
@@ -550,6 +550,9 @@ abstract class JobModuleRepository {
   Future<List<JobModuleInstance>> getUnsyncedModules();
   Future<void> markModulesSynced(List<int> ids);
   Future<void> markModulesSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
+  Future<RemoteRecordApplyResult<JobModuleInstance>> applyModuleFromRemote(
+    JobModuleInstance remote,
+  );
   Future<void> insertModuleFromRemote(JobModuleInstance remote);
   Future<void> updateModuleFromRemote(JobModuleInstance remote);
 

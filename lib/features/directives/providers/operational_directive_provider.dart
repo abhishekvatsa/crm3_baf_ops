@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../data/operational_directive_model.dart';
@@ -95,8 +95,9 @@ void _requireCanCreateDirective(AppUser actor, OperationalDirective directive) {
 }
 
 void _requireCanAdminMutateDirective(AppUser actor, String actionLabel) {
-  final allowed =
-      actionLabel == 'edit' ? actor.canEditDirective : actor.canDeleteDirective;
+  final allowed = actionLabel == 'edit'
+      ? actor.canEditDirective
+      : actor.canDeleteDirective;
 
   if (!allowed) {
     throw StateError('Not authorized to $actionLabel directives.');
@@ -151,10 +152,9 @@ OperationalDirective copyOperationalDirective(OperationalDirective source) {
     ..component = source.component
     ..subsystem = source.subsystem
     ..tag = source.tag
-    ..hierarchyPath =
-        source.hierarchyPath == null
-            ? null
-            : List<String>.from(source.hierarchyPath!)
+    ..hierarchyPath = source.hierarchyPath == null
+        ? null
+        : List<String>.from(source.hierarchyPath!)
     ..directedTo = source.directedTo
     ..status = source.status
     ..priority = source.priority
@@ -348,6 +348,8 @@ abstract class DirectiveRepository {
   Future<List<OperationalDirective>> getUnsyncedDirectives();
   Future<void> markDirectiveSynced(dynamic id, String firestoreId);
   Future<OperationalDirective?> getByFirestoreId(String firestoreId);
+  Future<RemoteRecordApplyResult<OperationalDirective>>
+  applyDirectiveFromRemote(OperationalDirective remote);
   Future<void> insertFromRemote(OperationalDirective remote);
   Future<void> updateFromRemote(OperationalDirective remote);
 
@@ -410,10 +412,9 @@ final visibleOpenDirectiveCountProvider = StreamProvider.family<int, AppUser>((
         .watch(directiveRepositoryProvider)
         .watchOpenDirectives()
         .map(
-          (directives) =>
-              directives
-                  .where((directive) => canUserSeeDirective(directive, appUser))
-                  .length,
+          (directives) => directives
+              .where((directive) => canUserSeeDirective(directive, appUser))
+              .length,
         )
         .distinct();
   }

@@ -87,11 +87,7 @@ const BafKnowledgeRowSchema = CollectionSchema(
       name: r'isDeleted',
       type: IsarType.bool,
     ),
-    r'isSynced': PropertySchema(
-      id: 14,
-      name: r'isSynced',
-      type: IsarType.bool,
-    ),
+    r'isSynced': PropertySchema(id: 14, name: r'isSynced', type: IsarType.bool),
     r'lifecycleStatus': PropertySchema(
       id: 15,
       name: r'lifecycleStatus',
@@ -122,11 +118,7 @@ const BafKnowledgeRowSchema = CollectionSchema(
       name: r'procedureRefs',
       type: IsarType.stringList,
     ),
-    r'rawJson': PropertySchema(
-      id: 21,
-      name: r'rawJson',
-      type: IsarType.string,
-    ),
+    r'rawJson': PropertySchema(id: 21, name: r'rawJson', type: IsarType.string),
     r'requiredForClosure': PropertySchema(
       id: 22,
       name: r'requiredForClosure',
@@ -137,11 +129,7 @@ const BafKnowledgeRowSchema = CollectionSchema(
       name: r'resolverImpact',
       type: IsarType.string,
     ),
-    r'rowCode': PropertySchema(
-      id: 24,
-      name: r'rowCode',
-      type: IsarType.string,
-    ),
+    r'rowCode': PropertySchema(id: 24, name: r'rowCode', type: IsarType.string),
     r'safetyClasses': PropertySchema(
       id: 25,
       name: r'safetyClasses',
@@ -202,12 +190,9 @@ const BafKnowledgeRowSchema = CollectionSchema(
       name: r'updatedByUid',
       type: IsarType.string,
     ),
-    r'version': PropertySchema(
-      id: 37,
-      name: r'version',
-      type: IsarType.long,
-    )
+    r'version': PropertySchema(id: 37, name: r'version', type: IsarType.long),
   },
+
   estimateSize: _bafKnowledgeRowEstimateSize,
   serialize: _bafKnowledgeRowSerialize,
   deserialize: _bafKnowledgeRowDeserialize,
@@ -224,16 +209,17 @@ const BafKnowledgeRowSchema = CollectionSchema(
           name: r'rowCode',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _bafKnowledgeRowGetId,
   getLinks: _bafKnowledgeRowGetLinks,
   attach: _bafKnowledgeRowAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _bafKnowledgeRowEstimateSize(
@@ -511,7 +497,10 @@ List<IsarLinkBase<dynamic>> _bafKnowledgeRowGetLinks(BafKnowledgeRow object) {
 }
 
 void _bafKnowledgeRowAttach(
-    IsarCollection<dynamic> col, Id id, BafKnowledgeRow object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  BafKnowledgeRow object,
+) {
   object.id = id;
 }
 
@@ -564,8 +553,10 @@ extension BafKnowledgeRowByIndex on IsarCollection<BafKnowledgeRow> {
     return putAllByIndex(r'rowCode', objects);
   }
 
-  List<Id> putAllByRowCodeSync(List<BafKnowledgeRow> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByRowCodeSync(
+    List<BafKnowledgeRow> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'rowCode', objects, saveLinks: saveLinks);
   }
 }
@@ -582,17 +573,15 @@ extension BafKnowledgeRowQueryWhereSort
 extension BafKnowledgeRowQueryWhere
     on QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QWhereClause> {
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterWhereClause> idEqualTo(
-      Id id) {
+    Id id,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -615,7 +604,7 @@ extension BafKnowledgeRowQueryWhere
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -624,8 +613,9 @@ extension BafKnowledgeRowQueryWhere
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterWhereClause> idLessThan(
-      Id id,
-      {bool include = false}) {
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -640,56 +630,65 @@ extension BafKnowledgeRowQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterWhereClause>
-      rowCodeEqualTo(String rowCode) {
+  rowCodeEqualTo(String rowCode) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'rowCode',
-        value: [rowCode],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'rowCode', value: [rowCode]),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterWhereClause>
-      rowCodeNotEqualTo(String rowCode) {
+  rowCodeNotEqualTo(String rowCode) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'rowCode',
-              lower: [],
-              upper: [rowCode],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'rowCode',
-              lower: [rowCode],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'rowCode',
+                lower: [],
+                upper: [rowCode],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'rowCode',
+                lower: [rowCode],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'rowCode',
-              lower: [rowCode],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'rowCode',
-              lower: [],
-              upper: [rowCode],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'rowCode',
+                lower: [rowCode],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'rowCode',
+                lower: [],
+                upper: [rowCode],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -698,53 +697,56 @@ extension BafKnowledgeRowQueryWhere
 extension BafKnowledgeRowQueryFilter
     on QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QFilterCondition> {
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  assetFamilyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetFamily',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'assetFamily',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetFamily',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyLessThan(
+  assetFamilyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetFamily',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetFamily',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyBetween(
+  assetFamilyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetFamily',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  assetFamilyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -752,135 +754,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetFamily',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetFamily',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  assetFamilyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assetFamily',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'assetFamily',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  assetFamilyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assetFamily',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'assetFamily',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyContains(String value, {bool caseSensitive = true}) {
+  assetFamilyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'assetFamily',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'assetFamily',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyMatches(String pattern, {bool caseSensitive = true}) {
+  assetFamilyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'assetFamily',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'assetFamily',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyIsEmpty() {
+  assetFamilyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetFamily',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetFamily', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      assetFamilyIsNotEmpty() {
+  assetFamilyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assetFamily',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'assetFamily', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  changeSummaryEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryLessThan(
+  changeSummaryGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryBetween(
+  changeSummaryLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  changeSummaryBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -888,135 +895,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'changeSummary',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'changeSummary',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  changeSummaryStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  changeSummaryEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryContains(String value, {bool caseSensitive = true}) {
+  changeSummaryContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryMatches(String pattern, {bool caseSensitive = true}) {
+  changeSummaryMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'changeSummary',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'changeSummary',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryIsEmpty() {
+  changeSummaryIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'changeSummary',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'changeSummary', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      changeSummaryIsNotEmpty() {
+  changeSummaryIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'changeSummary',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'changeSummary', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  componentGroupEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupLessThan(
+  componentGroupGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupBetween(
+  componentGroupLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  componentGroupBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1024,135 +1036,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'componentGroup',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'componentGroup',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  componentGroupStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  componentGroupEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupContains(String value, {bool caseSensitive = true}) {
+  componentGroupContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'componentGroup',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'componentGroup',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupMatches(String pattern, {bool caseSensitive = true}) {
+  componentGroupMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'componentGroup',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'componentGroup',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupIsEmpty() {
+  componentGroupIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'componentGroup',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'componentGroup', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      componentGroupIsNotEmpty() {
+  componentGroupIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'componentGroup',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'componentGroup', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  composerReadinessEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'composerReadiness',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'composerReadiness',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'composerReadiness',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessLessThan(
+  composerReadinessGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'composerReadiness',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'composerReadiness',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessBetween(
+  composerReadinessLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'composerReadiness',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  composerReadinessBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1160,135 +1177,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'composerReadiness',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'composerReadiness',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  composerReadinessStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'composerReadiness',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'composerReadiness',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  composerReadinessEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'composerReadiness',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'composerReadiness',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessContains(String value, {bool caseSensitive = true}) {
+  composerReadinessContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'composerReadiness',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'composerReadiness',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessMatches(String pattern, {bool caseSensitive = true}) {
+  composerReadinessMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'composerReadiness',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'composerReadiness',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessIsEmpty() {
+  composerReadinessIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'composerReadiness',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'composerReadiness', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      composerReadinessIsNotEmpty() {
+  composerReadinessIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'composerReadiness',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'composerReadiness', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  confidenceEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confidence',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'confidence',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'confidence',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceLessThan(
+  confidenceGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'confidence',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'confidence',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceBetween(
+  confidenceLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'confidence',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  confidenceBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1296,135 +1318,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'confidence',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'confidence',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  confidenceStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'confidence',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'confidence',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  confidenceEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'confidence',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'confidence',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceContains(String value, {bool caseSensitive = true}) {
+  confidenceContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'confidence',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'confidence',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceMatches(String pattern, {bool caseSensitive = true}) {
+  confidenceMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'confidence',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'confidence',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceIsEmpty() {
+  confidenceIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confidence',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'confidence', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      confidenceIsNotEmpty() {
+  confidenceIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'confidence',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'confidence', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  consultQuestionEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'consultQuestion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'consultQuestion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'consultQuestion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionLessThan(
+  consultQuestionGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'consultQuestion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'consultQuestion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionBetween(
+  consultQuestionLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'consultQuestion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  consultQuestionBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1432,191 +1459,195 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'consultQuestion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'consultQuestion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  consultQuestionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'consultQuestion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'consultQuestion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  consultQuestionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'consultQuestion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'consultQuestion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionContains(String value, {bool caseSensitive = true}) {
+  consultQuestionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'consultQuestion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'consultQuestion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionMatches(String pattern, {bool caseSensitive = true}) {
+  consultQuestionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'consultQuestion',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'consultQuestion',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionIsEmpty() {
+  consultQuestionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'consultQuestion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'consultQuestion', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      consultQuestionIsNotEmpty() {
+  consultQuestionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'consultQuestion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'consultQuestion', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdAtEqualTo(DateTime value) {
+  createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdAt', value: value),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdAtBetween(
+  createdAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameLessThan(
+  createdByNameGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameBetween(
+  createdByNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  createdByNameBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1624,135 +1655,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameContains(String value, {bool caseSensitive = true}) {
+  createdByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameMatches(String pattern, {bool caseSensitive = true}) {
+  createdByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'createdByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'createdByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameIsEmpty() {
+  createdByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByNameIsNotEmpty() {
+  createdByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'createdByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'createdByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidLessThan(
+  createdByUidGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidBetween(
+  createdByUidLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  createdByUidBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1760,135 +1796,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidContains(String value, {bool caseSensitive = true}) {
+  createdByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidMatches(String pattern, {bool caseSensitive = true}) {
+  createdByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'createdByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'createdByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidIsEmpty() {
+  createdByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      createdByUidIsNotEmpty() {
+  createdByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'createdByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'createdByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deviceTagsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deviceTags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deviceTags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deviceTags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementLessThan(
+  deviceTagsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deviceTags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deviceTags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementBetween(
+  deviceTagsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deviceTags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1896,160 +1937,126 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deviceTags',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deviceTags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deviceTags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deviceTags',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deviceTags',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deviceTags',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deviceTags',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'deviceTags',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deviceTags',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsIsEmpty() {
+  deviceTagsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'deviceTags',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deviceTags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsIsNotEmpty() {
+  deviceTagsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'deviceTags',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deviceTags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  deviceTagsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'deviceTags',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deviceTags',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  deviceTagsElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'deviceTags',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deviceTags',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      deviceTagsLengthBetween(
+  deviceTagsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deviceTags', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deviceTags', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'deviceTags', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'deviceTags', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'deviceTags', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'deviceTags', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'deviceTags', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  deviceTagsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -2067,53 +2074,56 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  disciplineEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineLessThan(
+  disciplineGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineBetween(
+  disciplineLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  disciplineBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2121,135 +2131,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'discipline',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'discipline',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  disciplineStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  disciplineEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineContains(String value, {bool caseSensitive = true}) {
+  disciplineContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'discipline',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'discipline',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineMatches(String pattern, {bool caseSensitive = true}) {
+  disciplineMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'discipline',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'discipline',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineIsEmpty() {
+  disciplineIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'discipline',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'discipline', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      disciplineIsNotEmpty() {
+  disciplineIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'discipline',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'discipline', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  frequencyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'frequency',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'frequency',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'frequency',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyLessThan(
+  frequencyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'frequency',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'frequency',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyBetween(
+  frequencyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'frequency',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  frequencyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2257,135 +2272,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'frequency',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'frequency',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  frequencyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'frequency',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'frequency',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  frequencyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'frequency',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'frequency',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyContains(String value, {bool caseSensitive = true}) {
+  frequencyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'frequency',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'frequency',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyMatches(String pattern, {bool caseSensitive = true}) {
+  frequencyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'frequency',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'frequency',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyIsEmpty() {
+  frequencyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'frequency',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'frequency', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      frequencyIsNotEmpty() {
+  frequencyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'frequency',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'frequency', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  functionalSectionEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionLessThan(
+  functionalSectionGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionBetween(
+  functionalSectionLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  functionalSectionBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2393,211 +2413,213 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'functionalSection',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'functionalSection',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  functionalSectionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  functionalSectionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionContains(String value, {bool caseSensitive = true}) {
+  functionalSectionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'functionalSection',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'functionalSection',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionMatches(String pattern, {bool caseSensitive = true}) {
+  functionalSectionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'functionalSection',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'functionalSection',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionIsEmpty() {
+  functionalSectionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'functionalSection',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'functionalSection', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      functionalSectionIsNotEmpty() {
+  functionalSectionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'functionalSection',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'functionalSection', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      idEqualTo(Id value) {
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      idBetween(
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      isDeletedEqualTo(bool value) {
+  isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isDeleted',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isDeleted', value: value),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      isSyncedEqualTo(bool value) {
+  isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isSynced',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isSynced', value: value),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  lifecycleStatusEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lifecycleStatus',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lifecycleStatus',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lifecycleStatus',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusLessThan(
+  lifecycleStatusGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lifecycleStatus',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lifecycleStatus',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusBetween(
+  lifecycleStatusLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lifecycleStatus',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  lifecycleStatusBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2605,135 +2627,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lifecycleStatus',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lifecycleStatus',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  lifecycleStatusStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lifecycleStatus',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lifecycleStatus',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  lifecycleStatusEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lifecycleStatus',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lifecycleStatus',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusContains(String value, {bool caseSensitive = true}) {
+  lifecycleStatusContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lifecycleStatus',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lifecycleStatus',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusMatches(String pattern, {bool caseSensitive = true}) {
+  lifecycleStatusMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lifecycleStatus',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lifecycleStatus',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusIsEmpty() {
+  lifecycleStatusIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lifecycleStatus',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lifecycleStatus', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      lifecycleStatusIsNotEmpty() {
+  lifecycleStatusIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lifecycleStatus',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'lifecycleStatus', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  matrixVersionEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionLessThan(
+  matrixVersionGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionBetween(
+  matrixVersionLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  matrixVersionBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2741,135 +2768,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'matrixVersion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'matrixVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  matrixVersionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  matrixVersionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionContains(String value, {bool caseSensitive = true}) {
+  matrixVersionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionMatches(String pattern, {bool caseSensitive = true}) {
+  matrixVersionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'matrixVersion',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'matrixVersion',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionIsEmpty() {
+  matrixVersionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'matrixVersion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'matrixVersion', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      matrixVersionIsNotEmpty() {
+  matrixVersionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'matrixVersion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'matrixVersion', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleCandidateCodeEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleCandidateCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'moduleCandidateCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'moduleCandidateCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeLessThan(
+  moduleCandidateCodeGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'moduleCandidateCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'moduleCandidateCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeBetween(
+  moduleCandidateCodeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'moduleCandidateCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  moduleCandidateCodeBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2877,135 +2909,143 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'moduleCandidateCode',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'moduleCandidateCode',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleCandidateCodeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'moduleCandidateCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'moduleCandidateCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  moduleCandidateCodeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'moduleCandidateCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'moduleCandidateCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeContains(String value, {bool caseSensitive = true}) {
+  moduleCandidateCodeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'moduleCandidateCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'moduleCandidateCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeMatches(String pattern, {bool caseSensitive = true}) {
+  moduleCandidateCodeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'moduleCandidateCode',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'moduleCandidateCode',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeIsEmpty() {
+  moduleCandidateCodeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moduleCandidateCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'moduleCandidateCode', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      moduleCandidateCodeIsNotEmpty() {
+  moduleCandidateCodeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'moduleCandidateCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'moduleCandidateCode',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  ownerDisciplinesElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ownerDisciplines',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'ownerDisciplines',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'ownerDisciplines',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementLessThan(
+  ownerDisciplinesElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'ownerDisciplines',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'ownerDisciplines',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementBetween(
+  ownerDisciplinesElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'ownerDisciplines',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3013,149 +3053,119 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'ownerDisciplines',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'ownerDisciplines',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'ownerDisciplines',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'ownerDisciplines',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'ownerDisciplines',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ownerDisciplines',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'ownerDisciplines',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'ownerDisciplines',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'ownerDisciplines',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesIsEmpty() {
+  ownerDisciplinesElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'ownerDisciplines',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'ownerDisciplines',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesIsNotEmpty() {
+  ownerDisciplinesElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'ownerDisciplines',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'ownerDisciplines',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  ownerDisciplinesElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'ownerDisciplines',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'ownerDisciplines',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  ownerDisciplinesElementMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'ownerDisciplines',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'ownerDisciplines', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'ownerDisciplines', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'ownerDisciplines', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'ownerDisciplines', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'ownerDisciplines', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'ownerDisciplines', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  ownerDisciplinesLengthGreaterThan(int length, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'ownerDisciplines',
@@ -3168,7 +3178,7 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      ownerDisciplinesLengthBetween(
+  ownerDisciplinesLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -3186,53 +3196,56 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  partRefsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'partRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'partRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'partRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementLessThan(
+  partRefsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'partRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'partRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementBetween(
+  partRefsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'partRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3240,160 +3253,126 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'partRefs',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'partRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'partRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'partRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'partRefs',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'partRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'partRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'partRefs',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'partRefs',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsIsEmpty() {
+  partRefsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'partRefs',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'partRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsIsNotEmpty() {
+  partRefsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'partRefs',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'partRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  partRefsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'partRefs',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'partRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  partRefsElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'partRefs',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'partRefs',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      partRefsLengthBetween(
+  partRefsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'partRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'partRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'partRefs', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'partRefs', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'partRefs', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'partRefs', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'partRefs', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  partRefsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -3411,53 +3390,56 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  procedureRefsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementLessThan(
+  procedureRefsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementBetween(
+  procedureRefsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3465,160 +3447,126 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'procedureRefs',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'procedureRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'procedureRefs',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'procedureRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'procedureRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'procedureRefs',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsIsEmpty() {
+  procedureRefsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsIsNotEmpty() {
+  procedureRefsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  procedureRefsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'procedureRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  procedureRefsElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'procedureRefs',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'procedureRefs',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      procedureRefsLengthBetween(
+  procedureRefsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'procedureRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'procedureRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'procedureRefs', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  procedureRefsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -3636,53 +3584,56 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  rawJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'rawJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'rawJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'rawJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonLessThan(
+  rawJsonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'rawJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'rawJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonBetween(
+  rawJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'rawJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  rawJsonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3690,135 +3641,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'rawJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'rawJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  rawJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'rawJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'rawJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  rawJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'rawJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'rawJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonContains(String value, {bool caseSensitive = true}) {
+  rawJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'rawJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'rawJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonMatches(String pattern, {bool caseSensitive = true}) {
+  rawJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'rawJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'rawJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonIsEmpty() {
+  rawJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'rawJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'rawJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rawJsonIsNotEmpty() {
+  rawJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'rawJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'rawJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  requiredForClosureEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requiredForClosure',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'requiredForClosure',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'requiredForClosure',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureLessThan(
+  requiredForClosureGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'requiredForClosure',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'requiredForClosure',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureBetween(
+  requiredForClosureLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'requiredForClosure',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  requiredForClosureBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3826,135 +3782,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'requiredForClosure',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'requiredForClosure',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  requiredForClosureStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'requiredForClosure',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'requiredForClosure',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  requiredForClosureEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'requiredForClosure',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'requiredForClosure',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureContains(String value, {bool caseSensitive = true}) {
+  requiredForClosureContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'requiredForClosure',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'requiredForClosure',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureMatches(String pattern, {bool caseSensitive = true}) {
+  requiredForClosureMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'requiredForClosure',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'requiredForClosure',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureIsEmpty() {
+  requiredForClosureIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requiredForClosure',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'requiredForClosure', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      requiredForClosureIsNotEmpty() {
+  requiredForClosureIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'requiredForClosure',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'requiredForClosure', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  resolverImpactEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'resolverImpact',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'resolverImpact',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'resolverImpact',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactLessThan(
+  resolverImpactGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'resolverImpact',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'resolverImpact',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactBetween(
+  resolverImpactLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'resolverImpact',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  resolverImpactBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3962,135 +3923,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'resolverImpact',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'resolverImpact',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  resolverImpactStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'resolverImpact',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'resolverImpact',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  resolverImpactEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'resolverImpact',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'resolverImpact',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactContains(String value, {bool caseSensitive = true}) {
+  resolverImpactContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'resolverImpact',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'resolverImpact',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactMatches(String pattern, {bool caseSensitive = true}) {
+  resolverImpactMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'resolverImpact',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'resolverImpact',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactIsEmpty() {
+  resolverImpactIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'resolverImpact',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'resolverImpact', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      resolverImpactIsNotEmpty() {
+  resolverImpactIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'resolverImpact',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'resolverImpact', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  rowCodeEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'rowCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'rowCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'rowCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeLessThan(
+  rowCodeGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'rowCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'rowCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeBetween(
+  rowCodeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'rowCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  rowCodeBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -4098,135 +4064,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'rowCode',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'rowCode',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  rowCodeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'rowCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'rowCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  rowCodeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'rowCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'rowCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeContains(String value, {bool caseSensitive = true}) {
+  rowCodeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'rowCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'rowCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeMatches(String pattern, {bool caseSensitive = true}) {
+  rowCodeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'rowCode',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'rowCode',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeIsEmpty() {
+  rowCodeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'rowCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'rowCode', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      rowCodeIsNotEmpty() {
+  rowCodeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'rowCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'rowCode', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  safetyClassesElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyClasses',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'safetyClasses',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'safetyClasses',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementLessThan(
+  safetyClassesElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'safetyClasses',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'safetyClasses',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementBetween(
+  safetyClassesElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'safetyClasses',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -4234,160 +4205,126 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'safetyClasses',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'safetyClasses',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'safetyClasses',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'safetyClasses',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'safetyClasses',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyClasses',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'safetyClasses',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyClasses',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'safetyClasses',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesIsEmpty() {
+  safetyClassesElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyClasses',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'safetyClasses',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesIsNotEmpty() {
+  safetyClassesElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyClasses',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'safetyClasses',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  safetyClassesElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyClasses',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'safetyClasses',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  safetyClassesElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'safetyClasses',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'safetyClasses',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      safetyClassesLengthBetween(
+  safetyClassesElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'safetyClasses', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'safetyClasses', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyClasses', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyClasses', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyClasses', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyClasses', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'safetyClasses', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  safetyClassesLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -4405,109 +4342,111 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      schemaVersionEqualTo(int value) {
+  schemaVersionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'schemaVersion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'schemaVersion', value: value),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      schemaVersionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  schemaVersionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'schemaVersion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'schemaVersion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      schemaVersionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  schemaVersionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'schemaVersion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'schemaVersion',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      schemaVersionBetween(
+  schemaVersionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'schemaVersion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'schemaVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourceManualEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourceManual',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourceManual',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'sourceManual',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualLessThan(
+  sourceManualGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'sourceManual',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceManual',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualBetween(
+  sourceManualLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceManual',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  sourceManualBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -4515,135 +4454,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'sourceManual',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceManual',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourceManualStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'sourceManual',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'sourceManual',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourceManualEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'sourceManual',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'sourceManual',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualContains(String value, {bool caseSensitive = true}) {
+  sourceManualContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'sourceManual',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'sourceManual',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualMatches(String pattern, {bool caseSensitive = true}) {
+  sourceManualMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'sourceManual',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'sourceManual',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualIsEmpty() {
+  sourceManualIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourceManual',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourceManual', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceManualIsNotEmpty() {
+  sourceManualIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'sourceManual',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'sourceManual', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourcePageEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourcePage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourcePage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'sourcePage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageLessThan(
+  sourcePageGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'sourcePage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourcePage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageBetween(
+  sourcePageLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourcePage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  sourcePageBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -4651,135 +4595,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'sourcePage',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourcePage',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourcePageStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'sourcePage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'sourcePage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourcePageEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'sourcePage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'sourcePage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageContains(String value, {bool caseSensitive = true}) {
+  sourcePageContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'sourcePage',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'sourcePage',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageMatches(String pattern, {bool caseSensitive = true}) {
+  sourcePageMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'sourcePage',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'sourcePage',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageIsEmpty() {
+  sourcePageIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourcePage',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourcePage', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourcePageIsNotEmpty() {
+  sourcePageIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'sourcePage',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'sourcePage', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourceTypeEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourceType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourceType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'sourceType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeLessThan(
+  sourceTypeGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'sourceType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeBetween(
+  sourceTypeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  sourceTypeBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -4787,135 +4736,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'sourceType',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceType',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourceTypeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'sourceType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'sourceType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  sourceTypeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'sourceType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'sourceType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeContains(String value, {bool caseSensitive = true}) {
+  sourceTypeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'sourceType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'sourceType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeMatches(String pattern, {bool caseSensitive = true}) {
+  sourceTypeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'sourceType',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'sourceType',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeIsEmpty() {
+  sourceTypeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourceType',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourceType', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      sourceTypeIsNotEmpty() {
+  sourceTypeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'sourceType',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'sourceType', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  suggestedFieldsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'suggestedFields',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'suggestedFields',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'suggestedFields',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementLessThan(
+  suggestedFieldsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'suggestedFields',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'suggestedFields',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementBetween(
+  suggestedFieldsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'suggestedFields',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -4923,149 +4877,119 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'suggestedFields',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'suggestedFields',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'suggestedFields',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'suggestedFields',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'suggestedFields',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'suggestedFields',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'suggestedFields',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'suggestedFields',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'suggestedFields',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsIsEmpty() {
+  suggestedFieldsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'suggestedFields',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'suggestedFields',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsIsNotEmpty() {
+  suggestedFieldsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'suggestedFields',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'suggestedFields',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  suggestedFieldsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'suggestedFields',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'suggestedFields',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  suggestedFieldsElementMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'suggestedFields',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'suggestedFields', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'suggestedFields', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'suggestedFields', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'suggestedFields', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'suggestedFields', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'suggestedFields', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  suggestedFieldsLengthGreaterThan(int length, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'suggestedFields',
@@ -5078,7 +5002,7 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      suggestedFieldsLengthBetween(
+  suggestedFieldsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -5096,53 +5020,56 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  targetRefsElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementLessThan(
+  targetRefsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementBetween(
+  targetRefsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5150,160 +5077,126 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'targetRefs',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'targetRefs',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'targetRefs',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'targetRefs',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'targetRefs',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsIsEmpty() {
+  targetRefsElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsIsNotEmpty() {
+  targetRefsElementEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        0,
-        false,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  targetRefsElementContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        0,
-        true,
-        length,
-        include,
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'targetRefs',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
+  targetRefsElementMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'targetRefs',
-        length,
-        include,
-        999999,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'targetRefs',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      targetRefsLengthBetween(
+  targetRefsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'targetRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'targetRefs', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'targetRefs', length, include, 999999, true);
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  targetRefsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -5321,53 +5214,56 @@ extension BafKnowledgeRowQueryFilter
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  taskTextEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'taskText',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'taskText',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'taskText',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextLessThan(
+  taskTextGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'taskText',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'taskText',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextBetween(
+  taskTextLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'taskText',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  taskTextBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5375,135 +5271,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'taskText',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'taskText',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  taskTextStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'taskText',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'taskText',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  taskTextEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'taskText',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'taskText',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextContains(String value, {bool caseSensitive = true}) {
+  taskTextContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'taskText',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'taskText',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextMatches(String pattern, {bool caseSensitive = true}) {
+  taskTextMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'taskText',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'taskText',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextIsEmpty() {
+  taskTextIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'taskText',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'taskText', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTextIsNotEmpty() {
+  taskTextIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'taskText',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'taskText', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  taskTypeEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'taskType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'taskType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'taskType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeLessThan(
+  taskTypeGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'taskType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'taskType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeBetween(
+  taskTypeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'taskType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  taskTypeBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5511,191 +5412,195 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'taskType',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'taskType',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  taskTypeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'taskType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'taskType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  taskTypeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'taskType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'taskType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeContains(String value, {bool caseSensitive = true}) {
+  taskTypeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'taskType',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'taskType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeMatches(String pattern, {bool caseSensitive = true}) {
+  taskTypeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'taskType',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'taskType',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeIsEmpty() {
+  taskTypeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'taskType',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'taskType', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      taskTypeIsNotEmpty() {
+  taskTypeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'taskType',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'taskType', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedAtEqualTo(DateTime value) {
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedAtBetween(
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameLessThan(
+  updatedByNameGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameBetween(
+  updatedByNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  updatedByNameBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5703,135 +5608,140 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameContains(String value, {bool caseSensitive = true}) {
+  updatedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameIsEmpty() {
+  updatedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByNameIsNotEmpty() {
+  updatedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidLessThan(
+  updatedByUidGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidBetween(
+  updatedByUidLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
+  updatedByUidBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5839,140 +5749,141 @@ extension BafKnowledgeRowQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidContains(String value, {bool caseSensitive = true}) {
+  updatedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidIsEmpty() {
+  updatedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      updatedByUidIsNotEmpty() {
+  updatedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      versionEqualTo(int value) {
+  versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      versionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      versionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterFilterCondition>
-      versionBetween(
+  versionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'version',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -5986,238 +5897,238 @@ extension BafKnowledgeRowQueryLinks
 extension BafKnowledgeRowQuerySortBy
     on QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QSortBy> {
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByAssetFamily() {
+  sortByAssetFamily() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetFamily', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByAssetFamilyDesc() {
+  sortByAssetFamilyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetFamily', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByChangeSummary() {
+  sortByChangeSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByChangeSummaryDesc() {
+  sortByChangeSummaryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByComponentGroup() {
+  sortByComponentGroup() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByComponentGroupDesc() {
+  sortByComponentGroupDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByComposerReadiness() {
+  sortByComposerReadiness() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'composerReadiness', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByComposerReadinessDesc() {
+  sortByComposerReadinessDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'composerReadiness', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByConfidence() {
+  sortByConfidence() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confidence', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByConfidenceDesc() {
+  sortByConfidenceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confidence', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByConsultQuestion() {
+  sortByConsultQuestion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'consultQuestion', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByConsultQuestionDesc() {
+  sortByConsultQuestionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'consultQuestion', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByCreatedAt() {
+  sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByCreatedAtDesc() {
+  sortByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByCreatedByName() {
+  sortByCreatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByCreatedByNameDesc() {
+  sortByCreatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByCreatedByUid() {
+  sortByCreatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByCreatedByUidDesc() {
+  sortByCreatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByDiscipline() {
+  sortByDiscipline() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByDisciplineDesc() {
+  sortByDisciplineDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByFrequency() {
+  sortByFrequency() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'frequency', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByFrequencyDesc() {
+  sortByFrequencyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'frequency', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByFunctionalSection() {
+  sortByFunctionalSection() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByFunctionalSectionDesc() {
+  sortByFunctionalSectionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByIsDeleted() {
+  sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByIsDeletedDesc() {
+  sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByIsSynced() {
+  sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByIsSyncedDesc() {
+  sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByLifecycleStatus() {
+  sortByLifecycleStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lifecycleStatus', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByLifecycleStatusDesc() {
+  sortByLifecycleStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lifecycleStatus', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByMatrixVersion() {
+  sortByMatrixVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByMatrixVersionDesc() {
+  sortByMatrixVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByModuleCandidateCode() {
+  sortByModuleCandidateCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCandidateCode', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByModuleCandidateCodeDesc() {
+  sortByModuleCandidateCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCandidateCode', Sort.desc);
     });
@@ -6230,35 +6141,35 @@ extension BafKnowledgeRowQuerySortBy
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByRawJsonDesc() {
+  sortByRawJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawJson', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByRequiredForClosure() {
+  sortByRequiredForClosure() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByRequiredForClosureDesc() {
+  sortByRequiredForClosureDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByResolverImpact() {
+  sortByResolverImpact() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolverImpact', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByResolverImpactDesc() {
+  sortByResolverImpactDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolverImpact', Sort.desc);
     });
@@ -6271,133 +6182,133 @@ extension BafKnowledgeRowQuerySortBy
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByRowCodeDesc() {
+  sortByRowCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rowCode', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySchemaVersion() {
+  sortBySchemaVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySchemaVersionDesc() {
+  sortBySchemaVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySourceManual() {
+  sortBySourceManual() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceManual', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySourceManualDesc() {
+  sortBySourceManualDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceManual', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySourcePage() {
+  sortBySourcePage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourcePage', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySourcePageDesc() {
+  sortBySourcePageDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourcePage', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySourceType() {
+  sortBySourceType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceType', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortBySourceTypeDesc() {
+  sortBySourceTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceType', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByTaskText() {
+  sortByTaskText() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskText', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByTaskTextDesc() {
+  sortByTaskTextDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskText', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByTaskType() {
+  sortByTaskType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskType', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByTaskTypeDesc() {
+  sortByTaskTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskType', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByUpdatedAt() {
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByUpdatedAtDesc() {
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByUpdatedByName() {
+  sortByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByUpdatedByNameDesc() {
+  sortByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByUpdatedByUid() {
+  sortByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByUpdatedByUidDesc() {
+  sortByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
@@ -6410,7 +6321,7 @@ extension BafKnowledgeRowQuerySortBy
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      sortByVersionDesc() {
+  sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -6420,168 +6331,168 @@ extension BafKnowledgeRowQuerySortBy
 extension BafKnowledgeRowQuerySortThenBy
     on QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QSortThenBy> {
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByAssetFamily() {
+  thenByAssetFamily() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetFamily', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByAssetFamilyDesc() {
+  thenByAssetFamilyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetFamily', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByChangeSummary() {
+  thenByChangeSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByChangeSummaryDesc() {
+  thenByChangeSummaryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByComponentGroup() {
+  thenByComponentGroup() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByComponentGroupDesc() {
+  thenByComponentGroupDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'componentGroup', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByComposerReadiness() {
+  thenByComposerReadiness() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'composerReadiness', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByComposerReadinessDesc() {
+  thenByComposerReadinessDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'composerReadiness', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByConfidence() {
+  thenByConfidence() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confidence', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByConfidenceDesc() {
+  thenByConfidenceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confidence', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByConsultQuestion() {
+  thenByConsultQuestion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'consultQuestion', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByConsultQuestionDesc() {
+  thenByConsultQuestionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'consultQuestion', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByCreatedAt() {
+  thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByCreatedAtDesc() {
+  thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByCreatedByName() {
+  thenByCreatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByCreatedByNameDesc() {
+  thenByCreatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByCreatedByUid() {
+  thenByCreatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByCreatedByUidDesc() {
+  thenByCreatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByDiscipline() {
+  thenByDiscipline() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByDisciplineDesc() {
+  thenByDisciplineDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'discipline', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByFrequency() {
+  thenByFrequency() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'frequency', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByFrequencyDesc() {
+  thenByFrequencyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'frequency', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByFunctionalSection() {
+  thenByFunctionalSection() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByFunctionalSectionDesc() {
+  thenByFunctionalSectionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'functionalSection', Sort.desc);
     });
@@ -6600,70 +6511,70 @@ extension BafKnowledgeRowQuerySortThenBy
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByIsDeleted() {
+  thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByIsDeletedDesc() {
+  thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByIsSynced() {
+  thenByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByIsSyncedDesc() {
+  thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByLifecycleStatus() {
+  thenByLifecycleStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lifecycleStatus', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByLifecycleStatusDesc() {
+  thenByLifecycleStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lifecycleStatus', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByMatrixVersion() {
+  thenByMatrixVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByMatrixVersionDesc() {
+  thenByMatrixVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByModuleCandidateCode() {
+  thenByModuleCandidateCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCandidateCode', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByModuleCandidateCodeDesc() {
+  thenByModuleCandidateCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moduleCandidateCode', Sort.desc);
     });
@@ -6676,35 +6587,35 @@ extension BafKnowledgeRowQuerySortThenBy
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByRawJsonDesc() {
+  thenByRawJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawJson', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByRequiredForClosure() {
+  thenByRequiredForClosure() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByRequiredForClosureDesc() {
+  thenByRequiredForClosureDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requiredForClosure', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByResolverImpact() {
+  thenByResolverImpact() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolverImpact', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByResolverImpactDesc() {
+  thenByResolverImpactDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolverImpact', Sort.desc);
     });
@@ -6717,133 +6628,133 @@ extension BafKnowledgeRowQuerySortThenBy
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByRowCodeDesc() {
+  thenByRowCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rowCode', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySchemaVersion() {
+  thenBySchemaVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySchemaVersionDesc() {
+  thenBySchemaVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySourceManual() {
+  thenBySourceManual() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceManual', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySourceManualDesc() {
+  thenBySourceManualDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceManual', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySourcePage() {
+  thenBySourcePage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourcePage', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySourcePageDesc() {
+  thenBySourcePageDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourcePage', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySourceType() {
+  thenBySourceType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceType', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenBySourceTypeDesc() {
+  thenBySourceTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceType', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByTaskText() {
+  thenByTaskText() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskText', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByTaskTextDesc() {
+  thenByTaskTextDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskText', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByTaskType() {
+  thenByTaskType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskType', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByTaskTypeDesc() {
+  thenByTaskTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'taskType', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByUpdatedAt() {
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByUpdatedAtDesc() {
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByUpdatedByName() {
+  thenByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByUpdatedByNameDesc() {
+  thenByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByUpdatedByUid() {
+  thenByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByUpdatedByUidDesc() {
+  thenByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
@@ -6856,7 +6767,7 @@ extension BafKnowledgeRowQuerySortThenBy
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QAfterSortBy>
-      thenByVersionDesc() {
+  thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -6866,278 +6777,306 @@ extension BafKnowledgeRowQuerySortThenBy
 extension BafKnowledgeRowQueryWhereDistinct
     on QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> {
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByAssetFamily({bool caseSensitive = true}) {
+  distinctByAssetFamily({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetFamily', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByChangeSummary({bool caseSensitive = true}) {
+  distinctByChangeSummary({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'changeSummary',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'changeSummary',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByComponentGroup({bool caseSensitive = true}) {
+  distinctByComponentGroup({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'componentGroup',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'componentGroup',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByComposerReadiness({bool caseSensitive = true}) {
+  distinctByComposerReadiness({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'composerReadiness',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'composerReadiness',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByConfidence({bool caseSensitive = true}) {
+  distinctByConfidence({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'confidence', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByConsultQuestion({bool caseSensitive = true}) {
+  distinctByConsultQuestion({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'consultQuestion',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'consultQuestion',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByCreatedAt() {
+  distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByCreatedByName({bool caseSensitive = true}) {
+  distinctByCreatedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'createdByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'createdByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByCreatedByUid({bool caseSensitive = true}) {
+  distinctByCreatedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByDeviceTags() {
+  distinctByDeviceTags() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deviceTags');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByDiscipline({bool caseSensitive = true}) {
+  distinctByDiscipline({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'discipline', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByFrequency(
-      {bool caseSensitive = true}) {
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
+  distinctByFrequency({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'frequency', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByFunctionalSection({bool caseSensitive = true}) {
+  distinctByFunctionalSection({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'functionalSection',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'functionalSection',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByIsDeleted() {
+  distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isDeleted');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByIsSynced() {
+  distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByLifecycleStatus({bool caseSensitive = true}) {
+  distinctByLifecycleStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lifecycleStatus',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lifecycleStatus',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByMatrixVersion({bool caseSensitive = true}) {
+  distinctByMatrixVersion({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'matrixVersion',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'matrixVersion',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByModuleCandidateCode({bool caseSensitive = true}) {
+  distinctByModuleCandidateCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'moduleCandidateCode',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'moduleCandidateCode',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByOwnerDisciplines() {
+  distinctByOwnerDisciplines() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'ownerDisciplines');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByPartRefs() {
+  distinctByPartRefs() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'partRefs');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByProcedureRefs() {
+  distinctByProcedureRefs() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'procedureRefs');
     });
   }
 
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByRawJson(
-      {bool caseSensitive = true}) {
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByRawJson({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'rawJson', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByRequiredForClosure({bool caseSensitive = true}) {
+  distinctByRequiredForClosure({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'requiredForClosure',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'requiredForClosure',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByResolverImpact({bool caseSensitive = true}) {
+  distinctByResolverImpact({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'resolverImpact',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'resolverImpact',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByRowCode(
-      {bool caseSensitive = true}) {
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByRowCode({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'rowCode', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctBySafetyClasses() {
+  distinctBySafetyClasses() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'safetyClasses');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctBySchemaVersion() {
+  distinctBySchemaVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'schemaVersion');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctBySourceManual({bool caseSensitive = true}) {
+  distinctBySourceManual({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceManual', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctBySourcePage({bool caseSensitive = true}) {
+  distinctBySourcePage({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourcePage', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctBySourceType({bool caseSensitive = true}) {
+  distinctBySourceType({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceType', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctBySuggestedFields() {
+  distinctBySuggestedFields() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'suggestedFields');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByTargetRefs() {
+  distinctByTargetRefs() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'targetRefs');
     });
   }
 
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByTaskText(
-      {bool caseSensitive = true}) {
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByTaskText({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'taskText', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByTaskType(
-      {bool caseSensitive = true}) {
+  QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct> distinctByTaskType({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'taskType', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByUpdatedAt() {
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByUpdatedByName({bool caseSensitive = true}) {
+  distinctByUpdatedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'updatedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'updatedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByUpdatedByUid({bool caseSensitive = true}) {
+  distinctByUpdatedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<BafKnowledgeRow, BafKnowledgeRow, QDistinct>
-      distinctByVersion() {
+  distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'version');
     });
@@ -7153,28 +7092,28 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      assetFamilyProperty() {
+  assetFamilyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetFamily');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      changeSummaryProperty() {
+  changeSummaryProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'changeSummary');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      componentGroupProperty() {
+  componentGroupProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'componentGroup');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      composerReadinessProperty() {
+  composerReadinessProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'composerReadiness');
     });
@@ -7187,35 +7126,35 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      consultQuestionProperty() {
+  consultQuestionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'consultQuestion');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, DateTime, QQueryOperations>
-      createdAtProperty() {
+  createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      createdByNameProperty() {
+  createdByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdByName');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      createdByUidProperty() {
+  createdByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdByUid');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, List<String>, QQueryOperations>
-      deviceTagsProperty() {
+  deviceTagsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deviceTags');
     });
@@ -7234,7 +7173,7 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      functionalSectionProperty() {
+  functionalSectionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'functionalSection');
     });
@@ -7253,42 +7192,42 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      lifecycleStatusProperty() {
+  lifecycleStatusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lifecycleStatus');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      matrixVersionProperty() {
+  matrixVersionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'matrixVersion');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      moduleCandidateCodeProperty() {
+  moduleCandidateCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'moduleCandidateCode');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, List<String>, QQueryOperations>
-      ownerDisciplinesProperty() {
+  ownerDisciplinesProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'ownerDisciplines');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, List<String>, QQueryOperations>
-      partRefsProperty() {
+  partRefsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'partRefs');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, List<String>, QQueryOperations>
-      procedureRefsProperty() {
+  procedureRefsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'procedureRefs');
     });
@@ -7301,14 +7240,14 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      requiredForClosureProperty() {
+  requiredForClosureProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'requiredForClosure');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      resolverImpactProperty() {
+  resolverImpactProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'resolverImpact');
     });
@@ -7321,7 +7260,7 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, List<String>, QQueryOperations>
-      safetyClassesProperty() {
+  safetyClassesProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'safetyClasses');
     });
@@ -7334,7 +7273,7 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      sourceManualProperty() {
+  sourceManualProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sourceManual');
     });
@@ -7353,14 +7292,14 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, List<String>, QQueryOperations>
-      suggestedFieldsProperty() {
+  suggestedFieldsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'suggestedFields');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, List<String>, QQueryOperations>
-      targetRefsProperty() {
+  targetRefsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'targetRefs');
     });
@@ -7379,21 +7318,21 @@ extension BafKnowledgeRowQueryProperty
   }
 
   QueryBuilder<BafKnowledgeRow, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      updatedByNameProperty() {
+  updatedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByName');
     });
   }
 
   QueryBuilder<BafKnowledgeRow, String, QQueryOperations>
-      updatedByUidProperty() {
+  updatedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByUid');
     });
@@ -7411,7 +7350,7 @@ extension BafKnowledgeRowQueryProperty
 
 extension GetBafKnowledgeMatrixMetaStoreCollection on Isar {
   IsarCollection<BafKnowledgeMatrixMetaStore>
-      get bafKnowledgeMatrixMetaStores => this.collection();
+  get bafKnowledgeMatrixMetaStores => this.collection();
 }
 
 const BafKnowledgeMatrixMetaStoreSchema = CollectionSchema(
@@ -7433,11 +7372,7 @@ const BafKnowledgeMatrixMetaStoreSchema = CollectionSchema(
       name: r'isDeleted',
       type: IsarType.bool,
     ),
-    r'isSynced': PropertySchema(
-      id: 3,
-      name: r'isSynced',
-      type: IsarType.bool,
-    ),
+    r'isSynced': PropertySchema(id: 3, name: r'isSynced', type: IsarType.bool),
     r'knowledgeRowCount': PropertySchema(
       id: 4,
       name: r'knowledgeRowCount',
@@ -7458,16 +7393,8 @@ const BafKnowledgeMatrixMetaStoreSchema = CollectionSchema(
       name: r'matrixVersion',
       type: IsarType.string,
     ),
-    r'metaKey': PropertySchema(
-      id: 8,
-      name: r'metaKey',
-      type: IsarType.string,
-    ),
-    r'note': PropertySchema(
-      id: 9,
-      name: r'note',
-      type: IsarType.string,
-    ),
+    r'metaKey': PropertySchema(id: 8, name: r'metaKey', type: IsarType.string),
+    r'note': PropertySchema(id: 9, name: r'note', type: IsarType.string),
     r'safetyOperationsManualRef': PropertySchema(
       id: 10,
       name: r'safetyOperationsManualRef',
@@ -7478,11 +7405,7 @@ const BafKnowledgeMatrixMetaStoreSchema = CollectionSchema(
       name: r'schemaVersion',
       type: IsarType.long,
     ),
-    r'source': PropertySchema(
-      id: 12,
-      name: r'source',
-      type: IsarType.string,
-    ),
+    r'source': PropertySchema(id: 12, name: r'source', type: IsarType.string),
     r'sourceLabel': PropertySchema(
       id: 13,
       name: r'sourceLabel',
@@ -7508,12 +7431,9 @@ const BafKnowledgeMatrixMetaStoreSchema = CollectionSchema(
       name: r'updatedByUid',
       type: IsarType.string,
     ),
-    r'version': PropertySchema(
-      id: 18,
-      name: r'version',
-      type: IsarType.long,
-    )
+    r'version': PropertySchema(id: 18, name: r'version', type: IsarType.long),
   },
+
   estimateSize: _bafKnowledgeMatrixMetaStoreEstimateSize,
   serialize: _bafKnowledgeMatrixMetaStoreSerialize,
   deserialize: _bafKnowledgeMatrixMetaStoreDeserialize,
@@ -7530,16 +7450,17 @@ const BafKnowledgeMatrixMetaStoreSchema = CollectionSchema(
           name: r'metaKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _bafKnowledgeMatrixMetaStoreGetId,
   getLinks: _bafKnowledgeMatrixMetaStoreGetLinks,
   attach: _bafKnowledgeMatrixMetaStoreAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _bafKnowledgeMatrixMetaStoreEstimateSize(
@@ -7673,12 +7594,16 @@ Id _bafKnowledgeMatrixMetaStoreGetId(BafKnowledgeMatrixMetaStore object) {
 }
 
 List<IsarLinkBase<dynamic>> _bafKnowledgeMatrixMetaStoreGetLinks(
-    BafKnowledgeMatrixMetaStore object) {
+  BafKnowledgeMatrixMetaStore object,
+) {
   return [];
 }
 
 void _bafKnowledgeMatrixMetaStoreAttach(
-    IsarCollection<dynamic> col, Id id, BafKnowledgeMatrixMetaStore object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  BafKnowledgeMatrixMetaStore object,
+) {
   object.id = id;
 }
 
@@ -7701,13 +7626,15 @@ extension BafKnowledgeMatrixMetaStoreByIndex
   }
 
   Future<List<BafKnowledgeMatrixMetaStore?>> getAllByMetaKey(
-      List<String> metaKeyValues) {
+    List<String> metaKeyValues,
+  ) {
     final values = metaKeyValues.map((e) => [e]).toList();
     return getAllByIndex(r'metaKey', values);
   }
 
   List<BafKnowledgeMatrixMetaStore?> getAllByMetaKeySync(
-      List<String> metaKeyValues) {
+    List<String> metaKeyValues,
+  ) {
     final values = metaKeyValues.map((e) => [e]).toList();
     return getAllByIndexSync(r'metaKey', values);
   }
@@ -7726,8 +7653,10 @@ extension BafKnowledgeMatrixMetaStoreByIndex
     return putByIndex(r'metaKey', object);
   }
 
-  Id putByMetaKeySync(BafKnowledgeMatrixMetaStore object,
-      {bool saveLinks = true}) {
+  Id putByMetaKeySync(
+    BafKnowledgeMatrixMetaStore object, {
+    bool saveLinks = true,
+  }) {
     return putByIndexSync(r'metaKey', object, saveLinks: saveLinks);
   }
 
@@ -7735,36 +7664,57 @@ extension BafKnowledgeMatrixMetaStoreByIndex
     return putAllByIndex(r'metaKey', objects);
   }
 
-  List<Id> putAllByMetaKeySync(List<BafKnowledgeMatrixMetaStore> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByMetaKeySync(
+    List<BafKnowledgeMatrixMetaStore> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'metaKey', objects, saveLinks: saveLinks);
   }
 }
 
-extension BafKnowledgeMatrixMetaStoreQueryWhereSort on QueryBuilder<
-    BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore, QWhere> {
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhere> anyId() {
+extension BafKnowledgeMatrixMetaStoreQueryWhereSort
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QWhere
+        > {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhere
+  >
+  anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
   }
 }
 
-extension BafKnowledgeMatrixMetaStoreQueryWhere on QueryBuilder<
-    BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore, QWhereClause> {
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhereClause> idEqualTo(Id id) {
+extension BafKnowledgeMatrixMetaStoreQueryWhere
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QWhereClause
+        > {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhereClause
+  >
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhereClause> idNotEqualTo(Id id) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhereClause
+  >
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -7786,8 +7736,12 @@ extension BafKnowledgeMatrixMetaStoreQueryWhere on QueryBuilder<
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhereClause> idGreaterThan(Id id, {bool include = false}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhereClause
+  >
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -7795,8 +7749,12 @@ extension BafKnowledgeMatrixMetaStoreQueryWhere on QueryBuilder<
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhereClause> idLessThan(Id id, {bool include = false}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhereClause
+  >
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -7804,121 +7762,164 @@ extension BafKnowledgeMatrixMetaStoreQueryWhere on QueryBuilder<
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhereClause> idBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhereClause
+  >
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhereClause> metaKeyEqualTo(String metaKey) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhereClause
+  >
+  metaKeyEqualTo(String metaKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'metaKey',
-        value: [metaKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'metaKey', value: [metaKey]),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterWhereClause> metaKeyNotEqualTo(String metaKey) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterWhereClause
+  >
+  metaKeyNotEqualTo(String metaKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'metaKey',
-              lower: [],
-              upper: [metaKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'metaKey',
-              lower: [metaKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'metaKey',
+                lower: [],
+                upper: [metaKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'metaKey',
+                lower: [metaKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'metaKey',
-              lower: [metaKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'metaKey',
-              lower: [],
-              upper: [metaKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'metaKey',
+                lower: [metaKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'metaKey',
+                lower: [],
+                upper: [metaKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 }
 
-extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
+extension BafKnowledgeMatrixMetaStoreQueryFilter
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QFilterCondition
+        > {
+  QueryBuilder<
     BafKnowledgeMatrixMetaStore,
     BafKnowledgeMatrixMetaStore,
-    QFilterCondition> {
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+    QAfterFilterCondition
+  >
+  changeSummaryEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryGreaterThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -7926,417 +7927,542 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'changeSummary',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'changeSummary',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      changeSummaryContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'changeSummary',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'changeSummary',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      changeSummaryMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'changeSummary',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'changeSummary',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'changeSummary',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'changeSummary', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> changeSummaryIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  changeSummaryIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'changeSummary',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'changeSummary', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> cloudUpdatedAtIsNull() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  cloudUpdatedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'cloudUpdatedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'cloudUpdatedAt'),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> cloudUpdatedAtIsNotNull() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  cloudUpdatedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'cloudUpdatedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'cloudUpdatedAt'),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> cloudUpdatedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  cloudUpdatedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'cloudUpdatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'cloudUpdatedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> cloudUpdatedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  cloudUpdatedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'cloudUpdatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'cloudUpdatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> cloudUpdatedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  cloudUpdatedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'cloudUpdatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'cloudUpdatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> cloudUpdatedAtBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  cloudUpdatedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'cloudUpdatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'cloudUpdatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> idEqualTo(Id value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> idBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> isDeletedEqualTo(bool value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isDeleted',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isDeleted', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> isSyncedEqualTo(bool value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isSynced',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isSynced', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> knowledgeRowCountEqualTo(int value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  knowledgeRowCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'knowledgeRowCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'knowledgeRowCount', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> knowledgeRowCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  knowledgeRowCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'knowledgeRowCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'knowledgeRowCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> knowledgeRowCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  knowledgeRowCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'knowledgeRowCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'knowledgeRowCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> knowledgeRowCountBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  knowledgeRowCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'knowledgeRowCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'knowledgeRowCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> localCachedAtIsNull() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  localCachedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'localCachedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'localCachedAt'),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> localCachedAtIsNotNull() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  localCachedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'localCachedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'localCachedAt'),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> localCachedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  localCachedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'localCachedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'localCachedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> localCachedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  localCachedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'localCachedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'localCachedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> localCachedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  localCachedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'localCachedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'localCachedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> localCachedAtBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  localCachedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'localCachedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'localCachedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'maintenanceManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'maintenanceManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'maintenanceManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'maintenanceManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'maintenanceManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'maintenanceManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -8344,137 +8470,183 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'maintenanceManualRef',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'maintenanceManualRef',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'maintenanceManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'maintenanceManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'maintenanceManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'maintenanceManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      maintenanceManualRefContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'maintenanceManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'maintenanceManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      maintenanceManualRefMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'maintenanceManualRef',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'maintenanceManualRef',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'maintenanceManualRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'maintenanceManualRef', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> maintenanceManualRefIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  maintenanceManualRefIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'maintenanceManualRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'maintenanceManualRef',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionGreaterThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -8482,137 +8654,180 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'matrixVersion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'matrixVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      matrixVersionContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'matrixVersion',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'matrixVersion',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      matrixVersionMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'matrixVersion',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'matrixVersion',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'matrixVersion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'matrixVersion', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> matrixVersionIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  matrixVersionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'matrixVersion',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'matrixVersion', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metaKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'metaKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyGreaterThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'metaKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'metaKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'metaKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'metaKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -8620,137 +8835,180 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'metaKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'metaKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'metaKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'metaKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'metaKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'metaKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      metaKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'metaKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'metaKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      metaKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'metaKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'metaKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metaKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'metaKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> metaKeyIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  metaKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'metaKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'metaKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'note',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'note',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteGreaterThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'note',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'note',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'note',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'note',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -8758,137 +9016,180 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'note',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'note',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'note',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'note',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'note',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'note',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      noteContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'note',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'note',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      noteMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'note',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'note',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'note',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'note', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> noteIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  noteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'note',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'note', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyOperationsManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'safetyOperationsManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefGreaterThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'safetyOperationsManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'safetyOperationsManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'safetyOperationsManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'safetyOperationsManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -8896,195 +9197,263 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'safetyOperationsManualRef',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'safetyOperationsManualRef',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefStartsWith(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'safetyOperationsManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'safetyOperationsManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefEndsWith(
-    String value, {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'safetyOperationsManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'safetyOperationsManualRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefMatches(
+    String pattern, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'safetyOperationsManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'safetyOperationsManualRef',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      safetyOperationsManualRefContains(String value,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'safetyOperationsManualRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'safetyOperationsManualRef',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      safetyOperationsManualRefMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  safetyOperationsManualRefIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'safetyOperationsManualRef',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'safetyOperationsManualRef',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  schemaVersionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'safetyOperationsManualRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'schemaVersion', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> safetyOperationsManualRefIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  schemaVersionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'safetyOperationsManualRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'schemaVersion',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> schemaVersionEqualTo(int value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  schemaVersionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'schemaVersion',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'schemaVersion',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> schemaVersionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'schemaVersion',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> schemaVersionLessThan(
-    int value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'schemaVersion',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> schemaVersionBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  schemaVersionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'schemaVersion',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'schemaVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'source',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'source',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'source',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'source',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'source',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'source',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -9092,137 +9461,180 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'source',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'source',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'source',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'source',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'source',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'source',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      sourceContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'source',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'source',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      sourceMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'source',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'source',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'source',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'source', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'source',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'source', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourceLabel',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'sourceLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelGreaterThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'sourceLabel',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'sourceLabel',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -9230,249 +9642,322 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'sourceLabel',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceLabel',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'sourceLabel',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'sourceLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'sourceLabel',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'sourceLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      sourceLabelContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'sourceLabel',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'sourceLabel',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      sourceLabelMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'sourceLabel',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'sourceLabel',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourceLabel',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourceLabel', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> sourceLabelIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  sourceLabelIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'sourceLabel',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'sourceLabel', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> tagRowCountEqualTo(int value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  tagRowCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'tagRowCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'tagRowCount', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> tagRowCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  tagRowCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'tagRowCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'tagRowCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> tagRowCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  tagRowCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'tagRowCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'tagRowCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> tagRowCountBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  tagRowCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'tagRowCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'tagRowCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedAtEqualTo(DateTime value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedAtBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -9480,137 +9965,180 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      updatedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByNameIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidGreaterThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidLessThan(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -9618,987 +10146,1449 @@ extension BafKnowledgeMatrixMetaStoreQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      updatedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QAfterFilterCondition>
-      updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidIsEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> updatedByUidIsNotEmpty() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  updatedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> versionEqualTo(int value) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> versionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  versionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> versionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  versionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterFilterCondition> versionBetween(
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterFilterCondition
+  >
+  versionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'version',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
 
-extension BafKnowledgeMatrixMetaStoreQueryObject on QueryBuilder<
-    BafKnowledgeMatrixMetaStore,
-    BafKnowledgeMatrixMetaStore,
-    QFilterCondition> {}
+extension BafKnowledgeMatrixMetaStoreQueryObject
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QFilterCondition
+        > {}
 
-extension BafKnowledgeMatrixMetaStoreQueryLinks on QueryBuilder<
-    BafKnowledgeMatrixMetaStore,
-    BafKnowledgeMatrixMetaStore,
-    QFilterCondition> {}
+extension BafKnowledgeMatrixMetaStoreQueryLinks
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QFilterCondition
+        > {}
 
-extension BafKnowledgeMatrixMetaStoreQuerySortBy on QueryBuilder<
-    BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore, QSortBy> {
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByChangeSummary() {
+extension BafKnowledgeMatrixMetaStoreQuerySortBy
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QSortBy
+        > {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByChangeSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByChangeSummaryDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByChangeSummaryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByCloudUpdatedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByCloudUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'cloudUpdatedAt', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByCloudUpdatedAtDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByCloudUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'cloudUpdatedAt', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByIsDeleted() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByIsDeletedDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByIsSynced() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByIsSyncedDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByKnowledgeRowCount() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByKnowledgeRowCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'knowledgeRowCount', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByKnowledgeRowCountDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByKnowledgeRowCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'knowledgeRowCount', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByLocalCachedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByLocalCachedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localCachedAt', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByLocalCachedAtDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByLocalCachedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localCachedAt', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByMaintenanceManualRef() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByMaintenanceManualRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'maintenanceManualRef', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByMaintenanceManualRefDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByMaintenanceManualRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'maintenanceManualRef', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByMatrixVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByMatrixVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByMatrixVersionDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByMatrixVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByMetaKey() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByMetaKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metaKey', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByMetaKeyDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByMetaKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metaKey', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByNote() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'note', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByNoteDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'note', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySafetyOperationsManualRef() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySafetyOperationsManualRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyOperationsManualRef', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySafetyOperationsManualRefDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySafetyOperationsManualRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyOperationsManualRef', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySchemaVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySchemaVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySchemaVersionDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySchemaVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySource() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySource() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'source', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySourceDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySourceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'source', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySourceLabel() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySourceLabel() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceLabel', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortBySourceLabelDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortBySourceLabelDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceLabel', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByTagRowCount() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByTagRowCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'tagRowCount', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByTagRowCountDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByTagRowCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'tagRowCount', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByUpdatedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByUpdatedAtDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByUpdatedByName() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByUpdatedByNameDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByUpdatedByUid() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByUpdatedByUidDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> sortByVersionDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
 
-extension BafKnowledgeMatrixMetaStoreQuerySortThenBy on QueryBuilder<
-    BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore, QSortThenBy> {
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByChangeSummary() {
+extension BafKnowledgeMatrixMetaStoreQuerySortThenBy
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QSortThenBy
+        > {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByChangeSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByChangeSummaryDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByChangeSummaryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'changeSummary', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByCloudUpdatedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByCloudUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'cloudUpdatedAt', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByCloudUpdatedAtDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByCloudUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'cloudUpdatedAt', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenById() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByIdDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByIsDeleted() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByIsDeletedDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByIsSynced() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByIsSyncedDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByKnowledgeRowCount() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByKnowledgeRowCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'knowledgeRowCount', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByKnowledgeRowCountDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByKnowledgeRowCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'knowledgeRowCount', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByLocalCachedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByLocalCachedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localCachedAt', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByLocalCachedAtDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByLocalCachedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localCachedAt', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByMaintenanceManualRef() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByMaintenanceManualRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'maintenanceManualRef', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByMaintenanceManualRefDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByMaintenanceManualRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'maintenanceManualRef', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByMatrixVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByMatrixVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByMatrixVersionDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByMatrixVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'matrixVersion', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByMetaKey() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByMetaKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metaKey', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByMetaKeyDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByMetaKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metaKey', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByNote() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'note', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByNoteDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'note', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySafetyOperationsManualRef() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySafetyOperationsManualRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyOperationsManualRef', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySafetyOperationsManualRefDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySafetyOperationsManualRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'safetyOperationsManualRef', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySchemaVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySchemaVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySchemaVersionDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySchemaVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schemaVersion', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySource() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySource() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'source', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySourceDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySourceDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'source', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySourceLabel() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySourceLabel() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceLabel', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenBySourceLabelDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenBySourceLabelDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceLabel', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByTagRowCount() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByTagRowCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'tagRowCount', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByTagRowCountDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByTagRowCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'tagRowCount', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByUpdatedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByUpdatedAtDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByUpdatedByName() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByUpdatedByNameDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByUpdatedByUid() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByUpdatedByUidDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QAfterSortBy> thenByVersionDesc() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QAfterSortBy
+  >
+  thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
 
-extension BafKnowledgeMatrixMetaStoreQueryWhereDistinct on QueryBuilder<
-    BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore, QDistinct> {
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByChangeSummary({bool caseSensitive = true}) {
+extension BafKnowledgeMatrixMetaStoreQueryWhereDistinct
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QDistinct
+        > {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByChangeSummary({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'changeSummary',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'changeSummary',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByCloudUpdatedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByCloudUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'cloudUpdatedAt');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByIsDeleted() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isDeleted');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByIsSynced() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByKnowledgeRowCount() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByKnowledgeRowCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'knowledgeRowCount');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByLocalCachedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByLocalCachedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'localCachedAt');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByMaintenanceManualRef({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByMaintenanceManualRef({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'maintenanceManualRef',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'maintenanceManualRef',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByMatrixVersion({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByMatrixVersion({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'matrixVersion',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'matrixVersion',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByMetaKey({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByMetaKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'metaKey', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByNote({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'note', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-          QDistinct>
-      distinctBySafetyOperationsManualRef({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctBySafetyOperationsManualRef({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'safetyOperationsManualRef',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'safetyOperationsManualRef',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctBySchemaVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctBySchemaVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'schemaVersion');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctBySource({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctBySource({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'source', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctBySourceLabel({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctBySourceLabel({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceLabel', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByTagRowCount() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByTagRowCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'tagRowCount');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByUpdatedAt() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByUpdatedByName({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByUpdatedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'updatedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'updatedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByUpdatedByUid({bool caseSensitive = true}) {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByUpdatedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedByUid', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore,
-      QDistinct> distinctByVersion() {
+  QueryBuilder<
+    BafKnowledgeMatrixMetaStore,
+    BafKnowledgeMatrixMetaStore,
+    QDistinct
+  >
+  distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'version');
     });
   }
 }
 
-extension BafKnowledgeMatrixMetaStoreQueryProperty on QueryBuilder<
-    BafKnowledgeMatrixMetaStore, BafKnowledgeMatrixMetaStore, QQueryProperty> {
+extension BafKnowledgeMatrixMetaStoreQueryProperty
+    on
+        QueryBuilder<
+          BafKnowledgeMatrixMetaStore,
+          BafKnowledgeMatrixMetaStore,
+          QQueryProperty
+        > {
   QueryBuilder<BafKnowledgeMatrixMetaStore, int, QQueryOperations>
-      idProperty() {
+  idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      changeSummaryProperty() {
+  changeSummaryProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'changeSummary');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, DateTime?, QQueryOperations>
-      cloudUpdatedAtProperty() {
+  cloudUpdatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'cloudUpdatedAt');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, bool, QQueryOperations>
-      isDeletedProperty() {
+  isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isDeleted');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, bool, QQueryOperations>
-      isSyncedProperty() {
+  isSyncedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isSynced');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, int, QQueryOperations>
-      knowledgeRowCountProperty() {
+  knowledgeRowCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'knowledgeRowCount');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, DateTime?, QQueryOperations>
-      localCachedAtProperty() {
+  localCachedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'localCachedAt');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      maintenanceManualRefProperty() {
+  maintenanceManualRefProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'maintenanceManualRef');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      matrixVersionProperty() {
+  matrixVersionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'matrixVersion');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      metaKeyProperty() {
+  metaKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'metaKey');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      noteProperty() {
+  noteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'note');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      safetyOperationsManualRefProperty() {
+  safetyOperationsManualRefProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'safetyOperationsManualRef');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, int, QQueryOperations>
-      schemaVersionProperty() {
+  schemaVersionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'schemaVersion');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      sourceProperty() {
+  sourceProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'source');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      sourceLabelProperty() {
+  sourceLabelProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sourceLabel');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, int, QQueryOperations>
-      tagRowCountProperty() {
+  tagRowCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'tagRowCount');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      updatedByNameProperty() {
+  updatedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByName');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, String, QQueryOperations>
-      updatedByUidProperty() {
+  updatedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByUid');
     });
   }
 
   QueryBuilder<BafKnowledgeMatrixMetaStore, int, QQueryOperations>
-      versionProperty() {
+  versionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'version');
     });

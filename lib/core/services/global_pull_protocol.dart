@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 const String globalPullServerUpdatedAtField = '_globalPullServerUpdatedAt';
 const String globalPullProtocolFingerprint =
@@ -8,6 +9,9 @@ const String globalPullWriterVersion = 'global-pull-server-stamp-v1';
 const int globalPullProtocolVersion = 1;
 const String globalPullCallableRegion = 'asia-south1';
 const String globalPullBeginCallableName = 'beginGlobalPullRun';
+const GetOptions authoritativeGlobalPullReadOptions = GetOptions(
+  source: Source.server,
+);
 
 enum GlobalPullDomain {
   abnormalityTypes('abnormality_types'),
@@ -30,12 +34,10 @@ enum GlobalPullDomain {
   static GlobalPullDomain fromWireName(String value) {
     return values.firstWhere(
       (domain) => domain.wireName == value,
-      orElse:
-          () =>
-              throw const GlobalPullProtocolException(
-                'The global pull domain is unknown.',
-                reasonCode: 'unknown-domain',
-              ),
+      orElse: () => throw const GlobalPullProtocolException(
+        'The global pull domain is unknown.',
+        reasonCode: 'unknown-domain',
+      ),
     );
   }
 }
@@ -205,8 +207,17 @@ class FirebaseGlobalPullAuthorityReader implements GlobalPullAuthorityReader {
 
   @override
   Future<GlobalPullRunAuthority> beginRun({required String expectedUid}) async {
-    final result =
-        await _client.httpsCallable(globalPullBeginCallableName).call();
+    final callable = _client.httpsCallable(globalPullBeginCallableName);
+    HttpsCallableResult<dynamic> result;
+    try {
+      result = await callable.call();
+    } on FirebaseFunctionsException catch (error) {
+      if (error.code != 'unauthenticated') rethrow;
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null || currentUser.uid != expectedUid) rethrow;
+      await currentUser.getIdToken(true);
+      result = await callable.call();
+    }
     return GlobalPullRunAuthority.fromCallableData(
       result.data,
       expectedUid: expectedUid,

@@ -128,10 +128,9 @@ class FirestoreTemplateGovernanceRepository
       if (packageRef != null) {
         final currentLatest = packageSnap?.data()?['latestVersionNumber'];
         final currentLatestNumber = currentLatest is int ? currentLatest : 0;
-        final nextLatestNumber =
-            record.versionNumber > currentLatestNumber
-                ? record.versionNumber
-                : currentLatestNumber;
+        final nextLatestNumber = record.versionNumber > currentLatestNumber
+            ? record.versionNumber
+            : currentLatestNumber;
 
         txn.set(packageRef, {
           'activeVersionFirestoreId': record.firestoreId,
@@ -354,10 +353,9 @@ class FirestoreTemplateGovernanceRepository
   @override
   Future<List<TemplatePackage>> getAllPackages() async {
     final snap = await _packages.where('isDeleted', isEqualTo: false).get();
-    final records =
-        snap.docs
-            .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
-            .toList();
+    final records = snap.docs
+        .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+        .toList();
     records.sort((a, b) => a.title.compareTo(b.title));
     return records;
   }
@@ -369,10 +367,9 @@ class FirestoreTemplateGovernanceRepository
         .orderBy('title');
     if (limit != null) query = query.limit(limit);
     return query.snapshots().map(
-      (snap) =>
-          snap.docs
-              .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
-              .toList(),
+      (snap) => snap.docs
+          .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+          .toList(),
     );
   }
 
@@ -394,15 +391,13 @@ class FirestoreTemplateGovernanceRepository
   Future<List<TemplateVersion>> getVersionsForPackage(
     String packageFirestoreId,
   ) async {
-    final snap =
-        await _versions
-            .where('packageFirestoreId', isEqualTo: packageFirestoreId)
-            .where('isDeleted', isEqualTo: false)
-            .get();
-    final records =
-        snap.docs
-            .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
-            .toList();
+    final snap = await _versions
+        .where('packageFirestoreId', isEqualTo: packageFirestoreId)
+        .where('isDeleted', isEqualTo: false)
+        .get();
+    final records = snap.docs
+        .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+        .toList();
     records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
     return records;
   }
@@ -416,10 +411,9 @@ class FirestoreTemplateGovernanceRepository
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snap) {
-          final records =
-              snap.docs
-                  .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
-                  .toList();
+          final records = snap.docs
+              .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+              .toList();
           records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
           return records;
         });
@@ -443,15 +437,13 @@ class FirestoreTemplateGovernanceRepository
   Future<List<TemplatePublishAudit>> getAuditsForVersion(
     String versionFirestoreId,
   ) async {
-    final snap =
-        await _audits
-            .where('versionFirestoreId', isEqualTo: versionFirestoreId)
-            .get();
-    final records =
-        snap.docs
-            .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
-            .where((record) => !record.isDeleted)
-            .toList();
+    final snap = await _audits
+        .where('versionFirestoreId', isEqualTo: versionFirestoreId)
+        .get();
+    final records = snap.docs
+        .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
+        .where((record) => !record.isDeleted)
+        .toList();
     records.sort((a, b) => b.performedAt.compareTo(a.performedAt));
     return records;
   }
@@ -475,6 +467,13 @@ class FirestoreTemplateGovernanceRepository
   Future<void> markPackagesSyncedIfUnchanged(
     List<SyncPushSnapshot> snapshots,
   ) async {}
+
+  @override
+  Future<RemoteRecordApplyResult<TemplatePackage>> applyPackageFromRemote(
+    TemplatePackage remote,
+  ) {
+    throw UnsupportedError('Remote repositories cannot apply remote records.');
+  }
 
   @override
   Future<void> insertPackageFromRemote(TemplatePackage remote) async {}
@@ -504,6 +503,13 @@ class FirestoreTemplateGovernanceRepository
   ) async {}
 
   @override
+  Future<RemoteRecordApplyResult<TemplateVersion>> applyVersionFromRemote(
+    TemplateVersion remote,
+  ) {
+    throw UnsupportedError('Remote repositories cannot apply remote records.');
+  }
+
+  @override
   Future<void> insertVersionFromRemote(TemplateVersion remote) async {}
 
   @override
@@ -529,6 +535,13 @@ class FirestoreTemplateGovernanceRepository
   Future<void> markAuditsSyncedIfUnchanged(
     List<SyncPushSnapshot> snapshots,
   ) async {}
+
+  @override
+  Future<RemoteRecordApplyResult<TemplatePublishAudit>> applyAuditFromRemote(
+    TemplatePublishAudit remote,
+  ) {
+    throw UnsupportedError('Remote repositories cannot apply remote records.');
+  }
 
   @override
   Future<void> insertAuditFromRemote(TemplatePublishAudit remote) async {}
@@ -562,12 +575,13 @@ class FirestoreTemplateGovernanceRepository
       throughInclusive: through,
     );
     if (startAfter != null) query = query.startAfterDocument(startAfter);
-    final snap = await query.limit(limit).get();
+    final snap = await query
+        .limit(limit)
+        .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplatePackageResult(
-      records:
-          snap.docs
-              .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
-              .toList(),
+      records: snap.docs
+          .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+          .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
   }
@@ -591,12 +605,13 @@ class FirestoreTemplateGovernanceRepository
       throughInclusive: through,
     );
     if (startAfter != null) query = query.startAfterDocument(startAfter);
-    final snap = await query.limit(limit).get();
+    final snap = await query
+        .limit(limit)
+        .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateVersionResult(
-      records:
-          snap.docs
-              .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
-              .toList(),
+      records: snap.docs
+          .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+          .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
   }
@@ -620,12 +635,13 @@ class FirestoreTemplateGovernanceRepository
       throughInclusive: through,
     );
     if (startAfter != null) query = query.startAfterDocument(startAfter);
-    final snap = await query.limit(limit).get();
+    final snap = await query
+        .limit(limit)
+        .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateAuditResult(
-      records:
-          snap.docs
-              .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
-              .toList(),
+      records: snap.docs
+          .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
+          .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
   }
@@ -638,8 +654,9 @@ class FirestoreTemplateGovernanceRepository
     final results = <TemplatePackage>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
-      final snap =
-          await _packages.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _packages
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(
         snap.docs.map((doc) => TemplatePackage.fromMap(doc.data(), doc.id)),
       );
@@ -671,8 +688,9 @@ class FirestoreTemplateGovernanceRepository
     final results = <TemplateVersion>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
-      final snap =
-          await _versions.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _versions
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(
         snap.docs.map((doc) => TemplateVersion.fromMap(doc.data(), doc.id)),
       );
@@ -814,8 +832,9 @@ class FirestoreTemplateGovernanceRepository
     final results = <TemplatePublishAudit>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
-      final snap =
-          await _audits.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _audits
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(
         snap.docs.map(
           (doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id),

@@ -3,8 +3,8 @@
 
 The script trusts only the package selected by Dart's generated
 `.dart_tool/package_config.json`, verifies that `pubspec.lock` pins the expected
-`isar_flutter_libs` version and archive SHA-256, selects exactly one AMD64
-`isar.dll` from that package, copies it into the disposable laboratory
+`isar_community_flutter_libs` version and archive SHA-256, selects exactly one AMD64
+`libisar.dll` from that package, copies it into the disposable laboratory
 workspace, and writes a custody record for the evidence bundle.
 """
 
@@ -21,8 +21,8 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
-PACKAGE_NAME = "isar_flutter_libs"
-DLL_NAME = "isar.dll"
+PACKAGE_NAME = "isar_community_flutter_libs"
+DLL_NAME = "libisar.dll"
 PE_MACHINE_AMD64 = 0x8664
 
 
@@ -173,7 +173,7 @@ def _select_amd64_dll(package_root: Path) -> tuple[Path, int]:
     if len(amd64) != 1:
         details = "; ".join(rejected) if rejected else "no isar.dll candidates"
         raise CustodyError(
-            "Expected exactly one AMD64 isar.dll in the locked package; "
+            "Expected exactly one AMD64 libisar.dll in the locked package; "
             f"found {len(amd64)}. {details}"
         )
     return amd64[0]

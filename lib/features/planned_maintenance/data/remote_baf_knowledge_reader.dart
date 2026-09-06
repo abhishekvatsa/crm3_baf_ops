@@ -45,6 +45,7 @@ const _readinessValues = <String>{
 };
 
 const _confidenceValues = <String>{
+  'confirmed',
   'confirmedManual',
   'confirmedUserRatified',
   'inferred',
@@ -306,6 +307,13 @@ RemoteBafKnowledgeRowData readRemoteBafKnowledgeRow(
     'suggestedFieldPresets': normalizedPresets,
   }, source: source);
 
+  final confidence = _readRequiredLiteral(
+    map['confidence'],
+    field: 'confidence',
+    source: source,
+    values: _confidenceValues,
+  );
+
   return RemoteBafKnowledgeRowData(
     rowCode: rowCode,
     sourceManual: _readOptionalString(map, 'sourceManual', source),
@@ -352,12 +360,7 @@ RemoteBafKnowledgeRowData readRemoteBafKnowledgeRow(
       source: source,
       values: _readinessValues,
     ),
-    confidence: _readRequiredLiteral(
-      map['confidence'],
-      field: 'confidence',
-      source: source,
-      values: _confidenceValues,
-    ),
+    confidence: confidence == 'confirmed' ? 'confirmedManual' : confidence,
     consultQuestion: _readOptionalString(map, 'consultQuestion', source),
     lifecycleStatus: _readRequiredLiteral(
       map['lifecycleStatus'],

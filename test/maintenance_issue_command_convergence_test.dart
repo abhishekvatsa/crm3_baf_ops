@@ -11,7 +11,7 @@ import 'package:crm3_baf_ops/features/maintenance/services/maintenance_issue_com
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../tool/test_support/test_isar_core.dart';
 

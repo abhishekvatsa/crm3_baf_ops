@@ -5,52 +5,49 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('67F release startup and Android hygiene contract', () {
-    test(
-      'main isolates CI proof and preserves production startup order',
-      () {
-        final source = _readText('lib/main.dart');
-        final mainBlock = _blockStartingAt(source, 'void main()');
-        final firebaseBlock = _blockStartingAt(
-          source,
-          'Future<StartupFailure?> _initializeFirebaseAndCrashReporting()',
-        );
+    test('main isolates CI proof and preserves production startup order', () {
+      final source = _readText('lib/main.dart');
+      final mainBlock = _blockStartingAt(source, 'void main()');
+      final firebaseBlock = _blockStartingAt(
+        source,
+        'Future<StartupFailure?> _initializeFirebaseAndCrashReporting()',
+      );
 
-        _expectOrder(mainBlock, const [
-          'if (_ciPackageProof) {',
-          'WidgetsFlutterBinding.ensureInitialized();',
-          'runApp(const _CiPackageProofApp());',
-          'return;',
-          'runCrashReportingZoned(() async {',
-          'WidgetsFlutterBinding.ensureInitialized();',
-          'var startupFailure = await _initializeFirebaseAndCrashReporting();',
-          'await _requestStartupNotificationPermission();',
-          'startupFailure = await _initializeLocalDatabase();',
-          'runApp(ProviderScope(child: CrmBafApp(startupFailure: startupFailure)));',
-        ]);
-        expect(mainBlock, isNot(contains('Firebase.initializeApp')));
-        expect(mainBlock, isNot(contains('Isar.open')));
-        expect(
-          _occurrences(mainBlock, 'WidgetsFlutterBinding.ensureInitialized();'),
-          2,
-        );
-        expect(
-          mainBlock.indexOf('if (_ciPackageProof) {'),
-          lessThan(mainBlock.indexOf('runCrashReportingZoned')),
-        );
+      _expectOrder(mainBlock, const [
+        'if (_ciPackageProof) {',
+        'WidgetsFlutterBinding.ensureInitialized();',
+        'runApp(const _CiPackageProofApp());',
+        'return;',
+        'runCrashReportingZoned(() async {',
+        'WidgetsFlutterBinding.ensureInitialized();',
+        'var startupFailure = await _initializeFirebaseAndCrashReporting();',
+        'await _requestStartupNotificationPermission();',
+        'startupFailure = await _initializeLocalDatabase();',
+        'runApp(ProviderScope(child: CrmBafApp(startupFailure: startupFailure)));',
+      ]);
+      expect(mainBlock, isNot(contains('Firebase.initializeApp')));
+      expect(mainBlock, isNot(contains('Isar.open')));
+      expect(
+        _occurrences(mainBlock, 'WidgetsFlutterBinding.ensureInitialized();'),
+        2,
+      );
+      expect(
+        mainBlock.indexOf('if (_ciPackageProof) {'),
+        lessThan(mainBlock.indexOf('runCrashReportingZoned')),
+      );
 
-        _expectOrder(firebaseBlock, const [
-          'await Firebase.initializeApp(',
-          'appCheckPlan = await activateCrm3AppCheck();',
-          'await AppLogger.init(throwOnFailure: true);',
-          'installGlobalCrashReportingHandlers();',
-        ]);
-        expect(firebaseBlock, contains("stage: 'firebase_initialize'"));
-        expect(firebaseBlock, contains("stage: 'app_check_activate'"));
-        expect(firebaseBlock, contains("stage: 'app_logger_init'"));
-        expect(firebaseBlock, contains("'app_check_enabled'"));
-        expect(firebaseBlock, contains("'app_check_provider'"));
-      },
-    );
+      _expectOrder(firebaseBlock, const [
+        'await Firebase.initializeApp(',
+        'appCheckPlan = await activateCrm3AppCheck();',
+        'await AppLogger.init(throwOnFailure: true);',
+        'installGlobalCrashReportingHandlers();',
+      ]);
+      expect(firebaseBlock, contains("stage: 'firebase_initialize'"));
+      expect(firebaseBlock, contains("stage: 'app_check_activate'"));
+      expect(firebaseBlock, contains("stage: 'app_logger_init'"));
+      expect(firebaseBlock, contains("'app_check_enabled'"));
+      expect(firebaseBlock, contains("'app_check_provider'"));
+    });
 
     test(
       'App Check source is gated, fail-closed, and before Firebase services',
@@ -180,9 +177,10 @@ void main() {
           contains("reason: 'startup_sync_gate_failed'"),
         );
         expect(backgroundBlock, contains('Future.microtask(() {'));
+        expect(backgroundBlock, contains('_autoSyncService.start();'));
         expect(
           backgroundBlock,
-          contains('ref.read(autoSyncServiceProvider).start();'),
+          isNot(contains('ref.read(autoSyncServiceProvider)')),
         );
         expect(
           backgroundBlock,
@@ -194,10 +192,8 @@ void main() {
           disposeBlock,
           contains('WidgetsBinding.instance.removeObserver(this);'),
         );
-        expect(
-          disposeBlock,
-          contains('ref.read(autoSyncServiceProvider).stop();'),
-        );
+        expect(disposeBlock, contains('_autoSyncService.stop();'));
+        expect(disposeBlock, isNot(contains('ref.read(')));
         expect(disposeBlock, contains('_liveRemoteSyncService?.dispose();'));
       },
     );
@@ -300,7 +296,7 @@ void main() {
         );
         final functionsPackage = _readJson('functions/package.json');
 
-        expect(pubspec, contains('sdk: ^3.7.0'));
+        expect(pubspec, contains('sdk: ^3.9.0'));
         expect(pubspec, contains('firebase_core:'));
         expect(pubspec, contains('firebase_auth:'));
         expect(pubspec, contains('cloud_firestore:'));

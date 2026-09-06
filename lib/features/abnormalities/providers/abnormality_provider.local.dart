@@ -81,13 +81,12 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
   @override
   Future<List<AbnormalityType>> getActiveTypes() async {
-    final types =
-        await _typeBox
-            .filter()
-            .isDeletedEqualTo(false)
-            .and()
-            .isActiveEqualTo(true)
-            .findAll();
+    final types = await _typeBox
+        .filter()
+        .isDeletedEqualTo(false)
+        .and()
+        .isActiveEqualTo(true)
+        .findAll();
 
     types.sort(_sortTypes);
     return types;
@@ -110,8 +109,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
   @override
   Future<AbnormalityType?> getTypeByFirestoreId(String firestoreId) async {
-    final type =
-        await _typeBox.filter().firestoreIdEqualTo(firestoreId).findFirst();
+    final type = await _typeBox
+        .filter()
+        .firestoreIdEqualTo(firestoreId)
+        .findFirst();
 
     if (type != null && type.isDeleted) return null;
     return type;
@@ -128,11 +129,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
     type.firestoreId ??= _uuid.v4();
 
-    final existing =
-        await _typeBox
-            .filter()
-            .firestoreIdEqualTo(type.firestoreId!)
-            .findFirst();
+    final existing = await _typeBox
+        .filter()
+        .firestoreIdEqualTo(type.firestoreId!)
+        .findFirst();
 
     final beforeSnapshot = existing?.toAuditMap();
 
@@ -155,8 +155,9 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
         auditRepository: _auditRepo,
         entityType: 'abnormality_type',
         entityId: type.firestoreId ?? type.id.toString(),
-        action:
-            beforeSnapshot == null ? AuditAction.create : AuditAction.update,
+        action: beforeSnapshot == null
+            ? AuditAction.create
+            : AuditAction.update,
         context: auditContext,
         before: beforeSnapshot,
         after: type.toAuditMap(),
@@ -174,11 +175,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     _validateTypeForSave(type);
     type.firestoreId ??= _uuid.v4();
 
-    final existing =
-        await _typeBox
-            .filter()
-            .firestoreIdEqualTo(type.firestoreId!)
-            .findFirst();
+    final existing = await _typeBox
+        .filter()
+        .firestoreIdEqualTo(type.firestoreId!)
+        .findFirst();
 
     final beforeSnapshot = existing?.toAuditMap();
 
@@ -272,11 +272,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
-      final local =
-          await _typeBox
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
+      final local = await _typeBox
+          .filter()
+          .firestoreIdEqualTo(remote.firestoreId!)
+          .findFirst();
 
       if (local == null) return const RemoteTombstoneApplyResult.localMissing();
       if (local.isDeleted) {
@@ -315,11 +314,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     _requireCanManageAbnormalityTypes(actor);
     final createdByUid = actor.uid;
     final createdByName = actor.name;
-    final existing =
-        await _typeBox
-            .filter()
-            .firestoreIdEqualTo('RA_COIL_COLOUR')
-            .findFirst();
+    final existing = await _typeBox
+        .filter()
+        .firestoreIdEqualTo('RA_COIL_COLOUR')
+        .findFirst();
 
     if (existing != null) return;
 
@@ -355,13 +353,12 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   Future<List<ChargeAbnormality>> getAbnormalitiesForCharge(
     int sourceChargeNo,
   ) async {
-    final items =
-        await _abnormalityBox
-            .filter()
-            .sourceChargeNoEqualTo(sourceChargeNo)
-            .and()
-            .isDeletedEqualTo(false)
-            .findAll();
+    final items = await _abnormalityBox
+        .filter()
+        .sourceChargeNoEqualTo(sourceChargeNo)
+        .and()
+        .isDeletedEqualTo(false)
+        .findAll();
 
     items.sort(_sortAbnormalities);
     return items;
@@ -369,8 +366,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
   @override
   Future<List<ChargeAbnormality>> getAllAbnormalities() async {
-    final items =
-        await _abnormalityBox.filter().isDeletedEqualTo(false).findAll();
+    final items = await _abnormalityBox
+        .filter()
+        .isDeletedEqualTo(false)
+        .findAll();
 
     items.sort(_sortAbnormalities);
     return items;
@@ -387,11 +386,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   Future<ChargeAbnormality?> getAbnormalityByFirestoreId(
     String firestoreId,
   ) async {
-    final abnormality =
-        await _abnormalityBox
-            .filter()
-            .firestoreIdEqualTo(firestoreId)
-            .findFirst();
+    final abnormality = await _abnormalityBox
+        .filter()
+        .firestoreIdEqualTo(firestoreId)
+        .findFirst();
 
     if (abnormality != null && abnormality.isDeleted) return null;
     return abnormality;
@@ -409,11 +407,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     abnormality.firestoreId ??= _uuid.v4();
     abnormality.normalizeReannealingState();
 
-    final existing =
-        await _abnormalityBox
-            .filter()
-            .firestoreIdEqualTo(abnormality.firestoreId!)
-            .findFirst();
+    final existing = await _abnormalityBox
+        .filter()
+        .firestoreIdEqualTo(abnormality.firestoreId!)
+        .findFirst();
 
     final beforeSnapshot = existing?.toAuditMap();
 
@@ -436,8 +433,9 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
         auditRepository: _auditRepo,
         entityType: 'charge_abnormality',
         entityId: abnormality.firestoreId ?? abnormality.id.toString(),
-        action:
-            beforeSnapshot == null ? AuditAction.create : AuditAction.update,
+        action: beforeSnapshot == null
+            ? AuditAction.create
+            : AuditAction.update,
         context: auditContext,
         before: beforeSnapshot,
         after: abnormality.toAuditMap(),
@@ -455,11 +453,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     _validateAbnormalityForSave(abnormality);
     abnormality.firestoreId ??= _uuid.v4();
 
-    final existing =
-        await _abnormalityBox
-            .filter()
-            .firestoreIdEqualTo(abnormality.firestoreId!)
-            .findFirst();
+    final existing = await _abnormalityBox
+        .filter()
+        .firestoreIdEqualTo(abnormality.firestoreId!)
+        .findFirst();
 
     final beforeSnapshot = existing?.toAuditMap();
 
@@ -553,11 +550,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
-      final local =
-          await _abnormalityBox
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
+      final local = await _abnormalityBox
+          .filter()
+          .firestoreIdEqualTo(remote.firestoreId!)
+          .findFirst();
 
       if (local == null) return const RemoteTombstoneApplyResult.localMissing();
       requireSameChargeAbnormalityIdentity(local, remote);
@@ -640,8 +636,9 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     if (ids.isEmpty) return;
 
     await isar.writeTxn(() async {
-      final records =
-          (await _typeBox.getAll(ids)).whereType<AbnormalityType>().toList();
+      final records = (await _typeBox.getAll(
+        ids,
+      )).whereType<AbnormalityType>().toList();
 
       for (final record in records) {
         record.isSynced = true;
@@ -659,10 +656,9 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     final byId = {for (final snapshot in snapshots) snapshot.id: snapshot};
 
     await isar.writeTxn(() async {
-      final records =
-          (await _typeBox.getAll(
-            byId.keys.toList(),
-          )).whereType<AbnormalityType>().toList();
+      final records = (await _typeBox.getAll(
+        byId.keys.toList(),
+      )).whereType<AbnormalityType>().toList();
       final unchanged = <AbnormalityType>[];
       for (final record in records) {
         final pushed = byId[record.id];
@@ -685,10 +681,9 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     if (ids.isEmpty) return;
 
     await isar.writeTxn(() async {
-      final records =
-          (await _abnormalityBox.getAll(
-            ids,
-          )).whereType<ChargeAbnormality>().toList();
+      final records = (await _abnormalityBox.getAll(
+        ids,
+      )).whereType<ChargeAbnormality>().toList();
 
       for (final record in records) {
         record.isSynced = true;
@@ -706,10 +701,9 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     final byId = {for (final snapshot in snapshots) snapshot.id: snapshot};
 
     await isar.writeTxn(() async {
-      final records =
-          (await _abnormalityBox.getAll(
-            byId.keys.toList(),
-          )).whereType<ChargeAbnormality>().toList();
+      final records = (await _abnormalityBox.getAll(
+        byId.keys.toList(),
+      )).whereType<ChargeAbnormality>().toList();
       final unchanged = <ChargeAbnormality>[];
       for (final record in records) {
         final pushed = byId[record.id];
@@ -756,8 +750,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     final results = <AbnormalityType>[];
 
     for (final firestoreId in firestoreIds) {
-      final local =
-          await _typeBox.filter().firestoreIdEqualTo(firestoreId).findFirst();
+      final local = await _typeBox
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
 
       if (local != null) {
         results.add(local);
@@ -776,11 +772,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     final results = <ChargeAbnormality>[];
 
     for (final firestoreId in firestoreIds) {
-      final local =
-          await _abnormalityBox
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final local = await _abnormalityBox
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
 
       if (local != null) {
         results.add(local);
@@ -791,166 +786,177 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   }
 
   @override
-  Future<void> insertTypeFromRemote(AbnormalityType remote) async {
-    if (remote.isDeleted) return;
+  Future<RemoteRecordApplyResult<AbnormalityType>> applyTypeFromRemote(
+    AbnormalityType remote,
+  ) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted abnormality type remote with an identity is required.',
+      );
+    }
 
-    remote.isSynced = true;
+    return isar.writeTxn<RemoteRecordApplyResult<AbnormalityType>>(() async {
+      final locals = await _typeBox
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<AbnormalityType>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+      if (locals.isEmpty) {
+        remote
+          ..id = Isar.autoIncrement
+          ..firestoreId = firestoreId
+          ..isSynced = true;
+        await _typeBox.put(remote);
+        return RemoteRecordApplyResult<AbnormalityType>(
+          RemoteRecordApplyOutcome.inserted,
+          localRecord: remote,
+        );
+      }
 
-    await isar.writeTxn(() async {
+      final local = locals.single;
+      final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<AbnormalityType>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (sameBoundary) {
+        return RemoteRecordApplyResult<AbnormalityType>(
+          RemoteRecordApplyOutcome.unchanged,
+          localRecord: local,
+        );
+      }
+      if (!_shouldApplyCleanRemote(local, remote, remoteIsNewer)) {
+        return RemoteRecordApplyResult<AbnormalityType>(
+          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+        );
+      }
+
+      remote
+        ..id = local.id
+        ..firestoreId = firestoreId
+        ..isSynced = true;
       await _typeBox.put(remote);
+      return RemoteRecordApplyResult<AbnormalityType>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: remote,
+      );
     });
   }
 
   @override
+  Future<void> insertTypeFromRemote(AbnormalityType remote) async {
+    if (remote.isDeleted) return;
+    await applyTypeFromRemote(remote);
+  }
+
+  @override
   Future<void> updateTypeFromRemote(AbnormalityType remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'abnormality type',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
+    if (remote.isDeleted) {
+      await applyTombstoneFromTypeRemote(remote);
+      return;
+    }
+    await applyTypeFromRemote(remote);
+  }
 
-    await isar.writeTxn(() async {
-      final local =
-          await _typeBox
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
+  @override
+  Future<RemoteRecordApplyResult<ChargeAbnormality>> applyAbnormalityFromRemote(
+    ChargeAbnormality remote,
+  ) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted charge abnormality remote with an identity is required.',
+      );
+    }
 
-      if (local == null) return;
-
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced abnormality type against remote tombstone in updateTypeFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-
-        local
-          ..isDeleted = true
-          ..isActive = false
-          ..deletedAt = remoteDeleteTime
-          ..deletedByUid = remote.deletedByUid
-          ..deletedByName = remote.deletedByName
-          ..deleteReason = remote.deleteReason
-          ..updatedAt = remote.updatedAt
-          ..version = remote.version
-          ..lastEditedByUid = remote.lastEditedByUid
-          ..lastEditedByName = remote.lastEditedByName
+    return isar.writeTxn<RemoteRecordApplyResult<ChargeAbnormality>>(() async {
+      final locals = await _abnormalityBox
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<ChargeAbnormality>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+      if (locals.isEmpty) {
+        remote
+          ..id = Isar.autoIncrement
+          ..firestoreId = firestoreId
           ..isSynced = true;
-
-        await _typeBox.put(local);
-        return;
+        await _abnormalityBox.put(remote);
+        return RemoteRecordApplyResult<ChargeAbnormality>(
+          RemoteRecordApplyOutcome.inserted,
+          localRecord: remote,
+        );
       }
 
-      final isLocalUnsynced = !local.isSynced;
-      final isRemoteNewer = _isRemoteNewerByPolicy(local, remote);
-      final isLocalNewer = local.updatedAt.isAfter(remote.updatedAt);
+      final local = locals.single;
+      requireSameChargeAbnormalityIdentity(local, remote);
+      final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<ChargeAbnormality>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (sameBoundary) {
+        return RemoteRecordApplyResult<ChargeAbnormality>(
+          RemoteRecordApplyOutcome.unchanged,
+          localRecord: local,
+        );
+      }
+      if (!_shouldApplyCleanRemote(local, remote, remoteIsNewer)) {
+        return RemoteRecordApplyResult<ChargeAbnormality>(
+          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+        );
+      }
 
-      if (isLocalUnsynced && !isRemoteNewer) return;
-      if (!isLocalUnsynced && isLocalNewer) return;
-
-      local
-        ..code = remote.code
-        ..title = remote.title
-        ..description = remote.description
-        ..category = remote.category
-        ..severity = remote.severity
-        ..applicableAssetTypeIndexes = remote.applicableAssetTypeIndexes
-        ..suggestsReannealing = remote.suggestsReannealing
-        ..isActive = remote.isActive
-        ..isDeleted = remote.isDeleted
-        ..deletedAt = remote.deletedAt
-        ..deletedByUid = remote.deletedByUid
-        ..deletedByName = remote.deletedByName
-        ..deleteReason = remote.deleteReason
-        ..version = remote.version
-        ..createdAt = remote.createdAt
-        ..updatedAt = remote.updatedAt
-        ..createdByUid = remote.createdByUid
-        ..createdByName = remote.createdByName
-        ..lastEditedByUid = remote.lastEditedByUid
-        ..lastEditedByName = remote.lastEditedByName
-        ..isSynced = true;
-
-      await _typeBox.put(local);
+      _copyRemoteChargeAbnormalityIntoLocal(local, remote);
+      await _abnormalityBox.put(local);
+      return RemoteRecordApplyResult<ChargeAbnormality>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: local,
+      );
     });
   }
 
   @override
   Future<void> insertAbnormalityFromRemote(ChargeAbnormality remote) async {
     if (remote.isDeleted) return;
-
-    remote.isSynced = true;
-
-    await isar.writeTxn(() async {
-      await _abnormalityBox.put(remote);
-    });
+    await applyAbnormalityFromRemote(remote);
   }
 
   @override
   Future<void> updateAbnormalityFromRemote(ChargeAbnormality remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'charge abnormality',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
-
-    await isar.writeTxn(() async {
-      final local =
-          await _abnormalityBox
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
-
-      if (local == null) return;
-      requireSameChargeAbnormalityIdentity(local, remote);
-
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced charge abnormality against remote tombstone in updateAbnormalityFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-
-        local
-          ..isDeleted = true
-          ..deletedAt = remoteDeleteTime
-          ..deletedByUid = remote.deletedByUid
-          ..deletedByName = remote.deletedByName
-          ..deleteReason = remote.deleteReason
-          ..updatedAt = remote.updatedAt
-          ..version = remote.version
-          ..isSynced = true;
-
-        await _abnormalityBox.put(local);
-        return;
-      }
-
-      final isLocalUnsynced = !local.isSynced;
-      final isRemoteNewer = _isRemoteNewerByPolicy(local, remote);
-      final isLocalNewer = local.updatedAt.isAfter(remote.updatedAt);
-
-      if (isLocalUnsynced && !isRemoteNewer) return;
-      if (!isLocalUnsynced && isLocalNewer) return;
-
-      _copyRemoteChargeAbnormalityIntoLocal(local, remote);
-
-      await _abnormalityBox.put(local);
-    });
+    if (remote.isDeleted) {
+      await applyTombstoneFromAbnormalityRemote(remote);
+      return;
+    }
+    await applyAbnormalityFromRemote(remote);
   }
 
   @override
@@ -966,11 +972,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     }
 
     return isar.writeTxn<bool>(() async {
-      final local =
-          await _abnormalityBox
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final local = await _abnormalityBox
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (local == null) {
         if (remote.isDeleted) return true;
         remote.isSynced = true;
@@ -1013,11 +1018,10 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     }
 
     return isar.writeTxn<bool>(() async {
-      final local =
-          await _abnormalityBox
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final local = await _abnormalityBox
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (local == null || local.id != expectedLocal.id) return false;
       if (!sameChargeAbnormalityIdentity(local, remote)) return false;
 

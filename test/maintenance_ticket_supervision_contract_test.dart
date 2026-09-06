@@ -7,36 +7,30 @@ import '../tools/testing/dart_library_source.dart';
 
 void main() {
   test('ticket supervision is represented from UI through server authority', () {
-    final types =
-        File(
-          'lib/features/maintenance_workflow/domain/workflow_types.dart',
-        ).readAsStringSync();
+    final types = File(
+      'lib/features/maintenance_workflow/domain/workflow_types.dart',
+    ).readAsStringSync();
     final ticketScreen = readDartLibrarySource(
       'lib/features/maintenance/presentation/ticket_screen.dart',
     );
-    final maintenanceForm =
-        File(
-          'lib/features/maintenance/presentation/maintenance_form.dart',
-        ).readAsStringSync();
-    final resolveForm =
-        File(
-          'lib/features/maintenance/presentation/resolve_form.dart',
-        ).readAsStringSync();
-    final closedTicketsScreen =
-        File(
-          'lib/features/maintenance/presentation/closed_tickets_screen.dart',
-        ).readAsStringSync();
-    final adminBrowser =
-        File(
-          'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
-        ).readAsStringSync();
+    final maintenanceForm = File(
+      'lib/features/maintenance/presentation/maintenance_form.dart',
+    ).readAsStringSync();
+    final resolveForm = File(
+      'lib/features/maintenance/presentation/resolve_form.dart',
+    ).readAsStringSync();
+    final closedTicketsScreen = File(
+      'lib/features/maintenance/presentation/closed_tickets_screen.dart',
+    ).readAsStringSync();
+    final adminBrowser = File(
+      'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+    ).readAsStringSync();
     final repository = readDartLibrarySource(
       'lib/features/maintenance/providers/maintenance_provider.dart',
     );
-    final backend =
-        File(
-          'functions/src/maintenanceWorkflow/ticketHandlers.ts',
-        ).readAsStringSync();
+    final backend = File(
+      'functions/src/maintenanceWorkflow/ticketHandlers.ts',
+    ).readAsStringSync();
     final rules = File('firestore.rules').readAsStringSync();
 
     expect(types, contains('acknowledgeMaintenanceTicket'));
@@ -102,7 +96,12 @@ void main() {
     expect(backend, contains('maintenance-ticket-lanes-reconfigured'));
     expect(backend, contains('maintenance-ticket-resolved'));
     expect(rules, isNot(contains('validMaintenanceAdminEditUpdate')));
-    expect(rules, contains("!docId.matches('^server_maintenance_ticket_.*')"));
+    expect(
+      rules,
+      contains(
+        "allow create: if !docId.matches('^server_.*') && validAuditCreate();",
+      ),
+    );
     expect(rules, contains('validMaintenanceIssueLaneProjection'));
     expect(rules, contains('isMaintenanceIssueSupervisor'));
   });
@@ -111,14 +110,12 @@ void main() {
     final detailScreen = readDartLibrarySource(
       'lib/features/maintenance/presentation/maintenance_ticket_detail_screen.dart',
     );
-    final correctionHistory =
-        File(
-          'lib/features/maintenance/presentation/maintenance_ticket_correction_history.dart',
-        ).readAsStringSync();
-    final auditRepository =
-        File(
-          'lib/features/audit/repositories/audit_repository.dart',
-        ).readAsStringSync();
+    final correctionHistory = File(
+      'lib/features/maintenance/presentation/maintenance_ticket_correction_history.dart',
+    ).readAsStringSync();
+    final auditRepository = File(
+      'lib/features/audit/repositories/audit_repository.dart',
+    ).readAsStringSync();
     final rules = File('firestore.rules').readAsStringSync();
     final indexDocument = Map<String, dynamic>.from(
       jsonDecode(File('firestore.indexes.json').readAsStringSync()) as Map,
@@ -193,10 +190,9 @@ void main() {
   test(
     'secondary issue lanes receive live delivery with indexed legacy fallback',
     () {
-      final liveSync =
-          File(
-            'lib/core/services/live_remote_sync_service.dart',
-          ).readAsStringSync();
+      final liveSync = File(
+        'lib/core/services/live_remote_sync_service.dart',
+      ).readAsStringSync();
       final indexDocument = Map<String, dynamic>.from(
         jsonDecode(File('firestore.indexes.json').readAsStringSync()) as Map,
       );

@@ -38,20 +38,18 @@ class IsarDirectiveRepository implements DirectiveRepository {
           .sortByCreatedAtDesc()
           .findAll();
     } catch (_) {
-      final open =
-          await isar.operationalDirectives
-              .filter()
-              .statusEqualTo(DirectiveStatus.open)
-              .and()
-              .isDeletedEqualTo(false)
-              .findAll();
-      final acknowledged =
-          await isar.operationalDirectives
-              .filter()
-              .statusEqualTo(DirectiveStatus.acknowledged)
-              .and()
-              .isDeletedEqualTo(false)
-              .findAll();
+      final open = await isar.operationalDirectives
+          .filter()
+          .statusEqualTo(DirectiveStatus.open)
+          .and()
+          .isDeletedEqualTo(false)
+          .findAll();
+      final acknowledged = await isar.operationalDirectives
+          .filter()
+          .statusEqualTo(DirectiveStatus.acknowledged)
+          .and()
+          .isDeletedEqualTo(false)
+          .findAll();
       final all = [...open, ...acknowledged];
       all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return all;
@@ -86,12 +84,11 @@ class IsarDirectiveRepository implements DirectiveRepository {
           .sortByCreatedAtDesc()
           .findAll();
     } catch (_) {
-      final all =
-          await isar.operationalDirectives
-              .where()
-              .filter()
-              .isDeletedEqualTo(false)
-              .findAll();
+      final all = await isar.operationalDirectives
+          .where()
+          .filter()
+          .isDeletedEqualTo(false)
+          .findAll();
       all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return all;
     }
@@ -219,11 +216,10 @@ class IsarDirectiveRepository implements DirectiveRepository {
     );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
-      final local =
-          await isar.operationalDirectives
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
+      final local = await isar.operationalDirectives
+          .filter()
+          .firestoreIdEqualTo(remote.firestoreId!)
+          .findFirst();
 
       if (local == null) return const RemoteTombstoneApplyResult.localMissing();
       if (local.isDeleted) {
@@ -316,11 +312,10 @@ class IsarDirectiveRepository implements DirectiveRepository {
     String? remarks,
   }) async {
     await isar.writeTxn(() async {
-      final directive =
-          await isar.operationalDirectives
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final directive = await isar.operationalDirectives
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (directive != null &&
           !directive.isDeleted &&
           directive.isSynced &&
@@ -390,105 +385,96 @@ class IsarDirectiveRepository implements DirectiveRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<OperationalDirective>>
+  applyDirectiveFromRemote(OperationalDirective remote) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted directive remote with an identity is required.',
+      );
+    }
+
+    return isar.writeTxn<RemoteRecordApplyResult<OperationalDirective>>(
+      () async {
+        final locals = await isar.operationalDirectives
+            .filter()
+            .firestoreIdEqualTo(firestoreId)
+            .findAll();
+        if (locals.length > 1) {
+          return RemoteRecordApplyResult<OperationalDirective>(
+            RemoteRecordApplyOutcome.duplicateLocalIdentity,
+            localRecord: locals.first,
+            duplicateCount: locals.length,
+          );
+        }
+        if (locals.isEmpty) {
+          remote
+            ..id = Isar.autoIncrement
+            ..firestoreId = firestoreId
+            ..isSynced = true;
+          await isar.operationalDirectives.put(remote);
+          return RemoteRecordApplyResult<OperationalDirective>(
+            RemoteRecordApplyOutcome.inserted,
+            localRecord: remote,
+          );
+        }
+
+        final local = locals.single;
+        final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
+        if (!local.isSynced) {
+          return RemoteRecordApplyResult<OperationalDirective>(
+            RemoteRecordApplyOutcome.localDirtyPreserved,
+            localRecord: local,
+            remoteIsNewer: remoteIsNewer,
+          );
+        }
+        final sameBoundary =
+            local.version == remote.version &&
+            local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+            local.isDeleted == remote.isDeleted;
+        if (sameBoundary) {
+          return RemoteRecordApplyResult<OperationalDirective>(
+            RemoteRecordApplyOutcome.unchanged,
+            localRecord: local,
+          );
+        }
+        if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+          remoteIsNewer: remoteIsNewer,
+          localUpdatedAt: local.updatedAt,
+          remoteUpdatedAt: remote.updatedAt,
+        )) {
+          return RemoteRecordApplyResult<OperationalDirective>(
+            RemoteRecordApplyOutcome.staleRemoteSkipped,
+            localRecord: local,
+          );
+        }
+
+        remote
+          ..id = local.id
+          ..firestoreId = firestoreId
+          ..isSynced = true;
+        await isar.operationalDirectives.put(remote);
+        return RemoteRecordApplyResult<OperationalDirective>(
+          RemoteRecordApplyOutcome.updated,
+          localRecord: remote,
+        );
+      },
+    );
+  }
+
+  @override
   Future<void> insertFromRemote(OperationalDirective remote) async {
     if (remote.isDeleted) return;
-    remote.isSynced = true;
-    await isar.writeTxn(() async {
-      await isar.operationalDirectives.put(remote);
-    });
+    await applyDirectiveFromRemote(remote);
   }
 
   @override
   Future<void> updateFromRemote(OperationalDirective remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'operational directive',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
-    await isar.writeTxn(() async {
-      final local =
-          await isar.operationalDirectives
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
-      if (local == null) return;
-
-      // 🔥 FIXED: replaced hard delete with tombstone copy
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced directive against remote tombstone in updateFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-
-        if (!local.isDeleted) {
-          local.isDeleted = true;
-          local.deletedAt = remoteDeleteTime;
-          local.deletedByUid = remote.deletedByUid;
-          local.deletedByName = remote.deletedByName;
-          local.deleteReason = remote.deleteReason;
-          local.updatedAt = remote.updatedAt;
-          local.version = remote.version;
-          local.isSynced = true;
-          await isar.operationalDirectives.put(local);
-        }
-        return;
-      }
-
-      final bool isLocalUnsynced = !local.isSynced;
-      final bool isRemoteNewer = _isRemoteNewerByPolicy(local, remote);
-      final bool isLocalNewer = local.updatedAt.isAfter(remote.updatedAt);
-
-      if (isLocalUnsynced && !isRemoteNewer) return;
-      if (!isLocalUnsynced && isLocalNewer) return;
-
-      local
-        ..version = remote.version
-        ..title = remote.title
-        ..description = remote.description
-        ..assetType = remote.assetType
-        ..assetNumber = remote.assetNumber
-        ..component = remote.component
-        ..subsystem = remote.subsystem
-        ..tag = remote.tag
-        ..hierarchyPath = remote.hierarchyPath
-        ..directedTo = remote.directedTo
-        ..status = remote.status
-        ..priority = remote.priority
-        ..createdByUid = remote.createdByUid
-        ..createdByName = remote.createdByName
-        ..issuedByUid = remote.issuedByUid
-        ..issuedByName = remote.issuedByName
-        ..issuedAt = remote.issuedAt
-        ..isActive = remote.isActive
-        ..acknowledgedByUid = remote.acknowledgedByUid
-        ..acknowledgedByName = remote.acknowledgedByName
-        ..acknowledgedAt = remote.acknowledgedAt
-        ..closedByUid = remote.closedByUid
-        ..closedByName = remote.closedByName
-        ..closedAt = remote.closedAt
-        ..closedWithoutAcknowledgement = remote.closedWithoutAcknowledgement
-        ..remarks = remote.remarks
-        ..linkedMaintenanceFirestoreId = remote.linkedMaintenanceFirestoreId
-        ..linkedExecutionFirestoreId = remote.linkedExecutionFirestoreId
-        ..metadataJson = remote.metadataJson
-        ..isDeleted = remote.isDeleted
-        ..deletedAt = remote.deletedAt
-        ..deletedByUid = remote.deletedByUid
-        ..deletedByName = remote.deletedByName
-        ..deleteReason = remote.deleteReason
-        ..createdAt = remote.createdAt
-        ..updatedAt = remote.updatedAt
-        ..isSynced = true;
-      await isar.operationalDirectives.put(local);
-    });
+    if (remote.isDeleted) {
+      await applyTombstoneFromDirectiveRemote(remote);
+      return;
+    }
+    await applyDirectiveFromRemote(remote);
   }
 
   @override
@@ -499,11 +485,10 @@ class IsarDirectiveRepository implements DirectiveRepository {
     final results = <OperationalDirective>[];
     // First try to fetch from Isar (fast path)
     for (final fid in firestoreIds) {
-      final local =
-          await isar.operationalDirectives
-              .filter()
-              .firestoreIdEqualTo(fid)
-              .findFirst();
+      final local = await isar.operationalDirectives
+          .filter()
+          .firestoreIdEqualTo(fid)
+          .findFirst();
       if (local != null) results.add(local);
     }
     return results;
@@ -521,10 +506,9 @@ class IsarDirectiveRepository implements DirectiveRepository {
   @override
   Future<void> markDirectivesSynced(List<int> ids) async {
     await isar.writeTxn(() async {
-      final records =
-          (await isar.operationalDirectives.getAll(
-            ids,
-          )).whereType<OperationalDirective>().toList();
+      final records = (await isar.operationalDirectives.getAll(
+        ids,
+      )).whereType<OperationalDirective>().toList();
       for (final r in records) {
         r.isSynced = true;
       }
@@ -540,10 +524,9 @@ class IsarDirectiveRepository implements DirectiveRepository {
     final byId = {for (final snapshot in snapshots) snapshot.id: snapshot};
 
     await isar.writeTxn(() async {
-      final records =
-          (await isar.operationalDirectives.getAll(
-            byId.keys.toList(),
-          )).whereType<OperationalDirective>().toList();
+      final records = (await isar.operationalDirectives.getAll(
+        byId.keys.toList(),
+      )).whereType<OperationalDirective>().toList();
       final unchanged = <OperationalDirective>[];
       for (final record in records) {
         final pushed = byId[record.id];

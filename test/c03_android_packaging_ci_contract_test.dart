@@ -122,6 +122,11 @@ void main() {
       expect(script, contains('productionCertificateUsed=false'));
       expect(script, contains('productionSecretsReferenced=false'));
       expect(script, contains('artifactUploadPerformed=false'));
+      expect(script, contains('verify_android_16kb_alignment.py'));
+      expect(script, contains('PASS_ANDROID_16KB_NATIVE_ALIGNMENT'));
+      expect(script, contains('PASS_ANDROID_COMPILED_BACKUP_POLICY'));
+      expect(script, contains('native16KbCompatibilityVerified=true'));
+      expect(script, contains('androidBackupAndDeviceTransferExcluded=true'));
       expect(script, contains('Remove-Item -LiteralPath \$temporaryStore'));
       expect(
         script,
@@ -150,10 +155,7 @@ void main() {
         contains('com.google.firebase.provider.FirebaseInitProvider'),
       );
       expect(manifest, contains(r'${crm3FirebaseInitProviderEnabled}'));
-      expect(
-        script,
-        contains('firebaseNativeInitProviderEnabled=false'),
-      );
+      expect(script, contains('firebaseNativeInitProviderEnabled=false'));
       expect(
         mainSource,
         contains("bool.fromEnvironment('CRM3_CI_PACKAGE_PROOF')"),
@@ -163,6 +165,100 @@ void main() {
       expect(
         mainSource.indexOf('if (_ciPackageProof) {'),
         lessThan(mainSource.indexOf('runCrashReportingZoned')),
+      );
+    });
+
+    test('device-bound operational state is excluded from Android backup', () {
+      final manifest = _read('android/app/src/main/AndroidManifest.xml');
+      final legacyRules = _read(
+        'android/app/src/main/res/xml/backup_rules.xml',
+      );
+      final modernRules = _read(
+        'android/app/src/main/res/xml/data_extraction_rules.xml',
+      );
+      const domains = <String>[
+        'root',
+        'file',
+        'database',
+        'sharedpref',
+        'external',
+        'device_root',
+        'device_file',
+        'device_database',
+        'device_sharedpref',
+      ];
+
+      expect(manifest, contains('android:allowBackup="false"'));
+      expect(
+        manifest,
+        contains('android:fullBackupContent="@xml/backup_rules"'),
+      );
+      expect(
+        manifest,
+        contains('android:dataExtractionRules="@xml/data_extraction_rules"'),
+      );
+      expect(legacyRules, contains('<full-backup-content>'));
+      expect(modernRules, contains('<cloud-backup>'));
+      expect(modernRules, contains('<device-transfer>'));
+
+      final cloudRules = modernRules.split('<device-transfer>').first;
+      final transferRules = modernRules.split('<device-transfer>').last;
+      for (final domain in domains) {
+        final exclusion = '<exclude domain="$domain" path="." />';
+        expect(legacyRules, contains(exclusion), reason: domain);
+        expect(cloudRules, contains(exclusion), reason: 'cloud:$domain');
+        expect(transferRules, contains(exclusion), reason: 'transfer:$domain');
+      }
+    });
+
+    test('all Android artifact paths enforce 16 KB native compatibility', () {
+      final verifier = _read('tools/release/verify_android_16kb_alignment.py');
+      final ciProof = _read('tools/release/Invoke-CIAndroidPackageProof.ps1');
+      final production = _read('tools/release/New-ProductionArtifact.ps1');
+      final localReleaseGate = _read('release_gate.ps1');
+      final backupVerifier = _read(
+        'tools/release/Test-AndroidCompiledBackupPolicy.ps1',
+      );
+
+      expect(verifier, contains('PAGE_SIZE = 16 * 1024'));
+      expect(verifier, contains('PT_LOAD = 1'));
+      expect(verifier, contains('info.compress_type != zipfile.ZIP_STORED'));
+      expect(verifier, contains('data_offset % PAGE_SIZE != 0'));
+      expect(verifier, contains('value < PAGE_SIZE'));
+      expect(verifier, contains('archive.testzip()'));
+      expect(ciProof, contains('verify_android_16kb_alignment.py'));
+      expect(
+        ciProof,
+        contains('Release APK failed Android 16 KB native verification.'),
+      );
+      expect(production, contains('Verify Android 16 KB native compatibility'));
+      expect(production, contains('android-16kb-native-alignment.json'));
+      expect(localReleaseGate, contains('verify_android_16kb_alignment.py'));
+      expect(ciProof, contains('Test-AndroidCompiledBackupPolicy.ps1'));
+      expect(production, contains('Verify compiled Android backup policy'));
+      expect(production, contains('Test-AndroidCompiledBackupPolicy.ps1'));
+      expect(
+        localReleaseGate,
+        contains('Test-AndroidCompiledBackupPolicy.ps1'),
+      );
+      expect(production, contains('android16KbNativeCompatibility'));
+      expect(production, contains('androidBackupAndDeviceTransferExclusion'));
+      expect(backupVerifier, contains('PASS_ANDROID_COMPILED_BACKUP_POLICY'));
+      expect(backupVerifier, contains("'fullBackupContent'"));
+      expect(backupVerifier, contains("'dataExtractionRules'"));
+      expect(backupVerifier, contains("'/data-extraction-rules/cloud-backup'"));
+      expect(
+        backupVerifier,
+        contains("'/data-extraction-rules/device-transfer'"),
+      );
+
+      final manifestVerifier = _read(
+        'tools/release/Test-ProductionReleaseManifest.ps1',
+      );
+      expect(manifestVerifier, contains("'android16KbNativeCompatibility'"));
+      expect(
+        manifestVerifier,
+        contains("'androidBackupAndDeviceTransferExclusion'"),
       );
     });
 
@@ -207,7 +303,10 @@ void main() {
         );
         expect(script, contains('firebaseNativeInitProviderEnabled=false'));
         expect(script, contains('firebaseDartInitializationAttempted=false'));
-        expect(script, isNot(contains('firebaseInitializationAttempted=false')));
+        expect(
+          script,
+          isNot(contains('firebaseInitializationAttempted=false')),
+        );
         expect(script, isNot(contains('pm clear')));
         expect(script, isNot(contains('uninstall')));
         expect(

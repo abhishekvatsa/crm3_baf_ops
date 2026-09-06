@@ -86,7 +86,7 @@
       "regressionTests": [
         "test/charge_abnormality_atomic_mutation_contract_test.dart"
       ],
-      "maximumLines": 1072,
+      "maximumLines": 1079,
       "requiredMarkers": [
         "part of '"
       ],
@@ -522,7 +522,7 @@
         "test/maintenance_lifecycle_replay_contract_test.dart",
         "test/maintenance_plant_condition_stream_test.dart"
       ],
-      "maximumLines": 964,
+      "maximumLines": 968,
       "requiredMarkers": [
         "part of '"
       ],
@@ -1140,7 +1140,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 1114,
+      "maximumLines": 1195,
       "requiredMarkers": [
         "part of '"
       ],

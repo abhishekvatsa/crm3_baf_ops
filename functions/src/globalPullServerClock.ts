@@ -231,6 +231,7 @@ export async function beginGlobalPullRunWithDb(args: {
 interface WriteDocumentLike {
   get?(): Promise<ReadSnapshotLike>;
   update?(data: GlobalPullJsonMap): Promise<unknown>;
+  create(data: GlobalPullJsonMap): Promise<unknown>;
   set(data: GlobalPullJsonMap, options?: {merge: boolean}): Promise<unknown>;
 }
 
@@ -251,6 +252,7 @@ export type GlobalPullStampAction =
   | "stamped"
   | "restored-tombstone"
   | "authorized-permanent-delete"
+  | "ignored-existing-document"
   | "ignored-empty";
 
 function withoutServerStamp(
@@ -325,14 +327,20 @@ export async function applyGlobalPullServerClock(args: {
     return "authorized-permanent-delete";
   }
   const timestamp = args.serverTimestamp();
-  await args.change.before.ref.set(
-    {
-      ...before,
-      isDeleted: true,
-      deletedAt: before.deletedAt ?? timestamp,
-      [GLOBAL_PULL_SERVER_UPDATED_AT_FIELD]: timestamp,
-    },
-    {merge: false},
-  );
+  const tombstone = {
+    ...before,
+    isDeleted: true,
+    deletedAt: before.deletedAt ?? timestamp,
+    [GLOBAL_PULL_SERVER_UPDATED_AT_FIELD]: timestamp,
+  };
+  try {
+    await args.change.before.ref.create(tombstone);
+  } catch (error) {
+    const code = (error as {code?: unknown})?.code;
+    if (code === 6 || code === "already-exists") {
+      return "ignored-existing-document";
+    }
+    throw error;
+  }
   return "restored-tombstone";
 }

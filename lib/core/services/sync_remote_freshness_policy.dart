@@ -29,4 +29,19 @@ class SyncRemoteFreshnessPolicy {
 
     return remoteUpdatedAt.isAfter(localUpdatedAt);
   }
+
+  /// Applies the additional clock-skew guard used when ingesting a remote
+  /// record over an already-synced local row.
+  ///
+  /// Callers must handle dirty local rows before using this decision. A clean
+  /// local row with a later timestamp is retained even when the remote version
+  /// is higher, matching the global-pull loss-prevention contract.
+  static bool shouldApplyRemoteToCleanLocal({
+    required bool remoteIsNewer,
+    required DateTime localUpdatedAt,
+    required DateTime remoteUpdatedAt,
+  }) {
+    if (!remoteIsNewer) return false;
+    return !localUpdatedAt.toUtc().isAfter(remoteUpdatedAt.toUtc());
+  }
 }

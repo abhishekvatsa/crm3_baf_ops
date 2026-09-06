@@ -14,10 +14,9 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     required AppUser actor,
     AuditContext? auditContext,
   }) async {
-    final existing =
-        entry.firestoreId == null
-            ? null
-            : await _entries.doc(entry.firestoreId).get();
+    final existing = entry.firestoreId == null
+        ? null
+        : await _entries.doc(entry.firestoreId).get();
     final isCreate = existing == null || !existing.exists;
     if (isCreate) {
       if (!actor.canCreateJobDiaryEntry) {
@@ -114,10 +113,9 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     if (limit != null) query = query.limit(limit);
 
     return query.snapshots().map(
-      (snap) =>
-          snap.docs
-              .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
-              .toList(),
+      (snap) => snap.docs
+          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+          .toList(),
     );
   }
 
@@ -149,10 +147,9 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
 
     if (auditContext != null) {
       final afterDoc = await _entries.doc(docId).get();
-      final after =
-          afterDoc.data() != null
-              ? JobDiaryEntry.fromMap(afterDoc.data()!, afterDoc.id)
-              : null;
+      final after = afterDoc.data() != null
+          ? JobDiaryEntry.fromMap(afterDoc.data()!, afterDoc.id)
+          : null;
 
       final auditRepo = _auditRepo;
       unawaited(
@@ -193,6 +190,15 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
   ) async {}
 
   @override
+  Future<RemoteRecordApplyResult<JobDiaryEntry>> applyEntryFromRemote(
+    JobDiaryEntry remote,
+  ) {
+    throw UnsupportedError(
+      'Firestore cannot apply a remote job diary entry to itself.',
+    );
+  }
+
+  @override
   Future<void> insertEntryFromRemote(JobDiaryEntry remote) async {}
 
   @override
@@ -231,12 +237,13 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
       query = query.startAfterDocument(startAfter);
     }
 
-    final snap = await query.limit(limit).get();
+    final snap = await query
+        .limit(limit)
+        .get(authoritativeGlobalPullReadOptions);
     return PaginatedDiaryResult(
-      records:
-          snap.docs
-              .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
-              .toList(),
+      records: snap.docs
+          .map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id))
+          .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
   }
@@ -248,8 +255,9 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
     final results = <JobDiaryEntry>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
-      final snap =
-          await _entries.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _entries
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(
         snap.docs.map((doc) => JobDiaryEntry.fromMap(doc.data(), doc.id)),
       );

@@ -161,12 +161,34 @@ if (-not $SkipBuild) {
   }
 
   $apk = "build\app\outputs\flutter-apk\app-release.apk"
-  if (Test-Path $apk) {
-    $hash = (Get-FileHash $apk -Algorithm SHA256).Hash
-    $line = "$((Get-Date).ToString('o'))  app-release.apk  $hash"
-    Write-Host "Release APK SHA-256: $hash"
-    $line | Out-File -Append -FilePath (Join-Path $EvidenceDir "release_gate_artifacts.log")
+  if (-not (Test-Path -LiteralPath $apk -PathType Leaf)) {
+    throw "Android release APK was not produced at $apk."
   }
+
+  Run-Gate "Android 16 KB native-library compatibility" {
+    python tools/release/verify_android_16kb_alignment.py `
+      --apk $apk `
+      --json-output (Join-Path $EvidenceDir "android_16kb_alignment.json") `
+      2>&1 | Tee-Object -FilePath (
+        Join-Path $EvidenceDir "android_16kb_alignment.log"
+      )
+  }
+
+  Run-Gate "Android compiled backup and device-transfer exclusion" {
+    pwsh -NoProfile -ExecutionPolicy Bypass `
+      -File tools/release/Test-AndroidCompiledBackupPolicy.ps1 `
+      -ApkPath $apk `
+      2>&1 | Tee-Object -FilePath (
+        Join-Path $EvidenceDir "android_compiled_backup_policy.log"
+      )
+  }
+
+  $hash = (Get-FileHash $apk -Algorithm SHA256).Hash
+  $line = "$((Get-Date).ToString('o'))  app-release.apk  $hash"
+  Write-Host "Release APK SHA-256: $hash"
+  $line | Out-File -Append -FilePath (
+    Join-Path $EvidenceDir "release_gate_artifacts.log"
+  )
 }
 
 git status --short --untracked-files=all | Tee-Object -FilePath (Join-Path $EvidenceDir "git_status_end.log")

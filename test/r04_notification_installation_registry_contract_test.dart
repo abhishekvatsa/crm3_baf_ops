@@ -30,14 +30,15 @@ String _section(String source, String start, String end) {
 
 void main() {
   test('R-04 client lifecycle is installation-scoped and refresh-aware', () {
-    final registry =
-        File(
-          'lib/features/auth/services/notification_installation_registry.dart',
-        ).readAsStringSync();
-    final auth =
-        File(
-          'lib/features/auth/providers/auth_provider.dart',
-        ).readAsStringSync();
+    final registry = File(
+      'lib/features/auth/services/notification_installation_registry.dart',
+    ).readAsStringSync();
+    final auth = File(
+      'lib/features/auth/providers/auth_provider.dart',
+    ).readAsStringSync();
+    final authService = File(
+      'lib/features/auth/services/auth_service.dart',
+    ).readAsStringSync();
     final main = File('lib/main.dart').readAsStringSync();
 
     for (final marker in <String>[
@@ -69,7 +70,7 @@ void main() {
     expect(main, contains('ref.watch(notificationInstallationSyncProvider)'));
 
     final signOut = _section(
-      auth,
+      authService,
       'Future<void> signOut()',
       'Map<String, dynamic> _pendingUserPayload',
     );
@@ -83,7 +84,7 @@ void main() {
     );
 
     final pendingPayload = _section(
-      auth,
+      authService,
       'Map<String, dynamic> _pendingUserPayload',
       'String _cleanProfileText',
     );
@@ -127,10 +128,12 @@ void main() {
   });
 
   test('R-04 server fan-out is bounded, migratory, and race-safe', () {
-    final notifications =
-        File('functions/src/notifications.ts').readAsStringSync();
-    final unitTests =
-        File('functions/test/notifications.test.js').readAsStringSync();
+    final notifications = File(
+      'functions/src/notifications.ts',
+    ).readAsStringSync();
+    final unitTests = File(
+      'functions/test/notifications.test.js',
+    ).readAsStringSync();
 
     for (final marker in <String>[
       'MAX_NOTIFICATION_INSTALLATIONS_PER_USER = 8',
@@ -229,10 +232,9 @@ void main() {
     }
     expect(_object(closure['closureBoundary']).values, everyElement(isFalse));
 
-    final decision =
-        File(
-          'docs/v4_2_r1/R04_NOTIFICATION_INSTALLATION_REGISTRY.md',
-        ).readAsStringSync();
+    final decision = File(
+      'docs/v4_2_r1/R04_NOTIFICATION_INSTALLATION_REGISTRY.md',
+    ).readAsStringSync();
     expect(decision, contains('Status: CLOSED'));
     expect(decision, contains('Merge and exact-head CI evidence: PASS'));
     expect(

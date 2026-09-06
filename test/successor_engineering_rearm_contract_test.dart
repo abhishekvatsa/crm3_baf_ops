@@ -25,11 +25,10 @@ String _packageVersion() {
 }
 
 int _currentIsarSchemaVersion() {
-  final match = RegExp(
-    r'static const int currentSchemaVersion\s*=\s*(\d+)\s*;',
-  ).firstMatch(
-    File('lib/core/services/isar_schema_migration.dart').readAsStringSync(),
-  );
+  final match = RegExp(r'static const int currentSchemaVersion\s*=\s*(\d+)\s*;')
+      .firstMatch(
+        File('lib/core/services/isar_schema_migration.dart').readAsStringSync(),
+      );
   if (match == null) {
     throw StateError('Unable to resolve the governed Isar schema version.');
   }
@@ -68,7 +67,7 @@ const _approvedArtifactExactSourcePaths = <String>[
   'package.json',
   'package-lock.json',
   'pubspec.lock',
-  'release/approvals/linux-isar-core-authority.json',
+  'release/approvals/linux-isar-community-core-authority.json',
   'release/github-actions-pins.json',
   'release_gate.ps1',
   'test',
@@ -129,8 +128,8 @@ bool _artifactConstructionAuthority({
 
 String _functionDeploymentStatus(String deployedTree, String currentTree) =>
     deployedTree == currentTree
-        ? 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
-        : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
+    ? 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
+    : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
 
 String _firestoreRelationship({
   required bool rulesChanged,
@@ -220,11 +219,10 @@ void main() {
     'successor engineering is re-armed without changing Build 11 authority',
     () {
       final ledger = _readObject('governance/programme-ledger.json');
-      final sealedDecision =
-          (ledger['programmeDecision'] as Map).cast<String, dynamic>();
-      final successorDecision =
-          (ledger['successorEngineeringDecision'] as Map)
-              .cast<String, dynamic>();
+      final sealedDecision = (ledger['programmeDecision'] as Map)
+          .cast<String, dynamic>();
+      final successorDecision = (ledger['successorEngineeringDecision'] as Map)
+          .cast<String, dynamic>();
       final authority = _readObject(
         'governance/successor-engineering-rearm-2026-08-16.json',
       );
@@ -254,32 +252,60 @@ void main() {
     },
   );
 
+  test('post-codegen custody is derived from current generated source', () {
+    final workflow = File(
+      '.github/workflows/release-gate.yml',
+    ).readAsStringSync();
+    final audit = File(
+      'tools/v4/v4_2_r1_canonical_audit.py',
+    ).readAsStringSync();
+    const generator =
+        'dart run build_runner build --delete-conflicting-outputs';
+    const canonicalAudit =
+        'python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen';
+
+    expect(workflow, contains(generator));
+    expect(
+      workflow.indexOf(generator),
+      lessThan(workflow.indexOf(canonicalAudit)),
+    );
+    expect(audit, contains('git_tracked_files("HEAD", "lib")'));
+    expect(audit, contains('ROOT.glob("lib/**/*.g.dart")'));
+    expect(
+      audit,
+      contains(
+        'Current generated bindings reproduce tracked source in post-codegen phase',
+      ),
+    );
+  });
+
   test(
     'current index derives each release plane from live authority records',
     () {
       final state = _readObject('release/current-successor-state.json');
       final planes = (state['authorityPlanes'] as Map).cast<String, dynamic>();
-      final currentSource =
-          (planes['currentSource'] as Map).cast<String, dynamic>();
+      final currentSource = (planes['currentSource'] as Map)
+          .cast<String, dynamic>();
       final currentFirestoreSource =
           (currentSource['firestoreRulesAndIndexes'] as Map)
               .cast<String, dynamic>();
-      final artifact =
-          (planes['latestFinalizedArtifact'] as Map).cast<String, dynamic>();
-      final deployed =
-          (planes['deployedBackend'] as Map).cast<String, dynamic>();
+      final artifact = (planes['latestFinalizedArtifact'] as Map)
+          .cast<String, dynamic>();
+      final deployed = (planes['deployedBackend'] as Map)
+          .cast<String, dynamic>();
       final pilot = (planes['controlledPilot'] as Map).cast<String, dynamic>();
       final next = (planes['nextCandidate'] as Map).cast<String, dynamic>();
       final policy = _readObject('release/production-release-policy.json');
       final release = (policy['release'] as Map).cast<String, dynamic>();
-      final finalization =
-          (policy['finalization'] as Map).cast<String, dynamic>();
-      final priorFinalization =
-          (finalization['priorCompletedBuild'] as Map).cast<String, dynamic>();
+      final finalization = (policy['finalization'] as Map)
+          .cast<String, dynamic>();
+      final priorFinalization = (finalization['priorCompletedBuild'] as Map)
+          .cast<String, dynamic>();
       final pendingConstruction =
           finalization['status'] == 'pending-source-authorized';
-      final finalizedAuthority =
-          pendingConstruction ? priorFinalization : finalization;
+      final finalizedAuthority = pendingConstruction
+          ? priorFinalization
+          : finalization;
       final runtimeValidationPassed =
           finalizedAuthority['runtimeValidationPassed'] == true;
       final candidateBuildNumber = release['buildNumber'] as int;
@@ -288,22 +314,21 @@ void main() {
       final historicalFirestoreAuthority =
           (finalization['exactFirestoreRulesIndexesLiveReadback'] as Map)
               .cast<String, dynamic>();
-      final promotion =
-          (policy['postBuildPromotion'] as Map).cast<String, dynamic>();
+      final promotion = (policy['postBuildPromotion'] as Map)
+          .cast<String, dynamic>();
       final ledger = _readObject('release/build-number-ledger.json');
       final ledgerEntries = _objects(ledger['entries']);
       final latestLedgerEntry = ledgerEntries.last;
-      final latestFinalizedLedgerEntry =
-          ledgerEntries
-              .where((entry) => entry['buildNumber'] == artifact['buildNumber'])
-              .single;
+      final latestFinalizedLedgerEntry = ledgerEntries
+          .where((entry) => entry['buildNumber'] == artifact['buildNumber'])
+          .single;
       final receipt = _readObject(
         finalizedAuthority['completionReceiptFile'] as String,
       );
-      final receiptRelease =
-          (receipt['release'] as Map).cast<String, dynamic>();
-      final receiptSourceAuthority =
-          (receipt['sourceAuthority'] as Map).cast<String, dynamic>();
+      final receiptRelease = (receipt['release'] as Map)
+          .cast<String, dynamic>();
+      final receiptSourceAuthority = (receipt['sourceAuthority'] as Map)
+          .cast<String, dynamic>();
       final liveBackend = _readObject(
         deployed['functionFleetEvidenceFile'] as String,
       );
@@ -322,10 +347,10 @@ void main() {
       final rulesReadback = _readObject(
         deployed['rulesAndIndexesEvidenceFile'] as String,
       );
-      final rulesReadbackSource =
-          (rulesReadback['source'] as Map).cast<String, dynamic>();
-      final rulesReadbackBefore =
-          (rulesReadbackSource['before'] as Map).cast<String, dynamic>();
+      final rulesReadbackSource = (rulesReadback['source'] as Map)
+          .cast<String, dynamic>();
+      final rulesReadbackBefore = (rulesReadbackSource['before'] as Map)
+          .cast<String, dynamic>();
       final historicalRulesHold = _readObject(
         'release/evidence/build15-firestore-rules-readback-hold.json',
       );
@@ -337,8 +362,8 @@ void main() {
                 as Map)['approvalReceiptFile']
             as String,
       );
-      final requiredSource =
-          (nextApproval['requiredSource'] as Map).cast<String, dynamic>();
+      final requiredSource = (nextApproval['requiredSource'] as Map)
+          .cast<String, dynamic>();
       final functionReadback = _readObject(
         functionReadbackAuthority['file'] as String,
       );
@@ -346,30 +371,30 @@ void main() {
       final deploymentApproval = _readObject(
         deployed['deploymentApprovalFile'] as String,
       );
-      final nextApprovalBuild =
-          (nextApproval['nextBuild'] as Map).cast<String, dynamic>();
-      final backendAuthority =
-          (liveBackend['sourceAuthority'] as Map).cast<String, dynamic>();
-      final backendDeployment =
-          (liveBackend['deployment'] as Map).cast<String, dynamic>();
-      final backendBoundary =
-          (liveBackend['controlBoundary'] as Map).cast<String, dynamic>();
-      final rulesReadbackOutputs =
-          (rulesReadback['outputs'] as Map).cast<String, dynamic>();
-      final verifiedRules =
-          (rulesReadbackOutputs['rules'] as Map).cast<String, dynamic>();
-      final verifiedIndexes =
-          (rulesReadbackOutputs['indexes'] as Map).cast<String, dynamic>();
+      final nextApprovalBuild = (nextApproval['nextBuild'] as Map)
+          .cast<String, dynamic>();
+      final backendAuthority = (liveBackend['sourceAuthority'] as Map)
+          .cast<String, dynamic>();
+      final backendDeployment = (liveBackend['deployment'] as Map)
+          .cast<String, dynamic>();
+      final backendBoundary = (liveBackend['controlBoundary'] as Map)
+          .cast<String, dynamic>();
+      final rulesReadbackOutputs = (rulesReadback['outputs'] as Map)
+          .cast<String, dynamic>();
+      final verifiedRules = (rulesReadbackOutputs['rules'] as Map)
+          .cast<String, dynamic>();
+      final verifiedIndexes = (rulesReadbackOutputs['indexes'] as Map)
+          .cast<String, dynamic>();
       final historicalHoldBoundary =
           (historicalRulesHold['releaseBoundary'] as Map)
               .cast<String, dynamic>();
       final predecessor =
           (requiredSource['predecessorFinalizationReceipt'] as Map)
               .cast<String, dynamic>();
-      final environmentScope =
-          (nextEnvironment['scope'] as Map).cast<String, dynamic>();
-      final environmentEvidence =
-          (nextEnvironment['liveStateEvidence'] as Map).cast<String, dynamic>();
+      final environmentScope = (nextEnvironment['scope'] as Map)
+          .cast<String, dynamic>();
+      final environmentEvidence = (nextEnvironment['liveStateEvidence'] as Map)
+          .cast<String, dynamic>();
       final deployedFunctionsTree = _gitTreeObjectId(
         backendAuthority['commit'] as String,
         'functions',
@@ -406,8 +431,8 @@ void main() {
       final firestoreMatchesDeployed = !rulesChanged && !indexesChanged;
       final backendMatchesDeployed =
           functionsMatchDeployed && firestoreMatchesDeployed;
-      final sourceBaseline =
-          (nextApproval['sourceBaseline'] as Map).cast<String, dynamic>();
+      final sourceBaseline = (nextApproval['sourceBaseline'] as Map)
+          .cast<String, dynamic>();
       final candidateSourceMatchesApproval = _approvedArtifactSourceMatches(
         sourceBaseline['commit'] as String,
         '${release['versionName']}+$candidateBuildNumber',
@@ -437,37 +462,36 @@ void main() {
         rulesChanged: rulesChanged,
         indexesChanged: indexesChanged,
       );
-      final expectedBackendStatus =
-          backendMatchesDeployed
-              ? 'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
-              : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
+      final expectedBackendStatus = backendMatchesDeployed
+          ? 'EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED'
+          : 'SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT';
 
       expect(state['schemaVersion'], 2);
       expect(
         state['status'],
         pendingConstruction
             ? !backendMatchesDeployed
-                ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
-                    'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
-                : !candidateSourceMatchesApproval
-                ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_'
-                    'BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND'
-                : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
-                    'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
+                  ? 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
+                        'BACKEND_PENDING_GOVERNED_DEPLOYMENT'
+                  : !candidateSourceMatchesApproval
+                  ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_'
+                        'BACKEND_READY_AWAITING_ARTIFACT_SOURCE_REBIND'
+                  : 'BUILD${candidateBuildNumber}_SOURCE_AUTHORIZED_'
+                        'BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION'
             : backendMatchesDeployed
             ? runtimeValidationPassed
-                ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
-                    'DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_'
-                    'PILOT_DECISIONS'
-                : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
-                    'AWAITING_DEVICE_AND_PILOT_DECISIONS'
+                  ? 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                        'DEVICE_ACCEPTED_AWAITING_MUTATING_FLOW_AND_'
+                        'PILOT_DECISIONS'
+                  : 'BUILD${candidateBuildNumber}_FINALIZED_BACKEND_READY_'
+                        'AWAITING_DEVICE_AND_PILOT_DECISIONS'
             : runtimeValidationPassed
             ? 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
-                'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_MUTATING_FLOW_AND_'
-                'PILOT_DECISIONS'
+                  'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_MUTATING_FLOW_AND_'
+                  'PILOT_DECISIONS'
             : 'BUILD${candidateBuildNumber}_FINALIZED_SOURCE_SUCCESSOR_'
-                'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_'
-                'PILOT_DECISIONS',
+                  'AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_'
+                  'PILOT_DECISIONS',
       );
       expect(currentSource['reference'], 'refs/heads/main');
       expect(currentSource['packageVersion'], _packageVersion());
@@ -475,9 +499,9 @@ void main() {
         currentSource['relationshipToLatestFinalizedArtifact'],
         pendingConstruction || !finalizedArtifactSourceMatches
             ? 'BUILD${candidateBuildNumber}_SOURCE_SUCCESSOR_OF_'
-                'FINALIZED_BUILD$finalizedBuildNumber'
+                  'FINALIZED_BUILD$finalizedBuildNumber'
             : 'BUILD${candidateBuildNumber}_SOURCE_CONTAINS_'
-                'FINALIZED_BUILD$finalizedBuildNumber',
+                  'FINALIZED_BUILD$finalizedBuildNumber',
       );
       expect(currentSource['sourceAndCiAuthority'], isTrue);
       expect(
@@ -547,7 +571,7 @@ void main() {
         artifact['runtimeValidation'],
         runtimeValidationPassed
             ? 'PASSED_EXACT_BUILD${finalizedBuildNumber}_PHYSICAL_IN_PLACE_'
-                'AUTHENTICATED_READ_ONLY_SURFACES'
+                  'AUTHENTICATED_READ_ONLY_SURFACES'
             : 'NOT_ADJUDICATED_FOR_EXACT_BUILD$finalizedBuildNumber',
       );
       if (runtimeValidationPassed) {
@@ -614,8 +638,8 @@ void main() {
         backendAuthority['pullRequestNumber'],
         (deploymentApproval['sourceAuthority'] as Map)['pullRequestNumber'],
       );
-      final approvalAuthority =
-          (liveBackend['approvalAuthority'] as Map).cast<String, dynamic>();
+      final approvalAuthority = (liveBackend['approvalAuthority'] as Map)
+          .cast<String, dynamic>();
       expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);
       expect(
         _sha256(deployed['deploymentApprovalFile'] as String),
@@ -789,14 +813,14 @@ void main() {
         next['status'],
         pendingConstruction
             ? !backendMatchesDeployed
-                ? 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
-                : !candidateSourceMatchesApproval
-                ? 'SOURCE_SUCCESSOR_AWAITING_BUILD${candidateBuildNumber}_'
-                    'ARTIFACT_SOURCE_REBIND'
-                : 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
-                    'BUILD${candidateBuildNumber}_CONSTRUCTION'
+                  ? 'SOURCE_AUTHORIZED_AWAITING_GOVERNED_BACKEND_DEPLOYMENT'
+                  : !candidateSourceMatchesApproval
+                  ? 'SOURCE_SUCCESSOR_AWAITING_BUILD${candidateBuildNumber}_'
+                        'ARTIFACT_SOURCE_REBIND'
+                  : 'SOURCE_AUTHORIZED_AWAITING_SIGNED_'
+                        'BUILD${candidateBuildNumber}_CONSTRUCTION'
             : 'AWAITING_FRESH_GOVERNED_BUILD${candidateBuildNumber + 1}_'
-                'APPROVAL',
+                  'APPROVAL',
       );
       expect(next.containsKey('versionApprovalFile'), pendingConstruction);
       expect(next.containsKey('environmentApprovalFile'), pendingConstruction);
@@ -822,22 +846,21 @@ void main() {
     final build17Approval = _readObject(
       'release/approvals/build-number-17-successor-approval.json',
     );
-    final build16Authority =
-        (build17Approval['preservedCompletedBuild'] as Map)
-            .cast<String, dynamic>();
+    final build16Authority = (build17Approval['preservedCompletedBuild'] as Map)
+        .cast<String, dynamic>();
     final receipt = _readObject(
       build16Authority['completionReceiptFile'] as String,
     );
     final smoke = _readObject(
       'release/evidence/build-16-device-installation-smoke.json',
     );
-    final governedPackage =
-        (receipt['governedPackage'] as Map).cast<String, dynamic>();
+    final governedPackage = (receipt['governedPackage'] as Map)
+        .cast<String, dynamic>();
     final physical = (smoke['physicalDevice'] as Map).cast<String, dynamic>();
     final emulator = (smoke['emulator'] as Map).cast<String, dynamic>();
     final boundary = (smoke['boundary'] as Map).cast<String, dynamic>();
-    final releaseBoundary =
-        (receipt['releaseBoundary'] as Map).cast<String, dynamic>();
+    final releaseBoundary = (receipt['releaseBoundary'] as Map)
+        .cast<String, dynamic>();
 
     expect(build16Authority['status'], 'completed-non-distributable');
     expect(build16Authority['buildNumber'], 16);
@@ -879,8 +902,8 @@ void main() {
       'release/approvals/build12-backend-rules-indexes-deployment-authorization.json',
     );
     final source = (deployment['source'] as Map).cast<String, dynamic>();
-    final boundary =
-        (deployment['authorityBoundary'] as Map).cast<String, dynamic>();
+    final boundary = (deployment['authorityBoundary'] as Map)
+        .cast<String, dynamic>();
 
     expect(
       deployment['status'],
@@ -914,10 +937,10 @@ void main() {
     final registry = _readObject(
       'release/predecessor-finalization-receipt-bindings.json',
     );
-    final legacy =
-        (registry['legacyFieldNames'] as Map).cast<String, dynamic>();
-    final future =
-        (registry['futureFieldContract'] as Map).cast<String, dynamic>();
+    final legacy = (registry['legacyFieldNames'] as Map)
+        .cast<String, dynamic>();
+    final future = (registry['futureFieldContract'] as Map)
+        .cast<String, dynamic>();
     final bindings = _objects(registry['compatibilityBindings']);
 
     expect(registry['schemaVersion'], 1);
@@ -935,13 +958,13 @@ void main() {
       final approvalPath = binding['approvalFile'] as String;
       final receiptPath = binding['receiptFile'] as String;
       final approval = _readObject(approvalPath);
-      final requiredSource =
-          (approval['requiredSource'] as Map).cast<String, dynamic>();
-      final preserved =
-          (approval['preservedCompletedBuild'] as Map).cast<String, dynamic>();
+      final requiredSource = (approval['requiredSource'] as Map)
+          .cast<String, dynamic>();
+      final preserved = (approval['preservedCompletedBuild'] as Map)
+          .cast<String, dynamic>();
       final receipt = _readObject(receiptPath);
-      final receiptRelease =
-          (receipt['release'] as Map).cast<String, dynamic>();
+      final receiptRelease = (receipt['release'] as Map)
+          .cast<String, dynamic>();
 
       expect(_sha256(approvalPath), binding['approvalSha256']);
       expect(_sha256(receiptPath), binding['receiptSha256']);
@@ -959,10 +982,9 @@ void main() {
       expect(receiptRelease['buildNumber'], binding['predecessorBuildNumber']);
     }
 
-    final verifier =
-        File(
-          'tools/release/Test-ProductionReleasePolicy.ps1',
-        ).readAsStringSync();
+    final verifier = File(
+      'tools/release/Test-ProductionReleasePolicy.ps1',
+    ).readAsStringSync();
     expect(verifier, contains('predecessorFinalizationReceipt'));
     expect(
       verifier,

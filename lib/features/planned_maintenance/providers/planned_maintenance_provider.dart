@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore show Query;
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../../../core/utils/combined_record_stream.dart';
@@ -273,6 +273,9 @@ abstract class PlannedMaintenanceRepository {
   Future<void> markTemplatesSynced(List<int> ids);
   Future<void> markTemplatesSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
   Future<JobTemplate?> getTemplateByFirestoreId(String firestoreId);
+  Future<RemoteRecordApplyResult<JobTemplate>> applyTemplateFromRemote(
+    JobTemplate remote,
+  );
   Future<void> insertTemplateFromRemote(JobTemplate remote);
   Future<void> updateTemplateFromRemote(JobTemplate remote);
 
@@ -282,6 +285,9 @@ abstract class PlannedMaintenanceRepository {
     List<SyncPushSnapshot> snapshots,
   );
   Future<JobExecution?> getExecutionByFirestoreId(String firestoreId);
+  Future<RemoteRecordApplyResult<JobExecution>> applyExecutionFromRemote(
+    JobExecution remote,
+  );
   Future<void> insertExecutionFromRemote(JobExecution remote);
   Future<void> updateExecutionFromRemote(JobExecution remote);
 
@@ -382,13 +388,12 @@ final openExecutionCountProvider = StreamProvider<int>((ref) {
   }
 
   Future<int> countOpenExecutions() async {
-    final rows =
-        await isar.jobExecutions
-            .filter()
-            .isCompletedEqualTo(false)
-            .and()
-            .isDeletedEqualTo(false)
-            .findAll();
+    final rows = await isar.jobExecutions
+        .filter()
+        .isCompletedEqualTo(false)
+        .and()
+        .isDeletedEqualTo(false)
+        .findAll();
     return rows.where((execution) => !execution.isCancelled).length;
   }
 

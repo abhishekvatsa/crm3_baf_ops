@@ -1,6 +1,7 @@
 const admin = require("firebase-admin");
 const {
   NOTIFICATION_RECEIPT_COLLECTION,
+  NotificationPreparationInProgressError,
   executeIdempotentNotificationEvent,
   notificationEventReceiptId,
 } = require("../lib/notificationEventReceipt");
@@ -81,13 +82,25 @@ describeWithEmulator("R-05 notification event receipts", () => {
       return outcome;
     };
 
-    const results = await Promise.all(
+    const settled = await Promise.allSettled(
       Array.from({length: 12}, () => execute("cloud-concurrent", dispatch)),
     );
+    const results = settled
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
+    const retryable = settled.filter((result) => result.status === "rejected");
 
     expect(dispatchCount).toBe(1);
     expect(results.filter((result) => result.kind === "completed")).toHaveLength(1);
-    expect(results.filter((result) => result.kind === "skipped")).toHaveLength(11);
+    expect(
+      results.filter((result) => result.kind === "skipped").length +
+        retryable.length,
+    ).toBe(11);
+    for (const result of retryable) {
+      expect(result.reason).toBeInstanceOf(
+        NotificationPreparationInProgressError,
+      );
+    }
     const receipt = await db
       .collection(NOTIFICATION_RECEIPT_COLLECTION)
       .doc(notificationEventReceiptId("onTicketCreated", "cloud-concurrent"))

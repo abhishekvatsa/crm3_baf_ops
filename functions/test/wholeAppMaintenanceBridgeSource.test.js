@@ -45,15 +45,21 @@ function functionBody(source, name, nextName) {
 describe('whole-app maintenance workflow bridge source contract', () => {
   test('all server-owned workflow fields exist in model, both pull paths, and Rules', () => {
     const model = read('lib/features/maintenance/data/maintenance_model.dart');
-    const livePull = read('lib/core/services/live_remote_sync_service.dart');
+    const livePull = readDartLibrary(
+      'lib/core/services/live_remote_sync_service.dart',
+    );
+    const remoteReader = read(
+      'lib/features/maintenance/data/remote_maintenance_reader.dart',
+    );
     const repository = readDartLibrary(
       'lib/features/maintenance/providers/maintenance_provider.dart',
     );
     const rules = read('firestore.rules');
+    expect(livePull).toContain('readRemoteMaintenanceRecord');
+    expect(repository).toContain('readRemoteMaintenanceRecord');
     for (const field of workflowFields) {
       expect(model).toContain(field);
-      expect(livePull).toContain(field);
-      expect(repository).toContain(field);
+      expect(remoteReader).toContain(field);
       expect(rules).toContain(`'${field}'`);
     }
   });

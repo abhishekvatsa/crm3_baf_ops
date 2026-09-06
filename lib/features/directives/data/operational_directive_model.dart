@@ -1,5 +1,5 @@
 // FILE: lib/features/directives/data/operational_directive_model.dart
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../maintenance/data/maintenance_model.dart';
 
 part 'operational_directive_model.g.dart';

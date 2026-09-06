@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart' hide Query;
+import 'package:isar_community/isar.dart' hide Query;
 
 import '../../../core/persistence/app_database.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -85,8 +85,9 @@ void _normalizeDiaryEntryForUserSave(
   }
 
   final existingCreatedAt = _readCreatedAtSafely(entry);
-  entry.createdAt =
-      preserveCreatedAt && existingCreatedAt != null ? existingCreatedAt : now;
+  entry.createdAt = preserveCreatedAt && existingCreatedAt != null
+      ? existingCreatedAt
+      : now;
 
   entry
     ..jobExecutionFirestoreId = _cleanOptionalText(
@@ -250,6 +251,9 @@ abstract class JobDiaryRepository {
   Future<List<JobDiaryEntry>> getUnsyncedEntries();
   Future<void> markEntriesSynced(List<int> ids);
   Future<void> markEntriesSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
+  Future<RemoteRecordApplyResult<JobDiaryEntry>> applyEntryFromRemote(
+    JobDiaryEntry remote,
+  );
   Future<void> insertEntryFromRemote(JobDiaryEntry remote);
   Future<void> updateEntryFromRemote(JobDiaryEntry remote);
   Future<RemoteTombstoneApplyResult> applyTombstoneFromRemote(

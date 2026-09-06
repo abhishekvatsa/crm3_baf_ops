@@ -35,60 +35,57 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appUser = ref.watch(currentAppUserProvider).value;
+    final appUser = ref.watch(currentAppUserProvider).asData?.value;
     final canCreateTemplate = appUser?.canCreateLegacyJobTemplate ?? false;
     final canAssignJob = appUser?.canAssignJobExecution ?? false;
     final canSeeTemplates =
         canCreateTemplate ||
         canAssignJob ||
         (appUser?.canManageTemplateGovernance ?? false);
-    final templatesAsync =
-        canSeeTemplates
-            ? ref.watch(activeTemplatesProvider)
-            : const AsyncData<List<JobTemplate>>(<JobTemplate>[]);
+    final templatesAsync = canSeeTemplates
+        ? ref.watch(activeTemplatesProvider)
+        : const AsyncData<List<JobTemplate>>(<JobTemplate>[]);
     final executionsAsync = ref.watch(openExecutionsProvider);
-    final lanesAsync =
-        appUser?.isApproved == true
-            ? ref.watch(workflowAllLanesProvider)
-            : const AsyncData<List<JobLaneRecord>>(<JobLaneRecord>[]);
-    final complianceAsync =
-        appUser?.isApproved == true
-            ? ref.watch(workflowAllComplianceProvider)
-            : const AsyncData<List<ComplianceRequestRecord>>(
-              <ComplianceRequestRecord>[],
-            );
-    final workflowAttention =
-        appUser == null
-            ? const WorkflowAttentionSummary(
-              activeLaneCount: 0,
-              activeComplianceCount: 0,
-            )
-            : summarizeWorkflowAttention(
-              actor: appUser,
-              lanes: lanesAsync.value ?? const <JobLaneRecord>[],
-              compliance:
-                  complianceAsync.value ?? const <ComplianceRequestRecord>[],
-            );
+    final lanesAsync = appUser?.isApproved == true
+        ? ref.watch(workflowAllLanesProvider)
+        : const AsyncData<List<JobLaneRecord>>(<JobLaneRecord>[]);
+    final complianceAsync = appUser?.isApproved == true
+        ? ref.watch(workflowAllComplianceProvider)
+        : const AsyncData<List<ComplianceRequestRecord>>(
+            <ComplianceRequestRecord>[],
+          );
+    final workflowAttention = appUser == null
+        ? const WorkflowAttentionSummary(
+            activeLaneCount: 0,
+            activeComplianceCount: 0,
+          )
+        : summarizeWorkflowAttention(
+            actor: appUser,
+            lanes: lanesAsync.asData?.value ?? const <JobLaneRecord>[],
+            compliance:
+                complianceAsync.asData?.value ??
+                const <ComplianceRequestRecord>[],
+          );
     final requestedView =
         !canSeeTemplates && _selectedView == _PlannedWorkView.templates
-            ? _PlannedWorkView.openJobs
-            : _selectedView;
+        ? _PlannedWorkView.openJobs
+        : _selectedView;
     final selectedView =
         !_viewExplicitlyChosen &&
-                requestedView == _PlannedWorkView.openJobs &&
-                appUser?.isOperations == true &&
-                !canAssignJob &&
-                executionsAsync.hasValue &&
-                executionsAsync.value!.isEmpty &&
-                workflowAttention.total > 0
-            ? _PlannedWorkView.workflow
-            : requestedView;
+            requestedView == _PlannedWorkView.openJobs &&
+            appUser?.isOperations == true &&
+            !canAssignJob &&
+            executionsAsync.hasValue &&
+            executionsAsync.requireValue.isEmpty &&
+            workflowAttention.total > 0
+        ? _PlannedWorkView.workflow
+        : requestedView;
     final filteredExecutions = _filterExecutions(
-      executionsAsync.value ?? const <JobExecution>[],
+      executionsAsync.asData?.value ?? const <JobExecution>[],
       _query,
     );
     final filteredTemplates = _filterTemplates(
-      templatesAsync.value ?? const <JobTemplate>[],
+      templatesAsync.asData?.value ?? const <JobTemplate>[],
       _query,
     );
     final bottomSafeInset = MediaQuery.of(context).viewPadding.bottom;
@@ -98,8 +95,9 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
     final showAssignFab =
         canAssignJob && selectedView == _PlannedWorkView.openJobs;
     final hasAnyFab = showCreateTemplateFab || showAssignFab;
-    final listBottomPadding =
-        hasAnyFab ? 132 + bottomSafeInset + BafSpacing.xl : BafSpacing.xl;
+    final listBottomPadding = hasAnyFab
+        ? 132 + bottomSafeInset + BafSpacing.xl
+        : BafSpacing.xl;
 
     return Stack(
       children: [
@@ -113,9 +111,9 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                 children: [
                   _PlannedWorkSelector(
                     selectedView: selectedView,
-                    openJobCount: executionsAsync.value?.length,
+                    openJobCount: executionsAsync.asData?.value.length,
                     workflowCount: workflowAttention.total,
-                    templateCount: templatesAsync.value?.length,
+                    templateCount: templatesAsync.asData?.value.length,
                     canSeeTemplates: canSeeTemplates,
                     query: _query,
                     onQueryChanged: (value) => setState(() => _query = value),
@@ -134,19 +132,16 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                         _PlannedWorkView.openJobs => KeyedSubtree(
                           key: const ValueKey('planned-work-open-jobs'),
                           child: executionsAsync.when(
-                            loading:
-                                () => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                            error:
-                                (e, _) => _ErrorState(
-                                  message: 'Could not load open jobs: $e',
-                                ),
-                            data:
-                                (_) => OpenExecutionsView(
-                                  executions: filteredExecutions,
-                                  bottomPadding: listBottomPadding,
-                                ),
+                            loading: () => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            error: (e, _) => _ErrorState(
+                              message: 'Could not load open jobs: $e',
+                            ),
+                            data: (_) => OpenExecutionsView(
+                              executions: filteredExecutions,
+                              bottomPadding: listBottomPadding,
+                            ),
                           ),
                         ),
                         _PlannedWorkView.workflow => WorkflowQueueView(
@@ -157,14 +152,12 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                         _PlannedWorkView.templates => KeyedSubtree(
                           key: const ValueKey('planned-work-templates'),
                           child: templatesAsync.when(
-                            loading:
-                                () => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                            error:
-                                (e, _) => _ErrorState(
-                                  message: 'Could not load templates: $e',
-                                ),
+                            loading: () => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            error: (e, _) => _ErrorState(
+                              message: 'Could not load templates: $e',
+                            ),
                             data: (_) {
                               if (filteredTemplates.isEmpty) {
                                 return _EmptyTemplatesState(
@@ -356,12 +349,11 @@ class _PlannedWorkSelector extends StatelessWidget {
           BafSearchField(
             fieldKey: const ValueKey('planned-work-search'),
             onChanged: onQueryChanged,
-            hintText:
-                selectedView == _PlannedWorkView.openJobs
-                    ? 'Search jobs or assets'
-                    : selectedView == _PlannedWorkView.workflow
-                    ? 'Search lanes or compliance'
-                    : 'Search templates',
+            hintText: selectedView == _PlannedWorkView.openJobs
+                ? 'Search jobs or assets'
+                : selectedView == _PlannedWorkView.workflow
+                ? 'Search lanes or compliance'
+                : 'Search templates',
           ),
           const SizedBox(height: BafSpacing.xs),
           Text(
@@ -501,10 +493,9 @@ class _TemplateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fieldRead = template.fieldsReadResult;
-    final agencies =
-        template.assignedAgencies
-            .where((agency) => agency.trim().isNotEmpty)
-            .toList();
+    final agencies = template.assignedAgencies
+        .where((agency) => agency.trim().isNotEmpty)
+        .toList();
 
     return Material(
       color: BafColors.card,
@@ -579,18 +570,15 @@ class _TemplateCard extends StatelessWidget {
                       runSpacing: BafSpacing.sm,
                       children: [
                         StatusBadge(
-                          label:
-                              fieldRead.isValid
-                                  ? '${fieldRead.entries.length} fields'
-                                  : 'Fields need repair',
-                          color:
-                              fieldRead.isValid
-                                  ? BafColors.planned
-                                  : BafColors.danger,
-                          icon:
-                              fieldRead.isValid
-                                  ? Icons.list_alt_rounded
-                                  : Icons.warning_amber_rounded,
+                          label: fieldRead.isValid
+                              ? '${fieldRead.entries.length} fields'
+                              : 'Fields need repair',
+                          color: fieldRead.isValid
+                              ? BafColors.planned
+                              : BafColors.danger,
+                          icon: fieldRead.isValid
+                              ? Icons.list_alt_rounded
+                              : Icons.warning_amber_rounded,
                         ),
                         if (template.hasComponentScope)
                           const StatusBadge(

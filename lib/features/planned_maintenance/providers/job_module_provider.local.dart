@@ -47,8 +47,9 @@ class IsarJobModuleRepository implements JobModuleRepository {
     });
 
     if (auditContext != null && afterSnapshot != null && entityId != null) {
-      final action =
-          beforeSnapshot == null ? AuditAction.create : AuditAction.update;
+      final action = beforeSnapshot == null
+          ? AuditAction.create
+          : AuditAction.update;
       final auditRepo = _auditRepo;
       unawaited(
         auditRepo.log(
@@ -166,14 +167,13 @@ class IsarJobModuleRepository implements JobModuleRepository {
     final localId = jobExecutionLocalId ?? -1;
 
     if (cleanedFirestoreId == null) {
-      final localModules =
-          jobExecutionLocalId == null
-              ? <JobModuleInstance>[]
-              : await _localJobQuery(
-                jobExecutionLocalId: jobExecutionLocalId,
-                discipline: discipline,
-                includeDeleted: includeDeleted,
-              ).findAll();
+      final localModules = jobExecutionLocalId == null
+          ? <JobModuleInstance>[]
+          : await _localJobQuery(
+              jobExecutionLocalId: jobExecutionLocalId,
+              discipline: discipline,
+              includeDeleted: includeDeleted,
+            ).findAll();
       return PlannedJobModuleSetResolver.resolve(
         executionFirestoreId: null,
         executionLocalId: localId,
@@ -183,20 +183,18 @@ class IsarJobModuleRepository implements JobModuleRepository {
       );
     }
 
-    final remoteModules =
-        await _remoteJobQuery(
-          jobExecutionFirestoreId: cleanedFirestoreId,
-          discipline: discipline,
-          includeDeleted: includeDeleted,
-        ).findAll();
-    final localModules =
-        jobExecutionLocalId == null
-            ? <JobModuleInstance>[]
-            : await _localJobQuery(
-              jobExecutionLocalId: jobExecutionLocalId,
-              discipline: discipline,
-              includeDeleted: includeDeleted,
-            ).findAll();
+    final remoteModules = await _remoteJobQuery(
+      jobExecutionFirestoreId: cleanedFirestoreId,
+      discipline: discipline,
+      includeDeleted: includeDeleted,
+    ).findAll();
+    final localModules = jobExecutionLocalId == null
+        ? <JobModuleInstance>[]
+        : await _localJobQuery(
+            jobExecutionLocalId: jobExecutionLocalId,
+            discipline: discipline,
+            includeDeleted: includeDeleted,
+          ).findAll();
 
     return PlannedJobModuleSetResolver.resolve(
       executionFirestoreId: cleanedFirestoreId,
@@ -296,14 +294,13 @@ class IsarJobModuleRepository implements JobModuleRepository {
     JobModuleDiscipline? discipline,
     bool includeDeleted = false,
   }) {
-    var query =
-        jobExecutionLocalId == null
-            ? isar.jobModuleInstances.filter().firestoreIdEqualTo(
-              '__no_matching_job_module__',
-            )
-            : isar.jobModuleInstances.filter().jobExecutionLocalIdEqualTo(
-              jobExecutionLocalId,
-            );
+    var query = jobExecutionLocalId == null
+        ? isar.jobModuleInstances.filter().firestoreIdEqualTo(
+            '__no_matching_job_module__',
+          )
+        : isar.jobModuleInstances.filter().jobExecutionLocalIdEqualTo(
+            jobExecutionLocalId,
+          );
     if (!includeDeleted) {
       query = query.and().isDeletedEqualTo(false);
     }
@@ -507,11 +504,10 @@ class IsarJobModuleRepository implements JobModuleRepository {
     required String reason,
     required DateTime appliedAt,
   }) async {
-    final module =
-        await isar.jobModuleInstances
-            .filter()
-            .firestoreIdEqualTo(firestoreId)
-            .findFirst();
+    final module = await isar.jobModuleInstances
+        .filter()
+        .firestoreIdEqualTo(firestoreId)
+        .findFirst();
     if (module == null) return;
     await isar.writeTxn(() async {
       module
@@ -704,61 +700,93 @@ class IsarJobModuleRepository implements JobModuleRepository {
   }
 
   @override
+  Future<RemoteRecordApplyResult<JobModuleInstance>> applyModuleFromRemote(
+    JobModuleInstance remote,
+  ) async {
+    final firestoreId = remote.firestoreId?.trim();
+    if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
+      throw ArgumentError(
+        'A non-deleted job module remote with an identity is required.',
+      );
+    }
+
+    return isar.writeTxn<RemoteRecordApplyResult<JobModuleInstance>>(() async {
+      final locals = await isar.jobModuleInstances
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findAll();
+      if (locals.length > 1) {
+        return RemoteRecordApplyResult<JobModuleInstance>(
+          RemoteRecordApplyOutcome.duplicateLocalIdentity,
+          localRecord: locals.first,
+          duplicateCount: locals.length,
+        );
+      }
+      if (locals.isEmpty) {
+        remote
+          ..id = Isar.autoIncrement
+          ..firestoreId = firestoreId
+          ..jobExecutionLocalId = null
+          ..isSynced = true;
+        await isar.jobModuleInstances.put(remote);
+        return RemoteRecordApplyResult<JobModuleInstance>(
+          RemoteRecordApplyOutcome.inserted,
+          localRecord: remote,
+        );
+      }
+
+      final local = locals.single;
+      final remoteIsNewer = _isRemoteNewerByPolicy(local, remote);
+      if (!local.isSynced) {
+        return RemoteRecordApplyResult<JobModuleInstance>(
+          RemoteRecordApplyOutcome.localDirtyPreserved,
+          localRecord: local,
+          remoteIsNewer: remoteIsNewer,
+        );
+      }
+      final sameBoundary =
+          local.version == remote.version &&
+          local.updatedAt.isAtSameMomentAs(remote.updatedAt) &&
+          local.isDeleted == remote.isDeleted;
+      if (sameBoundary) {
+        return RemoteRecordApplyResult<JobModuleInstance>(
+          RemoteRecordApplyOutcome.unchanged,
+          localRecord: local,
+        );
+      }
+      if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+        remoteIsNewer: remoteIsNewer,
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+      )) {
+        return RemoteRecordApplyResult<JobModuleInstance>(
+          RemoteRecordApplyOutcome.staleRemoteSkipped,
+          localRecord: local,
+        );
+      }
+
+      _copyRemoteModuleIntoLocal(local, remote);
+      await isar.jobModuleInstances.put(local);
+      return RemoteRecordApplyResult<JobModuleInstance>(
+        RemoteRecordApplyOutcome.updated,
+        localRecord: local,
+      );
+    });
+  }
+
+  @override
   Future<void> insertModuleFromRemote(JobModuleInstance remote) async {
-    remote
-      ..jobExecutionLocalId = null
-      ..isSynced = true;
-    await isar.writeTxn(() => isar.jobModuleInstances.put(remote));
+    if (remote.isDeleted) return;
+    await applyModuleFromRemote(remote);
   }
 
   @override
   Future<void> updateModuleFromRemote(JobModuleInstance remote) async {
-    if (remote.firestoreId == null) return;
-    final remoteDeleteTime =
-        remote.isDeleted
-            ? requireRemoteTombstoneDeletedAt(
-              remote.deletedAt,
-              entityLabel: 'job module',
-              firestoreId: remote.firestoreId,
-            )
-            : null;
-
-    await isar.writeTxn(() async {
-      final local =
-          await isar.jobModuleInstances
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
-
-      if (local == null) return;
-
-      if (remote.isDeleted) {
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
-          debugPrint(
-            '🛡️ Preserved fresher unsynced module against remote tombstone in updateModuleFromRemote: '
-            'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
-            'remoteDeleteTime=$remoteDeleteTime',
-          );
-          return;
-        }
-
-        if (!local.isDeleted) {
-          _copyRemoteModuleIntoLocal(local, remote);
-          await isar.jobModuleInstances.put(local);
-        }
-        return;
-      }
-
-      final isLocalUnsynced = !local.isSynced;
-      final isRemoteNewer = _isRemoteNewerByPolicy(local, remote);
-      final isLocalNewer = local.updatedAt.isAfter(remote.updatedAt);
-
-      if (isLocalUnsynced && !isRemoteNewer) return;
-      if (!isLocalUnsynced && isLocalNewer) return;
-
-      _copyRemoteModuleIntoLocal(local, remote);
-      await isar.jobModuleInstances.put(local);
-    });
+    if (remote.isDeleted) {
+      await applyTombstoneFromRemote(remote);
+      return;
+    }
+    await applyModuleFromRemote(remote);
   }
 
   @override
@@ -772,11 +800,10 @@ class IsarJobModuleRepository implements JobModuleRepository {
     if (firestoreId == null || firestoreId.isEmpty) return false;
 
     final applied = await isar.writeTxn<bool>(() async {
-      final local =
-          await isar.jobModuleInstances
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final local = await isar.jobModuleInstances
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
 
       if (local == null || local.id != expectedLocal.id) return false;
       final alreadyAtServerBoundary =
@@ -822,11 +849,10 @@ class IsarJobModuleRepository implements JobModuleRepository {
     );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
-      final local =
-          await isar.jobModuleInstances
-              .filter()
-              .firestoreIdEqualTo(remote.firestoreId!)
-              .findFirst();
+      final local = await isar.jobModuleInstances
+          .filter()
+          .firestoreIdEqualTo(remote.firestoreId!)
+          .findFirst();
 
       if (local == null) return const RemoteTombstoneApplyResult.localMissing();
       if (local.isDeleted) {
@@ -865,11 +891,10 @@ class IsarJobModuleRepository implements JobModuleRepository {
     if (ids.isEmpty) return [];
     final results = <JobModuleInstance>[];
     for (final firestoreId in ids) {
-      final module =
-          await isar.jobModuleInstances
-              .filter()
-              .firestoreIdEqualTo(firestoreId)
-              .findFirst();
+      final module = await isar.jobModuleInstances
+          .filter()
+          .firestoreIdEqualTo(firestoreId)
+          .findFirst();
       if (module != null) results.add(module);
     }
     return results;

@@ -31,70 +31,29 @@ extension _GlobalPullMaintenance on GlobalPullService {
 
       if (result.sourceDocumentCount == 0) break;
 
-      final inserts = <MaintenanceRecord>[];
-      final updates = <MaintenanceRecord>[];
-      final tombstones = <MaintenanceRecord>[];
-
       for (final remote in remoteRecords) {
         try {
           if (remote.firestoreId == null) continue;
 
-          final local = await _maintenanceRepo.getByFirestoreId(
-            remote.firestoreId!,
-          );
-
           if (remote.isDeleted) {
-            if (local != null) {
-              tombstones.add(remote);
-            }
+            final tombstoneResult = await _maintenanceRepo
+                .applyTombstoneFromMaintenanceRemote(remote);
+            _recordTombstoneApplyResult(
+              'maintenance ticket',
+              remote,
+              tombstoneResult,
+            );
             continue;
           }
 
-          if (local == null) {
-            inserts.add(remote);
-          } else {
-            final bool isLocalUnsynced = !local.isSynced;
-            final bool isRemoteNewer = _isRemoteNewer(local, remote);
-
-            if (!isLocalUnsynced && local.updatedAt.isAfter(remote.updatedAt)) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && !isRemoteNewer) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && isRemoteNewer) {
-              _logPullConflict('ticket', local, remote);
-              continue;
-            }
-
-            updates.add(remote);
-          }
+          final applyResult = await _maintenanceRepo
+              .applyMaintenanceRecordFromRemote(remote);
+          _recordRemoteApplyResult('maintenance ticket', remote, applyResult);
         } catch (e) {
           lastSkipped++;
           _hadRecordProcessingError = true;
           debugPrint('⚠️ Maintenance pull processing error: $e');
         }
-      }
-
-      for (final remote in tombstones) {
-        final result = await _maintenanceRepo
-            .applyTombstoneFromMaintenanceRemote(remote);
-        _recordTombstoneApplyResult('maintenance ticket', remote, result);
-      }
-
-      for (final record in inserts) {
-        record.isSynced = true;
-        await _maintenanceRepo.insertFromRemote(record);
-        lastInserted++;
-      }
-
-      for (final remote in updates) {
-        await _maintenanceRepo.updateFromRemote(remote);
-        lastUpdated++;
       }
 
       if (result.sourceDocumentCount < GlobalPullService._pageSize) break;

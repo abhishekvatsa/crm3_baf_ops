@@ -2,7 +2,7 @@
 
 import 'dart:convert';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/services/global_pull_protocol.dart';
 import '../domain/baf_knowledge_layer.dart';

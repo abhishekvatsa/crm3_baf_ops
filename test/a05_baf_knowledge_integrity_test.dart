@@ -41,6 +41,19 @@ void main() {
     );
 
     test(
+      'legacy confirmed confidence is adopted as canonical manual evidence',
+      () {
+        final row = BafKnowledgeRow.fromCloudMap(<String, dynamic>{
+          ..._validRow(),
+          'confidence': 'confirmed',
+        }, 'KB-001');
+
+        expect(row.confidence, 'confirmedManual');
+        expect(row.toEntryMap()['confidence'], 'confirmedManual');
+      },
+    );
+
+    test(
       'every authority-critical field is required with its persisted type',
       () {
         final valid = _validRow();
@@ -281,52 +294,65 @@ void main() {
     );
   });
 
-  test('repository and governance paths decode before mutation or comparison', () {
-    final repository =
-        File(
-          'lib/features/planned_maintenance/domain/baf_knowledge_repository.dart',
-        ).readAsStringSync();
-    final provider =
-        File(
-          'lib/features/planned_maintenance/providers/knowledge_governance_provider.dart',
-        ).readAsStringSync();
+  test(
+    'repository and governance paths decode before mutation or comparison',
+    () {
+      final repository = File(
+        'lib/features/planned_maintenance/domain/baf_knowledge_repository.dart',
+      ).readAsStringSync();
+      final provider = File(
+        'lib/features/planned_maintenance/providers/knowledge_governance_provider.dart',
+      ).readAsStringSync();
 
-    expect(
-      repository,
-      contains('BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i)'),
-    );
-    expect(repository, isNot(contains('.catchError((_) => null)')));
-    expect(repository, contains('await Future.wait<void>'));
-    expect(repository, contains('baseQuery.get().then'));
-    expect(repository, contains('_firestore.doc(metaPath).get().then'));
-    expect(repository, isNot(contains('final Future<DocumentSnapshot')));
-    expect(
-      repository.indexOf('final metaData = metaDoc.data();'),
-      lessThan(
-        repository.indexOf(
-          'if (docs.isEmpty) return const BafKnowledgePullResult',
+      expect(
+        repository,
+        contains('BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i)'),
+      );
+      expect(repository, isNot(contains('.catchError((_) => null)')));
+      expect(repository, contains('await Future.wait<void>'));
+      expect(
+        repository,
+        contains(
+          'baseQuery\n'
+          '          .get(authoritativeGlobalPullReadOptions)',
         ),
-      ),
-    );
-    expect(
-      repository.indexOf('final remotes = ['),
-      lessThan(repository.indexOf('await _isar.writeTxn(() async {')),
-    );
-    expect(
-      repository.indexOf('BafKnowledgeMatrixMetaStore.fromCloudMap'),
-      lessThan(repository.indexOf('await _isar.writeTxn(() async {')),
-    );
-    expect(
-      provider,
-      contains('BafKnowledgeRow.fromCloudMap(data, before.rowCode)'),
-    );
-    expect(
-      provider,
-      contains('BafKnowledgeRow.fromCloudMap(data, local.rowCode)'),
-    );
-    expect(provider, contains('} on FirebaseException {'));
-    expect(provider, isNot(contains('int _cloudVersionFrom(')));
-  });
+      );
+      expect(
+        repository,
+        contains(
+          '.doc(metaPath)\n'
+          '          .get(authoritativeGlobalPullReadOptions)',
+        ),
+      );
+      expect(repository, isNot(contains('final Future<DocumentSnapshot')));
+      expect(
+        repository.indexOf('final metaData = metaDoc.data();'),
+        lessThan(
+          repository.indexOf(
+            'if (docs.isEmpty) return const BafKnowledgePullResult',
+          ),
+        ),
+      );
+      expect(
+        repository.indexOf('final remotes = ['),
+        lessThan(repository.indexOf('await _isar.writeTxn(() async {')),
+      );
+      expect(
+        repository.indexOf('BafKnowledgeMatrixMetaStore.fromCloudMap'),
+        lessThan(repository.indexOf('await _isar.writeTxn(() async {')),
+      );
+      expect(
+        provider,
+        contains('BafKnowledgeRow.fromCloudMap(data, before.rowCode)'),
+      );
+      expect(
+        provider,
+        contains('BafKnowledgeRow.fromCloudMap(data, local.rowCode)'),
+      );
+      expect(provider, contains('} on FirebaseException {'));
+      expect(provider, isNot(contains('int _cloudVersionFrom(')));
+    },
+  );
 }
 
 Map<String, dynamic> _validRow({DateTime? createdAt, DateTime? updatedAt}) {

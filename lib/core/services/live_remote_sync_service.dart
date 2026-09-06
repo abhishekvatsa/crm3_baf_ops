@@ -6,14 +6,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart'
     show debugPrint, debugPrintStack, kIsWeb, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart' hide Query;
+import 'package:isar_community/isar.dart' hide Query;
 
 import '../../features/abnormalities/data/abnormality_model.dart';
+import '../../features/abnormalities/providers/abnormality_provider.dart';
 import '../../features/auth/data/user_model.dart';
 import '../../features/directives/data/operational_directive_model.dart';
 import '../../features/directives/data/remote_operational_directive_reader.dart';
+import '../../features/directives/providers/operational_directive_provider.dart';
 import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/data/remote_maintenance_reader.dart';
+import '../../features/maintenance/providers/maintenance_provider.dart';
 import '../../features/maintenance_workflow/data/compliance_request_record.dart';
 import '../../features/maintenance_workflow/data/job_lane_record.dart';
 import '../../features/maintenance_workflow/data/workflow_aggregate_record.dart';
@@ -23,7 +26,12 @@ import '../../features/planned_maintenance/data/job_diary_model.dart';
 import '../../features/planned_maintenance/data/job_module_model.dart';
 import '../../features/planned_maintenance/data/job_template_model.dart';
 import '../../features/planned_maintenance/data/template_governance_model.dart';
+import '../../features/planned_maintenance/providers/job_diary_provider.dart';
+import '../../features/planned_maintenance/providers/job_module_provider.dart';
+import '../../features/planned_maintenance/providers/planned_maintenance_provider.dart';
+import '../../features/planned_maintenance/providers/template_governance_provider.dart';
 import 'app_logger.dart';
+import 'remote_tombstone_apply_result.dart';
 import 'sync_remote_freshness_policy.dart';
 
 part 'live_remote_sync_service.business.dart';
@@ -255,10 +263,9 @@ class LiveRemoteSyncHealth {
       lastEventAt: lastEventAt ?? this.lastEventAt,
       lastAppliedAt: lastAppliedAt ?? this.lastAppliedAt,
       lastError: clearLastError ? null : (lastError ?? this.lastError),
-      maintenanceScopeLabel:
-          clearMaintenanceScopeLabel
-              ? null
-              : (maintenanceScopeLabel ?? this.maintenanceScopeLabel),
+      maintenanceScopeLabel: clearMaintenanceScopeLabel
+          ? null
+          : (maintenanceScopeLabel ?? this.maintenanceScopeLabel),
       listenerCount: listenerCount ?? this.listenerCount,
       appliedCount: appliedCount ?? this.appliedCount,
       skippedUnsyncedLocalCount:
@@ -272,10 +279,9 @@ class LiveRemoteSyncHealth {
 
 final liveRemoteSyncHealthProvider = StateProvider<LiveRemoteSyncHealth>((ref) {
   return const LiveRemoteSyncHealth(
-    maintenanceState:
-        kIsWeb
-            ? LiveRemoteSyncConnectionState.disabled
-            : LiveRemoteSyncConnectionState.disconnected,
+    maintenanceState: kIsWeb
+        ? LiveRemoteSyncConnectionState.disabled
+        : LiveRemoteSyncConnectionState.disconnected,
   );
 });
 
@@ -285,6 +291,13 @@ typedef LiveRemoteSyncProviderReader =
 class LiveRemoteSyncService {
   final Isar _isar;
   final LiveRemoteSyncProviderReader _read;
+  final MaintenanceRepository _maintenanceRepository;
+  final DirectiveRepository _directiveRepository;
+  final PlannedMaintenanceRepository _plannedRepository;
+  final JobModuleRepository _jobModuleRepository;
+  final JobDiaryRepository _jobDiaryRepository;
+  final AbnormalityRepository _abnormalityRepository;
+  final TemplateGovernanceRepository _templateGovernanceRepository;
 
   final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
   _maintenanceSubs =
@@ -311,8 +324,28 @@ class LiveRemoteSyncService {
   LiveMaintenanceMirrorScope? _maintenanceScope;
   bool _maintenanceStarted = false;
   bool _pausedForLifecycle = false;
+  int _lifecycleGeneration = 0;
 
-  LiveRemoteSyncService(this._isar, this._read);
+  LiveRemoteSyncService(
+    this._isar,
+    this._read, {
+    MaintenanceRepository? maintenanceRepository,
+    DirectiveRepository? directiveRepository,
+    PlannedMaintenanceRepository? plannedRepository,
+    JobModuleRepository? jobModuleRepository,
+    JobDiaryRepository? jobDiaryRepository,
+    AbnormalityRepository? abnormalityRepository,
+    TemplateGovernanceRepository? templateGovernanceRepository,
+  }) : _maintenanceRepository =
+           maintenanceRepository ?? IsarMaintenanceRepository(),
+       _directiveRepository = directiveRepository ?? IsarDirectiveRepository(),
+       _plannedRepository = plannedRepository ?? IsarPlannedRepository(),
+       _jobModuleRepository = jobModuleRepository ?? IsarJobModuleRepository(),
+       _jobDiaryRepository = jobDiaryRepository ?? IsarJobDiaryRepository(),
+       _abnormalityRepository =
+           abnormalityRepository ?? IsarAbnormalityRepository(),
+       _templateGovernanceRepository =
+           templateGovernanceRepository ?? IsarTemplateGovernanceRepository();
 
   void startMaintenanceOpenTicketMirror({required AppUser actor}) {
     final scope = LiveMaintenanceMirrorScope.forUser(actor);
@@ -383,10 +416,9 @@ class LiveRemoteSyncService {
 
     _setHealth(
       _health.copyWith(
-        maintenanceState:
-            kIsWeb
-                ? LiveRemoteSyncConnectionState.disabled
-                : LiveRemoteSyncConnectionState.disconnected,
+        maintenanceState: kIsWeb
+            ? LiveRemoteSyncConnectionState.disabled
+            : LiveRemoteSyncConnectionState.disconnected,
         listenerCount: 0,
         clearStartedAt: true,
         clearPausedAt: true,
@@ -470,6 +502,7 @@ class LiveRemoteSyncService {
     }
 
     _maintenanceStarted = true;
+    final generation = _lifecycleGeneration;
     _setHealth(
       _health.copyWith(
         maintenanceState: LiveRemoteSyncConnectionState.listening,
@@ -503,8 +536,10 @@ class LiveRemoteSyncService {
               spec.kind,
               snapshot,
               listenerLabel: spec.label,
+              generation: generation,
             ),
             onError: (Object error, StackTrace stackTrace) {
+              if (!_acceptsLiveWork(generation)) return;
               debugPrint(
                 '⚠️ Live maintenance listener failed (${spec.label}): $error',
               );
@@ -527,7 +562,7 @@ class LiveRemoteSyncService {
               );
             },
             onDone: () {
-              if (_pausedForLifecycle) return;
+              if (!_acceptsLiveWork(generation)) return;
               _setHealth(
                 _health.copyWith(
                   maintenanceState: LiveRemoteSyncConnectionState.disconnected,
@@ -540,7 +575,7 @@ class LiveRemoteSyncService {
     }
 
     for (final spec in businessSpecs) {
-      _startBusinessListener(spec);
+      _startBusinessListener(spec, generation);
     }
   }
 
@@ -628,6 +663,7 @@ class LiveRemoteSyncService {
       ];
 
   void _cancelMaintenanceSubscriptions() {
+    _lifecycleGeneration++;
     final subs =
         List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>.from(
           _maintenanceSubs,
@@ -657,10 +693,19 @@ class LiveRemoteSyncService {
     }
   }
 
+  bool _acceptsLiveWork(int generation) => liveRemoteSyncGenerationIsCurrent(
+    capturedGeneration: generation,
+    currentGeneration: _lifecycleGeneration,
+    started: _maintenanceStarted,
+    paused: _pausedForLifecycle,
+  );
+
   void _handleMaintenanceSnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot, {
     required String listenerLabel,
+    required int generation,
   }) {
+    if (!_acceptsLiveWork(generation)) return;
     _setHealth(
       _health.copyWith(
         maintenanceState: LiveRemoteSyncConnectionState.listening,
@@ -673,7 +718,7 @@ class LiveRemoteSyncService {
       switch (change.type) {
         case DocumentChangeType.added:
         case DocumentChangeType.modified:
-          unawaited(_applyMaintenanceDoc(change.doc));
+          unawaited(_applyMaintenanceDoc(change.doc, generation: generation));
           break;
         case DocumentChangeType.removed:
           _setHealth(
@@ -683,25 +728,34 @@ class LiveRemoteSyncService {
           // resolved, soft-deleted, or moved outside the scoped query. Fetch the
           // document directly to apply its full current state rather than
           // guessing from query removal alone.
-          unawaited(_applyRemovedMaintenanceDoc(change.doc.reference));
+          unawaited(
+            _applyRemovedMaintenanceDoc(
+              change.doc.reference,
+              generation: generation,
+            ),
+          );
           break;
       }
     }
 
     if (!snapshot.metadata.isFromCache && !snapshot.metadata.hasPendingWrites) {
-      _authoritativeTicketIdsByListener[listenerLabel] =
-          snapshot.docs.map((document) => document.id).toSet();
+      _authoritativeTicketIdsByListener[listenerLabel] = snapshot.docs
+          .map((document) => document.id)
+          .toSet();
       if (!_initialTicketReconciliationComplete &&
           _expectedTicketListeners.every(
             _authoritativeTicketIdsByListener.containsKey,
           )) {
         _initialTicketReconciliationComplete = true;
-        unawaited(_reconcileInitiallyVisibleMaintenanceTickets());
+        unawaited(_reconcileInitiallyVisibleMaintenanceTickets(generation));
       }
     }
   }
 
-  Future<void> _reconcileInitiallyVisibleMaintenanceTickets() async {
+  Future<void> _reconcileInitiallyVisibleMaintenanceTickets(
+    int generation,
+  ) async {
+    if (!_acceptsLiveWork(generation)) return;
     try {
       final remoteIds = <String>{
         for (final ids in _authoritativeTicketIdsByListener.values) ...ids,
@@ -711,14 +765,15 @@ class LiveRemoteSyncService {
         return;
       }
 
-      final records =
-          await _isar.maintenanceRecords
-              .filter()
-              .isResolvedEqualTo(false)
-              .and()
-              .isDeletedEqualTo(false)
-              .findAll();
+      final records = await _isar.maintenanceRecords
+          .filter()
+          .isResolvedEqualTo(false)
+          .and()
+          .isDeletedEqualTo(false)
+          .findAll();
+      if (!_acceptsLiveWork(generation)) return;
       for (final record in records) {
+        if (!_acceptsLiveWork(generation)) return;
         final identifier = record.firestoreId?.trim();
         if (!record.isSynced ||
             identifier == null ||
@@ -731,13 +786,16 @@ class LiveRemoteSyncService {
           FirebaseFirestore.instance
               .collection('maintenance_records')
               .doc(identifier),
+          generation: generation,
           propagateFailure: true,
         );
       }
+      if (!_acceptsLiveWork(generation)) return;
       _ticketReconciliationFailures = 0;
       _ticketReconciliationRetry?.cancel();
       _ticketReconciliationRetry = null;
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       _initialTicketReconciliationComplete = false;
       _recordWorkflowProjectionError(
         kind: _LiveRemoteMirrorKind.maintenanceTicket,
@@ -745,12 +803,12 @@ class LiveRemoteSyncService {
         error: error,
         stackTrace: stackTrace,
       );
-      _scheduleMaintenanceTicketReconciliationRetry();
+      _scheduleMaintenanceTicketReconciliationRetry(generation);
     }
   }
 
-  void _scheduleMaintenanceTicketReconciliationRetry() {
-    if (!_maintenanceStarted || _pausedForLifecycle) {
+  void _scheduleMaintenanceTicketReconciliationRetry(int generation) {
+    if (!_acceptsLiveWork(generation)) {
       return;
     }
 
@@ -765,8 +823,7 @@ class LiveRemoteSyncService {
     _ticketReconciliationRetry?.cancel();
     _ticketReconciliationRetry = Timer(delay, () {
       _ticketReconciliationRetry = null;
-      if (!_maintenanceStarted ||
-          _pausedForLifecycle ||
+      if (!_acceptsLiveWork(generation) ||
           _initialTicketReconciliationComplete ||
           !_expectedTicketListeners.every(
             _authoritativeTicketIdsByListener.containsKey,
@@ -774,7 +831,7 @@ class LiveRemoteSyncService {
         return;
       }
       _initialTicketReconciliationComplete = true;
-      unawaited(_reconcileInitiallyVisibleMaintenanceTickets());
+      unawaited(_reconcileInitiallyVisibleMaintenanceTickets(generation));
     });
   }
 
@@ -795,7 +852,9 @@ class LiveRemoteSyncService {
   Future<void> _reconcileActiveWorkflowProjections(
     _LiveRemoteMirrorKind kind,
     Set<String> activeRemoteIds,
+    int generation,
   ) async {
+    if (!_acceptsLiveWork(generation)) return;
     try {
       final staleIds = <String>[];
       switch (kind) {
@@ -842,26 +901,30 @@ class LiveRemoteSyncService {
         case _LiveRemoteMirrorKind.maintenanceTicket:
           return;
       }
+      if (!_acceptsLiveWork(generation)) return;
 
       final collectionName = switch (kind) {
         _LiveRemoteMirrorKind.workflow => 'maintenance_workflows',
         _LiveRemoteMirrorKind.lane => 'job_lanes',
         _LiveRemoteMirrorKind.compliance => 'compliance_requests',
-        _LiveRemoteMirrorKind.maintenanceTicket =>
-          throw StateError(
-            'Maintenance tickets use their dedicated reconciler.',
-          ),
+        _LiveRemoteMirrorKind.maintenanceTicket => throw StateError(
+          'Maintenance tickets use their dedicated reconciler.',
+        ),
       };
       for (final documentId in staleIds) {
+        if (!_acceptsLiveWork(generation)) return;
         await _applyRemovedWorkflowProjectionDoc(
           kind,
           FirebaseFirestore.instance.collection(collectionName).doc(documentId),
+          generation: generation,
           propagateFailure: true,
         );
       }
+      if (!_acceptsLiveWork(generation)) return;
       _projectionReconciliationFailures.remove(kind);
       _projectionReconciliationRetries.remove(kind)?.cancel();
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       _reconciledProjectionKinds.remove(kind);
       _recordWorkflowProjectionError(
         kind: kind,
@@ -869,15 +932,20 @@ class LiveRemoteSyncService {
         error: error,
         stackTrace: stackTrace,
       );
-      _scheduleWorkflowProjectionReconciliationRetry(kind, activeRemoteIds);
+      _scheduleWorkflowProjectionReconciliationRetry(
+        kind,
+        activeRemoteIds,
+        generation,
+      );
     }
   }
 
   void _scheduleWorkflowProjectionReconciliationRetry(
     _LiveRemoteMirrorKind kind,
     Set<String> activeRemoteIds,
+    int generation,
   ) {
-    if (!_maintenanceStarted || _pausedForLifecycle) return;
+    if (!_acceptsLiveWork(generation)) return;
 
     final failures = (_projectionReconciliationFailures[kind] ?? 0) + 1;
     _projectionReconciliationFailures[kind] = failures;
@@ -887,12 +955,13 @@ class LiveRemoteSyncService {
     _projectionReconciliationRetries.remove(kind)?.cancel();
     _projectionReconciliationRetries[kind] = Timer(delay, () {
       _projectionReconciliationRetries.remove(kind);
-      if (!_maintenanceStarted ||
-          _pausedForLifecycle ||
+      if (!_acceptsLiveWork(generation) ||
           !_reconciledProjectionKinds.add(kind)) {
         return;
       }
-      unawaited(_reconcileActiveWorkflowProjections(kind, activeRemoteIds));
+      unawaited(
+        _reconcileActiveWorkflowProjections(kind, activeRemoteIds, generation),
+      );
     });
   }
 
@@ -900,9 +969,15 @@ class LiveRemoteSyncService {
     _LiveRemoteMirrorKind kind,
     QuerySnapshot<Map<String, dynamic>> snapshot, {
     required String listenerLabel,
+    required int generation,
   }) {
+    if (!_acceptsLiveWork(generation)) return;
     if (kind == _LiveRemoteMirrorKind.maintenanceTicket) {
-      _handleMaintenanceSnapshot(snapshot, listenerLabel: listenerLabel);
+      _handleMaintenanceSnapshot(
+        snapshot,
+        listenerLabel: listenerLabel,
+        generation: generation,
+      );
       return;
     }
 
@@ -918,11 +993,21 @@ class LiveRemoteSyncService {
       switch (change.type) {
         case DocumentChangeType.added:
         case DocumentChangeType.modified:
-          unawaited(_applyWorkflowProjectionDoc(kind, change.doc));
+          unawaited(
+            _applyWorkflowProjectionDoc(
+              kind,
+              change.doc,
+              generation: generation,
+            ),
+          );
           break;
         case DocumentChangeType.removed:
           unawaited(
-            _applyRemovedWorkflowProjectionDoc(kind, change.doc.reference),
+            _applyRemovedWorkflowProjectionDoc(
+              kind,
+              change.doc.reference,
+              generation: generation,
+            ),
           );
           break;
       }
@@ -935,6 +1020,7 @@ class LiveRemoteSyncService {
         _reconcileActiveWorkflowProjections(
           kind,
           snapshot.docs.map((doc) => doc.id).toSet(),
+          generation,
         ),
       );
     }
@@ -943,20 +1029,25 @@ class LiveRemoteSyncService {
   Future<void> _applyRemovedWorkflowProjectionDoc(
     _LiveRemoteMirrorKind kind,
     DocumentReference<Map<String, dynamic>> reference, {
+    required int generation,
     bool propagateFailure = false,
   }) async {
+    if (!_acceptsLiveWork(generation)) return;
     try {
       final doc = await reference.get(const GetOptions(source: Source.server));
+      if (!_acceptsLiveWork(generation)) return;
       if (doc.exists) {
         await _applyWorkflowProjectionDoc(
           kind,
           doc,
+          generation: generation,
           propagateFailure: propagateFailure,
         );
       } else {
-        await _removeWorkflowProjection(kind, reference.id);
+        await _removeWorkflowProjection(kind, reference.id, generation);
       }
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       if (propagateFailure) rethrow;
       _recordWorkflowProjectionError(
         kind: kind,
@@ -970,25 +1061,27 @@ class LiveRemoteSyncService {
   Future<void> _applyWorkflowProjectionDoc(
     _LiveRemoteMirrorKind kind,
     DocumentSnapshot<Map<String, dynamic>> doc, {
+    required int generation,
     bool propagateFailure = false,
   }) async {
+    if (!_acceptsLiveWork(generation)) return;
     final data = doc.data();
     if (data == null || doc.metadata.hasPendingWrites) return;
 
     try {
       var applied = false;
       await _isar.writeTxn(() async {
+        if (!_acceptsLiveWork(generation)) return;
         switch (kind) {
           case _LiveRemoteMirrorKind.workflow:
             final remote = workflowAggregateRecordFromFirestoreData(
               documentId: doc.id,
               data: data,
             );
-            final local =
-                await _isar.workflowAggregateRecords
-                    .filter()
-                    .firestoreIdEqualTo(doc.id)
-                    .findFirst();
+            final local = await _isar.workflowAggregateRecords
+                .filter()
+                .firestoreIdEqualTo(doc.id)
+                .findFirst();
             if (!shouldApplyLiveWorkflowProjection(
               localVersion: local?.version,
               localUpdatedAt: local?.updatedAt,
@@ -1006,11 +1099,10 @@ class LiveRemoteSyncService {
               documentId: doc.id,
               data: data,
             );
-            final local =
-                await _isar.jobLaneRecords
-                    .filter()
-                    .firestoreIdEqualTo(doc.id)
-                    .findFirst();
+            final local = await _isar.jobLaneRecords
+                .filter()
+                .firestoreIdEqualTo(doc.id)
+                .findFirst();
             if (!shouldApplyLiveWorkflowProjection(
               localVersion: local?.version,
               localUpdatedAt: local?.updatedAt,
@@ -1029,11 +1121,10 @@ class LiveRemoteSyncService {
               documentId: doc.id,
               data: data,
             );
-            final local =
-                await _isar.complianceRequestRecords
-                    .filter()
-                    .firestoreIdEqualTo(doc.id)
-                    .findFirst();
+            final local = await _isar.complianceRequestRecords
+                .filter()
+                .firestoreIdEqualTo(doc.id)
+                .findFirst();
             if (!shouldApplyLiveWorkflowProjection(
               localVersion: local?.version,
               localUpdatedAt: local?.updatedAt,
@@ -1054,6 +1145,7 @@ class LiveRemoteSyncService {
         }
       });
 
+      if (!_acceptsLiveWork(generation)) return;
       if (applied) {
         _setHealth(
           _health.copyWith(
@@ -1065,6 +1157,7 @@ class LiveRemoteSyncService {
         );
       }
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       if (propagateFailure) rethrow;
       _recordWorkflowProjectionError(
         kind: kind,
@@ -1078,35 +1171,35 @@ class LiveRemoteSyncService {
   Future<void> _removeWorkflowProjection(
     _LiveRemoteMirrorKind kind,
     String documentId,
+    int generation,
   ) async {
+    if (!_acceptsLiveWork(generation)) return;
     await _isar.writeTxn(() async {
+      if (!_acceptsLiveWork(generation)) return;
       switch (kind) {
         case _LiveRemoteMirrorKind.workflow:
-          final local =
-              await _isar.workflowAggregateRecords
-                  .filter()
-                  .firestoreIdEqualTo(documentId)
-                  .findFirst();
+          final local = await _isar.workflowAggregateRecords
+              .filter()
+              .firestoreIdEqualTo(documentId)
+              .findFirst();
           if (local != null) {
             await _isar.workflowAggregateRecords.delete(local.id);
           }
           break;
         case _LiveRemoteMirrorKind.lane:
-          final local =
-              await _isar.jobLaneRecords
-                  .filter()
-                  .firestoreIdEqualTo(documentId)
-                  .findFirst();
+          final local = await _isar.jobLaneRecords
+              .filter()
+              .firestoreIdEqualTo(documentId)
+              .findFirst();
           if (local != null && local.isSynced) {
             await _isar.jobLaneRecords.delete(local.id);
           }
           break;
         case _LiveRemoteMirrorKind.compliance:
-          final local =
-              await _isar.complianceRequestRecords
-                  .filter()
-                  .firestoreIdEqualTo(documentId)
-                  .findFirst();
+          final local = await _isar.complianceRequestRecords
+              .filter()
+              .firestoreIdEqualTo(documentId)
+              .findFirst();
           if (local != null && local.isSynced) {
             await _isar.complianceRequestRecords.delete(local.id);
           }
@@ -1143,25 +1236,35 @@ class LiveRemoteSyncService {
 
   Future<void> _applyRemovedMaintenanceDoc(
     DocumentReference<Map<String, dynamic>> reference, {
+    required int generation,
     bool propagateFailure = false,
   }) async {
+    if (!_acceptsLiveWork(generation)) return;
     try {
       final doc = await reference.get(const GetOptions(source: Source.server));
+      if (!_acceptsLiveWork(generation)) return;
       if (!doc.exists) {
         await _isar.writeTxn(() async {
-          final local =
-              await _isar.maintenanceRecords
-                  .filter()
-                  .firestoreIdEqualTo(reference.id)
-                  .findFirst();
-          if (local != null && local.isSynced) {
-            await _isar.maintenanceRecords.delete(local.id);
+          if (!_acceptsLiveWork(generation)) return;
+          final locals = await _isar.maintenanceRecords
+              .filter()
+              .firestoreIdEqualTo(reference.id)
+              .findAll();
+          for (final local in locals) {
+            if (local.isSynced) {
+              await _isar.maintenanceRecords.delete(local.id);
+            }
           }
         });
         return;
       }
-      await _applyMaintenanceDoc(doc, propagateFailure: propagateFailure);
+      await _applyMaintenanceDoc(
+        doc,
+        generation: generation,
+        propagateFailure: propagateFailure,
+      );
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       if (propagateFailure) {
         rethrow;
       }
@@ -1184,45 +1287,36 @@ class LiveRemoteSyncService {
 
   Future<void> _applyMaintenanceDoc(
     DocumentSnapshot<Map<String, dynamic>> doc, {
+    required int generation,
     bool propagateFailure = false,
   }) async {
+    if (!_acceptsLiveWork(generation)) return;
     final data = doc.data();
     if (data == null || doc.metadata.hasPendingWrites) return;
 
     try {
       final remote = _mapTicket(doc, data);
       if (remote.firestoreId == null) return;
-      var applied = false;
-      var skippedUnsynced = false;
+      final receipt = remote.isDeleted
+          ? _remoteMirrorReceiptFromTombstone(
+              await _maintenanceRepository.applyTombstoneFromMaintenanceRemote(
+                remote,
+              ),
+            )
+          : _remoteMirrorReceiptFromRecord(
+              await _maintenanceRepository.applyMaintenanceRecordFromRemote(
+                remote,
+              ),
+            );
 
-      await _isar.writeTxn(() async {
-        final local =
-            await _isar.maintenanceRecords
-                .filter()
-                .firestoreIdEqualTo(remote.firestoreId!)
-                .findFirst();
-
-        if (local == null) {
-          if (remote.isDeleted) return;
-          remote.isSynced = true;
-          await _isar.maintenanceRecords.put(remote);
-          applied = true;
-          return;
-        }
-
-        final decision = _remoteDecision(local, remote);
-        if (decision == _RemoteApplyDecision.skipLocalUnsynced) {
-          skippedUnsynced = true;
-          return;
-        }
-        if (decision == _RemoteApplyDecision.skip) return;
-
-        _copyRemoteTicketIntoLocal(remote, local);
-        await _isar.maintenanceRecords.put(local);
-        applied = true;
-      });
-
-      if (applied) {
+      if (!_acceptsLiveWork(generation)) return;
+      if (receipt.outcome == _RemoteMirrorApplyOutcome.duplicateLocalIdentity) {
+        throw StateError(
+          'Live maintenance mirror found ${receipt.duplicateCount} local rows '
+          'for remote identity ${remote.firestoreId}.',
+        );
+      }
+      if (receipt.outcome == _RemoteMirrorApplyOutcome.applied) {
         _setHealth(
           _health.copyWith(
             maintenanceState: LiveRemoteSyncConnectionState.listening,
@@ -1231,7 +1325,8 @@ class LiveRemoteSyncService {
             clearLastError: true,
           ),
         );
-      } else if (skippedUnsynced) {
+      } else if (receipt.outcome ==
+          _RemoteMirrorApplyOutcome.localDirtyPreserved) {
         _setHealth(
           _health.copyWith(
             skippedUnsyncedLocalCount: _health.skippedUnsyncedLocalCount + 1,
@@ -1239,6 +1334,7 @@ class LiveRemoteSyncService {
         );
       }
     } catch (error, stackTrace) {
+      if (!_acceptsLiveWork(generation)) return;
       if (propagateFailure) {
         rethrow;
       }
@@ -1262,105 +1358,6 @@ class LiveRemoteSyncService {
     }
   }
 
-  _RemoteApplyDecision _remoteDecision(
-    MaintenanceRecord local,
-    MaintenanceRecord remote,
-  ) {
-    final remoteNewer = _isRemoteNewerByPolicy(local, remote);
-
-    final localNewer = local.updatedAt.isAfter(remote.updatedAt);
-
-    // Protect local offline/operator edits. The full SyncCoordinator/GlobalPull
-    // path will reconcile later and can log conflicts. The live listener should
-    // not erase local unsynced work.
-    if (!local.isSynced) return _RemoteApplyDecision.skipLocalUnsynced;
-
-    if (remote.isDeleted) {
-      return (remoteNewer || !local.isDeleted)
-          ? _RemoteApplyDecision.apply
-          : _RemoteApplyDecision.skip;
-    }
-
-    if (localNewer && !remoteNewer) return _RemoteApplyDecision.skip;
-
-    return (remoteNewer || local.version != remote.version)
-        ? _RemoteApplyDecision.apply
-        : _RemoteApplyDecision.skip;
-  }
-
-  void _copyRemoteTicketIntoLocal(
-    MaintenanceRecord remote,
-    MaintenanceRecord local,
-  ) {
-    local
-      ..version = remote.version
-      ..assetType = remote.assetType
-      ..assetNumber = remote.assetNumber
-      ..component = remote.component
-      ..subsystem = remote.subsystem
-      ..tag = remote.tag
-      ..hierarchyPath = remote.hierarchyPath
-      ..assetHierarchyRefJson = remote.assetHierarchyRefJson
-      ..maintenanceType = remote.maintenanceType
-      ..classification = remote.classification
-      ..description = remote.description
-      ..plantConditionEffect = remote.plantConditionEffect
-      ..routedTo = remote.routedTo
-      ..otherDepartment = remote.otherDepartment
-      ..isCritical = remote.isCritical
-      ..status = remote.status
-      ..isResolved = remote.isResolved
-      ..workflowDeferred = remote.workflowDeferred
-      ..workflowQueueState = remote.workflowQueueState
-      ..workflowAggregateId = remote.workflowAggregateId
-      ..workflowComplianceId = remote.workflowComplianceId
-      ..workflowOriginLaneKey = remote.workflowOriginLaneKey
-      ..workflowTargetLaneKey = remote.workflowTargetLaneKey
-      ..workflowConditionTypeKey = remote.workflowConditionTypeKey
-      ..workflowConditionRef = remote.workflowConditionRef
-      ..workflowDeferredAt = remote.workflowDeferredAt
-      ..workflowDeferredByUid = remote.workflowDeferredByUid
-      ..workflowDeferredByName = remote.workflowDeferredByName
-      ..workflowReactivatedAt = remote.workflowReactivatedAt
-      ..workflowReactivatedByUid = remote.workflowReactivatedByUid
-      ..workflowReactivatedByName = remote.workflowReactivatedByName
-      ..workflowReleasedAt = remote.workflowReleasedAt
-      ..workflowReleasedByUid = remote.workflowReleasedByUid
-      ..workflowReleasedByName = remote.workflowReleasedByName
-      ..workflowCorrectionReason = remote.workflowCorrectionReason
-      ..workflowUpdatedAt = remote.workflowUpdatedAt
-      ..loggedByUid = remote.loggedByUid
-      ..loggedByName = remote.loggedByName
-      ..reportedBy = remote.reportedBy
-      ..acknowledgedByUid = remote.acknowledgedByUid
-      ..acknowledgedByName = remote.acknowledgedByName
-      ..acknowledgedAt = remote.acknowledgedAt
-      ..closedByUid = remote.closedByUid
-      ..closedByName = remote.closedByName
-      ..reopenedByUid = remote.reopenedByUid
-      ..reopenedByName = remote.reopenedByName
-      ..reopenedAt = remote.reopenedAt
-      ..reopenReason = remote.reopenReason
-      ..teamsInvolved = List<String>.from(remote.teamsInvolved)
-      ..performedBy = remote.performedBy
-      ..remarks = remote.remarks
-      ..startDate = remote.startDate
-      ..endDate = remote.endDate
-      ..downtimeHours = remote.downtimeHours
-      ..chargeNoAtEvent = remote.chargeNoAtEvent
-      ..createdAt = remote.createdAt
-      ..updatedAt = remote.updatedAt
-      ..metadataJson = remote.metadataJson
-      ..actionsJson = remote.actionsJson
-      ..resolutionHistoryJson = remote.resolutionHistoryJson
-      ..isDeleted = remote.isDeleted
-      ..deletedAt = remote.deletedAt
-      ..deletedByUid = remote.deletedByUid
-      ..deletedByName = remote.deletedByName
-      ..deleteReason = remote.deleteReason
-      ..isSynced = true;
-  }
-
   MaintenanceRecord _mapTicket(
     DocumentSnapshot<Map<String, dynamic>> doc,
     Map<String, dynamic> d,
@@ -1373,6 +1370,14 @@ class LiveRemoteSyncService {
   }
 }
 
+@visibleForTesting
+bool liveRemoteSyncGenerationIsCurrent({
+  required int capturedGeneration,
+  required int currentGeneration,
+  required bool started,
+  required bool paused,
+}) => capturedGeneration == currentGeneration && started && !paused;
+
 class _LiveRemoteListenerSpec {
   final _LiveRemoteMirrorKind kind;
   final String label;
@@ -1384,8 +1389,6 @@ class _LiveRemoteListenerSpec {
     required this.query,
   });
 }
-
-enum _RemoteApplyDecision { apply, skip, skipLocalUnsynced }
 
 enum _LiveRemoteMirrorKind { maintenanceTicket, workflow, lane, compliance }
 

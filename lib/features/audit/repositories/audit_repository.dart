@@ -1,7 +1,7 @@
 // FILE: lib/features/audit/repositories/audit_repository.dart
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/services/app_logger.dart';
 import '../../../core/persistence/app_database.dart';
@@ -118,6 +118,11 @@ class AuditRepository {
   // LOCAL (SOURCE OF TRUTH)
   // ─────────────────────────────────────────────
 
+  Future<int> countPendingAuditEvents() async {
+    if (kIsWeb) return 0;
+    return isar.auditEvents.filter().isSyncedEqualTo(false).count();
+  }
+
   Future<void> logLocal(AuditEvent event) async {
     if (kIsWeb) {
       debugPrint('ℹ️ Skipping local audit log on web');
@@ -138,14 +143,13 @@ class AuditRepository {
       return _getAllRemoteEventsForEntity(entityType, entityId);
     }
 
-    final local =
-        await isar.auditEvents
-            .filter()
-            .entityTypeEqualTo(entityType)
-            .and()
-            .entityIdEqualTo(entityId)
-            .sortByTimestampDesc()
-            .findAll();
+    final local = await isar.auditEvents
+        .filter()
+        .entityTypeEqualTo(entityType)
+        .and()
+        .entityIdEqualTo(entityId)
+        .sortByTimestampDesc()
+        .findAll();
 
     try {
       final remote = await _getAllRemoteEventsForEntity(entityType, entityId);
@@ -165,12 +169,11 @@ class AuditRepository {
       return getRecentRemoteEvents(limit: limit);
     }
 
-    final local =
-        await isar.auditEvents
-            .where()
-            .sortByTimestampDesc()
-            .limit(limit)
-            .findAll();
+    final local = await isar.auditEvents
+        .where()
+        .sortByTimestampDesc()
+        .limit(limit)
+        .findAll();
 
     try {
       final remote = await getRecentRemoteEvents(limit: limit);
@@ -289,11 +292,10 @@ class AuditRepository {
   }
 
   Future<List<AuditEvent>> getRecentRemoteEvents({int limit = 100}) async {
-    final snap =
-        await _collection
-            .orderBy('timestamp', descending: true)
-            .limit(limit)
-            .get();
+    final snap = await _collection
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .get();
 
     return snap.docs.map(_mapEvent).toList();
   }
@@ -339,8 +341,10 @@ class AuditRepository {
     if (kIsWeb) return AuditSyncResult.empty;
 
     final effectiveBatchSize = batchSize.clamp(1, 450).toInt();
-    final unsynced =
-        await isar.auditEvents.filter().isSyncedEqualTo(false).findAll();
+    final unsynced = await isar.auditEvents
+        .filter()
+        .isSyncedEqualTo(false)
+        .findAll();
 
     if (unsynced.isEmpty) return AuditSyncResult.empty;
 
@@ -526,9 +530,8 @@ class AuditRepository {
       byKey[_eventMergeKey(event)] = event;
     }
 
-    final merged =
-        byKey.values.toList()
-          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final merged = byKey.values.toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return merged;
   }

@@ -28,11 +28,7 @@ const AbnormalityTypeSchema = CollectionSchema(
       type: IsarType.byte,
       enumMap: _AbnormalityTypecategoryEnumValueMap,
     ),
-    r'code': PropertySchema(
-      id: 2,
-      name: r'code',
-      type: IsarType.string,
-    ),
+    r'code': PropertySchema(id: 2, name: r'code', type: IsarType.string),
     r'createdAt': PropertySchema(
       id: 3,
       name: r'createdAt',
@@ -78,21 +74,13 @@ const AbnormalityTypeSchema = CollectionSchema(
       name: r'firestoreId',
       type: IsarType.string,
     ),
-    r'isActive': PropertySchema(
-      id: 12,
-      name: r'isActive',
-      type: IsarType.bool,
-    ),
+    r'isActive': PropertySchema(id: 12, name: r'isActive', type: IsarType.bool),
     r'isDeleted': PropertySchema(
       id: 13,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
-    r'isSynced': PropertySchema(
-      id: 14,
-      name: r'isSynced',
-      type: IsarType.bool,
-    ),
+    r'isSynced': PropertySchema(id: 14, name: r'isSynced', type: IsarType.bool),
     r'lastEditedByName': PropertySchema(
       id: 15,
       name: r'lastEditedByName',
@@ -114,22 +102,15 @@ const AbnormalityTypeSchema = CollectionSchema(
       name: r'suggestsReannealing',
       type: IsarType.bool,
     ),
-    r'title': PropertySchema(
-      id: 19,
-      name: r'title',
-      type: IsarType.string,
-    ),
+    r'title': PropertySchema(id: 19, name: r'title', type: IsarType.string),
     r'updatedAt': PropertySchema(
       id: 20,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'version': PropertySchema(
-      id: 21,
-      name: r'version',
-      type: IsarType.long,
-    )
+    r'version': PropertySchema(id: 21, name: r'version', type: IsarType.long),
   },
+
   estimateSize: _abnormalityTypeEstimateSize,
   serialize: _abnormalityTypeSerialize,
   deserialize: _abnormalityTypeDeserialize,
@@ -146,7 +127,7 @@ const AbnormalityTypeSchema = CollectionSchema(
           name: r'firestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'code': IndexSchema(
@@ -159,7 +140,7 @@ const AbnormalityTypeSchema = CollectionSchema(
           name: r'code',
           type: IndexType.hash,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'title': IndexSchema(
@@ -172,7 +153,7 @@ const AbnormalityTypeSchema = CollectionSchema(
           name: r'title',
           type: IndexType.hash,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'isActive': IndexSchema(
@@ -185,7 +166,7 @@ const AbnormalityTypeSchema = CollectionSchema(
           name: r'isActive',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'isDeleted': IndexSchema(
@@ -198,7 +179,7 @@ const AbnormalityTypeSchema = CollectionSchema(
           name: r'isDeleted',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'updatedAt': IndexSchema(
@@ -211,16 +192,17 @@ const AbnormalityTypeSchema = CollectionSchema(
           name: r'updatedAt',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _abnormalityTypeGetId,
   getLinks: _abnormalityTypeGetLinks,
   attach: _abnormalityTypeAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _abnormalityTypeEstimateSize(
@@ -329,7 +311,7 @@ AbnormalityType _abnormalityTypeDeserialize(
   object.applicableAssetTypeIndexes = reader.readLongList(offsets[0]) ?? [];
   object.category =
       _AbnormalityTypecategoryValueEnumMap[reader.readByteOrNull(offsets[1])] ??
-          AbnormalityCategory.process;
+      AbnormalityCategory.process;
   object.code = reader.readString(offsets[2]);
   object.createdAt = reader.readDateTime(offsets[3]);
   object.createdByName = reader.readStringOrNull(offsets[4]);
@@ -346,8 +328,10 @@ AbnormalityType _abnormalityTypeDeserialize(
   object.isSynced = reader.readBool(offsets[14]);
   object.lastEditedByName = reader.readStringOrNull(offsets[15]);
   object.lastEditedByUid = reader.readStringOrNull(offsets[16]);
-  object.severity = _AbnormalityTypeseverityValueEnumMap[
-          reader.readByteOrNull(offsets[17])] ??
+  object.severity =
+      _AbnormalityTypeseverityValueEnumMap[reader.readByteOrNull(
+        offsets[17],
+      )] ??
       AbnormalitySeverity.low;
   object.suggestsReannealing = reader.readBool(offsets[18]);
   object.title = reader.readString(offsets[19]);
@@ -366,9 +350,11 @@ P _abnormalityTypeDeserializeProp<P>(
     case 0:
       return (reader.readLongList(offset) ?? []) as P;
     case 1:
-      return (_AbnormalityTypecategoryValueEnumMap[
-              reader.readByteOrNull(offset)] ??
-          AbnormalityCategory.process) as P;
+      return (_AbnormalityTypecategoryValueEnumMap[reader.readByteOrNull(
+                offset,
+              )] ??
+              AbnormalityCategory.process)
+          as P;
     case 2:
       return (reader.readString(offset)) as P;
     case 3:
@@ -400,9 +386,11 @@ P _abnormalityTypeDeserializeProp<P>(
     case 16:
       return (reader.readStringOrNull(offset)) as P;
     case 17:
-      return (_AbnormalityTypeseverityValueEnumMap[
-              reader.readByteOrNull(offset)] ??
-          AbnormalitySeverity.low) as P;
+      return (_AbnormalityTypeseverityValueEnumMap[reader.readByteOrNull(
+                offset,
+              )] ??
+              AbnormalitySeverity.low)
+          as P;
     case 18:
       return (reader.readBool(offset)) as P;
     case 19:
@@ -452,7 +440,10 @@ List<IsarLinkBase<dynamic>> _abnormalityTypeGetLinks(AbnormalityType object) {
 }
 
 void _abnormalityTypeAttach(
-    IsarCollection<dynamic> col, Id id, AbnormalityType object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  AbnormalityType object,
+) {
   object.id = id;
 }
 
@@ -474,13 +465,15 @@ extension AbnormalityTypeByIndex on IsarCollection<AbnormalityType> {
   }
 
   Future<List<AbnormalityType?>> getAllByFirestoreId(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndex(r'firestoreId', values);
   }
 
   List<AbnormalityType?> getAllByFirestoreIdSync(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndexSync(r'firestoreId', values);
   }
@@ -507,8 +500,10 @@ extension AbnormalityTypeByIndex on IsarCollection<AbnormalityType> {
     return putAllByIndex(r'firestoreId', objects);
   }
 
-  List<Id> putAllByFirestoreIdSync(List<AbnormalityType> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByFirestoreIdSync(
+    List<AbnormalityType> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'firestoreId', objects, saveLinks: saveLinks);
   }
 }
@@ -549,17 +544,15 @@ extension AbnormalityTypeQueryWhereSort
 extension AbnormalityTypeQueryWhere
     on QueryBuilder<AbnormalityType, AbnormalityType, QWhereClause> {
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause> idEqualTo(
-      Id id) {
+    Id id,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -582,7 +575,7 @@ extension AbnormalityTypeQueryWhere
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -591,8 +584,9 @@ extension AbnormalityTypeQueryWhere
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause> idLessThan(
-      Id id,
-      {bool include = false}) {
+    Id id, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -607,352 +601,401 @@ extension AbnormalityTypeQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      firestoreIdIsNull() {
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'firestoreId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      firestoreIdIsNotNull() {
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'firestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'firestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      firestoreIdEqualTo(String? firestoreId) {
+  firestoreIdEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [firestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'firestoreId',
+          value: [firestoreId],
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      firestoreIdNotEqualTo(String? firestoreId) {
+  firestoreIdNotEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause> codeEqualTo(
-      String code) {
+    String code,
+  ) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'code',
-        value: [code],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'code', value: [code]),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      codeNotEqualTo(String code) {
+  codeNotEqualTo(String code) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'code',
-              lower: [],
-              upper: [code],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'code',
-              lower: [code],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'code',
+                lower: [],
+                upper: [code],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'code',
+                lower: [code],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'code',
-              lower: [code],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'code',
-              lower: [],
-              upper: [code],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'code',
+                lower: [code],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'code',
+                lower: [],
+                upper: [code],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      titleEqualTo(String title) {
+  titleEqualTo(String title) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'title',
-        value: [title],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'title', value: [title]),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      titleNotEqualTo(String title) {
+  titleNotEqualTo(String title) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'title',
-              lower: [],
-              upper: [title],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'title',
-              lower: [title],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'title',
+                lower: [],
+                upper: [title],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'title',
+                lower: [title],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'title',
-              lower: [title],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'title',
-              lower: [],
-              upper: [title],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'title',
+                lower: [title],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'title',
+                lower: [],
+                upper: [title],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      isActiveEqualTo(bool isActive) {
+  isActiveEqualTo(bool isActive) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isActive',
-        value: [isActive],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isActive', value: [isActive]),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      isActiveNotEqualTo(bool isActive) {
+  isActiveNotEqualTo(bool isActive) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isActive',
-              lower: [],
-              upper: [isActive],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isActive',
-              lower: [isActive],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isActive',
+                lower: [],
+                upper: [isActive],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isActive',
+                lower: [isActive],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isActive',
-              lower: [isActive],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isActive',
-              lower: [],
-              upper: [isActive],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isActive',
+                lower: [isActive],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isActive',
+                lower: [],
+                upper: [isActive],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      isDeletedEqualTo(bool isDeleted) {
+  isDeletedEqualTo(bool isDeleted) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isDeleted',
-        value: [isDeleted],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isDeleted', value: [isDeleted]),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      isDeletedNotEqualTo(bool isDeleted) {
+  isDeletedNotEqualTo(bool isDeleted) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [],
-              upper: [isDeleted],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [isDeleted],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [],
+                upper: [isDeleted],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [isDeleted],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [isDeleted],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [],
-              upper: [isDeleted],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [isDeleted],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [],
+                upper: [isDeleted],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      updatedAtEqualTo(DateTime updatedAt) {
+  updatedAtEqualTo(DateTime updatedAt) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'updatedAt',
-        value: [updatedAt],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'updatedAt', value: [updatedAt]),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      updatedAtNotEqualTo(DateTime updatedAt) {
+  updatedAtNotEqualTo(DateTime updatedAt) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'updatedAt',
-              lower: [],
-              upper: [updatedAt],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'updatedAt',
-              lower: [updatedAt],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'updatedAt',
+                lower: [],
+                upper: [updatedAt],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'updatedAt',
+                lower: [updatedAt],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'updatedAt',
-              lower: [updatedAt],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'updatedAt',
-              lower: [],
-              upper: [updatedAt],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'updatedAt',
+                lower: [updatedAt],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'updatedAt',
+                lower: [],
+                upper: [updatedAt],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      updatedAtGreaterThan(
-    DateTime updatedAt, {
-    bool include = false,
-  }) {
+  updatedAtGreaterThan(DateTime updatedAt, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'updatedAt',
-        lower: [updatedAt],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'updatedAt',
+          lower: [updatedAt],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      updatedAtLessThan(
-    DateTime updatedAt, {
-    bool include = false,
-  }) {
+  updatedAtLessThan(DateTime updatedAt, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'updatedAt',
-        lower: [],
-        upper: [updatedAt],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'updatedAt',
+          lower: [],
+          upper: [updatedAt],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterWhereClause>
-      updatedAtBetween(
+  updatedAtBetween(
     DateTime lowerUpdatedAt,
     DateTime upperUpdatedAt, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'updatedAt',
-        lower: [lowerUpdatedAt],
-        includeLower: includeLower,
-        upper: [upperUpdatedAt],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'updatedAt',
+          lower: [lowerUpdatedAt],
+          includeLower: includeLower,
+          upper: [upperUpdatedAt],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -960,63 +1003,68 @@ extension AbnormalityTypeQueryWhere
 extension AbnormalityTypeQueryFilter
     on QueryBuilder<AbnormalityType, AbnormalityType, QFilterCondition> {
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesElementEqualTo(int value) {
+  applicableAssetTypeIndexesElementEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'applicableAssetTypeIndexes',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'applicableAssetTypeIndexes',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesElementGreaterThan(
+  applicableAssetTypeIndexesElementGreaterThan(
     int value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'applicableAssetTypeIndexes',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'applicableAssetTypeIndexes',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesElementLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  applicableAssetTypeIndexesElementLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'applicableAssetTypeIndexes',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'applicableAssetTypeIndexes',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesElementBetween(
+  applicableAssetTypeIndexesElementBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'applicableAssetTypeIndexes',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'applicableAssetTypeIndexes',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesLengthEqualTo(int length) {
+  applicableAssetTypeIndexesLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'applicableAssetTypeIndexes',
@@ -1029,20 +1077,14 @@ extension AbnormalityTypeQueryFilter
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesIsEmpty() {
+  applicableAssetTypeIndexesIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'applicableAssetTypeIndexes',
-        0,
-        true,
-        0,
-        true,
-      );
+      return query.listLength(r'applicableAssetTypeIndexes', 0, true, 0, true);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesIsNotEmpty() {
+  applicableAssetTypeIndexesIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'applicableAssetTypeIndexes',
@@ -1055,10 +1097,7 @@ extension AbnormalityTypeQueryFilter
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
+  applicableAssetTypeIndexesLengthLessThan(int length, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'applicableAssetTypeIndexes',
@@ -1071,7 +1110,7 @@ extension AbnormalityTypeQueryFilter
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesLengthGreaterThan(
+  applicableAssetTypeIndexesLengthGreaterThan(
     int length, {
     bool include = false,
   }) {
@@ -1087,7 +1126,7 @@ extension AbnormalityTypeQueryFilter
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      applicableAssetTypeIndexesLengthBetween(
+  applicableAssetTypeIndexesLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -1105,109 +1144,111 @@ extension AbnormalityTypeQueryFilter
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      categoryEqualTo(AbnormalityCategory value) {
+  categoryEqualTo(AbnormalityCategory value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'category',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'category', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      categoryGreaterThan(
-    AbnormalityCategory value, {
-    bool include = false,
-  }) {
+  categoryGreaterThan(AbnormalityCategory value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'category',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'category',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      categoryLessThan(
-    AbnormalityCategory value, {
-    bool include = false,
-  }) {
+  categoryLessThan(AbnormalityCategory value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'category',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'category',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      categoryBetween(
+  categoryBetween(
     AbnormalityCategory lower,
     AbnormalityCategory upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'category',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'category',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  codeEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'code',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'code',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'code',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeLessThan(
+  codeGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'code',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'code',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeBetween(
+  codeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'code',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  codeBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1215,209 +1256,213 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'code',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'code',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  codeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'code',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'code',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  codeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'code',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'code',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeContains(String value, {bool caseSensitive = true}) {
+  codeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'code',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'code',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeMatches(String pattern, {bool caseSensitive = true}) {
+  codeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'code',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'code',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeIsEmpty() {
+  codeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'code',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'code', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      codeIsNotEmpty() {
+  codeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'code',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'code', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdAtEqualTo(DateTime value) {
+  createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdAt', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdAtBetween(
+  createdAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameIsNull() {
+  createdByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'createdByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'createdByName'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameIsNotNull() {
+  createdByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'createdByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'createdByName'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameLessThan(
+  createdByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameBetween(
+  createdByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  createdByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1425,153 +1470,158 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameContains(String value, {bool caseSensitive = true}) {
+  createdByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'createdByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'createdByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameMatches(String pattern, {bool caseSensitive = true}) {
+  createdByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'createdByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'createdByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameIsEmpty() {
+  createdByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByNameIsNotEmpty() {
+  createdByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'createdByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'createdByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidIsNull() {
+  createdByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'createdByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'createdByUid'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidIsNotNull() {
+  createdByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'createdByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'createdByUid'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidLessThan(
+  createdByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidBetween(
+  createdByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  createdByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1579,153 +1629,158 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  createdByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidContains(String value, {bool caseSensitive = true}) {
+  createdByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'createdByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'createdByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidMatches(String pattern, {bool caseSensitive = true}) {
+  createdByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'createdByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'createdByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidIsEmpty() {
+  createdByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      createdByUidIsNotEmpty() {
+  createdByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'createdByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'createdByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonIsNull() {
+  deleteReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deleteReason'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonIsNotNull() {
+  deleteReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deleteReason'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonLessThan(
+  deleteReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonBetween(
+  deleteReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  deleteReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1733,227 +1788,231 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deleteReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deleteReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonContains(String value, {bool caseSensitive = true}) {
+  deleteReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
+  deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deleteReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deleteReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonIsEmpty() {
+  deleteReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deleteReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deleteReasonIsNotEmpty() {
+  deleteReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deleteReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedAtIsNull() {
+  deletedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedAt'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedAtIsNotNull() {
+  deletedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedAt'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedAtEqualTo(DateTime? value) {
+  deletedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  deletedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  deletedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedAtBetween(
+  deletedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameIsNull() {
+  deletedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByName'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameIsNotNull() {
+  deletedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByName'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameLessThan(
+  deletedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameBetween(
+  deletedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  deletedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -1961,153 +2020,158 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameContains(String value, {bool caseSensitive = true}) {
+  deletedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameIsEmpty() {
+  deletedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByNameIsNotEmpty() {
+  deletedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidIsNull() {
+  deletedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByUid'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidIsNotNull() {
+  deletedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByUid'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidLessThan(
+  deletedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidBetween(
+  deletedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  deletedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2115,153 +2179,158 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidContains(String value, {bool caseSensitive = true}) {
+  deletedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidIsEmpty() {
+  deletedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      deletedByUidIsNotEmpty() {
+  deletedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionIsNull() {
+  descriptionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'description',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'description'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionIsNotNull() {
+  descriptionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'description',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'description'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  descriptionEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionLessThan(
+  descriptionGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionBetween(
+  descriptionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  descriptionBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2269,153 +2338,158 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'description',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'description',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  descriptionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  descriptionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionContains(String value, {bool caseSensitive = true}) {
+  descriptionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionMatches(String pattern, {bool caseSensitive = true}) {
+  descriptionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'description',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'description',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionIsEmpty() {
+  descriptionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'description',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'description', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      descriptionIsNotEmpty() {
+  descriptionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'description',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'description', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdIsNull() {
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'firestoreId'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdIsNotNull() {
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'firestoreId'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdLessThan(
+  firestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdBetween(
+  firestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  firestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2423,239 +2497,240 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'firestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'firestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdContains(String value, {bool caseSensitive = true}) {
+  firestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
+  firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'firestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'firestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdIsEmpty() {
+  firestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'firestoreId', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      firestoreIdIsNotEmpty() {
+  firestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'firestoreId', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      idEqualTo(Id value) {
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      idBetween(
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      isActiveEqualTo(bool value) {
+  isActiveEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isActive',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isActive', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      isDeletedEqualTo(bool value) {
+  isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isDeleted',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isDeleted', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      isSyncedEqualTo(bool value) {
+  isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isSynced',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isSynced', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameIsNull() {
+  lastEditedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastEditedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastEditedByName'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameIsNotNull() {
+  lastEditedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastEditedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastEditedByName'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  lastEditedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastEditedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastEditedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameGreaterThan(
+  lastEditedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastEditedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastEditedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameLessThan(
+  lastEditedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastEditedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastEditedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameBetween(
+  lastEditedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2663,153 +2738,158 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastEditedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastEditedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  lastEditedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastEditedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastEditedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  lastEditedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastEditedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastEditedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameContains(String value, {bool caseSensitive = true}) {
+  lastEditedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastEditedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastEditedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  lastEditedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastEditedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastEditedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameIsEmpty() {
+  lastEditedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastEditedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastEditedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByNameIsNotEmpty() {
+  lastEditedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastEditedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'lastEditedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidIsNull() {
+  lastEditedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastEditedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastEditedByUid'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidIsNotNull() {
+  lastEditedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastEditedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastEditedByUid'),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  lastEditedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastEditedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastEditedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastEditedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidLessThan(
+  lastEditedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastEditedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastEditedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidBetween(
+  lastEditedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastEditedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  lastEditedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2817,201 +2897,204 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastEditedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastEditedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  lastEditedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastEditedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastEditedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  lastEditedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastEditedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastEditedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidContains(String value, {bool caseSensitive = true}) {
+  lastEditedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastEditedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastEditedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  lastEditedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastEditedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastEditedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidIsEmpty() {
+  lastEditedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastEditedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastEditedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      lastEditedByUidIsNotEmpty() {
+  lastEditedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastEditedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'lastEditedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      severityEqualTo(AbnormalitySeverity value) {
+  severityEqualTo(AbnormalitySeverity value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'severity',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'severity', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      severityGreaterThan(
-    AbnormalitySeverity value, {
-    bool include = false,
-  }) {
+  severityGreaterThan(AbnormalitySeverity value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'severity',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'severity',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      severityLessThan(
-    AbnormalitySeverity value, {
-    bool include = false,
-  }) {
+  severityLessThan(AbnormalitySeverity value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'severity',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'severity',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      severityBetween(
+  severityBetween(
     AbnormalitySeverity lower,
     AbnormalitySeverity upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'severity',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'severity',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      suggestsReannealingEqualTo(bool value) {
+  suggestsReannealingEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'suggestsReannealing',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'suggestsReannealing', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  titleEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleLessThan(
+  titleGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleBetween(
+  titleLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
+  titleBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3019,196 +3102,196 @@ extension AbnormalityTypeQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'title',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'title',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  titleStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  titleEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleContains(String value, {bool caseSensitive = true}) {
+  titleContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleMatches(String pattern, {bool caseSensitive = true}) {
+  titleMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'title',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'title',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleIsEmpty() {
+  titleIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'title',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'title', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      titleIsNotEmpty() {
+  titleIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'title',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'title', value: ''),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      updatedAtEqualTo(DateTime value) {
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      updatedAtBetween(
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      versionEqualTo(int value) {
+  versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      versionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      versionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterFilterCondition>
-      versionBetween(
+  versionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'version',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -3222,14 +3305,14 @@ extension AbnormalityTypeQueryLinks
 extension AbnormalityTypeQuerySortBy
     on QueryBuilder<AbnormalityType, AbnormalityType, QSortBy> {
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCategory() {
+  sortByCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCategoryDesc() {
+  sortByCategoryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.desc);
     });
@@ -3242,231 +3325,231 @@ extension AbnormalityTypeQuerySortBy
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCodeDesc() {
+  sortByCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'code', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCreatedAt() {
+  sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCreatedAtDesc() {
+  sortByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCreatedByName() {
+  sortByCreatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCreatedByNameDesc() {
+  sortByCreatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCreatedByUid() {
+  sortByCreatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByCreatedByUidDesc() {
+  sortByCreatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeleteReason() {
+  sortByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeleteReasonDesc() {
+  sortByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeletedAt() {
+  sortByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeletedAtDesc() {
+  sortByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeletedByName() {
+  sortByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeletedByNameDesc() {
+  sortByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeletedByUid() {
+  sortByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDeletedByUidDesc() {
+  sortByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDescription() {
+  sortByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByDescriptionDesc() {
+  sortByDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByFirestoreId() {
+  sortByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByFirestoreIdDesc() {
+  sortByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByIsActive() {
+  sortByIsActive() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isActive', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByIsActiveDesc() {
+  sortByIsActiveDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isActive', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByIsDeleted() {
+  sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByIsDeletedDesc() {
+  sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByIsSynced() {
+  sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByIsSyncedDesc() {
+  sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByLastEditedByName() {
+  sortByLastEditedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByName', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByLastEditedByNameDesc() {
+  sortByLastEditedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByName', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByLastEditedByUid() {
+  sortByLastEditedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByLastEditedByUidDesc() {
+  sortByLastEditedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortBySeverity() {
+  sortBySeverity() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortBySeverityDesc() {
+  sortBySeverityDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortBySuggestsReannealing() {
+  sortBySuggestsReannealing() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'suggestsReannealing', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortBySuggestsReannealingDesc() {
+  sortBySuggestsReannealingDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'suggestsReannealing', Sort.desc);
     });
@@ -3479,21 +3562,21 @@ extension AbnormalityTypeQuerySortBy
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByTitleDesc() {
+  sortByTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByUpdatedAt() {
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByUpdatedAtDesc() {
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
@@ -3506,7 +3589,7 @@ extension AbnormalityTypeQuerySortBy
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      sortByVersionDesc() {
+  sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -3516,14 +3599,14 @@ extension AbnormalityTypeQuerySortBy
 extension AbnormalityTypeQuerySortThenBy
     on QueryBuilder<AbnormalityType, AbnormalityType, QSortThenBy> {
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCategory() {
+  thenByCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCategoryDesc() {
+  thenByCategoryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.desc);
     });
@@ -3536,133 +3619,133 @@ extension AbnormalityTypeQuerySortThenBy
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCodeDesc() {
+  thenByCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'code', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCreatedAt() {
+  thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCreatedAtDesc() {
+  thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCreatedByName() {
+  thenByCreatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCreatedByNameDesc() {
+  thenByCreatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByName', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCreatedByUid() {
+  thenByCreatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByCreatedByUidDesc() {
+  thenByCreatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdByUid', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeleteReason() {
+  thenByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeleteReasonDesc() {
+  thenByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeletedAt() {
+  thenByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeletedAtDesc() {
+  thenByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeletedByName() {
+  thenByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeletedByNameDesc() {
+  thenByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeletedByUid() {
+  thenByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDeletedByUidDesc() {
+  thenByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDescription() {
+  thenByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByDescriptionDesc() {
+  thenByDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByFirestoreId() {
+  thenByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByFirestoreIdDesc() {
+  thenByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
@@ -3681,98 +3764,98 @@ extension AbnormalityTypeQuerySortThenBy
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByIsActive() {
+  thenByIsActive() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isActive', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByIsActiveDesc() {
+  thenByIsActiveDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isActive', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByIsDeleted() {
+  thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByIsDeletedDesc() {
+  thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByIsSynced() {
+  thenByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByIsSyncedDesc() {
+  thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByLastEditedByName() {
+  thenByLastEditedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByName', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByLastEditedByNameDesc() {
+  thenByLastEditedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByName', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByLastEditedByUid() {
+  thenByLastEditedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByLastEditedByUidDesc() {
+  thenByLastEditedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEditedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenBySeverity() {
+  thenBySeverity() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenBySeverityDesc() {
+  thenBySeverityDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenBySuggestsReannealing() {
+  thenBySuggestsReannealing() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'suggestsReannealing', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenBySuggestsReannealingDesc() {
+  thenBySuggestsReannealingDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'suggestsReannealing', Sort.desc);
     });
@@ -3785,21 +3868,21 @@ extension AbnormalityTypeQuerySortThenBy
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByTitleDesc() {
+  thenByTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.desc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByUpdatedAt() {
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByUpdatedAtDesc() {
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
@@ -3812,7 +3895,7 @@ extension AbnormalityTypeQuerySortThenBy
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QAfterSortBy>
-      thenByVersionDesc() {
+  thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -3822,158 +3905,168 @@ extension AbnormalityTypeQuerySortThenBy
 extension AbnormalityTypeQueryWhereDistinct
     on QueryBuilder<AbnormalityType, AbnormalityType, QDistinct> {
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByApplicableAssetTypeIndexes() {
+  distinctByApplicableAssetTypeIndexes() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'applicableAssetTypeIndexes');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByCategory() {
+  distinctByCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'category');
     });
   }
 
-  QueryBuilder<AbnormalityType, AbnormalityType, QDistinct> distinctByCode(
-      {bool caseSensitive = true}) {
+  QueryBuilder<AbnormalityType, AbnormalityType, QDistinct> distinctByCode({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'code', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByCreatedAt() {
+  distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByCreatedByName({bool caseSensitive = true}) {
+  distinctByCreatedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'createdByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'createdByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByCreatedByUid({bool caseSensitive = true}) {
+  distinctByCreatedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByDeleteReason({bool caseSensitive = true}) {
+  distinctByDeleteReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deleteReason', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByDeletedAt() {
+  distinctByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedAt');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByDeletedByName({bool caseSensitive = true}) {
+  distinctByDeletedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'deletedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'deletedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByDeletedByUid({bool caseSensitive = true}) {
+  distinctByDeletedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByDescription({bool caseSensitive = true}) {
+  distinctByDescription({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'description', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByFirestoreId({bool caseSensitive = true}) {
+  distinctByFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'firestoreId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByIsActive() {
+  distinctByIsActive() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isActive');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByIsDeleted() {
+  distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isDeleted');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByIsSynced() {
+  distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByLastEditedByName({bool caseSensitive = true}) {
+  distinctByLastEditedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastEditedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastEditedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByLastEditedByUid({bool caseSensitive = true}) {
+  distinctByLastEditedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastEditedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastEditedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctBySeverity() {
+  distinctBySeverity() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'severity');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctBySuggestsReannealing() {
+  distinctBySuggestsReannealing() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'suggestsReannealing');
     });
   }
 
-  QueryBuilder<AbnormalityType, AbnormalityType, QDistinct> distinctByTitle(
-      {bool caseSensitive = true}) {
+  QueryBuilder<AbnormalityType, AbnormalityType, QDistinct> distinctByTitle({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'title', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByUpdatedAt() {
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityType, QDistinct>
-      distinctByVersion() {
+  distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'version');
     });
@@ -3989,14 +4082,14 @@ extension AbnormalityTypeQueryProperty
   }
 
   QueryBuilder<AbnormalityType, List<int>, QQueryOperations>
-      applicableAssetTypeIndexesProperty() {
+  applicableAssetTypeIndexesProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'applicableAssetTypeIndexes');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalityCategory, QQueryOperations>
-      categoryProperty() {
+  categoryProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'category');
     });
@@ -4009,63 +4102,63 @@ extension AbnormalityTypeQueryProperty
   }
 
   QueryBuilder<AbnormalityType, DateTime, QQueryOperations>
-      createdAtProperty() {
+  createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      createdByNameProperty() {
+  createdByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdByName');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      createdByUidProperty() {
+  createdByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdByUid');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      deleteReasonProperty() {
+  deleteReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deleteReason');
     });
   }
 
   QueryBuilder<AbnormalityType, DateTime?, QQueryOperations>
-      deletedAtProperty() {
+  deletedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedAt');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      deletedByNameProperty() {
+  deletedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByName');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      deletedByUidProperty() {
+  deletedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByUid');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      descriptionProperty() {
+  descriptionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'description');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      firestoreIdProperty() {
+  firestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'firestoreId');
     });
@@ -4090,28 +4183,28 @@ extension AbnormalityTypeQueryProperty
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      lastEditedByNameProperty() {
+  lastEditedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastEditedByName');
     });
   }
 
   QueryBuilder<AbnormalityType, String?, QQueryOperations>
-      lastEditedByUidProperty() {
+  lastEditedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastEditedByUid');
     });
   }
 
   QueryBuilder<AbnormalityType, AbnormalitySeverity, QQueryOperations>
-      severityProperty() {
+  severityProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'severity');
     });
   }
 
   QueryBuilder<AbnormalityType, bool, QQueryOperations>
-      suggestsReannealingProperty() {
+  suggestsReannealingProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'suggestsReannealing');
     });
@@ -4124,7 +4217,7 @@ extension AbnormalityTypeQueryProperty
   }
 
   QueryBuilder<AbnormalityType, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });
@@ -4214,11 +4307,7 @@ const ChargeAbnormalitySchema = CollectionSchema(
       name: r'isDeleted',
       type: IsarType.bool,
     ),
-    r'isSynced': PropertySchema(
-      id: 13,
-      name: r'isSynced',
-      type: IsarType.bool,
-    ),
+    r'isSynced': PropertySchema(id: 13, name: r'isSynced', type: IsarType.bool),
     r'linkedExecutionFirestoreId': PropertySchema(
       id: 14,
       name: r'linkedExecutionFirestoreId',
@@ -4297,12 +4386,9 @@ const ChargeAbnormalitySchema = CollectionSchema(
       name: r'updatedByUid',
       type: IsarType.string,
     ),
-    r'version': PropertySchema(
-      id: 29,
-      name: r'version',
-      type: IsarType.long,
-    )
+    r'version': PropertySchema(id: 29, name: r'version', type: IsarType.long),
   },
+
   estimateSize: _chargeAbnormalityEstimateSize,
   serialize: _chargeAbnormalitySerialize,
   deserialize: _chargeAbnormalityDeserialize,
@@ -4319,7 +4405,7 @@ const ChargeAbnormalitySchema = CollectionSchema(
           name: r'firestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'sourceChargeNo': IndexSchema(
@@ -4332,7 +4418,7 @@ const ChargeAbnormalitySchema = CollectionSchema(
           name: r'sourceChargeNo',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'abnormalityTypeId': IndexSchema(
@@ -4345,7 +4431,7 @@ const ChargeAbnormalitySchema = CollectionSchema(
           name: r'abnormalityTypeId',
           type: IndexType.hash,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'reannealedToChargeNo': IndexSchema(
@@ -4358,7 +4444,7 @@ const ChargeAbnormalitySchema = CollectionSchema(
           name: r'reannealedToChargeNo',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'loggedAt': IndexSchema(
@@ -4371,7 +4457,7 @@ const ChargeAbnormalitySchema = CollectionSchema(
           name: r'loggedAt',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'isDeleted': IndexSchema(
@@ -4384,16 +4470,17 @@ const ChargeAbnormalitySchema = CollectionSchema(
           name: r'isDeleted',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _chargeAbnormalityGetId,
   getLinks: _chargeAbnormalityGetLinks,
   attach: _chargeAbnormalityAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _chargeAbnormalityEstimateSize(
@@ -4537,8 +4624,10 @@ ChargeAbnormality _chargeAbnormalityDeserialize(
   object.abnormalityTypeId = reader.readString(offsets[1]);
   object.abnormalityTypeTitle = reader.readString(offsets[2]);
   object.affectedAssetsJson = reader.readString(offsets[3]);
-  object.category = _ChargeAbnormalitycategoryValueEnumMap[
-          reader.readByteOrNull(offsets[4])] ??
+  object.category =
+      _ChargeAbnormalitycategoryValueEnumMap[reader.readByteOrNull(
+        offsets[4],
+      )] ??
       AbnormalityCategory.process;
   object.component = reader.readStringOrNull(offsets[5]);
   object.deleteReason = reader.readStringOrNull(offsets[6]);
@@ -4557,16 +4646,20 @@ ChargeAbnormality _chargeAbnormalityDeserialize(
   object.loggedByUid = reader.readStringOrNull(offsets[18]);
   object.observedReason = reader.readString(offsets[19]);
   object.possibleRootReasonCategory =
-      _ChargeAbnormalitypossibleRootReasonCategoryValueEnumMap[
-              reader.readByteOrNull(offsets[20])] ??
-          RootReasonCategory.unknown;
+      _ChargeAbnormalitypossibleRootReasonCategoryValueEnumMap[reader
+          .readByteOrNull(offsets[20])] ??
+      RootReasonCategory.unknown;
   object.possibleRootReasonNotes = reader.readStringOrNull(offsets[21]);
   object.reannealedToChargeNo = reader.readLongOrNull(offsets[22]);
-  object.reannealingStatus = _ChargeAbnormalityreannealingStatusValueEnumMap[
-          reader.readByteOrNull(offsets[23])] ??
+  object.reannealingStatus =
+      _ChargeAbnormalityreannealingStatusValueEnumMap[reader.readByteOrNull(
+        offsets[23],
+      )] ??
       ReannealingStatus.notApplicable;
-  object.severity = _ChargeAbnormalityseverityValueEnumMap[
-          reader.readByteOrNull(offsets[24])] ??
+  object.severity =
+      _ChargeAbnormalityseverityValueEnumMap[reader.readByteOrNull(
+        offsets[24],
+      )] ??
       AbnormalitySeverity.low;
   object.sourceChargeNo = reader.readLong(offsets[25]);
   object.updatedAt = reader.readDateTime(offsets[26]);
@@ -4592,9 +4685,11 @@ P _chargeAbnormalityDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (_ChargeAbnormalitycategoryValueEnumMap[
-              reader.readByteOrNull(offset)] ??
-          AbnormalityCategory.process) as P;
+      return (_ChargeAbnormalitycategoryValueEnumMap[reader.readByteOrNull(
+                offset,
+              )] ??
+              AbnormalityCategory.process)
+          as P;
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
@@ -4626,21 +4721,25 @@ P _chargeAbnormalityDeserializeProp<P>(
     case 19:
       return (reader.readString(offset)) as P;
     case 20:
-      return (_ChargeAbnormalitypossibleRootReasonCategoryValueEnumMap[
-              reader.readByteOrNull(offset)] ??
-          RootReasonCategory.unknown) as P;
+      return (_ChargeAbnormalitypossibleRootReasonCategoryValueEnumMap[reader
+                  .readByteOrNull(offset)] ??
+              RootReasonCategory.unknown)
+          as P;
     case 21:
       return (reader.readStringOrNull(offset)) as P;
     case 22:
       return (reader.readLongOrNull(offset)) as P;
     case 23:
-      return (_ChargeAbnormalityreannealingStatusValueEnumMap[
-              reader.readByteOrNull(offset)] ??
-          ReannealingStatus.notApplicable) as P;
+      return (_ChargeAbnormalityreannealingStatusValueEnumMap[reader
+                  .readByteOrNull(offset)] ??
+              ReannealingStatus.notApplicable)
+          as P;
     case 24:
-      return (_ChargeAbnormalityseverityValueEnumMap[
-              reader.readByteOrNull(offset)] ??
-          AbnormalitySeverity.low) as P;
+      return (_ChargeAbnormalityseverityValueEnumMap[reader.readByteOrNull(
+                offset,
+              )] ??
+              AbnormalitySeverity.low)
+          as P;
     case 25:
       return (reader.readLong(offset)) as P;
     case 26:
@@ -4726,12 +4825,16 @@ Id _chargeAbnormalityGetId(ChargeAbnormality object) {
 }
 
 List<IsarLinkBase<dynamic>> _chargeAbnormalityGetLinks(
-    ChargeAbnormality object) {
+  ChargeAbnormality object,
+) {
   return [];
 }
 
 void _chargeAbnormalityAttach(
-    IsarCollection<dynamic> col, Id id, ChargeAbnormality object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  ChargeAbnormality object,
+) {
   object.id = id;
 }
 
@@ -4753,13 +4856,15 @@ extension ChargeAbnormalityByIndex on IsarCollection<ChargeAbnormality> {
   }
 
   Future<List<ChargeAbnormality?>> getAllByFirestoreId(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndex(r'firestoreId', values);
   }
 
   List<ChargeAbnormality?> getAllByFirestoreIdSync(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndexSync(r'firestoreId', values);
   }
@@ -4786,8 +4891,10 @@ extension ChargeAbnormalityByIndex on IsarCollection<ChargeAbnormality> {
     return putAllByIndex(r'firestoreId', objects);
   }
 
-  List<Id> putAllByFirestoreIdSync(List<ChargeAbnormality> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByFirestoreIdSync(
+    List<ChargeAbnormality> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'firestoreId', objects, saveLinks: saveLinks);
   }
 }
@@ -4801,7 +4908,7 @@ extension ChargeAbnormalityQueryWhereSort
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhere>
-      anySourceChargeNo() {
+  anySourceChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'sourceChargeNo'),
@@ -4810,7 +4917,7 @@ extension ChargeAbnormalityQueryWhereSort
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhere>
-      anyReannealedToChargeNo() {
+  anyReannealedToChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'reannealedToChargeNo'),
@@ -4819,7 +4926,7 @@ extension ChargeAbnormalityQueryWhereSort
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhere>
-      anyLoggedAt() {
+  anyLoggedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'loggedAt'),
@@ -4828,7 +4935,7 @@ extension ChargeAbnormalityQueryWhereSort
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhere>
-      anyIsDeleted() {
+  anyIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isDeleted'),
@@ -4840,17 +4947,14 @@ extension ChargeAbnormalityQueryWhereSort
 extension ChargeAbnormalityQueryWhere
     on QueryBuilder<ChargeAbnormality, ChargeAbnormality, QWhereClause> {
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -4873,7 +4977,7 @@ extension ChargeAbnormalityQueryWhere
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -4882,7 +4986,7 @@ extension ChargeAbnormalityQueryWhere
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -4891,476 +4995,543 @@ extension ChargeAbnormalityQueryWhere
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      firestoreIdIsNull() {
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'firestoreId', value: [null]),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      firestoreIdIsNotNull() {
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'firestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'firestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      firestoreIdEqualTo(String? firestoreId) {
+  firestoreIdEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [firestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'firestoreId',
+          value: [firestoreId],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      firestoreIdNotEqualTo(String? firestoreId) {
+  firestoreIdNotEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      sourceChargeNoEqualTo(int sourceChargeNo) {
+  sourceChargeNoEqualTo(int sourceChargeNo) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'sourceChargeNo',
-        value: [sourceChargeNo],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'sourceChargeNo',
+          value: [sourceChargeNo],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      sourceChargeNoNotEqualTo(int sourceChargeNo) {
+  sourceChargeNoNotEqualTo(int sourceChargeNo) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'sourceChargeNo',
-              lower: [],
-              upper: [sourceChargeNo],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'sourceChargeNo',
-              lower: [sourceChargeNo],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sourceChargeNo',
+                lower: [],
+                upper: [sourceChargeNo],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sourceChargeNo',
+                lower: [sourceChargeNo],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'sourceChargeNo',
-              lower: [sourceChargeNo],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'sourceChargeNo',
-              lower: [],
-              upper: [sourceChargeNo],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sourceChargeNo',
+                lower: [sourceChargeNo],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sourceChargeNo',
+                lower: [],
+                upper: [sourceChargeNo],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      sourceChargeNoGreaterThan(
-    int sourceChargeNo, {
-    bool include = false,
-  }) {
+  sourceChargeNoGreaterThan(int sourceChargeNo, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'sourceChargeNo',
-        lower: [sourceChargeNo],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sourceChargeNo',
+          lower: [sourceChargeNo],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      sourceChargeNoLessThan(
-    int sourceChargeNo, {
-    bool include = false,
-  }) {
+  sourceChargeNoLessThan(int sourceChargeNo, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'sourceChargeNo',
-        lower: [],
-        upper: [sourceChargeNo],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sourceChargeNo',
+          lower: [],
+          upper: [sourceChargeNo],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      sourceChargeNoBetween(
+  sourceChargeNoBetween(
     int lowerSourceChargeNo,
     int upperSourceChargeNo, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'sourceChargeNo',
-        lower: [lowerSourceChargeNo],
-        includeLower: includeLower,
-        upper: [upperSourceChargeNo],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sourceChargeNo',
+          lower: [lowerSourceChargeNo],
+          includeLower: includeLower,
+          upper: [upperSourceChargeNo],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      abnormalityTypeIdEqualTo(String abnormalityTypeId) {
+  abnormalityTypeIdEqualTo(String abnormalityTypeId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'abnormalityTypeId',
-        value: [abnormalityTypeId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'abnormalityTypeId',
+          value: [abnormalityTypeId],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      abnormalityTypeIdNotEqualTo(String abnormalityTypeId) {
+  abnormalityTypeIdNotEqualTo(String abnormalityTypeId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'abnormalityTypeId',
-              lower: [],
-              upper: [abnormalityTypeId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'abnormalityTypeId',
-              lower: [abnormalityTypeId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'abnormalityTypeId',
+                lower: [],
+                upper: [abnormalityTypeId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'abnormalityTypeId',
+                lower: [abnormalityTypeId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'abnormalityTypeId',
-              lower: [abnormalityTypeId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'abnormalityTypeId',
-              lower: [],
-              upper: [abnormalityTypeId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'abnormalityTypeId',
+                lower: [abnormalityTypeId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'abnormalityTypeId',
+                lower: [],
+                upper: [abnormalityTypeId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      reannealedToChargeNoIsNull() {
+  reannealedToChargeNoIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'reannealedToChargeNo',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'reannealedToChargeNo',
+          value: [null],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      reannealedToChargeNoIsNotNull() {
+  reannealedToChargeNoIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'reannealedToChargeNo',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reannealedToChargeNo',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      reannealedToChargeNoEqualTo(int? reannealedToChargeNo) {
+  reannealedToChargeNoEqualTo(int? reannealedToChargeNo) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'reannealedToChargeNo',
-        value: [reannealedToChargeNo],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'reannealedToChargeNo',
+          value: [reannealedToChargeNo],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      reannealedToChargeNoNotEqualTo(int? reannealedToChargeNo) {
+  reannealedToChargeNoNotEqualTo(int? reannealedToChargeNo) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'reannealedToChargeNo',
-              lower: [],
-              upper: [reannealedToChargeNo],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'reannealedToChargeNo',
-              lower: [reannealedToChargeNo],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reannealedToChargeNo',
+                lower: [],
+                upper: [reannealedToChargeNo],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reannealedToChargeNo',
+                lower: [reannealedToChargeNo],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'reannealedToChargeNo',
-              lower: [reannealedToChargeNo],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'reannealedToChargeNo',
-              lower: [],
-              upper: [reannealedToChargeNo],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reannealedToChargeNo',
+                lower: [reannealedToChargeNo],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reannealedToChargeNo',
+                lower: [],
+                upper: [reannealedToChargeNo],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      reannealedToChargeNoGreaterThan(
+  reannealedToChargeNoGreaterThan(
     int? reannealedToChargeNo, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'reannealedToChargeNo',
-        lower: [reannealedToChargeNo],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reannealedToChargeNo',
+          lower: [reannealedToChargeNo],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      reannealedToChargeNoLessThan(
+  reannealedToChargeNoLessThan(
     int? reannealedToChargeNo, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'reannealedToChargeNo',
-        lower: [],
-        upper: [reannealedToChargeNo],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reannealedToChargeNo',
+          lower: [],
+          upper: [reannealedToChargeNo],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      reannealedToChargeNoBetween(
+  reannealedToChargeNoBetween(
     int? lowerReannealedToChargeNo,
     int? upperReannealedToChargeNo, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'reannealedToChargeNo',
-        lower: [lowerReannealedToChargeNo],
-        includeLower: includeLower,
-        upper: [upperReannealedToChargeNo],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reannealedToChargeNo',
+          lower: [lowerReannealedToChargeNo],
+          includeLower: includeLower,
+          upper: [upperReannealedToChargeNo],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      loggedAtEqualTo(DateTime loggedAt) {
+  loggedAtEqualTo(DateTime loggedAt) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'loggedAt',
-        value: [loggedAt],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'loggedAt', value: [loggedAt]),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      loggedAtNotEqualTo(DateTime loggedAt) {
+  loggedAtNotEqualTo(DateTime loggedAt) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'loggedAt',
-              lower: [],
-              upper: [loggedAt],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'loggedAt',
-              lower: [loggedAt],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'loggedAt',
+                lower: [],
+                upper: [loggedAt],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'loggedAt',
+                lower: [loggedAt],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'loggedAt',
-              lower: [loggedAt],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'loggedAt',
-              lower: [],
-              upper: [loggedAt],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'loggedAt',
+                lower: [loggedAt],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'loggedAt',
+                lower: [],
+                upper: [loggedAt],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      loggedAtGreaterThan(
-    DateTime loggedAt, {
-    bool include = false,
-  }) {
+  loggedAtGreaterThan(DateTime loggedAt, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'loggedAt',
-        lower: [loggedAt],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'loggedAt',
+          lower: [loggedAt],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      loggedAtLessThan(
-    DateTime loggedAt, {
-    bool include = false,
-  }) {
+  loggedAtLessThan(DateTime loggedAt, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'loggedAt',
-        lower: [],
-        upper: [loggedAt],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'loggedAt',
+          lower: [],
+          upper: [loggedAt],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      loggedAtBetween(
+  loggedAtBetween(
     DateTime lowerLoggedAt,
     DateTime upperLoggedAt, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'loggedAt',
-        lower: [lowerLoggedAt],
-        includeLower: includeLower,
-        upper: [upperLoggedAt],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'loggedAt',
+          lower: [lowerLoggedAt],
+          includeLower: includeLower,
+          upper: [upperLoggedAt],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      isDeletedEqualTo(bool isDeleted) {
+  isDeletedEqualTo(bool isDeleted) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isDeleted',
-        value: [isDeleted],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isDeleted', value: [isDeleted]),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterWhereClause>
-      isDeletedNotEqualTo(bool isDeleted) {
+  isDeletedNotEqualTo(bool isDeleted) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [],
-              upper: [isDeleted],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [isDeleted],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [],
+                upper: [isDeleted],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [isDeleted],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [isDeleted],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isDeleted',
-              lower: [],
-              upper: [isDeleted],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [isDeleted],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isDeleted',
+                lower: [],
+                upper: [isDeleted],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -5369,53 +5540,56 @@ extension ChargeAbnormalityQueryWhere
 extension ChargeAbnormalityQueryFilter
     on QueryBuilder<ChargeAbnormality, ChargeAbnormality, QFilterCondition> {
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeCodeEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'abnormalityTypeCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'abnormalityTypeCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'abnormalityTypeCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeLessThan(
+  abnormalityTypeCodeGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'abnormalityTypeCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'abnormalityTypeCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeBetween(
+  abnormalityTypeCodeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'abnormalityTypeCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  abnormalityTypeCodeBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5423,135 +5597,143 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'abnormalityTypeCode',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'abnormalityTypeCode',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeCodeStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'abnormalityTypeCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'abnormalityTypeCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeCodeEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'abnormalityTypeCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'abnormalityTypeCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeContains(String value, {bool caseSensitive = true}) {
+  abnormalityTypeCodeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'abnormalityTypeCode',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'abnormalityTypeCode',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeMatches(String pattern, {bool caseSensitive = true}) {
+  abnormalityTypeCodeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'abnormalityTypeCode',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'abnormalityTypeCode',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeIsEmpty() {
+  abnormalityTypeCodeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'abnormalityTypeCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'abnormalityTypeCode', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeCodeIsNotEmpty() {
+  abnormalityTypeCodeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'abnormalityTypeCode',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'abnormalityTypeCode',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'abnormalityTypeId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'abnormalityTypeId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'abnormalityTypeId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdLessThan(
+  abnormalityTypeIdGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'abnormalityTypeId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'abnormalityTypeId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdBetween(
+  abnormalityTypeIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'abnormalityTypeId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  abnormalityTypeIdBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5559,135 +5741,140 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'abnormalityTypeId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'abnormalityTypeId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'abnormalityTypeId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'abnormalityTypeId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'abnormalityTypeId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'abnormalityTypeId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdContains(String value, {bool caseSensitive = true}) {
+  abnormalityTypeIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'abnormalityTypeId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'abnormalityTypeId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdMatches(String pattern, {bool caseSensitive = true}) {
+  abnormalityTypeIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'abnormalityTypeId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'abnormalityTypeId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdIsEmpty() {
+  abnormalityTypeIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'abnormalityTypeId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'abnormalityTypeId', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeIdIsNotEmpty() {
+  abnormalityTypeIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'abnormalityTypeId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'abnormalityTypeId', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeTitleEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'abnormalityTypeTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'abnormalityTypeTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'abnormalityTypeTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleLessThan(
+  abnormalityTypeTitleGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'abnormalityTypeTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'abnormalityTypeTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleBetween(
+  abnormalityTypeTitleLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'abnormalityTypeTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  abnormalityTypeTitleBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5695,135 +5882,143 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'abnormalityTypeTitle',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'abnormalityTypeTitle',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeTitleStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'abnormalityTypeTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'abnormalityTypeTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  abnormalityTypeTitleEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'abnormalityTypeTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'abnormalityTypeTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleContains(String value, {bool caseSensitive = true}) {
+  abnormalityTypeTitleContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'abnormalityTypeTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'abnormalityTypeTitle',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleMatches(String pattern, {bool caseSensitive = true}) {
+  abnormalityTypeTitleMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'abnormalityTypeTitle',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'abnormalityTypeTitle',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleIsEmpty() {
+  abnormalityTypeTitleIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'abnormalityTypeTitle',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'abnormalityTypeTitle', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      abnormalityTypeTitleIsNotEmpty() {
+  abnormalityTypeTitleIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'abnormalityTypeTitle',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'abnormalityTypeTitle',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  affectedAssetsJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'affectedAssetsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'affectedAssetsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'affectedAssetsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonLessThan(
+  affectedAssetsJsonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'affectedAssetsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'affectedAssetsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonBetween(
+  affectedAssetsJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'affectedAssetsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  affectedAssetsJsonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -5831,209 +6026,213 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'affectedAssetsJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'affectedAssetsJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  affectedAssetsJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'affectedAssetsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'affectedAssetsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  affectedAssetsJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'affectedAssetsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'affectedAssetsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonContains(String value, {bool caseSensitive = true}) {
+  affectedAssetsJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'affectedAssetsJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'affectedAssetsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonMatches(String pattern, {bool caseSensitive = true}) {
+  affectedAssetsJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'affectedAssetsJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'affectedAssetsJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonIsEmpty() {
+  affectedAssetsJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'affectedAssetsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'affectedAssetsJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      affectedAssetsJsonIsNotEmpty() {
+  affectedAssetsJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'affectedAssetsJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'affectedAssetsJson', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      categoryEqualTo(AbnormalityCategory value) {
+  categoryEqualTo(AbnormalityCategory value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'category',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'category', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      categoryGreaterThan(
-    AbnormalityCategory value, {
-    bool include = false,
-  }) {
+  categoryGreaterThan(AbnormalityCategory value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'category',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'category',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      categoryLessThan(
-    AbnormalityCategory value, {
-    bool include = false,
-  }) {
+  categoryLessThan(AbnormalityCategory value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'category',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'category',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      categoryBetween(
+  categoryBetween(
     AbnormalityCategory lower,
     AbnormalityCategory upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'category',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'category',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentIsNull() {
+  componentIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'component',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'component'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentIsNotNull() {
+  componentIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'component',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'component'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  componentEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'component',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'component',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'component',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentLessThan(
+  componentGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'component',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'component',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentBetween(
+  componentLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'component',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  componentBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6041,153 +6240,158 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'component',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'component',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  componentStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'component',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'component',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  componentEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'component',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'component',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentContains(String value, {bool caseSensitive = true}) {
+  componentContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'component',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'component',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentMatches(String pattern, {bool caseSensitive = true}) {
+  componentMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'component',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'component',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentIsEmpty() {
+  componentIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'component',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'component', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      componentIsNotEmpty() {
+  componentIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'component',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'component', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonIsNull() {
+  deleteReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deleteReason'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonIsNotNull() {
+  deleteReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deleteReason'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonLessThan(
+  deleteReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonBetween(
+  deleteReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  deleteReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6195,227 +6399,231 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deleteReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deleteReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deleteReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonContains(String value, {bool caseSensitive = true}) {
+  deleteReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
+  deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deleteReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deleteReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonIsEmpty() {
+  deleteReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deleteReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deleteReasonIsNotEmpty() {
+  deleteReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deleteReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedAtIsNull() {
+  deletedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedAt'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedAtIsNotNull() {
+  deletedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedAt'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedAtEqualTo(DateTime? value) {
+  deletedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  deletedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  deletedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedAtBetween(
+  deletedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameIsNull() {
+  deletedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByName'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameIsNotNull() {
+  deletedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByName'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameLessThan(
+  deletedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameBetween(
+  deletedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  deletedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6423,153 +6631,158 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameContains(String value, {bool caseSensitive = true}) {
+  deletedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameIsEmpty() {
+  deletedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByNameIsNotEmpty() {
+  deletedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidIsNull() {
+  deletedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByUid'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidIsNotNull() {
+  deletedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByUid'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidLessThan(
+  deletedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidBetween(
+  deletedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  deletedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6577,153 +6790,158 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  deletedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidContains(String value, {bool caseSensitive = true}) {
+  deletedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidIsEmpty() {
+  deletedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      deletedByUidIsNotEmpty() {
+  deletedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionIsNull() {
+  descriptionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'description',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'description'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionIsNotNull() {
+  descriptionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'description',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'description'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  descriptionEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionLessThan(
+  descriptionGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionBetween(
+  descriptionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  descriptionBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6731,153 +6949,158 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'description',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'description',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  descriptionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  descriptionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionContains(String value, {bool caseSensitive = true}) {
+  descriptionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionMatches(String pattern, {bool caseSensitive = true}) {
+  descriptionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'description',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'description',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionIsEmpty() {
+  descriptionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'description',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'description', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      descriptionIsNotEmpty() {
+  descriptionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'description',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'description', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdIsNull() {
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'firestoreId'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdIsNotNull() {
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'firestoreId'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdLessThan(
+  firestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdBetween(
+  firestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  firestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6885,229 +7108,236 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'firestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'firestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  firestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdContains(String value, {bool caseSensitive = true}) {
+  firestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
+  firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'firestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'firestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdIsEmpty() {
+  firestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'firestoreId', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      firestoreIdIsNotEmpty() {
+  firestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'firestoreId', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      idEqualTo(Id value) {
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      idBetween(
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      isDeletedEqualTo(bool value) {
+  isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isDeleted',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isDeleted', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      isSyncedEqualTo(bool value) {
+  isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isSynced',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isSynced', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdIsNull() {
+  linkedExecutionFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'linkedExecutionFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'linkedExecutionFirestoreId'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdIsNotNull() {
+  linkedExecutionFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'linkedExecutionFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(
+          property: r'linkedExecutionFirestoreId',
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdEqualTo(
+  linkedExecutionFirestoreIdEqualTo(
     String? value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdLessThan(
+  linkedExecutionFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdBetween(
+  linkedExecutionFirestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  linkedExecutionFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7115,155 +7345,176 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'linkedExecutionFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'linkedExecutionFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdStartsWith(
+  linkedExecutionFirestoreIdStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdEndsWith(
+  linkedExecutionFirestoreIdEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'linkedExecutionFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedExecutionFirestoreId',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedExecutionFirestoreIdIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'linkedExecutionFirestoreId',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'linkedTicketFirestoreId',
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'linkedTicketFirestoreId',
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdEqualTo(
-    String? value, {
+  linkedExecutionFirestoreIdContains(
+    String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedTicketFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdGreaterThan(
+  linkedExecutionFirestoreIdMatches(
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'linkedExecutionFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  linkedExecutionFirestoreIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedExecutionFirestoreId',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  linkedExecutionFirestoreIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'linkedExecutionFirestoreId',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  linkedTicketFirestoreIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'linkedTicketFirestoreId'),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  linkedTicketFirestoreIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'linkedTicketFirestoreId'),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  linkedTicketFirestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedTicketFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  linkedTicketFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'linkedTicketFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'linkedTicketFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdLessThan(
+  linkedTicketFirestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'linkedTicketFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'linkedTicketFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdBetween(
+  linkedTicketFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7271,211 +7522,219 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'linkedTicketFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'linkedTicketFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  linkedTicketFirestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'linkedTicketFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'linkedTicketFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  linkedTicketFirestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'linkedTicketFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'linkedTicketFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdContains(String value,
-          {bool caseSensitive = true}) {
+  linkedTicketFirestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'linkedTicketFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'linkedTicketFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
+  linkedTicketFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'linkedTicketFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'linkedTicketFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdIsEmpty() {
+  linkedTicketFirestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedTicketFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedTicketFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      linkedTicketFirestoreIdIsNotEmpty() {
+  linkedTicketFirestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'linkedTicketFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'linkedTicketFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedAtEqualTo(DateTime value) {
+  loggedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'loggedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'loggedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  loggedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'loggedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'loggedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  loggedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'loggedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'loggedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedAtBetween(
+  loggedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'loggedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'loggedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameIsNull() {
+  loggedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'loggedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'loggedByName'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameIsNotNull() {
+  loggedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'loggedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'loggedByName'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  loggedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'loggedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'loggedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'loggedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameLessThan(
+  loggedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'loggedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'loggedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameBetween(
+  loggedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'loggedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  loggedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7483,153 +7742,158 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'loggedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'loggedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  loggedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'loggedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'loggedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  loggedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'loggedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'loggedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameContains(String value, {bool caseSensitive = true}) {
+  loggedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'loggedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'loggedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  loggedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'loggedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'loggedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameIsEmpty() {
+  loggedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'loggedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'loggedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByNameIsNotEmpty() {
+  loggedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'loggedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'loggedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidIsNull() {
+  loggedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'loggedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'loggedByUid'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidIsNotNull() {
+  loggedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'loggedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'loggedByUid'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  loggedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'loggedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'loggedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'loggedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidLessThan(
+  loggedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'loggedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'loggedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidBetween(
+  loggedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'loggedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  loggedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7637,135 +7901,140 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'loggedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'loggedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  loggedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'loggedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'loggedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  loggedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'loggedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'loggedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidContains(String value, {bool caseSensitive = true}) {
+  loggedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'loggedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'loggedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  loggedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'loggedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'loggedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidIsEmpty() {
+  loggedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'loggedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'loggedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      loggedByUidIsNotEmpty() {
+  loggedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'loggedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'loggedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  observedReasonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'observedReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'observedReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'observedReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonLessThan(
+  observedReasonGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'observedReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'observedReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonBetween(
+  observedReasonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'observedReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  observedReasonBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -7773,209 +8042,222 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'observedReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'observedReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  observedReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'observedReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'observedReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  observedReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'observedReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'observedReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonContains(String value, {bool caseSensitive = true}) {
+  observedReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'observedReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'observedReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonMatches(String pattern, {bool caseSensitive = true}) {
+  observedReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'observedReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'observedReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonIsEmpty() {
+  observedReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'observedReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'observedReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      observedReasonIsNotEmpty() {
+  observedReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'observedReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'observedReason', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonCategoryEqualTo(RootReasonCategory value) {
+  possibleRootReasonCategoryEqualTo(RootReasonCategory value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'possibleRootReasonCategory',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'possibleRootReasonCategory',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonCategoryGreaterThan(
+  possibleRootReasonCategoryGreaterThan(
     RootReasonCategory value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'possibleRootReasonCategory',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'possibleRootReasonCategory',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonCategoryLessThan(
+  possibleRootReasonCategoryLessThan(
     RootReasonCategory value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'possibleRootReasonCategory',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'possibleRootReasonCategory',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonCategoryBetween(
+  possibleRootReasonCategoryBetween(
     RootReasonCategory lower,
     RootReasonCategory upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'possibleRootReasonCategory',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'possibleRootReasonCategory',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesIsNull() {
+  possibleRootReasonNotesIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'possibleRootReasonNotes',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'possibleRootReasonNotes'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesIsNotNull() {
+  possibleRootReasonNotesIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'possibleRootReasonNotes',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'possibleRootReasonNotes'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  possibleRootReasonNotesEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'possibleRootReasonNotes',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'possibleRootReasonNotes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'possibleRootReasonNotes',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesLessThan(
+  possibleRootReasonNotesGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'possibleRootReasonNotes',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'possibleRootReasonNotes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesBetween(
+  possibleRootReasonNotesLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'possibleRootReasonNotes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  possibleRootReasonNotesBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7983,453 +8265,463 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'possibleRootReasonNotes',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'possibleRootReasonNotes',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  possibleRootReasonNotesStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'possibleRootReasonNotes',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'possibleRootReasonNotes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  possibleRootReasonNotesEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'possibleRootReasonNotes',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'possibleRootReasonNotes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesContains(String value,
-          {bool caseSensitive = true}) {
+  possibleRootReasonNotesContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'possibleRootReasonNotes',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'possibleRootReasonNotes',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesMatches(String pattern,
-          {bool caseSensitive = true}) {
+  possibleRootReasonNotesMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'possibleRootReasonNotes',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'possibleRootReasonNotes',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesIsEmpty() {
+  possibleRootReasonNotesIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'possibleRootReasonNotes',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'possibleRootReasonNotes',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      possibleRootReasonNotesIsNotEmpty() {
+  possibleRootReasonNotesIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'possibleRootReasonNotes',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'possibleRootReasonNotes',
+          value: '',
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealedToChargeNoIsNull() {
+  reannealedToChargeNoIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'reannealedToChargeNo',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reannealedToChargeNo'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealedToChargeNoIsNotNull() {
+  reannealedToChargeNoIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'reannealedToChargeNo',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reannealedToChargeNo'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealedToChargeNoEqualTo(int? value) {
+  reannealedToChargeNoEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reannealedToChargeNo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'reannealedToChargeNo',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealedToChargeNoGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  reannealedToChargeNoGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'reannealedToChargeNo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reannealedToChargeNo',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealedToChargeNoLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  reannealedToChargeNoLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'reannealedToChargeNo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reannealedToChargeNo',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealedToChargeNoBetween(
+  reannealedToChargeNoBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'reannealedToChargeNo',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reannealedToChargeNo',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealingStatusEqualTo(ReannealingStatus value) {
+  reannealingStatusEqualTo(ReannealingStatus value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'reannealingStatus',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reannealingStatus', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealingStatusGreaterThan(
+  reannealingStatusGreaterThan(
     ReannealingStatus value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'reannealingStatus',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reannealingStatus',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealingStatusLessThan(
-    ReannealingStatus value, {
-    bool include = false,
-  }) {
+  reannealingStatusLessThan(ReannealingStatus value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'reannealingStatus',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reannealingStatus',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      reannealingStatusBetween(
+  reannealingStatusBetween(
     ReannealingStatus lower,
     ReannealingStatus upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'reannealingStatus',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reannealingStatus',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      severityEqualTo(AbnormalitySeverity value) {
+  severityEqualTo(AbnormalitySeverity value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'severity',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'severity', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      severityGreaterThan(
-    AbnormalitySeverity value, {
-    bool include = false,
-  }) {
+  severityGreaterThan(AbnormalitySeverity value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'severity',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'severity',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      severityLessThan(
-    AbnormalitySeverity value, {
-    bool include = false,
-  }) {
+  severityLessThan(AbnormalitySeverity value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'severity',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'severity',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      severityBetween(
+  severityBetween(
     AbnormalitySeverity lower,
     AbnormalitySeverity upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'severity',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'severity',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      sourceChargeNoEqualTo(int value) {
+  sourceChargeNoEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'sourceChargeNo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourceChargeNo', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      sourceChargeNoGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  sourceChargeNoGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'sourceChargeNo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceChargeNo',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      sourceChargeNoLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  sourceChargeNoLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'sourceChargeNo',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceChargeNo',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      sourceChargeNoBetween(
+  sourceChargeNoBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'sourceChargeNo',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceChargeNo',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedAtEqualTo(DateTime value) {
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedAtBetween(
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameIsNull() {
+  updatedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'updatedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'updatedByName'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameIsNotNull() {
+  updatedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'updatedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'updatedByName'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameLessThan(
+  updatedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameBetween(
+  updatedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  updatedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8437,153 +8729,158 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameContains(String value, {bool caseSensitive = true}) {
+  updatedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  updatedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameIsEmpty() {
+  updatedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByNameIsNotEmpty() {
+  updatedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByName', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidIsNull() {
+  updatedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'updatedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'updatedByUid'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidIsNotNull() {
+  updatedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'updatedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'updatedByUid'),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidLessThan(
+  updatedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidBetween(
+  updatedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
+  updatedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8591,140 +8888,141 @@ extension ChargeAbnormalityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  updatedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidContains(String value, {bool caseSensitive = true}) {
+  updatedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'updatedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updatedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  updatedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'updatedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updatedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidIsEmpty() {
+  updatedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      updatedByUidIsNotEmpty() {
+  updatedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'updatedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updatedByUid', value: ''),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      versionEqualTo(int value) {
+  versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      versionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      versionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  versionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterFilterCondition>
-      versionBetween(
+  versionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'version',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -8738,420 +9036,420 @@ extension ChargeAbnormalityQueryLinks
 extension ChargeAbnormalityQuerySortBy
     on QueryBuilder<ChargeAbnormality, ChargeAbnormality, QSortBy> {
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAbnormalityTypeCode() {
+  sortByAbnormalityTypeCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeCode', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAbnormalityTypeCodeDesc() {
+  sortByAbnormalityTypeCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeCode', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAbnormalityTypeId() {
+  sortByAbnormalityTypeId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAbnormalityTypeIdDesc() {
+  sortByAbnormalityTypeIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeId', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAbnormalityTypeTitle() {
+  sortByAbnormalityTypeTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeTitle', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAbnormalityTypeTitleDesc() {
+  sortByAbnormalityTypeTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeTitle', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAffectedAssetsJson() {
+  sortByAffectedAssetsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'affectedAssetsJson', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByAffectedAssetsJsonDesc() {
+  sortByAffectedAssetsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'affectedAssetsJson', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByCategory() {
+  sortByCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByCategoryDesc() {
+  sortByCategoryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByComponent() {
+  sortByComponent() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'component', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByComponentDesc() {
+  sortByComponentDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'component', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeleteReason() {
+  sortByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeleteReasonDesc() {
+  sortByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeletedAt() {
+  sortByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeletedAtDesc() {
+  sortByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeletedByName() {
+  sortByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeletedByNameDesc() {
+  sortByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeletedByUid() {
+  sortByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDeletedByUidDesc() {
+  sortByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDescription() {
+  sortByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByDescriptionDesc() {
+  sortByDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByFirestoreId() {
+  sortByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByFirestoreIdDesc() {
+  sortByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByIsDeleted() {
+  sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByIsDeletedDesc() {
+  sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByIsSynced() {
+  sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByIsSyncedDesc() {
+  sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLinkedExecutionFirestoreId() {
+  sortByLinkedExecutionFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLinkedExecutionFirestoreIdDesc() {
+  sortByLinkedExecutionFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLinkedTicketFirestoreId() {
+  sortByLinkedTicketFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedTicketFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLinkedTicketFirestoreIdDesc() {
+  sortByLinkedTicketFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedTicketFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLoggedAt() {
+  sortByLoggedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLoggedAtDesc() {
+  sortByLoggedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLoggedByName() {
+  sortByLoggedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLoggedByNameDesc() {
+  sortByLoggedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLoggedByUid() {
+  sortByLoggedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByLoggedByUidDesc() {
+  sortByLoggedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByObservedReason() {
+  sortByObservedReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'observedReason', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByObservedReasonDesc() {
+  sortByObservedReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'observedReason', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByPossibleRootReasonCategory() {
+  sortByPossibleRootReasonCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonCategory', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByPossibleRootReasonCategoryDesc() {
+  sortByPossibleRootReasonCategoryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonCategory', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByPossibleRootReasonNotes() {
+  sortByPossibleRootReasonNotes() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonNotes', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByPossibleRootReasonNotesDesc() {
+  sortByPossibleRootReasonNotesDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonNotes', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByReannealedToChargeNo() {
+  sortByReannealedToChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealedToChargeNo', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByReannealedToChargeNoDesc() {
+  sortByReannealedToChargeNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealedToChargeNo', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByReannealingStatus() {
+  sortByReannealingStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealingStatus', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByReannealingStatusDesc() {
+  sortByReannealingStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealingStatus', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortBySeverity() {
+  sortBySeverity() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortBySeverityDesc() {
+  sortBySeverityDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortBySourceChargeNo() {
+  sortBySourceChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceChargeNo', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortBySourceChargeNoDesc() {
+  sortBySourceChargeNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceChargeNo', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByUpdatedAt() {
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByUpdatedAtDesc() {
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByUpdatedByName() {
+  sortByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByUpdatedByNameDesc() {
+  sortByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByUpdatedByUid() {
+  sortByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByUpdatedByUidDesc() {
+  sortByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByVersion() {
+  sortByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      sortByVersionDesc() {
+  sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -9161,168 +9459,168 @@ extension ChargeAbnormalityQuerySortBy
 extension ChargeAbnormalityQuerySortThenBy
     on QueryBuilder<ChargeAbnormality, ChargeAbnormality, QSortThenBy> {
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAbnormalityTypeCode() {
+  thenByAbnormalityTypeCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeCode', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAbnormalityTypeCodeDesc() {
+  thenByAbnormalityTypeCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeCode', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAbnormalityTypeId() {
+  thenByAbnormalityTypeId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAbnormalityTypeIdDesc() {
+  thenByAbnormalityTypeIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeId', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAbnormalityTypeTitle() {
+  thenByAbnormalityTypeTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeTitle', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAbnormalityTypeTitleDesc() {
+  thenByAbnormalityTypeTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'abnormalityTypeTitle', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAffectedAssetsJson() {
+  thenByAffectedAssetsJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'affectedAssetsJson', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByAffectedAssetsJsonDesc() {
+  thenByAffectedAssetsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'affectedAssetsJson', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByCategory() {
+  thenByCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByCategoryDesc() {
+  thenByCategoryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByComponent() {
+  thenByComponent() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'component', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByComponentDesc() {
+  thenByComponentDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'component', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeleteReason() {
+  thenByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeleteReasonDesc() {
+  thenByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeletedAt() {
+  thenByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeletedAtDesc() {
+  thenByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeletedByName() {
+  thenByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeletedByNameDesc() {
+  thenByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeletedByUid() {
+  thenByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDeletedByUidDesc() {
+  thenByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDescription() {
+  thenByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByDescriptionDesc() {
+  thenByDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByFirestoreId() {
+  thenByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByFirestoreIdDesc() {
+  thenByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
@@ -9335,259 +9633,259 @@ extension ChargeAbnormalityQuerySortThenBy
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByIsDeleted() {
+  thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByIsDeletedDesc() {
+  thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByIsSynced() {
+  thenByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByIsSyncedDesc() {
+  thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLinkedExecutionFirestoreId() {
+  thenByLinkedExecutionFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLinkedExecutionFirestoreIdDesc() {
+  thenByLinkedExecutionFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLinkedTicketFirestoreId() {
+  thenByLinkedTicketFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedTicketFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLinkedTicketFirestoreIdDesc() {
+  thenByLinkedTicketFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedTicketFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLoggedAt() {
+  thenByLoggedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLoggedAtDesc() {
+  thenByLoggedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLoggedByName() {
+  thenByLoggedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLoggedByNameDesc() {
+  thenByLoggedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLoggedByUid() {
+  thenByLoggedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByLoggedByUidDesc() {
+  thenByLoggedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'loggedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByObservedReason() {
+  thenByObservedReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'observedReason', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByObservedReasonDesc() {
+  thenByObservedReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'observedReason', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByPossibleRootReasonCategory() {
+  thenByPossibleRootReasonCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonCategory', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByPossibleRootReasonCategoryDesc() {
+  thenByPossibleRootReasonCategoryDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonCategory', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByPossibleRootReasonNotes() {
+  thenByPossibleRootReasonNotes() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonNotes', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByPossibleRootReasonNotesDesc() {
+  thenByPossibleRootReasonNotesDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'possibleRootReasonNotes', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByReannealedToChargeNo() {
+  thenByReannealedToChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealedToChargeNo', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByReannealedToChargeNoDesc() {
+  thenByReannealedToChargeNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealedToChargeNo', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByReannealingStatus() {
+  thenByReannealingStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealingStatus', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByReannealingStatusDesc() {
+  thenByReannealingStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'reannealingStatus', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenBySeverity() {
+  thenBySeverity() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenBySeverityDesc() {
+  thenBySeverityDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'severity', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenBySourceChargeNo() {
+  thenBySourceChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceChargeNo', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenBySourceChargeNoDesc() {
+  thenBySourceChargeNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceChargeNo', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByUpdatedAt() {
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByUpdatedAtDesc() {
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByUpdatedByName() {
+  thenByUpdatedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByUpdatedByNameDesc() {
+  thenByUpdatedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByUpdatedByUid() {
+  thenByUpdatedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByUpdatedByUidDesc() {
+  thenByUpdatedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByVersion() {
+  thenByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QAfterSortBy>
-      thenByVersionDesc() {
+  thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
@@ -9597,220 +9895,240 @@ extension ChargeAbnormalityQuerySortThenBy
 extension ChargeAbnormalityQueryWhereDistinct
     on QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct> {
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByAbnormalityTypeCode({bool caseSensitive = true}) {
+  distinctByAbnormalityTypeCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'abnormalityTypeCode',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'abnormalityTypeCode',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByAbnormalityTypeId({bool caseSensitive = true}) {
+  distinctByAbnormalityTypeId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'abnormalityTypeId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'abnormalityTypeId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByAbnormalityTypeTitle({bool caseSensitive = true}) {
+  distinctByAbnormalityTypeTitle({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'abnormalityTypeTitle',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'abnormalityTypeTitle',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByAffectedAssetsJson({bool caseSensitive = true}) {
+  distinctByAffectedAssetsJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'affectedAssetsJson',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'affectedAssetsJson',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByCategory() {
+  distinctByCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'category');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByComponent({bool caseSensitive = true}) {
+  distinctByComponent({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'component', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByDeleteReason({bool caseSensitive = true}) {
+  distinctByDeleteReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deleteReason', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByDeletedAt() {
+  distinctByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedAt');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByDeletedByName({bool caseSensitive = true}) {
+  distinctByDeletedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'deletedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'deletedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByDeletedByUid({bool caseSensitive = true}) {
+  distinctByDeletedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByDescription({bool caseSensitive = true}) {
+  distinctByDescription({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'description', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByFirestoreId({bool caseSensitive = true}) {
+  distinctByFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'firestoreId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByIsDeleted() {
+  distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isDeleted');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByIsSynced() {
+  distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByLinkedExecutionFirestoreId({bool caseSensitive = true}) {
+  distinctByLinkedExecutionFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'linkedExecutionFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'linkedExecutionFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByLinkedTicketFirestoreId({bool caseSensitive = true}) {
+  distinctByLinkedTicketFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'linkedTicketFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'linkedTicketFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByLoggedAt() {
+  distinctByLoggedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'loggedAt');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByLoggedByName({bool caseSensitive = true}) {
+  distinctByLoggedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'loggedByName', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByLoggedByUid({bool caseSensitive = true}) {
+  distinctByLoggedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'loggedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByObservedReason({bool caseSensitive = true}) {
+  distinctByObservedReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'observedReason',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'observedReason',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByPossibleRootReasonCategory() {
+  distinctByPossibleRootReasonCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'possibleRootReasonCategory');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByPossibleRootReasonNotes({bool caseSensitive = true}) {
+  distinctByPossibleRootReasonNotes({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'possibleRootReasonNotes',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'possibleRootReasonNotes',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByReannealedToChargeNo() {
+  distinctByReannealedToChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'reannealedToChargeNo');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByReannealingStatus() {
+  distinctByReannealingStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'reannealingStatus');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctBySeverity() {
+  distinctBySeverity() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'severity');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctBySourceChargeNo() {
+  distinctBySourceChargeNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceChargeNo');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByUpdatedAt() {
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByUpdatedByName({bool caseSensitive = true}) {
+  distinctByUpdatedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'updatedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'updatedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByUpdatedByUid({bool caseSensitive = true}) {
+  distinctByUpdatedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ChargeAbnormality, ChargeAbnormality, QDistinct>
-      distinctByVersion() {
+  distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'version');
     });
@@ -9826,84 +10144,84 @@ extension ChargeAbnormalityQueryProperty
   }
 
   QueryBuilder<ChargeAbnormality, String, QQueryOperations>
-      abnormalityTypeCodeProperty() {
+  abnormalityTypeCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'abnormalityTypeCode');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String, QQueryOperations>
-      abnormalityTypeIdProperty() {
+  abnormalityTypeIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'abnormalityTypeId');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String, QQueryOperations>
-      abnormalityTypeTitleProperty() {
+  abnormalityTypeTitleProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'abnormalityTypeTitle');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String, QQueryOperations>
-      affectedAssetsJsonProperty() {
+  affectedAssetsJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'affectedAssetsJson');
     });
   }
 
   QueryBuilder<ChargeAbnormality, AbnormalityCategory, QQueryOperations>
-      categoryProperty() {
+  categoryProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'category');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      componentProperty() {
+  componentProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'component');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      deleteReasonProperty() {
+  deleteReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deleteReason');
     });
   }
 
   QueryBuilder<ChargeAbnormality, DateTime?, QQueryOperations>
-      deletedAtProperty() {
+  deletedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedAt');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      deletedByNameProperty() {
+  deletedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByName');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      deletedByUidProperty() {
+  deletedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByUid');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      descriptionProperty() {
+  descriptionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'description');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      firestoreIdProperty() {
+  firestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'firestoreId');
     });
@@ -9922,105 +10240,105 @@ extension ChargeAbnormalityQueryProperty
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      linkedExecutionFirestoreIdProperty() {
+  linkedExecutionFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'linkedExecutionFirestoreId');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      linkedTicketFirestoreIdProperty() {
+  linkedTicketFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'linkedTicketFirestoreId');
     });
   }
 
   QueryBuilder<ChargeAbnormality, DateTime, QQueryOperations>
-      loggedAtProperty() {
+  loggedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'loggedAt');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      loggedByNameProperty() {
+  loggedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'loggedByName');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      loggedByUidProperty() {
+  loggedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'loggedByUid');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String, QQueryOperations>
-      observedReasonProperty() {
+  observedReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'observedReason');
     });
   }
 
   QueryBuilder<ChargeAbnormality, RootReasonCategory, QQueryOperations>
-      possibleRootReasonCategoryProperty() {
+  possibleRootReasonCategoryProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'possibleRootReasonCategory');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      possibleRootReasonNotesProperty() {
+  possibleRootReasonNotesProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'possibleRootReasonNotes');
     });
   }
 
   QueryBuilder<ChargeAbnormality, int?, QQueryOperations>
-      reannealedToChargeNoProperty() {
+  reannealedToChargeNoProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'reannealedToChargeNo');
     });
   }
 
   QueryBuilder<ChargeAbnormality, ReannealingStatus, QQueryOperations>
-      reannealingStatusProperty() {
+  reannealingStatusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'reannealingStatus');
     });
   }
 
   QueryBuilder<ChargeAbnormality, AbnormalitySeverity, QQueryOperations>
-      severityProperty() {
+  severityProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'severity');
     });
   }
 
   QueryBuilder<ChargeAbnormality, int, QQueryOperations>
-      sourceChargeNoProperty() {
+  sourceChargeNoProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sourceChargeNo');
     });
   }
 
   QueryBuilder<ChargeAbnormality, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      updatedByNameProperty() {
+  updatedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByName');
     });
   }
 
   QueryBuilder<ChargeAbnormality, String?, QQueryOperations>
-      updatedByUidProperty() {
+  updatedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedByUid');
     });

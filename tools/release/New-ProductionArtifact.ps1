@@ -228,6 +228,20 @@ function Find-AndroidTool {
   throw "Android tool unavailable: $($Names -join ', ')"
 }
 
+function Find-Python3 {
+  foreach ($name in @('python', 'python3')) {
+    $command = Get-Command $name -ErrorAction SilentlyContinue
+    if ($command) {
+      $versionOutput = @(& $command.Source --version 2>&1)
+      if ($LASTEXITCODE -eq 0 -and
+          ($versionOutput -join ' ') -match '^Python 3\.') {
+        return $command.Source
+      }
+    }
+  }
+  throw 'Python 3 is unavailable for Android native-library verification.'
+}
+
 function Get-ApkManifestValue {
   param(
     [Parameter(Mandatory)][string]$Analyzer,
@@ -849,6 +863,21 @@ Copy-Item -LiteralPath $builtAab -Destination $aabPath
 Copy-Item -LiteralPath $BundletoolJarPath `
   -Destination (Join-Path $toolsDirectory 'bundletool.jar')
 
+$python = Find-Python3
+$android16KbEvidence = Join-Path `
+  $logsDirectory `
+  'android-16kb-native-alignment.json'
+Invoke-Logged `
+  -Name 'Verify Android 16 KB native compatibility' `
+  -Command {
+    & $python `
+      (Join-Path $repo 'tools/release/verify_android_16kb_alignment.py') `
+      --apk $apkPath `
+      --json-output $android16KbEvidence
+  } `
+  -LogPath (Join-Path $logsDirectory 'android-16kb-native-alignment.log') |
+  Out-Null
+
 $certificateDer = Join-Path $signerDirectory 'approved-production-signer.der'
 $certificatePem = Join-Path $signerDirectory 'approved-production-signer.pem'
 
@@ -875,6 +904,17 @@ $actualToolchain['androidTools'] = [ordered]@{
   apkAnalyzerPath = $apkAnalyzer
   apkAnalyzerSha256 = Get-Sha256 $apkAnalyzer
 }
+
+Invoke-Logged `
+  -Name 'Verify compiled Android backup policy' `
+  -Command {
+    pwsh -NoProfile `
+      -File (Join-Path $repo 'tools/release/Test-AndroidCompiledBackupPolicy.ps1') `
+      -ApkPath $apkPath `
+      -ApkAnalyzerPath $apkAnalyzer
+  } `
+  -LogPath (Join-Path $logsDirectory 'android-compiled-backup-policy.log') |
+  Out-Null
 
 $apkCertificateSha256 = Get-ApkCertificateSha256 `
   -ApkSigner $apkSigner `
@@ -943,7 +983,7 @@ $receiptFiles = @(
   'release/approvals/firebase-registration-receipt.json'
   'release/approvals/firebase-production-signing-restoration-receipt.json'
   'release/approvals/android-identity-migration-plan.json'
-  'release/approvals/linux-isar-core-authority.json'
+  'release/approvals/linux-isar-community-core-authority.json'
 )
 
 $receiptHashes = [ordered]@{}
@@ -1163,6 +1203,8 @@ $manifest = [ordered]@{
     artifactAabSignature = 'passed'
     artifactApkIdentity = 'passed'
     artifactAabIdentity = 'passed'
+    android16KbNativeCompatibility = 'passed'
+    androidBackupAndDeviceTransferExclusion = 'passed'
     sourceArchiveIdentityDefineSupplied = $true
   }
   knownOpenGates = @($policy.knownOpenGates)

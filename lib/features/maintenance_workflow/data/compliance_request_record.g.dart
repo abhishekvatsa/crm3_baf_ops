@@ -253,11 +253,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
       name: r'isDeleted',
       type: IsarType.bool,
     ),
-    r'isSynced': PropertySchema(
-      id: 47,
-      name: r'isSynced',
-      type: IsarType.bool,
-    ),
+    r'isSynced': PropertySchema(id: 47, name: r'isSynced', type: IsarType.bool),
     r'lastCorrectionAt': PropertySchema(
       id: 48,
       name: r'lastCorrectionAt',
@@ -378,22 +374,15 @@ const ComplianceRequestRecordSchema = CollectionSchema(
       name: r'targetLaneKey',
       type: IsarType.string,
     ),
-    r'title': PropertySchema(
-      id: 72,
-      name: r'title',
-      type: IsarType.string,
-    ),
+    r'title': PropertySchema(id: 72, name: r'title', type: IsarType.string),
     r'updatedAt': PropertySchema(
       id: 73,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'version': PropertySchema(
-      id: 74,
-      name: r'version',
-      type: IsarType.long,
-    )
+    r'version': PropertySchema(id: 74, name: r'version', type: IsarType.long),
   },
+
   estimateSize: _complianceRequestRecordEstimateSize,
   serialize: _complianceRequestRecordSerialize,
   deserialize: _complianceRequestRecordDeserialize,
@@ -410,7 +399,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'firestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'isSynced': IndexSchema(
@@ -423,7 +412,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'isSynced',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
     ),
     r'targetLaneKey': IndexSchema(
@@ -436,7 +425,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'targetLaneKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'statusKey': IndexSchema(
@@ -449,7 +438,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'statusKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'conditionTypeKey': IndexSchema(
@@ -462,7 +451,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'conditionTypeKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'conditionRef': IndexSchema(
@@ -475,7 +464,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'conditionRef',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'requestPurposeKey': IndexSchema(
@@ -488,7 +477,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'requestPurposeKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'counterConditionOfId': IndexSchema(
@@ -501,7 +490,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'counterConditionOfId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'linkedWorkflowId': IndexSchema(
@@ -514,7 +503,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'linkedWorkflowId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'linkedMaintenanceFirestoreId': IndexSchema(
@@ -527,7 +516,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'linkedMaintenanceFirestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'linkedExecutionFirestoreId': IndexSchema(
@@ -540,7 +529,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'linkedExecutionFirestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'gatesLaneFirestoreId': IndexSchema(
@@ -553,7 +542,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'gatesLaneFirestoreId',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'assetTypeKey': IndexSchema(
@@ -566,7 +555,7 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'assetTypeKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
     ),
     r'assetNumber': IndexSchema(
@@ -579,16 +568,17 @@ const ComplianceRequestRecordSchema = CollectionSchema(
           name: r'assetNumber',
           type: IndexType.value,
           caseSensitive: false,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _complianceRequestRecordGetId,
   getLinks: _complianceRequestRecordGetLinks,
   attach: _complianceRequestRecordAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _complianceRequestRecordEstimateSize(
@@ -1196,12 +1186,16 @@ Id _complianceRequestRecordGetId(ComplianceRequestRecord object) {
 }
 
 List<IsarLinkBase<dynamic>> _complianceRequestRecordGetLinks(
-    ComplianceRequestRecord object) {
+  ComplianceRequestRecord object,
+) {
   return [];
 }
 
 void _complianceRequestRecordAttach(
-    IsarCollection<dynamic> col, Id id, ComplianceRequestRecord object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  ComplianceRequestRecord object,
+) {
   object.id = id;
 }
 
@@ -1224,13 +1218,15 @@ extension ComplianceRequestRecordByIndex
   }
 
   Future<List<ComplianceRequestRecord?>> getAllByFirestoreId(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndex(r'firestoreId', values);
   }
 
   List<ComplianceRequestRecord?> getAllByFirestoreIdSync(
-      List<String?> firestoreIdValues) {
+    List<String?> firestoreIdValues,
+  ) {
     final values = firestoreIdValues.map((e) => [e]).toList();
     return getAllByIndexSync(r'firestoreId', values);
   }
@@ -1249,8 +1245,10 @@ extension ComplianceRequestRecordByIndex
     return putByIndex(r'firestoreId', object);
   }
 
-  Id putByFirestoreIdSync(ComplianceRequestRecord object,
-      {bool saveLinks = true}) {
+  Id putByFirestoreIdSync(
+    ComplianceRequestRecord object, {
+    bool saveLinks = true,
+  }) {
     return putByIndexSync(r'firestoreId', object, saveLinks: saveLinks);
   }
 
@@ -1258,8 +1256,10 @@ extension ComplianceRequestRecordByIndex
     return putAllByIndex(r'firestoreId', objects);
   }
 
-  List<Id> putAllByFirestoreIdSync(List<ComplianceRequestRecord> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByFirestoreIdSync(
+    List<ComplianceRequestRecord> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'firestoreId', objects, saveLinks: saveLinks);
   }
 }
@@ -1267,14 +1267,14 @@ extension ComplianceRequestRecordByIndex
 extension ComplianceRequestRecordQueryWhereSort
     on QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QWhere> {
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterWhere>
-      anyId() {
+  anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterWhere>
-      anyIsSynced() {
+  anyIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isSynced'),
@@ -1283,7 +1283,7 @@ extension ComplianceRequestRecordQueryWhereSort
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterWhere>
-      anyAssetNumber() {
+  anyAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'assetNumber'),
@@ -1292,20 +1292,30 @@ extension ComplianceRequestRecordQueryWhereSort
   }
 }
 
-extension ComplianceRequestRecordQueryWhere on QueryBuilder<
-    ComplianceRequestRecord, ComplianceRequestRecord, QWhereClause> {
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> idEqualTo(Id id) {
+extension ComplianceRequestRecordQueryWhere
+    on
+        QueryBuilder<
+          ComplianceRequestRecord,
+          ComplianceRequestRecord,
+          QWhereClause
+        > {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> idNotEqualTo(Id id) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -1327,8 +1337,12 @@ extension ComplianceRequestRecordQueryWhere on QueryBuilder<
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> idGreaterThan(Id id, {bool include = false}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -1336,8 +1350,12 @@ extension ComplianceRequestRecordQueryWhere on QueryBuilder<
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> idLessThan(Id id, {bool include = false}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -1345,1008 +1363,1392 @@ extension ComplianceRequestRecordQueryWhere on QueryBuilder<
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> idBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> firestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'firestoreId', value: [null]),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> firestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'firestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'firestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> firestoreIdEqualTo(String? firestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  firestoreIdEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'firestoreId',
-        value: [firestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'firestoreId',
+          value: [firestoreId],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> firestoreIdNotEqualTo(String? firestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  firestoreIdNotEqualTo(String? firestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [firestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'firestoreId',
-              lower: [],
-              upper: [firestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [firestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'firestoreId',
+                lower: [],
+                upper: [firestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> isSyncedEqualTo(bool isSynced) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  isSyncedEqualTo(bool isSynced) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'isSynced',
-        value: [isSynced],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'isSynced', value: [isSynced]),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> isSyncedNotEqualTo(bool isSynced) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  isSyncedNotEqualTo(bool isSynced) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [],
-              upper: [isSynced],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [isSynced],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [],
+                upper: [isSynced],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [isSynced],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [isSynced],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'isSynced',
-              lower: [],
-              upper: [isSynced],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [isSynced],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'isSynced',
+                lower: [],
+                upper: [isSynced],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> targetLaneKeyEqualTo(String targetLaneKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  targetLaneKeyEqualTo(String targetLaneKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'targetLaneKey',
-        value: [targetLaneKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'targetLaneKey',
+          value: [targetLaneKey],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> targetLaneKeyNotEqualTo(String targetLaneKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  targetLaneKeyNotEqualTo(String targetLaneKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'targetLaneKey',
-              lower: [],
-              upper: [targetLaneKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'targetLaneKey',
-              lower: [targetLaneKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'targetLaneKey',
+                lower: [],
+                upper: [targetLaneKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'targetLaneKey',
+                lower: [targetLaneKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'targetLaneKey',
-              lower: [targetLaneKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'targetLaneKey',
-              lower: [],
-              upper: [targetLaneKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'targetLaneKey',
+                lower: [targetLaneKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'targetLaneKey',
+                lower: [],
+                upper: [targetLaneKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> statusKeyEqualTo(String statusKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  statusKeyEqualTo(String statusKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'statusKey',
-        value: [statusKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'statusKey', value: [statusKey]),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> statusKeyNotEqualTo(String statusKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  statusKeyNotEqualTo(String statusKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'statusKey',
-              lower: [],
-              upper: [statusKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'statusKey',
-              lower: [statusKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'statusKey',
+                lower: [],
+                upper: [statusKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'statusKey',
+                lower: [statusKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'statusKey',
-              lower: [statusKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'statusKey',
-              lower: [],
-              upper: [statusKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'statusKey',
+                lower: [statusKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'statusKey',
+                lower: [],
+                upper: [statusKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> conditionTypeKeyEqualTo(String conditionTypeKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  conditionTypeKeyEqualTo(String conditionTypeKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conditionTypeKey',
-        value: [conditionTypeKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'conditionTypeKey',
+          value: [conditionTypeKey],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> conditionTypeKeyNotEqualTo(String conditionTypeKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  conditionTypeKeyNotEqualTo(String conditionTypeKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionTypeKey',
-              lower: [],
-              upper: [conditionTypeKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionTypeKey',
-              lower: [conditionTypeKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionTypeKey',
+                lower: [],
+                upper: [conditionTypeKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionTypeKey',
+                lower: [conditionTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionTypeKey',
-              lower: [conditionTypeKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionTypeKey',
-              lower: [],
-              upper: [conditionTypeKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionTypeKey',
+                lower: [conditionTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionTypeKey',
+                lower: [],
+                upper: [conditionTypeKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> conditionRefIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  conditionRefIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conditionRef',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'conditionRef', value: [null]),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> conditionRefIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  conditionRefIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conditionRef',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'conditionRef',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> conditionRefEqualTo(String? conditionRef) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  conditionRefEqualTo(String? conditionRef) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conditionRef',
-        value: [conditionRef],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'conditionRef',
+          value: [conditionRef],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> conditionRefNotEqualTo(String? conditionRef) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  conditionRefNotEqualTo(String? conditionRef) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionRef',
-              lower: [],
-              upper: [conditionRef],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionRef',
-              lower: [conditionRef],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionRef',
+                lower: [],
+                upper: [conditionRef],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionRef',
+                lower: [conditionRef],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionRef',
-              lower: [conditionRef],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conditionRef',
-              lower: [],
-              upper: [conditionRef],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionRef',
+                lower: [conditionRef],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'conditionRef',
+                lower: [],
+                upper: [conditionRef],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> requestPurposeKeyEqualTo(String requestPurposeKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  requestPurposeKeyEqualTo(String requestPurposeKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'requestPurposeKey',
-        value: [requestPurposeKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'requestPurposeKey',
+          value: [requestPurposeKey],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> requestPurposeKeyNotEqualTo(String requestPurposeKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  requestPurposeKeyNotEqualTo(String requestPurposeKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requestPurposeKey',
-              lower: [],
-              upper: [requestPurposeKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requestPurposeKey',
-              lower: [requestPurposeKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requestPurposeKey',
+                lower: [],
+                upper: [requestPurposeKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requestPurposeKey',
+                lower: [requestPurposeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requestPurposeKey',
-              lower: [requestPurposeKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'requestPurposeKey',
-              lower: [],
-              upper: [requestPurposeKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requestPurposeKey',
+                lower: [requestPurposeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'requestPurposeKey',
+                lower: [],
+                upper: [requestPurposeKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> counterConditionOfIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  counterConditionOfIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'counterConditionOfId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'counterConditionOfId',
+          value: [null],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> counterConditionOfIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  counterConditionOfIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'counterConditionOfId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'counterConditionOfId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      counterConditionOfIdEqualTo(String? counterConditionOfId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  counterConditionOfIdEqualTo(String? counterConditionOfId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'counterConditionOfId',
-        value: [counterConditionOfId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'counterConditionOfId',
+          value: [counterConditionOfId],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      counterConditionOfIdNotEqualTo(String? counterConditionOfId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  counterConditionOfIdNotEqualTo(String? counterConditionOfId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'counterConditionOfId',
-              lower: [],
-              upper: [counterConditionOfId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'counterConditionOfId',
-              lower: [counterConditionOfId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'counterConditionOfId',
+                lower: [],
+                upper: [counterConditionOfId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'counterConditionOfId',
+                lower: [counterConditionOfId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'counterConditionOfId',
-              lower: [counterConditionOfId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'counterConditionOfId',
-              lower: [],
-              upper: [counterConditionOfId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'counterConditionOfId',
+                lower: [counterConditionOfId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'counterConditionOfId',
+                lower: [],
+                upper: [counterConditionOfId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedWorkflowIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedWorkflowIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'linkedWorkflowId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'linkedWorkflowId', value: [null]),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedWorkflowIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedWorkflowIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'linkedWorkflowId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'linkedWorkflowId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedWorkflowIdEqualTo(String? linkedWorkflowId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedWorkflowIdEqualTo(String? linkedWorkflowId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'linkedWorkflowId',
-        value: [linkedWorkflowId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'linkedWorkflowId',
+          value: [linkedWorkflowId],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedWorkflowIdNotEqualTo(String? linkedWorkflowId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedWorkflowIdNotEqualTo(String? linkedWorkflowId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedWorkflowId',
-              lower: [],
-              upper: [linkedWorkflowId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedWorkflowId',
-              lower: [linkedWorkflowId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedWorkflowId',
+                lower: [],
+                upper: [linkedWorkflowId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedWorkflowId',
+                lower: [linkedWorkflowId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedWorkflowId',
-              lower: [linkedWorkflowId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedWorkflowId',
-              lower: [],
-              upper: [linkedWorkflowId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedWorkflowId',
+                lower: [linkedWorkflowId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedWorkflowId',
+                lower: [],
+                upper: [linkedWorkflowId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedMaintenanceFirestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedMaintenanceFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'linkedMaintenanceFirestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'linkedMaintenanceFirestoreId',
+          value: [null],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedMaintenanceFirestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedMaintenanceFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'linkedMaintenanceFirestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'linkedMaintenanceFirestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      linkedMaintenanceFirestoreIdEqualTo(
-          String? linkedMaintenanceFirestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedMaintenanceFirestoreIdEqualTo(String? linkedMaintenanceFirestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'linkedMaintenanceFirestoreId',
-        value: [linkedMaintenanceFirestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'linkedMaintenanceFirestoreId',
+          value: [linkedMaintenanceFirestoreId],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      linkedMaintenanceFirestoreIdNotEqualTo(
-          String? linkedMaintenanceFirestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedMaintenanceFirestoreIdNotEqualTo(String? linkedMaintenanceFirestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedMaintenanceFirestoreId',
-              lower: [],
-              upper: [linkedMaintenanceFirestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedMaintenanceFirestoreId',
-              lower: [linkedMaintenanceFirestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedMaintenanceFirestoreId',
+                lower: [],
+                upper: [linkedMaintenanceFirestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedMaintenanceFirestoreId',
+                lower: [linkedMaintenanceFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedMaintenanceFirestoreId',
-              lower: [linkedMaintenanceFirestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedMaintenanceFirestoreId',
-              lower: [],
-              upper: [linkedMaintenanceFirestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedMaintenanceFirestoreId',
+                lower: [linkedMaintenanceFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedMaintenanceFirestoreId',
+                lower: [],
+                upper: [linkedMaintenanceFirestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedExecutionFirestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedExecutionFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'linkedExecutionFirestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'linkedExecutionFirestoreId',
+          value: [null],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> linkedExecutionFirestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedExecutionFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'linkedExecutionFirestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'linkedExecutionFirestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      linkedExecutionFirestoreIdEqualTo(String? linkedExecutionFirestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedExecutionFirestoreIdEqualTo(String? linkedExecutionFirestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'linkedExecutionFirestoreId',
-        value: [linkedExecutionFirestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'linkedExecutionFirestoreId',
+          value: [linkedExecutionFirestoreId],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      linkedExecutionFirestoreIdNotEqualTo(String? linkedExecutionFirestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  linkedExecutionFirestoreIdNotEqualTo(String? linkedExecutionFirestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedExecutionFirestoreId',
-              lower: [],
-              upper: [linkedExecutionFirestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedExecutionFirestoreId',
-              lower: [linkedExecutionFirestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedExecutionFirestoreId',
+                lower: [],
+                upper: [linkedExecutionFirestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedExecutionFirestoreId',
+                lower: [linkedExecutionFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedExecutionFirestoreId',
-              lower: [linkedExecutionFirestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'linkedExecutionFirestoreId',
-              lower: [],
-              upper: [linkedExecutionFirestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedExecutionFirestoreId',
+                lower: [linkedExecutionFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'linkedExecutionFirestoreId',
+                lower: [],
+                upper: [linkedExecutionFirestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> gatesLaneFirestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  gatesLaneFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'gatesLaneFirestoreId',
-        value: [null],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'gatesLaneFirestoreId',
+          value: [null],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> gatesLaneFirestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  gatesLaneFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'gatesLaneFirestoreId',
-        lower: [null],
-        includeLower: false,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'gatesLaneFirestoreId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      gatesLaneFirestoreIdEqualTo(String? gatesLaneFirestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  gatesLaneFirestoreIdEqualTo(String? gatesLaneFirestoreId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'gatesLaneFirestoreId',
-        value: [gatesLaneFirestoreId],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'gatesLaneFirestoreId',
+          value: [gatesLaneFirestoreId],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterWhereClause>
-      gatesLaneFirestoreIdNotEqualTo(String? gatesLaneFirestoreId) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  gatesLaneFirestoreIdNotEqualTo(String? gatesLaneFirestoreId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gatesLaneFirestoreId',
-              lower: [],
-              upper: [gatesLaneFirestoreId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gatesLaneFirestoreId',
-              lower: [gatesLaneFirestoreId],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gatesLaneFirestoreId',
+                lower: [],
+                upper: [gatesLaneFirestoreId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gatesLaneFirestoreId',
+                lower: [gatesLaneFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gatesLaneFirestoreId',
-              lower: [gatesLaneFirestoreId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'gatesLaneFirestoreId',
-              lower: [],
-              upper: [gatesLaneFirestoreId],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gatesLaneFirestoreId',
+                lower: [gatesLaneFirestoreId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'gatesLaneFirestoreId',
+                lower: [],
+                upper: [gatesLaneFirestoreId],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> assetTypeKeyEqualTo(String assetTypeKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  assetTypeKeyEqualTo(String assetTypeKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetTypeKey',
-        value: [assetTypeKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'assetTypeKey',
+          value: [assetTypeKey],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> assetTypeKeyNotEqualTo(String assetTypeKey) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  assetTypeKeyNotEqualTo(String assetTypeKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [],
-              upper: [assetTypeKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [assetTypeKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [],
+                upper: [assetTypeKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [assetTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [assetTypeKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetTypeKey',
-              lower: [],
-              upper: [assetTypeKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [assetTypeKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetTypeKey',
+                lower: [],
+                upper: [assetTypeKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> assetNumberEqualTo(int assetNumber) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  assetNumberEqualTo(int assetNumber) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'assetNumber',
-        value: [assetNumber],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(
+          indexName: r'assetNumber',
+          value: [assetNumber],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> assetNumberNotEqualTo(int assetNumber) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  assetNumberNotEqualTo(int assetNumber) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [],
-              upper: [assetNumber],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [assetNumber],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [],
+                upper: [assetNumber],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [assetNumber],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [assetNumber],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'assetNumber',
-              lower: [],
-              upper: [assetNumber],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [assetNumber],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'assetNumber',
+                lower: [],
+                upper: [assetNumber],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> assetNumberGreaterThan(
-    int assetNumber, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  assetNumberGreaterThan(int assetNumber, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [assetNumber],
-        includeLower: include,
-        upper: [],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [assetNumber],
+          includeLower: include,
+          upper: [],
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> assetNumberLessThan(
-    int assetNumber, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  assetNumberLessThan(int assetNumber, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [],
-        upper: [assetNumber],
-        includeUpper: include,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [],
+          upper: [assetNumber],
+          includeUpper: include,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterWhereClause> assetNumberBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterWhereClause
+  >
+  assetNumberBetween(
     int lowerAssetNumber,
     int upperAssetNumber, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'assetNumber',
-        lower: [lowerAssetNumber],
-        includeLower: includeLower,
-        upper: [upperAssetNumber],
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'assetNumber',
+          lower: [lowerAssetNumber],
+          includeLower: includeLower,
+          upper: [upperAssetNumber],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
 
-extension ComplianceRequestRecordQueryFilter on QueryBuilder<
-    ComplianceRequestRecord, ComplianceRequestRecord, QFilterCondition> {
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedAtIsNull() {
+extension ComplianceRequestRecordQueryFilter
+    on
+        QueryBuilder<
+          ComplianceRequestRecord,
+          ComplianceRequestRecord,
+          QFilterCondition
+        > {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acknowledgedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acknowledgedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acknowledgedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acknowledgedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acknowledgedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'acknowledgedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acknowledgedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acknowledgedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acknowledgedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acknowledgedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acknowledgedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acknowledgedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acknowledgedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acknowledgedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acknowledgedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acknowledgedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acknowledgedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'acknowledgedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acknowledgedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acknowledgedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acknowledgedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acknowledgedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2354,155 +2756,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acknowledgedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acknowledgedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'acknowledgedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'acknowledgedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'acknowledgedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'acknowledgedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      acknowledgedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'acknowledgedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'acknowledgedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      acknowledgedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'acknowledgedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'acknowledgedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acknowledgedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'acknowledgedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'acknowledgedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'acknowledgedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acknowledgedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acknowledgedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acknowledgedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acknowledgedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acknowledgedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'acknowledgedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acknowledgedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acknowledgedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acknowledgedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acknowledgedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -2510,267 +2963,351 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acknowledgedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acknowledgedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'acknowledgedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'acknowledgedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'acknowledgedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'acknowledgedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      acknowledgedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'acknowledgedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'acknowledgedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      acknowledgedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'acknowledgedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'acknowledgedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acknowledgedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'acknowledgedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgedByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'acknowledgedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'acknowledgedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgementDueAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgementDueAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'acknowledgementDueAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'acknowledgementDueAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgementDueAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgementDueAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'acknowledgementDueAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'acknowledgementDueAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgementDueAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgementDueAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'acknowledgementDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'acknowledgementDueAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgementDueAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgementDueAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'acknowledgementDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'acknowledgementDueAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgementDueAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgementDueAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'acknowledgementDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'acknowledgementDueAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> acknowledgementDueAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  acknowledgementDueAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'acknowledgementDueAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'acknowledgementDueAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetNumberEqualTo(int value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetNumberEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetNumber', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetNumberGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetNumberGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetNumber',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetNumberLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetNumberLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetNumber',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetNumber',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetNumberBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetNumberBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetNumber',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetNumber',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2778,433 +3315,568 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assetTypeKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'assetTypeKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      assetTypeKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'assetTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'assetTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      assetTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'assetTypeKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'assetTypeKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assetTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'assetTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> assetTypeKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  assetTypeKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assetTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'assetTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> attemptCountEqualTo(int value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  attemptCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'attemptCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'attemptCount', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> attemptCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  attemptCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'attemptCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'attemptCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> attemptCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  attemptCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'attemptCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'attemptCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> attemptCountBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  attemptCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'attemptCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'attemptCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> becameDueAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  becameDueAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'becameDueAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'becameDueAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> becameDueAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  becameDueAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'becameDueAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'becameDueAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> becameDueAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  becameDueAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'becameDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'becameDueAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> becameDueAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  becameDueAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'becameDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'becameDueAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> becameDueAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  becameDueAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'becameDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'becameDueAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> becameDueAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  becameDueAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'becameDueAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'becameDueAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> chargeNoAtEventIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  chargeNoAtEventIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'chargeNoAtEvent',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'chargeNoAtEvent'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> chargeNoAtEventIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  chargeNoAtEventIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'chargeNoAtEvent',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'chargeNoAtEvent'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> chargeNoAtEventEqualTo(int? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  chargeNoAtEventEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'chargeNoAtEvent',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'chargeNoAtEvent', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> chargeNoAtEventGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  chargeNoAtEventGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'chargeNoAtEvent',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'chargeNoAtEvent',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> chargeNoAtEventLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  chargeNoAtEventLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'chargeNoAtEvent',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'chargeNoAtEvent',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> chargeNoAtEventBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  chargeNoAtEventBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'chargeNoAtEvent',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'chargeNoAtEvent',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceDueAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceDueAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'complianceDueAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'complianceDueAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceDueAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceDueAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'complianceDueAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'complianceDueAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceDueAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceDueAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'complianceDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'complianceDueAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceDueAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceDueAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'complianceDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'complianceDueAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceDueAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceDueAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'complianceDueAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'complianceDueAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceDueAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceDueAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'complianceDueAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'complianceDueAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'complianceNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'complianceNote'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'complianceNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'complianceNote'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'complianceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'complianceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'complianceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'complianceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'complianceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'complianceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3212,229 +3884,303 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'complianceNote',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'complianceNote',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'complianceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'complianceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'complianceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'complianceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      complianceNoteContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'complianceNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'complianceNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      complianceNoteMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'complianceNote',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'complianceNote',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'complianceNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'complianceNote', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> complianceNoteIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  complianceNoteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'complianceNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'complianceNote', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'compliedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'compliedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'compliedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'compliedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'compliedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'compliedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'compliedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'compliedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'compliedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'compliedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'compliedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'compliedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'compliedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'compliedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'compliedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'compliedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'compliedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'compliedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'compliedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'compliedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'compliedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'compliedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3442,155 +4188,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'compliedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'compliedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'compliedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'compliedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'compliedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'compliedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      compliedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'compliedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'compliedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      compliedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'compliedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'compliedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'compliedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'compliedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'compliedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'compliedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'compliedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'compliedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'compliedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'compliedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'compliedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'compliedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'compliedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'compliedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'compliedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'compliedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3598,155 +4395,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'compliedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'compliedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'compliedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'compliedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'compliedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'compliedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      compliedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'compliedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'compliedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      compliedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'compliedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'compliedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'compliedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'compliedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> compliedByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  compliedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'compliedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'compliedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'conditionRef',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'conditionRef'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'conditionRef',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'conditionRef'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'conditionRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'conditionRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'conditionRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'conditionRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'conditionRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'conditionRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -3754,137 +4602,180 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'conditionRef',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'conditionRef',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'conditionRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'conditionRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'conditionRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'conditionRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      conditionRefContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'conditionRef',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'conditionRef',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      conditionRefMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'conditionRef',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'conditionRef',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'conditionRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'conditionRef', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionRefIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionRefIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'conditionRef',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'conditionRef', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'conditionTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'conditionTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'conditionTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'conditionTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'conditionTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'conditionTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3892,155 +4783,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'conditionTypeKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'conditionTypeKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'conditionTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'conditionTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'conditionTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'conditionTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      conditionTypeKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'conditionTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'conditionTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      conditionTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'conditionTypeKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'conditionTypeKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'conditionTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'conditionTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> conditionTypeKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  conditionTypeKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'conditionTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'conditionTypeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'confirmNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'confirmNote'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'confirmNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'confirmNote'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confirmNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'confirmNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'confirmNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'confirmNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'confirmNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'confirmNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4048,229 +4990,303 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'confirmNote',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'confirmNote',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'confirmNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'confirmNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'confirmNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'confirmNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      confirmNoteContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'confirmNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'confirmNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      confirmNoteMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'confirmNote',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'confirmNote',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confirmNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'confirmNote', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmNoteIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmNoteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'confirmNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'confirmNote', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'confirmedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'confirmedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'confirmedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'confirmedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confirmedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'confirmedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'confirmedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'confirmedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'confirmedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'confirmedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'confirmedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'confirmedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'confirmedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'confirmedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'confirmedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'confirmedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confirmedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'confirmedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'confirmedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'confirmedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'confirmedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'confirmedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4278,155 +5294,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'confirmedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'confirmedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'confirmedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'confirmedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'confirmedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'confirmedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      confirmedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'confirmedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'confirmedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      confirmedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'confirmedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'confirmedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confirmedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'confirmedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'confirmedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'confirmedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'confirmedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'confirmedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'confirmedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'confirmedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confirmedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'confirmedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'confirmedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'confirmedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'confirmedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'confirmedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4434,155 +5501,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'confirmedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'confirmedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'confirmedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'confirmedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'confirmedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'confirmedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      confirmedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'confirmedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'confirmedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      confirmedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'confirmedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'confirmedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'confirmedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'confirmedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> confirmedByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  confirmedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'confirmedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'confirmedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'coordinationBasis',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'coordinationBasis'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'coordinationBasis',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'coordinationBasis'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'coordinationBasis',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'coordinationBasis',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'coordinationBasis',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'coordinationBasis',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'coordinationBasis',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'coordinationBasis',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4590,211 +5708,277 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'coordinationBasis',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'coordinationBasis',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'coordinationBasis',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'coordinationBasis',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'coordinationBasis',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'coordinationBasis',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      coordinationBasisContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'coordinationBasis',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'coordinationBasis',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      coordinationBasisMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'coordinationBasis',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'coordinationBasis',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'coordinationBasis',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'coordinationBasis', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> coordinationBasisIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  coordinationBasisIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'coordinationBasis',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'coordinationBasis', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> correctionCountEqualTo(int value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  correctionCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'correctionCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'correctionCount', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> correctionCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  correctionCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'correctionCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'correctionCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> correctionCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  correctionCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'correctionCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'correctionCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> correctionCountBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  correctionCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'correctionCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'correctionCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterConditionOfId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterConditionOfId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterConditionOfId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterConditionOfId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterConditionOfId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterConditionOfId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterConditionOfId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterConditionOfId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterConditionOfId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterConditionOfId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -4802,229 +5986,306 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterConditionOfId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterConditionOfId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'counterConditionOfId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'counterConditionOfId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'counterConditionOfId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'counterConditionOfId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterConditionOfIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'counterConditionOfId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'counterConditionOfId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterConditionOfIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'counterConditionOfId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'counterConditionOfId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterConditionOfId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterConditionOfId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterConditionOfIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterConditionOfIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'counterConditionOfId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'counterConditionOfId',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterDecisionAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterDecisionAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterDecisionAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterDecisionAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDecisionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterDecisionAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterDecisionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterDecisionAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterDecisionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterDecisionAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterDecisionAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterDecisionAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterDecisionByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterDecisionByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterDecisionByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterDecisionByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDecisionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterDecisionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterDecisionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterDecisionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterDecisionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterDecisionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5032,156 +6293,209 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterDecisionByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterDecisionByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'counterDecisionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'counterDecisionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'counterDecisionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'counterDecisionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterDecisionByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'counterDecisionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'counterDecisionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterDecisionByNameMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'counterDecisionByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'counterDecisionByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDecisionByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterDecisionByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'counterDecisionByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'counterDecisionByName',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterDecisionByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterDecisionByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterDecisionByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterDecisionByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDecisionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterDecisionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterDecisionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterDecisionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterDecisionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterDecisionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5189,155 +6503,209 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterDecisionByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterDecisionByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'counterDecisionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'counterDecisionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'counterDecisionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'counterDecisionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterDecisionByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'counterDecisionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'counterDecisionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterDecisionByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'counterDecisionByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'counterDecisionByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDecisionByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterDecisionByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'counterDecisionByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'counterDecisionByUid',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterDecisionNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterDecisionNote'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterDecisionNote',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterDecisionNote'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDecisionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterDecisionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterDecisionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterDecisionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterDecisionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterDecisionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5345,285 +6713,377 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterDecisionNote',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterDecisionNote',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'counterDecisionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'counterDecisionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'counterDecisionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'counterDecisionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterDecisionNoteContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'counterDecisionNote',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'counterDecisionNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterDecisionNoteMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'counterDecisionNote',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'counterDecisionNote',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDecisionNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterDecisionNote', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDecisionNoteIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDecisionNoteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'counterDecisionNote',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'counterDecisionNote',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDepthEqualTo(int value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDepthEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterDepth',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterDepth', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDepthGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDepthGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterDepth',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterDepth',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDepthLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDepthLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterDepth',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterDepth',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterDepthBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterDepthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterDepth',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterDepth',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterProposedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterProposedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterProposedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterProposedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterProposedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterProposedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterProposedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterProposedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterProposedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterProposedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterProposedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterProposedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterProposedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterProposedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterProposedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterProposedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterProposedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterProposedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterProposedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterProposedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterProposedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterProposedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5631,156 +7091,209 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterProposedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterProposedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'counterProposedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'counterProposedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'counterProposedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'counterProposedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterProposedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'counterProposedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'counterProposedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterProposedByNameMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'counterProposedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'counterProposedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterProposedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterProposedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'counterProposedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'counterProposedByName',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterProposedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterProposedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterProposedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterProposedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterProposedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterProposedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterProposedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterProposedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterProposedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterProposedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5788,155 +7301,209 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterProposedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterProposedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'counterProposedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'counterProposedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'counterProposedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'counterProposedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterProposedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'counterProposedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'counterProposedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterProposedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'counterProposedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'counterProposedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterProposedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'counterProposedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterProposedByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterProposedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'counterProposedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'counterProposedByUid',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'counterRevisedDescription',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'counterRevisedDescription'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'counterRevisedDescription',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'counterRevisedDescription'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterRevisedDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterRevisedDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'counterRevisedDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'counterRevisedDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'counterRevisedDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'counterRevisedDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -5944,213 +7511,289 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'counterRevisedDescription',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'counterRevisedDescription',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionStartsWith(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'counterRevisedDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'counterRevisedDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionEndsWith(
-    String value, {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'counterRevisedDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'counterRevisedDescription',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionMatches(
+    String pattern, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'counterRevisedDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'counterRevisedDescription',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterRevisedDescriptionContains(String value,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'counterRevisedDescription',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'counterRevisedDescription',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      counterRevisedDescriptionMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  counterRevisedDescriptionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'counterRevisedDescription',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'counterRevisedDescription',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'counterRevisedDescription',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> counterRevisedDescriptionIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  createdAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'counterRevisedDescription',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> createdAtEqualTo(DateTime value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  createdAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> createdAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> createdAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> createdAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  createdAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'currentAttemptId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'currentAttemptId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'currentAttemptId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'currentAttemptId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'currentAttemptId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'currentAttemptId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'currentAttemptId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'currentAttemptId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'currentAttemptId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'currentAttemptId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6158,155 +7801,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'currentAttemptId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'currentAttemptId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'currentAttemptId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'currentAttemptId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'currentAttemptId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'currentAttemptId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      currentAttemptIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'currentAttemptId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'currentAttemptId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      currentAttemptIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'currentAttemptId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'currentAttemptId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'currentAttemptId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'currentAttemptId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> currentAttemptIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  currentAttemptIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'currentAttemptId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'currentAttemptId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'defermentBasisKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'defermentBasisKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'defermentBasisKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'defermentBasisKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'defermentBasisKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'defermentBasisKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'defermentBasisKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'defermentBasisKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'defermentBasisKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'defermentBasisKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6314,155 +8008,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'defermentBasisKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'defermentBasisKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'defermentBasisKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'defermentBasisKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'defermentBasisKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'defermentBasisKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      defermentBasisKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'defermentBasisKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'defermentBasisKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      defermentBasisKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'defermentBasisKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'defermentBasisKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'defermentBasisKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'defermentBasisKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> defermentBasisKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  defermentBasisKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'defermentBasisKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'defermentBasisKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deleteReason'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deleteReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deleteReason'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6470,229 +8215,303 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deleteReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deleteReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      deleteReasonContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deleteReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deleteReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deleteReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deleteReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deleteReason', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deleteReasonIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deleteReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deleteReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deleteReason', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6700,155 +8519,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      deletedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'deletedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'deletedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'deletedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -6856,137 +8726,180 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'deletedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'deletedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      deletedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'deletedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'deletedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'deletedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'deletedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> deletedByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  deletedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'deletedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'deletedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -6994,229 +8907,303 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'description',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'description',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      descriptionContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'description',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'description',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      descriptionMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'description',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'description',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'description',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'description', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> descriptionIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  descriptionIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'description',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'description', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'dueMarkedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'dueMarkedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'dueMarkedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'dueMarkedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dueMarkedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'dueMarkedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'dueMarkedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'dueMarkedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'dueMarkedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'dueMarkedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'dueMarkedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'dueMarkedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'dueMarkedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'dueMarkedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'dueMarkedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'dueMarkedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dueMarkedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'dueMarkedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'dueMarkedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'dueMarkedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'dueMarkedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'dueMarkedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7224,155 +9211,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'dueMarkedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'dueMarkedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'dueMarkedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'dueMarkedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'dueMarkedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'dueMarkedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      dueMarkedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'dueMarkedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'dueMarkedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      dueMarkedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'dueMarkedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'dueMarkedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dueMarkedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'dueMarkedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'dueMarkedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'dueMarkedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'dueMarkedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'dueMarkedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'dueMarkedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'dueMarkedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dueMarkedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'dueMarkedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'dueMarkedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'dueMarkedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'dueMarkedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'dueMarkedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7380,211 +9418,277 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'dueMarkedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'dueMarkedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'dueMarkedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'dueMarkedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'dueMarkedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'dueMarkedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      dueMarkedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'dueMarkedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'dueMarkedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      dueMarkedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'dueMarkedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'dueMarkedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dueMarkedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'dueMarkedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> dueMarkedByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  dueMarkedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'dueMarkedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'dueMarkedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> escalationTierEqualTo(int value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  escalationTierEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'escalationTier',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'escalationTier', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> escalationTierGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  escalationTierGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'escalationTier',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'escalationTier',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> escalationTierLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  escalationTierLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'escalationTier',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'escalationTier',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> escalationTierBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  escalationTierBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'escalationTier',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'escalationTier',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'firestoreId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'firestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'firestoreId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7592,155 +9696,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'firestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'firestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      firestoreIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'firestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'firestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'firestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'firestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'firestoreId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> firestoreIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  firestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'firestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'firestoreId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'gatesLaneFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'gatesLaneFirestoreId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'gatesLaneFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'gatesLaneFirestoreId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'gatesLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'gatesLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'gatesLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'gatesLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'gatesLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'gatesLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -7748,305 +9903,403 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'gatesLaneFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'gatesLaneFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'gatesLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'gatesLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'gatesLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'gatesLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      gatesLaneFirestoreIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'gatesLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'gatesLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      gatesLaneFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'gatesLaneFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'gatesLaneFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'gatesLaneFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'gatesLaneFirestoreId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> gatesLaneFirestoreIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  gatesLaneFirestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'gatesLaneFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'gatesLaneFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> idEqualTo(Id value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> idBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> isDeletedEqualTo(bool value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isDeleted',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isDeleted', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> isSyncedEqualTo(bool value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'isSynced',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isSynced', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastCorrectionAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastCorrectionAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastCorrectionAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastCorrectionAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastCorrectionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastCorrectionAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastCorrectionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastCorrectionAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastCorrectionAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastCorrectionAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastCorrectionAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastCorrectionAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastCorrectionByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastCorrectionByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastCorrectionByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastCorrectionByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastCorrectionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastCorrectionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastCorrectionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastCorrectionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastCorrectionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastCorrectionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8054,155 +10307,209 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastCorrectionByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastCorrectionByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastCorrectionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastCorrectionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastCorrectionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastCorrectionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      lastCorrectionByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastCorrectionByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastCorrectionByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      lastCorrectionByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastCorrectionByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastCorrectionByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastCorrectionByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastCorrectionByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastCorrectionByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'lastCorrectionByName',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastCorrectionByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastCorrectionByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastCorrectionByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastCorrectionByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastCorrectionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastCorrectionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastCorrectionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastCorrectionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastCorrectionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastCorrectionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8210,155 +10517,209 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastCorrectionByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastCorrectionByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastCorrectionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastCorrectionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastCorrectionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastCorrectionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      lastCorrectionByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastCorrectionByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastCorrectionByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      lastCorrectionByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastCorrectionByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastCorrectionByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastCorrectionByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastCorrectionByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastCorrectionByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'lastCorrectionByUid',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastCorrectionReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastCorrectionReason'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastCorrectionReason',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastCorrectionReason'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastCorrectionReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'lastCorrectionReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastCorrectionReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastCorrectionReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastCorrectionReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastCorrectionReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8366,229 +10727,311 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastCorrectionReason',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastCorrectionReason',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'lastCorrectionReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'lastCorrectionReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'lastCorrectionReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'lastCorrectionReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      lastCorrectionReasonContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'lastCorrectionReason',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'lastCorrectionReason',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      lastCorrectionReasonMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'lastCorrectionReason',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'lastCorrectionReason',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastCorrectionReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastCorrectionReason', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastCorrectionReasonIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastCorrectionReasonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'lastCorrectionReason',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'lastCorrectionReason',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastEscalatedAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastEscalatedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastEscalatedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastEscalatedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastEscalatedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastEscalatedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastEscalatedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastEscalatedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastEscalatedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastEscalatedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastEscalatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastEscalatedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastEscalatedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastEscalatedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastEscalatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastEscalatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastEscalatedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastEscalatedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastEscalatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastEscalatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> lastEscalatedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  lastEscalatedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastEscalatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastEscalatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'linkedExecutionFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'linkedExecutionFirestoreId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'linkedExecutionFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(
+          property: r'linkedExecutionFirestoreId',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdEqualTo(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdEqualTo(
     String? value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8596,157 +11039,224 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'linkedExecutionFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'linkedExecutionFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdStartsWith(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdEndsWith(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedExecutionFirestoreIdContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'linkedExecutionFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedExecutionFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'linkedExecutionFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedExecutionFirestoreId',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedExecutionFirestoreIdIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'linkedExecutionFirestoreId',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'linkedLaneFirestoreId',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'linkedLaneFirestoreId',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdEqualTo(
-    String? value, {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdContains(
+    String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'linkedExecutionFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdMatches(
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'linkedExecutionFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedExecutionFirestoreId',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedExecutionFirestoreIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'linkedExecutionFirestoreId',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'linkedLaneFirestoreId'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'linkedLaneFirestoreId'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'linkedLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'linkedLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'linkedLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'linkedLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8754,156 +11264,214 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'linkedLaneFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'linkedLaneFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'linkedLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'linkedLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'linkedLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'linkedLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedLaneFirestoreIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'linkedLaneFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'linkedLaneFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedLaneFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'linkedLaneFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'linkedLaneFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedLaneFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'linkedLaneFirestoreId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedLaneFirestoreIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedLaneFirestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'linkedLaneFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'linkedLaneFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'linkedMaintenanceFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'linkedMaintenanceFirestoreId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'linkedMaintenanceFirestoreId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(
+          property: r'linkedMaintenanceFirestoreId',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdEqualTo(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdEqualTo(
     String? value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedMaintenanceFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedMaintenanceFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'linkedMaintenanceFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'linkedMaintenanceFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'linkedMaintenanceFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'linkedMaintenanceFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -8911,157 +11479,224 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'linkedMaintenanceFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'linkedMaintenanceFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdStartsWith(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'linkedMaintenanceFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'linkedMaintenanceFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdEndsWith(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'linkedMaintenanceFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'linkedMaintenanceFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedMaintenanceFirestoreIdContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'linkedMaintenanceFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedMaintenanceFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'linkedMaintenanceFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedMaintenanceFirestoreId',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedMaintenanceFirestoreIdIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'linkedMaintenanceFirestoreId',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'linkedModuleFirestoreId',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'linkedModuleFirestoreId',
-      ));
-    });
-  }
-
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdEqualTo(
-    String? value, {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdContains(
+    String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedModuleFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'linkedMaintenanceFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdMatches(
+    String pattern, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'linkedMaintenanceFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedMaintenanceFirestoreId',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedMaintenanceFirestoreIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'linkedMaintenanceFirestoreId',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'linkedModuleFirestoreId'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'linkedModuleFirestoreId'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedModuleFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'linkedModuleFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'linkedModuleFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'linkedModuleFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'linkedModuleFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9069,157 +11704,212 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'linkedModuleFirestoreId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'linkedModuleFirestoreId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'linkedModuleFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'linkedModuleFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'linkedModuleFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'linkedModuleFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedModuleFirestoreIdContains(String value,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'linkedModuleFirestoreId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'linkedModuleFirestoreId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedModuleFirestoreIdMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'linkedModuleFirestoreId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'linkedModuleFirestoreId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedModuleFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedModuleFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedModuleFirestoreIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedModuleFirestoreIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'linkedModuleFirestoreId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'linkedModuleFirestoreId',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'linkedWorkflowId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'linkedWorkflowId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'linkedWorkflowId',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'linkedWorkflowId'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedWorkflowId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'linkedWorkflowId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'linkedWorkflowId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'linkedWorkflowId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'linkedWorkflowId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'linkedWorkflowId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9227,155 +11917,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'linkedWorkflowId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'linkedWorkflowId',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'linkedWorkflowId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'linkedWorkflowId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'linkedWorkflowId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'linkedWorkflowId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedWorkflowIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'linkedWorkflowId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'linkedWorkflowId',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      linkedWorkflowIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'linkedWorkflowId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'linkedWorkflowId',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'linkedWorkflowId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'linkedWorkflowId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> linkedWorkflowIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  linkedWorkflowIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'linkedWorkflowId',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'linkedWorkflowId', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'metadataJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'metadataJson'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'metadataJson',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'metadataJson'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9383,155 +12124,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'metadataJson',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'metadataJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      metadataJsonContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'metadataJson',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'metadataJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      metadataJsonMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'metadataJson',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'metadataJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'metadataJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'metadataJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> metadataJsonIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  metadataJsonIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'metadataJson',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'metadataJson', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'operationsResourceKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'operationsResourceKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'operationsResourceKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'operationsResourceKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'operationsResourceKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'operationsResourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'operationsResourceKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'operationsResourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'operationsResourceKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'operationsResourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9539,156 +12331,209 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'operationsResourceKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'operationsResourceKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'operationsResourceKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'operationsResourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'operationsResourceKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'operationsResourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      operationsResourceKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'operationsResourceKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'operationsResourceKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      operationsResourceKeyMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'operationsResourceKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'operationsResourceKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'operationsResourceKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'operationsResourceKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsResourceKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsResourceKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'operationsResourceKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'operationsResourceKey',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'operationsSupportTypeKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'operationsSupportTypeKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'operationsSupportTypeKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'operationsSupportTypeKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'operationsSupportTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'operationsSupportTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'operationsSupportTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'operationsSupportTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'operationsSupportTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'operationsSupportTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9696,157 +12541,215 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'operationsSupportTypeKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'operationsSupportTypeKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyStartsWith(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'operationsSupportTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'operationsSupportTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'operationsSupportTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'operationsSupportTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      operationsSupportTypeKeyContains(String value,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'operationsSupportTypeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'operationsSupportTypeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      operationsSupportTypeKeyMatches(String pattern,
-          {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'operationsSupportTypeKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'operationsSupportTypeKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'operationsSupportTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'operationsSupportTypeKey',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> operationsSupportTypeKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  operationsSupportTypeKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'operationsSupportTypeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'operationsSupportTypeKey',
+          value: '',
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'originLaneKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'originLaneKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'originLaneKey',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'originLaneKey'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'originLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'originLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'originLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'originLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'originLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'originLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -9854,137 +12757,180 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'originLaneKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'originLaneKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'originLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'originLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'originLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'originLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      originLaneKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'originLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'originLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      originLaneKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'originLaneKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'originLaneKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'originLaneKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'originLaneKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> originLaneKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  originLaneKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'originLaneKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'originLaneKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'priorityKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'priorityKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'priorityKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'priorityKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'priorityKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'priorityKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -9992,229 +12938,303 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'priorityKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'priorityKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'priorityKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'priorityKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'priorityKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'priorityKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      priorityKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'priorityKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'priorityKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      priorityKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'priorityKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'priorityKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'priorityKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'priorityKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> priorityKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  priorityKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'priorityKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'priorityKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedAtIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'raisedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'raisedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedAtIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'raisedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'raisedAt'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'raisedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'raisedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'raisedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'raisedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'raisedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'raisedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'raisedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'raisedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'raisedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'raisedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'raisedByName',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'raisedByName'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'raisedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'raisedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'raisedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'raisedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'raisedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'raisedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10222,155 +13242,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'raisedByName',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'raisedByName',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'raisedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'raisedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'raisedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'raisedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      raisedByNameContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'raisedByName',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'raisedByName',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      raisedByNameMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'raisedByName',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'raisedByName',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'raisedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'raisedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByNameIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByNameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'raisedByName',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'raisedByName', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'raisedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'raisedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'raisedByUid',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'raisedByUid'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'raisedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'raisedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'raisedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'raisedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'raisedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'raisedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10378,147 +13449,196 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'raisedByUid',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'raisedByUid',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'raisedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'raisedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'raisedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'raisedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      raisedByUidContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'raisedByUid',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'raisedByUid',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      raisedByUidMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'raisedByUid',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'raisedByUid',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'raisedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'raisedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedByUidIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedByUidIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'raisedByUid',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'raisedByUid', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> raisedUnderCoordinationEqualTo(bool value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  raisedUnderCoordinationEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'raisedUnderCoordination',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'raisedUnderCoordination',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requestPurposeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'requestPurposeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'requestPurposeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'requestPurposeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'requestPurposeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'requestPurposeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -10526,155 +13646,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'requestPurposeKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'requestPurposeKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'requestPurposeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'requestPurposeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'requestPurposeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'requestPurposeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      requestPurposeKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'requestPurposeKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'requestPurposeKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      requestPurposeKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'requestPurposeKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'requestPurposeKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requestPurposeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'requestPurposeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestPurposeKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestPurposeKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'requestPurposeKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'requestPurposeKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'requestedLocation',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'requestedLocation'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'requestedLocation',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'requestedLocation'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requestedLocation',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'requestedLocation',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'requestedLocation',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'requestedLocation',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'requestedLocation',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'requestedLocation',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10682,137 +13853,180 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'requestedLocation',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'requestedLocation',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'requestedLocation',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'requestedLocation',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'requestedLocation',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'requestedLocation',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      requestedLocationContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'requestedLocation',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'requestedLocation',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      requestedLocationMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'requestedLocation',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'requestedLocation',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'requestedLocation',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'requestedLocation', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> requestedLocationIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  requestedLocationIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'requestedLocation',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'requestedLocation', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'statusKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'statusKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'statusKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'statusKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'statusKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'statusKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -10820,155 +14034,206 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'statusKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'statusKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'statusKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'statusKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'statusKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'statusKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      statusKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'statusKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'statusKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      statusKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'statusKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'statusKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'statusKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'statusKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> statusKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  statusKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'statusKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'statusKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdIsNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'supersededById',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'supersededById'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdIsNotNull() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'supersededById',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'supersededById'),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdEqualTo(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'supersededById',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'supersededById',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdGreaterThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'supersededById',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'supersededById',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdLessThan(
     String? value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'supersededById',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'supersededById',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdBetween(
     String? lower,
     String? upper, {
     bool includeLower = true,
@@ -10976,137 +14241,180 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'supersededById',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'supersededById',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'supersededById',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'supersededById',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'supersededById',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'supersededById',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      supersededByIdContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'supersededById',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'supersededById',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      supersededByIdMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'supersededById',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'supersededById',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'supersededById',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'supersededById', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> supersededByIdIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  supersededByIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'supersededById',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'supersededById', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'targetLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'targetLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'targetLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'targetLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'targetLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -11114,137 +14422,180 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'targetLaneKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'targetLaneKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'targetLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'targetLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'targetLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'targetLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      targetLaneKeyContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'targetLaneKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'targetLaneKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      targetLaneKeyMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'targetLaneKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'targetLaneKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'targetLaneKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'targetLaneKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> targetLaneKeyIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  targetLaneKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'targetLaneKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'targetLaneKey', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleGreaterThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleLessThan(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -11252,2895 +14603,3048 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'title',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'title',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      titleContains(String value, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'title',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'title',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-          QAfterFilterCondition>
-      titleMatches(String pattern, {bool caseSensitive = true}) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'title',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'title',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleIsEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'title',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'title', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> titleIsNotEmpty() {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  titleIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'title',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'title', value: ''),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> updatedAtEqualTo(DateTime value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> updatedAtBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> versionEqualTo(int value) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'version', value: value),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> versionGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  versionGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> versionLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  versionLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'version',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'version',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
-      QAfterFilterCondition> versionBetween(
+  QueryBuilder<
+    ComplianceRequestRecord,
+    ComplianceRequestRecord,
+    QAfterFilterCondition
+  >
+  versionBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'version',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'version',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
 
-extension ComplianceRequestRecordQueryObject on QueryBuilder<
-    ComplianceRequestRecord, ComplianceRequestRecord, QFilterCondition> {}
+extension ComplianceRequestRecordQueryObject
+    on
+        QueryBuilder<
+          ComplianceRequestRecord,
+          ComplianceRequestRecord,
+          QFilterCondition
+        > {}
 
-extension ComplianceRequestRecordQueryLinks on QueryBuilder<
-    ComplianceRequestRecord, ComplianceRequestRecord, QFilterCondition> {}
+extension ComplianceRequestRecordQueryLinks
+    on
+        QueryBuilder<
+          ComplianceRequestRecord,
+          ComplianceRequestRecord,
+          QFilterCondition
+        > {}
 
 extension ComplianceRequestRecordQuerySortBy
     on QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QSortBy> {
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgedAt() {
+  sortByAcknowledgedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgedAtDesc() {
+  sortByAcknowledgedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgedByName() {
+  sortByAcknowledgedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgedByNameDesc() {
+  sortByAcknowledgedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgedByUid() {
+  sortByAcknowledgedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgedByUidDesc() {
+  sortByAcknowledgedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgementDueAt() {
+  sortByAcknowledgementDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgementDueAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAcknowledgementDueAtDesc() {
+  sortByAcknowledgementDueAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgementDueAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAssetNumber() {
+  sortByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAssetNumberDesc() {
+  sortByAssetNumberDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAssetTypeKey() {
+  sortByAssetTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAssetTypeKeyDesc() {
+  sortByAssetTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAttemptCount() {
+  sortByAttemptCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByAttemptCountDesc() {
+  sortByAttemptCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByBecameDueAt() {
+  sortByBecameDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'becameDueAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByBecameDueAtDesc() {
+  sortByBecameDueAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'becameDueAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByChargeNoAtEvent() {
+  sortByChargeNoAtEvent() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByChargeNoAtEventDesc() {
+  sortByChargeNoAtEventDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByComplianceDueAt() {
+  sortByComplianceDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceDueAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByComplianceDueAtDesc() {
+  sortByComplianceDueAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceDueAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByComplianceNote() {
+  sortByComplianceNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceNote', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByComplianceNoteDesc() {
+  sortByComplianceNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceNote', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCompliedAt() {
+  sortByCompliedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCompliedAtDesc() {
+  sortByCompliedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCompliedByName() {
+  sortByCompliedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCompliedByNameDesc() {
+  sortByCompliedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCompliedByUid() {
+  sortByCompliedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCompliedByUidDesc() {
+  sortByCompliedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConditionRef() {
+  sortByConditionRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionRef', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConditionRefDesc() {
+  sortByConditionRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionRef', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConditionTypeKey() {
+  sortByConditionTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConditionTypeKeyDesc() {
+  sortByConditionTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmNote() {
+  sortByConfirmNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmNote', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmNoteDesc() {
+  sortByConfirmNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmNote', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmedAt() {
+  sortByConfirmedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmedAtDesc() {
+  sortByConfirmedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmedByName() {
+  sortByConfirmedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmedByNameDesc() {
+  sortByConfirmedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmedByUid() {
+  sortByConfirmedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByConfirmedByUidDesc() {
+  sortByConfirmedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCoordinationBasis() {
+  sortByCoordinationBasis() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'coordinationBasis', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCoordinationBasisDesc() {
+  sortByCoordinationBasisDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'coordinationBasis', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCorrectionCount() {
+  sortByCorrectionCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'correctionCount', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCorrectionCountDesc() {
+  sortByCorrectionCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'correctionCount', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterConditionOfId() {
+  sortByCounterConditionOfId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterConditionOfId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterConditionOfIdDesc() {
+  sortByCounterConditionOfIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterConditionOfId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionAt() {
+  sortByCounterDecisionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionAtDesc() {
+  sortByCounterDecisionAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionByName() {
+  sortByCounterDecisionByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionByNameDesc() {
+  sortByCounterDecisionByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionByUid() {
+  sortByCounterDecisionByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionByUidDesc() {
+  sortByCounterDecisionByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionNote() {
+  sortByCounterDecisionNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionNote', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDecisionNoteDesc() {
+  sortByCounterDecisionNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionNote', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDepth() {
+  sortByCounterDepth() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDepth', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterDepthDesc() {
+  sortByCounterDepthDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDepth', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterProposedAt() {
+  sortByCounterProposedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterProposedAtDesc() {
+  sortByCounterProposedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterProposedByName() {
+  sortByCounterProposedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterProposedByNameDesc() {
+  sortByCounterProposedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterProposedByUid() {
+  sortByCounterProposedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterProposedByUidDesc() {
+  sortByCounterProposedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterRevisedDescription() {
+  sortByCounterRevisedDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterRevisedDescription', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCounterRevisedDescriptionDesc() {
+  sortByCounterRevisedDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterRevisedDescription', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCreatedAt() {
+  sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCreatedAtDesc() {
+  sortByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCurrentAttemptId() {
+  sortByCurrentAttemptId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'currentAttemptId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByCurrentAttemptIdDesc() {
+  sortByCurrentAttemptIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'currentAttemptId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDefermentBasisKey() {
+  sortByDefermentBasisKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'defermentBasisKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDefermentBasisKeyDesc() {
+  sortByDefermentBasisKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'defermentBasisKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeleteReason() {
+  sortByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeleteReasonDesc() {
+  sortByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeletedAt() {
+  sortByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeletedAtDesc() {
+  sortByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeletedByName() {
+  sortByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeletedByNameDesc() {
+  sortByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeletedByUid() {
+  sortByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDeletedByUidDesc() {
+  sortByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDescription() {
+  sortByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDescriptionDesc() {
+  sortByDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDueMarkedAt() {
+  sortByDueMarkedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDueMarkedAtDesc() {
+  sortByDueMarkedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDueMarkedByName() {
+  sortByDueMarkedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDueMarkedByNameDesc() {
+  sortByDueMarkedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDueMarkedByUid() {
+  sortByDueMarkedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByDueMarkedByUidDesc() {
+  sortByDueMarkedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByEscalationTier() {
+  sortByEscalationTier() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'escalationTier', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByEscalationTierDesc() {
+  sortByEscalationTierDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'escalationTier', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByFirestoreId() {
+  sortByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByFirestoreIdDesc() {
+  sortByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByGatesLaneFirestoreId() {
+  sortByGatesLaneFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gatesLaneFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByGatesLaneFirestoreIdDesc() {
+  sortByGatesLaneFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gatesLaneFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByIsDeleted() {
+  sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByIsDeletedDesc() {
+  sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByIsSynced() {
+  sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByIsSyncedDesc() {
+  sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionAt() {
+  sortByLastCorrectionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionAtDesc() {
+  sortByLastCorrectionAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionByName() {
+  sortByLastCorrectionByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionByNameDesc() {
+  sortByLastCorrectionByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionByUid() {
+  sortByLastCorrectionByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionByUidDesc() {
+  sortByLastCorrectionByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionReason() {
+  sortByLastCorrectionReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionReason', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastCorrectionReasonDesc() {
+  sortByLastCorrectionReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionReason', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastEscalatedAt() {
+  sortByLastEscalatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEscalatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLastEscalatedAtDesc() {
+  sortByLastEscalatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEscalatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedExecutionFirestoreId() {
+  sortByLinkedExecutionFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedExecutionFirestoreIdDesc() {
+  sortByLinkedExecutionFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedLaneFirestoreId() {
+  sortByLinkedLaneFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedLaneFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedLaneFirestoreIdDesc() {
+  sortByLinkedLaneFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedLaneFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedMaintenanceFirestoreId() {
+  sortByLinkedMaintenanceFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedMaintenanceFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedMaintenanceFirestoreIdDesc() {
+  sortByLinkedMaintenanceFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedMaintenanceFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedModuleFirestoreId() {
+  sortByLinkedModuleFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedModuleFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedModuleFirestoreIdDesc() {
+  sortByLinkedModuleFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedModuleFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedWorkflowId() {
+  sortByLinkedWorkflowId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedWorkflowId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByLinkedWorkflowIdDesc() {
+  sortByLinkedWorkflowIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedWorkflowId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByMetadataJson() {
+  sortByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByMetadataJsonDesc() {
+  sortByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByOperationsResourceKey() {
+  sortByOperationsResourceKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsResourceKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByOperationsResourceKeyDesc() {
+  sortByOperationsResourceKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsResourceKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByOperationsSupportTypeKey() {
+  sortByOperationsSupportTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsSupportTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByOperationsSupportTypeKeyDesc() {
+  sortByOperationsSupportTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsSupportTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByOriginLaneKey() {
+  sortByOriginLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'originLaneKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByOriginLaneKeyDesc() {
+  sortByOriginLaneKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'originLaneKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByPriorityKey() {
+  sortByPriorityKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'priorityKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByPriorityKeyDesc() {
+  sortByPriorityKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'priorityKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedAt() {
+  sortByRaisedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedAtDesc() {
+  sortByRaisedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedByName() {
+  sortByRaisedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedByNameDesc() {
+  sortByRaisedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedByUid() {
+  sortByRaisedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedByUidDesc() {
+  sortByRaisedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedUnderCoordination() {
+  sortByRaisedUnderCoordination() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedUnderCoordination', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRaisedUnderCoordinationDesc() {
+  sortByRaisedUnderCoordinationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedUnderCoordination', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRequestPurposeKey() {
+  sortByRequestPurposeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestPurposeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRequestPurposeKeyDesc() {
+  sortByRequestPurposeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestPurposeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRequestedLocation() {
+  sortByRequestedLocation() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestedLocation', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByRequestedLocationDesc() {
+  sortByRequestedLocationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestedLocation', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByStatusKey() {
+  sortByStatusKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByStatusKeyDesc() {
+  sortByStatusKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortBySupersededById() {
+  sortBySupersededById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'supersededById', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortBySupersededByIdDesc() {
+  sortBySupersededByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'supersededById', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByTargetLaneKey() {
+  sortByTargetLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetLaneKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByTargetLaneKeyDesc() {
+  sortByTargetLaneKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetLaneKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByTitle() {
+  sortByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByTitleDesc() {
+  sortByTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByUpdatedAt() {
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByUpdatedAtDesc() {
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByVersion() {
+  sortByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      sortByVersionDesc() {
+  sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
 
-extension ComplianceRequestRecordQuerySortThenBy on QueryBuilder<
-    ComplianceRequestRecord, ComplianceRequestRecord, QSortThenBy> {
+extension ComplianceRequestRecordQuerySortThenBy
+    on
+        QueryBuilder<
+          ComplianceRequestRecord,
+          ComplianceRequestRecord,
+          QSortThenBy
+        > {
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgedAt() {
+  thenByAcknowledgedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgedAtDesc() {
+  thenByAcknowledgedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgedByName() {
+  thenByAcknowledgedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgedByNameDesc() {
+  thenByAcknowledgedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgedByUid() {
+  thenByAcknowledgedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgedByUidDesc() {
+  thenByAcknowledgedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgementDueAt() {
+  thenByAcknowledgementDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgementDueAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAcknowledgementDueAtDesc() {
+  thenByAcknowledgementDueAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'acknowledgementDueAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAssetNumber() {
+  thenByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAssetNumberDesc() {
+  thenByAssetNumberDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAssetTypeKey() {
+  thenByAssetTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAssetTypeKeyDesc() {
+  thenByAssetTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAttemptCount() {
+  thenByAttemptCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByAttemptCountDesc() {
+  thenByAttemptCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'attemptCount', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByBecameDueAt() {
+  thenByBecameDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'becameDueAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByBecameDueAtDesc() {
+  thenByBecameDueAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'becameDueAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByChargeNoAtEvent() {
+  thenByChargeNoAtEvent() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByChargeNoAtEventDesc() {
+  thenByChargeNoAtEventDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'chargeNoAtEvent', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByComplianceDueAt() {
+  thenByComplianceDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceDueAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByComplianceDueAtDesc() {
+  thenByComplianceDueAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceDueAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByComplianceNote() {
+  thenByComplianceNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceNote', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByComplianceNoteDesc() {
+  thenByComplianceNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'complianceNote', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCompliedAt() {
+  thenByCompliedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCompliedAtDesc() {
+  thenByCompliedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCompliedByName() {
+  thenByCompliedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCompliedByNameDesc() {
+  thenByCompliedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCompliedByUid() {
+  thenByCompliedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCompliedByUidDesc() {
+  thenByCompliedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'compliedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConditionRef() {
+  thenByConditionRef() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionRef', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConditionRefDesc() {
+  thenByConditionRefDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionRef', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConditionTypeKey() {
+  thenByConditionTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConditionTypeKeyDesc() {
+  thenByConditionTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'conditionTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmNote() {
+  thenByConfirmNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmNote', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmNoteDesc() {
+  thenByConfirmNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmNote', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmedAt() {
+  thenByConfirmedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmedAtDesc() {
+  thenByConfirmedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmedByName() {
+  thenByConfirmedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmedByNameDesc() {
+  thenByConfirmedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmedByUid() {
+  thenByConfirmedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByConfirmedByUidDesc() {
+  thenByConfirmedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'confirmedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCoordinationBasis() {
+  thenByCoordinationBasis() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'coordinationBasis', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCoordinationBasisDesc() {
+  thenByCoordinationBasisDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'coordinationBasis', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCorrectionCount() {
+  thenByCorrectionCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'correctionCount', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCorrectionCountDesc() {
+  thenByCorrectionCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'correctionCount', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterConditionOfId() {
+  thenByCounterConditionOfId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterConditionOfId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterConditionOfIdDesc() {
+  thenByCounterConditionOfIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterConditionOfId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionAt() {
+  thenByCounterDecisionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionAtDesc() {
+  thenByCounterDecisionAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionByName() {
+  thenByCounterDecisionByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionByNameDesc() {
+  thenByCounterDecisionByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionByUid() {
+  thenByCounterDecisionByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionByUidDesc() {
+  thenByCounterDecisionByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionNote() {
+  thenByCounterDecisionNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionNote', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDecisionNoteDesc() {
+  thenByCounterDecisionNoteDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDecisionNote', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDepth() {
+  thenByCounterDepth() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDepth', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterDepthDesc() {
+  thenByCounterDepthDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterDepth', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterProposedAt() {
+  thenByCounterProposedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterProposedAtDesc() {
+  thenByCounterProposedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterProposedByName() {
+  thenByCounterProposedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterProposedByNameDesc() {
+  thenByCounterProposedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterProposedByUid() {
+  thenByCounterProposedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterProposedByUidDesc() {
+  thenByCounterProposedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterProposedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterRevisedDescription() {
+  thenByCounterRevisedDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterRevisedDescription', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCounterRevisedDescriptionDesc() {
+  thenByCounterRevisedDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'counterRevisedDescription', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCreatedAt() {
+  thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCreatedAtDesc() {
+  thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCurrentAttemptId() {
+  thenByCurrentAttemptId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'currentAttemptId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByCurrentAttemptIdDesc() {
+  thenByCurrentAttemptIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'currentAttemptId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDefermentBasisKey() {
+  thenByDefermentBasisKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'defermentBasisKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDefermentBasisKeyDesc() {
+  thenByDefermentBasisKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'defermentBasisKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeleteReason() {
+  thenByDeleteReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeleteReasonDesc() {
+  thenByDeleteReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deleteReason', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeletedAt() {
+  thenByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeletedAtDesc() {
+  thenByDeletedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeletedByName() {
+  thenByDeletedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeletedByNameDesc() {
+  thenByDeletedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeletedByUid() {
+  thenByDeletedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDeletedByUidDesc() {
+  thenByDeletedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deletedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDescription() {
+  thenByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDescriptionDesc() {
+  thenByDescriptionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDueMarkedAt() {
+  thenByDueMarkedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDueMarkedAtDesc() {
+  thenByDueMarkedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDueMarkedByName() {
+  thenByDueMarkedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDueMarkedByNameDesc() {
+  thenByDueMarkedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDueMarkedByUid() {
+  thenByDueMarkedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByDueMarkedByUidDesc() {
+  thenByDueMarkedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dueMarkedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByEscalationTier() {
+  thenByEscalationTier() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'escalationTier', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByEscalationTierDesc() {
+  thenByEscalationTierDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'escalationTier', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByFirestoreId() {
+  thenByFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByFirestoreIdDesc() {
+  thenByFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByGatesLaneFirestoreId() {
+  thenByGatesLaneFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gatesLaneFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByGatesLaneFirestoreIdDesc() {
+  thenByGatesLaneFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'gatesLaneFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenById() {
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByIsDeleted() {
+  thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByIsDeletedDesc() {
+  thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isDeleted', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByIsSynced() {
+  thenByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByIsSyncedDesc() {
+  thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionAt() {
+  thenByLastCorrectionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionAtDesc() {
+  thenByLastCorrectionAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionByName() {
+  thenByLastCorrectionByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionByNameDesc() {
+  thenByLastCorrectionByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionByUid() {
+  thenByLastCorrectionByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionByUidDesc() {
+  thenByLastCorrectionByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionReason() {
+  thenByLastCorrectionReason() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionReason', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastCorrectionReasonDesc() {
+  thenByLastCorrectionReasonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastCorrectionReason', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastEscalatedAt() {
+  thenByLastEscalatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEscalatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLastEscalatedAtDesc() {
+  thenByLastEscalatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastEscalatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedExecutionFirestoreId() {
+  thenByLinkedExecutionFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedExecutionFirestoreIdDesc() {
+  thenByLinkedExecutionFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedExecutionFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedLaneFirestoreId() {
+  thenByLinkedLaneFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedLaneFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedLaneFirestoreIdDesc() {
+  thenByLinkedLaneFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedLaneFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedMaintenanceFirestoreId() {
+  thenByLinkedMaintenanceFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedMaintenanceFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedMaintenanceFirestoreIdDesc() {
+  thenByLinkedMaintenanceFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedMaintenanceFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedModuleFirestoreId() {
+  thenByLinkedModuleFirestoreId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedModuleFirestoreId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedModuleFirestoreIdDesc() {
+  thenByLinkedModuleFirestoreIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedModuleFirestoreId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedWorkflowId() {
+  thenByLinkedWorkflowId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedWorkflowId', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByLinkedWorkflowIdDesc() {
+  thenByLinkedWorkflowIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'linkedWorkflowId', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByMetadataJson() {
+  thenByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByMetadataJsonDesc() {
+  thenByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByOperationsResourceKey() {
+  thenByOperationsResourceKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsResourceKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByOperationsResourceKeyDesc() {
+  thenByOperationsResourceKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsResourceKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByOperationsSupportTypeKey() {
+  thenByOperationsSupportTypeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsSupportTypeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByOperationsSupportTypeKeyDesc() {
+  thenByOperationsSupportTypeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'operationsSupportTypeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByOriginLaneKey() {
+  thenByOriginLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'originLaneKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByOriginLaneKeyDesc() {
+  thenByOriginLaneKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'originLaneKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByPriorityKey() {
+  thenByPriorityKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'priorityKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByPriorityKeyDesc() {
+  thenByPriorityKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'priorityKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedAt() {
+  thenByRaisedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedAtDesc() {
+  thenByRaisedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedByName() {
+  thenByRaisedByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByName', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedByNameDesc() {
+  thenByRaisedByNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByName', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedByUid() {
+  thenByRaisedByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByUid', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedByUidDesc() {
+  thenByRaisedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByUid', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedUnderCoordination() {
+  thenByRaisedUnderCoordination() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedUnderCoordination', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRaisedUnderCoordinationDesc() {
+  thenByRaisedUnderCoordinationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedUnderCoordination', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRequestPurposeKey() {
+  thenByRequestPurposeKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestPurposeKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRequestPurposeKeyDesc() {
+  thenByRequestPurposeKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestPurposeKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRequestedLocation() {
+  thenByRequestedLocation() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestedLocation', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByRequestedLocationDesc() {
+  thenByRequestedLocationDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'requestedLocation', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByStatusKey() {
+  thenByStatusKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByStatusKeyDesc() {
+  thenByStatusKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenBySupersededById() {
+  thenBySupersededById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'supersededById', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenBySupersededByIdDesc() {
+  thenBySupersededByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'supersededById', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByTargetLaneKey() {
+  thenByTargetLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetLaneKey', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByTargetLaneKeyDesc() {
+  thenByTargetLaneKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'targetLaneKey', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByTitle() {
+  thenByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByTitleDesc() {
+  thenByTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByUpdatedAt() {
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByUpdatedAtDesc() {
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByVersion() {
+  thenByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.asc);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
-      thenByVersionDesc() {
+  thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'version', Sort.desc);
     });
   }
 }
 
-extension ComplianceRequestRecordQueryWhereDistinct on QueryBuilder<
-    ComplianceRequestRecord, ComplianceRequestRecord, QDistinct> {
+extension ComplianceRequestRecordQueryWhereDistinct
+    on
+        QueryBuilder<
+          ComplianceRequestRecord,
+          ComplianceRequestRecord,
+          QDistinct
+        > {
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByAcknowledgedAt() {
+  distinctByAcknowledgedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'acknowledgedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByAcknowledgedByName({bool caseSensitive = true}) {
+  distinctByAcknowledgedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'acknowledgedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'acknowledgedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByAcknowledgedByUid({bool caseSensitive = true}) {
+  distinctByAcknowledgedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'acknowledgedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'acknowledgedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByAcknowledgementDueAt() {
+  distinctByAcknowledgementDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'acknowledgementDueAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByAssetNumber() {
+  distinctByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetNumber');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByAssetTypeKey({bool caseSensitive = true}) {
+  distinctByAssetTypeKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetTypeKey', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByAttemptCount() {
+  distinctByAttemptCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'attemptCount');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByBecameDueAt() {
+  distinctByBecameDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'becameDueAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByChargeNoAtEvent() {
+  distinctByChargeNoAtEvent() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'chargeNoAtEvent');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByComplianceDueAt() {
+  distinctByComplianceDueAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'complianceDueAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByComplianceNote({bool caseSensitive = true}) {
+  distinctByComplianceNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'complianceNote',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'complianceNote',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCompliedAt() {
+  distinctByCompliedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'compliedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCompliedByName({bool caseSensitive = true}) {
+  distinctByCompliedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'compliedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'compliedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCompliedByUid({bool caseSensitive = true}) {
+  distinctByCompliedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'compliedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'compliedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByConditionRef({bool caseSensitive = true}) {
+  distinctByConditionRef({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'conditionRef', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByConditionTypeKey({bool caseSensitive = true}) {
+  distinctByConditionTypeKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'conditionTypeKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'conditionTypeKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByConfirmNote({bool caseSensitive = true}) {
+  distinctByConfirmNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'confirmNote', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByConfirmedAt() {
+  distinctByConfirmedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'confirmedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByConfirmedByName({bool caseSensitive = true}) {
+  distinctByConfirmedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'confirmedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'confirmedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByConfirmedByUid({bool caseSensitive = true}) {
+  distinctByConfirmedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'confirmedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'confirmedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCoordinationBasis({bool caseSensitive = true}) {
+  distinctByCoordinationBasis({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'coordinationBasis',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'coordinationBasis',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCorrectionCount() {
+  distinctByCorrectionCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'correctionCount');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterConditionOfId({bool caseSensitive = true}) {
+  distinctByCounterConditionOfId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'counterConditionOfId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'counterConditionOfId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterDecisionAt() {
+  distinctByCounterDecisionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'counterDecisionAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterDecisionByName({bool caseSensitive = true}) {
+  distinctByCounterDecisionByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'counterDecisionByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'counterDecisionByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterDecisionByUid({bool caseSensitive = true}) {
+  distinctByCounterDecisionByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'counterDecisionByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'counterDecisionByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterDecisionNote({bool caseSensitive = true}) {
+  distinctByCounterDecisionNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'counterDecisionNote',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'counterDecisionNote',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterDepth() {
+  distinctByCounterDepth() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'counterDepth');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterProposedAt() {
+  distinctByCounterProposedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'counterProposedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterProposedByName({bool caseSensitive = true}) {
+  distinctByCounterProposedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'counterProposedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'counterProposedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterProposedByUid({bool caseSensitive = true}) {
+  distinctByCounterProposedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'counterProposedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'counterProposedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCounterRevisedDescription({bool caseSensitive = true}) {
+  distinctByCounterRevisedDescription({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'counterRevisedDescription',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'counterRevisedDescription',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCreatedAt() {
+  distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByCurrentAttemptId({bool caseSensitive = true}) {
+  distinctByCurrentAttemptId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'currentAttemptId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'currentAttemptId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDefermentBasisKey({bool caseSensitive = true}) {
+  distinctByDefermentBasisKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'defermentBasisKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'defermentBasisKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDeleteReason({bool caseSensitive = true}) {
+  distinctByDeleteReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deleteReason', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDeletedAt() {
+  distinctByDeletedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDeletedByName({bool caseSensitive = true}) {
+  distinctByDeletedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'deletedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'deletedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDeletedByUid({bool caseSensitive = true}) {
+  distinctByDeletedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deletedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDescription({bool caseSensitive = true}) {
+  distinctByDescription({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'description', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDueMarkedAt() {
+  distinctByDueMarkedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'dueMarkedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDueMarkedByName({bool caseSensitive = true}) {
+  distinctByDueMarkedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'dueMarkedByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'dueMarkedByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByDueMarkedByUid({bool caseSensitive = true}) {
+  distinctByDueMarkedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'dueMarkedByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'dueMarkedByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByEscalationTier() {
+  distinctByEscalationTier() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'escalationTier');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByFirestoreId({bool caseSensitive = true}) {
+  distinctByFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'firestoreId', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByGatesLaneFirestoreId({bool caseSensitive = true}) {
+  distinctByGatesLaneFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'gatesLaneFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'gatesLaneFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByIsDeleted() {
+  distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isDeleted');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByIsSynced() {
+  distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLastCorrectionAt() {
+  distinctByLastCorrectionAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastCorrectionAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLastCorrectionByName({bool caseSensitive = true}) {
+  distinctByLastCorrectionByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastCorrectionByName',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastCorrectionByName',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLastCorrectionByUid({bool caseSensitive = true}) {
+  distinctByLastCorrectionByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastCorrectionByUid',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastCorrectionByUid',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLastCorrectionReason({bool caseSensitive = true}) {
+  distinctByLastCorrectionReason({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastCorrectionReason',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'lastCorrectionReason',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLastEscalatedAt() {
+  distinctByLastEscalatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastEscalatedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLinkedExecutionFirestoreId({bool caseSensitive = true}) {
+  distinctByLinkedExecutionFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'linkedExecutionFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'linkedExecutionFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLinkedLaneFirestoreId({bool caseSensitive = true}) {
+  distinctByLinkedLaneFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'linkedLaneFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'linkedLaneFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLinkedMaintenanceFirestoreId({bool caseSensitive = true}) {
+  distinctByLinkedMaintenanceFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'linkedMaintenanceFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'linkedMaintenanceFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLinkedModuleFirestoreId({bool caseSensitive = true}) {
+  distinctByLinkedModuleFirestoreId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'linkedModuleFirestoreId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'linkedModuleFirestoreId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByLinkedWorkflowId({bool caseSensitive = true}) {
+  distinctByLinkedWorkflowId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'linkedWorkflowId',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'linkedWorkflowId',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByMetadataJson({bool caseSensitive = true}) {
+  distinctByMetadataJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'metadataJson', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByOperationsResourceKey({bool caseSensitive = true}) {
+  distinctByOperationsResourceKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'operationsResourceKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'operationsResourceKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByOperationsSupportTypeKey({bool caseSensitive = true}) {
+  distinctByOperationsSupportTypeKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'operationsSupportTypeKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'operationsSupportTypeKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByOriginLaneKey({bool caseSensitive = true}) {
+  distinctByOriginLaneKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'originLaneKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'originLaneKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByPriorityKey({bool caseSensitive = true}) {
+  distinctByPriorityKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'priorityKey', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByRaisedAt() {
+  distinctByRaisedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'raisedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByRaisedByName({bool caseSensitive = true}) {
+  distinctByRaisedByName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'raisedByName', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByRaisedByUid({bool caseSensitive = true}) {
+  distinctByRaisedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'raisedByUid', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByRaisedUnderCoordination() {
+  distinctByRaisedUnderCoordination() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'raisedUnderCoordination');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByRequestPurposeKey({bool caseSensitive = true}) {
+  distinctByRequestPurposeKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'requestPurposeKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'requestPurposeKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByRequestedLocation({bool caseSensitive = true}) {
+  distinctByRequestedLocation({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'requestedLocation',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'requestedLocation',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByStatusKey({bool caseSensitive = true}) {
+  distinctByStatusKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'statusKey', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctBySupersededById({bool caseSensitive = true}) {
+  distinctBySupersededById({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'supersededById',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'supersededById',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByTargetLaneKey({bool caseSensitive = true}) {
+  distinctByTargetLaneKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'targetLaneKey',
-          caseSensitive: caseSensitive);
+      return query.addDistinctBy(
+        r'targetLaneKey',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByTitle({bool caseSensitive = true}) {
+  distinctByTitle({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'title', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByUpdatedAt() {
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
-      distinctByVersion() {
+  distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'version');
     });
   }
 }
 
-extension ComplianceRequestRecordQueryProperty on QueryBuilder<
-    ComplianceRequestRecord, ComplianceRequestRecord, QQueryProperty> {
+extension ComplianceRequestRecordQueryProperty
+    on
+        QueryBuilder<
+          ComplianceRequestRecord,
+          ComplianceRequestRecord,
+          QQueryProperty
+        > {
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
@@ -14148,525 +17652,525 @@ extension ComplianceRequestRecordQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      acknowledgedAtProperty() {
+  acknowledgedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acknowledgedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      acknowledgedByNameProperty() {
+  acknowledgedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acknowledgedByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      acknowledgedByUidProperty() {
+  acknowledgedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acknowledgedByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      acknowledgementDueAtProperty() {
+  acknowledgementDueAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'acknowledgementDueAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations>
-      assetNumberProperty() {
+  assetNumberProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetNumber');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      assetTypeKeyProperty() {
+  assetTypeKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assetTypeKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations>
-      attemptCountProperty() {
+  attemptCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'attemptCount');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      becameDueAtProperty() {
+  becameDueAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'becameDueAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, int?, QQueryOperations>
-      chargeNoAtEventProperty() {
+  chargeNoAtEventProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'chargeNoAtEvent');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      complianceDueAtProperty() {
+  complianceDueAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'complianceDueAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      complianceNoteProperty() {
+  complianceNoteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'complianceNote');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      compliedAtProperty() {
+  compliedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'compliedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      compliedByNameProperty() {
+  compliedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'compliedByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      compliedByUidProperty() {
+  compliedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'compliedByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      conditionRefProperty() {
+  conditionRefProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'conditionRef');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      conditionTypeKeyProperty() {
+  conditionTypeKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'conditionTypeKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      confirmNoteProperty() {
+  confirmNoteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'confirmNote');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      confirmedAtProperty() {
+  confirmedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'confirmedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      confirmedByNameProperty() {
+  confirmedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'confirmedByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      confirmedByUidProperty() {
+  confirmedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'confirmedByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      coordinationBasisProperty() {
+  coordinationBasisProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'coordinationBasis');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations>
-      correctionCountProperty() {
+  correctionCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'correctionCount');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      counterConditionOfIdProperty() {
+  counterConditionOfIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterConditionOfId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      counterDecisionAtProperty() {
+  counterDecisionAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterDecisionAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      counterDecisionByNameProperty() {
+  counterDecisionByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterDecisionByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      counterDecisionByUidProperty() {
+  counterDecisionByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterDecisionByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      counterDecisionNoteProperty() {
+  counterDecisionNoteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterDecisionNote');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations>
-      counterDepthProperty() {
+  counterDepthProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterDepth');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      counterProposedAtProperty() {
+  counterProposedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterProposedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      counterProposedByNameProperty() {
+  counterProposedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterProposedByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      counterProposedByUidProperty() {
+  counterProposedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterProposedByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      counterRevisedDescriptionProperty() {
+  counterRevisedDescriptionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'counterRevisedDescription');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime, QQueryOperations>
-      createdAtProperty() {
+  createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      currentAttemptIdProperty() {
+  currentAttemptIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'currentAttemptId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      defermentBasisKeyProperty() {
+  defermentBasisKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'defermentBasisKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      deleteReasonProperty() {
+  deleteReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deleteReason');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      deletedAtProperty() {
+  deletedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      deletedByNameProperty() {
+  deletedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      deletedByUidProperty() {
+  deletedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      descriptionProperty() {
+  descriptionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'description');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      dueMarkedAtProperty() {
+  dueMarkedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'dueMarkedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      dueMarkedByNameProperty() {
+  dueMarkedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'dueMarkedByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      dueMarkedByUidProperty() {
+  dueMarkedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'dueMarkedByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations>
-      escalationTierProperty() {
+  escalationTierProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'escalationTier');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      firestoreIdProperty() {
+  firestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'firestoreId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      gatesLaneFirestoreIdProperty() {
+  gatesLaneFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'gatesLaneFirestoreId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, bool, QQueryOperations>
-      isDeletedProperty() {
+  isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isDeleted');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, bool, QQueryOperations>
-      isSyncedProperty() {
+  isSyncedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isSynced');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      lastCorrectionAtProperty() {
+  lastCorrectionAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastCorrectionAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      lastCorrectionByNameProperty() {
+  lastCorrectionByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastCorrectionByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      lastCorrectionByUidProperty() {
+  lastCorrectionByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastCorrectionByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      lastCorrectionReasonProperty() {
+  lastCorrectionReasonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastCorrectionReason');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      lastEscalatedAtProperty() {
+  lastEscalatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastEscalatedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      linkedExecutionFirestoreIdProperty() {
+  linkedExecutionFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'linkedExecutionFirestoreId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      linkedLaneFirestoreIdProperty() {
+  linkedLaneFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'linkedLaneFirestoreId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      linkedMaintenanceFirestoreIdProperty() {
+  linkedMaintenanceFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'linkedMaintenanceFirestoreId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      linkedModuleFirestoreIdProperty() {
+  linkedModuleFirestoreIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'linkedModuleFirestoreId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      linkedWorkflowIdProperty() {
+  linkedWorkflowIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'linkedWorkflowId');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      metadataJsonProperty() {
+  metadataJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'metadataJson');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      operationsResourceKeyProperty() {
+  operationsResourceKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'operationsResourceKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      operationsSupportTypeKeyProperty() {
+  operationsSupportTypeKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'operationsSupportTypeKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      originLaneKeyProperty() {
+  originLaneKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'originLaneKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      priorityKeyProperty() {
+  priorityKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'priorityKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime?, QQueryOperations>
-      raisedAtProperty() {
+  raisedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'raisedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      raisedByNameProperty() {
+  raisedByNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'raisedByName');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      raisedByUidProperty() {
+  raisedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'raisedByUid');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, bool, QQueryOperations>
-      raisedUnderCoordinationProperty() {
+  raisedUnderCoordinationProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'raisedUnderCoordination');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      requestPurposeKeyProperty() {
+  requestPurposeKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'requestPurposeKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      requestedLocationProperty() {
+  requestedLocationProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'requestedLocation');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      statusKeyProperty() {
+  statusKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'statusKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
-      supersededByIdProperty() {
+  supersededByIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'supersededById');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      targetLaneKeyProperty() {
+  targetLaneKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'targetLaneKey');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
-      titleProperty() {
+  titleProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'title');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });
   }
 
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations>
-      versionProperty() {
+  versionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'version');
     });

@@ -88,10 +88,9 @@ void main() {
     );
 
     test('live listeners cover every actionable workflow projection', () {
-      final source =
-          File(
-            'lib/core/services/live_remote_sync_service.dart',
-          ).readAsStringSync();
+      final source = File(
+        'lib/core/services/live_remote_sync_service.dart',
+      ).readAsStringSync();
 
       expect(source, contains(".collection('maintenance_workflows')"));
       expect(source, contains(".collection('job_lanes')"));
@@ -150,16 +149,54 @@ void main() {
       expect(liveWorkflowProjectionReconciliationRetryDelay(0), isNull);
       expect(liveWorkflowProjectionReconciliationRetryDelay(5), isNull);
     });
+
+    test('work from an old or paused listener generation is rejected', () {
+      expect(
+        liveRemoteSyncGenerationIsCurrent(
+          capturedGeneration: 4,
+          currentGeneration: 4,
+          started: true,
+          paused: false,
+        ),
+        isTrue,
+      );
+      expect(
+        liveRemoteSyncGenerationIsCurrent(
+          capturedGeneration: 3,
+          currentGeneration: 4,
+          started: true,
+          paused: false,
+        ),
+        isFalse,
+      );
+      expect(
+        liveRemoteSyncGenerationIsCurrent(
+          capturedGeneration: 4,
+          currentGeneration: 4,
+          started: true,
+          paused: true,
+        ),
+        isFalse,
+      );
+      expect(
+        liveRemoteSyncGenerationIsCurrent(
+          capturedGeneration: 4,
+          currentGeneration: 4,
+          started: false,
+          paused: false,
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('role-aware workflow attention', () {
     test(
       'operations sees an acknowledged crane request before it is overdue',
       () {
-        final request =
-            _craneRequest()
-              ..statusKey = 'acknowledged'
-              ..becameDueAt = null;
+        final request = _craneRequest()
+          ..statusKey = 'acknowledged'
+          ..becameDueAt = null;
 
         final summary = summarizeWorkflowAttention(
           actor: _actor(AppRole.operations),
@@ -287,7 +324,8 @@ void main() {
               ),
             ),
             workflowProjectionRefreshProvider.overrideWith(
-              (ref) => () async => refreshCount++,
+              (ref) =>
+                  () async => refreshCount++,
             ),
           ],
           child: MaterialApp(
@@ -317,15 +355,14 @@ AppUser _actor(AppRole role, {bool approved = true}) => AppUser(
   createdAt: DateTime.utc(2026, 8, 25),
 );
 
-ComplianceRequestRecord _craneRequest() =>
-    ComplianceRequestRecord()
-      ..firestoreId = 'issue_compliance_crane_1'
-      ..title = 'Operations support required'
-      ..description = 'Crane movement is required for mechanical work.'
-      ..requestPurposeKey = 'operationsSupport'
-      ..operationsSupportTypeKey = 'craneMovement'
-      ..operationsResourceKey = 'crane'
-      ..originLaneKey = 'mech'
-      ..targetLaneKey = 'oprn'
-      ..statusKey = 'acknowledged'
-      ..raisedByUid = 'another-mechanical-user';
+ComplianceRequestRecord _craneRequest() => ComplianceRequestRecord()
+  ..firestoreId = 'issue_compliance_crane_1'
+  ..title = 'Operations support required'
+  ..description = 'Crane movement is required for mechanical work.'
+  ..requestPurposeKey = 'operationsSupport'
+  ..operationsSupportTypeKey = 'craneMovement'
+  ..operationsResourceKey = 'crane'
+  ..originLaneKey = 'mech'
+  ..targetLaneKey = 'oprn'
+  ..statusKey = 'acknowledged'
+  ..raisedByUid = 'another-mechanical-user';

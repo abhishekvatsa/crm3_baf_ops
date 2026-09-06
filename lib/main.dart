@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'firebase_options.dart';
@@ -256,8 +256,8 @@ class StartupFailure {
 
   IsarSchemaMigrationException? get schemaProvenanceFailure =>
       error is IsarSchemaMigrationException
-          ? error as IsarSchemaMigrationException
-          : null;
+      ? error as IsarSchemaMigrationException
+      : null;
 
   String? get schemaProvenanceReasonCode {
     final currentError = error;
@@ -284,42 +284,37 @@ class StartupFailure {
     final provenanceFailure = schemaProvenanceFailure;
     final provenanceReasonCode = schemaProvenanceReasonCode;
     final escapedError = _jsonEscape(error.toString());
-    final escapedPath =
-        diagnosticsFilePath == null
-            ? 'null'
-            : '"${_jsonEscape(diagnosticsFilePath!)}"';
+    final escapedPath = diagnosticsFilePath == null
+        ? 'null'
+        : '"${_jsonEscape(diagnosticsFilePath!)}"';
     final provenanceSnapshot = schemaProvenanceSnapshotJson ?? 'null';
-    final installedStoreProvenance =
-        installedStoreProvenanceInventory == null
-            ? 'null'
-            : jsonEncode(installedStoreProvenanceInventory!.toMap());
-    final mode =
-        isLocalDatabaseStage
-            ? 'startup_isar_open_failed'
-            : 'startup_core_initialization_failed';
+    final installedStoreProvenance = installedStoreProvenanceInventory == null
+        ? 'null'
+        : jsonEncode(installedStoreProvenanceInventory!.toMap());
+    final mode = isLocalDatabaseStage
+        ? 'startup_isar_open_failed'
+        : 'startup_core_initialization_failed';
     final isarOpenStatus = isLocalDatabaseStage ? 'failed' : 'not_attempted';
-    final schemaProvenanceStatus =
-        provenanceReasonCode == null ? 'not_evaluated' : 'rejected_before_open';
-    final schemaProvenanceReason =
-        provenanceReasonCode == null
-            ? 'null'
-            : '"${_jsonEscape(provenanceReasonCode)}"';
-    final markerDisposition =
-        provenanceFailure?.markerDisposition == null
-            ? 'null'
-            : '"${_jsonEscape(provenanceFailure!.markerDisposition!)}"';
+    final schemaProvenanceStatus = provenanceReasonCode == null
+        ? 'not_evaluated'
+        : 'rejected_before_open';
+    final schemaProvenanceReason = provenanceReasonCode == null
+        ? 'null'
+        : '"${_jsonEscape(provenanceReasonCode)}"';
+    final markerDisposition = provenanceFailure?.markerDisposition == null
+        ? 'null'
+        : '"${_jsonEscape(provenanceFailure!.markerDisposition!)}"';
     final storedSchemaVersion =
         provenanceFailure?.storedVersion?.toString() ?? 'null';
     final targetSchemaVersion =
         provenanceFailure?.targetVersion.toString() ?? 'null';
     final hadExistingLocalStore =
         provenanceFailure?.hasExistingLocalStore?.toString() ?? 'null';
-    final policy =
-        provenanceFailure != null
-            ? 'provenance rejected before Isar open; preserve raw files and marker evidence before governed recovery'
-            : isLocalDatabaseStage
-            ? 'backup raw DB files before rebuild; Firestore restores synced records only'
-            : 'capture diagnostics and review Firebase/startup configuration; local DB recovery not attempted';
+    final policy = provenanceFailure != null
+        ? 'provenance rejected before Isar open; preserve raw files and marker evidence before governed recovery'
+        : isLocalDatabaseStage
+        ? 'backup raw DB files before rebuild; Firestore restores synced records only'
+        : 'capture diagnostics and review Firebase/startup configuration; local DB recovery not attempted';
     return '''{
   "app": "CRM-III BAF Ops",
   "mode": "$mode",
@@ -398,8 +393,9 @@ Future<StartupFailure> _captureStartupFailure({
       'app_area': 'startup',
       'startup_stage': stage,
       'startup_failure': true,
-      'isar_open_status':
-          failure.isLocalDatabaseStage ? 'failed' : 'not_attempted',
+      'isar_open_status': failure.isLocalDatabaseStage
+          ? 'failed'
+          : 'not_attempted',
       'diagnostics_written': failure.diagnosticsFilePath != null,
       'schema_provenance_failure': failure.isSchemaProvenanceFailure,
       if (failure.schemaProvenanceReasonCode case final reason?)
@@ -609,8 +605,8 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp>
 
   FocusNode? _focusedEditorForVisibleKeyboard() {
     final primaryFocus = FocusManager.instance.primaryFocus;
-    final focusedEditor =
-        primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>();
+    final focusedEditor = primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<EditableText>();
     if (primaryFocus == null || focusedEditor == null) {
       return null;
     }
@@ -1142,9 +1138,14 @@ class _PendingApprovalRecoveryGate extends ConsumerStatefulWidget {
 class _PendingApprovalRecoveryGateState
     extends ConsumerState<_PendingApprovalRecoveryGate>
     with WidgetsBindingObserver {
+  DeviceRecoveryListener? _deviceRecoveryListener;
+
   @override
   void initState() {
     super.initState();
+    if (!kIsWeb) {
+      _deviceRecoveryListener = ref.read(deviceRecoveryListenerProvider);
+    }
     WidgetsBinding.instance.addObserver(this);
     _startRestrictedRecovery();
   }
@@ -1162,9 +1163,7 @@ class _PendingApprovalRecoveryGateState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !kIsWeb) {
       unawaited(
-        ref
-            .read(deviceRecoveryListenerProvider)
-            .checkNow(reason: 'pending_approval_resumed'),
+        _deviceRecoveryListener!.checkNow(reason: 'pending_approval_resumed'),
       );
     }
   }
@@ -1172,9 +1171,7 @@ class _PendingApprovalRecoveryGateState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    if (!kIsWeb) {
-      ref.read(deviceRecoveryListenerProvider).stop();
-    }
+    _deviceRecoveryListener?.stop();
     super.dispose();
   }
 
@@ -1186,9 +1183,7 @@ class _PendingApprovalRecoveryGateState
       if (!mounted || widget.appUser.isApproved) {
         return;
       }
-      ref
-          .read(deviceRecoveryListenerProvider)
-          .start(widget.appUser, claimedRecoveryOnly: true);
+      _deviceRecoveryListener?.start(widget.appUser, claimedRecoveryOnly: true);
     });
   }
 
@@ -1267,10 +1262,12 @@ class _ProfileBootstrapScreenState
       _errorMessage = null;
     });
 
+    final authService = ref.read(authServiceProvider);
     try {
-      await ref
-          .read(authServiceProvider)
-          .ensureUserDocument(firebaseUser: widget.firebaseUser);
+      await authService.ensureUserDocument(firebaseUser: widget.firebaseUser);
+      if (!mounted) {
+        return;
+      }
       ref.invalidate(currentAppUserProvider);
     } catch (e, st) {
       unawaited(
@@ -1311,11 +1308,17 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
     with WidgetsBindingObserver {
   bool _syncStarted = false;
   bool _backgroundServicesStarted = false;
+  late final AutoSyncService _autoSyncService;
+  DeviceRecoveryListener? _deviceRecoveryListener;
   LiveRemoteSyncService? _liveRemoteSyncService;
 
   @override
   void initState() {
     super.initState();
+    _autoSyncService = ref.read(autoSyncServiceProvider);
+    if (!kIsWeb) {
+      _deviceRecoveryListener = ref.read(deviceRecoveryListenerProvider);
+    }
     WidgetsBinding.instance.addObserver(this);
     ref.listenManual<bool>(syncLocalRecoveryActiveProvider, (previous, active) {
       final liveService = _liveRemoteSyncService;
@@ -1344,7 +1347,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
     if (!kIsWeb &&
         (oldWidget.appUser.uid != widget.appUser.uid ||
             oldWidget.appUser.isApproved != widget.appUser.isApproved)) {
-      ref.read(deviceRecoveryListenerProvider).start(widget.appUser);
+      _deviceRecoveryListener?.start(widget.appUser);
     }
     final oldScope = LiveMaintenanceMirrorScope.forUser(oldWidget.appUser);
     final newScope = LiveMaintenanceMirrorScope.forUser(widget.appUser);
@@ -1356,11 +1359,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !kIsWeb) {
-      unawaited(
-        ref
-            .read(deviceRecoveryListenerProvider)
-            .checkNow(reason: 'app_resumed'),
-      );
+      unawaited(_deviceRecoveryListener!.checkNow(reason: 'app_resumed'));
     }
     final liveService = _liveRemoteSyncService;
     if (liveService == null) {
@@ -1380,8 +1379,8 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    ref.read(autoSyncServiceProvider).stop();
-    if (!kIsWeb) ref.read(deviceRecoveryListenerProvider).stop();
+    _autoSyncService.stop();
+    _deviceRecoveryListener?.stop();
     _liveRemoteSyncService?.dispose();
     _liveRemoteSyncService = null;
     super.dispose();
@@ -1398,6 +1397,9 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
 
     Future.microtask(() async {
       try {
+        if (!mounted) {
+          return;
+        }
         final syncOutcome = await ref
             .read(syncCoordinatorProvider)
             .runFullSyncWithResult(reason: 'auth_gate', force: true);
@@ -1442,10 +1444,8 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
         if (!mounted) {
           return;
         }
-        ref.read(autoSyncServiceProvider).start();
-        if (!kIsWeb) {
-          ref.read(deviceRecoveryListenerProvider).start(widget.appUser);
-        }
+        _autoSyncService.start();
+        _deviceRecoveryListener?.start(widget.appUser);
 
         _startOrUpdateLiveMaintenanceMirror();
       } catch (e, st) {
@@ -1485,8 +1485,9 @@ class _CoreStartupErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final errorText = failure.error.toString();
-    final compactError =
-        errorText.length <= 360 ? errorText : '${errorText.substring(0, 360)}…';
+    final compactError = errorText.length <= 360
+        ? errorText
+        : '${errorText.substring(0, 360)}…';
 
     return _FullScreenStatus(
       icon: Icons.warning_amber_rounded,
@@ -1540,27 +1541,26 @@ class _LocalDatabaseStartupErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final errorText = failure.error.toString();
-    final compactError =
-        errorText.length <= 360 ? errorText : '${errorText.substring(0, 360)}…';
+    final compactError = errorText.length <= 360
+        ? errorText
+        : '${errorText.substring(0, 360)}…';
     final isLocalDatabaseFailure = failure.isLocalDatabaseStage;
     final isSchemaProvenanceFailure = failure.isSchemaProvenanceFailure;
 
-    final title =
-        isSchemaProvenanceFailure
-            ? 'Local database provenance could not be verified'
-            : isLocalDatabaseFailure
-            ? 'Local database could not be opened'
-            : 'App startup could not complete';
-    final messagePrefix =
-        isSchemaProvenanceFailure
-            ? 'The app rejected the offline database before opening it because its schema provenance was absent, incomplete, malformed, or unsupported. The existing store was not automatically stamped.\n\n'
-                'Do not uninstall the app or clear app data. Create a recovery package so authorized Admin/SI review can preserve the raw database and marker evidence before any governed rebuild or migration.\n\n'
-            : isLocalDatabaseFailure
-            ? 'The app could not open the offline Isar database. This can happen after a schema-stage app update or if the local store is damaged.\n\n'
-                'Do not uninstall the app or clear app data before authorized Admin/SI recovery review, because unsynced plant-floor evidence may still exist only in local Isar files.\n\n'
-                'First create a recovery package. Rebuild should happen only after backup; Firestore can restore synced cloud records, not local-only unsynced evidence.\n\n'
-            : 'The app could not complete core startup before showing the sign-in flow. This can happen if Firebase configuration, crash reporting bootstrap, or another required startup service fails.\n\n'
-                'Do not use the app for plant-floor evidence capture until Admin/SI support reviews the diagnostics. Local data has not been modified by this screen.\n\n';
+    final title = isSchemaProvenanceFailure
+        ? 'Local database provenance could not be verified'
+        : isLocalDatabaseFailure
+        ? 'Local database could not be opened'
+        : 'App startup could not complete';
+    final messagePrefix = isSchemaProvenanceFailure
+        ? 'The app rejected the offline database before opening it because its schema provenance was absent, incomplete, malformed, or unsupported. The existing store was not automatically stamped.\n\n'
+              'Do not uninstall the app or clear app data. Create a recovery package so authorized Admin/SI review can preserve the raw database and marker evidence before any governed rebuild or migration.\n\n'
+        : isLocalDatabaseFailure
+        ? 'The app could not open the offline Isar database. This can happen after a schema-stage app update or if the local store is damaged.\n\n'
+              'Do not uninstall the app or clear app data before authorized Admin/SI recovery review, because unsynced plant-floor evidence may still exist only in local Isar files.\n\n'
+              'First create a recovery package. Rebuild should happen only after backup; Firestore can restore synced cloud records, not local-only unsynced evidence.\n\n'
+        : 'The app could not complete core startup before showing the sign-in flow. This can happen if Firebase configuration, crash reporting bootstrap, or another required startup service fails.\n\n'
+              'Do not use the app for plant-floor evidence capture until Admin/SI support reviews the diagnostics. Local data has not been modified by this screen.\n\n';
 
     return _FullScreenStatus(
       icon: isLocalDatabaseFailure ? Icons.storage_rounded : Icons.cloud_off,
@@ -1574,16 +1574,15 @@ class _LocalDatabaseStartupErrorScreen extends StatelessWidget {
           '${failure.diagnosticsFilePath == null ? '' : '\nDiagnostics file: ${failure.diagnosticsFilePath}'}'
           '${recoveryMessage == null ? '' : '\n\nRecovery status: $recoveryMessage'}',
       color: BafColors.danger,
-      secondaryActionLabel:
-          isLocalDatabaseFailure
-              ? isBackingUp
-                  ? 'Backing up…'
-                  : 'Create Recovery Package'
-              : null,
+      secondaryActionLabel: isLocalDatabaseFailure
+          ? isBackingUp
+                ? 'Backing up…'
+                : 'Create Recovery Package'
+          : null,
       secondaryAction:
           isLocalDatabaseFailure && !isBackingUp && !isRebuilding && !isRetrying
-              ? onBackup
-              : null,
+          ? onBackup
+          : null,
       tertiaryActionLabel: 'Copy Diagnostics',
       tertiaryAction: () async {
         await Clipboard.setData(ClipboardData(text: failure.diagnosticsText));
@@ -1596,26 +1595,24 @@ class _LocalDatabaseStartupErrorScreen extends StatelessWidget {
           backgroundColor: BafColors.sync,
         );
       },
-      primaryActionLabel:
-          isLocalDatabaseFailure
-              ? isRetrying
-                  ? 'Retrying…'
-                  : 'Retry Opening Database'
-              : null,
+      primaryActionLabel: isLocalDatabaseFailure
+          ? isRetrying
+                ? 'Retrying…'
+                : 'Retry Opening Database'
+          : null,
       primaryAction:
           isLocalDatabaseFailure && !isRetrying && !isRebuilding && !isBackingUp
-              ? onRetry
-              : null,
-      dangerActionLabel:
-          isLocalDatabaseFailure
-              ? isRebuilding
-                  ? 'Rebuilding…'
-                  : 'Backup & Rebuild Local DB'
-              : null,
+          ? onRetry
+          : null,
+      dangerActionLabel: isLocalDatabaseFailure
+          ? isRebuilding
+                ? 'Rebuilding…'
+                : 'Backup & Rebuild Local DB'
+          : null,
       dangerAction:
           isLocalDatabaseFailure && !isRetrying && !isBackingUp && !isRebuilding
-              ? onRebuild
-              : null,
+          ? onRebuild
+          : null,
     );
   }
 }

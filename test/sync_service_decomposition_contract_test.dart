@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -223,6 +224,17 @@ void main() {
         '_recheckPermanentRejections = false;',
         'lastSyncTime = DateTime.now();',
       ]);
+
+      expect(syncAllBlock, contains('final auditResult = await'));
+      expect(syncAllBlock, contains('lastFailureCount += auditResult.failed'));
+      expect(syncAllBlock, contains("entityType: 'audit_event'"));
+    });
+
+    test('audit-only queues are visible to automatic sync admission', () {
+      const pending = SyncPendingCounts(auditEvents: 1);
+
+      expect(pending.total, 1);
+      expect(pending.hasPending, isTrue);
     });
 
     test('planned job closure order remains protected in syncAll', () {

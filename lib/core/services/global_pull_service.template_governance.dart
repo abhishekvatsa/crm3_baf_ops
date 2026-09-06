@@ -25,68 +25,24 @@ extension _GlobalPullTemplateGovernance on GlobalPullService {
 
       if (packages.isEmpty) break;
 
-      final inserts = <TemplatePackage>[];
-      final updates = <TemplatePackage>[];
-      final tombstones = <TemplatePackage>[];
-
       for (final remote in packages) {
         try {
           if (remote.firestoreId == null) continue;
-
-          final local = await _templateGovernanceRepo.getPackageByFirestoreId(
-            remote.firestoreId!,
-          );
-
           if (remote.isDeleted) {
-            if (local != null) tombstones.add(remote);
+            final result = await _templateGovernanceRepo
+                .applyTombstoneFromPackageRemote(remote);
+            _recordTombstoneApplyResult('template package', remote, result);
             continue;
           }
 
-          if (local == null) {
-            inserts.add(remote);
-          } else {
-            final bool isLocalUnsynced = !local.isSynced;
-            final bool isRemoteNewer = _isRemoteNewer(local, remote);
-
-            if (!isLocalUnsynced && local.updatedAt.isAfter(remote.updatedAt)) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && !isRemoteNewer) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && isRemoteNewer) {
-              _logPullConflict('template package', local, remote);
-              continue;
-            }
-
-            updates.add(remote);
-          }
+          final applyResult = await _templateGovernanceRepo
+              .applyPackageFromRemote(remote);
+          _recordRemoteApplyResult('template package', remote, applyResult);
         } catch (e) {
           lastSkipped++;
           _hadRecordProcessingError = true;
           debugPrint('⚠️ Template package pull error: $e');
         }
-      }
-
-      for (final remote in tombstones) {
-        final result = await _templateGovernanceRepo
-            .applyTombstoneFromPackageRemote(remote);
-        _recordTombstoneApplyResult('template package', remote, result);
-      }
-
-      for (final record in inserts) {
-        record.isSynced = true;
-        await _templateGovernanceRepo.insertPackageFromRemote(record);
-        lastInserted++;
-      }
-
-      for (final remote in updates) {
-        await _templateGovernanceRepo.updatePackageFromRemote(remote);
-        lastUpdated++;
       }
 
       if (packages.length < GlobalPullService._pageSize) break;
@@ -114,68 +70,24 @@ extension _GlobalPullTemplateGovernance on GlobalPullService {
 
       if (versions.isEmpty) break;
 
-      final inserts = <TemplateVersion>[];
-      final updates = <TemplateVersion>[];
-      final tombstones = <TemplateVersion>[];
-
       for (final remote in versions) {
         try {
           if (remote.firestoreId == null) continue;
-
-          final local = await _templateGovernanceRepo.getVersionByFirestoreId(
-            remote.firestoreId!,
-          );
-
           if (remote.isDeleted) {
-            if (local != null) tombstones.add(remote);
+            final result = await _templateGovernanceRepo
+                .applyTombstoneFromVersionRemote(remote);
+            _recordTombstoneApplyResult('template version', remote, result);
             continue;
           }
 
-          if (local == null) {
-            inserts.add(remote);
-          } else {
-            final bool isLocalUnsynced = !local.isSynced;
-            final bool isRemoteNewer = _isRemoteNewer(local, remote);
-
-            if (!isLocalUnsynced && local.updatedAt.isAfter(remote.updatedAt)) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && !isRemoteNewer) {
-              lastSkipped++;
-              continue;
-            }
-
-            if (isLocalUnsynced && isRemoteNewer) {
-              _logPullConflict('template version', local, remote);
-              continue;
-            }
-
-            updates.add(remote);
-          }
+          final applyResult = await _templateGovernanceRepo
+              .applyVersionFromRemote(remote);
+          _recordRemoteApplyResult('template version', remote, applyResult);
         } catch (e) {
           lastSkipped++;
           _hadRecordProcessingError = true;
           debugPrint('⚠️ Template version pull error: $e');
         }
-      }
-
-      for (final remote in tombstones) {
-        final result = await _templateGovernanceRepo
-            .applyTombstoneFromVersionRemote(remote);
-        _recordTombstoneApplyResult('template version', remote, result);
-      }
-
-      for (final record in inserts) {
-        record.isSynced = true;
-        await _templateGovernanceRepo.insertVersionFromRemote(record);
-        lastInserted++;
-      }
-
-      for (final remote in updates) {
-        await _templateGovernanceRepo.updateVersionFromRemote(remote);
-        lastUpdated++;
       }
 
       if (versions.length < GlobalPullService._pageSize) break;
@@ -216,16 +128,13 @@ extension _GlobalPullTemplateGovernance on GlobalPullService {
             );
             continue;
           }
-          final local = await _templateGovernanceRepo.getAuditByFirestoreId(
-            remote.firestoreId!,
+          final applyResult = await _templateGovernanceRepo
+              .applyAuditFromRemote(remote);
+          _recordRemoteApplyResult(
+            'template publish audit',
+            remote,
+            applyResult,
           );
-          if (local != null) {
-            lastSkipped++;
-            continue;
-          }
-          remote.isSynced = true;
-          await _templateGovernanceRepo.insertAuditFromRemote(remote);
-          lastInserted++;
         } catch (e) {
           lastSkipped++;
           _hadRecordProcessingError = true;

@@ -11,7 +11,7 @@ import 'package:crm3_baf_ops/features/auth/services/notification_installation_re
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../tool/test_support/test_isar_core.dart';

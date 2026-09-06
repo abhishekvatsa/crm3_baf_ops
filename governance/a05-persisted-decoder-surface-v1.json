@@ -1877,7 +1877,7 @@
     {
       "id": "live-business-mirror-decode-hold",
       "file": "lib/core/services/live_remote_sync_service.business.dart",
-      "siteFingerprint": "339c7c71d980d86d347190e7b3eaa2749b54a250deee75053df3b15fbeebcb40",
+      "siteFingerprint": "41daf83bfb51933d3707b805d9264162d9b5e4f644bb1ba0d385278054ce2bf4",
       "classification": "FAIL_CLOSED_SYNC_CONTAINMENT",
       "purpose": "surface invalid authoritative business records without replacing a local record or reporting successful synchronization",
       "authorityBoundary": "approved-user server-to-device live operational mirror",

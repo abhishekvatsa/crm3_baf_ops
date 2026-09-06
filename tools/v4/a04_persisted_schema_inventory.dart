@@ -53,8 +53,10 @@ void main(List<String> arguments) {
     'inheritedDecoderSurfaces': inherited,
     'a05ManifestSha256': canonicalTextSha256File(_a05ManifestFile),
   };
-  final digest =
-      sha256.convert(utf8.encode(jsonEncode(stable))).toString().toUpperCase();
+  final digest = sha256
+      .convert(utf8.encode(jsonEncode(stable)))
+      .toString()
+      .toUpperCase();
 
   if (arguments.contains('--write-manifest')) {
     final manifest = <String, Object?>{
@@ -107,17 +109,18 @@ void main(List<String> arguments) {
     'findingId': 'A-04',
     'gitHead': _gitHead(),
     'fieldCount': fields.length,
-    'jsonStringFieldCount':
-        fields.where((field) => field['kind'] == 'JSON_STRING').length,
-    'dynamicValueFieldCount':
-        fields.where((field) => field['kind'] == 'DYNAMIC_JSON_VALUE').length,
-    'extensionBagCount':
-        fields
-            .where(
-              (field) =>
-                  field['classification'] == 'BOUNDED_REGISTERED_EXTENSION_BAG',
-            )
-            .length,
+    'jsonStringFieldCount': fields
+        .where((field) => field['kind'] == 'JSON_STRING')
+        .length,
+    'dynamicValueFieldCount': fields
+        .where((field) => field['kind'] == 'DYNAMIC_JSON_VALUE')
+        .length,
+    'extensionBagCount': fields
+        .where(
+          (field) =>
+              field['classification'] == 'BOUNDED_REGISTERED_EXTENSION_BAG',
+        )
+        .length,
     'registeredExtensionFieldCount': 0,
     'inheritedDecoderSurfaceCount': inherited.length,
     'inventoryDigest': digest,
@@ -148,17 +151,20 @@ List<Map<String, Object?>> _discoverFields() {
     );
     for (final declaration
         in result.unit.declarations.whereType<ClassDeclaration>()) {
-      final className = declaration.name.lexeme;
-      final annotations =
-          declaration.metadata.map((item) => item.name.name).toSet();
+      final className = declaration.namePart.typeName.lexeme;
+      final annotations = declaration.metadata
+          .map((item) => item.name.name)
+          .toSet();
       final persistedClass =
           annotations.contains('Collection') ||
           annotations.contains('collection') ||
           annotations.contains('embedded') ||
           _nestedPersistedClasses.contains(className);
       if (!persistedClass) continue;
+      final body = declaration.body;
+      if (body is! BlockClassBody) continue;
 
-      for (final member in declaration.members.whereType<FieldDeclaration>()) {
+      for (final member in body.members.whereType<FieldDeclaration>()) {
         if (member.isStatic) continue;
         final type = member.fields.type?.toSource() ?? '';
         for (final variable in member.fields.variables) {
@@ -205,17 +211,15 @@ Map<String, Object?> _fieldPolicy({
     'field': fieldName,
     'declaredType': type,
     'kind': kind,
-    'classification':
-        extension
-            ? 'BOUNDED_REGISTERED_EXTENSION_BAG'
-            : 'SCHEMA_BEARING_PAYLOAD',
+    'classification': extension
+        ? 'BOUNDED_REGISTERED_EXTENSION_BAG'
+        : 'SCHEMA_BEARING_PAYLOAD',
     'policy': policy,
     'decoderContract': _decoderContract(policy),
     'malformedPresentDisposition': 'FAIL_CLOSED_PENDING_REPAIR',
-    'compatibility':
-        extension
-            ? 'No historical unknown key is authority. Unregistered present keys require governed repair.'
-            : 'Documented absent legacy shape only; present malformed or unsupported versions fail closed.',
+    'compatibility': extension
+        ? 'No historical unknown key is authority. Unregistered present keys require governed repair.'
+        : 'Documented absent legacy shape only; present malformed or unsupported versions fail closed.',
     'regression': _regressionFor(path, fieldName),
   };
 }
@@ -337,10 +341,9 @@ List<String> _verify(
     failures.add('extension-bag authority boundary is not fail closed');
   }
 
-  final reader =
-      File(
-        '${_root.path}${Platform.pathSeparator}lib${Platform.pathSeparator}core${Platform.pathSeparator}serialization${Platform.pathSeparator}persisted_data_reader.dart',
-      ).readAsStringSync();
+  final reader = File(
+    '${_root.path}${Platform.pathSeparator}lib${Platform.pathSeparator}core${Platform.pathSeparator}serialization${Platform.pathSeparator}persisted_data_reader.dart',
+  ).readAsStringSync();
   for (final marker in const <String>[
     'readBoundedPersistedExtensionBag(',
     'validateBoundedPersistedExtensionBag(',
@@ -353,10 +356,9 @@ List<String> _verify(
     'lib/features/planned_maintenance/models/component_action_model.dart',
     'lib/features/planned_maintenance/data/job_template_model.dart',
   ]) {
-    final source =
-        File(
-          '${_root.path}${Platform.pathSeparator}${path.replaceAll('/', Platform.pathSeparator)}',
-        ).readAsStringSync();
+    final source = File(
+      '${_root.path}${Platform.pathSeparator}${path.replaceAll('/', Platform.pathSeparator)}',
+    ).readAsStringSync();
     if (!source.contains('_allowedExtensions')) {
       failures.add('$path has no registered extension policy');
     }

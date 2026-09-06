@@ -68,11 +68,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         )
         .snapshots()
         .map((snapshot) {
-          final tickets =
-              snapshot.docs
-                  .map(_mapTicket)
-                  .where((ticket) => ticket.canStillAffectPlantCondition)
-                  .toList();
+          final tickets = snapshot.docs
+              .map(_mapTicket)
+              .where((ticket) => ticket.canStillAffectPlantCondition)
+              .toList();
           tickets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return tickets;
         });
@@ -208,15 +207,13 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       return;
     }
     final warningId = warning?['warningId'] as String?;
-    final warningExists =
-        warningId == null
-            ? false
-            : (await _qualityWarnings.doc(warningId).get()).exists;
+    final warningExists = warningId == null
+        ? false
+        : (await _qualityWarnings.doc(warningId).get()).exists;
     final directiveId = safetyDirective?['firestoreId'] as String?;
-    final directiveExists =
-        directiveId == null
-            ? false
-            : (await _directives.doc(directiveId).get()).exists;
+    final directiveExists = directiveId == null
+        ? false
+        : (await _directives.doc(directiveId).get()).exists;
     final batch = FirebaseFirestore.instance.batch();
     batch.set(
       _collection.doc(record.firestoreId),
@@ -238,12 +235,11 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
 
   @override
   Future<List<MaintenanceRecord>> getOpenTickets() async {
-    final snap =
-        await _collection
-            .where('isResolved', isEqualTo: false)
-            .where('isDeleted', isEqualTo: false)
-            .orderBy('createdAt', descending: true)
-            .get();
+    final snap = await _collection
+        .where('isResolved', isEqualTo: false)
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .get();
     return snap.docs.map(_mapTicket).toList();
   }
 
@@ -251,12 +247,11 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   Future<List<MaintenanceRecord>> getOpenTicketsByAssetType(
     AssetType type,
   ) async {
-    final snap =
-        await _collection
-            .where('assetType', isEqualTo: type.name)
-            .where('isResolved', isEqualTo: false)
-            .where('isDeleted', isEqualTo: false)
-            .get();
+    final snap = await _collection
+        .where('assetType', isEqualTo: type.name)
+        .where('isResolved', isEqualTo: false)
+        .where('isDeleted', isEqualTo: false)
+        .get();
     final list = snap.docs.map(_mapTicket).toList();
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
@@ -264,11 +259,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
 
   @override
   Future<List<MaintenanceRecord>> getAllTickets() async {
-    final snap =
-        await _collection
-            .where('isDeleted', isEqualTo: false)
-            .orderBy('createdAt', descending: true)
-            .get();
+    final snap = await _collection
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .get();
     return snap.docs.map(_mapTicket).toList();
   }
 
@@ -292,7 +286,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     );
     query = query.limit(limit);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
-    final snap = await query.get();
+    final snap = await query.get(authoritativeGlobalPullReadOptions);
     final records = <MaintenanceRecord>[];
     var decodeErrorCount = 0;
     for (final doc in snap.docs) {
@@ -319,13 +313,12 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     AssetType type,
     int number,
   ) async {
-    final snap =
-        await _collection
-            .where('assetType', isEqualTo: type.name)
-            .where('assetNumber', isEqualTo: number)
-            .where('isDeleted', isEqualTo: false)
-            .orderBy('createdAt', descending: true)
-            .get();
+    final snap = await _collection
+        .where('assetType', isEqualTo: type.name)
+        .where('assetNumber', isEqualTo: number)
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .get();
     return snap.docs.map(_mapTicket).toList();
   }
 
@@ -629,21 +622,19 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     final snap = await query.get();
     return ClosedTicketPage(
       records: snap.docs.map(_mapTicket).toList(growable: false),
-      cursor:
-          snap.docs.isEmpty
-              ? null
-              : _FirestoreClosedTicketPageCursor(snap.docs.last),
+      cursor: snap.docs.isEmpty
+          ? null
+          : _FirestoreClosedTicketPageCursor(snap.docs.last),
     );
   }
 
   @override
   Future<int> getClosedTicketsCount() async {
-    final snap =
-        await _collection
-            .where('isResolved', isEqualTo: true)
-            .where('isDeleted', isEqualTo: false)
-            .count()
-            .get();
+    final snap = await _collection
+        .where('isResolved', isEqualTo: true)
+        .where('isDeleted', isEqualTo: false)
+        .count()
+        .get();
     return snap.count ?? 0;
   }
 
@@ -655,6 +646,15 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   Future<void> insertFromRemote(MaintenanceRecord remote) async {}
   @override
   Future<void> updateFromRemote(MaintenanceRecord remote) async {}
+
+  @override
+  Future<RemoteRecordApplyResult<MaintenanceRecord>>
+  applyMaintenanceRecordFromRemote(MaintenanceRecord remote) {
+    throw UnsupportedError(
+      'Firestore is the remote authority and cannot apply a remote record to '
+      'itself.',
+    );
+  }
 
   @override
   Future<bool> applyMaintenanceIssueCommandReadback({
@@ -701,8 +701,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         i,
         i + 30 > firestoreIds.length ? firestoreIds.length : i + 30,
       );
-      final snap =
-          await _collection.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _collection
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       results.addAll(snap.docs.map(_mapTicket));
     }
     return results;
@@ -785,15 +786,16 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       return;
     }
     final warningId = warning?['warningId'] as String?;
-    final warningExists =
-        warningId == null
-            ? false
-            : (await _qualityWarnings.doc(warningId).get()).exists;
+    final warningExists = warningId == null
+        ? false
+        : (await _qualityWarnings.doc(warningId).get()).exists;
     final directiveId = safetyDirective?['firestoreId'] as String?;
-    final directiveRef =
-        directiveId == null ? null : _directives.doc(directiveId);
-    final directiveExists =
-        directiveRef == null ? false : (await directiveRef.get()).exists;
+    final directiveRef = directiveId == null
+        ? null
+        : _directives.doc(directiveId);
+    final directiveExists = directiveRef == null
+        ? false
+        : (await directiveRef.get()).exists;
     final batch = FirebaseFirestore.instance.batch();
     batch.set(_collection.doc(id), stepData, SetOptions(merge: true));
     if (warning != null && warningId != null && !warningExists) {
@@ -860,10 +862,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         index + 30 > ids.length ? ids.length : index + 30,
       );
       if (chunk.isEmpty) continue;
-      final snapshot =
-          await _qualityWarnings
-              .where(FieldPath.documentId, whereIn: chunk)
-              .get();
+      final snapshot = await _qualityWarnings
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       existing.addAll(snapshot.docs.map((document) => document.id));
     }
     return existing;
@@ -880,8 +881,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         index + 30 > ids.length ? ids.length : index + 30,
       );
       if (chunk.isEmpty) continue;
-      final snapshot =
-          await _directives.where(FieldPath.documentId, whereIn: chunk).get();
+      final snapshot = await _directives
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       existing.addAll(snapshot.docs.map((document) => document.id));
     }
     return existing;

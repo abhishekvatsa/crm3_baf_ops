@@ -1,6 +1,6 @@
 // FILE: lib/core/services/isar_production_recovery_stub.dart
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 class IsarRecoveryFileEntry {
   final String sourcePath;

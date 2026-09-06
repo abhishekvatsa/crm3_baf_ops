@@ -66,11 +66,10 @@ void main(List<String> arguments) {
         },
       )
       .toList(growable: false);
-  final inventoryDigest =
-      sha256
-          .convert(utf8.encode(jsonEncode(stableOperations)))
-          .toString()
-          .toUpperCase();
+  final inventoryDigest = sha256
+      .convert(utf8.encode(jsonEncode(stableOperations)))
+      .toString()
+      .toUpperCase();
 
   if (arguments.contains('--write-policy-template')) {
     _writePolicyTemplate(discovered, inventoryDigest);
@@ -257,7 +256,10 @@ String _profileFor(String path, Set<String> modes) {
   if (path.endsWith('local_diagnostics_read_adapter.dart')) {
     return 'diagnostic-read-adapter';
   }
-  if (path.endsWith('auth_provider.dart')) return 'auth-provider';
+  if (path.endsWith('auth_provider.dart') ||
+      path.endsWith('auth_service.dart')) {
+    return 'auth-provider';
+  }
   if (path.contains('/services/')) return 'service';
   if (path.contains('/repositories/') ||
       path.contains('/domain/') && path.endsWith('_repository.dart')) {
@@ -647,7 +649,7 @@ final class _PersistenceVisitor extends RecursiveAstVisitor<void> {
     if (constructor != null) {
       final type = constructor.thisOrAncestorOfType<ClassDeclaration>();
       final suffix = constructor.name?.lexeme;
-      return '${type?.name.lexeme ?? '<type>'}.${suffix ?? '<constructor>'}';
+      return '${type?.namePart.typeName.lexeme ?? '<type>'}.${suffix ?? '<constructor>'}';
     }
     final function = node.thisOrAncestorOfType<FunctionDeclaration>();
     if (function != null) return function.name.lexeme;
@@ -662,11 +664,15 @@ final class _PersistenceVisitor extends RecursiveAstVisitor<void> {
 
   String? _enclosingTypeName(AstNode node) {
     final classDeclaration = node.thisOrAncestorOfType<ClassDeclaration>();
-    if (classDeclaration != null) return classDeclaration.name.lexeme;
+    if (classDeclaration != null) {
+      return classDeclaration.namePart.typeName.lexeme;
+    }
     final enumDeclaration = node.thisOrAncestorOfType<EnumDeclaration>();
-    if (enumDeclaration != null) return enumDeclaration.name.lexeme;
-    final extensionDeclaration =
-        node.thisOrAncestorOfType<ExtensionDeclaration>();
+    if (enumDeclaration != null) {
+      return enumDeclaration.namePart.typeName.lexeme;
+    }
+    final extensionDeclaration = node
+        .thisOrAncestorOfType<ExtensionDeclaration>();
     if (extensionDeclaration != null) {
       return extensionDeclaration.name?.lexeme ?? '<extension>';
     }

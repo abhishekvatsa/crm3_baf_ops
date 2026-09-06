@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart' hide Query;
+import 'package:isar_community/isar.dart' hide Query;
 
 import '../../../core/persistence/app_database.dart';
 import '../../auth/data/user_model.dart';
@@ -16,6 +16,7 @@ import '../domain/template_publication_readiness.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/global_pull_protocol.dart';
+import '../../../core/services/sync_remote_freshness_policy.dart';
 
 part 'template_governance_provider.local.dart';
 part 'template_governance_provider.remote.dart';
@@ -153,8 +154,9 @@ void _normalizePackageForUserSave(
     ..activeVersionFirestoreId = _cleanOptionalText(
       record.activeVersionFirestoreId,
     )
-    ..createdAt =
-        preserveCreatedAt && existingCreatedAt != null ? existingCreatedAt : now
+    ..createdAt = preserveCreatedAt && existingCreatedAt != null
+        ? existingCreatedAt
+        : now
     ..updatedAt = now
     ..createdByUid ??= actor.uid
     ..createdByName ??= actor.name
@@ -224,8 +226,9 @@ void _normalizeVersionForUserSave(
     ..checklistJson = _cleanRequiredText(record.checklistJson, '[]')
     ..releaseNotes = _cleanOptionalText(record.releaseNotes)
     ..changeSummary = _cleanOptionalText(record.changeSummary)
-    ..createdAt =
-        preserveCreatedAt && existingCreatedAt != null ? existingCreatedAt : now
+    ..createdAt = preserveCreatedAt && existingCreatedAt != null
+        ? existingCreatedAt
+        : now
     ..updatedAt = now
     ..createdByUid ??= actor.uid
     ..createdByName ??= actor.name
@@ -416,6 +419,9 @@ abstract class TemplateGovernanceRepository {
   Future<List<TemplatePackage>> getUnsyncedPackages();
   Future<void> markPackagesSynced(List<int> ids);
   Future<void> markPackagesSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
+  Future<RemoteRecordApplyResult<TemplatePackage>> applyPackageFromRemote(
+    TemplatePackage remote,
+  );
   Future<void> insertPackageFromRemote(TemplatePackage remote);
   Future<void> updatePackageFromRemote(TemplatePackage remote);
   Future<RemoteTombstoneApplyResult> applyTombstoneFromPackageRemote(
@@ -425,6 +431,9 @@ abstract class TemplateGovernanceRepository {
   Future<List<TemplateVersion>> getUnsyncedVersions();
   Future<void> markVersionsSynced(List<int> ids);
   Future<void> markVersionsSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
+  Future<RemoteRecordApplyResult<TemplateVersion>> applyVersionFromRemote(
+    TemplateVersion remote,
+  );
   Future<void> insertVersionFromRemote(TemplateVersion remote);
   Future<void> updateVersionFromRemote(TemplateVersion remote);
   Future<RemoteTombstoneApplyResult> applyTombstoneFromVersionRemote(
@@ -434,6 +443,9 @@ abstract class TemplateGovernanceRepository {
   Future<List<TemplatePublishAudit>> getUnsyncedAudits();
   Future<void> markAuditsSynced(List<int> ids);
   Future<void> markAuditsSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
+  Future<RemoteRecordApplyResult<TemplatePublishAudit>> applyAuditFromRemote(
+    TemplatePublishAudit remote,
+  );
   Future<void> insertAuditFromRemote(TemplatePublishAudit remote);
   Future<RemoteTombstoneApplyResult> applyTombstoneFromAuditRemote(
     TemplatePublishAudit remote,
@@ -573,21 +585,24 @@ class TemplatePublicationReadinessQuery {
 /// happen to be mounted in the assignment screen. A submit-time caller should
 /// still re-read this provider/repository state immediately before invoking the
 /// server assignment callable.
-final templatePublicationReadinessProvider = FutureProvider.autoDispose.family<
-  TemplatePublicationReadinessDecision,
-  TemplatePublicationReadinessQuery
->((ref, query) async {
-  final repository = ref.watch(templateGovernanceRepositoryProvider);
-  final package = await repository.getPackageByFirestoreId(
-    query.packageFirestoreId,
-  );
-  final version = await repository.getVersionByFirestoreId(
-    query.versionFirestoreId,
-  );
-  final audits = await repository.getAuditsForVersion(query.versionFirestoreId);
-  return evaluateTemplatePublicationReadiness(
-    package: package,
-    version: version,
-    audits: audits,
-  );
-});
+final templatePublicationReadinessProvider = FutureProvider.autoDispose
+    .family<
+      TemplatePublicationReadinessDecision,
+      TemplatePublicationReadinessQuery
+    >((ref, query) async {
+      final repository = ref.watch(templateGovernanceRepositoryProvider);
+      final package = await repository.getPackageByFirestoreId(
+        query.packageFirestoreId,
+      );
+      final version = await repository.getVersionByFirestoreId(
+        query.versionFirestoreId,
+      );
+      final audits = await repository.getAuditsForVersion(
+        query.versionFirestoreId,
+      );
+      return evaluateTemplatePublicationReadiness(
+        package: package,
+        version: version,
+        audits: audits,
+      );
+    });

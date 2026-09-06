@@ -16,18 +16,15 @@ final assetClassesProvider = StreamProvider<List<AssetClassRecord>>((ref) {
   return ref.watch(assetHierarchyRepositoryProvider).watchAssetClasses();
 });
 
-final assetHierarchyNodesProvider = StreamProvider.family<
-  List<AssetHierarchyNode>,
-  String
->((ref, assetClassId) {
-  return ref.watch(assetHierarchyRepositoryProvider).watchNodes(assetClassId);
-});
+final assetHierarchyNodesProvider = StreamProvider.autoDispose
+    .family<List<AssetHierarchyNode>, String>((ref, assetClassId) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchNodes(assetClassId);
+    });
 
-final assetInstancesProvider =
-    StreamProvider.family<List<AssetInstanceRecord>, String>((
-      ref,
-      assetClassId,
-    ) {
+final assetInstancesProvider = StreamProvider.autoDispose
+    .family<List<AssetInstanceRecord>, String>((ref, assetClassId) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchAssetInstances(assetClassId);
@@ -44,18 +41,15 @@ final assetOperationalConditionsProvider =
       return ref.watch(assetHierarchyRepositoryProvider).watchAssetConditions();
     });
 
-final installedComponentsProvider =
-    StreamProvider.family<List<InstalledComponentRecord>, String>((
-      ref,
-      assetInstanceId,
-    ) {
+final installedComponentsProvider = StreamProvider.autoDispose
+    .family<List<InstalledComponentRecord>, String>((ref, assetInstanceId) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchInstalledComponents(assetInstanceId);
     });
 
-final installedComponentHistoryProvider =
-    StreamProvider.family<List<InstalledComponentLifecycleAudit>, String>((
+final installedComponentHistoryProvider = StreamProvider.autoDispose
+    .family<List<InstalledComponentLifecycleAudit>, String>((
       ref,
       assetInstanceId,
     ) {
@@ -77,25 +71,22 @@ final innerCoverAssignmentsProvider =
           .watchInnerCoverAssignments();
     });
 
-final innerCoverHistoryProvider =
-    StreamProvider.family<List<InnerCoverLinkage>, String>((ref, innerCoverId) {
+final innerCoverHistoryProvider = StreamProvider.autoDispose
+    .family<List<InnerCoverLinkage>, String>((ref, innerCoverId) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchInnerCoverHistory(innerCoverId);
     });
 
-final baseInnerCoverHistoryProvider =
-    StreamProvider.family<List<InnerCoverLinkage>, String>((ref, baseId) {
+final baseInnerCoverHistoryProvider = StreamProvider.autoDispose
+    .family<List<InnerCoverLinkage>, String>((ref, baseId) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchBaseInnerCoverHistory(baseId);
     });
 
-final innerCoverFabricationProvider =
-    StreamProvider.family<InnerCoverFabricationDossier?, String>((
-      ref,
-      innerCoverId,
-    ) {
+final innerCoverFabricationProvider = StreamProvider.autoDispose
+    .family<InnerCoverFabricationDossier?, String>((ref, innerCoverId) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchInnerCoverFabrication(innerCoverId);

@@ -21,6 +21,47 @@ void main() {
       );
     });
 
+    test('clean local later timestamp blocks a higher remote version', () {
+      expect(
+        SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+          remoteIsNewer: true,
+          localUpdatedAt: base,
+          remoteUpdatedAt: base.subtract(const Duration(hours: 1)),
+        ),
+        isFalse,
+      );
+    });
+
+    test('clean local accepts a newer remote at the same or later time', () {
+      expect(
+        SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+          remoteIsNewer: true,
+          localUpdatedAt: base,
+          remoteUpdatedAt: base,
+        ),
+        isTrue,
+      );
+      expect(
+        SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+          remoteIsNewer: true,
+          localUpdatedAt: base,
+          remoteUpdatedAt: base.add(const Duration(milliseconds: 1)),
+        ),
+        isTrue,
+      );
+    });
+
+    test('clean local rejects a remote that is not newer', () {
+      expect(
+        SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+          remoteIsNewer: false,
+          localUpdatedAt: base,
+          remoteUpdatedAt: base.add(const Duration(hours: 1)),
+        ),
+        isFalse,
+      );
+    });
+
     test('remote lower version is not newer even with newer timestamp', () {
       expect(
         SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -92,10 +133,16 @@ void main() {
 
       final handRolled = <String>[];
       var policyUsageCount = 0;
+      var cleanApplyPolicyUsageCount = 0;
       for (final file in dartFiles) {
         final source = file.readAsStringSync();
         if (source.contains('SyncRemoteFreshnessPolicy.isRemoteNewer')) {
           policyUsageCount += 1;
+        }
+        if (source.contains(
+          'SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal',
+        )) {
+          cleanApplyPolicyUsageCount += 1;
         }
         if (source.contains('remote.version > local.version ||')) {
           handRolled.add(file.path);
@@ -103,6 +150,7 @@ void main() {
       }
 
       expect(policyUsageCount, greaterThanOrEqualTo(3));
+      expect(cleanApplyPolicyUsageCount, greaterThanOrEqualTo(7));
       expect(
         handRolled,
         isEmpty,

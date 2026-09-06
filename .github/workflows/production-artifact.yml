@@ -508,7 +508,7 @@ jobs:
 
           mkdir -p .dart_tool/ci
           cat > .dart_tool/ci/prepare_isar.dart <<'DART'
-          import 'package:isar/isar.dart';
+          import 'package:isar_community/isar.dart';
 
           Future<void> main() async {
             await Isar.initializeIsarCore(download: true);

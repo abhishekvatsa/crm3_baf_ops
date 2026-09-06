@@ -488,41 +488,34 @@ void main() {
       expect(text, isNot(contains('signingConfigs.getByName("debug")')));
     });
 
-    test('locked legacy Isar library receives only its approved namespace', () {
-      final rootGradle = read('android/build.gradle.kts');
-      final lock = read('pubspec.lock');
+    test(
+      'maintained Isar native package is locked without legacy workaround',
+      () {
+        final rootGradle = read('android/build.gradle.kts');
+        final lock = read('pubspec.lock');
 
-      expect(rootGradle, contains('name == "isar_flutter_libs"'));
-      expect(
-        rootGradle,
-        contains('pluginManager.withPlugin("com.android.library")'),
-      );
-      expect(
-        rootGradle,
-        contains(
-          'extensions.configure<com.android.build.api.variant.'
-          'LibraryAndroidComponentsExtension>',
-        ),
-      );
-      expect(rootGradle, contains('finalizeDsl { libraryExtension ->'));
-      expect(rootGradle, contains('if (libraryExtension.namespace == null)'));
-      expect(
-        rootGradle,
-        contains('libraryExtension.namespace = "dev.isar.isar_flutter_libs"'),
-      );
-      expect(rootGradle, contains('libraryExtension.compileSdk = 36'));
-      expect(
-        lock,
-        contains(RegExp(r'isar_flutter_libs:[\s\S]*?version: "3\.1\.0\+1"')),
-      );
-    });
+        expect(rootGradle, isNot(contains('isar_flutter_libs')));
+        expect(rootGradle, isNot(contains('dev.isar.isar_flutter_libs')));
+        expect(
+          lock,
+          contains(
+            RegExp(
+              r'isar_community_flutter_libs:[\s\S]*?'
+              r'sha256: "?c44340fa38c81ef16d924202d443bbe7'
+              r'99cde4826be9a31a9dc92ee612e1966f"?[\s\S]*?'
+              r'version: "3\.3\.2"',
+            ),
+          ),
+        );
+      },
+    );
 
     test('builds 1 to 11 are preserved and build 12 is finalized', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
-      final entries =
-          (ledger['entries'] as List<dynamic>).cast<Map<String, dynamic>>();
+      final entries = (ledger['entries'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
       final build1 = entries.singleWhere((entry) => entry['buildNumber'] == 1);
       final build2 = entries.singleWhere((entry) => entry['buildNumber'] == 2);
       final build3 = entries.singleWhere((entry) => entry['buildNumber'] == 3);
@@ -1512,10 +1505,9 @@ void main() {
                     ? finalization['priorCompletedBuild']
                     : finalization)
                 as Map<String, dynamic>;
-        final finalizedBuildNumber =
-            pendingConstruction
-                ? finalizedBuild['buildNumber'] as int
-                : candidateBuildNumber;
+        final finalizedBuildNumber = pendingConstruction
+            ? finalizedBuild['buildNumber'] as int
+            : candidateBuildNumber;
         expect(
           finalization['status'],
           pendingConstruction
@@ -1725,10 +1717,12 @@ void main() {
           priorCompletedBuild['completionReceiptSha256'],
           preservedCompletedBuild['completionReceiptSha256'],
         );
-        final predecessorLedgerEntry = (buildNumberLedger['entries']
-                as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .singleWhere((entry) => entry['buildNumber'] == priorBuildNumber);
+        final predecessorLedgerEntry =
+            (buildNumberLedger['entries'] as List<dynamic>)
+                .cast<Map<String, dynamic>>()
+                .singleWhere(
+                  (entry) => entry['buildNumber'] == priorBuildNumber,
+                );
         expect(
           priorCompletedBuild['physicalInstallationConditionPassed'],
           predecessorLedgerEntry['physicalInstallationConditionPassed'],
@@ -1771,8 +1765,8 @@ void main() {
           build18DeviceAcceptance['status'],
           'passed-exact-build18-physical-in-place-authenticated-read-only-surfaces',
         );
-        final build18DeviceRelease =
-            (build18DeviceAcceptance['release'] as Map).cast<String, dynamic>();
+        final build18DeviceRelease = (build18DeviceAcceptance['release'] as Map)
+            .cast<String, dynamic>();
         final build18PhysicalDevice =
             (build18DeviceAcceptance['physicalDevice'] as Map)
                 .cast<String, dynamic>();
@@ -1864,10 +1858,9 @@ void main() {
         expect(build15Finalization['dualCustodyCompleted'], isTrue);
         expect(build15Finalization['runtimeValidationPassed'], isFalse);
         expect(finalization['controlledPilotApproved'], isFalse);
-        final failedAttempt =
-            (finalization['historicalFailedAttempts'] as List)
-                .cast<Map<String, dynamic>>()
-                .single;
+        final failedAttempt = (finalization['historicalFailedAttempts'] as List)
+            .cast<Map<String, dynamic>>()
+            .single;
         expect(failedAttempt['buildNumber'], 10);
         expect(failedAttempt['status'], 'blocked-non-distributable');
         expect(failedAttempt['independentVerificationCompleted'], isTrue);

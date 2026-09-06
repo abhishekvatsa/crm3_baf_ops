@@ -266,7 +266,7 @@ describe("notification event receipts", () => {
     expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
-  test("active preparation lease blocks concurrent duplicate work", async () => {
+  test("active preparation lease retains platform retry pressure", async () => {
     const h = harness({attemptIds: ["attempt-1", "attempt-2"]});
     let releasePreparation;
     const preparationGate = new Promise((resolve) => {
@@ -282,10 +282,8 @@ describe("notification event receipts", () => {
     });
     await new Promise((resolve) => setImmediate(resolve));
 
-    const concurrent = await execute(h.runtime, {dispatch});
-    expect(concurrent).toMatchObject({
-      kind: "skipped",
-      reason: "preparation-in-progress",
+    await expect(execute(h.runtime, {dispatch})).rejects.toMatchObject({
+      code: "notification-preparation-in-progress",
     });
     releasePreparation();
     await expect(first).resolves.toMatchObject({kind: "completed"});

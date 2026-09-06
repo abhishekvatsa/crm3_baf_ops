@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "fixtureType": "populated-isar-native-core-upgrade",
+  "build": "1.0.0-rc.15+25",
+  "buildSourceCommit": "c539490d87b6d0bb6dc226e871a95d6b7fc95150",
+  "sourceSchemaIdentity": "exact-match-to-build-source",
+  "schemaCount": 25,
+  "fixtureGenerator": "tool/isar/generate_build25_core_upgrade_fixture_test.dart",
+  "dartPackage": "isar 3.1.0+1",
+  "nativePackage": "isar_flutter_libs 3.1.0+1",
+  "nativePackageArchiveSha256": "BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8",
+  "windowsNativeCoreSha256": "5E67863F188C5F9681A37F84F2EB942EAF702509D3F994C0344D5049EBC9E48F",
+  "databaseSha256": "D3836D125C57D423ADA08DD084011C5E646D443365C68995F6F84A98FAD3D439",
+  "compressedFixtureSha256": "7C32B0CA66F6B09F9B203B011A3B5A949B147EA196A944138D8872907D345586",
+  "productionDataUsed": false,
+  "productionArtifactUsed": false
+}

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -107,6 +108,27 @@ void main() {
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, null);
+  });
+
+  test('alarm listeners use state captured before widget disposal', () {
+    final source = File(
+      'lib/features/critical_alarm/presentation/critical_alarm_host.dart',
+    ).readAsStringSync();
+
+    expect(
+      RegExp(r'ref\.read\(').allMatches(source),
+      hasLength(1),
+      reason:
+          'Alarm stream and lifecycle callbacks must not resolve providers after their Consumer element is disposed.',
+    );
+    expect(
+      source,
+      contains(
+        '_alarmPlatform = ref.read(criticalAlarmPlatformServiceProvider);',
+      ),
+    );
+    expect(source, contains('final actor = _latestAlarmActor;'));
+    expect(source, contains('if (!mounted) return;\n    final ringing ='));
   });
 
   testWidgets(
