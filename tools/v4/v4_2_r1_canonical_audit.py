@@ -4915,6 +4915,10 @@ latest_finalized_completion_path = ROOT / (
     "release/evidence/"
     f"build-{latest_finalized_build_number}-finalization-closure.json"
 )
+latest_finalized_completion = data(
+    "release/evidence/"
+    f"build-{latest_finalized_build_number}-finalization-closure.json"
+)
 if candidate_pending:
     expected_current_source_artifact_relationship = (
         f"BUILD{candidate_build_number}_SOURCE_SUCCESSOR_OF_"
@@ -7177,17 +7181,28 @@ check(
         or (
             combined_policy.get("finalization", {}).get(
                 "completionReceiptFile"
-            ) == "release/evidence/build-24-finalization-closure.json"
+            )
+                == (
+                    "release/evidence/"
+                    f"build-{latest_finalized_build_number}-"
+                    "finalization-closure.json"
+                )
             and combined_policy.get("finalization", {}).get(
                 "completionReceiptSha256"
-            ) == sha(build24_completion_path)
+            ) == sha(latest_finalized_completion_path)
             and combined_policy.get("finalization", {}).get("sourceCommit")
-                == "7eb093159c612eed93f90c69a250dd89ea66e7f0"
+                == latest_finalized_completion.get(
+                    "sourceAuthority", {}
+                ).get("commit")
             and combined_policy.get("finalization", {}).get("githubRunId")
-                == 33905922841
+                == latest_finalized_completion.get("workflow", {}).get(
+                    "runId"
+                )
             and combined_policy.get("finalization", {}).get(
                 "governedPackageSha256"
-            ) == build24_entry.get("governedPackageSha256")
+            ) == latest_finalized_completion.get(
+                "governedPackage", {}
+            ).get("sha256")
         )
     )
     and current_successor_state.get("status")

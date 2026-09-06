@@ -69,8 +69,8 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
-    "dualCustodyCompleted": false,
+    "status": "completed-non-distributable",
+    "dualCustodyCompleted": true,
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build25-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "BB66E006302E70075D8E7B22FB628785E093A9FA98B53FAD119F6B0B22DB2857",
     "exactFirestoreRulesIndexesLiveReadback": {
@@ -86,6 +86,20 @@
       "allIndexesReady": true,
       "redundantDeploymentPerformed": false
     },
+    "completionReceiptFile": "release/evidence/build-25-finalization-closure.json",
+    "completionReceiptSha256": "E739273A5A69E1444973A0EC9C2F71159996329A5BC261DBE5097242036BC26C",
+    "sourceCommit": "c539490d87b6d0bb6dc226e871a95d6b7fc95150",
+    "githubRunId": 33999501258,
+    "remoteBuiltTag": "crm3-build-built/25",
+    "remoteReservationTagObject": "d5bb28ce482d6c325222a716018be1470562c2f8",
+    "remoteBuiltTagObject": "184a3a4113d95dd42b2e4b27f851a7feaf56f06a",
+    "governedPackageSha256": "32E8501816168CE4D0017D9106944486E917475E8231A74CBC0C710527EE54BB",
+    "closurePackageSha256": "EFC51C67E3DE053F847AA2C399F9A63254A4D784BA139E2AFF06484072D12CCA",
+    "custodyRecordSha256": "A6BFABD6A681636A5BB50EFC5301AF8AEC4AF148C2A42C4EAE5066BC2E722824",
+    "physicalInstallationConditionPassed": false,
+    "runtimeValidationPassed": false,
+    "runtimeDisposition": "not-adjudicated-by-build-finalization",
+    "fullBusinessFlowValidationCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false,
@@ -357,7 +371,6 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD25_PRODUCTION_SIGNED_FINALIZATION",
     "BUILD25_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
     "BUILD25_EXPLICIT_PILOT_PROMOTION"
   ],
