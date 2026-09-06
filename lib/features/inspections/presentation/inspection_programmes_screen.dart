@@ -773,12 +773,7 @@ class _CampaignDetail extends ConsumerWidget {
                   ? 'Create audit PDF'
                   : 'Reconnect to verify complete audit data',
               onPressed: canCreateReport
-                  ? () => _openAuditPdf(
-                      context,
-                      ref,
-                      loadedObservations,
-                      loadedFindings,
-                    )
+                  ? () => _openAuditPdf(context, ref)
                   : null,
               icon: const Icon(Icons.picture_as_pdf_outlined),
             ),
@@ -1036,17 +1031,24 @@ class _CampaignDetail extends ConsumerWidget {
     );
   }
 
-  void _openAuditPdf(
-    BuildContext context,
-    WidgetRef ref,
-    List<InspectionObservation> observations,
-    List<InspectionFinding> findings,
-  ) {
+  Future<void> _openAuditPdf(BuildContext context, WidgetRef ref) async {
     try {
+      final evidence = await ref.refresh(
+        inspectionCampaignReportEvidenceProvider(campaign.id).future,
+      );
+      if (!context.mounted) return;
+      if (!hasInspectionCampaignReportEvidence(
+        campaign: evidence.campaign,
+        observations: evidence.observations,
+      )) {
+        throw StateError(
+          'An inspection report requires at least one recorded audit result.',
+        );
+      }
       final report = buildInspectionCampaignReport(
-        campaign: campaign,
-        observations: observations,
-        findings: findings,
+        campaign: evidence.campaign,
+        observations: evidence.observations,
+        findings: evidence.findings,
         generatedAt: DateTime.now(),
         generatedByName: actor.name,
         provenance: readApplicationReportProvenance(
@@ -1055,8 +1057,8 @@ class _CampaignDetail extends ConsumerWidget {
             'This dossier includes the complete campaign target population '
                 'and all immutable readings and findings available to the '
                 'signed-in user at generation time.',
-            if (campaign.status != InspectionCampaignStatus.closed)
-              'The campaign was ${campaign.status.name} when this report was generated.',
+            if (evidence.campaign.status != InspectionCampaignStatus.closed)
+              'The campaign was ${evidence.campaign.status.name} when this report was generated.',
           ],
         ),
       );
@@ -1066,6 +1068,7 @@ class _CampaignDetail extends ConsumerWidget {
         ),
       );
     } on Object catch (error) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('The audit PDF could not be generated: $error'),

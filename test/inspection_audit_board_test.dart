@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
@@ -12,6 +14,48 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('report evidence revision detects an observation-set change', () {
+    final observedAt = DateTime.utc(2026, 9, 5, 10);
+    final campaign = _assetCampaign(
+      assetTypeKey: 'furnace',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-22',
+      assetNumber: 22,
+      label: 'Furnace 22',
+      disposition: InspectionTargetDisposition.observed,
+      lastObservationId: 'reading-1',
+      lastObservedAt: observedAt,
+    );
+    final observation = _observation(
+      campaign: campaign,
+      target: campaign.targets.single,
+      id: 'reading-1',
+      observedAt: observedAt,
+      recordedAt: observedAt,
+      value: true,
+    );
+    final first = InspectionCampaignReportEvidence(
+      campaign: campaign,
+      observations: <InspectionObservation>[observation],
+      findings: const <InspectionFinding>[],
+    );
+    final same = InspectionCampaignReportEvidence(
+      campaign: campaign,
+      observations: <InspectionObservation>[observation],
+      findings: const <InspectionFinding>[],
+    );
+    final changed = InspectionCampaignReportEvidence(
+      campaign: campaign,
+      observations: const <InspectionObservation>[],
+      findings: const <InspectionFinding>[],
+    );
+
+    expect(first.hasSameRevisionAs(same), isTrue);
+    expect(first.hasSameRevisionAs(changed), isFalse);
+    expect(first.isInternallyComplete, isTrue);
+    expect(changed.isInternallyComplete, isFalse);
+  });
+
   testWidgets('audit PDF action stays hidden for an empty campaign', (
     tester,
   ) async {
@@ -69,6 +113,51 @@ void main() {
       findsOneWidget,
     );
     expect(find.byTooltip('Create audit PDF'), findsOneWidget);
+  });
+
+  testWidgets('audit PDF action requests fresh authoritative evidence', (
+    tester,
+  ) async {
+    final observedAt = DateTime.utc(2026, 9, 5, 10);
+    final campaign = _assetCampaign(
+      assetTypeKey: 'furnace',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-22',
+      assetNumber: 22,
+      label: 'Furnace 22',
+      disposition: InspectionTargetDisposition.observed,
+      lastObservationId: 'reading-1',
+      lastObservedAt: observedAt,
+    );
+    final observation = _observation(
+      campaign: campaign,
+      target: campaign.targets.single,
+      id: 'reading-1',
+      observedAt: observedAt,
+      recordedAt: observedAt,
+      value: true,
+    );
+    final pendingRead = Completer<InspectionCampaignReportEvidence>();
+    var authoritativeReadRequested = false;
+
+    await tester.pumpWidget(
+      _testApp(
+        campaign,
+        observations: <InspectionObservation>[observation],
+        reportEvidenceLoader: () {
+          authoritativeReadRequested = true;
+          return pendingRead.future;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('inspection-campaign-pdf-action')),
+    );
+    await tester.pump();
+
+    expect(authoritativeReadRequested, isTrue);
   });
 
   for (final unverifiedSource in ['campaign', 'observations', 'findings']) {
@@ -441,6 +530,7 @@ Widget _testApp(
   bool campaignServerVerified = true,
   bool observationsServerVerified = true,
   bool findingsServerVerified = true,
+  Future<InspectionCampaignReportEvidence> Function()? reportEvidenceLoader,
 }) => ProviderScope(
   overrides: [
     currentAppUserProvider.overrideWith(
@@ -470,6 +560,16 @@ Widget _testApp(
         ),
       ),
     ),
+    inspectionCampaignReportEvidenceProvider(campaign.id).overrideWith((_) {
+      if (reportEvidenceLoader != null) return reportEvidenceLoader();
+      return Future<InspectionCampaignReportEvidence>.value(
+        InspectionCampaignReportEvidence(
+          campaign: campaign,
+          observations: observations,
+          findings: const <InspectionFinding>[],
+        ),
+      );
+    }),
     assetHierarchyNodesProvider(campaign.assetClassId).overrideWith(
       (_) => Stream.value(
         campaign.assetTypeKey == 'innerCover'
@@ -667,9 +767,11 @@ InspectionCampaign _assetCampaign({
     expectedPopulation: 1,
     baselineCampaignId: null,
     observerRoleKeys: const ['operations'],
-    observationCount: 0,
-    distinctTargetKeys: const [],
-    latestObservationAt: null,
+    observationCount: lastObservationId == null ? 0 : 1,
+    distinctTargetKeys: lastObservationId == null
+        ? const []
+        : <String>[target.targetKey],
+    latestObservationAt: lastObservedAt,
     createdAt: now,
   );
 }

@@ -1,4 +1,5 @@
 import '../data/inspection_campaign.dart';
+import '../data/inspection_evidence_snapshot.dart';
 import '../../reports/domain/report_provenance.dart';
 import '../../reports/domain/structured_report_document.dart';
 
@@ -31,6 +32,15 @@ StructuredReportDocument buildInspectionCampaignReport({
       findings.any((row) => row.campaignId != campaign.id)) {
     throw StateError(
       'Inspection evidence from another campaign cannot be reported here.',
+    );
+  }
+  if (!InspectionCampaignReportEvidence(
+    campaign: campaign,
+    observations: observations,
+    findings: findings,
+  ).isInternallyComplete) {
+    throw StateError(
+      'The complete inspection record must be verified before it is reported.',
     );
   }
 

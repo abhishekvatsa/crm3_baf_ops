@@ -839,7 +839,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
           localRecord: local,
         );
       }
-      if (!remoteIsNewer) {
+      if (!_shouldApplyCleanRemote(local, remote, remoteIsNewer)) {
         return RemoteRecordApplyResult<AbnormalityType>(
           RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
@@ -928,7 +928,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
           localRecord: local,
         );
       }
-      if (!remoteIsNewer) {
+      if (!_shouldApplyCleanRemote(local, remote, remoteIsNewer)) {
         return RemoteRecordApplyResult<ChargeAbnormality>(
           RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,

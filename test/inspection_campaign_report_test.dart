@@ -158,6 +158,27 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('an incomplete campaign projection cannot produce an audit report', () {
+    final campaign = _campaign(
+      disposition: InspectionTargetDisposition.observed,
+      lastObservationId: 'reading-1',
+      lastObservedAt: _time(1),
+      observationCount: 1,
+    );
+
+    expect(
+      () => buildInspectionCampaignReport(
+        campaign: campaign,
+        observations: const <InspectionObservation>[],
+        findings: const <InspectionFinding>[],
+        generatedAt: _time(3),
+        generatedByName: 'Admin One',
+        provenance: const ReportProvenance.applicationSnapshot(),
+      ),
+      throwsStateError,
+    );
+  });
 }
 
 DateTime _time(int hour) => DateTime.utc(2026, 9, 6, hour);

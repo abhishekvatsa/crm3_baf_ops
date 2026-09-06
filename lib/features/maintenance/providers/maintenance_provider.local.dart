@@ -648,7 +648,11 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
           localRecord: local,
         );
       }
-      if (!remoteIsNewer) {
+      if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+        remoteIsNewer: remoteIsNewer,
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+      )) {
         return RemoteRecordApplyResult<MaintenanceRecord>(
           RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,

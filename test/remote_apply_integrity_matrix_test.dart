@@ -43,6 +43,26 @@ void main() {
       await _withIsar(entry.value);
     });
   }
+
+  final cleanClockGuardCases = <String, _IntegrityCase>{
+    'directive': _verifyDirectiveCleanClockGuard,
+    'abnormality type': _verifyAbnormalityTypeCleanClockGuard,
+    'charge abnormality': _verifyChargeAbnormalityCleanClockGuard,
+    'job template': _verifyJobTemplateCleanClockGuard,
+    'job execution': _verifyJobExecutionCleanClockGuard,
+    'job diary': _verifyJobDiaryCleanClockGuard,
+    'job module': _verifyJobModuleCleanClockGuard,
+    'template package': _verifyTemplatePackageCleanClockGuard,
+    'template version': _verifyTemplateVersionCleanClockGuard,
+    'template publish audit': _verifyTemplateAuditCleanClockGuard,
+  };
+
+  for (final entry in cleanClockGuardCases.entries) {
+    test(
+      '${entry.key} remote apply preserves a later clean local snapshot',
+      () async => _withIsar(entry.value),
+    );
+  }
 }
 
 final _localTime = DateTime.utc(2026, 9, 6, 8);
@@ -192,9 +212,152 @@ Future<void> _verifyTemplateAudit(Isar isar) async {
   expect(stored!.reason, 'Local audit evidence');
 }
 
+Future<void> _verifyDirectiveCleanClockGuard(Isar isar) async {
+  final local = _directive('Later local directive', time: _remoteTime);
+  await isar.writeTxn(() => isar.operationalDirectives.put(local));
+
+  final result = await IsarDirectiveRepository().applyDirectiveFromRemote(
+    _directive('Older remote directive', version: 7, time: _localTime),
+  );
+  final stored = await isar.operationalDirectives.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.description, 'Later local directive');
+}
+
+Future<void> _verifyAbnormalityTypeCleanClockGuard(Isar isar) async {
+  final local = _abnormalityType('Later local type', time: _remoteTime);
+  await isar.writeTxn(() => isar.abnormalityTypes.put(local));
+
+  final result = await IsarAbnormalityRepository().applyTypeFromRemote(
+    _abnormalityType('Older remote type', version: 7, time: _localTime),
+  );
+  final stored = await isar.abnormalityTypes.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.description, 'Later local type');
+}
+
+Future<void> _verifyChargeAbnormalityCleanClockGuard(Isar isar) async {
+  final local = _chargeAbnormality(
+    'Later local abnormality',
+    time: _remoteTime,
+  );
+  await isar.writeTxn(() => isar.collection<ChargeAbnormality>().put(local));
+
+  final result = await IsarAbnormalityRepository().applyAbnormalityFromRemote(
+    _chargeAbnormality(
+      'Older remote abnormality',
+      version: 7,
+      time: _localTime,
+    ),
+  );
+  final stored = await isar.collection<ChargeAbnormality>().get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.description, 'Later local abnormality');
+}
+
+Future<void> _verifyJobTemplateCleanClockGuard(Isar isar) async {
+  final local = _jobTemplate('Later local template', time: _remoteTime);
+  await isar.writeTxn(() => isar.jobTemplates.put(local));
+
+  final result = await IsarPlannedRepository().applyTemplateFromRemote(
+    _jobTemplate('Older remote template', version: 7, time: _localTime),
+  );
+  final stored = await isar.jobTemplates.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.description, 'Later local template');
+}
+
+Future<void> _verifyJobExecutionCleanClockGuard(Isar isar) async {
+  final local = _jobExecution('Later local execution', time: _remoteTime);
+  await isar.writeTxn(() => isar.jobExecutions.put(local));
+
+  final result = await IsarPlannedRepository().applyExecutionFromRemote(
+    _jobExecution('Older remote execution', version: 7, time: _localTime),
+  );
+  final stored = await isar.jobExecutions.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.remarks, 'Later local execution');
+}
+
+Future<void> _verifyJobDiaryCleanClockGuard(Isar isar) async {
+  final local = _jobDiary('Later local diary', time: _remoteTime);
+  await isar.writeTxn(() => isar.jobDiaryEntrys.put(local));
+
+  final result = await IsarJobDiaryRepository().applyEntryFromRemote(
+    _jobDiary('Older remote diary', version: 7, time: _localTime),
+  );
+  final stored = await isar.jobDiaryEntrys.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.note, 'Later local diary');
+}
+
+Future<void> _verifyJobModuleCleanClockGuard(Isar isar) async {
+  final local = _jobModule('Later local module', time: _remoteTime);
+  await isar.writeTxn(() => isar.jobModuleInstances.put(local));
+
+  final result = await IsarJobModuleRepository().applyModuleFromRemote(
+    _jobModule('Older remote module', version: 7, time: _localTime),
+  );
+  final stored = await isar.jobModuleInstances.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.submissionNote, 'Later local module');
+}
+
+Future<void> _verifyTemplatePackageCleanClockGuard(Isar isar) async {
+  final local = _templatePackage('Later local package', time: _remoteTime);
+  await isar.writeTxn(() => isar.templatePackages.put(local));
+
+  final result = await IsarTemplateGovernanceRepository()
+      .applyPackageFromRemote(
+        _templatePackage('Older remote package', version: 7, time: _localTime),
+      );
+  final stored = await isar.templatePackages.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.description, 'Later local package');
+}
+
+Future<void> _verifyTemplateVersionCleanClockGuard(Isar isar) async {
+  final local = _templateVersion('Later local version', time: _remoteTime);
+  await isar.writeTxn(() => isar.templateVersions.put(local));
+
+  final result = await IsarTemplateGovernanceRepository()
+      .applyVersionFromRemote(
+        _templateVersion('Older remote version', version: 7, time: _localTime),
+      );
+  final stored = await isar.templateVersions.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.releaseNotes, 'Later local version');
+}
+
+Future<void> _verifyTemplateAuditCleanClockGuard(Isar isar) async {
+  final local = _templateAudit('Later local audit', time: _remoteTime);
+  await isar.writeTxn(() => isar.templatePublishAudits.put(local));
+
+  final result = await IsarTemplateGovernanceRepository().applyAuditFromRemote(
+    _templateAudit('Older remote audit', version: 7, time: _localTime),
+  );
+  final stored = await isar.templatePublishAudits.get(local.id);
+
+  _expectCleanClockGuard(result);
+  expect(stored!.reason, 'Later local audit');
+}
+
 void _expectDirtyPreserved(RemoteRecordApplyResult<Object> result) {
   expect(result.outcome, RemoteRecordApplyOutcome.localDirtyPreserved);
   expect(result.remoteIsNewer, isTrue);
+}
+
+void _expectCleanClockGuard(RemoteRecordApplyResult<Object> result) {
+  expect(result.outcome, RemoteRecordApplyOutcome.staleRemoteSkipped);
 }
 
 OperationalDirective _directive(

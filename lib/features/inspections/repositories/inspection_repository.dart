@@ -9,6 +9,9 @@ class InspectionRepository {
 
   final FirebaseFirestore _firestore;
 
+  static const _serverRead = GetOptions(source: Source.server);
+  static const _reportReadAttempts = 3;
+
   Stream<List<InspectionDefinition>> watchDefinitions() => _firestore
       .collection('inspection_definitions')
       .snapshots()
@@ -60,15 +63,8 @@ class InspectionRepository {
       .where('campaignId', isEqualTo: campaignId)
       .snapshots(includeMetadataChanges: true)
       .map((snapshot) {
-        final rows =
-            snapshot.docs
-                .map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
-                .toList(growable: false)
-              ..sort(
-                (left, right) => right.observedAt.compareTo(left.observedAt),
-              );
         return InspectionEvidenceSnapshot<InspectionObservation>(
-          records: List<InspectionObservation>.unmodifiable(rows),
+          records: _decodeObservations(snapshot),
           isServerVerified:
               !snapshot.metadata.isFromCache &&
               !snapshot.metadata.hasPendingWrites,
@@ -95,6 +91,71 @@ class InspectionRepository {
       .snapshots()
       .map(_decodeFindings);
 
+  Future<InspectionCampaignReportEvidence> readCampaignReportEvidence(
+    String campaignId,
+  ) async {
+    InspectionCampaignReportEvidence? previous;
+    for (var attempt = 0; attempt < _reportReadAttempts; attempt += 1) {
+      final current = await _readCampaignReportEvidenceOnce(campaignId);
+      if (previous != null &&
+          current.hasSameRevisionAs(previous) &&
+          current.isInternallyComplete) {
+        return current;
+      }
+      previous = current;
+    }
+    throw StateError(
+      'Complete inspection evidence could not be held stable while the report '
+      'was being prepared. '
+      'Please try again.',
+    );
+  }
+
+  Future<InspectionCampaignReportEvidence> _readCampaignReportEvidenceOnce(
+    String campaignId,
+  ) async {
+    final reads = await Future.wait<Object>(<Future<Object>>[
+      _firestore
+          .collection('inspection_campaigns')
+          .doc(campaignId)
+          .get(_serverRead),
+      _firestore
+          .collection('inspection_observations')
+          .where('campaignId', isEqualTo: campaignId)
+          .get(_serverRead),
+      _firestore
+          .collection('inspection_findings')
+          .where('campaignId', isEqualTo: campaignId)
+          .get(_serverRead),
+    ]);
+    final campaignSnapshot = reads[0] as DocumentSnapshot<Map<String, dynamic>>;
+    final observationSnapshot = reads[1] as QuerySnapshot<Map<String, dynamic>>;
+    final findingSnapshot = reads[2] as QuerySnapshot<Map<String, dynamic>>;
+    final campaignData = campaignSnapshot.data();
+    if (!campaignSnapshot.exists || campaignData == null) {
+      throw StateError('The inspection campaign is no longer available.');
+    }
+    return InspectionCampaignReportEvidence(
+      campaign: InspectionCampaign.fromMap(campaignData, campaignSnapshot.id),
+      observations: _decodeObservations(observationSnapshot),
+      findings: _decodeFindings(findingSnapshot),
+    );
+  }
+
+  List<InspectionObservation> _decodeObservations(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final rows =
+        snapshot.docs
+            .map((doc) => InspectionObservation.fromMap(doc.data(), doc.id))
+            .toList(growable: false)
+          ..sort((left, right) {
+            final observed = right.observedAt.compareTo(left.observedAt);
+            return observed != 0 ? observed : left.id.compareTo(right.id);
+          });
+    return List<InspectionObservation>.unmodifiable(rows);
+  }
+
   List<InspectionFinding> _decodeFindings(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
@@ -106,9 +167,9 @@ class InspectionRepository {
             final blocking = right.blocksCampaignClosure ? 1 : 0;
             final leftBlocking = left.blocksCampaignClosure ? 1 : 0;
             final order = blocking.compareTo(leftBlocking);
-            return order != 0
-                ? order
-                : right.updatedAt.compareTo(left.updatedAt);
+            if (order != 0) return order;
+            final updatedAt = right.updatedAt.compareTo(left.updatedAt);
+            return updatedAt != 0 ? updatedAt : left.id.compareTo(right.id);
           });
     return List<InspectionFinding>.unmodifiable(rows);
   }

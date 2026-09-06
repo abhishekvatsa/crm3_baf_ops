@@ -94,6 +94,39 @@ void main() {
     },
   );
 
+  test(
+    'higher remote version cannot overwrite a later clean local snapshot',
+    () async {
+      await _withMaintenanceIsar((isar) async {
+        final remoteTime = DateTime.utc(2026, 9, 6, 8);
+        final local = _record(
+          version: 3,
+          updatedAt: remoteTime.add(const Duration(minutes: 5)),
+          description: 'Later clean local evidence',
+          isSynced: true,
+        );
+        await isar.writeTxn(() => isar.maintenanceRecords.put(local));
+
+        final result = await IsarMaintenanceRepository()
+            .applyMaintenanceRecordFromRemote(
+              _record(
+                version: 7,
+                updatedAt: remoteTime,
+                description: 'Older remote snapshot',
+                isSynced: true,
+              ),
+            );
+        final stored = await isar.maintenanceRecords.get(local.id);
+
+        expect(result.outcome, RemoteRecordApplyOutcome.staleRemoteSkipped);
+        expect(result.remoteIsNewer, isFalse);
+        expect(stored!.description, 'Later clean local evidence');
+        expect(stored.version, 3);
+        expect(stored.isSynced, isTrue);
+      });
+    },
+  );
+
   test('pre-existing duplicate identity blocks automatic overwrite', () async {
     await _withMaintenanceIsar((isar) async {
       final localTime = DateTime.utc(2026, 9, 6, 8);

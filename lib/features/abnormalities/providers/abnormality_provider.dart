@@ -36,6 +36,16 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   );
 }
 
+bool _shouldApplyCleanRemote(
+  dynamic local,
+  dynamic remote,
+  bool remoteIsNewer,
+) => SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+  remoteIsNewer: remoteIsNewer,
+  localUpdatedAt: local.updatedAt as DateTime,
+  remoteUpdatedAt: remote.updatedAt as DateTime,
+);
+
 // ─────────────────────────────────────────────────────────────
 // DATA TRANSFER OBJECTS
 // ─────────────────────────────────────────────────────────────

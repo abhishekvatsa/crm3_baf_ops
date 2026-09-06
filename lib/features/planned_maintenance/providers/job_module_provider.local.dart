@@ -754,7 +754,11 @@ class IsarJobModuleRepository implements JobModuleRepository {
           localRecord: local,
         );
       }
-      if (!remoteIsNewer) {
+      if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+        remoteIsNewer: remoteIsNewer,
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+      )) {
         return RemoteRecordApplyResult<JobModuleInstance>(
           RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,

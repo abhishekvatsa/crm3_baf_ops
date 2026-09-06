@@ -91,16 +91,18 @@ The governed policy is `governance/a03-persistence-boundaries-v1.json`.
 
 ## Predictive Audit Re-arm, 2026-09-06
 
-The current governed successor contains 555 operations across 1,917
+The current governed successor contains 556 operations across 1,923
 persistence sites and 61 classified surfaces. Its measured inventory digest is
-`2A106D857ECCAEFE44509087E4571A7EDC1F651DE44CBDDE054110524C886415`.
+`7E0E44484E55893F50DC62D1C61A36C6F444729FD847D7B0EDFD71A77773007B`.
 The lower operation and site counts are the reviewed result of replacing broad
 workflow collection reads and deferred in-memory filtering with scoped Isar
 queries, and of consolidating identity-based remote application inside local
 transactions. The additional surface is the separated authentication service;
 it owns profile mutations while provider wiring remains read-only. Historical
 closure counts and receipts above remain unchanged and continue to describe
-their original source snapshots.
+their original source snapshots. The six additional read sites belong to the
+inspection repository's bounded two-pass server read used to construct one
+stable audit-dossier snapshot.
 
 The audit fails when the operation digest changes, a persistence-owning file is
 unclassified, declared stores or access modes drift, presentation or widget

@@ -36,6 +36,13 @@ final inspectionFindingsProvider = StreamProvider.autoDispose
       return ref.watch(inspectionRepositoryProvider).watchFindings(campaignId);
     });
 
+final inspectionCampaignReportEvidenceProvider = FutureProvider.autoDispose
+    .family<InspectionCampaignReportEvidence, String>((ref, campaignId) {
+      return ref
+          .watch(inspectionRepositoryProvider)
+          .readCampaignReportEvidence(campaignId);
+    });
+
 final allInspectionFindingsProvider = StreamProvider<List<InspectionFinding>>((
   ref,
 ) {

@@ -753,7 +753,11 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
             localRecord: local,
           );
         }
-        if (!remoteIsNewer) {
+        if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+          remoteIsNewer: remoteIsNewer,
+          localUpdatedAt: local.updatedAt,
+          remoteUpdatedAt: remote.updatedAt,
+        )) {
           return RemoteRecordApplyResult<JobTemplate>(
             RemoteRecordApplyOutcome.staleRemoteSkipped,
             localRecord: local,
@@ -910,7 +914,11 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
           localRecord: local,
         );
       }
-      if (!remoteIsNewer) {
+      if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+        remoteIsNewer: remoteIsNewer,
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+      )) {
         return RemoteRecordApplyResult<JobExecution>(
           RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,

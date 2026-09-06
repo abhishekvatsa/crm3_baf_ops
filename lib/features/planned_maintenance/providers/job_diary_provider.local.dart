@@ -297,7 +297,11 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
           localRecord: local,
         );
       }
-      if (!remoteIsNewer) {
+      if (!SyncRemoteFreshnessPolicy.shouldApplyRemoteToCleanLocal(
+        remoteIsNewer: remoteIsNewer,
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+      )) {
         return RemoteRecordApplyResult<JobDiaryEntry>(
           RemoteRecordApplyOutcome.staleRemoteSkipped,
           localRecord: local,
