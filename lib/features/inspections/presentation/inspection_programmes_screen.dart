@@ -670,18 +670,26 @@ class _CampaignDetail extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final observations = ref.watch(inspectionObservationsProvider(campaign.id));
+    final observationsAsync = ref.watch(
+      inspectionObservationsProvider(campaign.id),
+    );
     final findingsAsync = ref.watch(inspectionFindingsProvider(campaign.id));
-    final findings = findingsAsync.asData?.value ?? const <InspectionFinding>[];
-    final loadedObservations = observations.asData?.value;
-    final loadedFindings = findingsAsync.asData?.value;
-    final canCreateReport =
+    final observationEvidence = observationsAsync.asData?.value;
+    final findingEvidence = findingsAsync.asData?.value;
+    final findings = findingEvidence?.records ?? const <InspectionFinding>[];
+    final loadedObservations = observationEvidence?.records;
+    final loadedFindings = findingEvidence?.records;
+    final hasReportEvidence =
         loadedObservations != null &&
-        loadedFindings != null &&
         hasInspectionCampaignReportEvidence(
           campaign: campaign,
           observations: loadedObservations,
         );
+    final canCreateReport =
+        hasReportEvidence &&
+        loadedFindings != null &&
+        observationEvidence!.isServerVerified &&
+        findingEvidence!.isServerVerified;
     final classId = campaign.assetClassId;
     final nodesState = ref.watch(assetHierarchyNodesProvider(classId));
     final nodes = nodesState.asData?.value ?? const <AssetHierarchyNode>[];
@@ -746,16 +754,20 @@ class _CampaignDetail extends ConsumerWidget {
           accent: BafColors.instrument,
         ),
         actions: [
-          if (canCreateReport)
+          if (hasReportEvidence)
             IconButton(
               key: const ValueKey('inspection-campaign-pdf-action'),
-              tooltip: 'Create audit PDF',
-              onPressed: () => _openAuditPdf(
-                context,
-                ref,
-                loadedObservations,
-                loadedFindings,
-              ),
+              tooltip: canCreateReport
+                  ? 'Create audit PDF'
+                  : 'Reconnect to verify complete audit data',
+              onPressed: canCreateReport
+                  ? () => _openAuditPdf(
+                      context,
+                      ref,
+                      loadedObservations,
+                      loadedFindings,
+                    )
+                  : null,
               icon: const Icon(Icons.picture_as_pdf_outlined),
             ),
           if (actor.canManageInspectionCampaigns &&
@@ -838,7 +850,7 @@ class _CampaignDetail extends ConsumerWidget {
               label: 'Loading governed campaign data',
               color: BafColors.instrument,
             )
-          : observations.when(
+          : observationsAsync.when(
               loading: () => const BafLoadingPanel(
                 label: 'Loading campaign readings',
                 color: BafColors.instrument,
@@ -848,7 +860,8 @@ class _CampaignDetail extends ConsumerWidget {
                 onRetry: () =>
                     ref.invalidate(inspectionObservationsProvider(campaign.id)),
               ),
-              data: (rows) {
+              data: (evidence) {
+                final rows = evidence.records;
                 final supersededIds = rows
                     .map((item) => item.supersedesObservationId)
                     .whereType<String>()

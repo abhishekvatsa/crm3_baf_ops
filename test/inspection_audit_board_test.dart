@@ -3,6 +3,7 @@ import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
+import 'package:crm3_baf_ops/features/inspections/data/inspection_evidence_snapshot.dart';
 import 'package:crm3_baf_ops/features/inspections/presentation/inspection_programmes_screen.dart';
 import 'package:crm3_baf_ops/features/inspections/providers/inspection_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -69,6 +70,52 @@ void main() {
     );
     expect(find.byTooltip('Create audit PDF'), findsOneWidget);
   });
+
+  for (final unverifiedSource in ['observations', 'findings']) {
+    testWidgets('audit PDF stays disabled for cached $unverifiedSource', (
+      tester,
+    ) async {
+      final observedAt = DateTime.utc(2026, 9, 5, 10);
+      final campaign = _assetCampaign(
+        assetTypeKey: 'furnace',
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-22',
+        assetNumber: 22,
+        label: 'Furnace 22',
+        disposition: InspectionTargetDisposition.observed,
+        lastObservationId: 'reading-1',
+        lastObservedAt: observedAt,
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          campaign,
+          observations: <InspectionObservation>[
+            _observation(
+              campaign: campaign,
+              target: campaign.targets.single,
+              id: 'reading-1',
+              observedAt: observedAt,
+              recordedAt: observedAt,
+              value: true,
+            ),
+          ],
+          observationsServerVerified: unverifiedSource != 'observations',
+          findingsServerVerified: unverifiedSource != 'findings',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final action = tester.widget<IconButton>(
+        find.byKey(const ValueKey('inspection-campaign-pdf-action')),
+      );
+      expect(action.onPressed, isNull);
+      expect(
+        find.byTooltip('Reconnect to verify complete audit data'),
+        findsOneWidget,
+      );
+    });
+  }
 
   testWidgets(
     'Inner Cover audit keeps Base identity and headings visible deep in the grid',
@@ -390,18 +437,30 @@ Widget _testApp(
   InspectionCampaign campaign, {
   double textScale = 1,
   List<InspectionObservation> observations = const <InspectionObservation>[],
+  bool observationsServerVerified = true,
+  bool findingsServerVerified = true,
 }) => ProviderScope(
   overrides: [
     currentAppUserProvider.overrideWith(
       (_) => Stream<AppUser?>.value(_admin()),
     ),
     inspectionCampaignsProvider.overrideWith((_) => Stream.value([campaign])),
-    inspectionObservationsProvider(
-      campaign.id,
-    ).overrideWith((_) => Stream.value(observations)),
-    inspectionFindingsProvider(
-      campaign.id,
-    ).overrideWith((_) => Stream.value(const <InspectionFinding>[])),
+    inspectionObservationsProvider(campaign.id).overrideWith(
+      (_) => Stream.value(
+        InspectionEvidenceSnapshot<InspectionObservation>(
+          records: observations,
+          isServerVerified: observationsServerVerified,
+        ),
+      ),
+    ),
+    inspectionFindingsProvider(campaign.id).overrideWith(
+      (_) => Stream.value(
+        InspectionEvidenceSnapshot<InspectionFinding>(
+          records: const <InspectionFinding>[],
+          isServerVerified: findingsServerVerified,
+        ),
+      ),
+    ),
     assetHierarchyNodesProvider(campaign.assetClassId).overrideWith(
       (_) => Stream.value(
         campaign.assetTypeKey == 'innerCover'
